@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <AssemblyName>Ydb.Sdk</AssemblyName>
+    <RootNamespace>Ydb.Sdk</RootNamespace>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ydb.Protos" Version="1.0.1" />
+  </ItemGroup>
+
+</Project>
