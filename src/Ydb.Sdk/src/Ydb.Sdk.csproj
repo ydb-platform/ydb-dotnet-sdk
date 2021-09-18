@@ -7,6 +7,16 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</PackageProjectUrl>
+    <PackageId>Ydb.Sdk</PackageId>
+    <Description>YDB client libraries for .NET framework.</Description>
+    <Company>YANDEX LLC</Company>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Ydb.Protos" Version="1.0.1" />
   </ItemGroup>
