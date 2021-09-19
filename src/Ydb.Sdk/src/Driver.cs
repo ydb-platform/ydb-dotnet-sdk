@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,6 +17,8 @@ namespace Ydb.Sdk
 
         private readonly object _lock = new object();
         private readonly ILogger _logger;
+
+        private readonly string _sdkInfo;
         private ChannelsCache _channels;
         private bool _disposed = false;
 
@@ -25,6 +28,10 @@ namespace Ydb.Sdk
             _logger = _loggerFactory.CreateLogger<Driver>();
             _config = config;
             _channels = new ChannelsCache(_loggerFactory);
+
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            var versionStr = version is null ? "unknown" : version.ToString(3);
+            _sdkInfo = $"ydb-dotnet-sdk/{versionStr}";
         }
 
         public ILoggerFactory LoggerFactory
@@ -147,12 +154,17 @@ namespace Ydb.Sdk
                 Database = _config.Database
             };
 
+            var requestSettings = new RequestSettings
+            {
+                TransportTimeout = _config.EndpointDiscoveryTimeout
+            };
+
+            var options = GetCallOptions(requestSettings, false);
+            options.Headers.Add(Metadata.RpcSdkInfoHeader, _sdkInfo);
+
             var response = await client.ListEndpointsAsync(
                 request: request,
-                options: GetCallOptions(new RequestSettings
-                {
-                    TransportTimeout = _config.EndpointDiscoveryTimeout
-                }, false));
+                options: options);
 
             if (!response.Operation.Ready)
             {
@@ -180,7 +192,8 @@ namespace Ydb.Sdk
             var resultProto = response.Operation.Result.Unpack<Ydb.Discovery.ListEndpointsResult>();
 
             _logger.LogInformation($"Successfully discovered endpoints: {resultProto.Endpoints.Count}" +
-                $", self location: {resultProto.SelfLocation}");
+                $", self location: {resultProto.SelfLocation}" +
+                $", sdk info: {_sdkInfo}");
 
             _channels.UpdateEndpoints(resultProto);
 
