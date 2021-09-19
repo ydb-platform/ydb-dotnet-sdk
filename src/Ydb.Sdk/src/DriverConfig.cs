@@ -20,17 +20,39 @@ namespace Ydb.Sdk
         internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
 
         public DriverConfig(
-            string endpoint, 
+            string endpoint,
             string database,
             ICredentialsProvider? credentials = null,
             TimeSpan? defaultTransportTimeout = null,
             TimeSpan? defaultStreamingTransportTimeout = null)
         {
-            Endpoint = endpoint;
+            Endpoint = FormatEndpoint(endpoint);
             Database = database;
             Credentials = credentials ?? new AnonymousProvider();
             DefaultTransportTimeout = defaultTransportTimeout ?? TimeSpan.FromMinutes(1);
             DefaultStreamingTransportTimeout = defaultStreamingTransportTimeout ?? TimeSpan.FromMinutes(10);
+        }
+
+        private static string FormatEndpoint(string endpoint)
+        {
+            endpoint = endpoint.ToLower().Trim();
+
+            if (endpoint.StartsWith("http://") || endpoint.StartsWith("https://"))
+            {
+                return endpoint;
+            }
+
+            if (endpoint.StartsWith("grpc://")) {
+                var builder = new UriBuilder(endpoint) { Scheme = Uri.UriSchemeHttp };
+                return builder.Uri.ToString();
+            }
+
+            if (endpoint.StartsWith("grpcs://")) {
+                var builder = new UriBuilder(endpoint) { Scheme = Uri.UriSchemeHttps };
+                return builder.Uri.ToString();
+            }
+
+            return $"https://{endpoint}";
         }
     }
 }
