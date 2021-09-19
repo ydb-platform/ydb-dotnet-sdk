@@ -8,17 +8,15 @@ namespace Ydb.Sdk.Table
 {
     public class ExecuteDataQuerySettings : OperationRequestSettings
     {
-        public bool KeepInQueryCache { get; } = true;
+        public bool KeepInQueryCache { get; set; } = true;
     }
-
-
 
     public class ExecuteDataQueryResponse : ResponseWithResultBase<ExecuteDataQueryResponse.ResultData>
     {
         internal ExecuteDataQueryResponse(
-            Status status, 
-            TransactionState txState, 
-            Transaction? tx = null, 
+            Status status,
+            TransactionState txState,
+            Transaction? tx = null,
             ResultData? result = null)
             : base(status, result)
         {
@@ -36,8 +34,8 @@ namespace Ydb.Sdk.Table
                 ResultSets = resultSets;
             }
 
-            public IReadOnlyList<Value.ResultSet> ResultSets { get; } 
-            
+            public IReadOnlyList<Value.ResultSet> ResultSets { get; }
+
             internal static ResultData FromProto(Ydb.Table.ExecuteQueryResult resultProto)
             {
                 var resultSets = resultProto.ResultSets
@@ -117,7 +115,7 @@ namespace Ydb.Sdk.Table
 
         public async Task<ExecuteDataQueryResponse> ExecuteDataQuery(
             string query,
-            TxControl txControl, 
+            TxControl txControl,
             ExecuteDataQuerySettings? settings = null)
         {
             return await ExecuteDataQuery(query, txControl, new Dictionary<string, YdbValue>(), settings);
