@@ -12,8 +12,9 @@
     <RepositoryUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</RepositoryUrl>
     <PackageProjectUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</PackageProjectUrl>
     <PackageId>Ydb.Sdk</PackageId>
-    <Description>YDB client libraries for .NET framework.</Description>
+    <Description>YDB client libraries for .NET.</Description>
     <Company>YANDEX LLC</Company>
+    <Authors>YDB</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
   </PropertyGroup>
 
