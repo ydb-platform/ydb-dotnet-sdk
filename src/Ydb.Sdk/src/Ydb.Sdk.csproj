@@ -19,7 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Ydb.Protos" Version="1.0.1" />
+    <PackageReference Include="Ydb.Protos" Version="1.0.3" />
   </ItemGroup>
 
 </Project>
