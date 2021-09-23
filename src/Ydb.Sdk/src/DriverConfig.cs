@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
 
 namespace Ydb.Sdk
@@ -10,6 +11,8 @@ namespace Ydb.Sdk
         public string Database { get; }
 
         public ICredentialsProvider Credentials { get; }
+
+        public X509Certificate? CustomServerCertificate { get; }
 
         public TimeSpan DefaultTransportTimeout { get; }
 
@@ -24,13 +27,15 @@ namespace Ydb.Sdk
             string database,
             ICredentialsProvider? credentials = null,
             TimeSpan? defaultTransportTimeout = null,
-            TimeSpan? defaultStreamingTransportTimeout = null)
+            TimeSpan? defaultStreamingTransportTimeout = null,
+            X509Certificate? customServerCertificate = null)
         {
             Endpoint = FormatEndpoint(endpoint);
             Database = database;
             Credentials = credentials ?? new AnonymousProvider();
             DefaultTransportTimeout = defaultTransportTimeout ?? TimeSpan.FromMinutes(1);
             DefaultStreamingTransportTimeout = defaultStreamingTransportTimeout ?? TimeSpan.FromMinutes(10);
+            CustomServerCertificate = customServerCertificate;
         }
 
         private static string FormatEndpoint(string endpoint)

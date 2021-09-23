@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <PackageReference Include="Ydb.Protos" Version="1.0.3" />
+    <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,4 @@
 ﻿using Grpc.Core;
-using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
@@ -27,7 +26,7 @@ namespace Ydb.Sdk
             _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
             _logger = _loggerFactory.CreateLogger<Driver>();
             _config = config;
-            _channels = new ChannelsCache(_loggerFactory);
+            _channels = new ChannelsCache(_config, _loggerFactory);
 
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             var versionStr = version is null ? "unknown" : version.ToString(3);
@@ -143,9 +142,7 @@ namespace Ydb.Sdk
 
         private async Task<Status> DiscoverEndpoints()
         {
-            using var channel = GrpcChannel.ForAddress(_config.Endpoint, new GrpcChannelOptions {
-                LoggerFactory = _loggerFactory
-            });
+            using var channel = ChannelsCache.CreateChannel(_config.Endpoint, _config, _loggerFactory);
 
             var client = new Discovery.V1.DiscoveryService.DiscoveryServiceClient(channel);
 

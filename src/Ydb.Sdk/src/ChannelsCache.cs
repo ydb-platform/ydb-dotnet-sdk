@@ -1,14 +1,19 @@
 ﻿using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
+using Org.BouncyCastle.Security;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.Net.Http;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Ydb.Sdk
 {
     internal class ChannelsCache : IDisposable
     {
+        private readonly DriverConfig _driverConfig;
         private readonly ILogger _logger;
         private readonly object _updateLock = new object();
         private EndpointsData _endpointsData;
@@ -16,8 +21,9 @@ namespace Ydb.Sdk
 
         private readonly Random _random = new Random();
 
-        public ChannelsCache(ILoggerFactory loggerFactory)
+        public ChannelsCache(DriverConfig driverConfig, ILoggerFactory loggerFactory)
         {
+            _driverConfig = driverConfig;
             _logger = loggerFactory.CreateLogger<ChannelsCache>();
             _endpointsData = new EndpointsData(
                 active: new ChannelsData(ImmutableDictionary<string, GrpcChannel>.Empty),
@@ -83,7 +89,7 @@ namespace Ydb.Sdk
                     GrpcChannel? channel;
                     if (!_endpointsData.Passive.Channels.TryGetValue(endpointKey, out channel))
                     {
-                        channel = GrpcChannel.ForAddress(endpointKey);
+                        channel = CreateChannel(endpointKey, _driverConfig);
                     }
 
                     activeChannelsToAdd.Add(KeyValuePair.Create(endpointKey, channel));
@@ -188,6 +194,52 @@ namespace Ydb.Sdk
             }
 
             throw new NoEndpointsException();
+        }
+
+        internal static GrpcChannel CreateChannel(
+            string endpoint,
+            DriverConfig config,
+            ILoggerFactory? loggerFactory = null)
+        {
+            var channelOptions = new GrpcChannelOptions {
+                LoggerFactory = loggerFactory
+            };
+
+            if (config.CustomServerCertificate != null) {
+                var httpHandler = new SocketsHttpHandler();
+
+                var customCertificate = DotNetUtilities.FromX509Certificate(config.CustomServerCertificate);
+
+                httpHandler.SslOptions.RemoteCertificateValidationCallback =
+                    (object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) =>
+                    {
+                        if (sslPolicyErrors == SslPolicyErrors.None) {
+                            return true;
+                        }
+
+                        if (certificate is null) {
+                            return false;
+                        }
+
+                        try
+                        {
+                            var cert = Org.BouncyCastle.Security.DotNetUtilities.FromX509Certificate(certificate);
+                            cert.Verify(customCertificate.GetPublicKey());
+                        }
+                        catch (Exception e) {
+                            var logger = loggerFactory.CreateLogger<ChannelsCache>();
+                            logger.LogError($"Failed to verify remote certificate: {e}");
+                            return false;
+                        }
+
+                        return true;
+                    };
+
+                channelOptions.HttpHandler = httpHandler;
+                channelOptions.DisposeHttpClient = true;
+            }
+
+            return GrpcChannel.ForAddress(endpoint, channelOptions);
         }
 
         private bool TryGetEndpoint(ChannelsData channelsData, [NotNullWhen(returnValue: true)] out string? endpoint)
