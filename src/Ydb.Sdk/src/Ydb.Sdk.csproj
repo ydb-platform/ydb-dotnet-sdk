@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>Ydb.Sdk</AssemblyName>
     <RootNamespace>Ydb.Sdk</RootNamespace>
     <Nullable>enable</Nullable>
@@ -16,6 +16,7 @@
     <Company>YANDEX LLC</Company>
     <Authors>YDB</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
