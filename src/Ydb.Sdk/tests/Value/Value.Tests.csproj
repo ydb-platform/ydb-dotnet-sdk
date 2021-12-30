@@ -1,16 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFrameworks>netcoreapp3.1;net6.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <AssemblyName>Ydb.Sdk.Value.Tests</AssemblyName>
     <RootNamespace>Ydb.Sdk.Value.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework.Equals('net6.0'))">
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
       <PrivateAssets>all</PrivateAssets>
@@ -20,6 +23,12 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Equals('netcoreapp3.1'))">
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Equals('net6.0'))">
   </ItemGroup>
 
   <ItemGroup>
