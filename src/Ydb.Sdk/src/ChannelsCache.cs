@@ -1,11 +1,13 @@
-﻿using Grpc.Net.Client;
-using Microsoft.Extensions.Logging;
-using Org.BouncyCastle.Security;
+﻿#if NETCOREAPP3_1
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
+#endif
+using Grpc.Net.Client;
+using Microsoft.Extensions.Logging;
+using Org.BouncyCastle.Security;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.Net.Http;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 

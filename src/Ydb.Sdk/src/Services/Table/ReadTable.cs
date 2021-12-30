@@ -1,5 +1,7 @@
-﻿using System;
+﻿#if NETCOREAPP3_1
+using System;
 using System.Collections.Generic;
+#endif
 using Ydb.Sdk.Client;
 
 namespace Ydb.Sdk.Table

@@ -4,7 +4,7 @@
 YDB client libraries for .NET.
 
 ## Prerequisites
-.NET Core 3.1
+.NET Core 3.1 or .NET 6
 
 ## Versioning
 

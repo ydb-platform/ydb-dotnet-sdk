@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFrameworks>netcoreapp3.1;net6.0</TargetFrameworks>
     <AssemblyName>Ydb.Sdk</AssemblyName>
     <RootNamespace>Ydb.Sdk</RootNamespace>
     <Nullable>enable</Nullable>
@@ -18,9 +18,20 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
   </PropertyGroup>
 
+  <PropertyGroup Condition="$(TargetFramework.Equals('net6.0'))">
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+
   <ItemGroup>
     <PackageReference Include="Ydb.Protos" Version="1.0.3" />
-    <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
+    <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Equals('netcoreapp3.1'))">
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Equals('net6.0'))">
   </ItemGroup>
 
 </Project>
