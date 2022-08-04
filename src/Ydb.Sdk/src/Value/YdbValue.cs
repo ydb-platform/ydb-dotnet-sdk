@@ -1,4 +1,6 @@
-﻿using System;
+﻿#if NETCOREAPP3_1
+using System;
+#endif
 
 namespace Ydb.Sdk.Value
 {

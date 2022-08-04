@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+﻿#if NETCOREAPP3_1
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+#endif
+using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Client;
 
 namespace Ydb.Sdk.Table

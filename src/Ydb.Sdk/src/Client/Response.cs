@@ -1,6 +1,8 @@
-﻿using System;
-using System.Diagnostics;
+﻿#if NETCOREAPP3_1
+using System;
 using System.Threading.Tasks;
+#endif
+using System.Diagnostics;
 
 namespace Ydb.Sdk.Client
 {

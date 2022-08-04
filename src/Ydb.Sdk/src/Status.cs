@@ -1,6 +1,8 @@
-﻿using System;
+﻿#if NETCOREAPP3_1
+using System;
 using System.Collections.Generic;
 using System.Linq;
+#endif
 using System.Text;
 
 namespace Ydb.Sdk
