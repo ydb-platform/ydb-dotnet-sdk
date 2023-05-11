@@ -8,6 +8,15 @@ namespace Ydb.Sdk.Value
 {
     public partial class YdbValue
     {
+        public static YdbValue MakeBool(bool value)
+        {
+            return new YdbValue(
+                MakePrimitiveType(Type.Types.PrimitiveTypeId.Bool),
+                new Ydb.Value
+                {
+                    BoolValue = value
+                });
+        }
         public static YdbValue MakeInt8(sbyte value)
         {
             return new YdbValue(

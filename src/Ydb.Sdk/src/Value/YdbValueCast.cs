@@ -7,6 +7,10 @@ namespace Ydb.Sdk.Value
 {
     public partial class YdbValue
     {
+        public static explicit operator bool(YdbValue value)
+        {
+            return (bool)GetObject(value, typeof(bool));
+        }
         public static explicit operator sbyte(YdbValue value)
         {
             return (sbyte)GetObject(value, typeof(sbyte));
