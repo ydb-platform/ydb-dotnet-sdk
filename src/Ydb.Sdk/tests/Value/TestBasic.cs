@@ -41,12 +41,14 @@ namespace Ydb.Sdk.Value.Tests
                 YdbValue.MakeYson(Encoding.ASCII.GetBytes("{type=\"yson\"}")),
                 YdbValue.MakeJson("{\"type\": \"json\"}"),
                 YdbValue.MakeJsonDocument("{\"type\": \"jsondoc\"}"),
+                YdbValue.MakeBool(true),
+                YdbValue.MakeBool(false),
             });
 
             _output.WriteLine(value.ToString());
 
             var elements = value.GetTuple();
-            Assert.Equal(19, elements.Count);
+            Assert.Equal(21, elements.Count);
 
             Assert.Equal(-1, elements[0].GetInt8());
             Assert.Equal(200, elements[1].GetUint8());
@@ -67,6 +69,8 @@ namespace Ydb.Sdk.Value.Tests
             Assert.Equal("{type=\"yson\"}", Encoding.ASCII.GetString(elements[16].GetYson()));
             Assert.Equal("{\"type\": \"json\"}", elements[17].GetJson());
             Assert.Equal("{\"type\": \"jsondoc\"}", elements[18].GetJsonDocument());
+            Assert.Equal(true, elements[19].GetBool());
+            Assert.Equal(false, elements[20].GetBool());
 
             Assert.Equal(-1, (sbyte)elements[0]);
             Assert.Equal(200u, (byte)elements[1]);
@@ -87,6 +91,8 @@ namespace Ydb.Sdk.Value.Tests
             Assert.Equal("{type=\"yson\"}", Encoding.ASCII.GetString((byte[])elements[16]!));
             Assert.Equal("{\"type\": \"json\"}", (string)elements[17]!);
             Assert.Equal("{\"type\": \"jsondoc\"}", (string)elements[18]!);
+            Assert.Equal(true, (bool)elements[19]);
+            Assert.Equal(false, (bool)elements[20]);
         }
 
         [Fact]
