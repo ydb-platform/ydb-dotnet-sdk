@@ -2,26 +2,26 @@ name: tests
 on:
   push:
     branches:
-      - master
       - main
-      - release-*
   pull_request:
   workflow_dispatch:
 jobs:
   unit-tests:
     strategy:
       matrix:
-        os: [ubuntu, windows, masOS]
-    runs-on: ${{ matrix.os }}-latest
+        os: [ubuntu-22.04, windows-2022, macos-12]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup dotnet
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version:
+          dotnet-version: |
+            3.1.x
             6.0.x
+            7.0.x
       - name: Test
         run: | 
           cd src
-          dotnet test -f net6.0
+          dotnet test
