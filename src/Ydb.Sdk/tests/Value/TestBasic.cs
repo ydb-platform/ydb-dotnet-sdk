@@ -69,8 +69,8 @@ namespace Ydb.Sdk.Value.Tests
             Assert.Equal("{type=\"yson\"}", Encoding.ASCII.GetString(elements[16].GetYson()));
             Assert.Equal("{\"type\": \"json\"}", elements[17].GetJson());
             Assert.Equal("{\"type\": \"jsondoc\"}", elements[18].GetJsonDocument());
-            Assert.Equal(true, elements[19].GetBool());
-            Assert.Equal(false, elements[20].GetBool());
+            Assert.True(elements[19].GetBool());
+            Assert.False(elements[20].GetBool());
 
             Assert.Equal(-1, (sbyte)elements[0]);
             Assert.Equal(200u, (byte)elements[1]);
@@ -91,8 +91,70 @@ namespace Ydb.Sdk.Value.Tests
             Assert.Equal("{type=\"yson\"}", Encoding.ASCII.GetString((byte[])elements[16]!));
             Assert.Equal("{\"type\": \"json\"}", (string)elements[17]!);
             Assert.Equal("{\"type\": \"jsondoc\"}", (string)elements[18]!);
-            Assert.Equal(true, (bool)elements[19]);
-            Assert.Equal(false, (bool)elements[20]);
+            Assert.True((bool)elements[19]);
+            Assert.False((bool)elements[20]);
+        }
+
+        [Fact]
+        public void OptimalPrimitiveTypes()
+        {
+            var value = YdbValue.MakeTuple(new YdbValue[] {
+                (YdbValue)(sbyte?)-1,
+                (YdbValue)(byte?)200,
+                (YdbValue)(short?)-200,
+                (YdbValue)(ushort?)40_000,
+                (YdbValue)(int?)-40000,
+                (YdbValue)(uint?)4_000_000_000,
+                (YdbValue)(long?)-4_000_000_000,
+                (YdbValue)(ulong?)10_000_000_000,
+                (YdbValue)(float?)-1.7f,
+                (YdbValue)(double?)123.45,
+                YdbValue.MakeOptionalDate(new DateTime(2021, 08, 21)),
+                YdbValue.MakeOptionalDatetime(new DateTime(2021, 08, 21, 23, 30, 47)),
+                YdbValue.MakeOptionalTimestamp(new DateTime(2021, 08, 21, 23, 30, 47, 581)),
+                YdbValue.MakeOptionalInterval(-new TimeSpan(3, 7, 40, 27, 729)),
+                (YdbValue)(bool?)true,
+                (YdbValue)(bool?)false,
+            });
+
+            _output.WriteLine(value.ToString());
+
+            var elements = value.GetTuple();
+            Assert.Equal(16, elements.Count);
+
+            Assert.Equal((sbyte?)-1, elements[0].GetOptionalInt8());
+            Assert.Equal((byte?)200, elements[1].GetOptionalUint8());
+            Assert.Equal((short?)-200, elements[2].GetOptionalInt16());
+            Assert.Equal((ushort?)40_000, elements[3].GetOptionalUint16());
+            Assert.Equal(-40_000, elements[4].GetOptionalInt32());
+            Assert.Equal(4_000_000_000, elements[5].GetOptionalUint32());
+            Assert.Equal(-4_000_000_000, elements[6].GetOptionalInt64());
+            Assert.Equal(10_000_000_000ul, elements[7].GetOptionalUint64());
+            Assert.Equal(-1.7f, elements[8].GetOptionalFloat());
+            Assert.Equal(123.45, elements[9].GetOptionalDouble());
+            Assert.Equal(new DateTime(2021, 08, 21), elements[10].GetOptionalDate());
+            Assert.Equal(new DateTime(2021, 08, 21, 23, 30, 47), elements[11].GetOptionalDatetime());
+            Assert.Equal(new DateTime(2021, 08, 21, 23, 30, 47, 581), elements[12].GetOptionalTimestamp());
+            Assert.Equal(-new TimeSpan(3, 7, 40, 27, 729), elements[13].GetOptionalInterval());
+            Assert.Equal(true, elements[14].GetOptionalBool());
+            Assert.Equal(false, elements[15].GetOptionalBool());
+
+            Assert.Equal((sbyte?)-1, (sbyte?)elements[0]);
+            Assert.Equal((byte?)200u, (byte?)elements[1]);
+            Assert.Equal((short?)-200, (short?)elements[2]);
+            Assert.Equal((ushort?)40_000, (ushort?) elements[3]);
+            Assert.Equal(-40_000, (int?) elements[4]);
+            Assert.Equal(4_000_000_000, (uint?)elements[5]);
+            Assert.Equal(-4_000_000_000, (long?)elements[6]);
+            Assert.Equal(10_000_000_000ul, (ulong?)elements[7]);
+            Assert.Equal(-1.7f, (float?)elements[8]);
+            Assert.Equal(123.45, (double?)elements[9]);
+            Assert.Equal(new DateTime(2021, 08, 21), (DateTime?)elements[10]);
+            Assert.Equal(new DateTime(2021, 08, 21, 23, 30, 47), (DateTime?)elements[11]);
+            Assert.Equal(new DateTime(2021, 08, 21, 23, 30, 47, 581), (DateTime?)elements[12]);
+            Assert.Equal(-new TimeSpan(3, 7, 40, 27, 729), (TimeSpan?)elements[13]);
+            Assert.True((bool?)elements[14]);
+            Assert.False((bool?)elements[15]);
         }
 
         [Fact]

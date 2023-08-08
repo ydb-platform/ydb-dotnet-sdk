@@ -300,5 +300,88 @@ namespace Ydb.Sdk.Value
                 throw new ArgumentException($"Complex types aren't supported in current method: {typeId}", "typeId");
             }
         }
+
+
+        private static YdbValue MakeOptionalOf<T>(T? value, YdbTypeId type, Func<T, YdbValue> func) where T : struct
+        {
+            return value.HasValue
+                ? MakeOptional(func(value ?? default))
+                : MakeEmptyOptional(type);
+        }
+
+        public static YdbValue MakeOptionalBool(bool? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Bool, MakeBool);
+        }
+
+        public static YdbValue MakeOptionalInt8(sbyte? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Int8, MakeInt8);
+        }
+
+        public static YdbValue MakeOptionalUint8(byte? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Uint8, MakeUint8);
+        }
+
+        public static YdbValue MakeOptionalInt16(short? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Int16, MakeInt16);
+        }
+
+        public static YdbValue MakeOptionalUint16(ushort? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Uint16, MakeUint16);
+        }
+
+        public static YdbValue MakeOptionalInt32(int? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Int32, MakeInt32);
+        }
+
+        public static YdbValue MakeOptionalUint32(uint? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Uint32, MakeUint32);
+        }
+
+        public static YdbValue MakeOptionalInt64(long? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Int64, MakeInt64);
+        }
+
+        public static YdbValue MakeOptionalUint64(ulong? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Uint64, MakeUint64);
+        }
+
+        public static YdbValue MakeOptionalFloat(float? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Float, MakeFloat);
+        }
+
+        public static YdbValue MakeOptionalDouble(double? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Double, MakeDouble);
+        }
+
+        public static YdbValue MakeOptionalDate(DateTime? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Date, MakeDate);
+        }
+
+        public static YdbValue MakeOptionalDatetime(DateTime? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Datetime, MakeDatetime);
+        }
+
+        public static YdbValue MakeOptionalTimestamp(DateTime? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Timestamp, MakeTimestamp);
+        }
+
+        public static YdbValue MakeOptionalInterval(TimeSpan? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.Interval, MakeInterval);
+        }
     }
 }
