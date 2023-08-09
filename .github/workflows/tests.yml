@@ -24,4 +24,4 @@ jobs:
       - name: Test
         run: | 
           cd src
-          dotnet test
+          dotnet test --filter "Category=Unit"

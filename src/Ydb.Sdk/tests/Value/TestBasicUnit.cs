@@ -9,11 +9,12 @@ using Xunit.Abstractions;
 
 namespace Ydb.Sdk.Value.Tests
 {
-    public class TestBasic
+    [Trait("Category", "Unit")]
+    public class TestBasicUnit
     {
         private readonly ITestOutputHelper _output;
 
-        public TestBasic(ITestOutputHelper output)
+        public TestBasicUnit(ITestOutputHelper output)
         {
             _output = output;
         }
