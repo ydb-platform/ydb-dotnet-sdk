@@ -304,9 +304,14 @@ namespace Ydb.Sdk.Value
 
         private static YdbValue MakeOptionalOf<T>(T? value, YdbTypeId type, Func<T, YdbValue> func) where T : struct
         {
-            return value.HasValue
-                ? MakeOptional(func(value ?? default))
-                : MakeEmptyOptional(type);
+            if (value is null)
+            {
+                return MakeEmptyOptional(type);
+            }
+            else
+            {
+                return MakeOptional(func((T)value));
+            }
         }
 
         public static YdbValue MakeOptionalBool(bool? value)
