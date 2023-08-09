@@ -1,0 +1,50 @@
+name: publish
+on:
+  workflow_dispatch:
+    inputs:
+      version-change:
+        description: Version part
+        required: true
+        type: choice
+        options:
+          - PATCH
+          - MINOR
+          - MAJOR
+      release-candidate:
+        description: Release candidate
+        required: true
+        type: boolean
+        default: True
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      VERSION_CHANGE: ${{ github.event.inputs.version-change }}
+      RELEASE_CANDIDATE: ${{ github.event.inputs.release-candidate }}
+      VERSION_FILE: src/Ydb.Sdk/src/Version.cs
+      CHANGELOG_FILE: CHANGELOG.md
+      GITHUB_TOKEN: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
+      NUGET_TOKEN: ${{ secrets.YDB_PLATFORM_NUGET_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
+          fetch-depth: 0
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version:
+            6.0.x
+      
+      - name: Build
+        run: |
+          cd src
+          dotnet build --configuration Release 
+      - name: Publish
+        run: bash .github/scripts/publish.sh
+        
