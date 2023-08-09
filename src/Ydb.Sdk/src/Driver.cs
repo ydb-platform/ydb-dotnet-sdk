@@ -35,7 +35,7 @@ namespace Ydb.Sdk
             _sdkInfo = $"ydb-dotnet-sdk/{versionStr}";
         }
 
-        public static async Task<Driver> CreateAsync(DriverConfig config, ILoggerFactory? loggerFactory = null)
+        public static async Task<Driver> CreateInitialized(DriverConfig config, ILoggerFactory? loggerFactory = null)
         {
             var driver = new Driver(config, loggerFactory);
             await driver.Initialize();
