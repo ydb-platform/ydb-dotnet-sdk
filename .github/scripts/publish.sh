@@ -1,3 +1,5 @@
+#!/bin/bash
+set -euo pipefail
 
 CHANGELOG=$(cat $CHANGELOG_FILE | sed -e '/^## v.*$/,$d')
 if [[ -z "$CHANGELOG" ]]
@@ -6,10 +8,11 @@ then
   exit 1;
 fi;
 
-VERSION=$(curl --compressed -s 'https://api.nuget.org/v3/registration5-gz-semver2/ydb.sdk/index.json' | jq -r '.items[0].items[-1].catalogEntry.version')
-MAJOR=$(cat $VERSION_FILE | grep MAJOR | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
-MINOR=$(cat $VERSION_FILE | grep MINOR | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
-PATCH=$(cat $VERSION_FILE | grep PATCH | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
+MAJOR=$(cat $VERSION_FILE | grep Major | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
+MINOR=$(cat $VERSION_FILE | grep Minor | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
+PATCH=$(cat $VERSION_FILE | grep Patch | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
+
+VERSION="$MAJOR.$MINOR.$PATCH"
 
 LAST_TAG="v$MAJOR.$MINOR.$PATCH";
 if [ "$VERSION_CHANGE" = "MAJOR" ]

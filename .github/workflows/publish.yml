@@ -38,7 +38,8 @@ jobs:
       - name: Setup dotnet
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version:
+          dotnet-version: |
+            3.1.x
             6.0.x
       
       - name: Build
