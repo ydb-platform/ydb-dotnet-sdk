@@ -218,10 +218,10 @@ namespace Ydb.Sdk.Value
         public static YdbValue MakeOptional(YdbValue value)
         {
             return new YdbValue(
-                new Ydb.Type { OptionalType = new OptionalType { Item = value._protoType }},
+                new Ydb.Type { OptionalType = new OptionalType { Item = value._protoType } },
                 value.TypeId != YdbTypeId.OptionalType
                     ? value._protoValue
-                    : new Ydb.Value { NestedValue = value._protoValue});
+                    : new Ydb.Value { NestedValue = value._protoValue });
         }
 
         // TODO: MakeEmptyList with complex types
@@ -387,6 +387,66 @@ namespace Ydb.Sdk.Value
         public static YdbValue MakeOptionalInterval(TimeSpan? value)
         {
             return MakeOptionalOf(value, YdbTypeId.Interval, MakeInterval);
+        }
+
+        public static YdbValue MakeOptionalString(byte[]? value)
+        {
+            if (value is null)
+            {
+                return MakeEmptyOptional(YdbTypeId.String);
+            }
+            else
+            {
+                return MakeOptional(MakeString(value));
+            }
+        }
+
+        public static YdbValue MakeOptionalUtf8(string? value)
+        {
+            if (value is null)
+            {
+                return MakeEmptyOptional(YdbTypeId.Utf8);
+            }
+            else
+            {
+                return MakeOptional(MakeUtf8(value));
+            }
+        }
+
+        public static YdbValue MakeOptionalYson(byte[]? value)
+        {
+            if (value is null)
+            {
+                return MakeEmptyOptional(YdbTypeId.Yson);
+            }
+            else
+            {
+                return MakeOptional(MakeYson(value));
+            }
+        }
+
+        public static YdbValue MakeOptionalJson(string? value)
+        {
+            if (value is null)
+            {
+                return MakeEmptyOptional(YdbTypeId.Json);
+            }
+            else
+            {
+                return MakeOptional(MakeJson(value));
+            }
+        }
+
+        public static YdbValue MakeOptionalJsonDocument(string? value)
+        {
+            if (value is null)
+            {
+                return MakeEmptyOptional(YdbTypeId.JsonDocument);
+            }
+            else
+            {
+                return MakeOptional(MakeJsonDocument(value));
+            }
         }
     }
 }
