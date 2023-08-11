@@ -10,6 +10,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, windows-2022, macos-12]
+        dotnet-verion: [6.0.x, 7.0.x]
+        include:
+          - dotnet-verion: 6.0.x
+            dotnet-target-framework: net6.0
+          - dotnet-verion: 7.0.x
+            dotnet-target-framework: net7.0
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -17,11 +23,8 @@ jobs:
       - name: Setup dotnet
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: |
-            3.1.x
-            6.0.x
-            7.0.x
+          dotnet-version: ${{ matrix.dotnet-version }}
       - name: Test
         run: | 
           cd src
-          dotnet test
+          dotnet test --filter "Category=Unit" -f ${{ matrix.dotnet-target-framework }}

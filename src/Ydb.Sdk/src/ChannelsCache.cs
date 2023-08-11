@@ -1,9 +1,4 @@
-﻿#if NETCOREAPP3_1
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-#endif
-using Grpc.Net.Client;
+﻿using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Security;
 using System.Collections.Immutable;

@@ -1,9 +1,4 @@
-﻿#if NETCOREAPP3_1
-using System;
-using System.Collections.Generic;
-using System.Linq;
-#endif
-using System.Text;
+﻿using System.Text;
 using Xunit;
 using Xunit.Abstractions;
 
