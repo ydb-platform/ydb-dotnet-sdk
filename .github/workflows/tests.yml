@@ -27,4 +27,4 @@ jobs:
       - name: Test
         run: | 
           cd src
-          dotnet test --filter "Category=Unit" -f ${{ matrix.dotnet-target-framework }}
+          dotnet test -f ${{ matrix.dotnet-target-framework }}
