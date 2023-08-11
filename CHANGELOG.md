@@ -1,4 +1,1 @@
 - Add Bool type support
-- Add methods for castion to c# nullable to YQL Optional 
-- Add explicit cast operator for some types
-- Tests refactoring
