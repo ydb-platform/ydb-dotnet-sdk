@@ -298,17 +298,6 @@ namespace Ydb.Sdk.Value
             return MakeOptionalDouble(value);
         }
 
-
-        public static explicit operator YdbValue(DateTime value)
-        {
-            return MakeDate(value);
-        }
-
-        public static explicit operator YdbValue(DateTime? value)
-        {
-            return MakeOptionalDate(value);
-        }
-
         public static explicit operator YdbValue(TimeSpan value)
         {
             return MakeInterval(value);

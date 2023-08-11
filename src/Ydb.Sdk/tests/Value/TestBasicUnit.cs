@@ -118,6 +118,9 @@ namespace Ydb.Sdk.Value.Tests
 
             var valueDouble = 123.45;
             Assert.Equal(valueDouble, (double)(YdbValue)valueDouble);
+
+            var valueInterval = -new TimeSpan(3, 7, 40, 27, 729);
+            Assert.Equal(valueInterval, (TimeSpan)(YdbValue)valueInterval);
         }
 
         [Fact]
@@ -241,6 +244,9 @@ namespace Ydb.Sdk.Value.Tests
             double? valueDouble = 123.45;
             Assert.Equal(valueDouble, (double?)(YdbValue)valueDouble);
 
+            TimeSpan? valueInterval = -new TimeSpan(3, 7, 40, 27, 729);
+            Assert.Equal(valueInterval, (TimeSpan?)(YdbValue)valueInterval);
+
             Assert.Null((bool?)(YdbValue)(bool?)null);
             Assert.Null((sbyte?)(YdbValue)(sbyte?)null);
             Assert.Null((byte?)(YdbValue)(byte?)null);
@@ -252,6 +258,7 @@ namespace Ydb.Sdk.Value.Tests
             Assert.Null((ulong?)(YdbValue)(ulong?)null);
             Assert.Null((float?)(YdbValue)(float?)null);
             Assert.Null((double?)(YdbValue)(double?)null);
+            Assert.Null((TimeSpan?)(YdbValue)(TimeSpan?)null);
         }
 
         [Fact]
