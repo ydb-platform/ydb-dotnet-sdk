@@ -133,6 +133,21 @@ namespace Ydb.Sdk.Value
             return _protoValue.TextValue;
         }
 
+        public decimal GetDecimal()
+        {
+            var low64 = _protoValue.Low128;
+            var high64 = _protoValue.High128;
+
+            var bits = new[]
+            {
+                (int)low64,
+                (int)(low64 >> 32),
+                (int)high64,
+                (int)(high64 >> 32),
+            };
+            return new decimal(bits);
+        }
+
         public bool? GetOptionalBool()
         {
             return GetOptional()?.GetBool();
@@ -232,6 +247,11 @@ namespace Ydb.Sdk.Value
         public string? GetOptionalJsonDocument()
         {
             return GetOptional()?.GetJsonDocument();
+        }
+
+        public decimal? GetOptionalDecimal()
+        {
+            return GetOptional()?.GetDecimal();
         }
 
         public YdbValue? GetOptional()

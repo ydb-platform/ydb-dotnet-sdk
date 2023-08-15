@@ -11,10 +11,12 @@ namespace Ydb.Sdk.Value
         {
             return (bool)GetObject(value, typeof(bool));
         }
+
         public static explicit operator bool?(YdbValue value)
         {
             return (bool?)GetOptionalObject(value, typeof(bool));
         }
+
         public static explicit operator sbyte(YdbValue value)
         {
             return (sbyte)GetObject(value, typeof(sbyte));
@@ -145,6 +147,16 @@ namespace Ydb.Sdk.Value
             return (byte[]?)GetOptionalObject(value, typeof(byte[]));
         }
 
+        public static explicit operator decimal(YdbValue value)
+        {
+            return (decimal)GetObject(value, typeof(decimal));
+        }
+
+        public static explicit operator decimal?(YdbValue value)
+        {
+            return (decimal?)GetOptionalObject(value, typeof(decimal));
+        }
+
         private static object GetObject(YdbValue value, System.Type targetType)
         {
             return GetObjectInternal(value.TypeId, value, targetType);
@@ -182,6 +194,7 @@ namespace Ydb.Sdk.Value
                 case YdbTypeId.Yson: return value?.GetYson();
                 case YdbTypeId.Json: return value?.GetJson();
                 case YdbTypeId.JsonDocument: return value?.GetJsonDocument();
+                case YdbTypeId.DecimalType: return value?.GetDecimal();
                 default:
                     throw new InvalidCastException($"Cannot cast YDB type {typeId} to {targetType.Name}.");
 
@@ -306,6 +319,16 @@ namespace Ydb.Sdk.Value
         public static explicit operator YdbValue(TimeSpan? value)
         {
             return MakeOptionalInterval(value);
+        }
+
+        public static explicit operator YdbValue(decimal value)
+        {
+            return MakeDecimal(value);
+        }
+
+        public static explicit operator YdbValue(decimal? value)
+        {
+            return MakeOptionalDecimal(value);
         }
     }
 }

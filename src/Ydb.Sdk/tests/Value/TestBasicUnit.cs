@@ -262,6 +262,38 @@ namespace Ydb.Sdk.Value.Tests
         }
 
         [Fact]
+        public void DecimalType()
+        {
+            decimal[] values = {
+                -0.1m,
+                decimal.MaxValue,
+                decimal.MinValue,
+                0.0000000000000000000000000001m,
+                0.0000000000000000000000000000m,
+                123.456m,
+            };
+            
+            foreach (var value in values)
+            {
+                Assert.Equal(YdbValue.MakeDecimal(value).GetDecimal(), value);
+                Assert.Equal(YdbValue.MakeOptionalDecimal(value).GetOptionalDecimal(), value);
+
+                Assert.Equal((decimal)(YdbValue)value, value);
+                Assert.Equal((decimal?)(YdbValue)(decimal?)value, value);
+
+                var bits1 = decimal.GetBits(value);
+                var bits2 = decimal.GetBits(YdbValue.MakeDecimal(value).GetDecimal());
+                for (var i = 0; i < 4; i++)
+                {
+                    Assert.Equal(bits1[i], bits2[i]);
+                }
+            }
+
+            Assert.Null(YdbValue.MakeOptionalDecimal(null).GetOptionalDecimal());
+            Assert.Null((decimal?)(YdbValue)(decimal?)null);
+        }
+
+        [Fact]
         public void ListType()
         {
             var value = YdbValue.MakeTuple(new YdbValue[] {

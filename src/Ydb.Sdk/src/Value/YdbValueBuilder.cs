@@ -17,6 +17,7 @@ namespace Ydb.Sdk.Value
                     BoolValue = value
                 });
         }
+
         public static YdbValue MakeInt8(sbyte value)
         {
             return new YdbValue(
@@ -207,12 +208,53 @@ namespace Ydb.Sdk.Value
                 });
         }
 
+        public static YdbValue MakeDecimal(decimal value)
+        {
+            var bits = decimal.GetBits(value);
+
+            var tmp = new decimal(bits[0], bits[1], bits[2], false, 0);
+
+            var type = new Ydb.Type
+            {
+                DecimalType = new DecimalType
+                {
+                    Scale = (byte)((bits[3] >> 16) & 0x7F),
+                    Precision = (uint)(int)Math.Floor(Math.Log10((double)tmp)) + 1,
+                }
+            };
+
+            return new YdbValue(
+                type,
+                new Ydb.Value
+                {
+                    Low128 = (uint)bits[0] + ((ulong)(uint)bits[1] << 32),
+                    High128 = (uint)bits[2] + ((ulong)(uint)bits[3] << 32),
+                }
+            );
+        }
+
         // TODO: EmptyOptional with complex types
         public static YdbValue MakeEmptyOptional(YdbTypeId typeId)
         {
-            return new YdbValue(
-                new Ydb.Type { OptionalType = new OptionalType { Item = MakePrimitiveType(typeId) } },
-                new Ydb.Value { NullFlagValue = new Google.Protobuf.WellKnownTypes.NullValue() });
+            if (IsPrimitiveTypeId(typeId))
+            {
+                return new YdbValue(
+                    new Type { OptionalType = new OptionalType { Item = MakePrimitiveType(typeId) } },
+                    new Ydb.Value { NullFlagValue = new Google.Protobuf.WellKnownTypes.NullValue() });
+            }
+
+            if (typeId == YdbTypeId.DecimalType)
+            {
+                return new YdbValue(
+                    new Type
+                    {
+                        OptionalType = new OptionalType { Item = new Type { DecimalType = new DecimalType() } }
+                    },
+                    new Ydb.Value { NullFlagValue = new Google.Protobuf.WellKnownTypes.NullValue() }
+                );
+            }
+
+            throw new ArgumentException($"This type is not supported: {typeId}", nameof(typeId));
         }
 
         public static YdbValue MakeOptional(YdbValue value)
@@ -293,9 +335,14 @@ namespace Ydb.Sdk.Value
             return new Ydb.Type { TypeId = (Type.Types.PrimitiveTypeId)typeId };
         }
 
+        private static bool IsPrimitiveTypeId(YdbTypeId typeId)
+        {
+            return (uint)typeId < YdbTypeIdRanges.ComplexTypesFirst;
+        }
+
         private static void EnsurePrimitiveTypeId(YdbTypeId typeId)
         {
-            if ((uint)typeId >= YdbTypeIdRanges.ComplexTypesFirst)
+            if (!IsPrimitiveTypeId(typeId))
             {
                 throw new ArgumentException($"Complex types aren't supported in current method: {typeId}", "typeId");
             }
@@ -447,6 +494,11 @@ namespace Ydb.Sdk.Value
             {
                 return MakeOptional(MakeJsonDocument(value));
             }
+        }
+
+        public static YdbValue MakeOptionalDecimal(decimal? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.DecimalType, MakeDecimal);
         }
     }
 }
