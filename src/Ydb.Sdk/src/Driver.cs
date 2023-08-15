@@ -11,7 +11,7 @@ using System.Reflection;
 
 namespace Ydb.Sdk
 {
-    public class Driver : IDisposable
+    public class Driver : IDisposable, IAsyncDisposable
     {
         private readonly DriverConfig _config;
         private readonly ILoggerFactory _loggerFactory;
@@ -35,6 +35,13 @@ namespace Ydb.Sdk
             _sdkInfo = $"ydb-dotnet-sdk/{versionStr}";
         }
 
+        public static async Task<Driver> CreateInitialized(DriverConfig config, ILoggerFactory? loggerFactory = null)
+        {
+            var driver = new Driver(config, loggerFactory);
+            await driver.Initialize();
+            return driver;
+        }
+
         public ILoggerFactory LoggerFactory
         {
             get { return _loggerFactory; }
@@ -43,6 +50,7 @@ namespace Ydb.Sdk
         public void Dispose()
         {
             Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
         void Dispose(bool disposing)
@@ -61,6 +69,13 @@ namespace Ydb.Sdk
             {
                 _channels.Dispose();
             }
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+            return default;
         }
 
         public async Task Initialize()
