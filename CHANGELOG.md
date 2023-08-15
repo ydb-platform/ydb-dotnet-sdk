@@ -1,3 +1,4 @@
+## v0.0.8
 - Fixed version number
 
 ## v0.0.6
