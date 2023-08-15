@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -euxo pipefail
 
 CHANGELOG=$(cat $CHANGELOG_FILE | sed -e '/^## v.*$/,$d')
 if [[ -z "$CHANGELOG" ]]
@@ -8,9 +8,9 @@ then
   exit 1;
 fi;
 
-MAJOR=$(cat $VERSION_FILE | grep Major | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
-MINOR=$(cat $VERSION_FILE | grep Minor | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
-PATCH=$(cat $VERSION_FILE | grep Patch | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
+MAJOR=$(cat $VERSION_FILE | grep Major | grep -Eo '[0-9]*');
+MINOR=$(cat $VERSION_FILE | grep Minor | grep -Eo '[0-9]*');
+PATCH=$(cat $VERSION_FILE | grep Patch | grep -Eo '[0-9]*');
 
 VERSION="$MAJOR.$MINOR.$PATCH"
 
@@ -52,7 +52,7 @@ git tag $TAG
 git push --tags && git push
 CHANGELOG="$CHANGELOG
 
-Full Changelog: [$LAST_TAG...$TAG](https://github.com/ydb-platform/ydb-gdotneto-sdk/compare/$LAST_TAG...$TAG)"
+Full Changelog: [$LAST_TAG...$TAG](https://github.com/ydb-platform/ydb-dotnet-sdk/compare/$LAST_TAG...$TAG)"
 if [ "$RELEASE_CANDIDATE" = true ]
 then
   gh release create -d $TAG -t "$TAG" --notes "$CHANGELOG"
