@@ -10,119 +10,255 @@ using Xunit.Abstractions;
 namespace Ydb.Sdk.Value.Tests
 {
     [Trait("Category", "Unit")]
-    public class TestBasic
+    public class TestBasicUnit
     {
         private readonly ITestOutputHelper _output;
 
-        public TestBasic(ITestOutputHelper output)
+        public TestBasicUnit(ITestOutputHelper output)
         {
             _output = output;
         }
 
         [Fact]
-        public void PrimitiveTypes()
+        public void PrimitiveTypesMakeGet()
         {
-            var value = YdbValue.MakeTuple(new YdbValue[] {
-                YdbValue.MakeInt8(-1),
-                YdbValue.MakeUint8(200),
-                YdbValue.MakeInt16(-200),
-                YdbValue.MakeUint16(40_000),
-                YdbValue.MakeInt32(-40000),
-                YdbValue.MakeUint32(4_000_000_000),
-                YdbValue.MakeInt64(-4_000_000_000),
-                YdbValue.MakeUint64(10_000_000_000),
-                YdbValue.MakeFloat(-1.7f),
-                YdbValue.MakeDouble(123.45),
-                YdbValue.MakeDate(new DateTime(2021, 08, 21)),
-                YdbValue.MakeDatetime(new DateTime(2021, 08, 21, 23, 30, 47)),
-                YdbValue.MakeTimestamp(new DateTime(2021, 08, 21, 23, 30, 47, 581)),
-                YdbValue.MakeInterval(-new TimeSpan(3, 7, 40, 27, 729)),
-                YdbValue.MakeString(Encoding.ASCII.GetBytes("test str")),
-                YdbValue.MakeUtf8("unicode str"),
-                YdbValue.MakeYson(Encoding.ASCII.GetBytes("{type=\"yson\"}")),
-                YdbValue.MakeJson("{\"type\": \"json\"}"),
-                YdbValue.MakeJsonDocument("{\"type\": \"jsondoc\"}"),
-                YdbValue.MakeBool(true),
-                YdbValue.MakeBool(false),
-            });
+            var valueBool = true;
+            Assert.Equal(valueBool, YdbValue.MakeBool(valueBool).GetBool());
 
-            _output.WriteLine(value.ToString());
+            var valueInt8 = (sbyte)-1;
+            Assert.Equal(valueInt8, YdbValue.MakeInt8(valueInt8).GetInt8());
 
-            var elements = value.GetTuple();
-            Assert.Equal(21, elements.Count);
+            var valueUint8 = (byte)200;
+            Assert.Equal(valueUint8, YdbValue.MakeUint8(valueUint8).GetUint8());
 
-            Assert.Equal(-1, elements[0].GetInt8());
-            Assert.Equal(200, elements[1].GetUint8());
-            Assert.Equal(-200, elements[2].GetInt16());
-            Assert.Equal(40_000, elements[3].GetUint16());
-            Assert.Equal(-40_000, elements[4].GetInt32());
-            Assert.Equal(4_000_000_000, elements[5].GetUint32());
-            Assert.Equal(-4_000_000_000, elements[6].GetInt64());
-            Assert.Equal(10_000_000_000ul, elements[7].GetUint64());
-            Assert.Equal(-1.7f, elements[8].GetFloat());
-            Assert.Equal(123.45, elements[9].GetDouble());
-            Assert.Equal(new DateTime(2021, 08, 21), elements[10].GetDate());
-            Assert.Equal(new DateTime(2021, 08, 21, 23, 30, 47), elements[11].GetDatetime());
-            Assert.Equal(new DateTime(2021, 08, 21, 23, 30, 47, 581), elements[12].GetTimestamp());
-            Assert.Equal(-new TimeSpan(3, 7, 40, 27, 729), elements[13].GetInterval());
-            Assert.Equal("test str", Encoding.ASCII.GetString(elements[14].GetString()));
-            Assert.Equal("unicode str", elements[15].GetUtf8());
-            Assert.Equal("{type=\"yson\"}", Encoding.ASCII.GetString(elements[16].GetYson()));
-            Assert.Equal("{\"type\": \"json\"}", elements[17].GetJson());
-            Assert.Equal("{\"type\": \"jsondoc\"}", elements[18].GetJsonDocument());
-            Assert.Equal(true, elements[19].GetBool());
-            Assert.Equal(false, elements[20].GetBool());
+            var valueInt16 = (short)-200;
+            Assert.Equal(valueInt16, YdbValue.MakeInt16(valueInt16).GetInt16());
 
-            Assert.Equal(-1, (sbyte)elements[0]);
-            Assert.Equal(200u, (byte)elements[1]);
-            Assert.Equal(-200, (short)elements[2]);
-            Assert.Equal(40_000, (ushort) elements[3]);
-            Assert.Equal(-40_000, (int) elements[4]);
-            Assert.Equal(4_000_000_000, (uint)elements[5]);
-            Assert.Equal(-4_000_000_000, (long)elements[6]);
-            Assert.Equal(10_000_000_000ul, (ulong)elements[7]);
-            Assert.Equal(-1.7f, (float)elements[8]);
-            Assert.Equal(123.45, (double)elements[9]);
-            Assert.Equal(new DateTime(2021, 08, 21), (DateTime)elements[10]);
-            Assert.Equal(new DateTime(2021, 08, 21, 23, 30, 47), (DateTime)elements[11]);
-            Assert.Equal(new DateTime(2021, 08, 21, 23, 30, 47, 581), (DateTime)elements[12]);
-            Assert.Equal(-new TimeSpan(3, 7, 40, 27, 729), (TimeSpan)elements[13]);
-            Assert.Equal("test str", Encoding.ASCII.GetString((byte[])elements[14]!));
-            Assert.Equal("unicode str", (string)elements[15]!);
-            Assert.Equal("{type=\"yson\"}", Encoding.ASCII.GetString((byte[])elements[16]!));
-            Assert.Equal("{\"type\": \"json\"}", (string)elements[17]!);
-            Assert.Equal("{\"type\": \"jsondoc\"}", (string)elements[18]!);
-            Assert.Equal(true, (bool)elements[19]);
-            Assert.Equal(false, (bool)elements[20]);
+            var valueUint16 = (ushort)40_000;
+            Assert.Equal(valueUint16, YdbValue.MakeUint16(valueUint16).GetUint16());
+
+            var valueInt32 = -40000;
+            Assert.Equal(valueInt32, YdbValue.MakeInt32(valueInt32).GetInt32());
+
+            var valueUint32 = 4_000_000_000;
+            Assert.Equal(valueUint32, YdbValue.MakeUint32(valueUint32).GetUint32());
+
+            var valueInt64 = -4_000_000_000;
+            Assert.Equal(valueInt64, YdbValue.MakeInt64(valueInt64).GetInt64());
+
+            var valueUint64 = 10_000_000_000ul;
+            Assert.Equal(valueUint64, YdbValue.MakeUint64(valueUint64).GetUint64());
+
+            var valueFloat = -1.7f;
+            Assert.Equal(valueFloat, YdbValue.MakeFloat(valueFloat).GetFloat());
+
+            var valueDouble = 123.45;
+            Assert.Equal(valueDouble, YdbValue.MakeDouble(valueDouble).GetDouble());
+
+            var valueDate = new DateTime(2021, 08, 21);
+            Assert.Equal(valueDate, YdbValue.MakeDate(valueDate).GetDate());
+
+            var valueDatetime = new DateTime(2021, 08, 21, 23, 30, 47);
+            Assert.Equal(valueDatetime, YdbValue.MakeDatetime(valueDatetime).GetDatetime());
+
+            var valueTimestamp = new DateTime(2021, 08, 21, 23, 30, 47, 581);
+            Assert.Equal(valueTimestamp, YdbValue.MakeTimestamp(valueTimestamp).GetTimestamp());
+
+            var valueInterval = -new TimeSpan(3, 7, 40, 27, 729);
+            Assert.Equal(valueInterval, YdbValue.MakeInterval(valueInterval).GetInterval());
+
+            var valueString = Encoding.ASCII.GetBytes("test str");
+            Assert.Equal(valueString, YdbValue.MakeString(valueString).GetString());
+
+            var valueUtf8 = "unicode str";
+            Assert.Equal(valueUtf8, YdbValue.MakeUtf8(valueUtf8).GetUtf8());
+
+            var valueYson = Encoding.ASCII.GetBytes("{type=\"yson\"}");
+            Assert.Equal(valueYson, YdbValue.MakeYson(valueYson).GetYson());
+
+            var valueJson = "{\"type\": \"json\"}";
+            Assert.Equal(valueJson, YdbValue.MakeJson(valueJson).GetJson());
+
+            var valueJsonDocument = "{\"type\": \"jsondoc\"}";
+            Assert.Equal(valueJsonDocument, YdbValue.MakeJsonDocument(valueJsonDocument).GetJsonDocument());
         }
 
         [Fact]
-        public void OptionalType()
+        public void PrimitiveTypesExplicitCast()
         {
-            var value = YdbValue.MakeTuple(new YdbValue[] {
-                YdbValue.MakeEmptyOptional(YdbTypeId.Int32),
-                YdbValue.MakeEmptyOptional(YdbTypeId.String),
-                YdbValue.MakeOptional(YdbValue.MakeUtf8("test")),
-                YdbValue.MakeOptional(
-                    YdbValue.MakeOptional(YdbValue.MakeInt32(17))
-                ),
-            });
+            var valueBool = true;
+            Assert.Equal(valueBool, (bool)(YdbValue)valueBool);
 
-            var elements = value.GetTuple();
-            Assert.Equal(4, elements.Count);
+            var valueInt8 = (sbyte)-1;
+            Assert.Equal(valueInt8, (sbyte)(YdbValue)valueInt8);
 
-            Assert.Null(elements[0].GetOptional());
-            Assert.Null(elements[1].GetOptional());
+            var valueUint8 = (byte)200;
+            Assert.Equal(valueUint8, (byte)(YdbValue)valueUint8);
 
-            Assert.Null(elements[0].GetOptionalInt32());
-            Assert.Null(elements[1].GetOptionalString());
+            var valueInt16 = (short)-200;
+            Assert.Equal(valueInt16, (short)(YdbValue)valueInt16);
 
-            Assert.Null((int?)elements[0]);
-            Assert.Null((string?)elements[1]);
+            var valueUint16 = (ushort)40_000;
+            Assert.Equal(valueUint16, (ushort)(YdbValue)valueUint16);
 
-            Assert.Equal("test", (string)elements[2]!);
+            var valueInt32 = -40000;
+            Assert.Equal(valueInt32, (int)(YdbValue)valueInt32);
 
-            Assert.Equal(17, (int?)elements[3].GetOptional()!);
+            var valueUint32 = 4_000_000_000;
+            Assert.Equal(valueUint32, (uint)(YdbValue)valueUint32);
+
+            var valueInt64 = -4_000_000_000;
+            Assert.Equal(valueInt64, (long)(YdbValue)valueInt64);
+
+            var valueUint64 = 10_000_000_000ul;
+            Assert.Equal(valueUint64, (ulong)(YdbValue)valueUint64);
+
+            var valueFloat = -1.7f;
+            Assert.Equal(valueFloat, (float)(YdbValue)valueFloat);
+
+            var valueDouble = 123.45;
+            Assert.Equal(valueDouble, (double)(YdbValue)valueDouble);
+
+            var valueInterval = -new TimeSpan(3, 7, 40, 27, 729);
+            Assert.Equal(valueInterval, (TimeSpan)(YdbValue)valueInterval);
+        }
+
+        [Fact]
+        public void OptionalPrimitiveTypesMakeGet()
+        {
+            var valueBool = true;
+            Assert.Equal(valueBool, YdbValue.MakeOptionalBool(valueBool).GetOptionalBool());
+
+            var valueInt8 = (sbyte)-1;
+            Assert.Equal(valueInt8, YdbValue.MakeOptionalInt8(valueInt8).GetOptionalInt8());
+
+            var valueUint8 = (byte)200;
+            Assert.Equal(valueUint8, YdbValue.MakeOptionalUint8(valueUint8).GetOptionalUint8());
+
+            var valueInt16 = (short)-200;
+            Assert.Equal(valueInt16, YdbValue.MakeOptionalInt16(valueInt16).GetOptionalInt16());
+
+            var valueUint16 = (ushort)40_000;
+            Assert.Equal(valueUint16, YdbValue.MakeOptionalUint16(valueUint16).GetOptionalUint16());
+
+            var valueInt32 = -40000;
+            Assert.Equal(valueInt32, YdbValue.MakeOptionalInt32(valueInt32).GetOptionalInt32());
+
+            var valueUint32 = 4_000_000_000;
+            Assert.Equal(valueUint32, YdbValue.MakeOptionalUint32(valueUint32).GetOptionalUint32());
+
+            var valueInt64 = -4_000_000_000;
+            Assert.Equal(valueInt64, YdbValue.MakeOptionalInt64(valueInt64).GetOptionalInt64());
+
+            var valueUint64 = 10_000_000_000ul;
+            Assert.Equal(valueUint64, YdbValue.MakeOptionalUint64(valueUint64).GetOptionalUint64());
+
+            var valueFloat = -1.7f;
+            Assert.Equal(valueFloat, YdbValue.MakeOptionalFloat(valueFloat).GetOptionalFloat());
+
+            var valueDouble = 123.45;
+            Assert.Equal(valueDouble, YdbValue.MakeOptionalDouble(valueDouble).GetOptionalDouble());
+
+            var valueDate = new DateTime(2021, 08, 21);
+            Assert.Equal(valueDate, YdbValue.MakeOptionalDate(valueDate).GetOptionalDate());
+
+            var valueDatetime = new DateTime(2021, 08, 21, 23, 30, 47);
+            Assert.Equal(valueDatetime, YdbValue.MakeOptionalDatetime(valueDatetime).GetOptionalDatetime());
+
+            var valueTimestamp = new DateTime(2021, 08, 21, 23, 30, 47, 581);
+            Assert.Equal(valueTimestamp, YdbValue.MakeOptionalTimestamp(valueTimestamp).GetOptionalTimestamp());
+
+            var valueInterval = -new TimeSpan(3, 7, 40, 27, 729);
+            Assert.Equal(valueInterval, YdbValue.MakeOptionalInterval(valueInterval).GetOptionalInterval());
+
+            var valueString = Encoding.ASCII.GetBytes("test str");
+            Assert.Equal(valueString, YdbValue.MakeOptionalString(valueString).GetOptionalString());
+
+            var valueUtf8 = "unicode str";
+            Assert.Equal(valueUtf8, YdbValue.MakeOptionalUtf8(valueUtf8).GetOptionalUtf8());
+
+            var valueYson = Encoding.ASCII.GetBytes("{type=\"yson\"}");
+            Assert.Equal(valueYson, YdbValue.MakeOptionalYson(valueYson).GetOptionalYson());
+
+            var valueJson = "{\"type\": \"json\"}";
+            Assert.Equal(valueJson, YdbValue.MakeOptionalJson(valueJson).GetOptionalJson());
+
+            var valueJsonDocument = "{\"type\": \"jsondoc\"}";
+            Assert.Equal(valueJsonDocument, YdbValue.MakeOptionalJsonDocument(valueJsonDocument).GetOptionalJsonDocument());
+
+            Assert.Null(YdbValue.MakeOptionalBool(null).GetOptionalBool());
+            Assert.Null(YdbValue.MakeOptionalInt8(null).GetOptionalInt8());
+            Assert.Null(YdbValue.MakeOptionalUint8(null).GetOptionalUint8());
+            Assert.Null(YdbValue.MakeOptionalInt16(null).GetOptionalInt16());
+            Assert.Null(YdbValue.MakeOptionalUint16(null).GetOptionalUint16());
+            Assert.Null(YdbValue.MakeOptionalInt32(null).GetOptionalInt32());
+            Assert.Null(YdbValue.MakeOptionalUint32(null).GetOptionalUint32());
+            Assert.Null(YdbValue.MakeOptionalInt64(null).GetOptionalInt64());
+            Assert.Null(YdbValue.MakeOptionalUint64(null).GetOptionalUint64());
+            Assert.Null(YdbValue.MakeOptionalFloat(null).GetOptionalFloat());
+            Assert.Null(YdbValue.MakeOptionalDouble(null).GetOptionalDouble());
+            Assert.Null(YdbValue.MakeOptionalDate(null).GetOptionalDate());
+            Assert.Null(YdbValue.MakeOptionalDatetime(null).GetOptionalDatetime());
+            Assert.Null(YdbValue.MakeOptionalTimestamp(null).GetOptionalTimestamp());
+            Assert.Null(YdbValue.MakeOptionalInterval(null).GetOptionalInterval());
+            Assert.Null(YdbValue.MakeOptionalString(null).GetOptionalString());
+            Assert.Null(YdbValue.MakeOptionalUtf8(null).GetOptionalUtf8());
+            Assert.Null(YdbValue.MakeOptionalYson(null).GetOptionalYson());
+            Assert.Null(YdbValue.MakeOptionalJson(null).GetOptionalJson());
+            Assert.Null(YdbValue.MakeOptionalJsonDocument(null).GetOptionalJsonDocument());
+        }
+
+        [Fact]
+        public void OptionalPrimitiveCast()
+        {
+            bool? valueBool = true;
+            Assert.Equal(valueBool, (bool?)(YdbValue)valueBool);
+            
+            sbyte? valueInt8 = -1;
+            Assert.Equal(valueInt8, (sbyte?)(YdbValue)valueInt8);
+            
+            byte? valueUint8 = 200;
+            Assert.Equal(valueUint8, (byte?)(YdbValue)valueUint8);
+            
+            short? valueInt16 = -200;
+            Assert.Equal(valueInt16, (short?)(YdbValue)valueInt16);
+            
+            ushort? valueUint16 = 40_000;
+            Assert.Equal(valueUint16, (ushort?)(YdbValue)valueUint16);
+            
+            int? valueInt32 = -40000;
+            Assert.Equal(valueInt32, (int?)(YdbValue)valueInt32);
+            
+            uint? valueUint32 = 4_000_000_000;
+            Assert.Equal(valueUint32, (uint?)(YdbValue)valueUint32);
+            
+            long? valueInt64 = -4_000_000_000;
+            Assert.Equal(valueInt64, (long?)(YdbValue)valueInt64);
+            
+            ulong? valueUint64 = 10_000_000_000ul;
+            Assert.Equal(valueUint64, (ulong?)(YdbValue)valueUint64);
+            
+            float? valueFloat = -1.7f;
+            Assert.Equal(valueFloat, (float?)(YdbValue)valueFloat);
+            
+            double? valueDouble = 123.45;
+            Assert.Equal(valueDouble, (double?)(YdbValue)valueDouble);
+
+            TimeSpan? valueInterval = -new TimeSpan(3, 7, 40, 27, 729);
+            Assert.Equal(valueInterval, (TimeSpan?)(YdbValue)valueInterval);
+
+            Assert.Null((bool?)(YdbValue)(bool?)null);
+            Assert.Null((sbyte?)(YdbValue)(sbyte?)null);
+            Assert.Null((byte?)(YdbValue)(byte?)null);
+            Assert.Null((short?)(YdbValue)(short?)null);
+            Assert.Null((ushort?)(YdbValue)(ushort?)null);
+            Assert.Null((int?)(YdbValue)(int?)null);
+            Assert.Null((uint?)(YdbValue)(uint?)null);
+            Assert.Null((long?)(YdbValue)(long?)null);
+            Assert.Null((ulong?)(YdbValue)(ulong?)null);
+            Assert.Null((float?)(YdbValue)(float?)null);
+            Assert.Null((double?)(YdbValue)(double?)null);
+            Assert.Null((TimeSpan?)(YdbValue)(TimeSpan?)null);
         }
 
         [Fact]
