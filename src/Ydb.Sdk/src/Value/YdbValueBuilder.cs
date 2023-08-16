@@ -212,14 +212,30 @@ namespace Ydb.Sdk.Value
         {
             var bits = decimal.GetBits(value);
 
-            var tmp = new decimal(bits[0], bits[1], bits[2], false, 0);
+            var low = (uint)bits[0];
+            var mid = (uint)bits[1];
+            var high = (uint)bits[2];
+            var flags = (uint)bits[3];
+
+            var trueValue = new decimal(lo: (int)low, mid: (int)mid, hi: (int)high, isNegative: false, scale: 0);
+
+            var scale = (byte)((flags >> 16) & 0x7F);
+            // Bits 16 to 23 must contain an exponent between 0 and 28, which indicates the power of 10 to divide the integer number.
+
+            var precision = 0u;
+
+            while (trueValue != decimal.Zero)
+            {
+                trueValue = Math.Round(trueValue / 10);
+                precision++;
+            }
 
             var type = new Ydb.Type
             {
                 DecimalType = new DecimalType
                 {
-                    Scale = (byte)((bits[3] >> 16) & 0x7F),
-                    Precision = (uint)(int)Math.Floor(Math.Log10((double)tmp)) + 1,
+                    Scale = scale,
+                    Precision = precision,
                 }
             };
 
@@ -227,8 +243,8 @@ namespace Ydb.Sdk.Value
                 type,
                 new Ydb.Value
                 {
-                    Low128 = (uint)bits[0] + ((ulong)(uint)bits[1] << 32),
-                    High128 = (uint)bits[2] + ((ulong)(uint)bits[3] << 32),
+                    Low128 = ((ulong)mid << 32) + low,
+                    High128 = ((ulong)flags << 32) + high,
                 }
             );
         }
@@ -314,7 +330,8 @@ namespace Ydb.Sdk.Value
                 StructType = new StructType()
             };
 
-            type.StructType.Members.Add(members.Select(m => new StructMember { Name = m.Key, Type = m.Value._protoType }));
+            type.StructType.Members.Add(
+                members.Select(m => new StructMember { Name = m.Key, Type = m.Value._protoType }));
 
             var value = new Ydb.Value();
             value.Items.Add(members.Select(m => m.Value._protoValue));

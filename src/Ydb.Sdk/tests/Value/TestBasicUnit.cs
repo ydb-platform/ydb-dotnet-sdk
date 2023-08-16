@@ -275,11 +275,11 @@ namespace Ydb.Sdk.Value.Tests
             
             foreach (var value in values)
             {
-                Assert.Equal(YdbValue.MakeDecimal(value).GetDecimal(), value);
-                Assert.Equal(YdbValue.MakeOptionalDecimal(value).GetOptionalDecimal(), value);
+                Assert.Equal(value, YdbValue.MakeDecimal(value).GetDecimal());
+                Assert.Equal(value, YdbValue.MakeOptionalDecimal(value).GetOptionalDecimal());
 
-                Assert.Equal((decimal)(YdbValue)value, value);
-                Assert.Equal((decimal?)(YdbValue)(decimal?)value, value);
+                Assert.Equal(value, (decimal)(YdbValue)value);
+                Assert.Equal(value, (decimal?)(YdbValue)(decimal?)value);
 
                 var bits1 = decimal.GetBits(value);
                 var bits2 = decimal.GetBits(YdbValue.MakeDecimal(value).GetDecimal());
