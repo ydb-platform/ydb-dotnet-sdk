@@ -127,6 +127,12 @@
             return _protoValue.TextValue;
         }
 
+        public bool? GetOptionalBool()
+        {
+            return GetOptional()?.GetBool();
+        }
+
+
         public sbyte? GetOptionalInt8()
         {
             return GetOptional()?.GetInt8();

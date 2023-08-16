@@ -184,5 +184,125 @@ namespace Ydb.Sdk.Value
 
             }
         }
+
+        public static explicit operator YdbValue(bool value)
+        {
+            return MakeBool(value);
+        }
+
+        public static explicit operator YdbValue(bool? value)
+        {
+            return MakeOptionalBool(value);
+        }
+
+        public static explicit operator YdbValue(sbyte value)
+        {
+            return MakeInt8(value);
+        }
+
+        public static explicit operator YdbValue(sbyte? value)
+        {
+            return MakeOptionalInt8(value);
+        }
+
+        public static explicit operator YdbValue(byte value)
+        {
+            return MakeUint8(value);
+        }
+
+        public static explicit operator YdbValue(byte? value)
+        {
+            return MakeOptionalUint8(value);
+        }
+
+        public static explicit operator YdbValue(short value)
+        {
+            return MakeInt16(value);
+        }
+
+        public static explicit operator YdbValue(short? value)
+        {
+            return MakeOptionalInt16(value);
+        }
+
+        public static explicit operator YdbValue(ushort value)
+        {
+            return MakeUint16(value);
+        }
+
+        public static explicit operator YdbValue(ushort? value)
+        {
+            return MakeOptionalUint16(value);
+        }
+
+        public static explicit operator YdbValue(int value)
+        {
+            return MakeInt32(value);
+        }
+
+        public static explicit operator YdbValue(int? value)
+        {
+            return MakeOptionalInt32(value);
+        }
+
+        public static explicit operator YdbValue(uint value)
+        {
+            return MakeUint32(value);
+        }
+
+        public static explicit operator YdbValue(uint? value)
+        {
+            return MakeOptionalUint32(value);
+        }
+
+        public static explicit operator YdbValue(long value)
+        {
+            return MakeInt64(value);
+        }
+
+        public static explicit operator YdbValue(long? value)
+        {
+            return MakeOptionalInt64(value);
+        }
+
+        public static explicit operator YdbValue(ulong value)
+        {
+            return MakeUint64(value);
+        }
+
+        public static explicit operator YdbValue(ulong? value)
+        {
+            return MakeOptionalUint64(value);
+        }
+
+        public static explicit operator YdbValue(float value)
+        {
+            return MakeFloat(value);
+        }
+
+        public static explicit operator YdbValue(float? value)
+        {
+            return MakeOptionalFloat(value);
+        }
+
+        public static explicit operator YdbValue(double value)
+        {
+            return MakeDouble(value);
+        }
+
+        public static explicit operator YdbValue(double? value)
+        {
+            return MakeOptionalDouble(value);
+        }
+
+        public static explicit operator YdbValue(TimeSpan value)
+        {
+            return MakeInterval(value);
+        }
+
+        public static explicit operator YdbValue(TimeSpan? value)
+        {
+            return MakeOptionalInterval(value);
+        }
     }
 }
