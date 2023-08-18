@@ -202,6 +202,34 @@
                 });
         }
 
+        private static Type GetDecimalType(decimal value)
+        {
+            var bits = decimal.GetBits(value);
+
+            var flags = bits[3];
+
+            var temp = new decimal(lo: bits[0], mid: bits[1], hi: bits[2], isNegative: false, scale: 0);
+
+            var scale = (byte)((flags >> 16) & 0x7F);
+
+            var precision = 0u;
+
+            while (temp != decimal.Zero)
+            {
+                temp = Math.Round(temp / 10);
+                precision++;
+            }
+
+            return new Type
+            {
+                DecimalType = new DecimalType
+                {
+                    Scale = scale,
+                    Precision = precision,
+                }
+            };
+        }
+
         public static YdbValue MakeDecimal(decimal value)
         {
             var bits = decimal.GetBits(value);
@@ -211,36 +239,14 @@
             var high = (uint)bits[2];
             var flags = (uint)bits[3];
 
-            var trueValue = new decimal(lo: (int)low, mid: (int)mid, hi: (int)high, isNegative: false, scale: 0);
-
-            var scale = (byte)((flags >> 16) & 0x7F);
-            // Bits 16 to 23 must contain an exponent between 0 and 28, which indicates the power of 10 to divide the integer number.
-
-            var precision = 0u;
-
-            while (trueValue != decimal.Zero)
+            var type = GetDecimalType(value);
+            var ydbValue = new Ydb.Value
             {
-                trueValue = Math.Round(trueValue / 10);
-                precision++;
-            }
-
-            var type = new Ydb.Type
-            {
-                DecimalType = new DecimalType
-                {
-                    Scale = scale,
-                    Precision = precision,
-                }
+                Low128 = ((ulong)mid << 32) + low,
+                High128 = ((ulong)flags << 32) + high,
             };
 
-            return new YdbValue(
-                type,
-                new Ydb.Value
-                {
-                    Low128 = ((ulong)mid << 32) + low,
-                    High128 = ((ulong)flags << 32) + high,
-                }
-            );
+            return new YdbValue(type, ydbValue);
         }
 
         // TODO: EmptyOptional with complex types
