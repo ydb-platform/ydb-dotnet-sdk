@@ -10,11 +10,11 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, windows-2022, macos-12]
-        dotnet-verion: [6.0.x, 7.0.x]
+        dotnet-version: [6.0.x, 7.0.x]
         include:
-          - dotnet-verion: 6.0.x
+          - dotnet-version: 6.0.x
             dotnet-target-framework: net6.0
-          - dotnet-verion: 7.0.x
+          - dotnet-version: 7.0.x
             dotnet-target-framework: net7.0
     runs-on: ${{ matrix.os }}
     steps:
@@ -28,3 +28,43 @@ jobs:
         run: | 
           cd src
           dotnet test --filter "Category=Unit" -f ${{ matrix.dotnet-target-framework }}
+ 
+  integration-tests:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ydb-version: [trunk]
+        dotnet-version: [6.0.x, 7.0.x]
+        include:
+          - dotnet-version: 6.0.x
+            dotnet-target-framework: net6.0
+          - dotnet-version: 7.0.x
+            dotnet-target-framework: net7.0
+    services:
+      ydb:
+        image: cr.yandex/yc/yandex-docker-local-ydb:${{ matrix.ydb-version }}
+        ports:
+          - 2135:2135
+          - 2136:2136
+          - 8765:8765
+        env:
+          YDB_LOCAL_SURVIVE_RESTART: true
+          YDB_USE_IN_MEMORY_PDISKS: true
+        options: '-h localhost'
+    env:
+      OS: ubuntu-22.04
+      YDB_VERSION: ${{ matrix.ydb-version }}
+      YDB_CONNECTION_STRING: grpc://localhost:2136/local
+      YDB_CONNECTION_STRING_SECURE: grpcs://localhost:2135/local
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+      - name: Integration test
+        run: | 
+          cd src
+          dotnet test --filter "Category=Integration" -f ${{ matrix.dotnet-target-framework }}
