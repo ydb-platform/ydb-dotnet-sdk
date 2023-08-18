@@ -1,10 +1,4 @@
-﻿#if NETCOREAPP3_1
-using System;
-using System.Collections.Generic;
-using System.Linq;
-#endif
-
-namespace Ydb.Sdk.Value
+﻿namespace Ydb.Sdk.Value
 {
     public partial class YdbValue
     {

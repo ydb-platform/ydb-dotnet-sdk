@@ -1,3 +1,6 @@
+- Remove support for .NET Core 3.1
+- Add support for .NET 7.0
+- 
 ## v0.0.8
 - Fixed version number
 
