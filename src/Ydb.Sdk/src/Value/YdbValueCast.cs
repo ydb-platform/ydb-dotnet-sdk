@@ -1,7 +1,4 @@
-﻿#if NETCOREAPP3_1
-using System;
-#endif
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace Ydb.Sdk.Value
 {
