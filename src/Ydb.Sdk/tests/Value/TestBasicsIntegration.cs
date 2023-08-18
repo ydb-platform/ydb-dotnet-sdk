@@ -1,10 +1,3 @@
-#if NETCOREAPP3_1
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-#endif
-
-using System.Linq;
 using System.Text;
 using Xunit;
 using Xunit.Abstractions;
