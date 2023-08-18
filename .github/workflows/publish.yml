@@ -9,7 +9,6 @@ on:
         options:
           - PATCH
           - MINOR
-          - MAJOR
       release-candidate:
         description: Release candidate
         required: true

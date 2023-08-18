@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -euxo pipefail
 
 CHANGELOG=$(cat $CHANGELOG_FILE | sed -e '/^## v.*$/,$d')
 if [[ -z "$CHANGELOG" ]]
@@ -8,19 +8,13 @@ then
   exit 1;
 fi;
 
-MAJOR=$(cat $VERSION_FILE | grep Major | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
-MINOR=$(cat $VERSION_FILE | grep Minor | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
-PATCH=$(cat $VERSION_FILE | grep Patch | sed -e 's/^.*\ \(=\ \)*\(\"\)*\([0-9]*\)\(\"\)*.*/\3/g');
+MAJOR=$(cat $VERSION_FILE | grep Major | grep -Eo '[0-9]*');
+MINOR=$(cat $VERSION_FILE | grep Minor | grep -Eo '[0-9]*');
+PATCH=$(cat $VERSION_FILE | grep Patch | grep -Eo '[0-9]*');
 
 VERSION="$MAJOR.$MINOR.$PATCH"
 
 LAST_TAG="v$MAJOR.$MINOR.$PATCH";
-if [ "$VERSION_CHANGE" = "MAJOR" ]
-then
-  MAJOR=$((MAJOR+1));
-  MINOR=0;
-  PATCH=0;
-fi;
 if [ "$VERSION_CHANGE" = "MINOR" ]
 then
   MINOR=$((MINOR+1));
@@ -35,9 +29,8 @@ then
   RC=$(git tag | grep "v$MAJOR.$MINOR.$PATCH-rc" | wc -l);
   TAG="v$MAJOR.$MINOR.$PATCH-rc$RC";
 else
-  sed -e 's/MAJOR = \([0-9]*\);/MAJOR = '$MAJOR';/g' -i $VERSION_FILE;
-  sed -e 's/MINOR = \([0-9]*\);/MINOR = '$MINOR';/g' -i $VERSION_FILE;
-  sed -e 's/PATCH = \([0-9]*\);/PATCH = '$PATCH';/g' -i $VERSION_FILE;
+  sed -e "s/Minor = [0-9]*/Minor = $MINOR/g" -i $VERSION_FILE
+  sed -e "s/Patch = [0-9]*/Patch = $PATCH/g" -i $VERSION_FILE
   git add $VERSION_FILE;
   echo "## v$MAJOR.$MINOR.$PATCH" >> $CHANGELOG_FILE.tmp
   cat $CHANGELOG_FILE >> $CHANGELOG_FILE.tmp
@@ -52,7 +45,7 @@ git tag $TAG
 git push --tags && git push
 CHANGELOG="$CHANGELOG
 
-Full Changelog: [$LAST_TAG...$TAG](https://github.com/ydb-platform/ydb-gdotneto-sdk/compare/$LAST_TAG...$TAG)"
+Full Changelog: [$LAST_TAG...$TAG](https://github.com/ydb-platform/ydb-dotnet-sdk/compare/$LAST_TAG...$TAG)"
 if [ "$RELEASE_CANDIDATE" = true ]
 then
   gh release create -d $TAG -t "$TAG" --notes "$CHANGELOG"

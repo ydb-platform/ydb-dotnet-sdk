@@ -1,7 +1,4 @@
-﻿#if NETCOREAPP3_1
-using System;
-#endif
-using System.Security.Cryptography.X509Certificates;
+﻿using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
 
 namespace Ydb.Sdk
