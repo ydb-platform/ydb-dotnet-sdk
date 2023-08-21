@@ -260,6 +260,108 @@ namespace Ydb.Sdk.Value.Tests
             Assert.Null((await SelectPassed(YdbValue.MakeOptionalJsonDocument(null))).GetOptionalJsonDocument());
         }
 
+
+        private async Task q(decimal value)
+        {
+            var ydbValue = YdbValue.MakeDecimal(value);
+            var type = ydbValue.GetProto().Type;
+            var precision = type.DecimalType.Precision;
+            var scale = type.DecimalType.Scale;
+        }
+
+        [Fact]
+        public async Task DecimalTypeSelectPassed()
+        {
+            var value5Prec0Scale = 12345m;
+            var value5Prec3Scale = 12.345m;
+            var value4Prec2Scale = 12.34m;
+            var value2Prec0Scale = 12m;
+
+            async Task PassAndCheckDecimal(decimal value)
+            {
+                var ydbval = YdbValue.MakeDecimal(value);
+                var result = await SelectPassed(YdbValue.MakeDecimal(value));
+                var actual = result.GetDecimal();
+                Assert.Equal(value, actual);
+            }
+
+            await PassAndCheckDecimal(value5Prec0Scale);
+            await PassAndCheckDecimal(value5Prec3Scale);
+            await PassAndCheckDecimal(value4Prec2Scale);
+            await PassAndCheckDecimal(value2Prec0Scale);
+        }
+
+        private async Task PrepareDecimalTable()
+        {
+            var query = @"
+CREATE TABLE decimal_test
+(
+    key Uint64,
+    value Decimal(22,9),
+    PRIMARY KEY (key)
+);
+";
+            var response = await _tableClient.SessionExec(async session =>
+                await session.ExecuteSchemeQuery(
+                    query: query
+                )
+            );
+            response.Status.EnsureSuccess();
+        }
+
+        private async Task UpsertAndCheckDecimal(ulong key, decimal value)
+        {
+            const string query = @"
+UPSERT INTO decimal_test (key, value) 
+VALUES ($key, $value);
+
+SELECT value FROM decimal_test WHERE key = $key;
+";
+
+            var parameters = new Dictionary<string, YdbValue>
+            {
+                { "$key", (YdbValue)key },
+                { "$value", (YdbValue)value }
+            };
+            var response = await _tableClient.SessionExec(async session =>
+                await session.ExecuteDataQuery(
+                    query: query,
+                    txControl: TxControl.BeginSerializableRW().Commit(),
+                    parameters: parameters
+                )
+            );
+            response.Status.EnsureSuccess();
+            var queryResponse = (ExecuteDataQueryResponse)response;
+            var resultSet = queryResponse.Result.ResultSets[0];
+
+            // _output.WriteLine(resultSet.Rows[0][0].GetOptionalDecimal().ToString());
+            var ydbValue = resultSet.Rows[0][0];
+            var result = ydbValue.GetOptionalDecimal();
+            Assert.Equal(value, result);
+        }
+
+        [Fact]
+        public async Task DecimalTypeRw()
+        {
+            await PrepareDecimalTable();
+
+            var testData = new (ulong, decimal)[]
+            {
+                (1, 1m),
+                (2, 123.456m),
+                (3, -1m),
+                (4, -0.1m),
+                (5, 0.000000000m),
+                (6, 0.000000001m),
+                (7, -18446744073.709551616m)
+            };
+
+            foreach (var (key, value) in testData)
+            {
+                await UpsertAndCheckDecimal(key, value);
+            }
+        }
+
         [Fact]
         public async Task ListType()
         {

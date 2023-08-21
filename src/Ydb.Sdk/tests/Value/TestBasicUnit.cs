@@ -259,33 +259,32 @@ namespace Ydb.Sdk.Value.Tests
         [Fact]
         public void DecimalType()
         {
-            decimal[] values = {
-                -0.1m,
-                decimal.MaxValue,
-                decimal.MinValue,
-                0.0000000000000000000000000001m,
-                0.0000000000000000000000000000m,
-                123.456m,
-            };
-            
-            foreach (var value in values)
+            (decimal, decimal)[] values =
             {
-                Assert.Equal(value, YdbValue.MakeDecimal(value).GetDecimal());
-                Assert.Equal(value, YdbValue.MakeOptionalDecimal(value).GetOptionalDecimal());
+                (-0.1m, -0.1m),
+                (0.0000000000000000000000000001m, 0m),
+                (0.0000000000000000000000000000m, 0m),
+                (-18446744073.709551616m, -18446744073.709551616m), // covers situation when need to add or substract to high64
+                (123.456m, 123.456m),
+            };
+            foreach (var (value, excepted) in values)
+            {
+                var ydbval = YdbValue.MakeDecimal(value);
+                var result = ydbval.GetDecimal();
+                Assert.Equal(excepted, result);
 
-                Assert.Equal(value, (decimal)(YdbValue)value);
-                Assert.Equal(value, (decimal?)(YdbValue)(decimal?)value);
+                Assert.Equal(excepted, YdbValue.MakeDecimal(value).GetDecimal());
+                Assert.Equal(excepted, YdbValue.MakeOptionalDecimal(value).GetOptionalDecimal());
 
-                var bits1 = decimal.GetBits(value);
-                var bits2 = decimal.GetBits(YdbValue.MakeDecimal(value).GetDecimal());
-                for (var i = 0; i < 4; i++)
-                {
-                    Assert.Equal(bits1[i], bits2[i]);
-                }
+                Assert.Equal(excepted, (decimal)(YdbValue)value);
+                Assert.Equal(excepted, (decimal?)(YdbValue)(decimal?)value);
             }
 
             Assert.Null(YdbValue.MakeOptionalDecimal(null).GetOptionalDecimal());
             Assert.Null((decimal?)(YdbValue)(decimal?)null);
+            
+            Assert.Equal("Decimal with precision (30, 0) can't fit into (22, 9)",
+                Assert.Throws<InvalidCastException>(() => YdbValue.MakeDecimal(decimal.MaxValue)).Message);
         }
 
         [Fact]

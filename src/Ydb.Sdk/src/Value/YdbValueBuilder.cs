@@ -202,51 +202,89 @@
                 });
         }
 
-        private static Type GetDecimalType(decimal value)
+        private static byte GetDecimalScale(decimal value)
         {
             var bits = decimal.GetBits(value);
-
             var flags = bits[3];
-
-            var temp = new decimal(lo: bits[0], mid: bits[1], hi: bits[2], isNegative: false, scale: 0);
-
             var scale = (byte)((flags >> 16) & 0x7F);
+            return scale;
+        }
+
+        private static uint GetDecimalPrecision(decimal value)
+        {
+            var bits = decimal.GetBits(value);
+            value = new decimal(lo: bits[0], mid: bits[1], hi: bits[2], isNegative: false, scale: 0);
 
             var precision = 0u;
-
-            while (temp != decimal.Zero)
+            while (value != decimal.Zero)
             {
-                temp = Math.Round(temp / 10);
+                value = Math.Round(value / 10);
                 precision++;
             }
 
-            return new Type
+            return precision;
+        }
+
+        private static Ydb.Value MakeDecimalValue(decimal value)
+        {
+            var bits = decimal.GetBits(value);
+
+            var low64 = ((ulong)(uint)bits[1] << 32) + (uint)bits[0];
+            var high64 = (ulong)(uint)bits[2];
+
+            unchecked
             {
-                DecimalType = new DecimalType
+                if (value < 0)
                 {
-                    Scale = scale,
-                    Precision = precision,
+                    low64 = ~low64;
+                    high64 = ~high64;
+                    
+                    
+                    if (low64 == (ulong)-1L)
+                    {
+                        high64 += 1;
+                    }
+
+                    low64 += 1;
                 }
+            }
+
+            return new Ydb.Value
+            {
+                Low128 = low64,
+                High128 = high64
             };
+        }
+
+        public static YdbValue MakeDecimalWithPrecision(decimal value, uint? precision = null, uint? scale = null)
+        {
+            var valueScale = GetDecimalScale(value);
+            var valuePrecision = GetDecimalPrecision(value);
+            scale ??= GetDecimalScale(value);
+            if (precision != null & valuePrecision > precision)
+            {
+                throw new InvalidCastException(
+                    $"Decimal with precision ({valuePrecision}, {valueScale}) can't fit into ({precision}, {scale})");
+            }
+
+            precision ??= GetDecimalPrecision(value);
+
+            value *= 1.00000000000000000000000000000m; // 29 zeros, max supported by c# decimal
+            value = Math.Round(value, (int)scale);
+
+            var type = new Type
+            {
+                DecimalType = new DecimalType { Scale = (uint)scale, Precision = (uint)precision }
+            };
+
+            var ydbValue = MakeDecimalValue(value);
+
+            return new YdbValue(type, ydbValue);
         }
 
         public static YdbValue MakeDecimal(decimal value)
         {
-            var bits = decimal.GetBits(value);
-
-            var low = (uint)bits[0];
-            var mid = (uint)bits[1];
-            var high = (uint)bits[2];
-            var flags = (uint)bits[3];
-
-            var type = GetDecimalType(value);
-            var ydbValue = new Ydb.Value
-            {
-                Low128 = ((ulong)mid << 32) + low,
-                High128 = ((ulong)flags << 32) + high,
-            };
-
-            return new YdbValue(type, ydbValue);
+            return MakeDecimalWithPrecision(value, 22, 9);
         }
 
         // TODO: EmptyOptional with complex types
