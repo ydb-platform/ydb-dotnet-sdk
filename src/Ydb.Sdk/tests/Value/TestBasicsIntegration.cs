@@ -273,6 +273,27 @@ namespace Ydb.Sdk.Value.Tests
             }
         }
 
+        [Fact]
+        public async Task DecimalTypeSelectPassedWithPrecision()
+        {
+            var testData = new[]
+            {
+                YdbValue.MakeDecimalWithPrecision(12345m),
+                YdbValue.MakeDecimalWithPrecision(12345m, precision: 5, scale: 0),
+                YdbValue.MakeDecimalWithPrecision(12345m, precision: 7, scale: 2),
+                YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m),
+                YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m, precision: 21, scale: 9),
+                YdbValue.MakeDecimalWithPrecision(-184467440730709551616m, precision: 21, scale: 0),
+                YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m, precision: 12, scale: 0),
+            };
+            foreach (var expected in testData)
+            {
+                var response = await SelectPassed(expected);
+                var actual = response.GetDecimal();
+                Assert.Equal(expected.GetDecimal(), actual);
+            }
+        }
+
         private async Task PrepareDecimalTable()
         {
             const string query = @"

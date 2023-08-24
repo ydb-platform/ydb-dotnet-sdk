@@ -238,8 +238,7 @@
                 {
                     low64 = ~low64;
                     high64 = ~high64;
-                    
-                    
+
                     if (low64 == (ulong)-1L)
                     {
                         high64 += 1;
@@ -261,13 +260,13 @@
             var valueScale = GetDecimalScale(value);
             var valuePrecision = GetDecimalPrecision(value);
             scale ??= GetDecimalScale(value);
-            if (precision != null & valuePrecision > precision)
+            precision ??= valuePrecision;
+            
+            if ((int)valuePrecision - valueScale > (int)precision - scale)
             {
                 throw new InvalidCastException(
                     $"Decimal with precision ({valuePrecision}, {valueScale}) can't fit into ({precision}, {scale})");
             }
-
-            precision ??= GetDecimalPrecision(value);
 
             value *= 1.00000000000000000000000000000m; // 29 zeros, max supported by c# decimal
             value = Math.Round(value, (int)scale);
