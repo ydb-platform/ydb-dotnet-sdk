@@ -36,37 +36,20 @@ namespace Ydb.Sdk.Value.Tests
         [Fact]
         public async Task Select1()
         {
-            var query = @"SELECT 1;";
-
-            var response = await _tableClient.SessionExec(async session =>
-                await session.ExecuteDataQuery(
-                    query: query,
-                    txControl: TxControl.BeginSerializableRW().Commit()
-                )
-            );
-            Assert.NotNull(response);
-            Assert.True(response.Status.IsSuccess);
-            var queryResponse = (ExecuteDataQueryResponse)response;
-            var row = queryResponse.Result.ResultSets[0].Rows[0];
+            var response = await Utils.ExecuteDataQuery(_tableClient, "SELECT 1");
+            var row = response.Result.ResultSets[0].Rows[0];
             Assert.Equal(1, row[0].GetInt32());
         }
 
         private async Task<YdbValue> SelectPassed(YdbValue value)
         {
-            var response = await _tableClient.SessionExec(async session =>
-                await session.ExecuteDataQuery(
-                    query: "SELECT $value;",
-                    txControl: TxControl.BeginSerializableRW().Commit(),
-                    parameters: new Dictionary<string, YdbValue> { { "$value", value } }
-                )
-            );
-            Assert.NotNull(response);
-            response.Status.EnsureSuccess();
-            Assert.True(response.Status.IsSuccess);
-            var queryResponse = (ExecuteDataQueryResponse)response;
-            Assert.True(queryResponse.Result.ResultSets.Count > 0);
-            Assert.True(queryResponse.Result.ResultSets[0].Rows.Count > 0);
-            var row = queryResponse.Result.ResultSets[0].Rows[0];
+            var response = await Utils.ExecuteDataQuery(
+                _tableClient,
+                "SELECT $value;",
+                new Dictionary<string, YdbValue> { { "$value", value } });
+            Assert.True(response.Result.ResultSets.Count > 0);
+            Assert.True(response.Result.ResultSets[0].Rows.Count > 0);
+            var row = response.Result.ResultSets[0].Rows[0];
             return row[0];
         }
 
@@ -304,12 +287,7 @@ CREATE TABLE decimal_test
     PRIMARY KEY (key)
 );
 ";
-            var response = await _tableClient.SessionExec(async session =>
-                await session.ExecuteSchemeQuery(
-                    query: query
-                )
-            );
-            response.Status.EnsureSuccess();
+            await Utils.ExecuteSchemeQuery(_tableClient, query);
         }
 
         private async Task UpsertAndCheckDecimal(ulong key, decimal value)
@@ -326,16 +304,10 @@ SELECT value FROM decimal_test WHERE key = $key;
                 { "$key", (YdbValue)key },
                 { "$value", (YdbValue)value }
             };
-            var response = await _tableClient.SessionExec(async session =>
-                await session.ExecuteDataQuery(
-                    query: query,
-                    txControl: TxControl.BeginSerializableRW().Commit(),
-                    parameters: parameters
-                )
-            );
-            response.Status.EnsureSuccess();
-            var queryResponse = (ExecuteDataQueryResponse)response;
-            var resultSet = queryResponse.Result.ResultSets[0];
+
+            var response = await Utils.ExecuteDataQuery(_tableClient, query, parameters);
+
+            var resultSet = response.Result.ResultSets[0];
 
             var ydbValue = resultSet.Rows[0][0];
             var result = ydbValue.GetOptionalDecimal();
