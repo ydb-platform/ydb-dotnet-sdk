@@ -1,8 +1,4 @@
-﻿#if NETCOREAPP3_1
-using System;
-using System.Threading.Tasks;
-#endif
-using Ydb.Sdk.Client;
+﻿using Ydb.Sdk.Client;
 
 namespace Ydb.Sdk.Table
 {

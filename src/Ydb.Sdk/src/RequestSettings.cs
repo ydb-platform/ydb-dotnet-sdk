@@ -1,8 +1,4 @@
-﻿#if NETCOREAPP3_1
-using System;
-#endif
-
-namespace Ydb.Sdk
+﻿namespace Ydb.Sdk
 {
     public class RequestSettings
     {

@@ -1,7 +1,4 @@
-﻿#if NETCOREAPP3_1
-using System;
-#endif
-using Google.Protobuf.WellKnownTypes;
+﻿using Google.Protobuf.WellKnownTypes;
 using System.Diagnostics;
 
 namespace Ydb.Sdk.Client
