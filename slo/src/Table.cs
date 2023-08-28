@@ -1,41 +1,33 @@
 namespace slo;
 
-public class Table : IAsyncDisposable
+public class Table
 {
-    public readonly string TableName;
     public readonly Executor Executor;
+    public readonly string TableName;
 
-    private Table(string tableName, Executor executor)
+    public Table(string tableName, Executor executor)
     {
         TableName = tableName;
         Executor = executor;
     }
 
-    private static void GenerateContent()
+    public async Task Init(int initialDataCount, int partitionSize, int minPartitionsCount, int maxPartitionsCount)
     {
-    }
+        await Executor.ExecuteSchemeQuery(Queries.GetCreateQuery(TableName, partitionSize, minPartitionsCount,
+            maxPartitionsCount));
 
-    public static async Task<Table> Create(string tableName, Executor executor)
-    {
-        await executor.ExecuteSchemeQuery(Queries.GetCreateQuery(tableName));
+        await DataGenerator.LoadMaxId(TableName, Executor);
 
-        await DataGenerator.LoadMaxId(tableName, executor);
-        
-        var tasks = new List<Task> { Capacity = 20 };
+        var tasks = new List<Task> { Capacity = initialDataCount };
 
-        for (var i = 0; i < 20; i++)
-            tasks.Add(executor.ExecuteDataQuery(Queries.GetWriteQuery(tableName), DataGenerator.GetUpsertData()));
+        for (var i = 0; i < initialDataCount; i++)
+            tasks.Add(Executor.ExecuteDataQuery(Queries.GetWriteQuery(TableName), DataGenerator.GetUpsertData()));
 
         await Task.WhenAll(tasks);
-
-
-        return new Table(tableName, executor);
     }
 
-
-    public async ValueTask DisposeAsync()
+    public async Task CleanUp()
     {
-        Console.WriteLine("DISPOSE");
         await Executor.ExecuteSchemeQuery(Queries.GetDropQuery(TableName));
     }
 }

@@ -16,7 +16,7 @@ public class Executor
     public async Task ExecuteSchemeQuery(string query)
     {
         var response = await _tableClient.SessionExec(
-            async session => await session.ExecuteSchemeQuery(query: query));
+            async session => await session.ExecuteSchemeQuery(query));
         response.Status.EnsureSuccess();
     }
 
@@ -32,12 +32,12 @@ public class Executor
                 attempts++;
                 return parameters == null
                     ? await session.ExecuteDataQuery(
-                        query: query,
-                        txControl: txControl)
+                        query,
+                        txControl)
                     : await session.ExecuteDataQuery(
-                        query: query,
-                        txControl: txControl,
-                        parameters: parameters);
+                        query,
+                        txControl,
+                        parameters);
             });
         histogram?.WithLabels(response.Status.IsSuccess ? "ok" : "err").Observe(attempts);
 

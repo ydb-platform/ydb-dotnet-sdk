@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.Serialization;
+using System.Timers;
 using Timer = System.Timers.Timer;
 
 namespace slo;
@@ -9,11 +10,11 @@ public record Token;
 [Serializable]
 internal class NoTokensAvailableException : Exception
 {
+    public static NoTokensAvailableException Instance = new();
+
     public NoTokensAvailableException()
     {
     }
-
-    public static NoTokensAvailableException Instance = new(); 
 
     public NoTokensAvailableException(string? message) : base(message)
     {
@@ -28,26 +29,25 @@ internal class NoTokensAvailableException : Exception
     }
 }
 
-public class TockenBucket
+public class TokenBucket
 {
-    private BlockingCollection<Token> _tokens;
-    private readonly Timer _timer;
-    private int _maxTokens;
+    private readonly int _maxTokens;
+    private readonly BlockingCollection<Token> _tokens;
 
-    public TockenBucket(int maxNumberOfTokens, int refillRateMilliseconds)
+    public TokenBucket(int maxNumberOfTokens, int refillRateMilliseconds)
     {
         _maxTokens = maxNumberOfTokens;
-        _timer = new Timer(refillRateMilliseconds);
+        var timer = new Timer(refillRateMilliseconds);
         _tokens = new BlockingCollection<Token>();
 
         for (var i = 0; i < maxNumberOfTokens; i++) _tokens.Add(new Token());
 
-        _timer.AutoReset = true;
-        _timer.Enabled = true;
-        _timer.Elapsed += OnTimerElapsed;
+        timer.AutoReset = true;
+        timer.Enabled = true;
+        timer.Elapsed += OnTimerElapsed;
     }
 
-    private void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    private void OnTimerElapsed(object? sender, ElapsedEventArgs e)
     {
         var token = new Token();
         var refill = _maxTokens - _tokens.Count;
@@ -57,9 +57,6 @@ public class TockenBucket
 
     public void UseToken()
     {
-        if (!_tokens.TryTake(out _))
-        {
-            throw NoTokensAvailableException.Instance;
-        }
+        if (!_tokens.TryTake(out _)) throw NoTokensAvailableException.Instance;
     }
 }

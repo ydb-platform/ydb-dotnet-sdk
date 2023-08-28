@@ -1,24 +1,22 @@
 using System.Diagnostics;
 using Prometheus;
-using Ydb.Sdk.Value;
 
-namespace slo;
+namespace slo.Jobs;
 
 public abstract class Job
 {
-    protected readonly Random Random = new();
-
-    protected readonly Table Table;
-    private readonly RateLimitedCaller _rateLimitedCaller;
-
-    private readonly Counter _okCounter;
-    private readonly Counter _notOkCounter;
-
     private readonly Gauge _inFlightGauge;
 
     private readonly Summary _latencySummary;
+    private readonly Counter _notOkCounter;
+
+    private readonly Counter _okCounter;
+    private readonly RateLimitedCaller _rateLimitedCaller;
 
     protected readonly Histogram AttemptsHistogram;
+    protected readonly Random Random = new();
+
+    protected readonly Table Table;
 
     protected Job(Table table, RateLimitedCaller rateLimitedCaller, string jobName)
     {
@@ -37,9 +35,9 @@ public abstract class Job
         _inFlightGauge = metricFactory.CreateGauge("in_flight", "amount of requests in flight");
 
         _latencySummary = metricFactory.CreateSummary(
-            name: "latency",
-            help: "Latencies (OK)",
-            labelNames: new[] { "status" },
+            "latency",
+            "Latencies (OK)",
+            new[] { "status" },
             new SummaryConfiguration
             {
                 MaxAge = TimeSpan.FromSeconds(15),
@@ -47,15 +45,15 @@ public abstract class Job
                 {
                     new(0.5, 0.05),
                     new(0.99, 0.005),
-                    new(1, 0.0005),
+                    new(1, 0.0005)
                 }
             }
         );
 
         AttemptsHistogram = metricFactory.CreateHistogram(
-            name: "attempts",
-            help: "summary of amount for request",
-            labelNames: new[] { "status" },
+            "attempts",
+            "summary of amount for request",
+            new[] { "status" },
             new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
     }
 
@@ -90,47 +88,4 @@ public abstract class Job
     }
 
     protected abstract Task PerformQuery();
-}
-
-internal class ReadJob : Job
-{
-    public ReadJob(Table table, RateLimitedCaller rateLimitedCaller) : base(table, rateLimitedCaller, "read")
-    {
-    }
-
-
-    protected override async Task PerformQuery()
-    {
-        var parameters = new Dictionary<string, YdbValue>
-        {
-            { "$id", YdbValue.MakeUint64((ulong)Random.Next(DataGenerator.MaxId)) }
-        };
-
-        await Table.Executor.ExecuteDataQuery(
-            Queries.GetReadQuery(Table.TableName),
-            parameters,
-            AttemptsHistogram
-        );
-        // Console.WriteLine("read");
-    }
-}
-
-internal class WriteJob : Job
-{
-    public WriteJob(Table table, RateLimitedCaller rateLimitedCaller) : base(table, rateLimitedCaller, "write")
-    {
-    }
-
-
-    protected override async Task PerformQuery()
-    {
-        var parameters = DataGenerator.GetUpsertData();
-
-        await Table.Executor.ExecuteDataQuery(
-            Queries.GetWriteQuery(Table.TableName),
-            parameters,
-            AttemptsHistogram
-        );
-        // Console.WriteLine("write");
-    }
 }
