@@ -265,7 +265,7 @@ namespace Ydb.Sdk.Value.Tests
                 (0.0000000000000000000000000001m, 0m),
                 (0.0000000000000000000000000000m, 0m),
                 (-18446744073.709551616m,
-                    -18446744073.709551616m), // covers situation when need to add or substract to high64
+                    -18446744073.709551616m), // covers situation when need to add/substract 1 to/from high64
                 (123.456m, 123.456m),
             };
             foreach (var (value, excepted) in values)

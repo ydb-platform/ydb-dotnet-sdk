@@ -234,6 +234,7 @@
 
             unchecked
             {
+                // make value negative
                 if (value < 0)
                 {
                     low64 = ~low64;
@@ -268,6 +269,8 @@
                     $"Decimal with precision ({valuePrecision}, {valueScale}) can't fit into ({precision}, {scale})");
             }
 
+            // multiply for fill value with trailing zeros
+            // ex: 123.45 -> 123.4500...00
             value *= 1.00000000000000000000000000000m; // 29 zeros, max supported by c# decimal
             value = Math.Round(value, (int)scale);
 
