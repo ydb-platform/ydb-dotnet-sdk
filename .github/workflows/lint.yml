@@ -45,6 +45,7 @@ jobs:
         uses: muno92/resharper_inspectcode@v1
         with:
           solutionPath: ./src/YdbSdk.sln
+          version: 2023.2.1
           include: |
             **.cs
             **.cshtml
