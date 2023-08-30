@@ -1,0 +1,45 @@
+on: [push, pull_request]
+
+jobs:
+  autoformatter:
+    name: autoformat check
+    concurrency:
+      group: lint-autoformat-${{ github.ref }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+      - name: Restore
+        run: dotnet restore ./src/YdbSdk.sln
+      - name: Install ReSharper
+        run: dotnet tool install -g JetBrains.ReSharper.GlobalTools
+      - name: format all files with auto-formatter
+        run: bash ./.github/scripts/format-all-dotnet-code.sh ./src/ YdbSdk.sln
+      - name: Check repository diff
+        run: bash ./.github/scripts/check-work-copy-equals-to-committed.sh "auto-format broken"
+
+  inspection:
+    runs-on: ubuntu-latest
+    name: Inspection
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+      - name: Restore
+        run: dotnet restore ./src/YdbSdk.sln
+      - name: Inspect code
+        uses: muno92/resharper_inspectcode@v1
+        with:
+          solutionPath: ./src/YdbSdk.sln
+          include: |
+            **.cs
+            **.cshtml
+          ignoreIssueType: UnusedField.Compiler,UnusedVariable.Compiler,UnusedAutoPropertyAccessor.Global,UnusedAnonymousMethodSignature,UnusedNullableDirective,UnusedTupleComponentInReturnValue,UnusedLocalFunction.Compiler,UnusedLocalFunctionReturnValue,UnusedMethodReturnValue.Global,UnusedType.Global,UnusedMemberInSuper.Global,UnusedMember.Global,UnusedMemberHierarchy.Global,UnusedLabel,UnusedVariable,UnusedParameter.Global,UnusedParameterInPartialMethod,UnusedPositionalParameterCompiler,UnusedTypeParameter,NotAccessedField.Compiler,NotAccessedVariable.Compiler,NotAccessedField.Global,NotAccessedPositionalProperty.Global,NotAccessedVariable,NotAccessedOutParameterVariable,NotAccessedPrimaryConstructorParameterCompiler
