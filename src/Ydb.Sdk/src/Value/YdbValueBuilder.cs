@@ -11,6 +11,7 @@
                     BoolValue = value
                 });
         }
+
         public static YdbValue MakeInt8(sbyte value)
         {
             return new YdbValue(
@@ -201,12 +202,115 @@
                 });
         }
 
+        private static byte GetDecimalScale(decimal value)
+        {
+            var bits = decimal.GetBits(value);
+            var flags = bits[3];
+            var scale = (byte)((flags >> 16) & 0x7F);
+            return scale;
+        }
+
+        private static uint GetDecimalPrecision(decimal value)
+        {
+            var bits = decimal.GetBits(value);
+            value = new decimal(lo: bits[0], mid: bits[1], hi: bits[2], isNegative: false, scale: 0);
+
+            var precision = 0u;
+            while (value != decimal.Zero)
+            {
+                value = Math.Round(value / 10);
+                precision++;
+            }
+
+            return precision;
+        }
+
+        private static Ydb.Value MakeDecimalValue(decimal value)
+        {
+            var bits = decimal.GetBits(value);
+
+            var low64 = ((ulong)(uint)bits[1] << 32) + (uint)bits[0];
+            var high64 = (ulong)(uint)bits[2];
+
+            unchecked
+            {
+                // make value negative
+                if (value < 0)
+                {
+                    low64 = ~low64;
+                    high64 = ~high64;
+
+                    if (low64 == (ulong)-1L)
+                    {
+                        high64 += 1;
+                    }
+
+                    low64 += 1;
+                }
+            }
+
+            return new Ydb.Value
+            {
+                Low128 = low64,
+                High128 = high64
+            };
+        }
+
+        public static YdbValue MakeDecimalWithPrecision(decimal value, uint? precision = null, uint? scale = null)
+        {
+            var valueScale = GetDecimalScale(value);
+            var valuePrecision = GetDecimalPrecision(value);
+            scale ??= GetDecimalScale(value);
+            precision ??= valuePrecision;
+            
+            if ((int)valuePrecision - valueScale > (int)precision - scale)
+            {
+                throw new InvalidCastException(
+                    $"Decimal with precision ({valuePrecision}, {valueScale}) can't fit into ({precision}, {scale})");
+            }
+
+            // multiply for fill value with trailing zeros
+            // ex: 123.45 -> 123.4500...00
+            value *= 1.00000000000000000000000000000m; // 29 zeros, max supported by c# decimal
+            value = Math.Round(value, (int)scale);
+
+            var type = new Type
+            {
+                DecimalType = new DecimalType { Scale = (uint)scale, Precision = (uint)precision }
+            };
+
+            var ydbValue = MakeDecimalValue(value);
+
+            return new YdbValue(type, ydbValue);
+        }
+
+        public static YdbValue MakeDecimal(decimal value)
+        {
+            return MakeDecimalWithPrecision(value, 22, 9);
+        }
+
         // TODO: EmptyOptional with complex types
         public static YdbValue MakeEmptyOptional(YdbTypeId typeId)
         {
-            return new YdbValue(
-                new Ydb.Type { OptionalType = new OptionalType { Item = MakePrimitiveType(typeId) } },
-                new Ydb.Value { NullFlagValue = new Google.Protobuf.WellKnownTypes.NullValue() });
+            if (IsPrimitiveTypeId(typeId))
+            {
+                return new YdbValue(
+                    new Type { OptionalType = new OptionalType { Item = MakePrimitiveType(typeId) } },
+                    new Ydb.Value { NullFlagValue = new Google.Protobuf.WellKnownTypes.NullValue() });
+            }
+
+            if (typeId == YdbTypeId.DecimalType)
+            {
+                return new YdbValue(
+                    new Type
+                    {
+                        OptionalType = new OptionalType { Item = new Type { DecimalType = new DecimalType() } }
+                    },
+                    new Ydb.Value { NullFlagValue = new Google.Protobuf.WellKnownTypes.NullValue() }
+                );
+            }
+
+            throw new ArgumentException($"This type is not supported: {typeId}", nameof(typeId));
         }
 
         public static YdbValue MakeOptional(YdbValue value)
@@ -266,7 +370,8 @@
                 StructType = new StructType()
             };
 
-            type.StructType.Members.Add(members.Select(m => new StructMember { Name = m.Key, Type = m.Value._protoType }));
+            type.StructType.Members.Add(
+                members.Select(m => new StructMember { Name = m.Key, Type = m.Value._protoType }));
 
             var value = new Ydb.Value();
             value.Items.Add(members.Select(m => m.Value._protoValue));
@@ -287,9 +392,14 @@
             return new Ydb.Type { TypeId = (Type.Types.PrimitiveTypeId)typeId };
         }
 
+        private static bool IsPrimitiveTypeId(YdbTypeId typeId)
+        {
+            return (uint)typeId < YdbTypeIdRanges.ComplexTypesFirst;
+        }
+
         private static void EnsurePrimitiveTypeId(YdbTypeId typeId)
         {
-            if ((uint)typeId >= YdbTypeIdRanges.ComplexTypesFirst)
+            if (!IsPrimitiveTypeId(typeId))
             {
                 throw new ArgumentException($"Complex types aren't supported in current method: {typeId}", "typeId");
             }
@@ -441,6 +551,11 @@
             {
                 return MakeOptional(MakeJsonDocument(value));
             }
+        }
+
+        public static YdbValue MakeOptionalDecimal(decimal? value)
+        {
+            return MakeOptionalOf(value, YdbTypeId.DecimalType, MakeDecimal);
         }
     }
 }

@@ -257,6 +257,63 @@ namespace Ydb.Sdk.Value.Tests
         }
 
         [Fact]
+        public void DecimalType()
+        {
+            (decimal, decimal)[] values =
+            {
+                (-0.1m, -0.1m),
+                (0.0000000000000000000000000001m, 0m),
+                (0.0000000000000000000000000000m, 0m),
+                (-18446744073.709551616m,
+                    -18446744073.709551616m), // covers situation when need to add/substract 1 to/from high64
+                (123.456m, 123.456m),
+            };
+            foreach (var (value, excepted) in values)
+            {
+                var ydbval = YdbValue.MakeDecimal(value);
+                var result = ydbval.GetDecimal();
+                Assert.Equal(excepted, result);
+
+                Assert.Equal(excepted, YdbValue.MakeDecimal(value).GetDecimal());
+                Assert.Equal(excepted, YdbValue.MakeOptionalDecimal(value).GetOptionalDecimal());
+
+                Assert.Equal(excepted, (decimal)(YdbValue)value);
+                Assert.Equal(excepted, (decimal?)(YdbValue)(decimal?)value);
+            }
+
+            Assert.Null(YdbValue.MakeOptionalDecimal(null).GetOptionalDecimal());
+            Assert.Null((decimal?)(YdbValue)(decimal?)null);
+
+            Assert.Equal("Decimal with precision (30, 0) can't fit into (22, 9)",
+                Assert.Throws<InvalidCastException>(() => YdbValue.MakeDecimal(decimal.MaxValue)).Message);
+        }
+
+        [Fact]
+        public void DecimalTypeWithPrecision()
+        {
+            Assert.Equal(12345m, YdbValue.MakeDecimalWithPrecision(12345m).GetDecimal());
+            Assert.Equal(12345m, YdbValue.MakeDecimalWithPrecision(12345m, precision: 5, scale: 0).GetDecimal());
+            Assert.Equal(12345m, YdbValue.MakeDecimalWithPrecision(12345m, precision: 7, scale: 2).GetDecimal());
+            Assert.Equal(123.46m, YdbValue.MakeDecimalWithPrecision(123.456m, precision: 5, scale: 2).GetDecimal());
+            Assert.Equal(-18446744073.709551616m,
+                YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m).GetDecimal());
+            Assert.Equal(-18446744073.709551616m,
+                YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m, precision: 21, scale: 9).GetDecimal());
+            Assert.Equal(-18446744074m,
+                YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m, precision: 12, scale: 0).GetDecimal());
+            Assert.Equal(-184467440730709551616m,
+                YdbValue.MakeDecimalWithPrecision(-184467440730709551616m, precision: 21, scale: 0).GetDecimal());
+
+
+            Assert.Equal("Decimal with precision (5, 0) can't fit into (4, 0)",
+                Assert.Throws<InvalidCastException>(() => YdbValue.MakeDecimalWithPrecision(12345m, precision: 4))
+                    .Message);
+            Assert.Equal("Decimal with precision (5, 0) can't fit into (5, 2)",
+                Assert.Throws<InvalidCastException>(() => YdbValue.MakeDecimalWithPrecision(12345m, precision: 5, 2))
+                    .Message);
+        }
+
+        [Fact]
         public void ListType()
         {
             var value = YdbValue.MakeTuple(new YdbValue[] {

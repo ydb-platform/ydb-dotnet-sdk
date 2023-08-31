@@ -36,37 +36,20 @@ namespace Ydb.Sdk.Value.Tests
         [Fact]
         public async Task Select1()
         {
-            var query = @"SELECT 1;";
-
-            var response = await _tableClient.SessionExec(async session =>
-                await session.ExecuteDataQuery(
-                    query: query,
-                    txControl: TxControl.BeginSerializableRW().Commit()
-                )
-            );
-            Assert.NotNull(response);
-            Assert.True(response.Status.IsSuccess);
-            var queryResponse = (ExecuteDataQueryResponse)response;
-            var row = queryResponse.Result.ResultSets[0].Rows[0];
+            var response = await Utils.ExecuteDataQuery(_tableClient, "SELECT 1");
+            var row = response.Result.ResultSets[0].Rows[0];
             Assert.Equal(1, row[0].GetInt32());
         }
 
         private async Task<YdbValue> SelectPassed(YdbValue value)
         {
-            var response = await _tableClient.SessionExec(async session =>
-                await session.ExecuteDataQuery(
-                    query: "SELECT $value;",
-                    txControl: TxControl.BeginSerializableRW().Commit(),
-                    parameters: new Dictionary<string, YdbValue> { { "$value", value } }
-                )
-            );
-            Assert.NotNull(response);
-            response.Status.EnsureSuccess();
-            Assert.True(response.Status.IsSuccess);
-            var queryResponse = (ExecuteDataQueryResponse)response;
-            Assert.True(queryResponse.Result.ResultSets.Count > 0);
-            Assert.True(queryResponse.Result.ResultSets[0].Rows.Count > 0);
-            var row = queryResponse.Result.ResultSets[0].Rows[0];
+            var response = await Utils.ExecuteDataQuery(
+                _tableClient,
+                "SELECT $value;",
+                new Dictionary<string, YdbValue> { { "$value", value } });
+            Assert.True(response.Result.ResultSets.Count > 0);
+            Assert.True(response.Result.ResultSets[0].Rows.Count > 0);
+            var row = response.Result.ResultSets[0].Rows[0];
             return row[0];
         }
 
@@ -258,6 +241,99 @@ namespace Ydb.Sdk.Value.Tests
             Assert.Null((await SelectPassed(YdbValue.MakeOptionalYson(null))).GetOptionalYson());
             Assert.Null((await SelectPassed(YdbValue.MakeOptionalJson(null))).GetOptionalJson());
             Assert.Null((await SelectPassed(YdbValue.MakeOptionalJsonDocument(null))).GetOptionalJsonDocument());
+        }
+
+        [Fact]
+        public async Task DecimalTypeSelectPassed()
+        {
+            var testData = new[] { 12345m, 12.345m, 12.34m, 12m, -18446744073.709551616m };
+
+            foreach (var expected in testData)
+            {
+                var response = await SelectPassed(YdbValue.MakeDecimal(expected));
+                var actual = response.GetDecimal();
+                Assert.Equal(expected, actual);
+            }
+        }
+
+        [Fact]
+        public async Task DecimalTypeSelectPassedWithPrecision()
+        {
+            var testData = new[]
+            {
+                YdbValue.MakeDecimalWithPrecision(12345m),
+                YdbValue.MakeDecimalWithPrecision(12345m, precision: 5, scale: 0),
+                YdbValue.MakeDecimalWithPrecision(12345m, precision: 7, scale: 2),
+                YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m),
+                YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m, precision: 21, scale: 9),
+                YdbValue.MakeDecimalWithPrecision(-184467440730709551616m, precision: 21, scale: 0),
+                YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m, precision: 12, scale: 0),
+            };
+            foreach (var expected in testData)
+            {
+                var response = await SelectPassed(expected);
+                var actual = response.GetDecimal();
+                Assert.Equal(expected.GetDecimal(), actual);
+            }
+        }
+
+        private async Task PrepareDecimalTable()
+        {
+            const string query = @"
+CREATE TABLE decimal_test
+(
+    key Uint64,
+    value Decimal(22,9),
+    PRIMARY KEY (key)
+);
+";
+            await Utils.ExecuteSchemeQuery(_tableClient, query);
+        }
+
+        private async Task UpsertAndCheckDecimal(ulong key, decimal value)
+        {
+            const string query = @"
+UPSERT INTO decimal_test (key, value) 
+VALUES ($key, $value);
+
+SELECT value FROM decimal_test WHERE key = $key;
+";
+
+            var parameters = new Dictionary<string, YdbValue>
+            {
+                { "$key", (YdbValue)key },
+                { "$value", (YdbValue)value }
+            };
+
+            var response = await Utils.ExecuteDataQuery(_tableClient, query, parameters);
+
+            var resultSet = response.Result.ResultSets[0];
+
+            var ydbValue = resultSet.Rows[0][0];
+            var result = ydbValue.GetOptionalDecimal();
+            Assert.Equal(value, result);
+        }
+
+        [Fact]
+        public async Task DecimalTypeRw()
+        {
+            await PrepareDecimalTable();
+
+            var testData = new (ulong, decimal)[]
+            {
+                (1, 1m),
+                (2, 123.456m),
+                (3, -1m),
+                (4, -0.1m),
+                (5, 0.000000000m),
+                (6, 0.000000001m),
+                (7, -18446744073.709551616m)
+            };
+
+            foreach (var (key, value) in testData)
+            {
+                await UpsertAndCheckDecimal(key, value);
+            }
         }
 
         [Fact]

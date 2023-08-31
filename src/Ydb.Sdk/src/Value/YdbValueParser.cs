@@ -127,6 +127,36 @@
             return _protoValue.TextValue;
         }
 
+        public decimal GetDecimal()
+        {
+            EnsureType(Type.TypeOneofCase.DecimalType);
+            var low64 = _protoValue.Low128;
+            var high64 = _protoValue.High128;
+
+            var scale = _protoType.DecimalType.Scale;
+
+            var isNegative = false;
+
+            unchecked
+            {
+                if (high64 >> 63 == 1) // if negative
+                {
+                    isNegative = true;
+                    if (low64 == 0)
+                    {
+                        high64 -= 1;
+                    }
+
+                    low64 -= 1;
+
+                    low64 = ~low64;
+                    high64 = ~high64;
+                }
+            }
+
+            return new decimal((int)low64, (int)(low64 >> 32), (int)high64, isNegative, (byte)scale);
+        }
+
         public bool? GetOptionalBool()
         {
             return GetOptional()?.GetBool();
@@ -226,6 +256,11 @@
         public string? GetOptionalJsonDocument()
         {
             return GetOptional()?.GetJsonDocument();
+        }
+
+        public decimal? GetOptionalDecimal()
+        {
+            return GetOptional()?.GetDecimal();
         }
 
         public YdbValue? GetOptional()
