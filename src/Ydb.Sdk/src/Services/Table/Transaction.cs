@@ -1,6 +1,6 @@
 ﻿using Ydb.Table;
 
-namespace Ydb.Sdk.Table;
+namespace Ydb.Sdk.Services.Table;
 
 public class Transaction
 {

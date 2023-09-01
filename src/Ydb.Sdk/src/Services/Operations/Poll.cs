@@ -1,6 +1,6 @@
 ﻿using Ydb.Sdk.Client;
 
-namespace Ydb.Sdk.Operations;
+namespace Ydb.Sdk.Services.Operations;
 
 public partial class OperationsClient
 {

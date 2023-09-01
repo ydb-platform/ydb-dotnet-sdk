@@ -2,7 +2,7 @@
 using Ydb.Scheme.V1;
 using Ydb.Sdk.Client;
 
-namespace Ydb.Sdk.Scheme;
+namespace Ydb.Sdk.Services.Scheme;
 
 public class ListDirectorySettings : OperationRequestSettings
 {

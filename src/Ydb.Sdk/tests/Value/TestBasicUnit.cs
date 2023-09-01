@@ -7,6 +7,7 @@ namespace Ydb.Sdk.Value.Tests;
 [Trait("Category", "Unit")]
 public class TestBasicUnit
 {
+    // ReSharper disable once NotAccessedField.Local
     private readonly ITestOutputHelper _output;
 
     public TestBasicUnit(ITestOutputHelper output)

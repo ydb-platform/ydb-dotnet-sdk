@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Logging;
 using ClientBase = Ydb.Sdk.Client.ClientBase;
 
-namespace Ydb.Sdk.Table;
+namespace Ydb.Sdk.Services.Table;
 
 public partial class Session : ClientBase, IDisposable
 {

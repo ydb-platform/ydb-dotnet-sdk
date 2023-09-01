@@ -1,10 +1,10 @@
 ﻿using Google.Protobuf.WellKnownTypes;
 using Ydb.Sdk.Client;
-using Ydb.Sdk.Operations;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Table;
 using Ydb.Table.V1;
 
-namespace Ydb.Sdk.Table;
+namespace Ydb.Sdk.Services.Table;
 
 public class IndexBuildMetadata
 {

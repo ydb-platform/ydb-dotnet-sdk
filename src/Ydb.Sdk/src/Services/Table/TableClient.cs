@@ -1,6 +1,6 @@
 ﻿using Ydb.Sdk.Client;
 
-namespace Ydb.Sdk.Table;
+namespace Ydb.Sdk.Services.Table;
 
 public class TableClientConfig
 {

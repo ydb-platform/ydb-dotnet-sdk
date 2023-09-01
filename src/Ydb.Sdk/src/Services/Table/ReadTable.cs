@@ -2,7 +2,7 @@
 using Ydb.Table;
 using Ydb.Table.V1;
 
-namespace Ydb.Sdk.Table;
+namespace Ydb.Sdk.Services.Table;
 
 public class ReadTableSettings : RequestSettings
 {
