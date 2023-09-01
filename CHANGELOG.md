@@ -1,3 +1,5 @@
+## v0.1.0
+- Add support of decimal type
 ## v0.0.9
 - Remove support for .NET Core 3.1
 - Add support for .NET 7.0
