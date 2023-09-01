@@ -1,95 +1,97 @@
-﻿namespace Ydb.Sdk.Table
+﻿using Ydb.Table;
+
+namespace Ydb.Sdk.Table;
+
+public class Transaction
 {
-    public class Transaction
+    internal Transaction(string txId)
     {
-        internal Transaction(string txId)
+        TxId = txId;
+    }
+
+    public string TxId { get; }
+
+    internal static Transaction? FromProto(TransactionMeta proto)
+    {
+        if (proto.Id.Length == 0)
         {
-            TxId = txId;
+            return null;
         }
 
-        public string TxId { get; }
+        return new Transaction(
+            txId: proto.Id);
+    }
+}
 
-        internal static Transaction? FromProto(Ydb.Table.TransactionMeta proto)
+public enum TransactionState
+{
+    Unknown = 0,
+    Active = 1,
+    Void = 2
+}
+
+public class TxControl
+{
+    private readonly TransactionControl _proto;
+
+    private TxControl(TransactionControl proto)
+    {
+        _proto = proto;
+    }
+
+    public static TxControl BeginSerializableRW()
+    {
+        return new TxControl(new TransactionControl
         {
-            if (proto.Id.Length == 0)
+            BeginTx = new TransactionSettings
             {
-                return null;
+                SerializableReadWrite = new SerializableModeSettings()
             }
-
-            return new Transaction(
-                txId: proto.Id);
-        }
+        });
     }
 
-    public enum TransactionState
+    public static TxControl BeginOnlineRO(bool allowInconsistentReads = false)
     {
-        Unknown = 0,
-        Active = 1,
-        Void = 2,
+        return new TxControl(new TransactionControl
+        {
+            BeginTx = new TransactionSettings
+            {
+                OnlineReadOnly = new OnlineModeSettings
+                {
+                    AllowInconsistentReads = allowInconsistentReads
+                }
+            }
+        });
+        ;
     }
 
-    public class TxControl
+    public static TxControl BeginStaleRO()
     {
-        private Ydb.Table.TransactionControl _proto;
-
-        private TxControl(Ydb.Table.TransactionControl proto)
+        return new TxControl(new TransactionControl
         {
-            _proto = proto;
-        }
-
-        public static TxControl BeginSerializableRW()
-        {
-            return new TxControl(new Ydb.Table.TransactionControl
+            BeginTx = new TransactionSettings
             {
-                BeginTx = new Ydb.Table.TransactionSettings
-                {
-                    SerializableReadWrite = new Ydb.Table.SerializableModeSettings()
-                }
-            });
-        }
+                StaleReadOnly = new StaleModeSettings()
+            }
+        });
+    }
 
-        public static TxControl BeginOnlineRO(bool allowInconsistentReads = false)
+    public static TxControl Tx(Transaction tx)
+    {
+        return new TxControl(new TransactionControl
         {
-            return new TxControl(new Ydb.Table.TransactionControl
-            {
-                BeginTx = new Ydb.Table.TransactionSettings
-                {
-                    OnlineReadOnly = new Ydb.Table.OnlineModeSettings
-                    {
-                        AllowInconsistentReads = allowInconsistentReads
-                    }
-                }
-            }); ;
-        }
+            TxId = tx.TxId
+        });
+    }
 
-        public static TxControl BeginStaleRO()
-        {
-            return new TxControl(new Ydb.Table.TransactionControl
-            {
-                BeginTx = new Ydb.Table.TransactionSettings
-                {
-                    StaleReadOnly = new Ydb.Table.StaleModeSettings()
-                }
-            });
-        }
+    public TxControl Commit()
+    {
+        _proto.CommitTx = true;
+        return this;
+    }
 
-        public static TxControl Tx(Transaction tx)
-        {
-            return new TxControl(new Ydb.Table.TransactionControl
-            {
-                TxId = tx.TxId
-            });
-        }
-
-        public TxControl Commit()
-        {
-            _proto.CommitTx = true;
-            return this;
-        }
-
-        internal Ydb.Table.TransactionControl ToProto()
-        {
-            return _proto.Clone();
-        }
+    internal TransactionControl ToProto()
+    {
+        return _proto.Clone();
     }
 }

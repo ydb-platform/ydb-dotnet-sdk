@@ -1,17 +1,16 @@
-﻿namespace Ydb.Sdk.Auth
+﻿namespace Ydb.Sdk.Auth;
+
+public class TokenProvider : ICredentialsProvider
 {
-    public class TokenProvider : ICredentialsProvider
+    private readonly string _token;
+
+    public TokenProvider(string token)
     {
-        private string _token;
+        _token = token;
+    }
 
-        public TokenProvider(string token)
-        {
-            _token = token;
-        }
-
-        public string? GetAuthInfo()
-        {
-            return _token;
-        }
+    public string? GetAuthInfo()
+    {
+        return _token;
     }
 }

@@ -1,11 +1,11 @@
-﻿namespace Ydb.Sdk.Operations
+﻿namespace Ydb.Sdk.Operations;
+
+public partial class OperationsClient
 {
-    public partial class OperationsClient
+    private readonly Driver _driver;
+
+    public OperationsClient(Driver driver)
     {
-        private Driver _driver;
-        public OperationsClient(Driver driver)
-        {
-            _driver = driver;
-        }
+        _driver = driver;
     }
 }

@@ -3,3 +3,7 @@
 bin/
 obj/
 launchSettings.json
+
+### JetBrains Rider
+.idea
+*.sln.DotSettings.user

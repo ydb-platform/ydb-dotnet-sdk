@@ -25,7 +25,7 @@ jobs:
       - name: Install ReSharper
         run: dotnet tool install -g JetBrains.ReSharper.GlobalTools
       - name: format all files with auto-formatter
-        run: bash ./.github/scripts/format-all-dotnet-code.sh ./src/ YdbSdk.sln
+        run: bash ./.github/scripts/format-all-dotnet-code.sh ./src/ YdbSdk.sln "Custom Cleanup"
       - name: Check repository diff
         run: bash ./.github/scripts/check-work-copy-equals-to-committed.sh "auto-format broken"
 

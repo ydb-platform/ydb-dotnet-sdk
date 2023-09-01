@@ -1,57 +1,56 @@
 ﻿using Ydb.Sdk.Client;
 
-namespace Ydb.Sdk.Table
-{
-    public class TableClientConfig
-    {
-        public SessionPoolConfig SessionPoolConfig { get; }
+namespace Ydb.Sdk.Table;
 
-        public TableClientConfig(
-            SessionPoolConfig? sessionPoolConfig = null)
-        {
-            SessionPoolConfig = sessionPoolConfig ?? new SessionPoolConfig();
-        }
+public class TableClientConfig
+{
+    public SessionPoolConfig SessionPoolConfig { get; }
+
+    public TableClientConfig(
+        SessionPoolConfig? sessionPoolConfig = null)
+    {
+        SessionPoolConfig = sessionPoolConfig ?? new SessionPoolConfig();
+    }
+}
+
+public partial class TableClient : ClientBase, IDisposable
+{
+    private readonly ISessionPool _sessionPool;
+    private bool _disposed;
+
+    public TableClient(Driver driver, TableClientConfig? config = null)
+        : base(driver)
+    {
+        config ??= new TableClientConfig();
+
+        _sessionPool = new SessionPool(
+            driver: driver,
+            config: config.SessionPoolConfig);
     }
 
-    public partial class TableClient : ClientBase, IDisposable
+    internal TableClient(Driver driver, ISessionPool sessionPool)
+        : base(driver)
     {
-        private ISessionPool _sessionPool;
-        private bool _disposed = false;
+        _sessionPool = sessionPool;
+    }
 
-        public TableClient(Driver driver, TableClientConfig? config = null)
-            : base(driver)
+    public void Dispose()
+    {
+        Dispose(true);
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (_disposed)
         {
-            config ??= new TableClientConfig();
-
-            _sessionPool = new SessionPool(
-                driver: driver,
-                config: config.SessionPoolConfig);
+            return;
         }
 
-        internal TableClient(Driver driver, ISessionPool sessionPool)
-            : base(driver)
+        if (disposing)
         {
-            _sessionPool = sessionPool;
+            _sessionPool.Dispose();
         }
 
-        public void Dispose()
-        {
-            Dispose(true);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                _sessionPool.Dispose();
-            }
-
-            _disposed = true;
-        }
+        _disposed = true;
     }
 }

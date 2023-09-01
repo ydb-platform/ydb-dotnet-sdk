@@ -1,7 +1,6 @@
-﻿namespace Ydb.Sdk.Auth
+﻿namespace Ydb.Sdk.Auth;
+
+public interface ICredentialsProvider
 {
-    public interface ICredentialsProvider
-    {
-        string? GetAuthInfo();
-    }
+    string? GetAuthInfo();
 }
