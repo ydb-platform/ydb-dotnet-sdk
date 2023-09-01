@@ -9,7 +9,7 @@ public interface IResponse
 
 public class ResponseBase : IResponse
 {
-    public Status Status { get; } = new(StatusCode.Unspecified);
+    public Status Status { get; }
 
     protected ResponseBase(Status status)
     {
@@ -176,11 +176,13 @@ public abstract class OperationResponse<TResult, TMetadata> : IClientOperation
 
         if (operation.HasResult)
         {
+            // ReSharper disable once VirtualMemberCallInConstructor
             _result = UnpackResult(operation);
         }
 
         if (operation.HasMetadata)
         {
+            // ReSharper disable once VirtualMemberCallInConstructor
             _metadata = UnpackMetadata(operation);
         }
     }

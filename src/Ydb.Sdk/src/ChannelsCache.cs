@@ -162,36 +162,38 @@ internal class ChannelsCache : IDisposable
 
     public (string, GrpcChannel) GetChannel(string? preferredEndpoint)
     {
-        var endpointsData = _endpointsData;
-
-        string? endpoint;
-        GrpcChannel? channel;
-
-        if (preferredEndpoint != null)
+        lock (_endpointsData)
         {
-            if (endpointsData.Active.Channels.TryGetValue(preferredEndpoint, out channel))
-            {
-                return (preferredEndpoint, channel);
-            }
-        }
+            var endpointsData = _endpointsData;
 
-        if (TryGetEndpoint(endpointsData.Active, out endpoint))
-        {
-            if (endpointsData.Active.Channels.TryGetValue(endpoint, out channel))
-            {
-                return (endpoint, channel);
-            }
-        }
+            GrpcChannel? channel;
 
-        if (TryGetEndpoint(endpointsData.Passive, out endpoint))
-        {
-            if (endpointsData.Passive.Channels.TryGetValue(endpoint, out channel))
+            if (preferredEndpoint != null)
             {
-                return (endpoint, channel);
+                if (endpointsData.Active.Channels.TryGetValue(preferredEndpoint, out channel))
+                {
+                    return (preferredEndpoint, channel);
+                }
             }
-        }
 
-        throw new NoEndpointsException();
+            if (TryGetEndpoint(endpointsData.Active, out var endpoint))
+            {
+                if (endpointsData.Active.Channels.TryGetValue(endpoint, out channel))
+                {
+                    return (endpoint, channel);
+                }
+            }
+
+            if (TryGetEndpoint(endpointsData.Passive, out endpoint))
+            {
+                if (endpointsData.Passive.Channels.TryGetValue(endpoint, out channel))
+                {
+                    return (endpoint, channel);
+                }
+            }
+
+            throw new NoEndpointsException();
+        }
     }
 
     internal static GrpcChannel CreateChannel(
@@ -211,7 +213,7 @@ internal class ChannelsCache : IDisposable
             var customCertificate = DotNetUtilities.FromX509Certificate(config.CustomServerCertificate);
 
             httpHandler.SslOptions.RemoteCertificateValidationCallback =
-                (sender, certificate, chain, sslPolicyErrors) =>
+                (_, certificate, _, sslPolicyErrors) =>
                 {
                     if (sslPolicyErrors == SslPolicyErrors.None)
                     {

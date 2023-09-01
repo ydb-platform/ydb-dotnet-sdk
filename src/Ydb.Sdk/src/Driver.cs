@@ -146,7 +146,7 @@ public class Driver : IDisposable, IAsyncDisposable
 
         return new StreamIterator<TResponse>(
             call,
-            e => { PessimizeEndpoint(endpoint); });
+            _ => { PessimizeEndpoint(endpoint); });
     }
 
     private async Task<Status> DiscoverEndpoints()

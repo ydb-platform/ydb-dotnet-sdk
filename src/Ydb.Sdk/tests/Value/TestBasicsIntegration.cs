@@ -8,6 +8,7 @@ namespace Ydb.Sdk.Value.Tests;
 [Trait("Category", "Integration")]
 public class TestBasicIntegration : IDisposable
 {
+    // ReSharper disable once NotAccessedField.Local
     private readonly ITestOutputHelper _output;
 
     private readonly Driver _driver;
