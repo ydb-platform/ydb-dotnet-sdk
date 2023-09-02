@@ -49,4 +49,32 @@ jobs:
           include: |
             **.cs
             **.cshtml
-          ignoreIssueType: UnusedField.Compiler,UnusedVariable.Compiler,UnusedAutoPropertyAccessor.Global,UnusedAnonymousMethodSignature,UnusedNullableDirective,UnusedTupleComponentInReturnValue,UnusedLocalFunction.Compiler,UnusedLocalFunctionReturnValue,UnusedMethodReturnValue.Global,UnusedType.Global,UnusedMemberInSuper.Global,UnusedMember.Global,UnusedMemberHierarchy.Global,UnusedLabel,UnusedVariable,UnusedParameter.Global,UnusedParameterInPartialMethod,UnusedPositionalParameterCompiler,UnusedTypeParameter,NotAccessedField.Compiler,NotAccessedVariable.Compiler,NotAccessedField.Global,NotAccessedPositionalProperty.Global,NotAccessedVariable,NotAccessedOutParameterVariable,NotAccessedPrimaryConstructorParameterCompiler,InconsistentNaming,CollectionNeverUpdated.Global
+          ignoreIssueType: | 
+            UnusedField.Compiler,
+            UnusedVariable.Compiler,
+            UnusedAutoPropertyAccessor.Global,
+            UnusedAnonymousMethodSignature,
+            UnusedNullableDirective,
+            UnusedTupleComponentInReturnValue,
+            UnusedLocalFunction.Compiler,
+            UnusedLocalFunctionReturnValue,
+            UnusedMethodReturnValue.Global,
+            UnusedType.Global,
+            UnusedMemberInSuper.Global,
+            UnusedMember.Global,
+            UnusedMemberHierarchy.Global,
+            UnusedLabel,
+            UnusedVariable,
+            UnusedParameter.Global,
+            UnusedParameterInPartialMethod,
+            UnusedPositionalParameterCompiler,
+            UnusedTypeParameter,
+            NotAccessedField.Compiler,
+            NotAccessedVariable.Compiler,
+            NotAccessedField.Global,
+            NotAccessedPositionalProperty.Global,
+            NotAccessedVariable,
+            NotAccessedOutParameterVariable,
+            NotAccessedPrimaryConstructorParameterCompiler,
+            InconsistentNaming,
+            CollectionNeverUpdated.Global

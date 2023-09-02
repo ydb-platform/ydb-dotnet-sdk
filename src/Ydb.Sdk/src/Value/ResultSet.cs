@@ -5,7 +5,6 @@ namespace Ydb.Sdk.Value;
 
 public class ResultSet
 {
-    private readonly IReadOnlyDictionary<string, int> _columnsMap;
     public IReadOnlyList<Column> Columns { get; }
     public IReadOnlyList<Row> Rows { get; }
     public bool Truncated { get; }
@@ -14,11 +13,11 @@ public class ResultSet
     {
         Columns = resultSetProto.Columns.Select(c => new Column(c.Type, c.Name)).ToList();
 
-        _columnsMap = Columns
+        var columnsMap = Columns
             .Select((c, idx) => (c.Name, Index: idx))
             .ToDictionary(t => t.Name, t => t.Index);
 
-        Rows = new RowsList(resultSetProto.Rows, Columns, _columnsMap);
+        Rows = new RowsList(resultSetProto.Rows, Columns, columnsMap);
         Truncated = resultSetProto.Truncated;
     }
 
@@ -95,7 +94,7 @@ public class ResultSet
 
             public Row Current => CurrentRow;
 
-            object? IEnumerator.Current => CurrentRow;
+            object IEnumerator.Current => CurrentRow;
 
             public void Dispose()
             {
