@@ -214,7 +214,7 @@ public class Driver : IDisposable, IAsyncDisposable
             try
             {
                 await Task.Delay(_config.EndpointDiscoveryInterval);
-                var status = await DiscoverEndpoints();
+                var _ = await DiscoverEndpoints();
             }
             catch (RpcException e)
             {

@@ -73,7 +73,7 @@ public sealed partial class YdbValue
 
     public override string ToString()
     {
-        return _protoValue.ToString();
+        return _protoValue.ToString() ?? "";
     }
 
     private static YdbTypeId GetYdbTypeId(Type protoType)

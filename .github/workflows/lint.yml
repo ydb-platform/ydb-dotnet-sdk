@@ -64,7 +64,6 @@ jobs:
             UnusedMember.Global,
             UnusedMemberHierarchy.Global,
             UnusedLabel,
-            UnusedVariable,
             UnusedParameter.Global,
             UnusedParameterInPartialMethod,
             UnusedPositionalParameterCompiler,
