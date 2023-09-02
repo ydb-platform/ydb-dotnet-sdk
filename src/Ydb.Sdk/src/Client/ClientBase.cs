@@ -13,14 +13,14 @@ public class ClientBase
         Driver = driver;
     }
 
-    protected internal static Status UnpackOperation(Ydb.Operations.Operation operationProto)
+    protected internal static Status UnpackOperation(Operations.Operation operationProto)
     {
         var operation = ClientOperation.FromProto(operationProto);
         operation.EnsureReady();
         return operation.Status;
     }
 
-    protected internal static Status UnpackOperation<TResult>(Ydb.Operations.Operation operationProto,
+    protected internal static Status UnpackOperation<TResult>(Operations.Operation operationProto,
         out TResult? result)
         where TResult : class, IMessage, new()
     {

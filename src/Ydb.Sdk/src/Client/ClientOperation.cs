@@ -29,7 +29,7 @@ public class ClientOperation : IClientOperation
         Status = status;
     }
 
-    private ClientOperation(Ydb.Operations.Operation operation)
+    private ClientOperation(Operations.Operation operation)
     {
         Id = operation.Id;
         IsReady = operation.Ready;
@@ -83,7 +83,7 @@ public class ClientOperation : IClientOperation
         return _result.Unpack<TResult>();
     }
 
-    internal static ClientOperation FromProto(Ydb.Operations.Operation operationProto)
+    internal static ClientOperation FromProto(Operations.Operation operationProto)
     {
         return new ClientOperation(operationProto);
     }

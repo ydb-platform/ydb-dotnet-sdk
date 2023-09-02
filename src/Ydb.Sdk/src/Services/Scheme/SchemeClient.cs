@@ -100,7 +100,7 @@ public class ListDirectoryResponse : ResponseWithResultBase<ListDirectoryRespons
         }
 
         public SchemeEntry Self { get; }
-        public IReadOnlyList<SchemeEntry> Children { get; } = Array.Empty<SchemeEntry>();
+        public IReadOnlyList<SchemeEntry> Children { get; }
 
         internal static ResultData FromProto(ListDirectoryResult resultProto)
         {

@@ -20,6 +20,7 @@ public class ExecuteDataQueryResponse : ResponseWithResultBase<ExecuteDataQueryR
         : base(status, result)
     {
         Tx = tx;
+        TxState = txState;
     }
 
     public TransactionState TxState { get; }

@@ -207,8 +207,6 @@ public class Status
             sb.Append(Issue.IssuesToString(Issues));
         }
 
-        ;
-
         return sb.ToString();
     }
 

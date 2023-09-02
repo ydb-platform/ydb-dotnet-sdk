@@ -62,7 +62,6 @@ public class TxControl
                 }
             }
         });
-        ;
     }
 
     public static TxControl BeginStaleRO()

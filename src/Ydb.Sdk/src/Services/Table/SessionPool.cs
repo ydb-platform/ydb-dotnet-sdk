@@ -35,10 +35,7 @@ internal class GetSessionResponse : ResponseWithResultBase<Session>, IDisposable
     {
         if (disposing)
         {
-            if (Result != null)
-            {
-                Result.Dispose();
-            }
+            Result.Dispose();
         }
     }
 }
