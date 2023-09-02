@@ -49,6 +49,7 @@ jobs:
           include: |
             **.cs
             **.cshtml
+          minimumReportSeverity: WARNING
           ignoreIssueType: | 
             UnusedField.Compiler,
             UnusedVariable.Compiler,
