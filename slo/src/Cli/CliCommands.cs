@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Text.RegularExpressions;
 using Prometheus;
 using slo.Jobs;
 using Ydb.Sdk;
@@ -24,8 +22,22 @@ public static class CliCommands
         var executor = new Executor(tableClient);
 
         var table = new Table(createConfig.TableName, executor);
-        await table.Init(createConfig.InitialDataCount, createConfig.PartitionSize, createConfig.MinPartitionsCount,
-            createConfig.MaxPartitionsCount);
+        const int maxCreateAttempts = 10;
+        for (var i = 0; i < maxCreateAttempts; i++)
+        {
+            try
+            {
+                await table.Init(createConfig.InitialDataCount, createConfig.PartitionSize,
+                    createConfig.MinPartitionsCount,
+                    createConfig.MaxPartitionsCount);
+                break;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                Thread.Sleep(millisecondsTimeout: 1000);
+            }
+        }
     }
 
     internal static async Task CleanUp(CleanUpConfig cleanUpConfig)
