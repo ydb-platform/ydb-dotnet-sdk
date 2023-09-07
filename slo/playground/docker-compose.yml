@@ -1,0 +1,92 @@
+version: '2.1'
+
+networks:
+  monitor-net:
+    driver: bridge
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.44.0
+    container_name: prometheus
+    user: "$UID:$GID"
+    volumes:
+      - ./configs/prometheus:/etc/prometheus
+      - ../data/prometheus:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    networks:
+      - monitor-net
+
+  prometheus-pushgateway:
+    image: prom/pushgateway:v1.6.0
+    container_name: prometheus-pushgateway
+    ports:
+      - "9091:9091"
+    networks:
+      - monitor-net
+
+  grafana:
+    image: grafana/grafana:9.5.3
+    container_name: grafana
+    user: "$UID:$GID"
+    volumes:
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning
+      - ../data/grafana:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=passw0rD
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - monitor-net
+
+  ydb:
+    image: cr.yandex/yc/yandex-docker-local-ydb:23.1
+    container_name: ydb
+    # hostname: localhost
+    environment:
+      - GRPC_TLS_PORT=2135
+      - GRPC_PORT=2136
+      - MON_PORT=8765
+      - YDB_USE_IN_MEMORY_PDISKS=true
+      - YDB_DEFAULT_LOG_LEVEL=NOTICE
+    ports:
+      - "2135:2135"
+      - "2136:2136"
+      - "8765:8765"
+    volumes:
+      - ../data/ydb_certs:/ydb_certs
+    networks:
+      - monitor-net
+
+  slo-runner:
+    build:
+      context: ../..
+      dockerfile: slo/src/Dockerfile
+    command:
+      - 'create'
+      - 'http://ydb:2135'
+      - '/local'
+      - '--table-name'
+      - 'slo-dotnet'
+      - '--min-partitions-count'
+      - '6'
+      - '--max-partitions-count'
+      - '1000'
+      - '--partition-size'
+      - '1'
+      - '--initial-data-count'
+      - '1000'
+    networks:
+      - monitor-net
+    depends_on:
+      ydb:
+        condition: service_healthy
+

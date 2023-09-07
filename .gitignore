@@ -1,5 +1,7 @@
+.idea/
 .vs/
 .vscode/
 bin/
 obj/
 launchSettings.json
+*.user

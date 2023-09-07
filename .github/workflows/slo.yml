@@ -1,0 +1,65 @@
+on:
+  push:
+    # branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+name: SLO
+
+jobs:
+  test-slo:
+    concurrency:
+      group: slo-${{ github.ref }}
+    if: (!contains(github.event.pull_request.labels.*.name, 'no slo'))
+
+    runs-on: ubuntu-latest
+    name: SLO test
+    permissions:
+      checks: write
+      pull-requests: write
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        if: env.DOCKER_REPO != null
+        env:
+          DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
+
+      - name: Run SLO
+        uses: ydb-platform/slo-tests@php-version
+        if: env.DOCKER_REPO != null
+        env:
+          DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KUBECONFIG_B64: ${{ secrets.SLO_KUBE_CONFIG }}
+          AWS_CREDENTIALS_B64: ${{ secrets.SLO_AWS_CREDENTIALS }}
+          AWS_CONFIG_B64: ${{ secrets.SLO_AWS_CONFIG }}
+          DOCKER_USERNAME: ${{ secrets.SLO_DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.SLO_DOCKER_PASSWORD }}
+          DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
+          DOCKER_FOLDER: ${{ secrets.SLO_DOCKER_FOLDER }}
+          s3_endpoint: ${{ secrets.SLO_S3_ENDPOINT }}
+          s3_images_folder: ${{ vars.SLO_S3_IMAGES_FOLDER }}
+          grafana_domain: ${{ vars.SLO_GRAFANA_DOMAIN }}
+          grafana_dashboard: ${{ vars.SLO_GRAFANA_DASHBOARD }}
+          ydb_version: 'newest'
+          timeBetweenPhases: 30
+          shutdownTime: 30
+
+          language_id0: 'dotnet'
+          workload_path0: 'slo/src'
+          language0: '.NET SDK'
+          workload_build_context0: ../..
+          workload_build_options0: -f Dockerfile
+
+      - uses: actions/upload-artifact@v3
+        if: env.DOCKER_REPO != null
+        env:
+          DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
+        with:
+          name: slo-logs
+          path: logs/
