@@ -76,7 +76,7 @@ public static class CliCommands
 
         Console.WriteLine(runConfig.PromPgw);
 
-        using var prometheus = new MetricPusher(endpoint: runConfig.PromPgw, job: "slo");
+        using var prometheus = new MetricPusher(endpoint: runConfig.PromPgw, job: "workload-dotnet");
 
         prometheus.Start();
 
