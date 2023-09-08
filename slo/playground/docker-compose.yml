@@ -71,19 +71,21 @@ services:
       context: ../..
       dockerfile: slo/src/Dockerfile
     command:
-      - 'create'
-      - 'http://ydb:2135'
+      - 'run'
+      - 'http://ydb:2136'
       - '/local'
+      - '--prom-pgw'
+      - 'http://prometheus-pushgateway:9091'
       - '--table-name'
       - 'slo-dotnet'
-      - '--min-partitions-count'
-      - '6'
-      - '--max-partitions-count'
-      - '1000'
-      - '--partition-size'
-      - '1'
-      - '--initial-data-count'
-      - '1000'
+      # - '--min-partitions-count'
+      # - '6'
+      # - '--max-partitions-count'
+      # - '1000'
+      # - '--partition-size'
+      # - '1'
+      # - '--initial-data-count'
+      # - '1000'
     networks:
       - monitor-net
     depends_on:

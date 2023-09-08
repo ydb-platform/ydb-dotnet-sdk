@@ -71,7 +71,6 @@ public abstract class Job
             await PerformQuery();
             sw.Stop();
 
-            Console.WriteLine($"job OK {sw.ElapsedMilliseconds}");
             _latencySummary.WithLabels("ok").Observe(sw.ElapsedMilliseconds);
             _okCounter.Inc();
             _inFlightGauge.Dec();
@@ -80,7 +79,6 @@ public abstract class Job
         {
             Console.WriteLine(e);
             sw.Stop();
-            Console.WriteLine($"job ERR {sw.ElapsedMilliseconds}");
 
             _latencySummary.WithLabels("err").Observe(sw.ElapsedMilliseconds);
             _notOkCounter.Inc();
