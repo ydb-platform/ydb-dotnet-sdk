@@ -7,10 +7,11 @@ public abstract class Job
 {
     private readonly Gauge _inFlightGauge;
 
-    private readonly Summary _latencySummary;
-    private readonly Counter _notOkCounter;
+    private readonly Gauge _okCounter;
+    private readonly Gauge _notOkCounter;
 
-    private readonly Counter _okCounter;
+    private readonly Summary _latencySummary;
+
     private readonly RateLimitedCaller _rateLimitedCaller;
 
     protected readonly Histogram AttemptsHistogram;
@@ -30,8 +31,8 @@ public abstract class Job
             { "sdkVersion", Environment.Version.ToString() }
         });
 
-        _okCounter = metricFactory.CreateCounter("oks", "Count of OK");
-        _notOkCounter = metricFactory.CreateCounter("not_oks", "Count of not OK");
+        _okCounter = metricFactory.CreateGauge("oks", "Count of OK");
+        _notOkCounter = metricFactory.CreateGauge("not_oks", "Count of not OK");
         _inFlightGauge = metricFactory.CreateGauge("in_flight", "amount of requests in flight");
 
         _latencySummary = metricFactory.CreateSummary(

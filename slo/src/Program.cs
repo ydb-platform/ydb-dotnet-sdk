@@ -1,4 +1,3 @@
-﻿using slo;
-using slo.Cli;
+﻿using slo.Cli;
 
 return await Cli.Run(args);
