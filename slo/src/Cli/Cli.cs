@@ -70,7 +70,7 @@ internal static class Cli
 
     private static readonly Option<int> TimeOption = new(
         "--time",
-        () => 600,
+        () => 140,
         "run time in seconds");
 
     private static readonly Option<int> ShutdownTimeOption = new(
