@@ -78,29 +78,6 @@ internal static class Cli
         () => 30,
         "time to wait before force kill workers");
 
-    private static readonly Option<FileInfo?> X509CertPathOption = new(
-        "--cert",
-        result =>
-        {
-            const string defaultX590Path = "/ydb-ca.pem";
-            if (result.Tokens.Count == 0)
-            {
-                return new FileInfo(defaultX590Path);
-            }
-
-            var filePath = result.Tokens.Single().Value;
-            if (File.Exists(filePath))
-            {
-                return new FileInfo(filePath);
-            }
-
-            result.ErrorMessage = "File does not exist";
-            return null;
-        },
-        true,
-        "Path to x509 certificate file"
-    );
-
     private static readonly Command CreateCommand = new(
         "create",
         "creates table in database")
@@ -112,8 +89,7 @@ internal static class Cli
         MinPartitionsCountOption,
         MaxPartitionsCountOption,
         PartitionSizeOption,
-        InitialDataCountOption,
-        X509CertPathOption
+        InitialDataCountOption
     };
 
 
@@ -124,8 +100,7 @@ internal static class Cli
         TableOption,
         WriteTimeoutOption,
         EndpointArgument,
-        DbArgument,
-        X509CertPathOption
+        DbArgument
     };
 
     private static readonly Command RunCommand = new(
@@ -142,8 +117,7 @@ internal static class Cli
         ReadTimeoutOption,
         WriteRpsOption,
         TimeOption,
-        ShutdownTimeOption,
-        X509CertPathOption
+        ShutdownTimeOption
     };
 
     private static readonly RootCommand RootCommand = new("SLO app")
@@ -156,19 +130,18 @@ internal static class Cli
         CreateCommand.SetHandler(
             async createConfig => { await CliCommands.Create(createConfig); },
             new CreateConfigBinder(EndpointArgument, DbArgument, TableOption, MinPartitionsCountOption,
-                MaxPartitionsCountOption, PartitionSizeOption, InitialDataCountOption, WriteTimeoutOption,
-                X509CertPathOption)
+                MaxPartitionsCountOption, PartitionSizeOption, InitialDataCountOption, WriteTimeoutOption)
         );
 
         CleanupCommand.SetHandler(
             async cleanUpConfig => { await CliCommands.CleanUp(cleanUpConfig); },
-            new CleanUpConfigBinder(EndpointArgument, DbArgument, TableOption, WriteTimeoutOption, X509CertPathOption)
+            new CleanUpConfigBinder(EndpointArgument, DbArgument, TableOption, WriteTimeoutOption)
         );
 
         RunCommand.SetHandler(async runConfig => { await CliCommands.Run(runConfig); },
             new RunConfigBinder(EndpointArgument, DbArgument, TableOption, InitialDataCountOption, PromPgwOption,
                 ReportPeriodOption, ReadRpsOption, ReadTimeoutOption, WriteRpsOption, WriteTimeoutOption, TimeOption,
-                ShutdownTimeOption, X509CertPathOption));
+                ShutdownTimeOption));
         return await RootCommand.InvokeAsync(args);
     }
 }

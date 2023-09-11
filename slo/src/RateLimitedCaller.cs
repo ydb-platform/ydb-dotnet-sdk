@@ -21,18 +21,18 @@ public class RateLimitedCaller
     {
         var endTime = DateTime.Now + _duration;
 
-        // var i = 0;
-
         while (_duration == default || DateTime.Now < endTime)
         {
-            // i++;
             while (inFlightGauge.Value > _rate)
+            {
                 Thread.Sleep(1);
+            }
+
             while (true)
+            {
                 try
                 {
                     _tokenBucket.UseToken();
-                    // Console.WriteLine($"{DateTime.Now.Second}:{DateTime.Now.Millisecond} i={i}");
                     _ = action();
                     break;
                 }
@@ -40,6 +40,7 @@ public class RateLimitedCaller
                 {
                     Thread.Sleep(1);
                 }
+            }
         }
 
         return Task.CompletedTask;

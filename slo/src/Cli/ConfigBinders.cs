@@ -13,12 +13,10 @@ internal class CreateConfigBinder : BinderBase<CreateConfig>
     private readonly Option<int> _partitionSizeOption;
     private readonly Option<string> _tableOption;
     private readonly Option<int> _writeTimeoutOption;
-    private readonly Option<FileInfo?> _x590CertPathOption;
 
     public CreateConfigBinder(Argument<string> endpointArgument, Argument<string> dbArgument,
         Option<string> tableOption, Option<int> minPartitionsCountOption, Option<int> maxPartitionsCountOption,
-        Option<int> partitionSizeOption, Option<int> initialDataCountOption, Option<int> writeTimeoutOption,
-        Option<FileInfo?> x590CertPathOption)
+        Option<int> partitionSizeOption, Option<int> initialDataCountOption, Option<int> writeTimeoutOption)
     {
         _endpointArgument = endpointArgument;
         _dbArgument = dbArgument;
@@ -28,7 +26,6 @@ internal class CreateConfigBinder : BinderBase<CreateConfig>
         _partitionSizeOption = partitionSizeOption;
         _initialDataCountOption = initialDataCountOption;
         _writeTimeoutOption = writeTimeoutOption;
-        _x590CertPathOption = x590CertPathOption;
     }
 
     protected override CreateConfig GetBoundValue(BindingContext bindingContext)
@@ -41,8 +38,7 @@ internal class CreateConfigBinder : BinderBase<CreateConfig>
             bindingContext.ParseResult.GetValueForOption(_maxPartitionsCountOption),
             bindingContext.ParseResult.GetValueForOption(_partitionSizeOption),
             bindingContext.ParseResult.GetValueForOption(_initialDataCountOption),
-            bindingContext.ParseResult.GetValueForOption(_writeTimeoutOption),
-            bindingContext.ParseResult.GetValueForOption(_x590CertPathOption)
+            bindingContext.ParseResult.GetValueForOption(_writeTimeoutOption)
         );
     }
 }
@@ -53,16 +49,14 @@ internal class CleanUpConfigBinder : BinderBase<CleanUpConfig>
     private readonly Argument<string> _endpointArgument;
     private readonly Option<string> _tableOption;
     private readonly Option<int> _writeTimeoutOption;
-    private readonly Option<FileInfo?> _x590CertPathOption;
 
     public CleanUpConfigBinder(Argument<string> endpointArgument, Argument<string> dbArgument,
-        Option<string> tableOption, Option<int> writeTimeoutOption, Option<FileInfo?> x590CertPathOption)
+        Option<string> tableOption, Option<int> writeTimeoutOption)
     {
         _endpointArgument = endpointArgument;
         _dbArgument = dbArgument;
         _tableOption = tableOption;
         _writeTimeoutOption = writeTimeoutOption;
-        _x590CertPathOption = x590CertPathOption;
     }
 
     protected override CleanUpConfig GetBoundValue(BindingContext bindingContext)
@@ -71,8 +65,7 @@ internal class CleanUpConfigBinder : BinderBase<CleanUpConfig>
             bindingContext.ParseResult.GetValueForArgument(_endpointArgument),
             bindingContext.ParseResult.GetValueForArgument(_dbArgument),
             bindingContext.ParseResult.GetValueForOption(_tableOption)!,
-            bindingContext.ParseResult.GetValueForOption(_writeTimeoutOption),
-            bindingContext.ParseResult.GetValueForOption(_x590CertPathOption)
+            bindingContext.ParseResult.GetValueForOption(_writeTimeoutOption)
         );
     }
 }
@@ -91,13 +84,12 @@ internal class RunConfigBinder : BinderBase<RunConfig>
     private readonly Option<int> _timeOption;
     private readonly Option<int> _writeRpsOption;
     private readonly Option<int> _writeTimeoutOption;
-    private readonly Option<FileInfo?> _x590CertPathOption;
 
     public RunConfigBinder(Argument<string> endpointArgument, Argument<string> dbArgument,
         Option<string> tableOption, Option<int> initialDataCountOption, Option<string> promPgwOption,
         Option<int> reportPeriodOption, Option<int> readRpsOption, Option<int> readTimeoutOption,
         Option<int> writeRpsOption, Option<int> writeTimeoutOption, Option<int> timeOption,
-        Option<int> shutdownTimeOption, Option<FileInfo?> x590CertPathOption)
+        Option<int> shutdownTimeOption)
     {
         _endpointArgument = endpointArgument;
         _dbArgument = dbArgument;
@@ -111,7 +103,6 @@ internal class RunConfigBinder : BinderBase<RunConfig>
         _writeTimeoutOption = writeTimeoutOption;
         _timeOption = timeOption;
         _shutdownTimeOption = shutdownTimeOption;
-        _x590CertPathOption = x590CertPathOption;
     }
 
     protected override RunConfig GetBoundValue(BindingContext bindingContext)
@@ -128,8 +119,7 @@ internal class RunConfigBinder : BinderBase<RunConfig>
             bindingContext.ParseResult.GetValueForOption(_writeRpsOption),
             bindingContext.ParseResult.GetValueForOption(_writeTimeoutOption),
             bindingContext.ParseResult.GetValueForOption(_timeOption),
-            bindingContext.ParseResult.GetValueForOption(_shutdownTimeOption),
-            bindingContext.ParseResult.GetValueForOption(_x590CertPathOption)
+            bindingContext.ParseResult.GetValueForOption(_shutdownTimeOption)
         );
     }
 }

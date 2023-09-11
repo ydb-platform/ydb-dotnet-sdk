@@ -50,7 +50,6 @@ services:
   ydb:
     image: cr.yandex/yc/yandex-docker-local-ydb:23.1
     container_name: ydb
-    # hostname: localhost
     environment:
       - GRPC_TLS_PORT=2135
       - GRPC_PORT=2136
@@ -78,14 +77,6 @@ services:
       - 'http://prometheus-pushgateway:9091'
       - '--table-name'
       - 'slo-dotnet'
-      # - '--min-partitions-count'
-      # - '6'
-      # - '--max-partitions-count'
-      # - '1000'
-      # - '--partition-size'
-      # - '1'
-      # - '--initial-data-count'
-      # - '1000'
     networks:
       - monitor-net
     depends_on:
