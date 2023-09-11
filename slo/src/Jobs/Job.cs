@@ -7,8 +7,8 @@ public abstract class Job
 {
     private readonly Gauge _inFlightGauge;
 
-    private readonly Gauge _okCounter;
-    private readonly Gauge _notOkCounter;
+    private readonly Gauge _okGauge;
+    private readonly Gauge _notOkGauge;
 
     private readonly Summary _latencySummary;
 
@@ -31,8 +31,8 @@ public abstract class Job
             { "sdkVersion", Environment.Version.ToString() }
         });
 
-        _okCounter = metricFactory.CreateGauge("oks", "Count of OK");
-        _notOkCounter = metricFactory.CreateGauge("not_oks", "Count of not OK");
+        _okGauge = metricFactory.CreateGauge("oks", "Count of OK");
+        _notOkGauge = metricFactory.CreateGauge("not_oks", "Count of not OK");
         _inFlightGauge = metricFactory.CreateGauge("in_flight", "amount of requests in flight");
 
         _latencySummary = metricFactory.CreateSummary(
@@ -73,7 +73,7 @@ public abstract class Job
             sw.Stop();
 
             _latencySummary.WithLabels("ok").Observe(sw.ElapsedMilliseconds);
-            _okCounter.Inc();
+            _okGauge.Inc();
             _inFlightGauge.Dec();
         }
         catch (Exception e)
@@ -82,7 +82,7 @@ public abstract class Job
             sw.Stop();
 
             _latencySummary.WithLabels("err").Observe(sw.ElapsedMilliseconds);
-            _notOkCounter.Inc();
+            _notOkGauge.Inc();
             _inFlightGauge.Dec();
             throw;
         }
