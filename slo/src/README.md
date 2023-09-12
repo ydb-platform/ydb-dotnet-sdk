@@ -15,82 +15,76 @@ It has 3 commands:
 
 create:
 
-`$APP create grpcs://ydb.cool.example.com:2135 /some/folder -t tableName
--min-partitions-count 6 -max-partitions-count 1000 -partition-size 1 -с 1000
--write-timeout 10000`
+`slo create grpcs://ydb.cool.example.com:2135 /some/folder -t tableName
+--min-partitions-count 6 --max-partitions-count 1000 --partition-size 1 -с 1000
+--write-timeout 10000`
 
 cleanup:
 
-`$APP cleanup grpcs://ydb.cool.example.com:2135 /some/folder -t tableName`
+`slo cleanup grpcs://ydb.cool.example.com:2135 /some/folder -t tableName`
 
 run:
 
-`$APP create run grpcs://ydb.cool.example.com:2135 /some/folder -t tableName
--prom-pgw http://prometheus-pushgateway:9091 -report-period 250
--read-rps 1000 -read-timeout 10000
--write-rps 100 -write-timeout 10000
--time 600 -shutdown-time 30`
+`slo create run grpcs://ydb.cool.example.com:2135 /some/folder -t tableName
+--prom-pgw http://prometheus-pushgateway:9091 -report-period 250
+--read-rps 1000 --read-timeout 10000
+--write-rps 100 --write-timeout 10000
+--time 600 --shutdown-time 30`
 
 ## Arguments for commands:
 
 ### create
-`$APP create <endpoint> <db> [options]`
+`slo create [<endpoint> [<db>]] [options]`
 
 ```
 Arguments:
-  endpoint                        YDB endpoint to connect to
-  db                              YDB database to connect to
+  <endpoint>  YDB endpoint to connect to
+  <db>        YDB database to connect to
 
 Options:
-  -t -table-name         <string> table name to create
-
-  -min-partitions-count  <int>    minimum amount of partitions in table
-  -max-partitions-count  <int>    maximum amount of partitions in table
-  -partition-size        <int>    partition size in mb
-                                   
-  -c -initial-data-count <int>    amount of initially created rows
-                                   
-  -write-timeout         <int>    write timeout milliseconds
+  -t, --table-name <table-name>                  table name to create
+                                                   [default: testingTable]
+  --min-partitions-count <min-partitions-count>  minimum amount of partitions in table [default: 6]
+  --max-partitions-count <max-partitions-count>  maximum amount of partitions in table [default: 1000]
+  --partition-size <partition-size>              partition size in mb [default: 1]
+  -c, --initial-data-count <initial-data-count>  amount of initially created rows [default: 1000]
+  --write-timeout <write-timeout>                write timeout milliseconds [default: 10000]
 ```
 
 ### cleanup
-`$APP cleanup <endpoint> <db> [options]`
+`slo cleanup [<endpoint> [<db>]] [options]`
 
 ```
 Arguments:
-  endpoint                        YDB endpoint to connect to
-  db                              YDB database to connect to
+  <endpoint>  YDB endpoint to connect to
+  <db>        YDB database to connect to
 
 Options:
-  -t -table-name         <string> table name to create
-                         
-  -write-timeout         <int>    write timeout milliseconds
+  -t, --table-name <table-name>    table name to create
+                                     [default: testingTable]
+  --write-timeout <write-timeout>  write timeout milliseconds [default: 10000]
 ```
 
 ### run
-`$APP run <endpoint> <db> [options]`
+`slo run [<endpoint> [<db>]] [options]`
 
 ```
 Arguments:
-  endpoint                        YDB endpoint to connect to
-  db                              YDB database to connect to
+  <endpoint>  YDB endpoint to connect to
+  <db>        YDB database to connect to
 
 Options:
-  -t -table-name         <string> table name to create
-                         
-  -initial-data-count    <int>    amount of initially created rows
-                         
-  -prom-pgw              <string> prometheus push gateway
-  -report-period         <int>    prometheus push period in milliseconds
-                         
-  -read-rps              <int>    read RPS
-  -read-timeout          <int>    read timeout milliseconds
-                         
-  -write-rps             <int>    write RPS
-  -write-timeout         <int>    write timeout milliseconds
-                         
-  -time                  <int>    run time in seconds
-  -shutdown-time         <int>    time to wait before force kill workers
+  -t, --table-name <table-name>                  table name to create
+                                                   [default: testingTable]
+  --prom-pgw <prom-pgw> (REQUIRED)               minimum amount of partitions in table
+  --report-period <report-period>                prometheus push period in milliseconds [default: 250]
+  --read-rps <read-rps>                          read RPS [default: 1000]
+  --read-timeout <read-timeout>                  read timeout milliseconds [default: 10000]
+  --write-rps <write-rps>                        write RPS [default: 100]
+  --time <time>                                  run time in seconds [default: 140]
+  --shutdown-time <shutdown-time>                time to wait before force kill workers [default: 30]
+  -c, --initial-data-count <initial-data-count>  amount of initially created rows [default: 1000]
+  --write-timeout <write-timeout>                write timeout milliseconds [default: 10000]
 ```
 
 ## Authentication
@@ -98,11 +92,10 @@ Options:
 Workload using anonymous credentials.
 
 ## What's inside
-When running `run` command, the program creates three jobs: `readJob`, `writeJob`, `metricsJob`.
+When running `run` command, the program creates two jobs: `readJob` and `writeJob`.
 
 - `readJob`    reads rows from the table one by one with random identifiers generated by writeJob
 - `writeJob`   generates and inserts rows
-- `metricsJob` periodically sends metrics to Prometheus
 
 Table have these fields:
 - `id Uint64`
@@ -123,23 +116,13 @@ Primary key: `("hash", "id")`
 
 > You must reset metrics to keep them `0` in prometheus and grafana before beginning and after ending of jobs
 
-In `go` it looks like that:
-```go
-func (m *Metrics) Reset() error {
-    m.oks.WithLabelValues(JobRead).Set(0)
-    m.oks.WithLabelValues(JobWrite).Set(0)
-
-    m.notOks.WithLabelValues(JobRead).Set(0)
-    m.notOks.WithLabelValues(JobWrite).Set(0)
-
-    m.inflight.WithLabelValues(JobRead).Set(0)
-    m.inflight.WithLabelValues(JobWrite).Set(0)
-
-    m.latencies.Reset()
-
-    m.attempts.Reset()
-
-    return m.Push()
+In `c#` it looks like that:
+```c#
+private static async Task MetricReset(string promPgwEndpoint, string job)
+{
+    var deleteUri = $"{promPgwEndpoint}/job/{job}";
+    using var httpClient = new HttpClient();
+    await httpClient.DeleteAsync(deleteUri);
 }
 ```
 
