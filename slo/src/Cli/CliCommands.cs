@@ -62,10 +62,6 @@ public static class CliCommands
     {
         var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
         const string job = "workload-dotnet";
-        using var httpClient = new HttpClient();
-        var deleteUri = $"{promPgwEndpoint}/job/{job}";
-
-        await httpClient.DeleteAsync(deleteUri);
 
         var config = new DriverConfig(
             runConfig.Endpoint,
@@ -83,6 +79,7 @@ public static class CliCommands
 
         Console.WriteLine(runConfig.PromPgw);
 
+        await MetricReset(promPgwEndpoint, job);
         using var prometheus = new MetricPusher(promPgwEndpoint, job, intervalMilliseconds: runConfig.ReportPeriod);
 
         prometheus.Start();
@@ -109,6 +106,13 @@ public static class CliCommands
         writeThread.Join();
 
         await prometheus.StopAsync();
+        await MetricReset(promPgwEndpoint, job);
+    }
+
+    private static async Task MetricReset(string promPgwEndpoint, string job)
+    {
+        var deleteUri = $"{promPgwEndpoint}/job/{job}";
+        using var httpClient = new HttpClient();
         await httpClient.DeleteAsync(deleteUri);
     }
 }

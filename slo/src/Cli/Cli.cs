@@ -82,14 +82,14 @@ internal static class Cli
         "create",
         "creates table in database")
     {
-        TableOption,
-        WriteTimeoutOption,
         EndpointArgument,
         DbArgument,
+        TableOption,
         MinPartitionsCountOption,
         MaxPartitionsCountOption,
         PartitionSizeOption,
-        InitialDataCountOption
+        InitialDataCountOption,
+        WriteTimeoutOption
     };
 
 
@@ -97,25 +97,26 @@ internal static class Cli
         "cleanup",
         "drops table in database")
     {
-        TableOption,
-        WriteTimeoutOption,
         EndpointArgument,
-        DbArgument
+        DbArgument,
+        TableOption,
+        WriteTimeoutOption
     };
 
     private static readonly Command RunCommand = new(
         "run",
         "runs workload (read and write to table with sets RPS)")
     {
-        TableOption,
-        WriteTimeoutOption,
         EndpointArgument,
         DbArgument,
+        TableOption,
+        InitialDataCountOption,
         PromPgwOption,
         ReportPeriodOption,
         ReadRpsOption,
         ReadTimeoutOption,
         WriteRpsOption,
+        WriteTimeoutOption,
         TimeOption,
         ShutdownTimeOption
     };
