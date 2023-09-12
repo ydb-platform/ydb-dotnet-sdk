@@ -4,7 +4,7 @@ namespace slo.Jobs;
 
 internal class ReadJob : Job
 {
-    public ReadJob(Table table, RateLimitedCaller rateLimitedCaller) : base(table, rateLimitedCaller, "read")
+    public ReadJob(Table table, RateLimitedCaller rateLimitedCaller, TimeSpan timeout) : base(table, rateLimitedCaller, "read", timeout)
     {
     }
 
@@ -19,7 +19,8 @@ internal class ReadJob : Job
         await Table.Executor.ExecuteDataQuery(
             Queries.GetReadQuery(Table.TableName),
             parameters,
-            AttemptsHistogram
+            AttemptsHistogram,
+            Timeout
         );
     }
 }

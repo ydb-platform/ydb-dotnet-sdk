@@ -13,16 +13,18 @@ public abstract class Job
     private readonly Summary _latencySummary;
 
     private readonly RateLimitedCaller _rateLimitedCaller;
+    protected readonly TimeSpan Timeout;
 
     protected readonly Histogram AttemptsHistogram;
     protected readonly Random Random = new();
 
     protected readonly Table Table;
 
-    protected Job(Table table, RateLimitedCaller rateLimitedCaller, string jobName)
+    protected Job(Table table, RateLimitedCaller rateLimitedCaller, string jobName, TimeSpan timeout)
     {
         Table = table;
         _rateLimitedCaller = rateLimitedCaller;
+        Timeout = timeout;
 
         var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
         {
@@ -65,8 +67,8 @@ public abstract class Job
 
     private async Task DoJob()
     {
-        var sw = Stopwatch.StartNew();
         _inFlightGauge.Inc();
+        var sw = Stopwatch.StartNew();
         try
         {
             await PerformQuery();

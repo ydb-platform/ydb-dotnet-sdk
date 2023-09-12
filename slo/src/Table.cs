@@ -11,23 +11,28 @@ public class Table
         Executor = executor;
     }
 
-    public async Task Init(int initialDataCount, int partitionSize, int minPartitionsCount, int maxPartitionsCount)
+    public async Task Init(int initialDataCount, int partitionSize, int minPartitionsCount, int maxPartitionsCount,
+        TimeSpan timeout)
     {
-        await Executor.ExecuteSchemeQuery(Queries.GetCreateQuery(TableName, partitionSize, minPartitionsCount,
-            maxPartitionsCount));
+        await Executor.ExecuteSchemeQuery(
+            Queries.GetCreateQuery(TableName, partitionSize, minPartitionsCount, maxPartitionsCount),
+            timeout);
 
         await DataGenerator.LoadMaxId(TableName, Executor);
 
         var tasks = new List<Task> { Capacity = initialDataCount };
 
         for (var i = 0; i < initialDataCount; i++)
-            tasks.Add(Executor.ExecuteDataQuery(Queries.GetWriteQuery(TableName), DataGenerator.GetUpsertData()));
+            tasks.Add(
+                Executor.ExecuteDataQuery(Queries.GetWriteQuery(TableName),
+                    DataGenerator.GetUpsertData(),
+                    timeout: timeout));
 
         await Task.WhenAll(tasks);
     }
 
-    public async Task CleanUp()
+    public async Task CleanUp(TimeSpan timeout)
     {
-        await Executor.ExecuteSchemeQuery(Queries.GetDropQuery(TableName));
+        await Executor.ExecuteSchemeQuery(Queries.GetDropQuery(TableName), timeout);
     }
 }

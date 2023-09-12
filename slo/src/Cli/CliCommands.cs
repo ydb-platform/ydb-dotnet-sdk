@@ -7,29 +7,31 @@ namespace slo.Cli;
 
 public static class CliCommands
 {
-    internal static async Task Create(CreateConfig createConfig)
+    internal static async Task Create(CreateConfig config)
     {
-        Console.WriteLine(createConfig);
-        var config = new DriverConfig(
-            createConfig.Endpoint,
-            createConfig.Db
+        Console.WriteLine(config);
+        var driverConfig = new DriverConfig(
+            config.Endpoint,
+            config.Db
         );
 
-        await using var driver = await Driver.CreateInitialized(config);
+        await using var driver = await Driver.CreateInitialized(driverConfig);
 
         using var tableClient = new TableClient(driver);
 
         var executor = new Executor(tableClient);
 
-        var table = new Table(createConfig.TableName, executor);
+        var table = new Table(config.TableName, executor);
         const int maxCreateAttempts = 10;
         for (var i = 0; i < maxCreateAttempts; i++)
         {
             try
             {
-                await table.Init(createConfig.InitialDataCount, createConfig.PartitionSize,
-                    createConfig.MinPartitionsCount,
-                    createConfig.MaxPartitionsCount);
+                await table.Init(config.InitialDataCount,
+                    config.PartitionSize,
+                    config.MinPartitionsCount,
+                    config.MaxPartitionsCount,
+                    TimeSpan.FromMilliseconds(config.WriteTimeout));
                 break;
             }
             catch (Exception e)
@@ -40,68 +42,74 @@ public static class CliCommands
         }
     }
 
-    internal static async Task CleanUp(CleanUpConfig cleanUpConfig)
+    internal static async Task CleanUp(CleanUpConfig config)
     {
-        Console.WriteLine(cleanUpConfig);
-        var config = new DriverConfig(
-            cleanUpConfig.Endpoint,
-            cleanUpConfig.Db
+        Console.WriteLine(config);
+        var driverConfig = new DriverConfig(
+            config.Endpoint,
+            config.Db
         );
 
-        await using var driver = await Driver.CreateInitialized(config);
+        await using var driver = await Driver.CreateInitialized(driverConfig);
 
         using var tableClient = new TableClient(driver);
 
         var executor = new Executor(tableClient);
 
-        var table = new Table(cleanUpConfig.TableName, executor);
-        await table.CleanUp();
+        var table = new Table(config.TableName, executor);
+        await table.CleanUp(TimeSpan.FromMilliseconds(config.WriteTimeout));
     }
 
-    internal static async Task Run(RunConfig runConfig)
+    internal static async Task Run(RunConfig config)
     {
-        var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
+        var promPgwEndpoint = $"{config.PromPgw}/metrics";
         const string job = "workload-dotnet";
 
-        var config = new DriverConfig(
-            runConfig.Endpoint,
-            runConfig.Db
+        var driverConfig = new DriverConfig(
+            config.Endpoint,
+            config.Db
         );
 
-        await using var driver = await Driver.CreateInitialized(config);
+        await using var driver = await Driver.CreateInitialized(driverConfig);
 
         using var tableClient = new TableClient(driver);
 
         var executor = new Executor(tableClient);
 
-        var table = new Table(runConfig.TableName, executor);
-        await table.Init(runConfig.InitialDataCount, 1, 6, 1000);
+        var table = new Table(config.TableName, executor);
+        await table.Init(config.InitialDataCount, 1, 6, 1000, TimeSpan.FromMilliseconds(config.WriteTimeout));
 
-        Console.WriteLine(runConfig.PromPgw);
+        Console.WriteLine(config.PromPgw);
 
         await MetricReset(promPgwEndpoint, job);
-        using var prometheus = new MetricPusher(promPgwEndpoint, job, intervalMilliseconds: runConfig.ReportPeriod);
+        using var prometheus = new MetricPusher(promPgwEndpoint, job, intervalMilliseconds: config.ReportPeriod);
 
         prometheus.Start();
 
-        var duration = TimeSpan.FromSeconds(runConfig.Time);
+        var duration = TimeSpan.FromSeconds(config.Time);
 
-        var readJob = new ReadJob(table, new RateLimitedCaller(
-            runConfig.ReadRps,
-            duration
-        ));
+        var readJob = new ReadJob(
+            table,
+            new RateLimitedCaller(
+                config.ReadRps,
+                duration
+            ),
+            TimeSpan.FromMilliseconds(config.ReadTimeout));
 
-        var writeJob = new WriteJob(table, new RateLimitedCaller(
-            runConfig.WriteRps,
-            duration
-        ));
+        var writeJob = new WriteJob(
+            table,
+            new RateLimitedCaller(
+                config.WriteRps,
+                duration
+            ),
+            TimeSpan.FromMilliseconds(config.WriteTimeout));
 
         var readThread = new Thread(readJob.Start);
         var writeThread = new Thread(writeJob.Start);
 
         readThread.Start();
         writeThread.Start();
-        await Task.Delay(duration + TimeSpan.FromSeconds(runConfig.ShutdownTime));
+        await Task.Delay(duration + TimeSpan.FromSeconds(config.ShutdownTime));
         readThread.Join();
         writeThread.Join();
 

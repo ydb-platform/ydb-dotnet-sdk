@@ -2,7 +2,8 @@ namespace slo.Jobs;
 
 internal class WriteJob : Job
 {
-    public WriteJob(Table table, RateLimitedCaller rateLimitedCaller) : base(table, rateLimitedCaller, "write")
+    public WriteJob(Table table, RateLimitedCaller rateLimitedCaller, TimeSpan timeout) : base(table, rateLimitedCaller,
+        "write", timeout)
     {
     }
 
@@ -14,7 +15,8 @@ internal class WriteJob : Job
         await Table.Executor.ExecuteDataQuery(
             Queries.GetWriteQuery(Table.TableName),
             parameters,
-            AttemptsHistogram
+            AttemptsHistogram,
+            Timeout
         );
     }
 }
