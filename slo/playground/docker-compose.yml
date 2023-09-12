@@ -64,8 +64,32 @@ services:
       - ../data/ydb_certs:/ydb_certs
     networks:
       - monitor-net
+  
+  slo-create:
+    build:
+      context: ../..
+      dockerfile: slo/src/Dockerfile
+    command:
+      - 'create'
+      - 'http://ydb:2136'
+      - '/local'
+      - '--table-name'
+      - 'slo-dotnet'
+      - '--min-partitions-count'
+      - '6'
+      - '--max-partitions-count'
+      - '1000'
+      - '--partition-size'
+      - '1'
+      - '--initial-data-count'
+      - '1000'
+    networks:
+      - monitor-net
+    depends_on:
+      ydb:
+        condition: service_healthy
 
-  slo-runner:
+  slo-run:
     build:
       context: ../..
       dockerfile: slo/src/Dockerfile
@@ -80,6 +104,21 @@ services:
     networks:
       - monitor-net
     depends_on:
-      ydb:
-        condition: service_healthy
+      slo-create:
+        condition: service_completed_successfully
 
+  slo-cleanup:
+    build:
+      context: ../..
+      dockerfile: slo/src/Dockerfile
+    command:
+      - 'cleanup'
+      - 'http://ydb:2136'
+      - '/local'
+      - '--table-name'
+      - 'slo-dotnet'
+    networks:
+      - monitor-net
+    depends_on:
+      slo-run:
+        condition: service_completed_successfully
