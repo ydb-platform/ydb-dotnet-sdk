@@ -1,3 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Prometheus;
 using slo.Jobs;
 using Ydb.Sdk;
@@ -7,6 +10,14 @@ namespace slo.Cli;
 
 public static class CliCommands
 {
+    private static ServiceProvider GetServiceProvider()
+    {
+        return new ServiceCollection()
+            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
+            .BuildServiceProvider();
+    }
+
+
     internal static async Task Create(CreateConfig config)
     {
         Console.WriteLine(config);
@@ -15,7 +26,11 @@ public static class CliCommands
             config.Db
         );
 
-        await using var driver = await Driver.CreateInitialized(driverConfig);
+        await using var serviceProvider = GetServiceProvider();
+        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+
+        loggerFactory ??= NullLoggerFactory.Instance;
+        await using var driver = await Driver.CreateInitialized(driverConfig, loggerFactory);
 
         using var tableClient = new TableClient(driver);
 
@@ -50,7 +65,11 @@ public static class CliCommands
             config.Db
         );
 
-        await using var driver = await Driver.CreateInitialized(driverConfig);
+        await using var serviceProvider = GetServiceProvider();
+        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+
+        loggerFactory ??= NullLoggerFactory.Instance;
+        await using var driver = await Driver.CreateInitialized(driverConfig, loggerFactory);
 
         using var tableClient = new TableClient(driver);
 
@@ -70,7 +89,11 @@ public static class CliCommands
             config.Db
         );
 
-        await using var driver = await Driver.CreateInitialized(driverConfig);
+        await using var serviceProvider = GetServiceProvider();
+        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+
+        loggerFactory ??= NullLoggerFactory.Instance;
+        await using var driver = await Driver.CreateInitialized(driverConfig, loggerFactory);
 
         using var tableClient = new TableClient(driver);
 
