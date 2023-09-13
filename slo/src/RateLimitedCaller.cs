@@ -9,7 +9,7 @@ public class RateLimitedCaller
     private readonly int _rate;
     private readonly TokenBucket _tokenBucket;
 
-    public RateLimitedCaller(int rate, TimeSpan duration = default, int bunchCount = 20)
+    public RateLimitedCaller(int rate, TimeSpan duration = default, int bunchCount = 10)
     {
         _rate = rate;
         _duration = duration;

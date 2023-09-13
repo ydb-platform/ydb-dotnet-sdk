@@ -15,14 +15,17 @@ public class Client : IAsyncDisposable
     private readonly Driver _driver;
     private readonly TableClient _tableClient;
 
+    private readonly Semaphore _semaphore;
+
     private Client(string tableName, Executor executor, ServiceProvider serviceProvider, Driver driver,
-        TableClient tableClient)
+        TableClient tableClient, uint sessionPoolLimit)
     {
         TableName = tableName;
         Executor = executor;
         _serviceProvider = serviceProvider;
         _driver = driver;
         _tableClient = tableClient;
+        _semaphore = new Semaphore((int)sessionPoolLimit - 1, (int)sessionPoolLimit - 1);
     }
 
     public async Task Init(int initialDataCount, int partitionSize, int minPartitionsCount, int maxPartitionsCount,
@@ -37,10 +40,13 @@ public class Client : IAsyncDisposable
         var tasks = new List<Task> { Capacity = initialDataCount };
 
         for (var i = 0; i < initialDataCount; i++)
-            tasks.Add(
-                Executor.ExecuteDataQuery(Queries.GetWriteQuery(TableName),
-                    DataGenerator.GetUpsertData(),
-                    timeout: timeout));
+        {
+            await CallFuncWithSessionPoolLimit(() => Executor.ExecuteDataQuery(
+                Queries.GetWriteQuery(TableName),
+                DataGenerator.GetUpsertData(),
+                timeout: timeout
+            ));
+        }
 
         await Task.WhenAll(tasks);
     }
@@ -57,7 +63,8 @@ public class Client : IAsyncDisposable
             .BuildServiceProvider();
     }
 
-    public static async Task<Client> CreateAsync(string endpoint, string db, string tableName)
+    public static async Task<Client> CreateAsync(string endpoint, string db, string tableName,
+        uint sessionPoolLimit = 100)
     {
         var driverConfig = new DriverConfig(
             endpoint,
@@ -70,15 +77,34 @@ public class Client : IAsyncDisposable
         loggerFactory ??= NullLoggerFactory.Instance;
         var driver = await Driver.CreateInitialized(driverConfig, loggerFactory);
 
-        var tableClient = new TableClient(driver);
+        var tableClient = new TableClient(driver, new TableClientConfig(new SessionPoolConfig(sessionPoolLimit)));
 
         var executor = new Executor(tableClient);
 
-        var table = new Client(tableName, executor, serviceProvider, driver, tableClient);
+        var table = new Client(tableName, executor, serviceProvider, driver, tableClient, sessionPoolLimit);
 
         return table;
     }
 
+    public Task CallFuncWithSessionPoolLimit(Func<Task> func)
+    {
+        _semaphore.WaitOne();
+
+        async Task FuncWithRelease()
+        {
+            try
+            {
+                await func();
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+
+        _ = FuncWithRelease();
+        return Task.CompletedTask;
+    }
 
     public async ValueTask DisposeAsync()
     {

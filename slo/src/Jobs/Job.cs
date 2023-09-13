@@ -62,7 +62,10 @@ public abstract class Job
 
     public async void Start()
     {
-        await _rateLimitedCaller.StartCalling(async () => await DoJob(), _inFlightGauge);
+        await _rateLimitedCaller.StartCalling(
+            () => Client.CallFuncWithSessionPoolLimit(
+                async () => await DoJob()),
+            _inFlightGauge);
     }
 
     private async Task DoJob()
