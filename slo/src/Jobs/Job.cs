@@ -18,11 +18,11 @@ public abstract class Job
     protected readonly Histogram AttemptsHistogram;
     protected readonly Random Random = new();
 
-    protected readonly Table Table;
+    protected readonly Client Client;
 
-    protected Job(Table table, RateLimitedCaller rateLimitedCaller, string jobName, TimeSpan timeout)
+    protected Job(Client client, RateLimitedCaller rateLimitedCaller, string jobName, TimeSpan timeout)
     {
-        Table = table;
+        Client = client;
         _rateLimitedCaller = rateLimitedCaller;
         Timeout = timeout;
 

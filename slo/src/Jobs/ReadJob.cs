@@ -4,7 +4,7 @@ namespace slo.Jobs;
 
 internal class ReadJob : Job
 {
-    public ReadJob(Table table, RateLimitedCaller rateLimitedCaller, TimeSpan timeout) : base(table, rateLimitedCaller, "read", timeout)
+    public ReadJob(Client client, RateLimitedCaller rateLimitedCaller, TimeSpan timeout) : base(client, rateLimitedCaller, "read", timeout)
     {
     }
 
@@ -16,8 +16,8 @@ internal class ReadJob : Job
             { "$id", YdbValue.MakeUint64((ulong)Random.Next(DataGenerator.MaxId)) }
         };
 
-        await Table.Executor.ExecuteDataQuery(
-            Queries.GetReadQuery(Table.TableName),
+        await Client.Executor.ExecuteDataQuery(
+            Queries.GetReadQuery(Client.TableName),
             parameters,
             AttemptsHistogram,
             Timeout

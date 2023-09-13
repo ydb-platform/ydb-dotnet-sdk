@@ -1,48 +1,22 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Prometheus;
 using slo.Jobs;
-using Ydb.Sdk;
-using Ydb.Sdk.Table;
 
 namespace slo.Cli;
 
 public static class CliCommands
 {
-    private static ServiceProvider GetServiceProvider()
-    {
-        return new ServiceCollection()
-            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
-            .BuildServiceProvider();
-    }
-
-
     internal static async Task Create(CreateConfig config)
     {
         Console.WriteLine(config);
-        var driverConfig = new DriverConfig(
-            config.Endpoint,
-            config.Db
-        );
 
-        await using var serviceProvider = GetServiceProvider();
-        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+        await using var client = await Client.CreateAsync(config.Endpoint, config.Db, config.TableName);
 
-        loggerFactory ??= NullLoggerFactory.Instance;
-        await using var driver = await Driver.CreateInitialized(driverConfig, loggerFactory);
-
-        using var tableClient = new TableClient(driver);
-
-        var executor = new Executor(tableClient);
-
-        var table = new Table(config.TableName, executor);
         const int maxCreateAttempts = 10;
         for (var i = 0; i < maxCreateAttempts; i++)
         {
             try
             {
-                await table.Init(config.InitialDataCount,
+                await client.Init(config.InitialDataCount,
                     config.PartitionSize,
                     config.MinPartitionsCount,
                     config.MaxPartitionsCount,
@@ -60,23 +34,10 @@ public static class CliCommands
     internal static async Task CleanUp(CleanUpConfig config)
     {
         Console.WriteLine(config);
-        var driverConfig = new DriverConfig(
-            config.Endpoint,
-            config.Db
-        );
 
-        await using var serviceProvider = GetServiceProvider();
-        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+        await using var client = await Client.CreateAsync(config.Endpoint, config.Db, config.TableName);
 
-        loggerFactory ??= NullLoggerFactory.Instance;
-        await using var driver = await Driver.CreateInitialized(driverConfig, loggerFactory);
-
-        using var tableClient = new TableClient(driver);
-
-        var executor = new Executor(tableClient);
-
-        var table = new Table(config.TableName, executor);
-        await table.CleanUp(TimeSpan.FromMilliseconds(config.WriteTimeout));
+        await client.CleanUp(TimeSpan.FromMilliseconds(config.WriteTimeout));
     }
 
     internal static async Task Run(RunConfig config)
@@ -84,23 +45,9 @@ public static class CliCommands
         var promPgwEndpoint = $"{config.PromPgw}/metrics";
         const string job = "workload-dotnet";
 
-        var driverConfig = new DriverConfig(
-            config.Endpoint,
-            config.Db
-        );
+        await using var client = await Client.CreateAsync(config.Endpoint, config.Db, config.TableName);
 
-        await using var serviceProvider = GetServiceProvider();
-        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
-
-        loggerFactory ??= NullLoggerFactory.Instance;
-        await using var driver = await Driver.CreateInitialized(driverConfig, loggerFactory);
-
-        using var tableClient = new TableClient(driver);
-
-        var executor = new Executor(tableClient);
-
-        var table = new Table(config.TableName, executor);
-        await table.Init(config.InitialDataCount, 1, 6, 1000, TimeSpan.FromMilliseconds(config.WriteTimeout));
+        await client.Init(config.InitialDataCount, 1, 6, 1000, TimeSpan.FromMilliseconds(config.WriteTimeout));
 
         Console.WriteLine(config.PromPgw);
 
@@ -112,7 +59,7 @@ public static class CliCommands
         var duration = TimeSpan.FromSeconds(config.Time);
 
         var readJob = new ReadJob(
-            table,
+            client,
             new RateLimitedCaller(
                 config.ReadRps,
                 duration
@@ -120,7 +67,7 @@ public static class CliCommands
             TimeSpan.FromMilliseconds(config.ReadTimeout));
 
         var writeJob = new WriteJob(
-            table,
+            client,
             new RateLimitedCaller(
                 config.WriteRps,
                 duration
