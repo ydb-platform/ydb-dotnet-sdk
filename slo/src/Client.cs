@@ -25,7 +25,7 @@ public class Client : IAsyncDisposable
         _serviceProvider = serviceProvider;
         _driver = driver;
         _tableClient = tableClient;
-        _semaphore = new Semaphore((int)sessionPoolLimit - 1, (int)sessionPoolLimit - 1);
+        _semaphore = new Semaphore((int)sessionPoolLimit, (int)sessionPoolLimit);
     }
 
     public async Task Init(int initialDataCount, int partitionSize, int minPartitionsCount, int maxPartitionsCount,
