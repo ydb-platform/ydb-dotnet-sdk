@@ -57,7 +57,7 @@ jobs:
           workload_build_options0: -f Dockerfile
 
       - uses: actions/upload-artifact@v3
-        if: env.DOCKER_REPO != null
+        if: always() && env.DOCKER_REPO != null
         env:
           DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
         with:
