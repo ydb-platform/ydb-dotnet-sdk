@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Client;
 
 namespace Ydb.Sdk.Table
@@ -85,69 +86,104 @@ namespace Ydb.Sdk.Table
             Task.Run(PeriodicCheck);
         }
 
-        public async Task<GetSessionResponse> GetSession()
+        private bool IsSessionPending([NotNullWhen(false)] out Status? status, out Session? session)
         {
             lock (_lock)
             {
+                status = null;
+                session = null;
                 while (_idleSessions.Count > 0)
                 {
                     var sessionId = _idleSessions.Pop();
 
-                    SessionState? sessionState;
-                    if (!_sessions.TryGetValue(sessionId, out sessionState))
+                    if (!_sessions.TryGetValue(sessionId, out var sessionState))
                     {
                         continue;
                     }
 
                     _logger.LogTrace($"Session removed from pool: {sessionId}");
-                    return new GetSessionResponse(new Status(StatusCode.Success), sessionState.Session);
+                    status = new Status(StatusCode.Success);
+                    session = sessionState.Session;
+                    return false;
                 }
 
-                if (_sessions.Count + _pendingSessions >= _config.SizeLimit)
+                if (_sessions.Count + _pendingSessions < _config.SizeLimit)
                 {
-                    _logger.LogWarning($"Session pool size limit exceeded" +
-                        $", limit: {_config.SizeLimit}" +
-                        $", pending sessions: {_pendingSessions}");
-
-                    var status = new Status(StatusCode.ClientResourceExhausted, new List<Issue> {
-                        new Issue("Session pool max active sessions limit exceeded.")
-                    });
-
-                    return new GetSessionResponse(status);
+                    ++_pendingSessions;
+                    return true;
                 }
 
-                ++_pendingSessions;
+                _logger.LogWarning($"Session pool size limit exceeded" +
+                                   $", limit: {_config.SizeLimit}" +
+                                   $", pending sessions: {_pendingSessions}");
+
+                status = new Status(StatusCode.ClientResourceExhausted, new List<Issue>
+                {
+                    new Issue("Session pool max active sessions limit exceeded.")
+                });
+
+                return false;
             }
+        }
 
-            var createSessionResponse = await _client.CreateSession(new CreateSessionSettings
-            {
-                TransportTimeout = _config.CreateSessionTimeout,
-                OperationTimeout = _config.CreateSessionTimeout
-            });
-
+        private bool TryGetSession(CreateSessionResponse createSessionResponse,
+            [NotNullWhen(true)] out Session? session)
+        {
             lock (_lock)
             {
+                session = null;
                 --_pendingSessions;
 
                 if (createSessionResponse.Status.IsSuccess)
                 {
-                    var session = new Session(
+                    var newSession = new Session(
                         driver: _driver,
                         sessionPool: this,
                         id: createSessionResponse.Result.Session.Id,
                         endpoint: createSessionResponse.Result.Session.Endpoint);
 
-                    _sessions.Add(session.Id, new SessionState(session));
+                    _sessions.Add(newSession.Id, new SessionState(newSession));
 
-                    _logger.LogTrace($"Session created from pool: {session.Id}, endpoint: {session.Endpoint}");
-
-                    return new GetSessionResponse(createSessionResponse.Status, session);
+                    _logger.LogTrace($"Session created from pool: {newSession.Id}, endpoint: {newSession.Endpoint}");
+                    session = newSession;
+                    return true;
                 }
 
                 _logger.LogWarning($"Failed to create session: {createSessionResponse.Status}");
+                return false;
+            }
+        }
+
+        public async Task<GetSessionResponse> GetSession()
+        {
+            const int maxAttempts = 100;
+            var attempts = 0;
+
+            var status = new Status(StatusCode.ClientInternalError, "Failed to get session");
+
+            while (attempts < maxAttempts)
+            {
+                attempts++;
+                if (!IsSessionPending(out status, out var session))
+                {
+                    return new GetSessionResponse(status, session);
+                }
+
+                var settings = new CreateSessionSettings
+                {
+                    TransportTimeout = _config.CreateSessionTimeout,
+                    OperationTimeout = _config.CreateSessionTimeout
+                };
+                var createSessionResponse = await _client.CreateSession(settings);
+
+                status = createSessionResponse.Status;
+
+                if (TryGetSession(createSessionResponse, out session))
+                    return new GetSessionResponse(status, session);
             }
 
-            return new GetSessionResponse(createSessionResponse.Status);
+            _logger.LogError($"Failed to get session from pool or create it (attempts: {attempts})");
+            return new GetSessionResponse(status);
         }
 
         internal void ReturnSession(string id)
@@ -205,9 +241,9 @@ namespace Ydb.Sdk.Table
         private async Task CheckSessions()
         {
             _logger.LogDebug($"Check sessions" +
-                $", sessions: {_sessions.Count}" +
-                $", pending sessions: {_pendingSessions}" +
-                $", idle sessions: {_idleSessions.Count}");
+                             $", sessions: {_sessions.Count}" +
+                             $", pending sessions: {_pendingSessions}" +
+                             $", idle sessions: {_idleSessions.Count}");
 
             List<string> keepAliveIds = new List<string>();
 
@@ -251,11 +287,12 @@ namespace Ydb.Sdk.Table
                     {
                         _sessions.Remove(id);
                     }
-                } else
+                }
+                else
                 {
                     _logger.LogWarning($"Unsuccessful keepalive" +
-                        $", session: {id}" +
-                        $", status: {response.Status}");
+                                       $", session: {id}" +
+                                       $", status: {response.Status}");
                 }
             }
         }
@@ -276,7 +313,8 @@ namespace Ydb.Sdk.Table
 
                 if (disposing)
                 {
-                    foreach (var state in _sessions.Values) {
+                    foreach (var state in _sessions.Values)
+                    {
                         _logger.LogTrace($"Closing session on session pool dispose: {state.Session.Id}");
 
                         _ = _client.DeleteSession(state.Session.Id, new DeleteSessionSettings
@@ -292,15 +330,14 @@ namespace Ydb.Sdk.Table
 
         private class SessionState
         {
-            public SessionState(Session session)
+            public SessionState(Session? session)
             {
                 Session = session;
                 LastAccessTime = DateTime.Now;
             }
 
-            public Session Session { get; }
+            public Session? Session { get; }
             public DateTime LastAccessTime { get; set; }
-
         }
     }
 }
