@@ -48,7 +48,7 @@ public abstract class Job
                 {
                     new(0.5, 0.05),
                     new(0.99, 0.005),
-                    new(1, 0.0005)
+                    new(0.999, 0.0005)
                 }
             }
         );
