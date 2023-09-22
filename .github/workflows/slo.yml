@@ -47,6 +47,8 @@ jobs:
           grafana_domain: ${{ vars.SLO_GRAFANA_DOMAIN }}
           # grafana_dashboard: ${{ vars.SLO_GRAFANA_DASHBOARD }}
           grafana_dashboard: dca60386-0d3d-43f5-a2af-5f3fd3e3b295
+          grafana_dashboard_width: 2000
+          grafana_dashboard_height: 2300
           ydb_version: 'newest'
           timeBetweenPhases: 30
           shutdownTime: 30
