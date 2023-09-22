@@ -34,7 +34,7 @@ public class Executor
             async session =>
             {
                 attempts++;
-                return parameters == null
+                var response = parameters == null
                     ? await session.ExecuteDataQuery(
                         query,
                         txControl,
@@ -44,6 +44,12 @@ public class Executor
                         txControl,
                         parameters,
                         querySettings);
+                if (!response.Status.IsSuccess)
+                {
+                    Console.WriteLine(response.Status);
+                }
+
+                return response;
             });
         histogram?.WithLabels(response.Status.IsSuccess ? "ok" : "err").Observe(attempts);
 
