@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Prometheus;
+using Ydb.Sdk;
 
 namespace slo.Jobs;
 
@@ -16,6 +17,7 @@ public abstract class Job
     protected readonly TimeSpan Timeout;
 
     protected readonly Histogram AttemptsHistogram;
+    protected readonly Gauge ErrorsGauge;
     protected readonly Random Random = new();
 
     protected readonly Client Client;
@@ -58,6 +60,14 @@ public abstract class Job
             "summary of amount for request",
             new[] { "status" },
             new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
+
+        ErrorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
+
+        foreach (var statusCode in Enum.GetValues<StatusCode>())
+        {
+            ErrorsGauge.WithLabels(Utils.GetResonseStatusName(statusCode), "retried").IncTo(0);
+            ErrorsGauge.WithLabels(Utils.GetResonseStatusName(statusCode), "finally").IncTo(0);
+        }
     }
 
     public async void Start()

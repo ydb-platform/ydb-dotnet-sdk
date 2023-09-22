@@ -19,8 +19,9 @@ internal class ReadJob : Job
         await Client.Executor.ExecuteDataQuery(
             Queries.GetReadQuery(Client.TableName),
             parameters,
+            Timeout,
             AttemptsHistogram,
-            Timeout
+            ErrorsGauge
         );
     }
 }

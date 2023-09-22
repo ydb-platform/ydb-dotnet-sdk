@@ -45,7 +45,8 @@ jobs:
           s3_endpoint: ${{ secrets.SLO_S3_ENDPOINT }}
           s3_images_folder: ${{ vars.SLO_S3_IMAGES_FOLDER }}
           grafana_domain: ${{ vars.SLO_GRAFANA_DOMAIN }}
-          grafana_dashboard: ${{ vars.SLO_GRAFANA_DASHBOARD }}
+          # grafana_dashboard: ${{ vars.SLO_GRAFANA_DASHBOARD }}
+          grafana_dashboard: dca60386-0d3d-43f5-a2af-5f3fd3e3b295
           ydb_version: 'newest'
           timeBetweenPhases: 30
           shutdownTime: 30

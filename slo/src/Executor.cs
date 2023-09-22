@@ -21,8 +21,13 @@ public class Executor
         response.Status.EnsureSuccess();
     }
 
-    public async Task<ExecuteDataQueryResponse> ExecuteDataQuery(string query,
-        Dictionary<string, YdbValue>? parameters = null, Histogram? histogram = null, TimeSpan? timeout = null)
+    public async Task<ExecuteDataQueryResponse> ExecuteDataQuery(
+        string query,
+        Dictionary<string, YdbValue>? parameters = null,
+        TimeSpan? timeout = null,
+        Histogram? attemptsHistogram = null,
+        Gauge? errorsGauge = null)
+
     {
         var txControl = TxControl.BeginSerializableRW().Commit();
 
@@ -30,6 +35,7 @@ public class Executor
             { OperationTimeout = timeout, TransportTimeout = timeout * 1.1 };
 
         var attempts = 0;
+
         var response = await _tableClient.SessionExec(
             async session =>
             {
@@ -46,12 +52,17 @@ public class Executor
                         querySettings);
                 if (!response.Status.IsSuccess)
                 {
+                    errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "retried").Inc();
                     Console.WriteLine(response.Status);
                 }
 
                 return response;
             });
-        histogram?.WithLabels(response.Status.IsSuccess ? "ok" : "err").Observe(attempts);
+        attemptsHistogram?.WithLabels(response.Status.IsSuccess ? "ok" : "err").Observe(attempts);
+        if (!response.Status.IsSuccess)
+        {
+            errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "finally").Inc();
+        }
 
         response.Status.EnsureSuccess();
 

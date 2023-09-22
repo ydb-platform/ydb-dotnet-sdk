@@ -15,8 +15,9 @@ internal class WriteJob : Job
         await Client.Executor.ExecuteDataQuery(
             Queries.GetWriteQuery(Client.TableName),
             parameters,
+            Timeout,
             AttemptsHistogram,
-            Timeout
+            ErrorsGauge
         );
     }
 }
