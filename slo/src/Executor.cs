@@ -1,5 +1,5 @@
 using Prometheus;
-using Ydb.Sdk.Table;
+using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
 namespace slo;
