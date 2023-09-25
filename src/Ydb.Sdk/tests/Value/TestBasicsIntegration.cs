@@ -1,9 +1,10 @@
 using System.Text;
 using Xunit;
 using Xunit.Abstractions;
+using Ydb.Sdk.Value;
 using Ydb.Sdk.Services.Table;
 
-namespace Ydb.Sdk.Value.Tests;
+namespace Ydb.Sdk.Tests.Value;
 
 [Trait("Category", "Integration")]
 public class TestBasicIntegration : IDisposable

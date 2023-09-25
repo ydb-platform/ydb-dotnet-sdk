@@ -1,8 +1,9 @@
 using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Value;
 
-namespace Ydb.Sdk.Value.Tests;
+namespace Ydb.Sdk.Tests;
 
-public class Utils
+public static class Utils
 {
     public static async Task<ExecuteDataQueryResponse> ExecuteDataQuery(TableClient tableClient, string query,
         Dictionary<string, YdbValue>? parameters = null)
