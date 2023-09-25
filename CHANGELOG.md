@@ -1,3 +1,7 @@
+- Add static code analysis
+- Add CodeQL analysis
+- Add linter
+- Apply uniform code style and fix all warnings
 ## v0.1.0
 - Add support of decimal type
 ## v0.0.9
