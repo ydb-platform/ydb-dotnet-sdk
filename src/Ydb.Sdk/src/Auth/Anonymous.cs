@@ -1,10 +1,9 @@
-﻿namespace Ydb.Sdk.Auth
+﻿namespace Ydb.Sdk.Auth;
+
+public class AnonymousProvider : ICredentialsProvider
 {
-    public class AnonymousProvider : ICredentialsProvider
+    public string? GetAuthInfo()
     {
-        public string? GetAuthInfo()
-        {
-            return null;
-        }
+        return null;
     }
 }

@@ -1,7 +1,9 @@
-.idea/
 .vs/
 .vscode/
 bin/
 obj/
 launchSettings.json
-*.user
+
+### JetBrains Rider
+.idea
+*.sln.DotSettings.user
