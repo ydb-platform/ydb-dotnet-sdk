@@ -29,11 +29,11 @@ jobs:
         with:
           dotnet-version: '6.0.x'
       - name: Restore
-        run: dotnet restore {{ matrix.source-dir }}{{ matrix.solutionFile }}
+        run: dotnet restore ${{ matrix.source-dir }}${{ matrix.solutionFile }}
       - name: Install ReSharper
         run: dotnet tool install -g JetBrains.ReSharper.GlobalTools
       - name: format all files with auto-formatter
-        run: bash ./.github/scripts/format-all-dotnet-code.sh {{ matrix.source-dir }} {{ matrix.solutionFile }} "Custom Cleanup"}
+        run: bash ./.github/scripts/format-all-dotnet-code.sh ${{ matrix.source-dir }} ${{ matrix.solutionFile }} "Custom Cleanup"}
       - name: Check repository diff
         run: bash ./.github/scripts/check-work-copy-equals-to-committed.sh "auto-format broken"
 
@@ -51,7 +51,7 @@ jobs:
         with:
           dotnet-version: '6.0.x'
       - name: Restore
-        run: dotnet restore {{ matrix.soulutionPath }}
+        run: dotnet restore ${{ matrix.soulutionPath }}
       - name: Inspect code
         uses: muno92/resharper_inspectcode@v1
         with:
