@@ -31,6 +31,7 @@ public class TestBasicIntegration : IDisposable
 
     public void Dispose()
     {
+        _tableClient.Dispose();
         _driver.Dispose();
         GC.SuppressFinalize(this);
     }

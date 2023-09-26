@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Xunit.Abstractions;
 using Ydb.Sdk.Auth;
@@ -7,37 +6,48 @@ using Ydb.Sdk.Services.Table;
 
 namespace Ydb.Sdk.Tests.Auth;
 
-[Trait("Category", "AuthStatic")]
-public class TestStaticAuth
+[Trait("Category", "Integration")]
+public class TestStaticAuth : IDisposable
 {
     // ReSharper disable once NotAccessedField.Local
     private readonly ITestOutputHelper _output;
+    private readonly ILoggerFactory? _loggerFactory;
 
     public TestStaticAuth(ITestOutputHelper output)
     {
         _output = output;
+        _loggerFactory = Utils.GetLoggerFactory();
+
+        var driverConfig = new DriverConfig(
+            endpoint: "grpc://localhost:2136",
+            database: "/local"
+        );
+
+        using var anonDriver = new Driver(driverConfig, _loggerFactory);
+        anonDriver.Initialize().Wait();
+
+        using var anonTableClient = new TableClient(anonDriver);
+
+        Utils.ExecuteSchemeQuery(anonTableClient, "DROP USER IF EXISTS testuser", ensureSuccess: false).Wait();
+        Utils.ExecuteSchemeQuery(anonTableClient, "CREATE USER testuser PASSWORD 'test_password'").Wait();
     }
 
-    private static ServiceProvider GetServiceProvider()
+    public void Dispose()
     {
-        return new ServiceCollection()
-            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
-            .BuildServiceProvider();
+        GC.SuppressFinalize(this);
     }
+
 
     [Fact]
-    public static async Task GoodAuth()
+    public async Task GoodAuth()
     {
-        var serviceProvider = GetServiceProvider();
-        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
-
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
             database: "/local",
             new StaticProvider("testuser", "test_password")
         );
 
-        await using var driver = await Driver.CreateInitialized(driverConfig, loggerFactory);
+        await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
 
         using var tableClient = new TableClient(driver);
 
@@ -47,11 +57,8 @@ public class TestStaticAuth
     }
 
     [Fact]
-    public static async Task WrongAuth()
+    public async Task WrongAuth()
     {
-        var serviceProvider = GetServiceProvider();
-        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
-
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
             database: "/local",
@@ -60,7 +67,7 @@ public class TestStaticAuth
 
         await Assert.ThrowsAsync<AggregateException>(async delegate
         {
-            await using var driver = await Driver.CreateInitialized(driverConfig, loggerFactory);
+            await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
         });
     }
 }

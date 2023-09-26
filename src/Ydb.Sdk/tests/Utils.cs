@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
@@ -23,13 +25,32 @@ public static class Utils
         return (ExecuteDataQueryResponse)response;
     }
 
-    public static async Task<ExecuteSchemeQueryResponse> ExecuteSchemeQuery(TableClient tableClient, string query)
+    public static async Task<ExecuteSchemeQueryResponse> ExecuteSchemeQuery(
+        TableClient tableClient, string query, bool ensureSuccess = true)
     {
         var response = await tableClient.SessionExec(
             async session =>
                 await session.ExecuteSchemeQuery(query: query));
 
-        response.Status.EnsureSuccess();
+        if (ensureSuccess)
+        {
+            response.Status.EnsureSuccess();
+        }
+
         return (ExecuteSchemeQueryResponse)response;
+    }
+
+
+    internal static ServiceProvider GetServiceProvider()
+    {
+        return new ServiceCollection()
+            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
+            .BuildServiceProvider();
+    }
+
+    internal static ILoggerFactory? GetLoggerFactory()
+    {
+        var serviceProvider = GetServiceProvider();
+        return serviceProvider.GetService<ILoggerFactory>();
     }
 }
