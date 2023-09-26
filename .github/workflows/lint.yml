@@ -37,7 +37,7 @@ jobs:
   inspection:
     strategy:
       matrix:
-        soulutionPath: ["./src/YdbSdk.sln", "./slo/src/src.sln"]
+        solutionPath: ["./src/YdbSdk.sln", "./slo/src/src.sln"]
     runs-on: ubuntu-latest
     name: Inspection
     steps:
@@ -48,7 +48,7 @@ jobs:
         with:
           dotnet-version: '6.0.x'
       - name: Restore
-        run: dotnet restore ${{ matrix.soulutionPath }}
+        run: dotnet restore ${{ matrix.solutionPath }}
       - name: Inspect code
         uses: muno92/resharper_inspectcode@v1
         with:
