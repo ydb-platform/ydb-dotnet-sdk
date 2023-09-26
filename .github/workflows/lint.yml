@@ -17,9 +17,6 @@ jobs:
           - source-dir: "./slo/src/"
             solutionFile: "src.sln"
     name: autoformat check
-    concurrency:
-      group: lint-autoformat-${{ github.ref }}
-      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
