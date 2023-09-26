@@ -4,7 +4,8 @@ namespace slo.Jobs;
 
 internal class ReadJob : Job
 {
-    public ReadJob(Client client, RateLimitedCaller rateLimitedCaller, TimeSpan timeout) : base(client, rateLimitedCaller, "read", timeout)
+    public ReadJob(Client client, RateLimitedCaller rateLimitedCaller, TimeSpan timeout) :
+        base(client, rateLimitedCaller, "read", timeout)
     {
     }
 
