@@ -47,6 +47,8 @@ public static class CliCommands
 
         await using var client = await Client.CreateAsync(config.Endpoint, config.Db, config.TableName);
 
+        await client.Init(config.InitialDataCount, 1, 6, 1000, TimeSpan.FromMilliseconds(config.WriteTimeout));
+
         Console.WriteLine(config.PromPgw);
 
         await MetricReset(promPgwEndpoint, job);
