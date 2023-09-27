@@ -5,23 +5,29 @@ using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk.Auth;
 
-public class StaticProvider : IamProviderBase, IUseDriverConfig
+public class StaticCredentialsProvider : IamProviderBase, IUseDriverConfig
 {
     private readonly ILogger _logger;
 
     private readonly string _user;
-    private readonly string? _password;
+    private readonly string _password;
 
     private Driver? _driver;
 
 
-    public StaticProvider(string user, string? password = null, ILoggerFactory? loggerFactory = null) : base(
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="user">User of the database</param>
+    /// <param name="password">Password of the user. If user has no password use null or "" </param>
+    /// <param name="loggerFactory"></param>
+    public StaticCredentialsProvider(string user, string? password, ILoggerFactory? loggerFactory = null) : base(
         loggerFactory)
     {
         _user = user;
-        _password = password;
+        _password = password ?? "";
         loggerFactory ??= NullLoggerFactory.Instance;
-        _logger = loggerFactory.CreateLogger<StaticProvider>();
+        _logger = loggerFactory.CreateLogger<StaticCredentialsProvider>();
     }
 
     protected override async Task<IamTokenData> FetchToken()
@@ -34,6 +40,10 @@ public class StaticProvider : IamProviderBase, IUseDriverConfig
 
         var client = new AuthClient(_driver);
         var loginResponse = await client.Login(_user, _password);
+        if (loginResponse.Status.StatusCode == StatusCode.Unauthorized)
+        {
+            throw new InvalidCredentialsException(loginResponse.Status.Issues.ToString() ?? "Unknown");
+        }
         loginResponse.Status.EnsureSuccess();
         var token = loginResponse.Result.Token;
         var jwt = new JwtSecurityToken(token);

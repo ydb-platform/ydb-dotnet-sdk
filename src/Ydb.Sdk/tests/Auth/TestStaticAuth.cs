@@ -30,6 +30,8 @@ public class TestStaticAuth : IDisposable
 
         Utils.ExecuteSchemeQuery(anonTableClient, "DROP USER IF EXISTS testuser", ensureSuccess: false).Wait();
         Utils.ExecuteSchemeQuery(anonTableClient, "CREATE USER testuser PASSWORD 'test_password'").Wait();
+        Utils.ExecuteSchemeQuery(anonTableClient, "DROP USER IF EXISTS testnopass", ensureSuccess: false).Wait();
+        Utils.ExecuteSchemeQuery(anonTableClient, "CREATE USER testnopass").Wait();
     }
 
     public void Dispose()
@@ -44,7 +46,7 @@ public class TestStaticAuth : IDisposable
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
             database: "/local",
-            new StaticProvider("testuser", "test_password")
+            new StaticCredentialsProvider("testuser", "test_password")
         );
 
         await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
@@ -57,17 +59,58 @@ public class TestStaticAuth : IDisposable
     }
 
     [Fact]
-    public async Task WrongAuth()
+    public async Task WrongPass()
     {
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
             database: "/local",
-            new StaticProvider("nouser", "nopass")
+            new StaticCredentialsProvider("testuser", "wrong")
         );
 
-        await Assert.ThrowsAsync<AggregateException>(async delegate
+        try
         {
             await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
-        });
+        }
+        catch (AggregateException ae)
+        {
+            Assert.IsType<InvalidCredentialsException>(ae.InnerException);
+        }
+    }
+
+    [Fact]
+    public async Task NoPassAuth()
+    {
+        var driverConfig = new DriverConfig(
+            endpoint: "grpc://localhost:2136",
+            database: "/local",
+            new StaticCredentialsProvider("testnopass", "")
+        );
+
+        await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
+
+        using var tableClient = new TableClient(driver);
+
+        var response = await Utils.ExecuteDataQuery(tableClient, "SELECT 1");
+        var row = response.Result.ResultSets[0].Rows[0];
+        Assert.Equal(1, row[0].GetInt32());
+    }
+
+    [Fact]
+    public async Task NotExistAuth()
+    {
+        var driverConfig = new DriverConfig(
+            endpoint: "grpc://localhost:2136",
+            database: "/local",
+            new StaticCredentialsProvider("notexists", "nopass")
+        );
+
+        try
+        {
+            await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
+        }
+        catch (AggregateException ae)
+        {
+            Assert.IsType<InvalidCredentialsException>(ae.InnerException);
+        }
     }
 }
