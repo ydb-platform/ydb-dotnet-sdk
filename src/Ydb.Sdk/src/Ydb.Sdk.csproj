@@ -26,7 +26,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-<!--    <PackageReference Include="Ydb.Protos" Version="1.0.3" />-->
+    <PackageReference Include="Ydb.Protos" Version="1.0.4" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.0.0" />
   </ItemGroup>
@@ -35,10 +35,6 @@
   </ItemGroup>
 
   <ItemGroup Condition="$(TargetFramework.Equals('net7.0'))">
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\..\ydb-dotnet-genproto\src\Ydb.Protos\Ydb.Protos.csproj" />
   </ItemGroup>
 
 </Project>
