@@ -1,8 +1,8 @@
 using System.Text;
 using Xunit;
 using Xunit.Abstractions;
-using Ydb.Sdk.Value;
 using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Value;
 

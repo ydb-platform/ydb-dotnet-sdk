@@ -59,26 +59,7 @@ public class TestStaticAuth : IDisposable
     }
 
     [Fact]
-    public async Task WrongPass()
-    {
-        var driverConfig = new DriverConfig(
-            endpoint: "grpc://localhost:2136",
-            database: "/local",
-            new StaticCredentialsProvider("testuser", "wrong")
-        );
-
-        try
-        {
-            await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
-        }
-        catch (AggregateException ae)
-        {
-            Assert.IsType<InvalidCredentialsException>(ae.InnerException);
-        }
-    }
-
-    [Fact]
-    public async Task NoPassAuth()
+    public async Task NoPasswordAuth()
     {
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
@@ -96,6 +77,19 @@ public class TestStaticAuth : IDisposable
     }
 
     [Fact]
+    public async Task WrongPassword()
+    {
+        var driverConfig = new DriverConfig(
+            endpoint: "grpc://localhost:2136",
+            database: "/local",
+            new StaticCredentialsProvider("testuser", "wrong")
+        );
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(
+            async () => await Driver.CreateInitialized(driverConfig, _loggerFactory));
+    }
+
+    [Fact]
     public async Task NotExistAuth()
     {
         var driverConfig = new DriverConfig(
@@ -104,13 +98,7 @@ public class TestStaticAuth : IDisposable
             new StaticCredentialsProvider("notexists", "nopass")
         );
 
-        try
-        {
-            await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
-        }
-        catch (AggregateException ae)
-        {
-            Assert.IsType<InvalidCredentialsException>(ae.InnerException);
-        }
+        await Assert.ThrowsAsync<InvalidCredentialsException>(
+            async () => await Driver.CreateInitialized(driverConfig, _loggerFactory));
     }
 }

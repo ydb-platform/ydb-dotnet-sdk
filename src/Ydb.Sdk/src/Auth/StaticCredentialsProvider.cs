@@ -5,7 +5,7 @@ using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk.Auth;
 
-public class StaticCredentialsProvider : IamProviderBase, IUseDriverConfig
+public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 {
     private readonly ILogger _logger;
 
@@ -14,6 +14,16 @@ public class StaticCredentialsProvider : IamProviderBase, IUseDriverConfig
 
     private Driver? _driver;
 
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
+
+    private static readonly TimeSpan RefreshGap = TimeSpan.FromMinutes(1);
+
+    private const int MaxRetries = 5;
+
+    private readonly object _lock = new();
+
+    private volatile TokenData? _token;
+    private volatile Task? _refreshTask;
 
     /// <summary>
     /// 
@@ -21,8 +31,7 @@ public class StaticCredentialsProvider : IamProviderBase, IUseDriverConfig
     /// <param name="user">User of the database</param>
     /// <param name="password">Password of the user. If user has no password use null or "" </param>
     /// <param name="loggerFactory"></param>
-    public StaticCredentialsProvider(string user, string? password, ILoggerFactory? loggerFactory = null) : base(
-        loggerFactory)
+    public StaticCredentialsProvider(string user, string? password, ILoggerFactory? loggerFactory = null)
     {
         _user = user;
         _password = password ?? "";
@@ -30,7 +39,96 @@ public class StaticCredentialsProvider : IamProviderBase, IUseDriverConfig
         _logger = loggerFactory.CreateLogger<StaticCredentialsProvider>();
     }
 
-    protected override async Task<IamTokenData> FetchToken()
+    public async Task Initialize()
+    {
+        _token = await ReceiveToken();
+    }
+
+    public string GetAuthInfo()
+    {
+        var token = _token;
+
+        if (token is null)
+        {
+            lock (_lock)
+            {
+                if (_token is not null) return _token.Token;
+                _logger.LogWarning(
+                    "Blocking for initial token acquirement, please use explicit Initialize async method.");
+
+                _token = ReceiveToken().Result;
+
+                return _token.Token;
+            }
+        }
+
+        if (token.IsExpired())
+        {
+            lock (_lock)
+            {
+                if (!_token!.IsExpired()) return _token.Token;
+                _logger.LogWarning("Blocking on expired  token.");
+
+                _token = ReceiveToken().Result;
+
+                return _token.Token;
+            }
+        }
+
+        if (!token.IsExpiring() || _refreshTask is not null) return _token!.Token;
+        lock (_lock)
+        {
+            if (!_token!.IsExpiring() || _refreshTask is not null) return _token!.Token;
+            _logger.LogInformation("Refreshing  token.");
+
+            _refreshTask = Task.Run(RefreshToken);
+        }
+
+        return _token!.Token;
+    }
+
+    private async Task RefreshToken()
+    {
+        var token = await ReceiveToken();
+
+        lock (_lock)
+        {
+            _token = token;
+            _refreshTask = null;
+        }
+    }
+
+    private async Task<TokenData> ReceiveToken()
+    {
+        var retryAttempt = 0;
+        while (true)
+        {
+            try
+            {
+                _logger.LogTrace($"Attempting to receive token, attempt: {retryAttempt}");
+
+                var iamToken = await FetchToken();
+
+                _logger.LogInformation($"Received token, expires at: {iamToken.ExpiresAt}");
+
+                return iamToken;
+            }
+            catch (Exception e)
+            {
+                _logger.LogDebug($"Failed to fetch token, {e}");
+
+                if (retryAttempt >= MaxRetries)
+                {
+                    throw;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+                ++retryAttempt;
+            }
+        }
+    }
+
+    private async Task<TokenData> FetchToken()
     {
         if (_driver is null)
         {
@@ -42,12 +140,13 @@ public class StaticCredentialsProvider : IamProviderBase, IUseDriverConfig
         var loginResponse = await client.Login(_user, _password);
         if (loginResponse.Status.StatusCode == StatusCode.Unauthorized)
         {
-            throw new InvalidCredentialsException(loginResponse.Status.Issues.ToString() ?? "Unknown");
+            throw new InvalidCredentialsException(Issue.IssuesToString(loginResponse.Status.Issues));
         }
+
         loginResponse.Status.EnsureSuccess();
         var token = loginResponse.Result.Token;
         var jwt = new JwtSecurityToken(token);
-        return new IamTokenData(token, jwt.ValidTo);
+        return new TokenData(token, jwt.ValidTo);
     }
 
     public async Task ProvideConfig(DriverConfig driverConfig)
@@ -60,5 +159,46 @@ public class StaticCredentialsProvider : IamProviderBase, IUseDriverConfig
                 driverConfig.DefaultTransportTimeout,
                 driverConfig.DefaultStreamingTransportTimeout,
                 driverConfig.CustomServerCertificate));
+    }
+
+    private class TokenData
+    {
+        public TokenData(string token, DateTime expiresAt)
+        {
+            var now = DateTime.UtcNow;
+
+            Token = token;
+            ExpiresAt = expiresAt;
+
+            if (expiresAt <= now)
+            {
+                RefreshAt = expiresAt;
+            }
+            else
+            {
+                var refreshSeconds = new Random().Next((int)RefreshInterval.TotalSeconds);
+                RefreshAt = expiresAt - RefreshGap - TimeSpan.FromSeconds(refreshSeconds);
+
+                if (RefreshAt < now)
+                {
+                    RefreshAt = expiresAt;
+                }
+            }
+        }
+
+        public string Token { get; }
+        public DateTime ExpiresAt { get; }
+
+        private DateTime RefreshAt { get; }
+
+        public bool IsExpired()
+        {
+            return DateTime.UtcNow >= ExpiresAt;
+        }
+
+        public bool IsExpiring()
+        {
+            return DateTime.UtcNow >= RefreshAt;
+        }
     }
 }
