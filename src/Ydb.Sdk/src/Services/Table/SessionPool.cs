@@ -98,6 +98,7 @@ internal sealed class SessionPool : ISessionPool
         for (var attempt = 0; attempt < maxAttempts; attempt++)
         {
             getSessionResponse = await GetSessionAttempt();
+            if (getSessionResponse.Status.IsSuccess) return getSessionResponse;
         }
 
         _logger.LogError($"Failed to get session from pool or create it (attempts: {maxAttempts})");
