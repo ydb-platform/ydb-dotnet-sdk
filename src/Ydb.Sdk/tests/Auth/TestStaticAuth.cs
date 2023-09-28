@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Xunit.Abstractions;
 using Ydb.Sdk.Auth;
@@ -12,6 +13,7 @@ public class TestStaticAuth : IDisposable
     // ReSharper disable once NotAccessedField.Local
     private readonly ITestOutputHelper _output;
     private readonly ILoggerFactory? _loggerFactory;
+    private readonly ILogger _logger;
 
     private readonly Driver _anonDriver;
     private readonly TableClient _anonTableClient;
@@ -19,7 +21,8 @@ public class TestStaticAuth : IDisposable
     public TestStaticAuth(ITestOutputHelper output)
     {
         _output = output;
-        _loggerFactory = Utils.GetLoggerFactory();
+        _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
+        _logger = _loggerFactory.CreateLogger<TestStaticAuth>();
 
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
@@ -41,6 +44,7 @@ public class TestStaticAuth : IDisposable
 
     private async Task DoAuth(string? passwordCreate, string? passwordAuth, int maxRetries = 5)
     {
+        _logger.LogInformation("Creating anon driver");
         var anonDriverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
             database: "/local"
@@ -48,6 +52,7 @@ public class TestStaticAuth : IDisposable
 
         await using var anonDriver = await Driver.CreateInitialized(anonDriverConfig, _loggerFactory);
 
+        _logger.LogInformation("Anon driver created");
         using var anonTableClient = new TableClient(anonDriver);
 
 
@@ -56,11 +61,14 @@ public class TestStaticAuth : IDisposable
         if (passwordCreate is null or "")
         {
             await Utils.ExecuteSchemeQuery(anonTableClient, $"CREATE USER {user}");
+            _logger.LogInformation($"User {user} created successfully");
         }
         else
         {
             await Utils.ExecuteSchemeQuery(anonTableClient, $"CREATE USER {user} PASSWORD '{passwordCreate}'");
         }
+
+        _logger.LogInformation($"User {user} with password {passwordCreate} created successfully");
 
         try
         {
@@ -70,8 +78,10 @@ public class TestStaticAuth : IDisposable
                 new StaticCredentialsProvider(user, passwordAuth) { MaxRetries = maxRetries }
             );
 
-            await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
+            _logger.LogInformation($"DriverConfig for {user} created");
 
+            await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
+            _logger.LogInformation($"Driver for {user} created and initialized");
             using var tableClient = new TableClient(driver);
 
             var response = await Utils.ExecuteDataQuery(tableClient, "SELECT 1");
@@ -81,6 +91,7 @@ public class TestStaticAuth : IDisposable
         finally
         {
             await Utils.ExecuteSchemeQuery(anonTableClient, $"DROP USER {user}");
+            _logger.LogInformation($"User {user} dropped succesfully");
         }
     }
 
