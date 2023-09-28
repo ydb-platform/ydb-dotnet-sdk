@@ -8,7 +8,7 @@ using Ydb.Sdk.Services.Table;
 namespace Ydb.Sdk.Tests.Auth;
 
 [Trait("Category", "Integration")]
-public class TestStaticAuth : IDisposable
+public class TestStaticAuth
 {
     // ReSharper disable once NotAccessedField.Local
     private readonly ITestOutputHelper _output;
@@ -20,11 +20,6 @@ public class TestStaticAuth : IDisposable
         _output = output;
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
         _logger = _loggerFactory.CreateLogger<TestStaticAuth>();
-    }
-
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
     }
 
     private async Task DoAuth(string? passwordCreate, string? passwordAuth, int maxRetries = 5)
