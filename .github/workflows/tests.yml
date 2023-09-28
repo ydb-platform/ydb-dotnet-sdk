@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ydb-version: [22.5, 23.1, 23.2, 23.3]
+        ydb-version: [trunk]
         dotnet-version: [6.0.x, 7.0.x]
         include:
           - dotnet-version: 6.0.x
