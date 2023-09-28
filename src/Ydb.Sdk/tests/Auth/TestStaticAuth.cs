@@ -15,30 +15,15 @@ public class TestStaticAuth : IDisposable
     private readonly ILoggerFactory? _loggerFactory;
     private readonly ILogger _logger;
 
-    private readonly Driver _anonDriver;
-    private readonly TableClient _anonTableClient;
-
     public TestStaticAuth(ITestOutputHelper output)
     {
         _output = output;
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
         _logger = _loggerFactory.CreateLogger<TestStaticAuth>();
-
-        var driverConfig = new DriverConfig(
-            endpoint: "grpc://localhost:2136",
-            database: "/local"
-        );
-
-        _anonDriver = new Driver(driverConfig, _loggerFactory);
-        _anonDriver.Initialize().Wait();
-
-        _anonTableClient = new TableClient(_anonDriver);
     }
 
     public void Dispose()
     {
-        _anonTableClient.Dispose();
-        _anonDriver.Dispose();
         GC.SuppressFinalize(this);
     }
 
