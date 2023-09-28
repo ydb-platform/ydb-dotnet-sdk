@@ -66,9 +66,9 @@ public class TestStaticAuth : IDisposable
         else
         {
             await Utils.ExecuteSchemeQuery(anonTableClient, $"CREATE USER {user} PASSWORD '{passwordCreate}'");
+            _logger.LogInformation($"User {user} with password created successfully");
         }
 
-        _logger.LogInformation($"User {user} with password {passwordCreate} created successfully");
 
         try
         {
