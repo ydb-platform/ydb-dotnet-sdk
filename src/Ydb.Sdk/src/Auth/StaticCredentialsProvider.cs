@@ -14,16 +14,14 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 
     private Driver? _driver;
 
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
-
-    private static readonly TimeSpan RefreshGap = TimeSpan.FromMinutes(1);
-
     public int MaxRetries = 5;
 
     private readonly object _lock = new();
 
     private volatile TokenData? _token;
     private volatile Task? _refreshTask;
+
+    public float RefreshInterval = .5f;
 
     /// <summary>
     /// 
@@ -154,7 +152,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
         loginResponse.Status.EnsureSuccess();
         var token = loginResponse.Result.Token;
         var jwt = new JwtSecurityToken(token);
-        return new TokenData(token, jwt.ValidTo);
+        return new TokenData(token, jwt.ValidTo, RefreshInterval);
     }
 
     public async Task ProvideConfig(DriverConfig driverConfig)
@@ -171,7 +169,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 
     private class TokenData
     {
-        public TokenData(string token, DateTime expiresAt)
+        public TokenData(string token, DateTime expiresAt, float refreshInterval)
         {
             var now = DateTime.UtcNow;
 
@@ -184,8 +182,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
             }
             else
             {
-                var refreshSeconds = new Random().Next((int)RefreshInterval.TotalSeconds);
-                RefreshAt = expiresAt - RefreshGap - TimeSpan.FromSeconds(refreshSeconds);
+                RefreshAt = now + (expiresAt - now) * refreshInterval;
 
                 if (RefreshAt < now)
                 {
