@@ -113,17 +113,23 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 
                 return iamToken;
             }
+            catch (InvalidCredentialsException e)
+            {
+                _logger.LogWarning($"Invalid credentials, {e}");
+                throw;
+            }
             catch (Exception e)
             {
                 _logger.LogDebug($"Failed to fetch token, {e}");
 
                 if (retryAttempt >= MaxRetries)
                 {
+                    _logger.LogWarning($"Can't fetch token, {e}");
                     throw;
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
-                
+
                 ++retryAttempt;
                 _logger.LogInformation($"Failed to fetch token, attempt {retryAttempt}");
             }

@@ -67,7 +67,7 @@ public class TestStaticAuth : IDisposable
             var driverConfig = new DriverConfig(
                 endpoint: "grpc://localhost:2136",
                 database: "/local",
-                new StaticCredentialsProvider(user, passwordAuth){MaxRetries = maxRetries}
+                new StaticCredentialsProvider(user, passwordAuth) { MaxRetries = maxRetries }
             );
 
             await using var driver = await Driver.CreateInitialized(driverConfig, _loggerFactory);
@@ -101,7 +101,7 @@ public class TestStaticAuth : IDisposable
     public async Task WrongPassword()
     {
         await Assert.ThrowsAsync<InvalidCredentialsException>(
-            async () => await DoAuth("good_password", "wrong_password", maxRetries:1));
+            async () => await DoAuth("good_password", "wrong_password", maxRetries: 1));
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public class TestStaticAuth : IDisposable
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
             database: "/local",
-            new StaticCredentialsProvider("notexists", "nopass"){MaxRetries = 1}
+            new StaticCredentialsProvider("notexists", "nopass") { MaxRetries = 1 }
         );
 
         await Assert.ThrowsAsync<InvalidCredentialsException>(
