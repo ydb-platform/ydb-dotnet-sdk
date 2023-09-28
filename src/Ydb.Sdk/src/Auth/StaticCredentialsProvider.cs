@@ -18,7 +18,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 
     private static readonly TimeSpan RefreshGap = TimeSpan.FromMinutes(1);
 
-    private const int MaxRetries = 5;
+    public int MaxRetries = 5;
 
     private readonly object _lock = new();
 
@@ -123,7 +123,9 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+                
                 ++retryAttempt;
+                _logger.LogInformation($"Failed to fetch token, attempt {retryAttempt}");
             }
         }
     }
