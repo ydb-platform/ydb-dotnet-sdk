@@ -92,6 +92,20 @@ internal sealed class SessionPool : ISessionPool
 
     public async Task<GetSessionResponse> GetSession()
     {
+        const int maxAttempts = 100;
+
+        GetSessionResponse getSessionResponse = null!;
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            getSessionResponse = await GetSessionAttempt();
+        }
+
+        _logger.LogError($"Failed to get session from pool or create it (attempts: {maxAttempts})");
+        return getSessionResponse;
+    }
+
+    private async Task<GetSessionResponse> GetSessionAttempt()
+    {
         lock (_lock)
         {
             while (_idleSessions.Count > 0)
