@@ -41,9 +41,12 @@ public partial class AuthClient
         var request = new LoginRequest
         {
             OperationParams = MakeOperationParams(settings),
-            Password = password,
             User = user
         };
+        if (password is not null)
+        {
+            request.Password = password;
+        }
 
         try
         {

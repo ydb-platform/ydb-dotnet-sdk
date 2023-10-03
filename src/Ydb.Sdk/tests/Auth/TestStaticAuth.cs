@@ -8,47 +8,65 @@ using Ydb.Sdk.Services.Table;
 namespace Ydb.Sdk.Tests.Auth;
 
 [Trait("Category", "Integration")]
-public class TestStaticAuth
+public class TestStaticAuth : IDisposable
 {
     // ReSharper disable once NotAccessedField.Local
     private readonly ITestOutputHelper _output;
     private readonly ILoggerFactory? _loggerFactory;
     private readonly ILogger _logger;
 
+
+    private readonly Driver _anonDriver;
+    private readonly TableClient _anonTableClient;
+
     public TestStaticAuth(ITestOutputHelper output)
     {
         _output = output;
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
         _logger = _loggerFactory.CreateLogger<TestStaticAuth>();
-    }
 
-    private async Task DoAuth(string? passwordCreate, string? passwordAuth, int maxRetries = 5)
-    {
+
+        _output = output;
+
         _logger.LogInformation("Creating anon driver");
-        var anonDriverConfig = new DriverConfig(
+        var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
             database: "/local"
         );
 
-        await using var anonDriver = await Driver.CreateInitialized(anonDriverConfig, _loggerFactory);
-
+        _anonDriver = new Driver(driverConfig);
+        _anonDriver.Initialize().Wait();
         _logger.LogInformation("Anon driver created");
-        using var anonTableClient = new TableClient(anonDriver);
 
+        _anonTableClient = new TableClient(_anonDriver);
+    }
 
+    public void Dispose()
+    {
+        _anonTableClient.Dispose();
+        _anonDriver.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    private async Task CreateUser(string user, string? password)
+    {
+        var query = password is null ? $"CREATE USER {user}" : $"CREATE USER {user} PASSWORD '{password}'";
+
+        await Utils.ExecuteSchemeQuery(_anonTableClient, $"{query}");
+        _logger.LogInformation($"User {user} created successfully");
+    }
+
+    private async Task DropUser(string user)
+    {
+        await Utils.ExecuteSchemeQuery(_anonTableClient, $"DROP USER {user}");
+        _logger.LogInformation($"User {user} dropped successfully");
+    }
+
+    private async Task DoAuth(string? passwordCreate, string? passwordAuth, int maxRetries = 5)
+    {
         var user = $"test{Guid.NewGuid():n}";
 
-        if (passwordCreate is null or "")
-        {
-            await Utils.ExecuteSchemeQuery(anonTableClient, $"CREATE USER {user}");
-            _logger.LogInformation($"User {user} created successfully");
-        }
-        else
-        {
-            await Utils.ExecuteSchemeQuery(anonTableClient, $"CREATE USER {user} PASSWORD '{passwordCreate}'");
-            _logger.LogInformation($"User {user} with password created successfully");
-        }
-
+        await CreateUser(user, passwordCreate);
 
         try
         {
@@ -70,8 +88,7 @@ public class TestStaticAuth
         }
         finally
         {
-            await Utils.ExecuteSchemeQuery(anonTableClient, $"DROP USER {user}");
-            _logger.LogInformation($"User {user} dropped succesfully");
+            await DropUser(user);
         }
     }
 

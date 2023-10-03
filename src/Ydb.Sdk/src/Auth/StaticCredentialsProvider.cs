@@ -10,7 +10,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
     private readonly ILogger _logger;
 
     private readonly string _user;
-    private readonly string _password;
+    private readonly string? _password;
 
     private Driver? _driver;
 
@@ -21,23 +21,23 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
     private volatile TokenData? _token;
     private volatile Task? _refreshTask;
 
-    public float RefreshInterval = .5f;
+    public float RefreshRatio = .5f;
 
     /// <summary>
     /// 
     /// </summary>
     /// <param name="user">User of the database</param>
-    /// <param name="password">Password of the user. If user has no password use null or "" </param>
+    /// <param name="password">Password of the user. If user has no password use null </param>
     /// <param name="loggerFactory"></param>
     public StaticCredentialsProvider(string user, string? password, ILoggerFactory? loggerFactory = null)
     {
         _user = user;
-        _password = password ?? "";
+        _password = password;
         loggerFactory ??= NullLoggerFactory.Instance;
         _logger = loggerFactory.CreateLogger<StaticCredentialsProvider>();
     }
 
-    public async Task Initialize()
+    private async Task Initialize()
     {
         _token = await ReceiveToken();
     }
@@ -54,9 +54,9 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
                 _logger.LogWarning(
                     "Blocking for initial token acquirement, please use explicit Initialize async method.");
 
-                _token = ReceiveToken().Result;
+                Initialize().Wait();
 
-                return _token.Token;
+                return _token!.Token;
             }
         }
 
@@ -65,7 +65,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
             lock (_lock)
             {
                 if (!_token!.IsExpired()) return _token.Token;
-                _logger.LogWarning("Blocking on expired  token.");
+                _logger.LogWarning("Blocking on expired token.");
 
                 _token = ReceiveToken().Result;
 
@@ -73,10 +73,10 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
             }
         }
 
-        if (!token.IsExpiring() || _refreshTask is not null) return _token!.Token;
+        if (!token.IsRefreshNeeded() || _refreshTask is not null) return _token!.Token;
         lock (_lock)
         {
-            if (!_token!.IsExpiring() || _refreshTask is not null) return _token!.Token;
+            if (!_token!.IsRefreshNeeded() || _refreshTask is not null) return _token!.Token;
             _logger.LogInformation("Refreshing  token.");
 
             _refreshTask = Task.Run(RefreshToken);
@@ -105,11 +105,11 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
             {
                 _logger.LogTrace($"Attempting to receive token, attempt: {retryAttempt}");
 
-                var iamToken = await FetchToken();
+                var token = await FetchToken();
 
-                _logger.LogInformation($"Received token, expires at: {iamToken.ExpiresAt}");
+                _logger.LogInformation($"Received token, expires at: {token.ExpiresAt}");
 
-                return iamToken;
+                return token;
             }
             catch (InvalidCredentialsException e)
             {
@@ -127,9 +127,8 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
-
-                ++retryAttempt;
                 _logger.LogInformation($"Failed to fetch token, attempt {retryAttempt}");
+                ++retryAttempt;
             }
         }
     }
@@ -152,7 +151,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
         loginResponse.Status.EnsureSuccess();
         var token = loginResponse.Result.Token;
         var jwt = new JwtSecurityToken(token);
-        return new TokenData(token, jwt.ValidTo, RefreshInterval);
+        return new TokenData(token, jwt.ValidTo, RefreshRatio);
     }
 
     public async Task ProvideConfig(DriverConfig driverConfig)
@@ -165,6 +164,8 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
                 driverConfig.DefaultTransportTimeout,
                 driverConfig.DefaultStreamingTransportTimeout,
                 driverConfig.CustomServerCertificate));
+
+        await Initialize();
     }
 
     private class TokenData
@@ -201,7 +202,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
             return DateTime.UtcNow >= ExpiresAt;
         }
 
-        public bool IsExpiring()
+        public bool IsRefreshNeeded()
         {
             return DateTime.UtcNow >= RefreshAt;
         }

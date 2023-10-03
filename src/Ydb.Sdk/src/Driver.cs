@@ -76,11 +76,6 @@ public class Driver : IDisposable, IAsyncDisposable
         if (_config.Credentials is IUseDriverConfig useDriverConfig)
         {
             await useDriverConfig.ProvideConfig(_config);
-            if (_config.Credentials is StaticCredentialsProvider staticCredentialsProvider)
-            {
-                await staticCredentialsProvider.Initialize();
-            }
-
             _logger.LogInformation("DriverConfig provided to IUseDriverConfig interface");
         }
 
