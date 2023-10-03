@@ -67,4 +67,4 @@ jobs:
       - name: Integration test
         run: | 
           cd src
-          dotnet test --filter "Category=Integration" -f ${{ matrix.dotnet-target-framework }}
+          dotnet test --filter "Category=Integration" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=normal"

@@ -2,8 +2,9 @@ using System.Text;
 using Xunit;
 using Xunit.Abstractions;
 using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Value;
 
-namespace Ydb.Sdk.Value.Tests;
+namespace Ydb.Sdk.Tests.Value;
 
 [Trait("Category", "Integration")]
 public class TestBasicIntegration : IDisposable
@@ -30,6 +31,7 @@ public class TestBasicIntegration : IDisposable
 
     public void Dispose()
     {
+        _tableClient.Dispose();
         _driver.Dispose();
         GC.SuppressFinalize(this);
     }
