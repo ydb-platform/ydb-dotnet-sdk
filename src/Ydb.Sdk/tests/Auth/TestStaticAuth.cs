@@ -15,58 +15,48 @@ public class TestStaticAuth : IDisposable
     private readonly ILoggerFactory? _loggerFactory;
     private readonly ILogger _logger;
 
-
-    private readonly Driver _anonDriver;
-    private readonly TableClient _anonTableClient;
-
     public TestStaticAuth(ITestOutputHelper output)
     {
         _output = output;
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
         _logger = _loggerFactory.CreateLogger<TestStaticAuth>();
-
-
-        _output = output;
-
-        _logger.LogInformation("Creating anon driver");
-        var driverConfig = new DriverConfig(
-            endpoint: "grpc://localhost:2136",
-            database: "/local"
-        );
-
-        _anonDriver = new Driver(driverConfig);
-        _anonDriver.Initialize().Wait();
-        _logger.LogInformation("Anon driver created");
-
-        _anonTableClient = new TableClient(_anonDriver);
     }
 
     public void Dispose()
     {
-        _anonTableClient.Dispose();
-        _anonDriver.Dispose();
         GC.SuppressFinalize(this);
     }
 
-    private async Task CreateUser(string user, string? password)
+    private async Task CreateUser(TableClient tableClient, string user, string? password)
     {
         var query = password is null ? $"CREATE USER {user}" : $"CREATE USER {user} PASSWORD '{password}'";
 
-        await Utils.ExecuteSchemeQuery(_anonTableClient, $"{query}");
+        await Utils.ExecuteSchemeQuery(tableClient, $"{query}");
         _logger.LogInformation($"User {user} created successfully");
     }
 
-    private async Task DropUser(string user)
+    private async Task DropUser(TableClient tableClient, string user)
     {
-        await Utils.ExecuteSchemeQuery(_anonTableClient, $"DROP USER {user}");
+        await Utils.ExecuteSchemeQuery(tableClient, $"DROP USER {user}");
         _logger.LogInformation($"User {user} dropped successfully");
     }
 
     private async Task DoAuth(string? passwordCreate, string? passwordAuth, int maxRetries = 5)
     {
+        _logger.LogInformation("Creating anon driver");
+        var anonDriverConfig = new DriverConfig(
+            endpoint: "grpc://localhost:2136",
+            database: "/local"
+        );
+
+        await using var anonDriver = await Driver.CreateInitialized(anonDriverConfig);
+        _logger.LogInformation("Anon driver created");
+
+        using var anonTableClient = new TableClient(anonDriver);
+
         var user = $"test{Guid.NewGuid():n}";
 
-        await CreateUser(user, passwordCreate);
+        await CreateUser(anonTableClient, user, passwordCreate);
 
         try
         {
@@ -88,7 +78,7 @@ public class TestStaticAuth : IDisposable
         }
         finally
         {
-            await DropUser(user);
+            await DropUser(anonTableClient, user);
         }
     }
 
