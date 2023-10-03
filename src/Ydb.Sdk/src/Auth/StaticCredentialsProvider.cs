@@ -21,7 +21,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
     private volatile TokenData? _token;
     private volatile Task? _refreshTask;
 
-    public float RefreshRatio = .5f;
+    public float RefreshRatio = .1f;
 
     /// <summary>
     /// 
