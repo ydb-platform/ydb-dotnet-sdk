@@ -37,7 +37,7 @@ await driver.Initialize(); // Make sure to await driver initialization
 ```
 
 ### Credentials
-YDB SDK provides two standard ways for authentication:
+YDB SDK provides several standard ways for authentication:
 1) `Ydb.Sdk.Auth.AnonymousProvider`. Anonymous YDB access, mainly for tests purposes.
 2) `Ydb.Sdk.Auth.TokenProvider`. Token authentication for OAuth-like tokens.
 3) `Ydb.Sdk.Auth.StaticCredentialsProvider`. Username and password based authentication.
