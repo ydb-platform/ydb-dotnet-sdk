@@ -35,11 +35,24 @@ public partial class Session : ClientBase, IDisposable
 
     private void OnResponseStatus(Status status)
     {
-        if (status.StatusCode == StatusCode.BadSession || status.StatusCode == StatusCode.SessionBusy)
+        if (status.StatusCode is StatusCode.BadSession or StatusCode.SessionBusy)
         {
-            if (_sessionPool != null)
+            _sessionPool?.InvalidateSession(Id);
+        }
+    }
+
+    private void OnResponseTrailers(Grpc.Core.Metadata? trailers)
+    {
+        if (trailers is null)
+        {
+            return;
+        }
+
+        foreach (var hint in trailers.GetAll(Metadata.RpcServerHintsHeader))
+        {
+            if (hint.Value == Metadata.GracefulShutdownHint)
             {
-                _sessionPool.InvalidateSession(Id);
+                _sessionPool?.InvalidateSession(Id);
             }
         }
     }
