@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using Grpc.Core;
-using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
