@@ -1,4 +1,6 @@
+- Add logging for transactions
 - Add static auth
+
 ## v0.1.1
 - Add static code analysis
 - Add CodeQL analysis

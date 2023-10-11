@@ -1,4 +1,5 @@
-﻿using Ydb.Table;
+﻿using Microsoft.Extensions.Logging;
+using Ydb.Table;
 
 namespace Ydb.Sdk.Services.Table;
 
@@ -11,15 +12,36 @@ public class Transaction
 
     public string TxId { get; }
 
-    internal static Transaction? FromProto(TransactionMeta proto)
+    internal int? TxNum { get; private set; }
+
+    internal static Transaction? FromProto(TransactionMeta proto, ILogger? logger = null)
     {
         if (proto.Id.Length == 0)
         {
             return null;
         }
 
-        return new Transaction(
+        var tx = new Transaction(
             txId: proto.Id);
+        if (!string.IsNullOrEmpty(proto.Id))
+        {
+            tx.TxNum = GetTxCounter();
+            logger.LogTrace($"Received tx #{tx.TxNum}");
+        }
+
+        return tx;
+    }
+
+    private static readonly object TxCounterLock = new();
+    private static int _txCounter;
+
+    private static int GetTxCounter()
+    {
+        lock (TxCounterLock)
+        {
+            _txCounter++;
+            return _txCounter;
+        }
     }
 }
 
@@ -34,9 +56,12 @@ public class TxControl
 {
     private readonly TransactionControl _proto;
 
-    private TxControl(TransactionControl proto)
+    private readonly int? _txNum;
+
+    private TxControl(TransactionControl proto, int? txNum = null)
     {
         _proto = proto;
+        _txNum = txNum;
     }
 
     public static TxControl BeginSerializableRW()
@@ -80,7 +105,7 @@ public class TxControl
         return new TxControl(new TransactionControl
         {
             TxId = tx.TxId
-        });
+        }, tx.TxNum);
     }
 
     public TxControl Commit()
@@ -89,8 +114,13 @@ public class TxControl
         return this;
     }
 
-    internal TransactionControl ToProto()
+    internal TransactionControl ToProto(ILogger? logger = null)
     {
+        if (_txNum != null)
+        {
+            logger.LogTrace($"Using tx #{_txNum}");
+        }
+
         return _proto.Clone();
     }
 }
