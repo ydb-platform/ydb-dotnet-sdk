@@ -8,7 +8,7 @@ namespace Ydb.Sdk.Tests.Table;
 [Trait("Category", "Integration")]
 public class TestCopyTable
 {
-    private readonly ILoggerFactory? _loggerFactory;
+    private readonly ILoggerFactory _loggerFactory;
 
     private readonly DriverConfig _driverConfig = new(
         endpoint: "grpc://localhost:2136",

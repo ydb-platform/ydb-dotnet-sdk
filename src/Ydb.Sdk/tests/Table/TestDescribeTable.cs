@@ -8,7 +8,8 @@ namespace Ydb.Sdk.Tests.Table;
 [Trait("Category", "Integration")]
 public class TestDescribeTable
 {
-    private readonly ILoggerFactory? _loggerFactory;
+    private readonly ILoggerFactory _loggerFactory;
+
     private readonly DriverConfig _driverConfig = new(
         endpoint: "grpc://localhost:2136",
         database: "/local"
