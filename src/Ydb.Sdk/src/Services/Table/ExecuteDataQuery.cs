@@ -65,7 +65,7 @@ public partial class Session
             OperationParams = MakeOperationParams(settings),
             SessionId = Id,
             TxControl = txControl.ToProto(),
-            Query = new Query
+            Query = new Ydb.Table.Query
             {
                 YqlText = query
             },

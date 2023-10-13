@@ -68,7 +68,7 @@ public partial class TableClient
         var request = new ExecuteScanQueryRequest
         {
             Mode = ExecuteScanQueryRequest.Types.Mode.Exec,
-            Query = new Query
+            Query = new Ydb.Table.Query
             {
                 YqlText = query
             }
