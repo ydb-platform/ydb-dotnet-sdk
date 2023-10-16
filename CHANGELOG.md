@@ -1,3 +1,6 @@
+- Move examples from [separated repo](https://github.com/ydb-platform/ydb-dotnet-examples)
+- Adjust .NET and SDK versions
+
 ## v0.1.3
 - Add static auth
 ## v0.1.1
