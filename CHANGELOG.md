@@ -1,3 +1,5 @@
+- Add exception throwing when results truncated
+
 ## v0.1.3
 - Add static auth
 ## v0.1.1
