@@ -2,9 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Ydb.Sdk.Services.Query;
-using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
-using RetrySettings = Ydb.Sdk.Services.Query.RetrySettings;
 
 namespace Ydb.Sdk.Tests.Query;
 
@@ -38,8 +36,7 @@ public class TestExecuteQuery
         _logger = _loggerFactory.CreateLogger<TestExecuteQuery>();
     }
 
-    [Fact]
-    public async Task ExecuteQueryTake1()
+    public async Task ExecuteQueryTake1_1()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var queryClient = new QueryClient(driver);
@@ -73,9 +70,7 @@ public class TestExecuteQuery
         });
     }
 
-
-    [Fact]
-    public async Task ExecuteQueryTake2()
+    public async Task ExecuteQueryTake1_2()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var queryClient = new QueryClient(driver);
@@ -105,8 +100,7 @@ public class TestExecuteQuery
             });
     }
 
-    [Fact]
-    public async Task ExecuteQueryTake3()
+    public async Task ExecuteQueryTake1_3()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var queryClient = new QueryClient(driver);
@@ -128,16 +122,14 @@ public class TestExecuteQuery
         }
     }
 
-
-    [Fact]
-    public async Task ExecuteQueryTake4() // transactions
+    public async Task ExecuteQueryTake2_1() // transactions
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var queryClient = new QueryClient(driver);
 
-        await queryClient.SessionExec(async session =>
+        var unused = await queryClient.SessionExec(async session =>
         {
-            using var tx = session.BeginTx(); // tx created on server 
+            await using var tx = session.BeginTx(); // tx created on server 
 
             var stream = session.ExecuteQueryYql(
                 query: Query,
@@ -166,13 +158,12 @@ public class TestExecuteQuery
         });
     }
 
-    [Fact]
-    public async Task ExecuteQueryTake5() // transactions auto rollback
+    public async Task ExecuteQueryTake2_2() // transactions auto rollback
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var queryClient = new QueryClient(driver);
 
-        await queryClient.SessionExec(async session =>
+        var unused = await queryClient.SessionExec(async session =>
             await session.TxExec(async tx => // tx created on server 
                 {
                     var stream = session.ExecuteQueryYql(
@@ -193,13 +184,12 @@ public class TestExecuteQuery
         );
     }
 
-    [Fact]
-    public async Task ExecuteQueryTake6() // transactions 
+    public async Task ExecuteQueryTake2_3() // transactions 
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var queryClient = new QueryClient(driver);
 
-        await queryClient.SessionExecTx(async (session, tx) => //compact 
+        var unused = await queryClient.SessionExecTx(async (session, tx) => //compact 
             {
                 var stream = session.ExecuteQueryYql(
                     query: Query,
@@ -215,6 +205,30 @@ public class TestExecuteQuery
                 tx.Commit(); // rollback automatically if catch CommitException 
                 return stream.ExecStats;
             }
+        );
+    }
+
+    public async Task ExecuteQueryTake2_4() // transactions 
+    {
+        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
+        using var queryClient = new QueryClient(driver);
+
+        var unused = await queryClient.ExecTx( // create session and transaction on session; do retry
+            async tx =>
+            {
+                var stream = tx.ExecuteQueryYql(
+                    query: Query,
+                    parameters: _parameters);
+
+                await foreach (var part in stream)
+                {
+                    part.EnsureSuccess();
+                    // something
+                }
+
+                return stream.ExecStats;
+            },
+            commit: true // automatic commit 
         );
     }
 }

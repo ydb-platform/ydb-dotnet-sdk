@@ -1,3 +1,5 @@
+using Ydb.Sdk.Value;
+
 namespace Ydb.Sdk.Services.Query;
 
 public class CommitTxResponse
@@ -12,7 +14,7 @@ public class RollbackTxResponse
 {
 }
 
-public class Tx : IDisposable
+public class Tx : IDisposable, IAsyncDisposable
 {
     public object TxSettings; 
     
@@ -44,6 +46,20 @@ public class Tx : IDisposable
     }
 
     public void Dispose()
+    {
+        throw new NotImplementedException();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        throw new NotImplementedException();
+    }
+
+
+    public ExecuteQueryStream ExecuteQueryYql(
+        string query,
+        IReadOnlyDictionary<string, YdbValue>? parameters = null,
+        ExecuteQuerySettings? settings = null)
     {
         throw new NotImplementedException();
     }

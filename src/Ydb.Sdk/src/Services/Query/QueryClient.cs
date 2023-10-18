@@ -2,7 +2,6 @@ using Ydb.Sdk.Client;
 
 namespace Ydb.Sdk.Services.Query;
 
-
 public class RetrySettings
 {
     public bool IsIdempotent;
@@ -46,6 +45,16 @@ public class QueryClient : IDisposable
     }
 
     public async Task<T> SessionExecTx<T>(Func<QuerySession, Tx, T> func)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<Tx> BeginTx()
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<T> ExecTx<T>(Func<Tx, T> func, bool commit)
     {
         throw new NotImplementedException();
     }
