@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using Xunit.Abstractions;
 using Ydb.Sdk.Services.Table;
 
 namespace Ydb.Sdk.Tests.Table;
@@ -9,7 +8,6 @@ namespace Ydb.Sdk.Tests.Table;
 [Trait("Category", "Integration")]
 public class TestGracefulShutdown
 {
-    private readonly ITestOutputHelper _testOutputHelper;
     private readonly ILoggerFactory _loggerFactory;
 
     private readonly DriverConfig _driverConfig = new(
@@ -19,9 +17,8 @@ public class TestGracefulShutdown
 
     private const string ShutdownUrl = "http://localhost:8765/actors/kqp_proxy?force_shutdown=all";
 
-    public TestGracefulShutdown(ITestOutputHelper testOutputHelper)
+    public TestGracefulShutdown()
     {
-        _testOutputHelper = testOutputHelper;
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
     }
 
@@ -56,7 +53,7 @@ public class TestGracefulShutdown
         // _testOutputHelper.WriteLine(session2);
         await Task.Delay(1000);
 
-        
+
         // control check
         Assert.NotEqual("", session1);
         Assert.Equal(session1, session2);
@@ -65,7 +62,7 @@ public class TestGracefulShutdown
         using var httpClient = new HttpClient();
         await httpClient.GetAsync(ShutdownUrl);
         await Task.Delay(1000);
-        
+
         // new session
         var session3 = "";
         await tableClient.SessionExec(
@@ -75,9 +72,9 @@ public class TestGracefulShutdown
                 return await session.ExecuteDataQuery("SELECT 1", TxControl.BeginSerializableRW().Commit());
             }
         );
-        
+
         Assert.Equal(session2, session3);
-        
+
         var session4 = "";
         await tableClient.SessionExec(
             async session =>
@@ -86,7 +83,7 @@ public class TestGracefulShutdown
                 return await session.ExecuteDataQuery("SELECT 1", TxControl.BeginSerializableRW().Commit());
             }
         );
-        
+
         Assert.NotEqual("", session3);
         Assert.NotEqual(session3, session4);
     }
