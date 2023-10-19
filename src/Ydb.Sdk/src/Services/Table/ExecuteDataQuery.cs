@@ -8,7 +8,7 @@ namespace Ydb.Sdk.Services.Table;
 public class ExecuteDataQuerySettings : OperationRequestSettings
 {
     public bool KeepInQueryCache { get; set; } = true;
-    public bool AllowTruncated { get; set; } = false;
+    public bool AllowTruncated { get; set; }
 }
 
 public class ExecuteDataQueryResponse : ResponseWithResultBase<ExecuteDataQueryResponse.ResultData>
