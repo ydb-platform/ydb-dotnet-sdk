@@ -41,7 +41,6 @@ public partial class Session
 
             var status = UnpackOperation(response.Data.Operation);
             OnResponseStatus(status);
-            OnResponseTrailers(response.Trailers);
 
             return new ExecuteSchemeQueryResponse(status);
         }

@@ -90,18 +90,20 @@ public partial class Session : ClientBase, IDisposable
         _disposed = true;
     }
 
-    internal Task<Driver.UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
+    internal async Task<Driver.UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         RequestSettings settings)
         where TRequest : class
         where TResponse : class
     {
-        return Driver.UnaryCall(
+        var response = await Driver.UnaryCall(
             method: method,
             request: request,
             settings: settings,
             preferredEndpoint: Endpoint
         );
+        OnResponseTrailers(response.Trailers);
+        return response;
     }
 }

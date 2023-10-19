@@ -86,7 +86,6 @@ public partial class Session
 
             var status = UnpackOperation(response.Data.Operation, out ExecuteQueryResult? resultProto);
             OnResponseStatus(status);
-            OnResponseTrailers(response.Trailers);
 
             var txState = TransactionState.Unknown;
             Transaction? tx = null;
