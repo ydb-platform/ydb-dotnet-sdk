@@ -1,3 +1,4 @@
+- Add exception throwing when results truncated
 - lint: add line feed at file end
 
 ## v0.1.3
