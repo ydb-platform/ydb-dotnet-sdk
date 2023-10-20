@@ -1,3 +1,6 @@
+- lint: add line feed at file end
+
+## v0.1.3
 - Add static auth
 ## v0.1.1
 - Add static code analysis
