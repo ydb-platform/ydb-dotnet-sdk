@@ -1,3 +1,4 @@
+using Google.Protobuf;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -227,8 +228,9 @@ public class TestExecuteQuery
                 }
 
                 return stream.ExecStats;
-            },
-            commit: true // automatic commit 
+            }, 
+            txType: TxType.OnlineRO, // default SerializableRW
+            commit: true //  default false; automatic commit
         );
     }
 }
