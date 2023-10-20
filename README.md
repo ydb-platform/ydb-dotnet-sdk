@@ -92,4 +92,4 @@ foreach (var row in resultSet.Rows)
 
 ## Examples
 
-See **[ydb-dotnet-examples](https://github.com/ydb-platform/ydb-dotnet-examples)**.
+See **[examples folder](https://github.com/ydb-platform/ydb-dotnet-sdk/tree/main/examples)**
