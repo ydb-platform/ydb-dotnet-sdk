@@ -38,9 +38,6 @@ public class TestGracefulShutdown
             }
         );
 
-        // _testOutputHelper.WriteLine(session1);
-        await Task.Delay(1000);
-
         var session2 = "";
         await tableClient.SessionExec(
             async session =>
@@ -50,10 +47,6 @@ public class TestGracefulShutdown
             }
         );
 
-        // _testOutputHelper.WriteLine(session2);
-        await Task.Delay(1000);
-
-
         // control check
         Assert.NotEqual("", session1);
         Assert.Equal(session1, session2);
@@ -61,7 +54,6 @@ public class TestGracefulShutdown
         // SHUTDOWN
         using var httpClient = new HttpClient();
         await httpClient.GetAsync(ShutdownUrl);
-        await Task.Delay(1000);
 
         // new session
         var session3 = "";
