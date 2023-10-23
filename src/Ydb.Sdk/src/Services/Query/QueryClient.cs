@@ -466,6 +466,14 @@ public class QueryClient :
     {
     }
 
+    public async Task ExecOnSession<T>(
+        Func<Session, T> func,
+        RetrySettings? retrySettings = null
+    )
+    {
+        retrySettings = new RetrySettings();
+    }
+
     // public async Task SessionExecStream(
     //     Func<QuerySession, Task> operationFunc,
     //     RetrySettings? retrySettings = null)
