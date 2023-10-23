@@ -9,7 +9,6 @@ namespace Ydb.Sdk.Tests.Query;
 [Trait("Category", "Integration")]
 public class TestSession
 {
-    private readonly ITestOutputHelper _testOutputHelper;
     private readonly ILoggerFactory _loggerFactory;
 
     private readonly DriverConfig _driverConfig = new(
@@ -17,9 +16,8 @@ public class TestSession
         database: "/local"
     );
 
-    public TestSession(ITestOutputHelper testOutputHelper)
+    public TestSession()
     {
-        _testOutputHelper = testOutputHelper;
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
         _loggerFactory.CreateLogger<TestExecuteQuery>();
     }
@@ -68,8 +66,8 @@ public class TestSession
 
         while (await sessionStateStream.Next())
         {
-            sessionStateStream.Response.EnsureSuccess();
-            _testOutputHelper.WriteLine(1.ToString());
+            Assert.True(sessionStateStream.Response.Status.IsSuccess);
+            break;
         }
     }
 }
