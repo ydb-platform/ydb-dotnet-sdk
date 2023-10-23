@@ -1,5 +1,5 @@
 namespace Ydb.Sdk.Services.Query;
 
-public class QuerySessionPool
+public class SessionPool
 {
 }
