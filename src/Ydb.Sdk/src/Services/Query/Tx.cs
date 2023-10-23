@@ -63,4 +63,9 @@ public class Tx : IDisposable, IAsyncDisposable
     {
         throw new NotImplementedException();
     }
+
+    public async Task<ExecuteQueryStream> Query(string query, Dictionary<string,YdbValue> parameters)
+    {
+        throw new NotImplementedException();
+    }
 }

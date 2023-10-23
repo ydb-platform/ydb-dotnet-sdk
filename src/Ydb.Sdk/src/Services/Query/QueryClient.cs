@@ -1,5 +1,6 @@
 using Ydb.Sdk.Client;
 using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
@@ -8,7 +9,7 @@ public class RetrySettings
     public bool IsIdempotent;
 }
 
-public enum TxType
+public enum TxMode
 {
     SerializableRW,
     OnlineRO,
@@ -62,7 +63,17 @@ public class QueryClient : IDisposable
         throw new NotImplementedException();
     }
 
-    public async Task<T> ExecTx<T>(Func<Tx, T> func, TxType txType = TxType.SerializableRW, bool commit = false)
+    public async Task<T> ExecTx<T>(Func<Tx, T> func, TxMode txMode = TxMode.SerializableRW, bool commit = false)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<T> Query<T>(string query, Dictionary<string, YdbValue> parameters, Func<ExecuteQueryStream, T> func, TxMode txType = TxMode.SerializableRW)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<T> Tx<T>(Func<Tx, T> func, TxMode txType = TxMode.SerializableRW)
     {
         throw new NotImplementedException();
     }

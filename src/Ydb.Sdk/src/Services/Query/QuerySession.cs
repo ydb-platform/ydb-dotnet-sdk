@@ -85,7 +85,7 @@ public class ExecuteQueryStream : StreamResponse<ExecuteQueryResponse, ExecuteQu
 
 public class QuerySession
 {
-    private ExecuteQueryStream ExecuteQuery(
+    public ExecuteQueryStream ExecuteQuery(
         string query,
         Tx tx,
         IReadOnlyDictionary<string, YdbValue>? parameters,

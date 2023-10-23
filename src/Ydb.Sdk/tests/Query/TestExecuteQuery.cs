@@ -1,4 +1,3 @@
-using Google.Protobuf;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -123,6 +122,7 @@ public class TestExecuteQuery
         }
     }
 
+
     public async Task ExecuteQueryTake2_1() // transactions
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
@@ -135,7 +135,7 @@ public class TestExecuteQuery
             var stream = session.ExecuteQueryYql(
                 query: Query,
                 parameters: _parameters,
-                tx: tx
+                tx: Tx.Begin().WithCommit()
             );
 
             await foreach (var part in stream)
@@ -158,6 +158,7 @@ public class TestExecuteQuery
             return commitResponse;
         });
     }
+
 
     public async Task ExecuteQueryTake2_2() // transactions auto rollback
     {
@@ -229,8 +230,47 @@ public class TestExecuteQuery
 
                 return stream.ExecStats;
             }, 
-            txType: TxType.OnlineRO, // default SerializableRW
+            txMode: TxMode.OnlineRO, // default SerializableRW
             commit: true //  default false; automatic commit
+        );
+    }
+
+    public async Task ExecuteQueryTake3_1()
+    {
+        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
+        using var client = new QueryClient(driver);
+
+        await client.Query(
+            query: "SELECT ...",
+            parameters: new Dictionary<string, YdbValue>(),
+            func: async (stream) =>
+            {
+                await foreach (var part in stream)
+                {
+                    part.EnsureSuccess();
+                    /*
+                     * some code
+                     */
+                }
+            },
+            txType: TxMode.SerializableRW
+        );
+
+        await client.Tx(
+            func: async (tx) =>
+            {
+                var stream = await tx.Query(
+                    query: "SELECT ...",
+                    parameters: new Dictionary<string, YdbValue>()
+                );
+                await foreach (var part in stream)
+                {
+                    part.EnsureSuccess();
+                    /*
+                     * some code
+                     */
+                }
+            }
         );
     }
 }
