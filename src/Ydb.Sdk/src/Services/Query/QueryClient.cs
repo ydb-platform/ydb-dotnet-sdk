@@ -284,15 +284,36 @@ public class RollbackTransactionResponse : ResponseBase
     }
 }
 
+public class QueryClientConfig
+{
+    public SessionPoolConfig SessionPoolConfig { get; }
+
+    public QueryClientConfig(
+        SessionPoolConfig? sessionPoolConfig = null)
+    {
+        SessionPoolConfig = sessionPoolConfig ?? new SessionPoolConfig();
+    }
+}
+
 public class QueryClient :
     ClientBase,
     IDisposable
 {
+    private readonly ISessionPool _sessionPool;
     private readonly ILogger _logger;
-    
-    public QueryClient(Driver driver) : base(driver)
+
+    public QueryClient(Driver driver, QueryClientConfig config) : base(driver)
     {
         _logger = Driver.LoggerFactory.CreateLogger<QueryClient>();
+
+        _sessionPool = new SessionPool(driver, config.SessionPoolConfig);
+    }
+
+    internal QueryClient(Driver driver, ISessionPool sessionPool) : base(driver)
+    {
+        _logger = driver.LoggerFactory.CreateLogger<QueryClient>();
+
+        _sessionPool = sessionPool;
     }
 
     public async Task<CreateSessionResponse> CreateSession(CreateSessionSettings? settings = null)
@@ -475,7 +496,13 @@ public class QueryClient :
         RetrySettings? retrySettings = null
     )
     {
-        retrySettings = new RetrySettings();
+        if (_sessionPool is not SessionPool sessionPool)
+        {
+            throw new InvalidCastException(
+                $"{nameof(_sessionPool)} is not object of type {typeof(SessionPool).FullName}");
+        }
+
+        retrySettings ??= new RetrySettings();
 
         IResponse response = new ClientInternalErrorResponse("SessionRetry, unexpected response value.");
         Session? session = null;
@@ -486,7 +513,13 @@ public class QueryClient :
             {
                 if (session is null)
                 {
-                    // TODO get session from pool
+                    var getSessionResponse = await sessionPool.GetSession();
+                    if (getSessionResponse.Status.IsSuccess)
+                    {
+                        session = getSessionResponse.Session;
+                    }
+
+                    response = getSessionResponse;
                 }
 
                 if (session is not null)
@@ -501,16 +534,22 @@ public class QueryClient :
                 }
 
                 var retryRule = retrySettings.GetRetryRule(response.Status.StatusCode);
-                if (retryRule.DeleteSession && session is not null)
+                if (retryRule.DeleteSession)
                 {
-                    _logger.LogTrace($"Retry: Session ${session.Id} invalid, disposing");
-                    // TODO delete session
+                    _logger.LogTrace($"Retry: Session ${session?.Id} invalid, disposing");
+                    session?.Dispose();
+                }
+                else if (session is not null)
+                {
+                    sessionPool.ReturnSession(session);
                 }
 
                 if (retryRule.Idempotency == Idempotency.Idempotent && retrySettings.IsIdempotent ||
                     retryRule.Idempotency == Idempotency.NonIdempotent)
                 {
-                    _logger.LogTrace($"Retry: idempotent error {response.Status.StatusCode}, retrying on session ${session?.Id}");
+                    _logger.LogTrace(
+                        $"Retry: Session ${session?.Id}, " +
+                        $"idempotent error {response.Status.StatusCode} retrying ");
                     await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
                 }
                 else
@@ -521,7 +560,7 @@ public class QueryClient :
         }
         finally
         {
-            // TODO delete session
+            session?.Dispose();
         }
 
         return response;
