@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Client;
@@ -287,8 +288,11 @@ public class QueryClient :
     ClientBase,
     IDisposable
 {
+    private readonly ILogger _logger;
+    
     public QueryClient(Driver driver) : base(driver)
     {
+        _logger = Driver.LoggerFactory.CreateLogger<QueryClient>();
     }
 
     public async Task<CreateSessionResponse> CreateSession(CreateSessionSettings? settings = null)
@@ -466,12 +470,61 @@ public class QueryClient :
     {
     }
 
-    public async Task ExecOnSession<T>(
-        Func<Session, T> func,
+    public async Task<IResponse> ExecOnSession(
+        Func<Session, Task<IResponse>> func,
         RetrySettings? retrySettings = null
     )
     {
         retrySettings = new RetrySettings();
+
+        IResponse response = new ClientInternalErrorResponse("SessionRetry, unexpected response value.");
+        Session? session = null;
+
+        try
+        {
+            for (uint attempt = 0; attempt < retrySettings.MaxAttempts; attempt++)
+            {
+                if (session is null)
+                {
+                    // TODO get session from pool
+                }
+
+                if (session is not null)
+                {
+                    var funcResponse = await func(session);
+                    if (funcResponse.Status.IsSuccess)
+                    {
+                        return funcResponse;
+                    }
+
+                    response = funcResponse;
+                }
+
+                var retryRule = retrySettings.GetRetryRule(response.Status.StatusCode);
+                if (retryRule.DeleteSession && session is not null)
+                {
+                    _logger.LogTrace($"Retry: Session ${session.Id} invalid, disposing");
+                    // TODO delete session
+                }
+
+                if (retryRule.Idempotency == Idempotency.Idempotent && retrySettings.IsIdempotent ||
+                    retryRule.Idempotency == Idempotency.NonIdempotent)
+                {
+                    _logger.LogTrace($"Retry: idempotent error {response.Status.StatusCode}, retrying on session ${session?.Id}");
+                    await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
+                }
+                else
+                {
+                    return response;
+                }
+            }
+        }
+        finally
+        {
+            // TODO delete session
+        }
+
+        return response;
     }
 
     // public async Task SessionExecStream(

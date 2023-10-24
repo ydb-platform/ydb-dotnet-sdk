@@ -54,7 +54,7 @@ public enum Idempotency
     NonIdempotent
 }
 
-public record RetryRule(BackoffSettings BackoffSettings, bool deleteSession, Idempotency Idempotency);
+public record RetryRule(BackoffSettings BackoffSettings, bool DeleteSession, Idempotency Idempotency);
 
 public class RetrySettings
 {
