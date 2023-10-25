@@ -50,6 +50,7 @@ public class Tx
 
     public Tx()
     {
+        _proto = new TransactionControl();
     }
 
     private Tx(TransactionControl proto)

@@ -565,7 +565,7 @@ public class QueryClient :
         return response;
     }
 
-    public async Task<QueryResponse<T>> Query<T>(string queryString, Dictionary<string, YdbValue> parameters,
+    public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Dictionary<string, YdbValue> parameters,
         Func<ExecuteQueryStream, Task<T>> func, ITxModeSettings? txModeSettings = null,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
@@ -580,29 +580,59 @@ public class QueryClient :
             try
             {
                 var response = await func(stream);
-                return new QueryResponse<T>(new Status(StatusCode.Success), response);
+                return typeof(T) == typeof(None)
+                    ? new QueryResponseWithResult<T>(Status.Success)
+                    : new QueryResponseWithResult<T>(Status.Success, response);
             }
             catch (StatusUnsuccessfulException e)
             {
-                return new QueryResponse<T>(e.Status);
+                return new QueryResponseWithResult<T>(e.Status);
             }
         });
-        if (response is QueryResponse<T> queryResponse)
+        return response switch
         {
-            return queryResponse;
-        }
-
-        throw new InvalidCastException(
-            $"Unexpected cast error: {nameof(response)} is not object of type {typeof(QueryResponse<T>).FullName}");
+            QueryResponseWithResult<T> queryResponseWithResult => queryResponseWithResult,
+            _ => throw new InvalidCastException(
+                $"Unexpected cast error: {nameof(response)} is not object of type {typeof(QueryResponseWithResult<T>).FullName}")
+        };
     }
 
-    public async Task<QueryResponse<T>> Query<T>(string queryString, Func<ExecuteQueryStream, Task<T>> func,
+    public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Func<ExecuteQueryStream, Task<T>> func,
         ITxModeSettings? txModeSettings = null, ExecuteQuerySettings? executeQuerySettings = null)
     {
         return await Query(queryString, new Dictionary<string, YdbValue>(), func, txModeSettings, executeQuerySettings);
     }
 
-    // public async Task<T> ExecOnTx<T>(Func<Tx, T> func, ITxModeSettings? txModeSettings = null)
+    public async Task<QueryResponse> Query(string queryString, Dictionary<string, YdbValue> parameters,
+        Func<ExecuteQueryStream, Task> func,
+        ITxModeSettings? txModeSettings = null, ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        var response = await Query<None>(
+            queryString,
+            parameters,
+            async session =>
+            {
+                await func(session);
+                return None.Instance;
+            },
+            txModeSettings,
+            executeQuerySettings);
+        return response;
+    }
+
+    public async Task<QueryResponse> Query(string queryString, Func<ExecuteQueryStream, Task> func,
+        ITxModeSettings? txModeSettings = null, ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        return await Query(queryString, new Dictionary<string, YdbValue>(), func, txModeSettings,
+            executeQuerySettings);
+    }
+
+    private record None
+    {
+        internal static readonly None Instance = new();
+    }
+
+    // public async Task<T> ExecOnTx<T>(Func<Tx, T> func, ITxModeSettings? txModeSettings = null) // TODO
     // {
     //     throw new NotImplementedException();
     // }
@@ -626,52 +656,20 @@ public class QueryClient :
 
         _disposed = true;
     }
-
-    // public async Task SessionExecStream(
-    //     Func<QuerySession, Task> operationFunc,
-    //     RetrySettings? retrySettings = null)
-    // {
-    //     await Task.Delay(0);
-    //     throw new NotImplementedException();
-    // }
-    //
-    // public T SessionExecStream<T>(
-    //     Func<QuerySession, T> func,
-    //     RetrySettings? retrySettings = null)
-    //     where T : IAsyncEnumerable<IResponse>, IAsyncEnumerator<IResponse>
-    //
-    // {
-    //     throw new NotImplementedException();
-    // }
-    //
-    // public async Task<T> SessionExec<T>(
-    //     Func<QuerySession, Task<T>> func,
-    //     RetrySettings? retrySettings = null)
-    // {
-    //     throw new NotImplementedException();
-    // }
-    //
-    // public async Task<T> SessionExecTx<T>(Func<QuerySession, Tx, T> func)
-    // {
-    //     throw new NotImplementedException();
-    // }
-    //
-    // public async Task<Tx> BeginTx()
-    // {
-    //     throw new NotImplementedException();
-    // }
-    //
-    // public async Task<T> ExecTx<T>(Func<Tx, T> func, TxMode txMode = TxMode.SerializableRW, bool commit = false)
-    // {
-    //     throw new NotImplementedException();
-    // }
 }
 
-public sealed class QueryResponse<TResult> : ResponseBase
+public class QueryResponse : ResponseBase
+{
+    public QueryResponse(Status status) : base(status)
+    {
+    }
+}
+
+public sealed class QueryResponseWithResult<TResult> : QueryResponse
 {
     public TResult? Result;
 
-    public QueryResponse(Status status, TResult? result = default) : base(status)
+    public QueryResponseWithResult(Status status, TResult? result = default) : base(status)
     {
         Result = result;
     }
