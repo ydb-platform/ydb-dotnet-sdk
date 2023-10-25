@@ -40,7 +40,6 @@ internal class NoPool : ISessionPool
 
 internal class SessionPool : ISessionPool
 {
-    private readonly Driver _driver;
     private readonly SessionPoolConfig _config;
 
     private readonly object _lock = new();
@@ -56,7 +55,6 @@ internal class SessionPool : ISessionPool
 
     public SessionPool(Driver driver, SessionPoolConfig config)
     {
-        _driver = driver;
         _config = config;
 
         _logger = driver.LoggerFactory.CreateLogger<SessionPool>();
@@ -109,6 +107,8 @@ internal class SessionPool : ISessionPool
                     var session = createSessionResponse.Session!;
                     session.SessionPool = this;
 
+                    _ = Task.Run(() => AttachAndMonitor(session));
+
                     _sessions.Add(session.Id, session);
                     _logger.LogTrace($"Session {session.Id} created, " +
                                      $"endpoint: {session.Endpoint}, " +
@@ -122,6 +122,21 @@ internal class SessionPool : ISessionPool
         }
 
         return response;
+    }
+
+    private async Task AttachAndMonitor(Session session)
+    {
+        var stream = _client.AttachSession(session.Id);
+
+        while (await stream.Next())
+        {
+            var part = stream.Response;
+            if (!part.Status.IsSuccess)
+            {
+                session.Dispose();
+                break;
+            }
+        }
     }
 
 

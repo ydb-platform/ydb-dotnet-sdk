@@ -66,7 +66,7 @@ public enum StatsMode
 
 public class ExecuteQuerySettings : RequestSettings
 {
-    public ExecMode ExecMode { get; set; }
+    public ExecMode ExecMode { get; set; } = ExecMode.Execute;
     public Syntax Syntax { get; set; }
 
     public StatsMode StatsMode { get; set; }
@@ -175,8 +175,15 @@ public class SessionStateStream : StreamResponse<Ydb.Query.SessionState, Session
     }
 }
 
+public class QueryStats
+{
+}
+
 public class ExecuteQueryResponsePart : ResponseBase
 {
+    public long? ResultSetIndex;
+    public Value.ResultSet? ResultSet;
+
     internal ExecuteQueryResponsePart(Status status) : base(status)
     {
     }
@@ -184,6 +191,11 @@ public class ExecuteQueryResponsePart : ResponseBase
     private ExecuteQueryResponsePart(Ydb.Query.ExecuteQueryResponsePart proto)
         : base(Status.FromProto(proto.Status, proto.Issues))
     {
+        ResultSetIndex = proto.ResultSetIndex;
+        if (proto.ResultSet is not null)
+        {
+            ResultSet = Value.ResultSet.FromProto(proto.ResultSet);
+        }
     }
 
     internal static ExecuteQueryResponsePart FromProto(Ydb.Query.ExecuteQueryResponsePart proto)
@@ -301,9 +313,12 @@ public class QueryClient :
 {
     private readonly ISessionPool _sessionPool;
     private readonly ILogger _logger;
+    private bool _disposed;
 
-    public QueryClient(Driver driver, QueryClientConfig config) : base(driver)
+    public QueryClient(Driver driver, QueryClientConfig? config = null) : base(driver)
     {
+        config ??= new QueryClientConfig();
+
         _logger = Driver.LoggerFactory.CreateLogger<QueryClient>();
 
         _sessionPool = new SessionPool(driver, config.SessionPoolConfig);
@@ -475,22 +490,6 @@ public class QueryClient :
         return new ExecuteQueryStream(streamIterator);
     }
 
-
-    public async Task<T> Query<T>(string query, Dictionary<string, YdbValue> parameters,
-        Func<ExecuteQueryStream, T> func, TxMode txMode = TxMode.SerializableRW)
-    {
-        throw new NotImplementedException();
-    }
-
-    public async Task<T> Tx<T>(Func<Tx, T> func, TxMode txMode = TxMode.SerializableRW)
-    {
-        throw new NotImplementedException();
-    }
-
-    public void Dispose()
-    {
-    }
-
     public async Task<IResponse> ExecOnSession(
         Func<Session, Task<IResponse>> func,
         RetrySettings? retrySettings = null
@@ -499,7 +498,7 @@ public class QueryClient :
         if (_sessionPool is not SessionPool sessionPool)
         {
             throw new InvalidCastException(
-                $"{nameof(_sessionPool)} is not object of type {typeof(SessionPool).FullName}");
+                $"Unexpected cast error: {nameof(_sessionPool)} is not object of type {typeof(SessionPool).FullName}");
         }
 
         retrySettings ??= new RetrySettings();
@@ -566,6 +565,68 @@ public class QueryClient :
         return response;
     }
 
+    public async Task<QueryResponse<T>> Query<T>(string queryString, Dictionary<string, YdbValue> parameters,
+        Func<ExecuteQueryStream, Task<T>> func, ITxModeSettings? txModeSettings = null,
+        ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        txModeSettings ??= new TxModeSerializableSettings();
+        executeQuerySettings ??= new ExecuteQuerySettings();
+
+        var response = await ExecOnSession(async session =>
+        {
+            var tx = Tx.Begin(txModeSettings);
+            var stream = ExecuteQuery(session.Id, queryString, tx, parameters,
+                executeQuerySettings);
+            try
+            {
+                var response = await func(stream);
+                return new QueryResponse<T>(new Status(StatusCode.Success), response);
+            }
+            catch (StatusUnsuccessfulException e)
+            {
+                return new QueryResponse<T>(e.Status);
+            }
+        });
+        if (response is QueryResponse<T> queryResponse)
+        {
+            return queryResponse;
+        }
+
+        throw new InvalidCastException(
+            $"Unexpected cast error: {nameof(response)} is not object of type {typeof(QueryResponse<T>).FullName}");
+    }
+
+    public async Task<QueryResponse<T>> Query<T>(string queryString, Func<ExecuteQueryStream, Task<T>> func,
+        ITxModeSettings? txModeSettings = null, ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        return await Query(queryString, new Dictionary<string, YdbValue>(), func, txModeSettings, executeQuerySettings);
+    }
+
+    // public async Task<T> ExecOnTx<T>(Func<Tx, T> func, ITxModeSettings? txModeSettings = null)
+    // {
+    //     throw new NotImplementedException();
+    // }
+
+    public void Dispose()
+    {
+        Dispose(true);
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (disposing)
+        {
+            _sessionPool.Dispose();
+        }
+
+        _disposed = true;
+    }
+
     // public async Task SessionExecStream(
     //     Func<QuerySession, Task> operationFunc,
     //     RetrySettings? retrySettings = null)
@@ -604,4 +665,14 @@ public class QueryClient :
     // {
     //     throw new NotImplementedException();
     // }
+}
+
+public sealed class QueryResponse<TResult> : ResponseBase
+{
+    public TResult? Result;
+
+    public QueryResponse(Status status, TResult? result = default) : base(status)
+    {
+        Result = result;
+    }
 }

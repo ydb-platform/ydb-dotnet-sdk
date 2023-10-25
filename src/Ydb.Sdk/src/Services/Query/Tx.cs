@@ -11,13 +11,13 @@ public interface ITxModeSettings
 {
 }
 
-public class SerializableModeSettings : ITxModeSettings
+public class TxModeSerializableSettings : ITxModeSettings
 {
 }
 
-public class OnlineModeSettings : ITxModeSettings
+public class TxModeOnlineSettings : ITxModeSettings
 {
-    public OnlineModeSettings(bool allowInconsistentReads = false)
+    public TxModeOnlineSettings(bool allowInconsistentReads = false)
     {
         AllowInconsistentReads = allowInconsistentReads;
     }
@@ -25,11 +25,11 @@ public class OnlineModeSettings : ITxModeSettings
     public bool AllowInconsistentReads { get; }
 }
 
-public class StaleModeSettings : ITxModeSettings
+public class TxModeStaleSettings : ITxModeSettings
 {
 }
 
-public class SnapshotModeSettings : ITxModeSettings
+public class TxModeSnapshotSettings : ITxModeSettings
 {
 }
 
@@ -59,12 +59,12 @@ public class Tx
 
     internal TransactionControl ToProto()
     {
-        return _proto;
+        return _proto.Clone();
     }
 
     public static Tx Begin(ITxModeSettings? txModeSettings = null, bool commit = true)
     {
-        txModeSettings ??= new SerializableModeSettings();
+        txModeSettings ??= new TxModeSerializableSettings();
 
         var txSettings = GetTransactionSettings(txModeSettings);
 
@@ -76,24 +76,24 @@ public class Tx
     {
         var txSettings = txModeSettings switch
         {
-            SerializableModeSettings => new TransactionSettings
+            TxModeSerializableSettings => new TransactionSettings
             {
-                SerializableReadWrite = new Ydb.Query.SerializableModeSettings()
+                SerializableReadWrite = new SerializableModeSettings()
             },
-            OnlineModeSettings onlineModeSettings => new TransactionSettings
+            TxModeOnlineSettings onlineModeSettings => new TransactionSettings
             {
-                OnlineReadOnly = new Ydb.Query.OnlineModeSettings
+                OnlineReadOnly = new OnlineModeSettings
                 {
                     AllowInconsistentReads = onlineModeSettings.AllowInconsistentReads
                 }
             },
-            StaleModeSettings => new TransactionSettings
+            TxModeStaleSettings => new TransactionSettings
             {
-                StaleReadOnly = new Ydb.Query.StaleModeSettings()
+                StaleReadOnly = new StaleModeSettings()
             },
-            SnapshotModeSettings => new TransactionSettings
+            TxModeSnapshotSettings => new TransactionSettings
             {
-                SnapshotReadOnly = new Ydb.Query.SnapshotModeSettings()
+                SnapshotReadOnly = new SnapshotModeSettings()
             },
             _ => throw new InvalidCastException(nameof(txModeSettings))
         };

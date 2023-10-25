@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using Xunit.Abstractions;
 using Ydb.Sdk.Services.Query;
 using Ydb.Sdk.Value;
 
@@ -9,6 +10,7 @@ namespace Ydb.Sdk.Tests.Query;
 [Trait("Category", "Integration")]
 public class TestExecuteQuery
 {
+    private readonly ITestOutputHelper _testOutputHelper;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger _logger;
 
@@ -30,8 +32,9 @@ public class TestExecuteQuery
         { "$param", YdbValue.MakeUtf8("...") }
     };
 
-    public TestExecuteQuery()
+    public TestExecuteQuery(ITestOutputHelper testOutputHelper)
     {
+        _testOutputHelper = testOutputHelper;
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
         _logger = _loggerFactory.CreateLogger<TestExecuteQuery>();
     }
@@ -235,43 +238,96 @@ public class TestExecuteQuery
     //     );
     // }
 
+    private const string CreateString = @"CREATE TABLE series (
+            series_id Uint64 NOT NULL,
+            title Utf8,
+            series_info Utf8,
+            release_date Date,
+            PRIMARY KEY (series_id)
+        );
+
+        CREATE TABLE seasons (
+            series_id Uint64,
+            season_id Uint64,
+            title Utf8,
+            first_aired Date,
+            last_aired Date,
+            PRIMARY KEY (series_id, season_id)
+        );
+
+        CREATE TABLE episodes (
+            series_id Uint64,
+            season_id Uint64,
+            episode_id Uint64,
+            title Utf8,
+            air_date Date,
+            PRIMARY KEY (series_id, season_id, episode_id)
+        );";
+    
+    [Fact]
     public async Task ExecuteQueryTake3_1()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var client = new QueryClient(driver);
 
-        await client.Query(
-            query: "SELECT ...",
-            parameters: new Dictionary<string, YdbValue>(),
+        var response = await client.Query(
+            queryString: "SELECT 1",
+            // parameters: new Dictionary<string, YdbValue>(),
             func: async stream =>
             {
-                await foreach (var part in stream)
+                var result = new List<Dictionary<string, YdbValue>>();
+                // await foreach (var part in stream)
+                while (await stream.Next())
                 {
+                    var part = stream.Response;
                     part.EnsureSuccess();
-                    /*
-                     * some code
-                     */
-                }
-            },
-            txMode: TxMode.OnlineRO // default SerializableRW
-        );
+                    var resultSet = part.ResultSet;
+                    if (resultSet is not null)
+                    {
+                        foreach (var row in resultSet.Rows)
+                        {
+                            var resultPart = new Dictionary<string, YdbValue>();
+                            var msg = "";
+                            foreach (var column in resultSet.Columns)
+                            {
+                                resultPart[column.Name] = row[column.Name];
+                                msg += $"{column.Name} = {row[column.Name]}; ";
+                            }
 
-        await client.Tx(
-            func: async tx =>
-            {
-                var stream = await tx.Query(
-                    query: "SELECT ...",
-                    parameters: new Dictionary<string, YdbValue>()
-                );
-                await foreach (var part in stream)
-                {
-                    part.EnsureSuccess();
+                            result.Add(resultPart);
+                            _testOutputHelper.WriteLine(msg);
+                        }
+                    }
+
+                    _testOutputHelper.WriteLine(123.ToString());
                     /*
                      * some code
                      */
                 }
-            },
-            txMode: TxMode.OnlineRO // default SerializableRW
+                
+                stream.Response.EnsureSuccess();
+
+                return result;
+            }
+            // ,
+            // txModeSettings: new TxModeOnlineSettings() // default SerializableRW
         );
+        // await client.ExecOnTx(
+        //     func: async tx =>
+        //     {
+        //         var stream = await tx.Query(
+        //             query: "SELECT ...",
+        //             parameters: new Dictionary<string, YdbValue>()
+        //         );
+        //         await foreach (var part in stream)
+        //         {
+        //             part.EnsureSuccess();
+        //             /*
+        //              * some code
+        //              */
+        //         }
+        //     },
+        //     txModeSettings: new TxModeOnlineSettings() // default SerializableRW
+        // );
     }
 }
