@@ -75,7 +75,7 @@ public class TestExecuteQuery
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var client = new QueryClient(driver);
 
-        await CreateTestData(driver);
+        // await CreateTestData(driver);
 
         var response = await client.DoTx(
             func: async tx =>

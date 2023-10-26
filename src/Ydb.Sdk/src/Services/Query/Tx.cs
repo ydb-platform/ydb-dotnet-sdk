@@ -104,7 +104,19 @@ public class Tx
     public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Dictionary<string, YdbValue> parameters,
         Func<ExecuteQueryStream, Task<T>> func, ExecuteQuerySettings? executeQuerySettings = null)
     {
-        throw new NotImplementedException();
+        var stream = QueryClient.ExecuteQuery(SessionId, queryString, this, parameters,
+            executeQuerySettings);
+        try
+        {
+            var response = await func(stream);
+            return typeof(T) == typeof(QueryClient.None)
+                ? new QueryResponseWithResult<T>(Status.Success)
+                : new QueryResponseWithResult<T>(Status.Success, response);
+        }
+        catch (StatusUnsuccessfulException e)
+        {
+            return new QueryResponseWithResult<T>(e.Status);
+        }
     }
 
     public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Func<ExecuteQueryStream, Task<T>> func,
@@ -133,4 +145,7 @@ public class Tx
     {
         return await Query(queryString, new Dictionary<string, YdbValue>(), func, executeQuerySettings);
     }
+
+    internal QueryClient QueryClient { private get; set; }
+    internal string SessionId { private get; set; }
 }

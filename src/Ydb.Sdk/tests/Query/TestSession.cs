@@ -61,6 +61,27 @@ public class TestSession
         var session = createResponse.Session;
         Assert.NotNull(session);
 
+        // var txResponse = await client.BeginTransaction(session!.Id, Tx.Begin()); // don't work
+        // var txResponse = await driver.UnaryCall(
+        //     QueryService.BeginTransactionMethod,
+        //     request: new Ydb.Query.BeginTransactionRequest
+        //     {
+        //         SessionId = session.Id,
+        //         TxSettings = new Ydb.Query.TransactionSettings{SerializableReadWrite = new Ydb.Query.SerializableModeSettings()}
+        //     },
+        //     new BeginTransactionSettings()
+        // );
+        // var txResponse = await driver.UnaryCall(
+        //     TableService.BeginTransactionMethod,
+        //     request: new Table.BeginTransactionRequest
+        //     {
+        //         SessionId = session.Id,
+        //         TxSettings = new Table.TransactionSettings{SerializableReadWrite = new Table.SerializableModeSettings()}
+        //     },
+        //     new BeginTransactionSettings()
+        // );
+        // var tx = txResponse.Data;
+
         var sessionStateStream = client.AttachSession(session!.Id);
 
         while (await sessionStateStream.Next())
