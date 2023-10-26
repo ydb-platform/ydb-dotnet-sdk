@@ -627,7 +627,27 @@ public class QueryClient :
             executeQuerySettings);
     }
 
-    private record None
+
+    public async Task<QueryResponseWithResult<T>> DoTx<T>(Func<Tx, Task<T>> func,
+        ITxModeSettings? txModeSettings = null)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<QueryResponse> DoTx(Func<Tx, Task> func,
+        ITxModeSettings? txModeSettings = null)
+    {
+        var response = await DoTx<None>(
+            async tx =>
+            {
+                await func(tx);
+                return None.Instance;
+            },
+            txModeSettings);
+        return response;
+    }
+
+    internal record None
     {
         internal static readonly None Instance = new();
     }

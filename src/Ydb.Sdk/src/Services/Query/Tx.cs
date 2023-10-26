@@ -101,8 +101,36 @@ public class Tx
         return txSettings;
     }
 
-    public async Task<ExecuteQueryStream> Query(string query, Dictionary<string, YdbValue> parameters)
+    public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Dictionary<string, YdbValue> parameters,
+        Func<ExecuteQueryStream, Task<T>> func, ExecuteQuerySettings? executeQuerySettings = null)
     {
         throw new NotImplementedException();
+    }
+
+    public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Func<ExecuteQueryStream, Task<T>> func,
+        ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        return await Query(queryString, new Dictionary<string, YdbValue>(), func, executeQuerySettings);
+    }
+
+    public async Task<QueryResponse> Query(string queryString, Dictionary<string, YdbValue> parameters,
+        Func<ExecuteQueryStream, Task> func, ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        var response = await Query<QueryClient.None>(
+            queryString,
+            parameters,
+            async session =>
+            {
+                await func(session);
+                return QueryClient.None.Instance;
+            },
+            executeQuerySettings);
+        return response;
+    }
+
+    public async Task<QueryResponse> Query(string queryString, Func<ExecuteQueryStream, Task> func,
+        ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        return await Query(queryString, new Dictionary<string, YdbValue>(), func, executeQuerySettings);
     }
 }
