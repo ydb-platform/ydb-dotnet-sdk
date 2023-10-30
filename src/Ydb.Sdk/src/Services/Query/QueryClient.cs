@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Shared;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
@@ -96,31 +97,56 @@ public class RollbackTransactionSettings : RequestSettings
 {
 }
 
-public class CreateSessionResponse : ResponseBase
+public class CreateSessionResponse : ResponseWithResultBase<CreateSessionResponse.ResultData>
 {
-    public Session? Session { get; }
+    // public Session? Session { get; }
 
-    internal CreateSessionResponse(Status status) : base(status)
+    // private CreateSessionResponse(Ydb.Query.CreateSessionResponse proto, Session? session = null)
+    //     : base(Status.FromProto(proto.Status, proto.Issues))
+    // {
+    //     Session = session;
+    // }
+    internal CreateSessionResponse(Status status, ResultData? result = null)
+        : base(status, result)
     {
     }
 
-    private CreateSessionResponse(Ydb.Query.CreateSessionResponse proto, Session? session = null)
-        : base(Status.FromProto(proto.Status, proto.Issues))
-    {
-        Session = session;
-    }
+    // internal static CreateSessionResponse FromProto(Ydb.Query.CreateSessionResponse proto, Driver driver,
+    //     string endpoint)
+    // {
+    //     var session = new Session(
+    //         driver: driver,
+    //         sessionPool: null,
+    //         id: proto.SessionId,
+    //         nodeId: proto.NodeId,
+    //         endpoint: endpoint
+    //     );
+    //     return new CreateSessionResponse(proto, session);
+    // }
 
-    internal static CreateSessionResponse FromProto(Ydb.Query.CreateSessionResponse proto, Driver driver,
-        string endpoint)
+    public class ResultData
     {
-        var session = new Session(
-            driver: driver,
-            sessionPool: null,
-            id: proto.SessionId,
-            nodeId: proto.NodeId,
-            endpoint: endpoint
-        );
-        return new CreateSessionResponse(proto, session);
+        private ResultData(Session session)
+        {
+            Session = session;
+        }
+
+        public Session Session { get; }
+
+        internal static ResultData FromProto(Ydb.Query.CreateSessionResponse resultProto, Driver driver,
+            string endpoint)
+        {
+            var session = new Session(
+                driver: driver,
+                sessionPool: null,
+                id: resultProto.SessionId,
+                nodeId: resultProto.NodeId,
+                endpoint: endpoint);
+
+            return new ResultData(
+                session: session
+            );
+        }
     }
 }
 
@@ -309,7 +335,7 @@ public class QueryClient :
     ClientBase,
     IDisposable
 {
-    private readonly ISessionPool _sessionPool;
+    private readonly ISessionPool<Session> _sessionPool;
     private readonly ILogger _logger;
     private bool _disposed;
 
@@ -322,7 +348,7 @@ public class QueryClient :
         _sessionPool = new SessionPool(driver, config.SessionPoolConfig);
     }
 
-    internal QueryClient(Driver driver, ISessionPool sessionPool) : base(driver)
+    internal QueryClient(Driver driver, ISessionPool<Session> sessionPool) : base(driver)
     {
         _logger = driver.LoggerFactory.CreateLogger<QueryClient>();
 
@@ -341,8 +367,16 @@ public class QueryClient :
                 request: request,
                 settings: settings);
 
+            var status = Status.FromProto(response.Data.Status, response.Data.Issues);
 
-            return CreateSessionResponse.FromProto(response.Data, Driver, response.UsedEndpoint);
+            CreateSessionResponse.ResultData? result = null;
+
+            if (status.IsSuccess)
+            {
+                result = CreateSessionResponse.ResultData.FromProto(response.Data, Driver, response.UsedEndpoint);
+            }
+
+            return new CreateSessionResponse(status, result);
         }
         catch (Driver.TransportException e)
         {
@@ -513,7 +547,7 @@ public class QueryClient :
                     var getSessionResponse = await sessionPool.GetSession();
                     if (getSessionResponse.Status.IsSuccess)
                     {
-                        session = getSessionResponse.Session;
+                        session = getSessionResponse.Result;
                     }
 
                     response = getSessionResponse;
@@ -524,7 +558,7 @@ public class QueryClient :
                     var funcResponse = await func(session);
                     if (funcResponse.Status.IsSuccess)
                     {
-                        sessionPool.ReturnSession(session);
+                        sessionPool.ReturnSession(session.Id);
                         session = null;
                         return funcResponse;
                     }
@@ -533,14 +567,17 @@ public class QueryClient :
                 }
 
                 var retryRule = retrySettings.GetRetryRule(response.Status.StatusCode);
-                if (retryRule.DeleteSession)
+                if (session is not null)
                 {
-                    _logger.LogTrace($"Retry: Session ${session?.Id} invalid, disposing");
-                    session?.Dispose();
-                }
-                else if (session is not null)
-                {
-                    sessionPool.ReturnSession(session);
+                    if (retryRule.DeleteSession)
+                    {
+                        _logger.LogTrace($"Retry: Session ${session.Id} invalid, disposing");
+                        sessionPool.InvalidateSession(session.Id);
+                    }
+                    else
+                    {
+                        sessionPool.ReturnSession(session.Id);
+                    }
                 }
 
                 if (retryRule.Idempotency == Idempotency.Idempotent && retrySettings.IsIdempotent ||

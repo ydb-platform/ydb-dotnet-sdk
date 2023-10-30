@@ -1,181 +1,98 @@
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Shared;
 
 namespace Ydb.Sdk.Services.Query;
 
-public class SessionPoolConfig
+using GetSessionResponse = GetSessionResponse<Session>;
+using NoPool = NoPool<Session>;
+
+internal class SessionPool : SessionPool<Session, QueryClient>
 {
-    public SessionPoolConfig(
-        uint sizeLimit = 100)
-    {
-        SizeLimit = sizeLimit;
-    }
-
-    public readonly uint SizeLimit;
-    public TimeSpan CreateSessionTimeout { get; set; } = TimeSpan.FromSeconds(1);
-    public TimeSpan DeleteSessionTimeout { get; set; } = TimeSpan.FromSeconds(1);
-}
-
-internal class GetSessionResponse : ResponseBase
-{
-    public Session? Session;
-
-    internal GetSessionResponse(Status status, Session? session = null)
-        : base(status)
-    {
-        Session = session;
-    }
-}
-
-internal interface ISessionPool : IDisposable
-{
-}
-
-internal class NoPool : ISessionPool
-{
-    public void Dispose()
+    public SessionPool(Driver driver, SessionPoolConfig config) :
+        base(
+            driver: driver,
+            config: config,
+            client: new QueryClient(driver, new NoPool()),
+            logger: driver.LoggerFactory.CreateLogger<SessionPool>())
     {
     }
-}
 
-internal class SessionPool : ISessionPool
-{
-    private readonly SessionPoolConfig _config;
-
-    private readonly object _lock = new();
-
-    private readonly ILogger _logger;
-    private readonly QueryClient _client;
-
-    private readonly Dictionary<string, Session> _sessions = new();
-    private readonly Stack<string> _idleSessions = new();
-    private uint _pendingSessions;
-
-    private bool _disposed;
-
-    public SessionPool(Driver driver, SessionPoolConfig config)
+    private protected override async Task<GetSessionResponse> CreateSession()
     {
-        _config = config;
+        var createSessionResponse = await Client.CreateSession(new CreateSessionSettings
+            { TransportTimeout = Config.CreateSessionTimeout });
 
-        _logger = driver.LoggerFactory.CreateLogger<SessionPool>();
-        _client = new QueryClient(driver, new NoPool());
-    }
-
-    public async Task<GetSessionResponse> GetSession()
-    {
-        var response = new GetSessionResponse(new Status(StatusCode.ClientInternalError,
-            $"{nameof(SessionPool)},{nameof(GetSession)}: unexpected response value."));
-
-        const int maxAttempts = 100;
-        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        lock (Lock)
         {
-            lock (_lock)
+            PendingSessions--;
+            if (createSessionResponse.Status.IsSuccess)
             {
-                while (_idleSessions.Count > 0)
-                {
-                    var sessionId = _idleSessions.Pop();
+                var session = new Session(
+                    driver: Driver,
+                    sessionPool: this,
+                    id: createSessionResponse.Result.Session.Id,
+                    nodeId: createSessionResponse.Result.Session.NodeId,
+                    endpoint: createSessionResponse.Result.Session.Endpoint);
 
-                    if (_sessions.TryGetValue(sessionId, out var session))
-                    {
-                        _logger.LogTrace(
-                            $"{nameof(SessionPool)},{nameof(GetSession)}: Session {sessionId} removed from pool");
-                        return new GetSessionResponse(Status.Success, session);
-                    }
-                }
 
-                if (_sessions.Count + _pendingSessions >= _config.SizeLimit)
-                {
-                    _logger.LogWarning($"{nameof(SessionPool)},{nameof(GetSession)}: size limit exceeded" +
-                                       $", limit: {_config.SizeLimit}" +
-                                       $", pending sessions: {_pendingSessions}");
+                _ = Task.Run(() => AttachAndMonitor(session.Id));
 
-                    return new GetSessionResponse(new Status(StatusCode.ClientResourceExhausted,
-                        $"{nameof(SessionPool)},{nameof(GetSession)}: max active sessions limit exceeded."));
-                }
+                Sessions.Add(session.Id, new SessionState(session));
 
-                _pendingSessions++;
+                Logger.LogTrace($"Session {session.Id} created, " +
+                                $"endpoint: {session.Endpoint}, " +
+                                $"nodeId: {session.NodeId}");
+                return new GetSessionResponse(createSessionResponse.Status, session);
             }
 
-            var createSessionResponse = await _client.CreateSession(new CreateSessionSettings
-                { TransportTimeout = _config.CreateSessionTimeout });
-
-            lock (_lock)
-            {
-                _pendingSessions--;
-                if (createSessionResponse.Status.IsSuccess)
-                {
-                    var session = createSessionResponse.Session!;
-                    session.SessionPool = this;
-
-                    _ = Task.Run(() => AttachAndMonitor(session));
-
-                    _sessions.Add(session.Id, session);
-                    _logger.LogTrace($"Session {session.Id} created, " +
-                                     $"endpoint: {session.Endpoint}, " +
-                                     $"nodeId: {session.NodeId}");
-                    return new GetSessionResponse(createSessionResponse.Status, session);
-                }
-
-                _logger.LogWarning($"Failed to create session: {createSessionResponse.Status}");
-                response = new GetSessionResponse(createSessionResponse.Status);
-            }
+            Logger.LogWarning($"Failed to create session: {createSessionResponse.Status}");
+            return new GetSessionResponse(createSessionResponse.Status);
         }
-
-        return response;
     }
 
-    private async Task AttachAndMonitor(Session session)
+    private async Task AttachAndMonitor(string id)
     {
-        var stream = _client.AttachSession(session.Id);
+        var stream = Client.AttachSession(id);
 
         while (await stream.Next())
         {
             var part = stream.Response;
-            if (!part.Status.IsSuccess)
+
+            if (part.Status.IsSuccess)
             {
-                session.Dispose();
-                break;
-            }
-        }
-    }
+                Logger.LogTrace($"Successful stream response for session: {id}");
 
-
-    public void ReturnSession(Session session)
-    {
-        _idleSessions.Push(session.Id);
-        _sessions[session.Id] = session;
-        _logger.LogTrace($"Session returned to pool: {session.Id}");
-    }
-
-    internal void DisposeSession(Session session)
-    {
-        _sessions.Remove(session.Id);
-    }
-
-    public void Dispose()
-    {
-        Dispose(true);
-    }
-
-    private void Dispose(bool disposing)
-    {
-        lock (_lock)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                foreach (var session in _sessions.Values)
+                lock (Lock)
                 {
-                    session.Dispose(_config.DeleteSessionTimeout);
-                    _logger.LogTrace($"Closing session on session pool dispose: {session.Id}");
+                    if (Sessions.TryGetValue(id, out var sessionState))
+                    {
+                        sessionState.LastAccessTime = DateTime.Now;
+                    }
                 }
             }
 
-            _disposed = true;
+            if (part.Status.StatusCode == StatusCode.BadSession)
+            {
+                InvalidateSession(id);
+            }
         }
+    }
+
+    private protected override Session CopySession(Session other)
+    {
+        return new Session(
+            driver: Driver,
+            sessionPool: this,
+            id: other.Id,
+            nodeId: other.NodeId,
+            endpoint: other.Endpoint);
+    }
+
+    private protected override void DeleteSession(string id)
+    {
+        _ = Client.DeleteSession(id, new DeleteSessionSettings
+        {
+            TransportTimeout = Shared.Session.DeleteSessionTimeout
+        });
     }
 }

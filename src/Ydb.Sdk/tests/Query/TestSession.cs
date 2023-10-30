@@ -30,7 +30,7 @@ public class TestSession
         var response = await client.CreateSession();
         Assert.True(response.Status.IsSuccess);
 
-        Assert.NotNull(response.Session);
+        Assert.NotNull(response.Result);
     }
 
     [Fact]
@@ -42,10 +42,11 @@ public class TestSession
         var createResponse = await client.CreateSession();
         Assert.True(createResponse.Status.IsSuccess);
 
-        var session = createResponse.Session;
+        var result = createResponse.Result;
+        var session = result.Session;
         Assert.NotNull(session);
 
-        var deleteResponse = await client.DeleteSession(session!.Id);
+        var deleteResponse = await client.DeleteSession(session.Id);
         Assert.True(deleteResponse.Status.IsSuccess);
     }
 
@@ -58,31 +59,11 @@ public class TestSession
         var createResponse = await client.CreateSession();
         Assert.True(createResponse.Status.IsSuccess);
 
-        var session = createResponse.Session;
+        var result = createResponse.Result;
+        var session = result.Session;
         Assert.NotNull(session);
 
-        // var txResponse = await client.BeginTransaction(session!.Id, Tx.Begin()); // don't work
-        // var txResponse = await driver.UnaryCall(
-        //     QueryService.BeginTransactionMethod,
-        //     request: new Ydb.Query.BeginTransactionRequest
-        //     {
-        //         SessionId = session.Id,
-        //         TxSettings = new Ydb.Query.TransactionSettings{SerializableReadWrite = new Ydb.Query.SerializableModeSettings()}
-        //     },
-        //     new BeginTransactionSettings()
-        // );
-        // var txResponse = await driver.UnaryCall(
-        //     TableService.BeginTransactionMethod,
-        //     request: new Table.BeginTransactionRequest
-        //     {
-        //         SessionId = session.Id,
-        //         TxSettings = new Table.TransactionSettings{SerializableReadWrite = new Table.SerializableModeSettings()}
-        //     },
-        //     new BeginTransactionSettings()
-        // );
-        // var tx = txResponse.Data;
-
-        var sessionStateStream = client.AttachSession(session!.Id);
+        var sessionStateStream = client.AttachSession(session.Id);
 
         while (await sessionStateStream.Next())
         {

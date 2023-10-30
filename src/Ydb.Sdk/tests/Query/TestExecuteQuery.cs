@@ -45,7 +45,7 @@ public class TestExecuteQuery
 
 
     [Fact]
-    public async Task  Query()
+    public async Task Query()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var client = new QueryClient(driver);
@@ -74,7 +74,7 @@ public class TestExecuteQuery
 
     // not implemented fully yet because server doesnt support transaction methods
     // (BeginTransaction, CommitTransaction, Rollback transaction) in query service
-    // currently returns timeout error 
+    // currently returns ClientTransportTimeout exception 
     [Fact]
     public async Task Tx()
     {

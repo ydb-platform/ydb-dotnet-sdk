@@ -39,7 +39,7 @@ public class ExecuteDataQueryResponse : ResponseWithResultBase<ExecuteDataQueryR
         internal static ResultData FromProto(ExecuteQueryResult resultProto)
         {
             var resultSets = resultProto.ResultSets
-                .Select(r => Value.ResultSet.FromProto(r))
+                .Select(Value.ResultSet.FromProto)
                 .ToList();
 
             return new ResultData(
@@ -84,8 +84,7 @@ public partial class Session
                 request: request,
                 settings: settings);
 
-            ExecuteQueryResult? resultProto;
-            var status = UnpackOperation(response.Data.Operation, out resultProto);
+            var status = UnpackOperation(response.Data.Operation, out ExecuteQueryResult? resultProto);
             OnResponseStatus(status);
 
             var txState = TransactionState.Unknown;
