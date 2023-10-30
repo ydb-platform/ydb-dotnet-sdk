@@ -45,7 +45,7 @@ public class TestExecuteQuery
 
 
     [Fact]
-    public async Task Query()
+    public async Task  Query()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var client = new QueryClient(driver);
@@ -53,8 +53,11 @@ public class TestExecuteQuery
         await CreateTestData(driver);
 
         var response = await client.Query(
-            queryString: "SELECT * FROM series",
-            // parameters: new Dictionary<string, YdbValue>(),
+            queryString: "SELECT * FROM series WHERE title = $title",
+            parameters: new Dictionary<string, YdbValue>
+            {
+                { "$title", YdbValue.MakeUtf8("IT Crowd") }
+            },
             func: ReadSeries
             // txModeSettings: new TxModeOnlineSettings() // default SerializableRW
         );
@@ -69,13 +72,16 @@ public class TestExecuteQuery
         }
     }
 
+    // not implemented fully yet because server doesnt support transaction methods
+    // (BeginTransaction, CommitTransaction, Rollback transaction) in query service
+    // currently returns timeout error 
     [Fact]
     public async Task Tx()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var client = new QueryClient(driver);
 
-        // await CreateTestData(driver);
+        await CreateTestData(driver);
 
         var response = await client.DoTx(
             func: async tx =>
@@ -260,7 +266,7 @@ CREATE TABLE episodes (
 
         var seriesData = series.Select(s => YdbValue.MakeStruct(new Dictionary<string, YdbValue>
         {
-            { "series_id", YdbValue.MakeUint64((ulong)s.SeriesId) },
+            { "series_id", YdbValue.MakeUint64(s.SeriesId) },
             { "title", YdbValue.MakeUtf8(s.Title) },
             { "series_info", YdbValue.MakeUtf8(s.Info) },
             { "release_date", YdbValue.MakeDate(s.ReleaseDate) }
@@ -268,8 +274,8 @@ CREATE TABLE episodes (
 
         var seasonsData = seasons.Select(s => YdbValue.MakeStruct(new Dictionary<string, YdbValue>
         {
-            { "series_id", YdbValue.MakeUint64((ulong)s.SeriesId) },
-            { "season_id", YdbValue.MakeUint64((ulong)s.SeasonId) },
+            { "series_id", YdbValue.MakeUint64(s.SeriesId) },
+            { "season_id", YdbValue.MakeUint64(s.SeasonId) },
             { "title", YdbValue.MakeUtf8(s.Title) },
             { "first_aired", YdbValue.MakeDate(s.FirstAired) },
             { "last_aired", YdbValue.MakeDate(s.LastAired) }
@@ -277,9 +283,9 @@ CREATE TABLE episodes (
 
         var episodesData = episodes.Select(e => YdbValue.MakeStruct(new Dictionary<string, YdbValue>
         {
-            { "series_id", YdbValue.MakeUint64((ulong)e.SeriesId) },
-            { "season_id", YdbValue.MakeUint64((ulong)e.SeasonId) },
-            { "episode_id", YdbValue.MakeUint64((ulong)e.EpisodeId) },
+            { "series_id", YdbValue.MakeUint64(e.SeriesId) },
+            { "season_id", YdbValue.MakeUint64(e.SeasonId) },
+            { "episode_id", YdbValue.MakeUint64(e.EpisodeId) },
             { "title", YdbValue.MakeUtf8(e.Title) },
             { "air_date", YdbValue.MakeDate(e.AirDate) }
         })).ToList();
@@ -296,9 +302,10 @@ CREATE TABLE episodes (
     {
         using var client = new QueryClient(driver);
         using var tableClient = new TableClient(driver);
-        // it seems to ddl not working in query service ( or im doing something wrong)
+        // ddl not working yet in query service so temporary using tableService for ddl queries
         await Utils.ExecuteSchemeQuery(tableClient, CreateTableQuery, ensureSuccess: false);
-        // var createResponse = await client.Query(
+        // will be replaced by following
+        // var createResponse = await client.Query( 
         //     CreateString,
         //     async stream =>
         //     {
