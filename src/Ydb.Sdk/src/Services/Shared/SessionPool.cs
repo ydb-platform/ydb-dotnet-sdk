@@ -199,6 +199,79 @@ public abstract class SessionPool<TSession, TClient> : ISessionPool<TSession>
         }
     }
 
+    internal async Task<IResponse> ExecOnSession(
+        Func<TSession, Task<IResponse>> func,
+        RetrySettings? retrySettings)
+    {
+        retrySettings ??= new RetrySettings();
+
+        IResponse response = new ClientInternalErrorResponse("SessionRetry, unexpected response value.");
+        TSession? session = null;
+
+        try
+        {
+            for (uint attempt = 0; attempt < retrySettings.MaxAttempts; attempt++)
+            {
+                if (session is null)
+                {
+                    var getSessionResponse = await GetSession();
+                    if (getSessionResponse.Status.IsSuccess)
+                    {
+                        session = getSessionResponse.Result;
+                    }
+
+                    response = getSessionResponse;
+                }
+
+                if (session is not null)
+                {
+                    var funcResponse = await func(session);
+                    if (funcResponse.Status.IsSuccess)
+                    {
+                        ReturnSession(session.Id);
+                        session = null;
+                        return funcResponse;
+                    }
+
+                    response = funcResponse;
+                }
+
+                var retryRule = retrySettings.GetRetryRule(response.Status.StatusCode);
+                if (session is not null)
+                {
+                    if (retryRule.DeleteSession)
+                    {
+                        Logger.LogTrace($"Retry: Session ${session.Id} invalid, disposing");
+                        InvalidateSession(session.Id);
+                    }
+                    else
+                    {
+                        ReturnSession(session.Id);
+                    }
+                }
+
+                if (retryRule.Idempotency == Idempotency.Idempotent && retrySettings.IsIdempotent ||
+                    retryRule.Idempotency == Idempotency.NonIdempotent)
+                {
+                    Logger.LogTrace(
+                        $"Retry: Session ${session?.Id}, " +
+                        $"idempotent error {response.Status.StatusCode} retrying ");
+                    await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
+                }
+                else
+                {
+                    return response;
+                }
+            }
+        }
+        finally
+        {
+            session?.Dispose();
+        }
+
+        return response;
+    }
+
     protected class SessionState
     {
         public SessionState(TSession session)

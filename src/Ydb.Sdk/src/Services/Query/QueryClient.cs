@@ -522,7 +522,7 @@ public class QueryClient :
         return new ExecuteQueryStream(streamIterator);
     }
 
-    public async Task<IResponse> ExecOnSession(
+    private async Task<IResponse> ExecOnSession(
         Func<Session, Task<IResponse>> func,
         RetrySettings? retrySettings = null
     )
@@ -533,73 +533,7 @@ public class QueryClient :
                 $"Unexpected cast error: {nameof(_sessionPool)} is not object of type {typeof(SessionPool).FullName}");
         }
 
-        retrySettings ??= new RetrySettings();
-
-        IResponse response = new ClientInternalErrorResponse("SessionRetry, unexpected response value.");
-        Session? session = null;
-
-        try
-        {
-            for (uint attempt = 0; attempt < retrySettings.MaxAttempts; attempt++)
-            {
-                if (session is null)
-                {
-                    var getSessionResponse = await sessionPool.GetSession();
-                    if (getSessionResponse.Status.IsSuccess)
-                    {
-                        session = getSessionResponse.Result;
-                    }
-
-                    response = getSessionResponse;
-                }
-
-                if (session is not null)
-                {
-                    var funcResponse = await func(session);
-                    if (funcResponse.Status.IsSuccess)
-                    {
-                        sessionPool.ReturnSession(session.Id);
-                        session = null;
-                        return funcResponse;
-                    }
-
-                    response = funcResponse;
-                }
-
-                var retryRule = retrySettings.GetRetryRule(response.Status.StatusCode);
-                if (session is not null)
-                {
-                    if (retryRule.DeleteSession)
-                    {
-                        _logger.LogTrace($"Retry: Session ${session.Id} invalid, disposing");
-                        sessionPool.InvalidateSession(session.Id);
-                    }
-                    else
-                    {
-                        sessionPool.ReturnSession(session.Id);
-                    }
-                }
-
-                if (retryRule.Idempotency == Idempotency.Idempotent && retrySettings.IsIdempotent ||
-                    retryRule.Idempotency == Idempotency.NonIdempotent)
-                {
-                    _logger.LogTrace(
-                        $"Retry: Session ${session?.Id}, " +
-                        $"idempotent error {response.Status.StatusCode} retrying ");
-                    await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
-                }
-                else
-                {
-                    return response;
-                }
-            }
-        }
-        finally
-        {
-            session?.Dispose();
-        }
-
-        return response;
+        return await sessionPool.ExecOnSession(func, retrySettings);
     }
 
     public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Dictionary<string, YdbValue> parameters,
