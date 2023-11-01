@@ -231,10 +231,21 @@ public class ExecuteQueryResponsePart : ResponseBase
 }
 
 public class ExecuteQueryStream : StreamResponse<Ydb.Query.ExecuteQueryResponsePart, ExecuteQueryResponsePart>
-    , IAsyncEnumerable<ExecuteQueryResponsePart>, IAsyncEnumerator<ExecuteQueryResponsePart>
+    , IAsyncEnumerable<ExecuteQueryResponsePart>
 {
     internal ExecuteQueryStream(Driver.StreamIterator<Ydb.Query.ExecuteQueryResponsePart> iterator) : base(iterator)
     {
+    }
+
+    public new async Task<bool> Next()
+    {
+        var isNext = await base.Next();
+        if (isNext)
+        {
+            Response.EnsureSuccess();
+        }
+
+        return isNext;
     }
 
     protected override ExecuteQueryResponsePart MakeResponse(Ydb.Query.ExecuteQueryResponsePart protoResponse)
@@ -247,23 +258,14 @@ public class ExecuteQueryStream : StreamResponse<Ydb.Query.ExecuteQueryResponseP
         return new ExecuteQueryResponsePart(status);
     }
 
-    public IAsyncEnumerator<ExecuteQueryResponsePart> GetAsyncEnumerator(
+    public async IAsyncEnumerator<ExecuteQueryResponsePart> GetAsyncEnumerator(
         CancellationToken cancellationToken = new CancellationToken())
     {
-        throw new NotImplementedException();
+        while (await Next())
+        {
+            yield return Response;
+        }
     }
-
-    public ValueTask DisposeAsync()
-    {
-        throw new NotImplementedException();
-    }
-
-    public ValueTask<bool> MoveNextAsync()
-    {
-        throw new NotImplementedException();
-    }
-
-    public ExecuteQueryResponsePart Current { get; }
 }
 
 public class BeginTransactionResponse : ResponseBase
@@ -410,7 +412,7 @@ public class QueryClient :
 
     public SessionStateStream AttachSession(string sessionId, AttachSessionSettings? settings = null)
     {
-        settings ??= new AttachSessionSettings();
+        settings ??= new AttachSessionSettings { TransportTimeout = TimeSpan.FromDays(1) };
 
         var request = new AttachSessionRequest { SessionId = sessionId };
 

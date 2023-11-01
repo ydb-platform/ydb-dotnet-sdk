@@ -107,10 +107,8 @@ public class TestExecuteQuery
                     func: async stream =>
                     {
                         var titles = new List<string>();
-                        while (await stream.Next())
+                        await foreach (var part in stream)
                         {
-                            var part = stream.Response;
-                            part.EnsureSuccess();
                             var resultSet = part.ResultSet;
                             if (resultSet is not null)
                             {
@@ -332,7 +330,6 @@ SELECT * FROM AS_TABLE($episodesData);",
             {
                 while (await stream.Next())
                 {
-                    stream.Response.EnsureSuccess();
                 }
             }
         );
@@ -342,19 +339,14 @@ SELECT * FROM AS_TABLE($episodesData);",
     private static async Task<List<Series>> ReadSeries(ExecuteQueryStream stream)
     {
         var series = new List<Series>();
-        // await foreach (var part in stream) // TODO
-        while (await stream.Next())
+        await foreach (var part in stream)
         {
-            var part = stream.Response;
-            part.EnsureSuccess();
             var resultSet = part.ResultSet;
             if (resultSet is not null)
             {
                 series.AddRange(resultSet.Rows.Select(Series.FromRow));
             }
         }
-
-        stream.Response.EnsureSuccess();
 
         return series;
     }
