@@ -14,6 +14,6 @@ public partial class TableClient
                 $"Unexpected cast error: {nameof(_sessionPool)} is not object of type {typeof(SessionPool).FullName}");
         }
         
-        return await sessionPool.ExecOnSession(operationFunc, retrySettings);
+        return await sessionPool.ExecWithRetry(operationFunc, retrySettings);
     }
 }
