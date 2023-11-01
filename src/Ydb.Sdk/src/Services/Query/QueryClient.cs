@@ -597,6 +597,22 @@ public class QueryClient :
             executeQuerySettings, retrySettings);
     }
 
+    private async Task<QueryResponseWithResult<T>> Rollback<T>(Session session, Tx tx, Status status)
+    {
+        _logger.LogTrace($"Transaction {tx.TxId} not committed, try to rollback");
+        try
+        {
+            var rollbackResponse = await RollbackTransaction(session.Id, tx);
+            rollbackResponse.EnsureSuccess();
+        }
+        catch (StatusUnsuccessfulException e)
+        {
+            _logger.LogError($"Transaction {tx.TxId} rollback not successful {e.Status}");
+            return new QueryResponseWithResult<T>(e.Status);
+        }
+
+        return new QueryResponseWithResult<T>(status);
+    }
 
     public async Task<QueryResponseWithResult<T>> DoTx<T>(Func<Tx, Task<T>> func,
         ITxModeSettings? txModeSettings = null,
@@ -611,40 +627,30 @@ public class QueryClient :
                 tx.QueryClient = this;
                 tx.SessionId = session.Id;
 
-                var isCommitted = false;
+                T response;
                 try
                 {
-                    var response = await func(tx);
-                    var commitResponse = await CommitTransaction(session.Id, tx);
-                    commitResponse.EnsureSuccess();
-                    isCommitted = true;
-                    return typeof(T) == typeof(None)
-                        ? new QueryResponseWithResult<T>(Status.Success)
-                        : new QueryResponseWithResult<T>(Status.Success, response);
+                    response = await func(tx);
                 }
                 catch (StatusUnsuccessfulException e)
                 {
-                    var status = e.Status;
-                    if (!isCommitted)
-                    {
-                        _logger.LogTrace($"Transaction {tx.TxId} not committed, try to rollback");
-                        try
-                        {
-                            var rollbackResponse = await RollbackTransaction(session.Id, tx);
-                            rollbackResponse.EnsureSuccess();
-                        }
-                        catch (StatusUnsuccessfulException rbe)
-                        {
-                            _logger.LogError($"Transaction {tx.TxId} rollback not successful {rbe.Status}");
-                            status = rbe.Status;
-                            return new QueryResponseWithResult<T>(status);
-                        }
-
-                        return new QueryResponseWithResult<T>(e.Status);
-                    }
-
-                    return new QueryResponseWithResult<T>(status);
+                    return await Rollback<T>(session, tx, e.Status);
                 }
+                catch (Exception e)
+                {
+                    return await Rollback<T>(session, tx,
+                        new Status(StatusCode.InternalError, $"Failed to execute lambda on tx {tx.TxId}: {e.Message}"));
+                }
+
+                var commitResponse = await CommitTransaction(session.Id, tx);
+                if (!commitResponse.Status.IsSuccess)
+                {
+                    return await Rollback<T>(session, tx, commitResponse.Status);
+                }
+
+                return response is None
+                    ? new QueryResponseWithResult<T>(Status.Success)
+                    : new QueryResponseWithResult<T>(Status.Success, response);
             },
             retrySettings
         );
@@ -707,7 +713,7 @@ public class QueryResponse : ResponseBase
 
 public sealed class QueryResponseWithResult<TResult> : QueryResponse
 {
-    public TResult? Result;
+    public readonly TResult? Result;
 
     public QueryResponseWithResult(Status status, TResult? result = default) : base(status)
     {
