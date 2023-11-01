@@ -535,7 +535,7 @@ public class QueryClient :
                 $"Unexpected cast error: {nameof(_sessionPool)} is not object of type {typeof(SessionPool).FullName}");
         }
 
-        return await sessionPool.ExecWithRetry(func, retrySettings);
+        return await sessionPool.ExecOnSession(func, retrySettings);
     }
 
     public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Dictionary<string, YdbValue> parameters,

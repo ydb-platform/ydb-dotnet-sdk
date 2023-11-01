@@ -199,7 +199,7 @@ public abstract class SessionPool<TSession, TClient> : ISessionPool<TSession>
         }
     }
 
-    internal async Task<IResponse> ExecWithRetry(
+    internal async Task<IResponse> ExecOnSession(
         Func<TSession, Task<IResponse>> func,
         RetrySettings? retrySettings)
     {
