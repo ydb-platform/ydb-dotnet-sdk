@@ -3,10 +3,6 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
-public class RollbackTxResponse
-{
-}
-
 public interface ITxModeSettings
 {
 }
@@ -109,7 +105,7 @@ public class Tx
         try
         {
             var response = await func(stream);
-            return typeof(T) == typeof(QueryClient.None)
+            return response is QueryClient.None
                 ? new QueryResponseWithResult<T>(Status.Success)
                 : new QueryResponseWithResult<T>(Status.Success, response);
         }
