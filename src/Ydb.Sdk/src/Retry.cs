@@ -73,7 +73,6 @@ public class RetrySettings
     public BackoffSettings SlowBackoff { get; }
 
     public bool IsIdempotent { get; set; }
-    public Action<StatusCode>? Callback { get; set; }
     
     private static readonly BackoffSettings NoBackoff = new(TimeSpan.Zero, 10, 0.5);
 

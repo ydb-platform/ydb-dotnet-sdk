@@ -70,8 +70,7 @@ internal class SessionPool : SessionPool<Session, QueryClient>
                     }
                 }
             }
-
-            if (part.Status.StatusCode == StatusCode.BadSession)
+            else
             {
                 InvalidateSession(id);
             }
