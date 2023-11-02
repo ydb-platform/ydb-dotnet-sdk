@@ -34,10 +34,10 @@ internal class SessionPool : SessionPool<Session, QueryClient>
                     nodeId: createSessionResponse.Result.Session.NodeId,
                     endpoint: createSessionResponse.Result.Session.Endpoint);
 
+                Sessions.Add(session.Id, new SessionState(session));
 
                 _ = Task.Run(() => AttachAndMonitor(session.Id));
 
-                Sessions.Add(session.Id, new SessionState(session));
 
                 Logger.LogTrace($"Session {session.Id} created, " +
                                 $"endpoint: {session.Endpoint}, " +
@@ -50,30 +50,57 @@ internal class SessionPool : SessionPool<Session, QueryClient>
         }
     }
 
-    private async Task AttachAndMonitor(string id)
+    private async Task AttachAndMonitor(string sessionId)
     {
-        var stream = Client.AttachSession(id);
+        var stream = Client.AttachSession(sessionId);
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(Config.CreateSessionTimeout);
+
+        var firstPartTask = Task.Run(async () =>
+        {
+            if (await stream.Next())
+            {
+                return stream.Response;
+            }
+
+            return null;
+        }, cts.Token);
+
+        var firstPart = await firstPartTask;
+
+        if (firstPartTask.IsCanceled || firstPart is null)
+        {
+            InvalidateSession(sessionId);
+            return;
+        }
+
+        CheckPart(firstPart, sessionId);
 
         while (await stream.Next())
         {
             var part = stream.Response;
+            CheckPart(part, sessionId);
+        }
+    }
 
-            if (part.Status.IsSuccess)
+    private void CheckPart(Query.SessionState part, string sessionId)
+    {
+        if (part.Status.IsSuccess)
+        {
+            Logger.LogTrace($"Successful stream response for session: {sessionId}");
+
+            lock (Lock)
             {
-                Logger.LogTrace($"Successful stream response for session: {id}");
-
-                lock (Lock)
+                if (Sessions.TryGetValue(sessionId, out var sessionState))
                 {
-                    if (Sessions.TryGetValue(id, out var sessionState))
-                    {
-                        sessionState.LastAccessTime = DateTime.Now;
-                    }
+                    sessionState.LastAccessTime = DateTime.Now;
                 }
             }
-            else
-            {
-                InvalidateSession(id);
-            }
+        }
+        else
+        {
+            InvalidateSession(sessionId);
         }
     }
 
