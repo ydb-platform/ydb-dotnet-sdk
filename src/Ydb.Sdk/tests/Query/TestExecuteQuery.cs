@@ -112,7 +112,7 @@ public class TestExecuteQuery
                             var resultSet = part.ResultSet;
                             if (resultSet is not null)
                             {
-                                titles.AddRange(resultSet.Rows.Select(row => row["title"].GetUtf8()));
+                                titles.AddRange(resultSet.Rows.Select(row => row["title"].GetOptionalUtf8()!));
                             }
                         }
 

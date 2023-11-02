@@ -49,7 +49,7 @@ public class Tx
         _proto = new TransactionControl();
     }
 
-    private Tx(TransactionControl proto)
+    internal Tx(TransactionControl proto)
     {
         _proto = proto;
     }
