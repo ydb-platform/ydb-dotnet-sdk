@@ -1,19 +1,16 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
-using Xunit.Abstractions;
-using Ydb.Sdk.Services.Query;
-using Ydb.Sdk.Services.Table;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Ydb.Sdk.Value;
 
-namespace Ydb.Sdk.Tests.Query;
+namespace Ydb.Sdk.Examples;
 
-internal record Series(ulong SeriesId, string Title, DateTime ReleaseDate, string Info)
+public record Series(ulong SeriesId, string Title, DateTime ReleaseDate, string Info)
 {
-    internal static Series FromRow(Sdk.Value.ResultSet.Row row)
+    public static Series FromRow(Sdk.Value.ResultSet.Row row)
     {
         return new Series(
-            SeriesId: (ulong)row["series_id"],
+            SeriesId: (ulong)row["series_id"].GetOptionalUint64()!,
             Title: (string)row["title"]!,
             ReleaseDate: (DateTime)row["release_date"].GetOptionalDate()!,
             Info: (string)row["series_info"]!
@@ -25,142 +22,9 @@ internal record Season(ulong SeriesId, ulong SeasonId, string Title, DateTime Fi
 
 internal record Episode(ulong SeriesId, ulong SeasonId, ulong EpisodeId, string Title, DateTime AirDate);
 
-[Trait("Category", "Integration")]
-public class TestExecuteQuery
+public static class DataUtils
 {
-    private readonly ITestOutputHelper _testOutputHelper;
-    private readonly ILoggerFactory _loggerFactory;
-
-    private readonly DriverConfig _driverConfig = new(
-        endpoint: "grpc://localhost:2136",
-        database: "/local"
-    );
-
-    public TestExecuteQuery(ITestOutputHelper testOutputHelper)
-    {
-        _testOutputHelper = testOutputHelper;
-        _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
-        _loggerFactory.CreateLogger<TestExecuteQuery>();
-    }
-
-
-    [Fact]
-    public async Task Query()
-    {
-        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
-        using var client = new QueryClient(driver);
-
-        await CreateTestData(driver);
-
-        var response = await client.Query(
-            queryString: "SELECT * FROM series WHERE title = $title",
-            parameters: new Dictionary<string, YdbValue>
-            {
-                { "$title", YdbValue.MakeUtf8("IT Crowd") }
-            },
-            func: ReadSeries
-            // txModeSettings: new TxModeOnlineSettings() // default SerializableRW
-        );
-
-        response.EnsureSuccess();
-        if (response.Result is not null)
-        {
-            foreach (var series in response.Result)
-            {
-                _testOutputHelper.WriteLine(series.ToString());
-            }
-        }
-    }
-
-    // not implemented fully yet because server doesnt support transaction methods
-    // (BeginTransaction, CommitTransaction, Rollback transaction) in query service
-    // currently returns ClientTransportTimeout exception 
-    [Fact]
-    public async Task Tx()
-    {
-        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
-        using var client = new QueryClient(driver);
-
-        await CreateTestData(driver);
-
-        var response = await client.DoTx(
-            func: async tx =>
-            {
-                // read series
-                var seriesResponse = await tx.Query(
-                    queryString: "SELECT * FROM series",
-                    func: ReadSeries
-                );
-                seriesResponse.EnsureSuccess();
-
-                // read titles of seasons in "IT Crowd" series
-                var series = seriesResponse.Result;
-                if (series is null) return new List<string>();
-                var itCrowdId = series.First(x => x.Title == "IT Crowd").SeriesId;
-
-                var itCrowdSeasonTitles = await tx.Query(
-                    queryString: "SELECT title FROM seasons WHERE series_id = $series_id",
-                    parameters: new Dictionary<string, YdbValue>
-                    {
-                        { "$series_id", (YdbValue)itCrowdId }
-                    },
-                    func: async stream =>
-                    {
-                        var titles = new List<string>();
-                        await foreach (var part in stream)
-                        {
-                            var resultSet = part.ResultSet;
-                            if (resultSet is not null)
-                            {
-                            }
-                        }
-
-                        return titles;
-                    }
-                );
-                itCrowdSeasonTitles.EnsureSuccess();
-                var result = itCrowdSeasonTitles.Result;
-
-                return result;
-            }
-            // txModeSettings: new TxModeOnlineSettings() // default SerializableRW
-        );
-        response.EnsureSuccess();
-        if (response.Result is not null)
-        {
-            _testOutputHelper.WriteLine(string.Join('\n', response.Result));
-        }
-    }
-
-
-    private const string CreateTableQuery = @"
-CREATE TABLE series (
-    series_id Uint64 NOT NULL,
-    title Utf8,
-    series_info Utf8,
-    release_date Date,
-    PRIMARY KEY (series_id)
-);
-
-CREATE TABLE seasons (
-    series_id Uint64,
-    season_id Uint64,
-    title Utf8,
-    first_aired Date,
-    last_aired Date,
-    PRIMARY KEY (series_id, season_id)
-);
-
-CREATE TABLE episodes (
-    series_id Uint64,
-    season_id Uint64,
-    episode_id Uint64,
-    title Utf8,
-    air_date Date,
-    PRIMARY KEY (series_id, season_id, episode_id)
-);";
-
-    internal static Dictionary<string, YdbValue> GetDataParams()
+    public static Dictionary<string, YdbValue> GetDataParams()
     {
         var series = new Series[]
         {
@@ -293,60 +157,5 @@ CREATE TABLE episodes (
             { "$seasonsData", YdbValue.MakeList(seasonsData) },
             { "$episodesData", YdbValue.MakeList(episodesData) }
         };
-    }
-
-    private static async Task CreateTestData(Driver driver)
-    {
-        using var client = new QueryClient(driver);
-        using var tableClient = new TableClient(driver);
-        // ddl not working yet in query service so temporary using tableService for ddl queries
-        await Utils.ExecuteSchemeQuery(tableClient, CreateTableQuery, ensureSuccess: false);
-        // will be replaced by following
-        // var createResponse = await client.Query( 
-        //     CreateTableQuery,
-        //     async stream =>
-        //     {
-        //         while (await stream.Next())
-        //         {
-        //             var part = stream.Response;
-        //             part.EnsureSuccess();
-        //         }
-        //     }
-        // );
-        // createResponse.EnsureSuccess();
-
-        var fillResponse = await client.Query(@"
-REPLACE INTO series
-SELECT * FROM AS_TABLE($seriesData);
-
-REPLACE INTO seasons
-SELECT * FROM AS_TABLE($seasonsData);
-
-REPLACE INTO episodes
-SELECT * FROM AS_TABLE($episodesData);",
-            parameters: GetDataParams(),
-            func: async stream =>
-            {
-                while (await stream.Next())
-                {
-                }
-            }
-        );
-        fillResponse.EnsureSuccess();
-    }
-
-    private static async Task<List<Series>> ReadSeries(ExecuteQueryStream stream)
-    {
-        var series = new List<Series>();
-        await foreach (var part in stream)
-        {
-            var resultSet = part.ResultSet;
-            if (resultSet is not null)
-            {
-                series.AddRange(resultSet.Rows.Select(Series.FromRow));
-            }
-        }
-
-        return series;
     }
 }
