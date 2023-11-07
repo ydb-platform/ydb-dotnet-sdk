@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>Ydb.Sdk.Examples.Common</AssemblyName>
+    <RootNamespace>Ydb.Sdk.Examples</RootNamespace>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/ydb-platform/ydb-dotnet-examples</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ydb-platform/ydb-dotnet-examples</PackageProjectUrl>
+    <Company>YANDEX LLC</Company>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
+    <PackageReference Include="Ydb.Sdk" Version="0.1.3" />
+    <PackageReference Include="Ydb.Sdk.Yc.Auth" Version="0.0.5" />
+  </ItemGroup>
+
+</Project>
