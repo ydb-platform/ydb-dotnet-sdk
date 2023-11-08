@@ -8,6 +8,8 @@ using NoPool = NoPool<Session>;
 
 internal class SessionPool : SessionPool<Session, QueryClient>
 {
+    private readonly Dictionary<string, CancellationTokenSource> _attachedSessions = new();
+
     public SessionPool(Driver driver, SessionPoolConfig config) :
         base(
             driver: driver,
@@ -77,6 +79,23 @@ internal class SessionPool : SessionPool<Session, QueryClient>
 
         CheckPart(firstPart, sessionId);
 
+        cts = new CancellationTokenSource();
+
+        var monitorTask = Task.Run(async () => await Monitor(sessionId, stream), cts.Token);
+        lock (Lock)
+        {
+            _attachedSessions.Add(sessionId, cts);
+        }
+
+        await monitorTask;
+        lock (Lock)
+        {
+            _attachedSessions.Remove(sessionId);
+        }
+    }
+
+    private async Task Monitor(string sessionId, SessionStateStream stream)
+    {
         while (await stream.Next())
         {
             var part = stream.Response;
@@ -104,6 +123,22 @@ internal class SessionPool : SessionPool<Session, QueryClient>
         }
     }
 
+    internal new void InvalidateSession(string id)
+    {
+        DetachSession(id);
+        base.InvalidateSession(id);
+    }
+
+    private void DetachSession(string id)
+    {
+        lock (Lock)
+        {
+            _attachedSessions.Remove(id, out var cts);
+            cts?.Cancel();
+            Logger.LogInformation($"Session detached: {id}");
+        }
+    }
+
     private protected override Session CopySession(Session other)
     {
         return new Session(
@@ -116,6 +151,8 @@ internal class SessionPool : SessionPool<Session, QueryClient>
 
     private protected override void DeleteSession(string id)
     {
+        DetachSession(id);
+
         _ = Client.DeleteSession(id, new DeleteSessionSettings
         {
             TransportTimeout = Shared.Session.DeleteSessionTimeout
