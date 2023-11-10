@@ -298,6 +298,7 @@ public class RollbackTransactionResponse : ResponseBase
     }
 }
 
+// TODO remove crutch calls
 // ===========================================================================
 // WARNING: temporary structs just for testing should be removed 
 // ===========================================================================
@@ -392,7 +393,7 @@ public class QueryClient :
         _sessionPool = sessionPool;
     }
 
-    public async Task<CreateSessionResponse> CreateSession(CreateSessionSettings? settings = null)
+    internal async Task<CreateSessionResponse> CreateSession(CreateSessionSettings? settings = null)
     {
         settings ??= new CreateSessionSettings();
         var request = new CreateSessionRequest();
@@ -421,7 +422,7 @@ public class QueryClient :
         }
     }
 
-    public async Task<DeleteSessionResponse> DeleteSession(string sessionId, DeleteSessionSettings? settings = null)
+    internal async Task<DeleteSessionResponse> DeleteSession(string sessionId, DeleteSessionSettings? settings = null)
     {
         settings ??= new DeleteSessionSettings();
         var request = new DeleteSessionRequest
@@ -445,7 +446,7 @@ public class QueryClient :
         }
     }
 
-    public SessionStateStream AttachSession(string sessionId, AttachSessionSettings? settings = null)
+    internal SessionStateStream AttachSession(string sessionId, AttachSessionSettings? settings = null)
     {
         settings ??= new AttachSessionSettings { TransportTimeout = TimeSpan.FromDays(1) };
 
@@ -573,11 +574,23 @@ public class QueryClient :
         return await sessionPool.ExecOnSession(func, retrySettings);
     }
 
-    public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Dictionary<string, YdbValue> parameters,
-        Func<ExecuteQueryStream, Task<T>> func, ITxModeSettings? txModeSettings = null,
+    internal static async Task EmptyStreamReadFunc(ExecuteQueryStream stream)
+    {
+        while (await stream.Next())
+        {
+            stream.Response.EnsureSuccess();
+        }
+    }
+
+    public async Task<QueryResponseWithResult<T>> Query<T>(
+        string queryString,
+        Dictionary<string, YdbValue>? parameters,
+        Func<ExecuteQueryStream, Task<T>> func,
+        ITxModeSettings? txModeSettings = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
+        parameters ??= new Dictionary<string, YdbValue>();
         txModeSettings ??= new TxModeSerializableSettings();
         executeQuerySettings ??= new ExecuteQuerySettings();
 
@@ -599,19 +612,26 @@ public class QueryClient :
         };
     }
 
-    public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Func<ExecuteQueryStream, Task<T>> func,
-        ITxModeSettings? txModeSettings = null, ExecuteQuerySettings? executeQuerySettings = null,
+    public async Task<QueryResponseWithResult<T>> Query<T>(
+        string queryString,
+        Func<ExecuteQueryStream, Task<T>> func,
+        ITxModeSettings? txModeSettings = null,
+        ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
         return await Query(queryString, new Dictionary<string, YdbValue>(), func, txModeSettings, executeQuerySettings,
             retrySettings);
     }
 
-    public async Task<QueryResponse> Query(string queryString, Dictionary<string, YdbValue> parameters,
-        Func<ExecuteQueryStream, Task> func,
-        ITxModeSettings? txModeSettings = null, ExecuteQuerySettings? executeQuerySettings = null,
+    public async Task<QueryResponse> Query(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        Func<ExecuteQueryStream, Task>? func = null,
+        ITxModeSettings? txModeSettings = null,
+        ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
+        func ??= EmptyStreamReadFunc;
+
         var response = await Query<None>(
             queryString,
             parameters,
@@ -624,14 +644,6 @@ public class QueryClient :
             executeQuerySettings,
             retrySettings);
         return response;
-    }
-
-    public async Task<QueryResponse> Query(string queryString, Func<ExecuteQueryStream, Task> func,
-        ITxModeSettings? txModeSettings = null, ExecuteQuerySettings? executeQuerySettings = null,
-        RetrySettings? retrySettings = null)
-    {
-        return await Query(queryString, new Dictionary<string, YdbValue>(), func, txModeSettings,
-            executeQuerySettings, retrySettings);
     }
 
     private async Task<QueryResponseWithResult<T>> Rollback<T>(Session session, Tx tx, Status status)
@@ -657,6 +669,7 @@ public class QueryClient :
         ITxModeSettings? txModeSettings = null,
         RetrySettings? retrySettings = null)
     {
+        // TODO remove crutch calls
         var response = await ExecOnSession(
             async session =>
             {

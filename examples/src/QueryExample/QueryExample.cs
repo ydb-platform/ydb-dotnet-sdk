@@ -211,8 +211,7 @@ public class QueryExample
 
         var response = await Client.Query(
             query,
-            parameters,
-            EmptyStreamFunc
+            parameters
         );
         response.EnsureSuccess();
     }

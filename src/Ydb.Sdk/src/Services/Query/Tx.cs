@@ -1,3 +1,4 @@
+using Microsoft.IdentityModel.Tokens;
 using Ydb.Query;
 using Ydb.Sdk.Value;
 
@@ -31,6 +32,9 @@ public class TxModeSnapshotSettings : ITxModeSettings
 
 public class Tx
 {
+    internal QueryClient? QueryClient { private get; set; }
+    internal string? SessionId { private get; set; }
+
     public string? TxId
     {
         get => _proto.TxId;
@@ -42,7 +46,7 @@ public class Tx
         }
     }
 
-    private TransactionControl _proto;
+    private readonly TransactionControl _proto;
 
     public Tx()
     {
@@ -97,9 +101,22 @@ public class Tx
         return txSettings;
     }
 
-    public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Dictionary<string, YdbValue> parameters,
-        Func<ExecuteQueryStream, Task<T>> func, ExecuteQuerySettings? executeQuerySettings = null)
+    public async Task<QueryResponseWithResult<T>> Query<T>(
+        string queryString,
+        Dictionary<string, YdbValue>? parameters,
+        Func<ExecuteQueryStream, Task<T>> func,
+        ExecuteQuerySettings? executeQuerySettings = null)
     {
+        if (QueryClient is null)
+        {
+            throw new NullReferenceException($"{nameof(QueryClient)} is null");
+        }
+
+        if (SessionId is null)
+        {
+            throw new NullReferenceException($"{nameof(SessionId)} is null");
+        }
+
         var stream = QueryClient.ExecuteQuery(SessionId, queryString, this, parameters,
             executeQuerySettings);
         try
@@ -121,9 +138,12 @@ public class Tx
         return await Query(queryString, new Dictionary<string, YdbValue>(), func, executeQuerySettings);
     }
 
-    public async Task<QueryResponse> Query(string queryString, Dictionary<string, YdbValue> parameters,
-        Func<ExecuteQueryStream, Task> func, ExecuteQuerySettings? executeQuerySettings = null)
+    public async Task<QueryResponse> Query(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        Func<ExecuteQueryStream, Task>? func = null
+        , ExecuteQuerySettings? executeQuerySettings = null)
     {
+        func ??= QueryClient.EmptyStreamReadFunc;
         var response = await Query<QueryClient.None>(
             queryString,
             parameters,
@@ -135,13 +155,4 @@ public class Tx
             executeQuerySettings);
         return response;
     }
-
-    public async Task<QueryResponse> Query(string queryString, Func<ExecuteQueryStream, Task> func,
-        ExecuteQuerySettings? executeQuerySettings = null)
-    {
-        return await Query(queryString, new Dictionary<string, YdbValue>(), func, executeQuerySettings);
-    }
-
-    internal QueryClient QueryClient { private get; set; }
-    internal string SessionId { private get; set; }
 }

@@ -112,6 +112,7 @@ public class TestExecuteQuery
                             var resultSet = part.ResultSet;
                             if (resultSet is not null)
                             {
+                                titles.AddRange(resultSet.Rows.Select(row => row[0].GetOptionalUtf8()!));
                             }
                         }
 
@@ -302,17 +303,7 @@ CREATE TABLE episodes (
         // ddl not working yet in query service so temporary using tableService for ddl queries
         await Utils.ExecuteSchemeQuery(tableClient, CreateTableQuery, ensureSuccess: false);
         // will be replaced by following
-        // var createResponse = await client.Query( 
-        //     CreateTableQuery,
-        //     async stream =>
-        //     {
-        //         while (await stream.Next())
-        //         {
-        //             var part = stream.Response;
-        //             part.EnsureSuccess();
-        //         }
-        //     }
-        // );
+        // var createResponse = await client.Query(CreateTableQuery);
         // createResponse.EnsureSuccess();
 
         var fillResponse = await client.Query(@"
