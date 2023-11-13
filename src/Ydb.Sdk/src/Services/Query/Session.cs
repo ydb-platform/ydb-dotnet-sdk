@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Services.Shared;
+using Ydb.Sdk.Services.Sessions;
 
 namespace Ydb.Sdk.Services.Query;
 
@@ -10,14 +10,14 @@ namespace Ydb.Sdk.Services.Query;
 /// 2. Distribute load evenly across multiple DB nodes.
 /// 3. Store state for volatile stateful operations, such as short-living transactions.
 /// </summary>
-public class Session : Shared.Session
+public class Session : SessionBase
 {
-    internal readonly SessionPool? SessionPool;
+    private readonly SessionPool? _sessionPool;
 
     internal Session(Driver driver, SessionPool? sessionPool, string id, long nodeId, string? endpoint)
         : base(driver, id, endpoint, driver.LoggerFactory.CreateLogger<Session>())
     {
-        SessionPool = sessionPool;
+        _sessionPool = sessionPool;
         NodeId = nodeId;
     }
 
@@ -33,7 +33,7 @@ public class Session : Shared.Session
 
         if (disposing)
         {
-            if (SessionPool is null)
+            if (_sessionPool is null)
             {
                 Logger.LogTrace($"Closing detached session on dispose: {Id}");
 
@@ -45,7 +45,7 @@ public class Session : Shared.Session
             }
             else
             {
-                SessionPool.ReturnSession(Id);
+                _sessionPool.ReturnSession(Id);
             }
         }
 

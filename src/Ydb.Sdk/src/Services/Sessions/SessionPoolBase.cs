@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Client;
 
-namespace Ydb.Sdk.Services.Shared;
+namespace Ydb.Sdk.Services.Sessions;
 
 public class SessionPoolConfig
 {
@@ -19,7 +19,7 @@ public class SessionPoolConfig
     public TimeSpan CreateSessionTimeout { get; set; } = TimeSpan.FromSeconds(1);
 }
 
-public class GetSessionResponse<TSession> : ResponseWithResultBase<TSession>, IDisposable where TSession : Session
+public class GetSessionResponse<TSession> : ResponseWithResultBase<TSession>, IDisposable where TSession : SessionBase
 {
     internal GetSessionResponse(Status status, TSession? session = null)
         : base(status, session)
@@ -40,12 +40,12 @@ public class GetSessionResponse<TSession> : ResponseWithResultBase<TSession>, ID
     }
 }
 
-internal interface ISessionPool<TSession> : IDisposable where TSession : Session
+internal interface ISessionPool<TSession> : IDisposable where TSession : SessionBase
 {
     public Task<GetSessionResponse<TSession>> GetSession();
 }
 
-internal class NoPool<TSession> : ISessionPool<TSession> where TSession : Session
+internal class NoPool<TSession> : ISessionPool<TSession> where TSession : SessionBase
 {
     public Task<GetSessionResponse<TSession>> GetSession()
     {
@@ -57,8 +57,8 @@ internal class NoPool<TSession> : ISessionPool<TSession> where TSession : Sessio
     }
 }
 
-public abstract class SessionPool<TSession, TClient> : ISessionPool<TSession>
-    where TSession : Session
+public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession>
+    where TSession : SessionBase
     where TClient : ClientBase
 {
     private protected readonly Driver Driver;
@@ -75,7 +75,7 @@ public abstract class SessionPool<TSession, TClient> : ISessionPool<TSession>
     private protected readonly Stack<string> IdleSessions = new();
     protected uint PendingSessions;
 
-    protected SessionPool(Driver driver, SessionPoolConfig config, TClient client, ILogger logger)
+    protected SessionPoolBase(Driver driver, SessionPoolConfig config, TClient client, ILogger logger)
     {
         Driver = driver;
         Config = config;

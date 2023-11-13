@@ -1,12 +1,12 @@
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Services.Shared;
+using Ydb.Sdk.Services.Sessions;
 
 namespace Ydb.Sdk.Services.Query;
 
 using GetSessionResponse = GetSessionResponse<Session>;
 using NoPool = NoPool<Session>;
 
-internal class SessionPool : SessionPool<Session, QueryClient>
+internal class SessionPool : SessionPoolBase<Session, QueryClient>
 {
     private readonly Dictionary<string, CancellationTokenSource> _attachedSessions = new();
 
@@ -155,7 +155,7 @@ internal class SessionPool : SessionPool<Session, QueryClient>
 
         _ = Client.DeleteSession(id, new DeleteSessionSettings
         {
-            TransportTimeout = Shared.Session.DeleteSessionTimeout
+            TransportTimeout = SessionBase.DeleteSessionTimeout
         });
     }
 }

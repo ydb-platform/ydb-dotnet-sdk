@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Client;
 
-namespace Ydb.Sdk.Services.Shared;
+namespace Ydb.Sdk.Services.Sessions;
 
-public abstract class Session : ClientBase, IDisposable
+public abstract class SessionBase : ClientBase, IDisposable
 {
     internal static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(1);
 
@@ -15,7 +15,7 @@ public abstract class Session : ClientBase, IDisposable
     protected readonly ILogger Logger;
 
 
-    protected Session(Driver driver, string id, string? endpoint, ILogger logger) : base(driver)
+    protected SessionBase(Driver driver, string id, string? endpoint, ILogger logger) : base(driver)
     {
         Id = id;
         Endpoint = endpoint;

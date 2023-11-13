@@ -2,17 +2,10 @@ using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Client;
-using Ydb.Sdk.Services.Shared;
+using Ydb.Sdk.Services.Sessions;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
-
-public enum TxMode
-{
-    SerializableRW,
-    OnlineRO,
-    StaleRO
-}
 
 public enum ExecMode
 {

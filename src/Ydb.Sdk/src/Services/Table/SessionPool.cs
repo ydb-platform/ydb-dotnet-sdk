@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Services.Shared;
+using Ydb.Sdk.Services.Sessions;
 
 namespace Ydb.Sdk.Services.Table;
 
 using GetSessionResponse = GetSessionResponse<Session>;
 using NoPool = NoPool<Session>;
 
-internal sealed class SessionPool : SessionPool<Session, TableClient>
+internal sealed class SessionPool : SessionPoolBase<Session, TableClient>
 {
     public SessionPool(Driver driver, SessionPoolConfig config) :
         base(
@@ -144,7 +144,7 @@ internal sealed class SessionPool : SessionPool<Session, TableClient>
     {
         _ = Client.DeleteSession(id, new DeleteSessionSettings
         {
-            TransportTimeout = Shared.Session.DeleteSessionTimeout
+            TransportTimeout = SessionBase.DeleteSessionTimeout
         });
     }
 }

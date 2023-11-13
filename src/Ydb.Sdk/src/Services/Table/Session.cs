@@ -1,10 +1,10 @@
 ﻿using Grpc.Core;
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Services.Shared;
+using Ydb.Sdk.Services.Sessions;
 
 namespace Ydb.Sdk.Services.Table;
 
-public partial class Session : Shared.Session
+public partial class Session : SessionBase
 {
     private readonly SessionPool? _sessionPool;
 
