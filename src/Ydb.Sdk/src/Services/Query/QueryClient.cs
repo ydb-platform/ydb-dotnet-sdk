@@ -685,12 +685,16 @@ public class QueryClient :
                 }
                 catch (StatusUnsuccessfulException e)
                 {
-                    return await Rollback<T>(session, tx, e.Status);
+                    var rollbackResponse = await Rollback<T>(session, tx, e.Status);
+                    return rollbackResponse;
                 }
                 catch (Exception e)
                 {
-                    return await Rollback<T>(session, tx,
-                        new Status(StatusCode.InternalError, $"Failed to execute lambda on tx {tx.TxId}: {e.Message}"));
+                    var status = new Status(
+                        StatusCode.InternalError,
+                        $"Failed to execute lambda on tx {tx.TxId}: {e.Message}");
+                    var rollbackResponse = await Rollback<T>(session, tx, status);
+                    return rollbackResponse;
                 }
 
                 // var commitResponse = await CommitTransaction(session.Id, tx);
