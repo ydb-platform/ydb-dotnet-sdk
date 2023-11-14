@@ -138,7 +138,7 @@ public class Tx
         return await Query(queryString, new Dictionary<string, YdbValue>(), func, executeQuerySettings);
     }
 
-    public async Task<QueryResponse> Query(string queryString,
+    public async Task<QueryResponse> NonQuery(string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         Func<ExecuteQueryStream, Task>? func = null
         , ExecuteQuerySettings? executeQuerySettings = null)

@@ -68,14 +68,6 @@ public class QueryExample
         };
 
 
-    private static async Task EmptyStreamFunc(ExecuteQueryStream stream)
-    {
-        while (await stream.Next())
-        {
-        }
-    }
-
-
     private async Task SchemeQuery()
     {
         var createQuery = @$"
@@ -136,10 +128,9 @@ public class QueryExample
                     SELECT * FROM AS_TABLE($episodesData);
                 ";
 
-        var response = await Client.Query(
+        var response = await Client.NonQuery(
             queryString: query,
             parameters: DataUtils.GetDataParams(),
-            func: EmptyStreamFunc,
             txModeSettings: new TxModeSerializableSettings(),
             executeQuerySettings: DefaultQuerySettings
         );
@@ -209,7 +200,7 @@ public class QueryExample
             { "$release_date", YdbValue.MakeDate(date) }
         };
 
-        var response = await Client.Query(
+        var response = await Client.NonQuery(
             query,
             parameters
         );
@@ -271,9 +262,8 @@ public class QueryExample
                     { "$air_date", YdbValue.MakeDate(newAired) }
                 };
 
-                var response2 = await tx.Query(query2, parameters2, EmptyStreamFunc);
+                var response2 = await tx.NonQuery(query2, parameters2);
                 response2.EnsureSuccess();
-                return response2;
             }
         );
         doTxResponse.EnsureSuccess();

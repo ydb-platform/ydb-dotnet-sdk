@@ -31,9 +31,9 @@ public class TestQueryIntegration
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var client = new QueryClient(driver);
 
-        var createResponse = await client.Query("CREATE TABLE demo_table (id Int32, data Text, PRIMARY KEY(id));");
+        var createResponse = await client.NonQuery("CREATE TABLE demo_table (id Int32, data Text, PRIMARY KEY(id));");
         Assert.Equal(StatusCode.Success, createResponse.Status.StatusCode);
-        var dropResponse = await client.Query("DROP TABLE demo_table;");
+        var dropResponse = await client.NonQuery("DROP TABLE demo_table;");
         Assert.Equal(StatusCode.Success, dropResponse.Status.StatusCode);
     }
 
@@ -111,8 +111,8 @@ public class TestQueryIntegration
         {
             new(1, "entity 1", Array.Empty<byte>(), true),
             new(2, "entity 2", Array.Empty<byte>(), true),
-            new(3, "entity 3", new byte[] { 0x00, 0x22 }, false),
-            new(3, "dublicate", new byte[] { 0x00, 0x22 }, true),
+            new(3, "entity 3", new byte[] { 0x00, 0x22 }, true),
+            new(3, "duplicate", new byte[] { 0x00, 0x22 }, false),
             new(5, "entity 5", new byte[] { 0x12, 0x23, 0x34, 0x45, 0x56 }, false)
         };
 
@@ -130,7 +130,7 @@ public class TestQueryIntegration
                 { "$payload", YdbValue.MakeString(entity.Payload) },
                 { "$is_valid", (YdbValue)entity.IsValid }
             };
-            var upsertResponse = await client.Query(upsertQuery, parameters);
+            var upsertResponse = await client.NonQuery(upsertQuery, parameters);
             Assert.Equal(StatusCode.Success, upsertResponse.Status.StatusCode);
         }
 
@@ -163,11 +163,7 @@ public class TestQueryIntegration
                     return result;
                 });
                 Assert.Equal(StatusCode.Success, selectResponse.Status.StatusCode);
-                if (!selectResponse.Status.IsSuccess)
-                {
-                    return selectResponse;
-                }
-                
+
                 var entityToDelete = selectResponse.Result![0];
 
                 const string deleteQuery = @$"
@@ -180,9 +176,8 @@ public class TestQueryIntegration
                     { "$id", (YdbValue)entityToDelete.Id }
                 };
 
-                var deleteResponse = await tx.Query(deleteQuery, deleteParameters);
+                var deleteResponse = await tx.NonQuery(deleteQuery, deleteParameters);
                 Assert.Equal(StatusCode.Success, deleteResponse.Status.StatusCode);
-                return deleteResponse;
             }
         );
         Assert.Equal(StatusCode.Success, response.Status.StatusCode);

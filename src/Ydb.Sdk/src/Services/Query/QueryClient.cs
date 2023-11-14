@@ -616,7 +616,7 @@ public class QueryClient :
             retrySettings);
     }
 
-    public async Task<QueryResponse> Query(string queryString,
+    public async Task<QueryResponse> NonQuery(string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         Func<ExecuteQueryStream, Task>? func = null,
         ITxModeSettings? txModeSettings = null,
