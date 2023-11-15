@@ -143,6 +143,7 @@ public class Tx
             executeQuerySettings);
         return response;
     }
+
     public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadFirstRow(string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         ExecuteQuerySettings? executeQuerySettings = null)
@@ -151,7 +152,7 @@ public class Tx
             {
                 var rows = await QueryClient.ReadAllRowsHelper(stream);
                 return rows[0];
-            }, 
+            },
             executeQuerySettings);
         return response;
     }

@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using Google.Protobuf.Collections;
 using Ydb.Issue;
-using Ydb.Sdk.Services.Table;
 
 namespace Ydb.Sdk;
 
@@ -186,8 +185,8 @@ public class Status
     {
     }
 
-    public static readonly Status Success = new(StatusCode.Success); 
-    
+    public static readonly Status Success = new(StatusCode.Success);
+
     public bool IsSuccess => StatusCode == StatusCode.Success;
 
     public void EnsureSuccess()

@@ -240,7 +240,7 @@ public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession
                     session = null;
                 }
 
-                if (retryRule.Idempotency == Idempotency.Idempotent && retrySettings.IsIdempotent ||
+                if ((retryRule.Idempotency == Idempotency.Idempotent && retrySettings.IsIdempotent) ||
                     retryRule.Idempotency == Idempotency.NonIdempotent)
                 {
                     Logger.LogTrace(

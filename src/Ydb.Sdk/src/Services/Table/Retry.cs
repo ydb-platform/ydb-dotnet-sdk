@@ -13,7 +13,7 @@ public partial class TableClient
             throw new InvalidCastException(
                 $"Unexpected cast error: {nameof(_sessionPool)} is not object of type {typeof(SessionPool).FullName}");
         }
-        
+
         return await sessionPool.ExecOnSession(operationFunc, retrySettings);
     }
 }
