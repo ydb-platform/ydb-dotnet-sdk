@@ -143,4 +143,24 @@ public class Tx
             executeQuerySettings);
         return response;
     }
+    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadFirstRow(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        var response = await Query(queryString, parameters, async stream =>
+            {
+                var rows = await QueryClient.ReadAllRowsHelper(stream);
+                return rows[0];
+            }, 
+            executeQuerySettings);
+        return response;
+    }
+
+    public async Task<QueryResponseWithResult<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        var response = await Query(queryString, parameters, QueryClient.ReadAllRowsHelper, executeQuerySettings);
+        return response;
+    }
 }

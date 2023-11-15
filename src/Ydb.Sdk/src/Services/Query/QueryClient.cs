@@ -578,6 +578,47 @@ public class QueryClient :
         return response;
     }
 
+
+    internal static async Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRowsHelper(ExecuteQueryStream stream)
+    {
+        var rows = new List<Value.ResultSet.Row>();
+        await foreach (var part in stream)
+        {
+            if (part.ResultSet is not null)
+            {
+                rows.AddRange(part.ResultSet.Rows);
+            }
+        }
+
+        return rows;
+    }
+
+    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadFirstRow(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        ITxModeSettings? txModeSettings = null,
+        ExecuteQuerySettings? executeQuerySettings = null,
+        RetrySettings? retrySettings = null)
+    {
+        var response = await Query(queryString, parameters, async stream =>
+            {
+                var rows = await ReadAllRowsHelper(stream);
+                return rows[0];
+            }, txModeSettings,
+            executeQuerySettings, retrySettings);
+        return response;
+    }
+
+    public async Task<QueryResponseWithResult<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        ITxModeSettings? txModeSettings = null,
+        ExecuteQuerySettings? executeQuerySettings = null,
+        RetrySettings? retrySettings = null)
+    {
+        var response = await Query(queryString, parameters, ReadAllRowsHelper, txModeSettings,
+            executeQuerySettings, retrySettings);
+        return response;
+    }
+
     private async Task<QueryResponseWithResult<T>> Rollback<T>(Session session, Tx tx, Status status)
     {
         _logger.LogTrace($"Transaction {tx.TxId} not committed, try to rollback");
