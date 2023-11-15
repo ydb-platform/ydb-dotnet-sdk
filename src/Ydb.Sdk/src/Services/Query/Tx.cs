@@ -34,16 +34,7 @@ public class Tx
     internal QueryClient? QueryClient { private get; set; }
     internal string? SessionId { private get; set; }
 
-    public string? TxId
-    {
-        get => _proto.TxId;
-        set
-        {
-            _proto.TxId = value;
-            if (!string.IsNullOrEmpty(value))
-                _proto.BeginTx = null;
-        }
-    }
+    public string? TxId => _proto.TxId;
 
     private readonly TransactionControl _proto;
 
