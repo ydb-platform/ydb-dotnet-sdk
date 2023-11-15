@@ -53,12 +53,4 @@ public static class Utils
         var serviceProvider = GetServiceProvider();
         return serviceProvider.GetService<ILoggerFactory>();
     }
-
-    internal static async Task<ExecuteSchemeQueryResponse> CreateSimpleTable(
-        TableClient tableClient, string tableName, string columnName = "key")
-    {
-        return await ExecuteSchemeQuery(
-            tableClient,
-            query: $"CREATE TABLE {tableName} ({columnName} Uint64, PRIMARY KEY ({columnName}))");
-    }
 }

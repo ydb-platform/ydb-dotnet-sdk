@@ -42,7 +42,9 @@ public class TestQueryIntegration
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var client = new QueryClient(driver);
 
-        var response = await client.Query("SELECT 2 + 3", async stream =>
+        const string queryString = "SELECT 2 + 3 AS sum";
+        
+        var responseQuery = await client.Query(queryString, async stream =>
         {
             var rows = new List<Sdk.Value.ResultSet.Row>();
             await foreach (var part in stream)
@@ -56,13 +58,26 @@ public class TestQueryIntegration
 
             return rows;
         });
-        Assert.Equal(StatusCode.Success, response.Status.StatusCode);
-        Assert.NotNull(response.Result);
-        if (response.Result != null)
-        {
-            Assert.Single(response.Result);
-            Assert.True(response.Result[0][0].GetInt32() == 5);
-        }
+
+        var responseAllRows = await client.ReadAllRows(queryString);
+        var responseFirstRow = await client.ReadFirstRow(queryString);
+
+        Assert.Equal(StatusCode.Success, responseQuery.Status.StatusCode);
+        Assert.Equal(StatusCode.Success, responseAllRows.Status.StatusCode);
+        Assert.Equal(StatusCode.Success, responseFirstRow.Status.StatusCode);
+        Assert.NotNull(responseQuery.Result);
+        Assert.NotNull(responseFirstRow.Result);
+        Assert.NotNull(responseAllRows.Result);
+        Assert.Single(responseQuery.Result!);
+        Assert.Single(responseAllRows.Result!);
+
+        var valueQuery = responseQuery.Result!.First()["sum"].GetInt32();
+        var valueReadAll = responseAllRows.Result!.First()["sum"].GetInt32();
+        var valueReadFirst = responseFirstRow.Result!["sum"].GetInt32();
+
+        Assert.Equal(valueQuery, valueReadAll);
+        Assert.Equal(valueQuery, valueReadFirst);
+        Assert.Equal(5, valueQuery);
     }
 
 
@@ -137,33 +152,12 @@ public class TestQueryIntegration
             {
                 const string selectQuery = @$"
                     SELECT * FROM {tableName}
-                    WHERE is_valid = true
                     ORDER BY name DESC
                     LIMIT 1;";
-                var selectResponse = await tx.Query(selectQuery, async stream =>
-                {
-                    var result = new List<Entity>();
-                    await foreach (var part in stream)
-                    {
-                        Assert.Equal(StatusCode.Success, part.Status.StatusCode);
-                        if (part.ResultSet != null)
-                        {
-                            result.AddRange(
-                                part.ResultSet.Rows.Select(row => new Entity(
-                                    Id: row["id"].GetInt32(),
-                                    Name: row["name"].GetOptionalUtf8()!,
-                                    Payload: row["payload"].GetOptionalString()!,
-                                    IsValid: (bool)row["is_valid"].GetOptionalBool()!)
-                                )
-                            );
-                        }
-                    }
-
-                    return result;
-                });
+                var selectResponse = await tx.ReadFirstRow(selectQuery);
                 Assert.Equal(StatusCode.Success, selectResponse.Status.StatusCode);
 
-                var entityToDelete = selectResponse.Result![0];
+                var entityId = selectResponse.Result!["id"];
 
                 const string deleteQuery = @$"
                     DELETE FROM {tableName}
@@ -172,7 +166,7 @@ public class TestQueryIntegration
 
                 var deleteParameters = new Dictionary<string, YdbValue>
                 {
-                    { "$id", (YdbValue)entityToDelete.Id }
+                    { "$id", entityId }
                 };
 
                 var deleteResponse = await tx.Exec(deleteQuery, deleteParameters);

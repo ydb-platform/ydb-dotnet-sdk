@@ -101,9 +101,8 @@ public class QueryExample
                 ";
 
         // TODO replace with QueryClient
-        // var response = await Client.Query(
-        //     queryString: createQuery,
-        //     func: EmptyStreamFunc
+        // var response = await Client.Exec(
+        //     queryString: createQuery
         // );
         // response.EnsureSuccess();
         using var client = new TableClient(Driver);
@@ -151,31 +150,17 @@ public class QueryExample
         var parameters = new Dictionary<string, YdbValue> { { "$id", (YdbValue)id } };
 
 
-        var response = await Client.Query(
+        var response = await Client.ReadAllRows(
             query,
-            parameters: parameters,
-            async stream =>
-            {
-                var series = new List<Series>();
-                await foreach (var part in stream)
-                {
-                    var resultSet = part.ResultSet;
-                    if (resultSet is not null)
-                    {
-                        series.AddRange(resultSet.Rows.Select(Series.FromRow));
-                    }
-                }
-
-                return series;
-            }
+            parameters: parameters
         );
-
         response.EnsureSuccess();
 
         if (response.Result is not null)
         {
-            foreach (var series in response.Result)
+            foreach (var row in response.Result)
             {
+                var series = Series.FromRow(row);
                 Console.WriteLine("> Series, " +
                                   $"series_id: {series.SeriesId}, " +
                                   $"title: {series.Title}, " +
@@ -225,29 +210,14 @@ public class QueryExample
                     { "$season_id", YdbValue.MakeUint64(3) }
                 };
 
-                var response = await tx.Query(
+                var response = await tx.ReadFirstRow(
                     query1,
-                    parameters1,
-                    func: async stream =>
-                    {
-                        var result = new List<DateTime>();
-                        await foreach (var part in stream)
-                        {
-                            var resultSet = part.ResultSet;
-                            if (resultSet is not null)
-                            {
-                                result.AddRange(resultSet.Rows.Select(row =>
-                                    (DateTime)row["first_aired"].GetOptionalDate()!));
-                            }
-                        }
-
-                        return result;
-                    }
+                    parameters1
                 );
                 response.EnsureSuccess();
 
-                var firstAired = response.Result!.FirstOrDefault();
-                var newAired = firstAired!.AddDays(2);
+                var firstAired = response.Result!["first_aired"].GetOptionalDate()!.Value;
+                var newAired = firstAired.AddDays(2);
 
                 var query2 = @$"
                     PRAGMA TablePathPrefix('{BasePath}');
