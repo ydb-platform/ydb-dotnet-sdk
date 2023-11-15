@@ -47,7 +47,7 @@ public enum Idempotency
     /// <summary> No retry </summary>
     None,
 
-    /// <summary> Retry if IsIdempotent is true </summary>
+    /// <summary> Retry only if IsIdempotent is true </summary>
     Idempotent,
 
     /// <summary> Retry always </summary>

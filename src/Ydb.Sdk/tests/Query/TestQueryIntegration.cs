@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using Ydb.Sdk.Client;
 using Ydb.Sdk.Services.Query;
 using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
@@ -43,7 +44,7 @@ public class TestQueryIntegration
         using var client = new QueryClient(driver);
 
         const string queryString = "SELECT 2 + 3 AS sum";
-        
+
         var responseQuery = await client.Query(queryString, async stream =>
         {
             var rows = new List<Sdk.Value.ResultSet.Row>();
@@ -176,5 +177,61 @@ public class TestQueryIntegration
         Assert.Equal(StatusCode.Success, response.Status.StatusCode);
 
         await DropTable(tableClient, tableName);
+    }
+
+    [Fact]
+    public async Task TestDoTxRollback()
+    {
+        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
+        using var client = new QueryClient(driver);
+
+        var response = await client.DoTx(_ =>
+        {
+            var response = new ClientInternalErrorResponse("test rollback if status unsuccessful");
+            response.EnsureSuccess();
+            return Task.CompletedTask;
+        });
+        Assert.Equal(StatusCode.ClientInternalError, response.Status.StatusCode);
+
+
+        response = await client.DoTx(_ => throw new ArithmeticException("2 + 2 = 5"));
+        Assert.Equal(StatusCode.ClientInternalError, response.Status.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(StatusCode.ClientInternalError, StatusCode.Success, 2, true)]
+    [InlineData(StatusCode.ClientInternalError, StatusCode.ClientInternalError, 1, false)]
+    [InlineData(StatusCode.InternalError, StatusCode.InternalError, 1, true)]
+    [InlineData(StatusCode.Aborted, StatusCode.Success, 2, false)]
+    public async Task TestIdempotency(StatusCode statusCode, StatusCode expectedStatusCode, int expectedAttempts,
+        bool isIdempotent)
+    {
+        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
+        using var client = new QueryClient(driver);
+
+        var attempts = 0;
+        var response = await client.Query("SELECT 1", async stream =>
+            {
+                attempts += 1;
+                var rows = new List<Sdk.Value.ResultSet.Row>();
+                await foreach (var part in stream)
+                {
+                    if (part.ResultSet is not null)
+                    {
+                        rows.AddRange(part.ResultSet.Rows);
+                    }
+                }
+
+                if (attempts == 1)
+                {
+                    throw new StatusUnsuccessfulException(new Status(statusCode, "test idempotency"));
+                }
+
+                return rows;
+            },
+            retrySettings: new RetrySettings { IsIdempotent = isIdempotent });
+
+        Assert.Equal(expectedStatusCode, response.Status.StatusCode);
+        Assert.Equal(expectedAttempts, attempts);
     }
 }

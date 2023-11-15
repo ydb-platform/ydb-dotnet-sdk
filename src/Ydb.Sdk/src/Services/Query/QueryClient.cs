@@ -662,7 +662,7 @@ public class QueryClient :
                 catch (Exception e)
                 {
                     var status = new Status(
-                        StatusCode.InternalError,
+                        StatusCode.ClientInternalError,
                         $"Failed to execute lambda on tx {tx.TxId}: {e.Message}");
                     var rollbackResponse = await Rollback<T>(session, tx, status);
                     return rollbackResponse;
@@ -671,12 +671,15 @@ public class QueryClient :
                 var commitResponse = await CommitTransaction(session.Id, tx);
                 if (!commitResponse.Status.IsSuccess)
                 {
-                    return await Rollback<T>(session, tx, commitResponse.Status);
+                    var rollbackResponse = await Rollback<T>(session, tx, commitResponse.Status);
+                    return rollbackResponse;
                 }
 
-                return response is None
-                    ? new QueryResponseWithResult<T>(Status.Success)
-                    : new QueryResponseWithResult<T>(Status.Success, response);
+                return response switch
+                {
+                    None => new QueryResponseWithResult<T>(Status.Success),
+                    _ => new QueryResponseWithResult<T>(Status.Success, response)
+                };
             },
             retrySettings
         );
