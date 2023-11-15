@@ -128,7 +128,7 @@ public class QueryExample
                     SELECT * FROM AS_TABLE($episodesData);
                 ";
 
-        var response = await Client.NonQuery(
+        var response = await Client.Exec(
             queryString: query,
             parameters: DataUtils.GetDataParams(),
             txModeSettings: new TxModeSerializableSettings(),
@@ -200,7 +200,7 @@ public class QueryExample
             { "$release_date", YdbValue.MakeDate(date) }
         };
 
-        var response = await Client.NonQuery(
+        var response = await Client.Exec(
             query,
             parameters
         );
@@ -262,7 +262,7 @@ public class QueryExample
                     { "$air_date", YdbValue.MakeDate(newAired) }
                 };
 
-                var response2 = await tx.NonQuery(query2, parameters2);
+                var response2 = await tx.Exec(query2, parameters2);
                 response2.EnsureSuccess();
             }
         );

@@ -616,21 +616,18 @@ public class QueryClient :
             retrySettings);
     }
 
-    public async Task<QueryResponse> NonQuery(string queryString,
+    public async Task<QueryResponse> Exec(string queryString,
         Dictionary<string, YdbValue>? parameters = null,
-        Func<ExecuteQueryStream, Task>? func = null,
         ITxModeSettings? txModeSettings = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
-        func ??= EmptyStreamReadFunc;
-
         var response = await Query<None>(
             queryString,
             parameters,
             async session =>
             {
-                await func(session);
+                await EmptyStreamReadFunc(session);
                 return None.Instance;
             },
             txModeSettings,

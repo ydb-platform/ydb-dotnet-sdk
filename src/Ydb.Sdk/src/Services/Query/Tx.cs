@@ -1,4 +1,3 @@
-using Microsoft.IdentityModel.Tokens;
 using Ydb.Query;
 using Ydb.Sdk.Value;
 
@@ -138,18 +137,16 @@ public class Tx
         return await Query(queryString, new Dictionary<string, YdbValue>(), func, executeQuerySettings);
     }
 
-    public async Task<QueryResponse> NonQuery(string queryString,
-        Dictionary<string, YdbValue>? parameters = null,
-        Func<ExecuteQueryStream, Task>? func = null
+    public async Task<QueryResponse> Exec(string queryString,
+        Dictionary<string, YdbValue>? parameters = null
         , ExecuteQuerySettings? executeQuerySettings = null)
     {
-        func ??= QueryClient.EmptyStreamReadFunc;
         var response = await Query<QueryClient.None>(
             queryString,
             parameters,
             async session =>
             {
-                await func(session);
+                await QueryClient.EmptyStreamReadFunc(session);
                 return QueryClient.None.Instance;
             },
             executeQuerySettings);

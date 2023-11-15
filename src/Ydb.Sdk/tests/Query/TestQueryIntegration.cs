@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using Xunit.Abstractions;
 using Ydb.Sdk.Services.Query;
 using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
@@ -31,9 +30,9 @@ public class TestQueryIntegration
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
         using var client = new QueryClient(driver);
 
-        var createResponse = await client.NonQuery("CREATE TABLE demo_table (id Int32, data Text, PRIMARY KEY(id));");
+        var createResponse = await client.Exec("CREATE TABLE demo_table (id Int32, data Text, PRIMARY KEY(id));");
         Assert.Equal(StatusCode.Success, createResponse.Status.StatusCode);
-        var dropResponse = await client.NonQuery("DROP TABLE demo_table;");
+        var dropResponse = await client.Exec("DROP TABLE demo_table;");
         Assert.Equal(StatusCode.Success, dropResponse.Status.StatusCode);
     }
 
@@ -130,7 +129,7 @@ public class TestQueryIntegration
                 { "$payload", YdbValue.MakeString(entity.Payload) },
                 { "$is_valid", (YdbValue)entity.IsValid }
             };
-            var upsertResponse = await client.NonQuery(upsertQuery, parameters);
+            var upsertResponse = await client.Exec(upsertQuery, parameters);
             Assert.Equal(StatusCode.Success, upsertResponse.Status.StatusCode);
         }
 
@@ -176,7 +175,7 @@ public class TestQueryIntegration
                     { "$id", (YdbValue)entityToDelete.Id }
                 };
 
-                var deleteResponse = await tx.NonQuery(deleteQuery, deleteParameters);
+                var deleteResponse = await tx.Exec(deleteQuery, deleteParameters);
                 Assert.Equal(StatusCode.Success, deleteResponse.Status.StatusCode);
             }
         );
