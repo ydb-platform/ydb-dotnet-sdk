@@ -85,8 +85,7 @@ public partial class Session
                 request: request,
                 settings: settings);
 
-            ExecuteQueryResult? resultProto;
-            var status = UnpackOperation(response.Data.Operation, out resultProto);
+            var status = UnpackOperation(response.Data.Operation, out ExecuteQueryResult? resultProto);
             OnResponseStatus(status);
 
             var txState = TransactionState.Unknown;
