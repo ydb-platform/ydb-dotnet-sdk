@@ -52,6 +52,11 @@ public class QueryExample
         await example.SimpleUpsert(10, "Coming soon", DateTime.UtcNow);
         await example.SimpleSelect(10);
         await example.InteractiveTx();
+        await example.StreamSelect();
+        await example.ReadScalar();
+        await example.ReadSingleRow();
+        await example.ReadAllRows();
+        await example.ReadAllResultSets();
     }
 
     private static ExecuteQuerySettings DefaultQuerySettings =>
@@ -210,13 +215,13 @@ public class QueryExample
                     { "$season_id", YdbValue.MakeUint64(3) }
                 };
 
-                var response = await tx.ReadFirstRow(
+                var response = await tx.ReadScalar(
                     query1,
                     parameters1
                 );
                 response.EnsureSuccess();
 
-                var firstAired = response.Result!["first_aired"].GetOptionalDate()!.Value;
+                var firstAired = response.Result!.GetOptionalDate()!.Value;
                 var newAired = firstAired.AddDays(2);
 
                 var query2 = @$"
@@ -237,5 +242,130 @@ public class QueryExample
             }
         );
         doTxResponse.EnsureSuccess();
+    }
+
+    private async Task StreamSelect()
+    {
+        var query = @$"
+                    PRAGMA TablePathPrefix('{BasePath}');
+
+                    SELECT *
+                    FROM series;
+                ";
+
+
+        await Client.Query(
+            query,
+            func: async stream =>
+            {
+                await foreach (var part in stream)
+                {
+                    if (part.ResultSet == null) continue;
+                    foreach (var row in part.ResultSet.Rows)
+                    {
+                        Console.WriteLine(Series.FromRow(row));
+                    }
+                }
+
+                return stream.Next();
+            }
+        ).ConfigureAwait(false);
+    }
+
+    private async Task ReadScalar()
+    {
+        var query = @$"
+                    PRAGMA TablePathPrefix('{BasePath}');
+
+                    SELECT COUNT(*)
+                    FROM series;
+                ";
+
+
+        var response = await Client.ReadScalar(query).ConfigureAwait(false);
+        response.EnsureSuccess();
+
+        var count = response.Result!.GetUint64();
+
+        Console.WriteLine($"There is {count} rows in 'series' table");
+    }
+
+    private async Task ReadSingleRow()
+    {
+        Console.WriteLine("StreamSelect");
+        var query = @$"
+                    PRAGMA TablePathPrefix('{BasePath}');
+
+                    SELECT *
+                    FROM series
+                    LIMIT 1;
+                ";
+
+
+        var response = await Client.ReadSingleRow(query).ConfigureAwait(false);
+        response.EnsureSuccess();
+
+        var series = Series.FromRow(response.Result!);
+
+        Console.WriteLine($"First row in 'series' table is {series}");
+    }
+
+    private async Task ReadAllRows()
+    {
+        Console.WriteLine("StreamSelect");
+        var query = @$"
+                    PRAGMA TablePathPrefix('{BasePath}');
+
+                    SELECT *
+                    FROM series;
+                ";
+
+
+        var response = await Client.ReadAllRows(query).ConfigureAwait(false);
+        response.EnsureSuccess();
+
+        var series = response.Result!.Select(Series.FromRow);
+
+        Console.WriteLine("'series' table contains:");
+        foreach (var elem in series)
+        {
+            Console.WriteLine($"\t{elem}");
+        }
+    }
+
+    private async Task ReadAllResultSets()
+    {
+        Console.WriteLine("StreamSelect");
+        var query = @$"
+                    PRAGMA TablePathPrefix('{BasePath}');
+
+                    SELECT *
+                    FROM series; -- First result set
+
+                    SELECT *
+                    FROM episodes; -- Second result set
+                ";
+
+
+        var response = await Client.ReadAllResultSets(query).ConfigureAwait(false);
+        response.EnsureSuccess();
+
+        var resultSets = response.Result!;
+
+        var seriesSet = resultSets[0];
+        var episodesSet = resultSets[1];
+
+        Console.WriteLine("Multiple sets selected:");
+
+        Console.WriteLine("\t'series' contains:");
+        foreach (var row in seriesSet)
+        {
+            Console.WriteLine($"\t\t{Series.FromRow(row)}");
+        }
+        Console.WriteLine("\t'episodes' contains:");
+        foreach (var row in episodesSet)
+        {
+            Console.WriteLine($"\t\t{Episode.FromRow(row)}");
+        }
     }
 }

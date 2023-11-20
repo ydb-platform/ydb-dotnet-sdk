@@ -99,11 +99,14 @@ internal class SessionPool : SessionPoolBase<Session, QueryClient>
         while (await stream.Next())
         {
             var part = stream.Response;
-            CheckPart(part, sessionId);
+            if (!CheckPart(part, sessionId))
+            {
+                break;
+            }
         }
     }
 
-    private void CheckPart(Query.SessionState part, string sessionId)
+    private bool CheckPart(Query.SessionState part, string sessionId)
     {
         if (part.Status.IsSuccess)
         {
@@ -116,14 +119,15 @@ internal class SessionPool : SessionPoolBase<Session, QueryClient>
                     sessionState.LastAccessTime = DateTime.Now;
                 }
             }
+
+            return true;
         }
-        else
-        {
-            InvalidateSession(sessionId);
-        }
+
+        InvalidateSession(sessionId);
+        return false;
     }
 
-    internal new void InvalidateSession(string id)
+    private new void InvalidateSession(string id)
     {
         DetachSession(id);
         base.InvalidateSession(id);

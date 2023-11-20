@@ -83,11 +83,6 @@ public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession
         Logger = logger;
     }
 
-    // public virtual Task<GetSessionResponse<TSession>> GetSession()
-    // {
-    //     throw new NotImplementedException();
-    // }
-
     public async Task<GetSessionResponse<TSession>> GetSession()
     {
         const int maxAttempts = 100;
@@ -140,7 +135,7 @@ public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession
         return await CreateSession();
     }
 
-    public void ReturnSession(string id)
+    internal void ReturnSession(string id)
     {
         lock (Lock)
         {

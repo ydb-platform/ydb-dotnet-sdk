@@ -78,7 +78,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
             async session =>
             {
                 var tx = Tx.Begin(txModeSettings);
-                tx.QueryClient = this;
+                tx.Client = this;
                 tx.SessionId = session.Id;
                 return await tx.Query(queryString, parameters, func, executeQuerySettings);
             },
@@ -119,12 +119,34 @@ public class QueryClient : QueryClientGrpc, IDisposable
         return response;
     }
 
+    internal static async Task<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>> ReadAllResultSetsHelper(
+        ExecuteQueryStream stream)
+    {
+        var resultSets = new List<List<Value.ResultSet.Row>>();
+        await foreach (var part in stream)
+        {
+            if (part.ResultSet is null) continue;
+            while (resultSets.Count <= part.ResultSetIndex)
+            {
+                resultSets.Add(new List<Value.ResultSet.Row>());
+            }
+
+            resultSets[(int)part.ResultSetIndex].AddRange(part.ResultSet.Rows);
+        }
+
+        return resultSets;
+    }
 
     internal static async Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRowsHelper(ExecuteQueryStream stream)
     {
         var rows = new List<Value.ResultSet.Row>();
         await foreach (var part in stream)
         {
+            if (part.ResultSetIndex != 0)
+            {
+                throw new QueryWrongResultFormatException("Should be only one resultSet");
+            }
+
             if (part.ResultSet is not null)
             {
                 rows.AddRange(part.ResultSet.Rows);
@@ -134,20 +156,46 @@ public class QueryClient : QueryClientGrpc, IDisposable
         return rows;
     }
 
-    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadFirstRow(string queryString,
+    internal static async Task<Value.ResultSet.Row> ReadSingleRowHelper(ExecuteQueryStream stream)
+    {
+        Value.ResultSet.Row? row = null;
+        await foreach (var part in stream)
+        {
+            if (part.ResultSet is not null)
+            {
+                if (row is not null || part.ResultSet.Rows.Count != 1)
+                {
+                    throw new QueryWrongResultFormatException("ResultSet should contain exactly one row");
+                }
+
+                row = part.ResultSet.Rows[0];
+            }
+            else
+            {
+                throw new QueryWrongResultFormatException("ResultSet is null");
+            }
+        }
+
+        return row!;
+    }
+
+    internal static async Task<YdbValue> ReadScalarHelper(ExecuteQueryStream stream)
+    {
+        var row = await ReadSingleRowHelper(stream);
+        return row[0];
+    }
+
+    public async Task<QueryResponseWithResult<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>>> ReadAllResultSets(string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         ITxModeSettings? txModeSettings = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
-        var response = await Query(queryString, parameters, async stream =>
-            {
-                var rows = await ReadAllRowsHelper(stream);
-                return rows[0];
-            }, txModeSettings,
+        var response = await Query(queryString, parameters, ReadAllResultSetsHelper, txModeSettings,
             executeQuerySettings, retrySettings);
         return response;
     }
+
 
     public async Task<QueryResponseWithResult<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(string queryString,
         Dictionary<string, YdbValue>? parameters = null,
@@ -156,6 +204,28 @@ public class QueryClient : QueryClientGrpc, IDisposable
         RetrySettings? retrySettings = null)
     {
         var response = await Query(queryString, parameters, ReadAllRowsHelper, txModeSettings,
+            executeQuerySettings, retrySettings);
+        return response;
+    }
+
+
+    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadSingleRow(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        ITxModeSettings? txModeSettings = null,
+        ExecuteQuerySettings? executeQuerySettings = null,
+        RetrySettings? retrySettings = null)
+    {
+        var response = await Query(queryString, parameters, ReadSingleRowHelper, txModeSettings,
+            executeQuerySettings, retrySettings);
+        return response;
+    }
+    public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        ITxModeSettings? txModeSettings = null,
+        ExecuteQuerySettings? executeQuerySettings = null,
+        RetrySettings? retrySettings = null)
+    {
+        var response = await Query(queryString, parameters, ReadScalarHelper, txModeSettings,
             executeQuerySettings, retrySettings);
         return response;
     }
@@ -186,8 +256,8 @@ public class QueryClient : QueryClientGrpc, IDisposable
             {
                 var beginTransactionResponse = await BeginTransaction(session.Id, Tx.Begin(txModeSettings));
                 beginTransactionResponse.EnsureSuccess();
-                var tx = beginTransactionResponse.Tx;
-                tx.QueryClient = this;
+                var tx = beginTransactionResponse.Tx!;
+                tx.Client = this;
                 tx.SessionId = session.Id;
 
                 T response;
@@ -288,5 +358,12 @@ public sealed class QueryResponseWithResult<TResult> : QueryResponse
     public QueryResponseWithResult(Status status, TResult? result = default) : base(status)
     {
         Result = result;
+    }
+}
+
+public class QueryWrongResultFormatException : Exception
+{
+    public QueryWrongResultFormatException(string message) : base(message)
+    {
     }
 }

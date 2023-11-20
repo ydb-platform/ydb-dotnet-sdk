@@ -33,7 +33,8 @@ public class TestQueryIntegration
 
         var createResponse = await client.Exec("CREATE TABLE demo_table (id Int32, data Text, PRIMARY KEY(id));");
         Assert.Equal(StatusCode.Success, createResponse.Status.StatusCode);
-        var dropResponse = await client.Exec("DROP TABLE demo_table;");
+        var dropResponse = await client.Exec("DROP TABLE demo_table;",
+            retrySettings: new RetrySettings { IsIdempotent = false });
         Assert.Equal(StatusCode.Success, dropResponse.Status.StatusCode);
     }
 
@@ -61,7 +62,7 @@ public class TestQueryIntegration
         });
 
         var responseAllRows = await client.ReadAllRows(queryString);
-        var responseFirstRow = await client.ReadFirstRow(queryString);
+        var responseFirstRow = await client.ReadSingleRow(queryString); // ReadOneRow
 
         Assert.Equal(StatusCode.Success, responseQuery.Status.StatusCode);
         Assert.Equal(StatusCode.Success, responseAllRows.Status.StatusCode);
@@ -72,9 +73,9 @@ public class TestQueryIntegration
         Assert.Single(responseQuery.Result!);
         Assert.Single(responseAllRows.Result!);
 
-        var valueQuery = responseQuery.Result!.First()["sum"].GetInt32();
-        var valueReadAll = responseAllRows.Result!.First()["sum"].GetInt32();
-        var valueReadFirst = responseFirstRow.Result!["sum"].GetInt32();
+        var valueQuery = (int)responseQuery.Result!.First()["sum"];
+        var valueReadAll = (int)responseAllRows.Result!.First()["sum"];
+        var valueReadFirst = (int)responseFirstRow.Result!["sum"];
 
         Assert.Equal(valueQuery, valueReadAll);
         Assert.Equal(valueQuery, valueReadFirst);
@@ -155,7 +156,7 @@ public class TestQueryIntegration
                     SELECT * FROM {tableName}
                     ORDER BY name DESC
                     LIMIT 1;";
-                var selectResponse = await tx.ReadFirstRow(selectQuery);
+                var selectResponse = await tx.ReadSingleRow(selectQuery);
                 Assert.Equal(StatusCode.Success, selectResponse.Status.StatusCode);
 
                 var entityId = selectResponse.Result!["id"];
@@ -233,5 +234,103 @@ public class TestQueryIntegration
 
         Assert.Equal(expectedStatusCode, response.Status.StatusCode);
         Assert.Equal(expectedAttempts, attempts);
+    }
+
+    [Fact]
+    public async Task TestReaders()
+    {
+        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
+        using var queryClient = new QueryClient(driver);
+        using var tableClient = new TableClient(driver);
+        const string tableName = "readTable";
+        await InitEntityTable(tableClient, tableName);
+
+
+        const string upsertQuery = @$"
+            UPSERT INTO `{tableName}` (id, name, payload, is_valid) 
+            VALUES ($id, $name, $payload, $is_valid)
+        ";
+        var entities = new List<Entity>
+        {
+            new(1, "entity 1", Array.Empty<byte>(), true),
+            new(2, "entity 2", Array.Empty<byte>(), true)
+        };
+        foreach (var entity in entities)
+        {
+            var parameters = new Dictionary<string, YdbValue>
+            {
+                { "$id", (YdbValue)entity.Id },
+                { "$name", YdbValue.MakeUtf8(entity.Name) },
+                { "$payload", YdbValue.MakeString(entity.Payload) },
+                { "$is_valid", (YdbValue)entity.IsValid }
+            };
+            var upsertResponse = await queryClient.Exec(upsertQuery, parameters);
+            Assert.Equal(StatusCode.Success, upsertResponse.Status.StatusCode);
+        }
+
+        const string SelectMultipleResultSetsQuery = @$"
+                SELECT name FROM {tableName};
+                SELECT * FROM {tableName}
+            ";
+
+        const string SelectMultipleRowsQuery = @$"
+                SELECT * FROM {tableName}
+            ";
+        const string SelectSingleRowQuery = @$"
+                SELECT * FROM {tableName} LIMIT 1
+            ";
+        const string SelectScalarQuery = @$"
+                SELECT name FROM {tableName} LIMIT 1
+            ";
+
+        await TestReadAllResultSets(queryClient);
+        await TestReadAllRows(queryClient);
+        await TestReadSingleRow(queryClient);
+        await TestReadScalar(queryClient);
+
+
+        async Task TestReadAllResultSets(QueryClient client)
+        {
+            var response = await client.ReadAllResultSets(SelectMultipleResultSetsQuery);
+            Assert.Equal(StatusCode.Success, response.Status.StatusCode);
+            var resultSets = response.Result!;
+            Assert.Equal(2, resultSets.Count);
+            Assert.Equal(2, resultSets[0].Count);
+        }
+
+        async Task TestReadAllRows(QueryClient client)
+        {
+            await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
+                client.ReadAllRows(SelectMultipleResultSetsQuery));
+            var response = await client.ReadAllRows(SelectMultipleRowsQuery);
+            Assert.Equal(StatusCode.Success, response.Status.StatusCode);
+            var resultSet = response.Result;
+            Assert.NotNull(resultSet);
+            Assert.Equal(2, resultSet!.Count);
+        }
+
+        async Task TestReadSingleRow(QueryClient client)
+        {
+            await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
+                client.ReadSingleRow(SelectMultipleResultSetsQuery));
+            await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
+                client.ReadSingleRow(SelectMultipleRowsQuery));
+            var response = await client.ReadSingleRow(SelectSingleRowQuery);
+            var resultSet = response.Result;
+            Assert.NotNull(resultSet);
+        }
+
+        async Task TestReadScalar(QueryClient client)
+        {
+            await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
+                client.ReadScalar(SelectMultipleResultSetsQuery));
+            await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
+                client.ReadScalar(SelectMultipleRowsQuery));
+            var response = await client.ReadScalar(SelectScalarQuery);
+            var resultSet = response.Result;
+            Assert.NotNull(resultSet);
+        }
+
+        await DropTable(tableClient, tableName);
     }
 }

@@ -239,14 +239,13 @@ internal class BeginTransactionResponse : ResponseBase
     {
     }
 
-    public Tx Tx { get; } = new();
+    internal Tx? Tx { get; }
 
     private BeginTransactionResponse(Ydb.Query.BeginTransactionResponse proto) : base(
         Status.FromProto(proto.Status, proto.Issues))
     {
         var txId = proto.TxMeta.Id;
-        var tx = new Tx(new TransactionControl { TxId = txId });
-        Tx = tx;
+        Tx = new Tx(new TransactionControl { TxId = txId });
     }
 
     internal static BeginTransactionResponse FromProto(Ydb.Query.BeginTransactionResponse proto)

@@ -31,17 +31,12 @@ public class TxModeSnapshotSettings : ITxModeSettings
 
 public class Tx
 {
-    internal QueryClient? QueryClient { private get; set; }
+    internal QueryClient? Client { private get; set; }
     internal string? SessionId { private get; set; }
 
     public string? TxId => _proto.TxId;
 
     private readonly TransactionControl _proto;
-
-    public Tx()
-    {
-        _proto = new TransactionControl();
-    }
 
     internal Tx(TransactionControl proto)
     {
@@ -97,9 +92,9 @@ public class Tx
         Func<ExecuteQueryStream, Task<T>> func,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
-        if (QueryClient is null)
+        if (Client is null)
         {
-            throw new NullReferenceException($"{nameof(QueryClient)} is null");
+            throw new NullReferenceException($"{nameof(Client)} is null");
         }
 
         if (SessionId is null)
@@ -107,7 +102,7 @@ public class Tx
             throw new NullReferenceException($"{nameof(SessionId)} is null");
         }
 
-        var stream = QueryClient.ExecuteQuery(SessionId, queryString, this, parameters,
+        var stream = Client.ExecuteQuery(SessionId, queryString, this, parameters,
             executeQuerySettings);
         try
         {
@@ -144,15 +139,11 @@ public class Tx
         return response;
     }
 
-    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadFirstRow(string queryString,
+    public async Task<QueryResponseWithResult<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>>> ReadAllResultSets(string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
-        var response = await Query(queryString, parameters, async stream =>
-            {
-                var rows = await QueryClient.ReadAllRowsHelper(stream);
-                return rows[0];
-            },
+        var response = await Query(queryString, parameters, QueryClient.ReadAllResultSetsHelper,
             executeQuerySettings);
         return response;
     }
@@ -162,6 +153,23 @@ public class Tx
         ExecuteQuerySettings? executeQuerySettings = null)
     {
         var response = await Query(queryString, parameters, QueryClient.ReadAllRowsHelper, executeQuerySettings);
+        return response;
+    }
+    
+    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadSingleRow(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        var response = await Query(queryString, parameters, QueryClient.ReadSingleRowHelper,
+            executeQuerySettings);
+        return response;
+    }
+    public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(string queryString,
+        Dictionary<string, YdbValue>? parameters = null,
+        ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        var response = await Query(queryString, parameters, QueryClient.ReadScalarHelper,
+            executeQuerySettings);
         return response;
     }
 }
