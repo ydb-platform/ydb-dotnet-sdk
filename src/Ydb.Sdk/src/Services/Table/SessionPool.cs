@@ -17,6 +17,7 @@ public class SessionPoolConfig
     internal TimeSpan PeriodicCheckInterval { get; } = TimeSpan.FromSeconds(10);
     internal TimeSpan KeepAliveTimeout { get; } = TimeSpan.FromSeconds(1);
     internal TimeSpan CreateSessionTimeout { get; } = TimeSpan.FromSeconds(1);
+    internal bool DeleteSessionsOnDispose { get; } = true;
 }
 
 internal class GetSessionResponse : ResponseWithResultBase<Session>, IDisposable
@@ -90,8 +91,7 @@ internal sealed class SessionPool : ISessionPool
             {
                 var sessionId = _idleSessions.Pop();
 
-                SessionState? sessionState;
-                if (!_sessions.TryGetValue(sessionId, out sessionState))
+                if (!_sessions.TryGetValue(sessionId, out var sessionState))
                 {
                     continue;
                 }
@@ -120,7 +120,8 @@ internal sealed class SessionPool : ISessionPool
         var createSessionResponse = await _client.CreateSession(new CreateSessionSettings
         {
             TransportTimeout = _config.CreateSessionTimeout,
-            OperationTimeout = _config.CreateSessionTimeout
+            OperationTimeout = _config.CreateSessionTimeout,
+            DeleteOnDispose = _config.DeleteSessionsOnDispose
         });
 
         lock (_lock)
@@ -133,7 +134,8 @@ internal sealed class SessionPool : ISessionPool
                     driver: _driver,
                     sessionPool: this,
                     id: createSessionResponse.Result.Session.Id,
-                    endpoint: createSessionResponse.Result.Session.Endpoint);
+                    endpoint: createSessionResponse.Result.Session.Endpoint,
+                    deleteOnDispose: _config.DeleteSessionsOnDispose);
 
                 _sessions.Add(session.Id, new SessionState(session));
 
@@ -152,14 +154,14 @@ internal sealed class SessionPool : ISessionPool
     {
         lock (_lock)
         {
-            SessionState? oldSession;
-            if (_sessions.TryGetValue(id, out oldSession))
+            if (_sessions.TryGetValue(id, out var oldSession))
             {
                 var session = new Session(
                     driver: _driver,
                     sessionPool: this,
                     id: id,
-                    endpoint: oldSession.Session.Endpoint);
+                    endpoint: oldSession.Session.Endpoint,
+                    deleteOnDispose: _config.DeleteSessionsOnDispose);
 
                 _sessions[id] = new SessionState(session);
                 _idleSessions.Push(id);
@@ -275,14 +277,22 @@ internal sealed class SessionPool : ISessionPool
 
             if (disposing)
             {
-                foreach (var state in _sessions.Values)
+                if (_config.DeleteSessionsOnDispose)
                 {
-                    _logger.LogTrace($"Closing session on session pool dispose: {state.Session.Id}");
-
-                    _ = _client.DeleteSession(state.Session.Id, new DeleteSessionSettings
+                    var tasks = new Task[_sessions.Count];
+                    var i = 0;
+                    foreach (var state in _sessions.Values)
                     {
-                        TransportTimeout = Session.DeleteSessionTimeout
-                    });
+                        _logger.LogTrace($"Closing session on session pool dispose: {state.Session.Id}");
+
+                        var task = _client.DeleteSession(state.Session.Id, new DeleteSessionSettings
+                        {
+                            TransportTimeout = Session.DeleteSessionTimeout
+                        });
+                        tasks[i++] = task;
+                    }
+
+                    Task.WaitAll(tasks);
                 }
             }
 
