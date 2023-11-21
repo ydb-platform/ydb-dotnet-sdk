@@ -90,8 +90,7 @@ internal sealed class SessionPool : ISessionPool
             {
                 var sessionId = _idleSessions.Pop();
 
-                SessionState? sessionState;
-                if (!_sessions.TryGetValue(sessionId, out sessionState))
+                if (!_sessions.TryGetValue(sessionId, out var sessionState))
                 {
                     continue;
                 }
@@ -152,8 +151,7 @@ internal sealed class SessionPool : ISessionPool
     {
         lock (_lock)
         {
-            SessionState? oldSession;
-            if (_sessions.TryGetValue(id, out oldSession))
+            if (_sessions.TryGetValue(id, out var oldSession))
             {
                 var session = new Session(
                     driver: _driver,
@@ -275,15 +273,20 @@ internal sealed class SessionPool : ISessionPool
 
             if (disposing)
             {
+                var tasks = new Task[_sessions.Count];
+                var i = 0;
                 foreach (var state in _sessions.Values)
                 {
                     _logger.LogTrace($"Closing session on session pool dispose: {state.Session.Id}");
 
-                    _ = _client.DeleteSession(state.Session.Id, new DeleteSessionSettings
+                    var task = _client.DeleteSession(state.Session.Id, new DeleteSessionSettings
                     {
                         TransportTimeout = Session.DeleteSessionTimeout
                     });
+                    tasks[i++] = task;
                 }
+
+                Task.WaitAll(tasks);
             }
 
             _disposed = true;

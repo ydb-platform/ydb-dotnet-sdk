@@ -76,10 +76,11 @@ public partial class Session : ClientBase, IDisposable
                 _logger.LogTrace($"Closing detached session on dispose: {Id}");
 
                 var client = new TableClient(Driver, new NoPool());
-                _ = client.DeleteSession(Id, new DeleteSessionSettings
+                var task = client.DeleteSession(Id, new DeleteSessionSettings
                 {
                     TransportTimeout = DeleteSessionTimeout
                 });
+                task.Wait();
             }
             else
             {
