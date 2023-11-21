@@ -26,13 +26,14 @@ public class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespons
         public Session Session { get; }
 
         internal static ResultData FromProto(CreateSessionResult resultProto, Driver driver, string endpoint,
-            bool settingsDeleteOnDispose)
+            bool deleteOnDispose)
         {
             var session = new Session(
                 driver: driver,
                 sessionPool: null,
                 id: resultProto.SessionId,
-                endpoint: endpoint);
+                endpoint: endpoint,
+                deleteOnDispose: deleteOnDispose);
 
             return new ResultData(
                 session: session

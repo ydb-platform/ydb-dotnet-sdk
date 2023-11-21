@@ -17,6 +17,12 @@ public class SessionPoolConfig
     internal TimeSpan PeriodicCheckInterval { get; } = TimeSpan.FromSeconds(10);
     internal TimeSpan KeepAliveTimeout { get; } = TimeSpan.FromSeconds(1);
     internal TimeSpan CreateSessionTimeout { get; } = TimeSpan.FromSeconds(1);
+
+
+    /// <summary>
+    /// If true, sending a Delete Session request to the server when deleting and waiting for it
+    /// If false, the SDK does not send a Delete Session request to the server, this may increase performance, but may lead to an increase in the value of closing idle sessions on monitoring
+    /// </summary>
     internal bool DeleteSessionsOnDispose { get; } = true;
 }
 
