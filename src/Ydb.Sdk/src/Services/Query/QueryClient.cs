@@ -137,21 +137,13 @@ public class QueryClient : QueryClientGrpc, IDisposable
 
     internal static async Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRowsHelper(ExecuteQueryStream stream)
     {
-        var rows = new List<Value.ResultSet.Row>();
-        await foreach (var part in stream)
+        var resultSets = await ReadAllResultSetsHelper(stream);
+        if (resultSets.Count > 1)
         {
-            if (part.ResultSetIndex != 0)
-            {
-                throw new QueryWrongResultFormatException("Should be only one resultSet");
-            }
-
-            if (part.ResultSet is not null)
-            {
-                rows.AddRange(part.ResultSet.Rows);
-            }
+            throw new QueryWrongResultFormatException("Should be only one resultSet");
         }
 
-        return rows;
+        return resultSets[0];
     }
 
     internal static async Task<Value.ResultSet.Row> ReadSingleRowHelper(ExecuteQueryStream stream)
@@ -184,6 +176,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
         {
             throw new QueryWrongResultFormatException("Row should contain exactly one field");
         }
+
         return row[0];
     }
 

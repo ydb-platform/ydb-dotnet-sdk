@@ -56,7 +56,7 @@ public class Tx
 
         var txSettings = GetTransactionSettings(txModeSettings);
 
-        var tx = new Tx(new TransactionControl { BeginTx = txSettings, CommitTx = commit }, client: client, sessionId: sessionId);
+        var tx = new Tx(new TransactionControl { BeginTx = txSettings, CommitTx = commit }, client, sessionId);
         return tx;
     }
 
@@ -136,7 +136,8 @@ public class Tx
         return response;
     }
 
-    public async Task<QueryResponseWithResult<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>>> ReadAllResultSets(string queryString,
+    public async Task<QueryResponseWithResult<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>>> ReadAllResultSets(
+        string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
@@ -145,15 +146,17 @@ public class Tx
         return response;
     }
 
-    public async Task<QueryResponseWithResult<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(string queryString,
+    public async Task<QueryResponseWithResult<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(
+        string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
         var response = await Query(queryString, parameters, QueryClient.ReadAllRowsHelper, executeQuerySettings);
         return response;
     }
-    
-    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadSingleRow(string queryString,
+
+    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadSingleRow(
+        string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
@@ -161,7 +164,9 @@ public class Tx
             executeQuerySettings);
         return response;
     }
-    public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(string queryString,
+
+    public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(
+        string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
