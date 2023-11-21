@@ -6,7 +6,6 @@ namespace Ydb.Sdk.Services.Table;
 
 public class CreateSessionSettings : OperationRequestSettings
 {
-    public bool DeleteOnDispose = true;
 }
 
 public class CreateSessionResponse : ResponseWithResultBase<CreateSessionResponse.ResultData>
@@ -25,15 +24,13 @@ public class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespons
 
         public Session Session { get; }
 
-        internal static ResultData FromProto(CreateSessionResult resultProto, Driver driver, string endpoint,
-            bool deleteOnDispose)
+        internal static ResultData FromProto(CreateSessionResult resultProto, Driver driver, string endpoint)
         {
             var session = new Session(
                 driver: driver,
                 sessionPool: null,
                 id: resultProto.SessionId,
-                endpoint: endpoint,
-                deleteOnDispose: deleteOnDispose);
+                endpoint: endpoint);
 
             return new ResultData(
                 session: session
@@ -65,8 +62,7 @@ public partial class TableClient
             CreateSessionResponse.ResultData? result = null;
             if (status.IsSuccess && resultProto != null)
             {
-                result = CreateSessionResponse.ResultData.FromProto(resultProto, Driver, response.UsedEndpoint,
-                    settings.DeleteOnDispose);
+                result = CreateSessionResponse.ResultData.FromProto(resultProto, Driver, response.UsedEndpoint);
             }
 
             return new CreateSessionResponse(status, result);

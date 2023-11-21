@@ -12,16 +12,13 @@ public partial class Session : ClientBase, IDisposable
     private readonly ILogger _logger;
     private bool _disposed;
 
-    private readonly bool _deleteOnDispose;
-
-    internal Session(Driver driver, SessionPool? sessionPool, string id, string? endpoint, bool deleteOnDispose = true)
+    internal Session(Driver driver, SessionPool? sessionPool, string id, string? endpoint)
         : base(driver)
     {
         _sessionPool = sessionPool;
         _logger = Driver.LoggerFactory.CreateLogger<Session>();
         Id = id;
         Endpoint = endpoint;
-        _deleteOnDispose = deleteOnDispose;
     }
 
     public string Id { get; }
@@ -76,17 +73,14 @@ public partial class Session : ClientBase, IDisposable
         {
             if (_sessionPool is null)
             {
-                if (_deleteOnDispose)
-                {
-                    _logger.LogTrace($"Closing detached session on dispose: {Id}");
+                _logger.LogTrace($"Closing detached session on dispose: {Id}");
 
-                    var client = new TableClient(Driver, new NoPool());
-                    var task = client.DeleteSession(Id, new DeleteSessionSettings
-                    {
-                        TransportTimeout = DeleteSessionTimeout
-                    });
-                    task.Wait();
-                }
+                var client = new TableClient(Driver, new NoPool());
+                var task = client.DeleteSession(Id, new DeleteSessionSettings
+                {
+                    TransportTimeout = DeleteSessionTimeout
+                });
+                task.Wait();
             }
             else
             {

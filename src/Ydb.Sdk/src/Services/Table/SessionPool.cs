@@ -17,13 +17,6 @@ public class SessionPoolConfig
     internal TimeSpan PeriodicCheckInterval { get; } = TimeSpan.FromSeconds(10);
     internal TimeSpan KeepAliveTimeout { get; } = TimeSpan.FromSeconds(1);
     internal TimeSpan CreateSessionTimeout { get; } = TimeSpan.FromSeconds(1);
-
-
-    /// <summary>
-    /// If true, sending a Delete Session request to the server when deleting and waiting for it
-    /// If false, the SDK does not send a Delete Session request to the server, this may increase performance, but may lead to an increase in the value of closing idle sessions on monitoring
-    /// </summary>
-    internal bool DeleteSessionsOnDispose { get; } = true;
 }
 
 internal class GetSessionResponse : ResponseWithResultBase<Session>, IDisposable
@@ -126,8 +119,7 @@ internal sealed class SessionPool : ISessionPool
         var createSessionResponse = await _client.CreateSession(new CreateSessionSettings
         {
             TransportTimeout = _config.CreateSessionTimeout,
-            OperationTimeout = _config.CreateSessionTimeout,
-            DeleteOnDispose = _config.DeleteSessionsOnDispose
+            OperationTimeout = _config.CreateSessionTimeout
         });
 
         lock (_lock)
@@ -140,8 +132,7 @@ internal sealed class SessionPool : ISessionPool
                     driver: _driver,
                     sessionPool: this,
                     id: createSessionResponse.Result.Session.Id,
-                    endpoint: createSessionResponse.Result.Session.Endpoint,
-                    deleteOnDispose: _config.DeleteSessionsOnDispose);
+                    endpoint: createSessionResponse.Result.Session.Endpoint);
 
                 _sessions.Add(session.Id, new SessionState(session));
 
@@ -166,8 +157,7 @@ internal sealed class SessionPool : ISessionPool
                     driver: _driver,
                     sessionPool: this,
                     id: id,
-                    endpoint: oldSession.Session.Endpoint,
-                    deleteOnDispose: _config.DeleteSessionsOnDispose);
+                    endpoint: oldSession.Session.Endpoint);
 
                 _sessions[id] = new SessionState(session);
                 _idleSessions.Push(id);
@@ -283,23 +273,20 @@ internal sealed class SessionPool : ISessionPool
 
             if (disposing)
             {
-                if (_config.DeleteSessionsOnDispose)
+                var tasks = new Task[_sessions.Count];
+                var i = 0;
+                foreach (var state in _sessions.Values)
                 {
-                    var tasks = new Task[_sessions.Count];
-                    var i = 0;
-                    foreach (var state in _sessions.Values)
+                    _logger.LogTrace($"Closing session on session pool dispose: {state.Session.Id}");
+
+                    var task = _client.DeleteSession(state.Session.Id, new DeleteSessionSettings
                     {
-                        _logger.LogTrace($"Closing session on session pool dispose: {state.Session.Id}");
-
-                        var task = _client.DeleteSession(state.Session.Id, new DeleteSessionSettings
-                        {
-                            TransportTimeout = Session.DeleteSessionTimeout
-                        });
-                        tasks[i++] = task;
-                    }
-
-                    Task.WaitAll(tasks);
+                        TransportTimeout = Session.DeleteSessionTimeout
+                    });
+                    tasks[i++] = task;
                 }
+
+                Task.WaitAll(tasks);
             }
 
             _disposed = true;
