@@ -23,6 +23,22 @@ public partial class Session : SessionBase
         }
     }
 
+    private void OnResponseTrailers(Grpc.Core.Metadata? trailers)
+    {
+        if (trailers is null)
+        {
+            return;
+        }
+
+        foreach (var hint in trailers.GetAll(Metadata.RpcServerHintsHeader))
+        {
+            if (hint.Value == Metadata.GracefulShutdownHint)
+            {
+                _sessionPool?.InvalidateSession(Id);
+            }
+        }
+    }
+
 
     protected override void Dispose(bool disposing)
     {
@@ -37,11 +53,12 @@ public partial class Session : SessionBase
             {
                 Logger.LogTrace($"Closing detached session on dispose: {Id}");
 
-                var client = new TableClient(Driver, new NoPool<Session>());
-                _ = client.DeleteSession(Id, new DeleteSessionSettings
+                var client = new TableClient(Driver, new NoPool());
+                var task = client.DeleteSession(Id, new DeleteSessionSettings
                 {
                     TransportTimeout = DeleteSessionTimeout
                 });
+                task.Wait();
             }
             else
             {
@@ -52,18 +69,20 @@ public partial class Session : SessionBase
         Disposed = true;
     }
 
-    internal Task<Driver.UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
+    internal async Task<Driver.UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         RequestSettings settings)
         where TRequest : class
         where TResponse : class
     {
-        return Driver.UnaryCall(
+        var response = await Driver.UnaryCall(
             method: method,
             request: request,
             settings: settings,
             preferredEndpoint: Endpoint
         );
+        OnResponseTrailers(response.Trailers);
+        return response;
     }
 }

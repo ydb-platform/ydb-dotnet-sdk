@@ -1,3 +1,7 @@
+## v0.1.5
+- Fix timeout error on create session
+- Fix transport error on delete session
+
 ## v0.1.4
 - Add exception throwing when results truncated
 - lint: add line feed at file end

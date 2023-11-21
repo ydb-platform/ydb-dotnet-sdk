@@ -117,15 +117,19 @@ public class Driver : IDisposable, IAsyncDisposable
 
         try
         {
-            var data = await callInvoker.AsyncUnaryCall(
+            using var call = callInvoker.AsyncUnaryCall(
                 method: method,
                 host: null,
                 options: GetCallOptions(settings, false),
                 request: request);
 
+            var data = await call.ResponseAsync;
+            var trailers = call.GetTrailers();
+
             return new UnaryResponse<TResponse>(
                 data: data,
-                usedEndpoint: endpoint);
+                usedEndpoint: endpoint,
+                trailers: trailers);
         }
         catch (RpcException e)
         {
@@ -312,17 +316,20 @@ public class Driver : IDisposable, IAsyncDisposable
 
     internal sealed class UnaryResponse<TResponse>
     {
-        internal UnaryResponse(
-            TResponse data,
-            string usedEndpoint)
+        internal UnaryResponse(TResponse data,
+            string usedEndpoint,
+            Grpc.Core.Metadata? trailers)
         {
             Data = data;
             UsedEndpoint = usedEndpoint;
+            Trailers = trailers;
         }
 
         public TResponse Data { get; }
 
         public string UsedEndpoint { get; }
+
+        public Grpc.Core.Metadata? Trailers { get; }
     }
 
     internal sealed class StreamIterator<TResponse>
