@@ -180,6 +180,10 @@ public class QueryClient : QueryClientGrpc, IDisposable
     internal static async Task<YdbValue> ReadScalarHelper(ExecuteQueryStream stream)
     {
         var row = await ReadSingleRowHelper(stream);
+        if (row.ColumnCount != 1)
+        {
+            throw new QueryWrongResultFormatException("Row should contain exactly one field");
+        }
         return row[0];
     }
 

@@ -62,23 +62,23 @@ public class TestQueryIntegration
         });
 
         var responseAllRows = await client.ReadAllRows(queryString);
-        var responseFirstRow = await client.ReadSingleRow(queryString); // ReadOneRow
+        var responseSingleRow = await client.ReadSingleRow(queryString); // ReadOneRow
 
         Assert.Equal(StatusCode.Success, responseQuery.Status.StatusCode);
         Assert.Equal(StatusCode.Success, responseAllRows.Status.StatusCode);
-        Assert.Equal(StatusCode.Success, responseFirstRow.Status.StatusCode);
+        Assert.Equal(StatusCode.Success, responseSingleRow.Status.StatusCode);
         Assert.NotNull(responseQuery.Result);
-        Assert.NotNull(responseFirstRow.Result);
+        Assert.NotNull(responseSingleRow.Result);
         Assert.NotNull(responseAllRows.Result);
         Assert.Single(responseQuery.Result!);
         Assert.Single(responseAllRows.Result!);
 
         var valueQuery = (int)responseQuery.Result!.First()["sum"];
         var valueReadAll = (int)responseAllRows.Result!.First()["sum"];
-        var valueReadFirst = (int)responseFirstRow.Result!["sum"];
+        var valueReadSingle = (int)responseSingleRow.Result!["sum"];
 
         Assert.Equal(valueQuery, valueReadAll);
-        Assert.Equal(valueQuery, valueReadFirst);
+        Assert.Equal(valueQuery, valueReadSingle);
         Assert.Equal(5, valueQuery);
     }
 
@@ -326,6 +326,8 @@ public class TestQueryIntegration
                 client.ReadScalar(SelectMultipleResultSetsQuery));
             await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
                 client.ReadScalar(SelectMultipleRowsQuery));
+            await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
+                client.ReadScalar(SelectSingleRowQuery));
             var response = await client.ReadScalar(SelectScalarQuery);
             var resultSet = response.Result;
             Assert.NotNull(resultSet);

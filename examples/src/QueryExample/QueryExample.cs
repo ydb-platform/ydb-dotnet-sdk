@@ -207,7 +207,8 @@ public class QueryExample
                     PRAGMA TablePathPrefix('{BasePath}');
 
                     SELECT first_aired FROM seasons
-                    WHERE series_id = $series_id AND season_id = $season_id;
+                    WHERE series_id = $series_id AND season_id = $season_id
+                    LIMIT 1;
                 ";
                 var parameters1 = new Dictionary<string, YdbValue>
                 {
@@ -254,22 +255,31 @@ public class QueryExample
                 ";
 
 
-        await Client.Query(
+        var response = await Client.Query(
             query,
             func: async stream =>
             {
+                var result = new List<Series>();
                 await foreach (var part in stream)
                 {
                     if (part.ResultSet == null) continue;
                     foreach (var row in part.ResultSet.Rows)
                     {
-                        Console.WriteLine(Series.FromRow(row));
+                        result.Add(Series.FromRow(row));
                     }
                 }
 
-                return stream.Next();
+                return result;
             }
         ).ConfigureAwait(false);
+        response.EnsureSuccess();
+        if (response.Result != null)
+        {
+            foreach (var series in response.Result)
+            {
+                Console.WriteLine(series);
+            }
+        }
     }
 
     private async Task ReadScalar()
@@ -362,6 +372,7 @@ public class QueryExample
         {
             Console.WriteLine($"\t\t{Series.FromRow(row)}");
         }
+
         Console.WriteLine("\t'episodes' contains:");
         foreach (var row in episodesSet)
         {
