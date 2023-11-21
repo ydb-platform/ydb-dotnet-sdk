@@ -153,11 +153,11 @@ internal class SessionPool : SessionPoolBase<Session, QueryClient>
             endpoint: other.Endpoint);
     }
 
-    private protected override void DeleteSession(string id)
+    private protected override async Task DeleteSession(string id)
     {
         DetachSession(id);
 
-        _ = Client.DeleteSession(id, new DeleteSessionSettings
+        await Client.DeleteSession(id, new DeleteSessionSettings
         {
             TransportTimeout = SessionBase.DeleteSessionTimeout
         });

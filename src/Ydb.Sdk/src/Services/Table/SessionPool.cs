@@ -140,9 +140,9 @@ internal sealed class SessionPool : SessionPoolBase<Session, TableClient>
         }
     }
 
-    private protected override void DeleteSession(string id)
+    private protected override async Task DeleteSession(string id)
     {
-        _ = Client.DeleteSession(id, new DeleteSessionSettings
+        await Client.DeleteSession(id, new DeleteSessionSettings
         {
             TransportTimeout = SessionBase.DeleteSessionTimeout
         });

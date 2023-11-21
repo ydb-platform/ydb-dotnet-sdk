@@ -155,7 +155,7 @@ public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession
 
     private protected abstract Task<GetSessionResponse<TSession>> CreateSession();
     private protected abstract TSession CopySession(TSession other);
-    private protected abstract void DeleteSession(string id);
+    private protected abstract Task DeleteSession(string id);
 
     internal void InvalidateSession(string id)
     {
@@ -182,12 +182,16 @@ public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession
 
             if (disposing)
             {
+                var tasks = new Task[Sessions.Count];
+                var i = 0;
                 foreach (var state in Sessions.Values)
                 {
                     Logger.LogTrace($"Closing session on session pool dispose: {state.Session.Id}");
 
-                    DeleteSession(state.Session.Id);
+                    var task = DeleteSession(state.Session.Id);
+                    tasks[i++] = task;
                 }
+                Task.WaitAll(tasks);
             }
 
             Disposed = true;
