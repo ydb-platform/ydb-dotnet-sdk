@@ -13,8 +13,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ydb.Sdk", "Ydb.Sdk\src\Ydb.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Ydb.Sdk\tests\Tests.csproj", "{A27FD249-6ACB-4392-B00F-CD08FB727C98}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Protos", "..\..\ydb-dotnet-genproto\src\Ydb.Protos\Ydb.Protos.csproj", "{083152BD-B7BA-4680-8423-CFBEF0317692}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,10 +27,6 @@ Global
 		{A27FD249-6ACB-4392-B00F-CD08FB727C98}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A27FD249-6ACB-4392-B00F-CD08FB727C98}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A27FD249-6ACB-4392-B00F-CD08FB727C98}.Release|Any CPU.Build.0 = Release|Any CPU
-        {083152BD-B7BA-4680-8423-CFBEF0317692}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {083152BD-B7BA-4680-8423-CFBEF0317692}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {083152BD-B7BA-4680-8423-CFBEF0317692}.Release|Any CPU.ActiveCfg = Release|Any CPU
-        {083152BD-B7BA-4680-8423-CFBEF0317692}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
