@@ -77,9 +77,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
         var response = await ExecOnSession(
             async session =>
             {
-                var tx = Tx.Begin(txModeSettings);
-                tx.Client = this;
-                tx.SessionId = session.Id;
+                var tx = Tx.Begin(txModeSettings, this, session.Id);
                 return await tx.Query(queryString, parameters, func, executeQuerySettings);
             },
             retrySettings
@@ -185,7 +183,8 @@ public class QueryClient : QueryClientGrpc, IDisposable
         return row[0];
     }
 
-    public async Task<QueryResponseWithResult<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>>> ReadAllResultSets(string queryString,
+    public async Task<QueryResponseWithResult<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>>> ReadAllResultSets(
+        string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         ITxModeSettings? txModeSettings = null,
         ExecuteQuerySettings? executeQuerySettings = null,
@@ -219,6 +218,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
             executeQuerySettings, retrySettings);
         return response;
     }
+
     public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(string queryString,
         Dictionary<string, YdbValue>? parameters = null,
         ITxModeSettings? txModeSettings = null,
@@ -254,11 +254,10 @@ public class QueryClient : QueryClientGrpc, IDisposable
         var response = await ExecOnSession(
             async session =>
             {
-                var beginTransactionResponse = await BeginTransaction(session.Id, Tx.Begin(txModeSettings));
+                var beginTransactionResponse =
+                    await BeginTransaction(session.Id, Tx.Begin(txModeSettings, this, session.Id));
                 beginTransactionResponse.EnsureSuccess();
                 var tx = beginTransactionResponse.Tx!;
-                tx.Client = this;
-                tx.SessionId = session.Id;
 
                 T response;
                 try

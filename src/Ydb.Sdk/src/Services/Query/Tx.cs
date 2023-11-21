@@ -31,16 +31,18 @@ public class TxModeSnapshotSettings : ITxModeSettings
 
 public class Tx
 {
-    internal QueryClient? Client { private get; set; }
-    internal string? SessionId { private get; set; }
+    private QueryClientGrpc Client { get; }
+    private string SessionId { get; }
 
     public string? TxId => _proto.TxId;
 
     private readonly TransactionControl _proto;
 
-    internal Tx(TransactionControl proto)
+    internal Tx(TransactionControl proto, QueryClientGrpc client, string sessionId)
     {
         _proto = proto;
+        Client = client;
+        SessionId = sessionId;
     }
 
     internal TransactionControl ToProto()
@@ -48,13 +50,13 @@ public class Tx
         return _proto.Clone();
     }
 
-    public static Tx Begin(ITxModeSettings? txModeSettings = null, bool commit = true)
+    internal static Tx Begin(ITxModeSettings? txModeSettings, QueryClient client, string sessionId, bool commit = true)
     {
         txModeSettings ??= new TxModeSerializableSettings();
 
         var txSettings = GetTransactionSettings(txModeSettings);
 
-        var tx = new Tx(new TransactionControl { BeginTx = txSettings, CommitTx = commit });
+        var tx = new Tx(new TransactionControl { BeginTx = txSettings, CommitTx = commit }, client: client, sessionId: sessionId);
         return tx;
     }
 
@@ -92,11 +94,6 @@ public class Tx
         Func<ExecuteQueryStream, Task<T>> func,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
-        if (Client is null)
-        {
-            throw new NullReferenceException($"{nameof(Client)} is null");
-        }
-
         if (SessionId is null)
         {
             throw new NullReferenceException($"{nameof(SessionId)} is null");

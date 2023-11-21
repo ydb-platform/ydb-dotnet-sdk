@@ -96,7 +96,7 @@ public abstract class QueryClientGrpc :
                 request: request,
                 settings: settings
             );
-            return BeginTransactionResponse.FromProto(response.Data);
+            return BeginTransactionResponse.FromProto(response.Data, this, sessionId);
         }
         catch (Driver.TransportException e)
         {
