@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Examples;

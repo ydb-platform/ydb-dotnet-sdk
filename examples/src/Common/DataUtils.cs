@@ -22,7 +22,7 @@ public record Season(ulong SeriesId, ulong SeasonId, string Title, DateTime Firs
 
 public record Episode(ulong SeriesId, ulong SeasonId, ulong EpisodeId, string Title, DateTime AirDate)
 {
-    public static Episode FromRow(Sdk.Value.ResultSet.Row row)
+    public static Episode FromRow(Value.ResultSet.Row row)
     {
         return new Episode(
             SeriesId: (ulong)row["series_id"].GetOptionalUint64()!,
@@ -60,7 +60,7 @@ public static class DataUtils
             new(2, 2, "Season 2", DateTime.Parse("2015-04-12"), DateTime.Parse("2015-06-14")),
             new(2, 3, "Season 3", DateTime.Parse("2016-04-24"), DateTime.Parse("2016-06-26")),
             new(2, 4, "Season 4", DateTime.Parse("2017-04-23"), DateTime.Parse("2017-06-25")),
-            new(2, 5, "Season 5", DateTime.Parse("2018-03-25"), DateTime.Parse("2018-05-13")),
+            new(2, 5, "Season 5", DateTime.Parse("2018-03-25"), DateTime.Parse("2018-05-13"))
         };
 
         var episodes = new Episode[]
@@ -134,7 +134,7 @@ public static class DataUtils
             new(2, 5, 5, "Facial Recognition", DateTime.Parse("2018-04-22")),
             new(2, 5, 6, "Artificial Emotional Intelligence", DateTime.Parse("2018-04-29")),
             new(2, 5, 7, "Initial Coin Offering", DateTime.Parse("2018-05-06")),
-            new(2, 5, 8, "Fifty-One Percent", DateTime.Parse("2018-05-13")),
+            new(2, 5, 8, "Fifty-One Percent", DateTime.Parse("2018-05-13"))
         };
 
         var seriesData = series.Select(s => YdbValue.MakeStruct(new Dictionary<string, YdbValue>
