@@ -6,17 +6,25 @@ namespace Ydb.Sdk.Services.Table;
 public class SessionPoolConfig
 {
     public SessionPoolConfig(
-        uint? sizeLimit = null)
+        uint? sizeLimit = null,
+        TimeSpan? keepAliveIdleThreshold = null,
+        TimeSpan? periodicCheckInterval = null,
+        TimeSpan? keepAliveTimeout = null,
+        TimeSpan? createSessionTimeout = null
+    )
     {
         SizeLimit = sizeLimit ?? 100;
+        KeepAliveIdleThreshold = keepAliveIdleThreshold ?? TimeSpan.FromMinutes(5);
+        PeriodicCheckInterval = periodicCheckInterval ?? TimeSpan.FromSeconds(10);
+        KeepAliveTimeout = keepAliveTimeout ?? TimeSpan.FromSeconds(1);
+        CreateSessionTimeout = createSessionTimeout ?? TimeSpan.FromSeconds(1);
     }
 
     public uint SizeLimit { get; }
-
-    internal TimeSpan KeepAliveIdleThreshold { get; } = TimeSpan.FromMinutes(5);
-    internal TimeSpan PeriodicCheckInterval { get; } = TimeSpan.FromSeconds(10);
-    internal TimeSpan KeepAliveTimeout { get; } = TimeSpan.FromSeconds(1);
-    internal TimeSpan CreateSessionTimeout { get; } = TimeSpan.FromSeconds(1);
+    public TimeSpan KeepAliveIdleThreshold { get; }
+    public TimeSpan PeriodicCheckInterval { get; }
+    public TimeSpan KeepAliveTimeout { get; }
+    public TimeSpan CreateSessionTimeout { get; }
 }
 
 internal class GetSessionResponse : ResponseWithResultBase<Session>, IDisposable
@@ -83,6 +91,21 @@ internal sealed class SessionPool : ISessionPool
     }
 
     public async Task<GetSessionResponse> GetSession()
+    {
+        const int maxAttempts = 100;
+
+        GetSessionResponse getSessionResponse = null!;
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            getSessionResponse = await GetSessionAttempt();
+            if (getSessionResponse.Status.IsSuccess) return getSessionResponse;
+        }
+
+        _logger.LogError($"Failed to get session from pool or create it (attempts: {maxAttempts})");
+        return getSessionResponse;
+    }
+
+    private async Task<GetSessionResponse> GetSessionAttempt()
     {
         lock (_lock)
         {
