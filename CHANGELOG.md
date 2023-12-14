@@ -1,4 +1,5 @@
 - Added MakeTablePath, CopyTable, CopyTables, DescribeTable methods for TableClient
+- Add logging for transactions
 
 ## v0.1.5
 - Fix timeout error on create session
