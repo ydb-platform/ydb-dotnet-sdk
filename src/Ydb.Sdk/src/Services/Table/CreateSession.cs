@@ -57,8 +57,7 @@ public partial class TableClient
                 request: request,
                 settings: settings);
 
-            CreateSessionResult? resultProto;
-            var status = UnpackOperation(response.Data.Operation, out resultProto);
+            var status = UnpackOperation(response.Data.Operation, out CreateSessionResult? resultProto);
 
             CreateSessionResponse.ResultData? result = null;
             if (status.IsSuccess && resultProto != null)

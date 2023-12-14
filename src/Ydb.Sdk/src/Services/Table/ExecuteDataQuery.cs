@@ -8,6 +8,7 @@ namespace Ydb.Sdk.Services.Table;
 public class ExecuteDataQuerySettings : OperationRequestSettings
 {
     public bool KeepInQueryCache { get; set; } = true;
+    public bool AllowTruncated { get; set; }
 }
 
 public class ExecuteDataQueryResponse : ResponseWithResultBase<ExecuteDataQueryResponse.ResultData>
@@ -84,8 +85,7 @@ public partial class Session
                 request: request,
                 settings: settings);
 
-            ExecuteQueryResult? resultProto;
-            var status = UnpackOperation(response.Data.Operation, out resultProto);
+            var status = UnpackOperation(response.Data.Operation, out ExecuteQueryResult? resultProto);
             OnResponseStatus(status);
 
             var txState = TransactionState.Unknown;
@@ -103,6 +103,10 @@ public partial class Session
             if (status.IsSuccess && resultProto != null)
             {
                 result = ExecuteDataQueryResponse.ResultData.FromProto(resultProto);
+                if (!settings.AllowTruncated && result.ResultSets.Any(set => set.Truncated))
+                {
+                    throw new TruncateException();
+                }
             }
 
             return new ExecuteDataQueryResponse(status, txState, tx, result);
@@ -120,4 +124,8 @@ public partial class Session
     {
         return await ExecuteDataQuery(query, txControl, new Dictionary<string, YdbValue>(), settings);
     }
+}
+
+public class TruncateException : Exception
+{
 }

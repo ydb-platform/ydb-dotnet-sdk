@@ -54,7 +54,6 @@ public static class Utils
         return serviceProvider.GetService<ILoggerFactory>();
     }
 
-
     internal static async Task<ExecuteSchemeQueryResponse> CreateSimpleTable(
         TableClient tableClient, string tableName, string columnName = "key")
     {
