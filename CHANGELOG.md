@@ -1,3 +1,5 @@
+- Added MakeTablePath, CopyTable, CopyTables, DescribeTable methods for TableClient
+
 ## v0.1.5
 - Fix timeout error on create session
 - Fix transport error on delete session
