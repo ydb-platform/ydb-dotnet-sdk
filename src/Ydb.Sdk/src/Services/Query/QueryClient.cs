@@ -151,6 +151,11 @@ public class QueryClient : QueryClientGrpc, IDisposable
         Value.ResultSet.Row? row = null;
         await foreach (var part in stream)
         {
+            if (row is null && part.ResultSet is null)
+            {
+                throw new QueryWrongResultFormatException("ResultSet is null");
+            }
+
             if (part.ResultSet is not null)
             {
                 if (row is not null || part.ResultSet.Rows.Count != 1)
@@ -159,10 +164,6 @@ public class QueryClient : QueryClientGrpc, IDisposable
                 }
 
                 row = part.ResultSet.Rows[0];
-            }
-            else
-            {
-                throw new QueryWrongResultFormatException("ResultSet is null");
             }
         }
 

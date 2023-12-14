@@ -24,19 +24,19 @@ public class TestQueryIntegration
         _loggerFactory.CreateLogger<TestQueryIntegration>();
     }
 
-
-    [Fact]
-    public async Task TestSchemeQuery()
-    {
-        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
-        using var client = new QueryClient(driver);
-
-        var createResponse = await client.Exec("CREATE TABLE demo_table (id Int32, data Text, PRIMARY KEY(id));");
-        Assert.Equal(StatusCode.Success, createResponse.Status.StatusCode);
-        var dropResponse = await client.Exec("DROP TABLE demo_table;",
-            retrySettings: new RetrySettings { IsIdempotent = false });
-        Assert.Equal(StatusCode.Success, dropResponse.Status.StatusCode);
-    }
+    // TODO uncomment when DDL support will be available on the server side
+    // [Fact]
+    // public async Task TestSchemeQuery()
+    // {
+    //     await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
+    //     using var client = new QueryClient(driver);
+    //
+    //     var createResponse = await client.Exec("CREATE TABLE demo_table (id Int32, data Text, PRIMARY KEY(id));");
+    //     Assert.Equal(StatusCode.Success, createResponse.Status.StatusCode);
+    //     var dropResponse = await client.Exec("DROP TABLE demo_table;",
+    //         retrySettings: new RetrySettings { IsIdempotent = false });
+    //     Assert.Equal(StatusCode.Success, dropResponse.Status.StatusCode);
+    // }
 
     [Fact]
     public async Task TestSimpleSelect()
@@ -283,52 +283,42 @@ public class TestQueryIntegration
                 SELECT name FROM {tableName} LIMIT 1
             ";
 
-        await TestReadAllResultSets(queryClient);
-        await TestReadAllRows(queryClient);
-        await TestReadSingleRow(queryClient);
-        await TestReadScalar(queryClient);
-
-
-        async Task TestReadAllResultSets(QueryClient client)
         {
-            var response = await client.ReadAllResultSets(SelectMultipleResultSetsQuery);
+            var response = await queryClient.ReadAllResultSets(SelectMultipleResultSetsQuery);
             Assert.Equal(StatusCode.Success, response.Status.StatusCode);
             var resultSets = response.Result!;
             Assert.Equal(2, resultSets.Count);
             Assert.Equal(2, resultSets[0].Count);
         }
 
-        async Task TestReadAllRows(QueryClient client)
         {
             await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
-                client.ReadAllRows(SelectMultipleResultSetsQuery));
-            var response = await client.ReadAllRows(SelectMultipleRowsQuery);
+                queryClient.ReadAllRows(SelectMultipleResultSetsQuery));
+            var response = await queryClient.ReadAllRows(SelectMultipleRowsQuery);
             Assert.Equal(StatusCode.Success, response.Status.StatusCode);
             var resultSet = response.Result;
             Assert.NotNull(resultSet);
             Assert.Equal(2, resultSet!.Count);
         }
 
-        async Task TestReadSingleRow(QueryClient client)
         {
             await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
-                client.ReadSingleRow(SelectMultipleResultSetsQuery));
+                queryClient.ReadSingleRow(SelectMultipleResultSetsQuery));
             await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
-                client.ReadSingleRow(SelectMultipleRowsQuery));
-            var response = await client.ReadSingleRow(SelectSingleRowQuery);
+                queryClient.ReadSingleRow(SelectMultipleRowsQuery));
+            var response = await queryClient.ReadSingleRow(SelectSingleRowQuery);
             var resultSet = response.Result;
             Assert.NotNull(resultSet);
         }
 
-        async Task TestReadScalar(QueryClient client)
         {
             await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
-                client.ReadScalar(SelectMultipleResultSetsQuery));
+                queryClient.ReadScalar(SelectMultipleResultSetsQuery));
             await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
-                client.ReadScalar(SelectMultipleRowsQuery));
+                queryClient.ReadScalar(SelectMultipleRowsQuery));
             await Assert.ThrowsAsync<QueryWrongResultFormatException>(() =>
-                client.ReadScalar(SelectSingleRowQuery));
-            var response = await client.ReadScalar(SelectScalarQuery);
+                queryClient.ReadScalar(SelectSingleRowQuery));
+            var response = await queryClient.ReadScalar(SelectScalarQuery);
             var resultSet = response.Result;
             Assert.NotNull(resultSet);
         }
