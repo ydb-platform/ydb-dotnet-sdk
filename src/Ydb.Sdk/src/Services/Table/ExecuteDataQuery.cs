@@ -65,7 +65,7 @@ public partial class Session
         {
             OperationParams = MakeOperationParams(settings),
             SessionId = Id,
-            TxControl = txControl.ToProto(),
+            TxControl = txControl.ToProto(_logger),
             Query = new Query
             {
                 YqlText = query
@@ -96,7 +96,7 @@ public partial class Session
                     ? TransactionState.Active
                     : TransactionState.Void;
 
-                tx = Transaction.FromProto(resultProto.TxMeta);
+                tx = Transaction.FromProto(resultProto.TxMeta, _logger);
             }
 
             ExecuteDataQueryResponse.ResultData? result = null;

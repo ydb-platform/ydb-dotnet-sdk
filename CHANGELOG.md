@@ -1,3 +1,5 @@
+- Add logging for transactions
+
 ## v0.1.5
 - Fix timeout error on create session
 - Fix transport error on delete session
