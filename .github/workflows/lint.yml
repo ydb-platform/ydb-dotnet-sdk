@@ -10,12 +10,14 @@ jobs:
   autoformatter:
     strategy:
       matrix:
-        source-dir: ["./src/", "./slo/src/"]
+        source-dir: ["./src/", "./examples/src/", "./slo/src/"]
         include:
           - source-dir: "./src/"
             solutionFile: "YdbSdk.sln"
+          - source-dir: "./examples/src/"
+            solutionFile: "YdbExamples.sln"
           - source-dir: "./slo/src/"
-            solutionFile: "src.sln"
+            solutionFile: "src.sln"            
     name: autoformat check
     runs-on: ubuntu-latest
     steps:
@@ -28,16 +30,16 @@ jobs:
       - name: Restore
         run: dotnet restore ${{ matrix.source-dir }}${{ matrix.solutionFile }}
       - name: Install ReSharper
-        run: dotnet tool install -g JetBrains.ReSharper.GlobalTools
+        run: dotnet tool install -g JetBrains.ReSharper.GlobalTools --version 2023.2.1
       - name: format all files with auto-formatter
-        run: bash ./.github/scripts/format-all-dotnet-code.sh ${{ matrix.source-dir }} ${{ matrix.solutionFile }} "Custom Cleanup"}
+        run: bash ./.github/scripts/format-all-dotnet-code.sh ${{ matrix.source-dir }} ${{ matrix.solutionFile }} "Custom Cleanup"
       - name: Check repository diff
         run: bash ./.github/scripts/check-work-copy-equals-to-committed.sh "auto-format broken"
 
   inspection:
     strategy:
       matrix:
-        solutionPath: ["./src/YdbSdk.sln", "./slo/src/src.sln"]
+        solutionPath: ["./src/YdbSdk.sln", "./examples/src/YdbExamples.sln", "./slo/src/src.sln"]
     runs-on: ubuntu-latest
     name: Inspection
     steps:
