@@ -185,6 +185,8 @@ public class Status
     {
     }
 
+    public static readonly Status Success = new(StatusCode.Success);
+
     public bool IsSuccess => StatusCode == StatusCode.Success;
 
     public void EnsureSuccess()

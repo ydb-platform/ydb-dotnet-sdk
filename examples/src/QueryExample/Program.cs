@@ -1,4 +1,4 @@
-using CommandLine;
+﻿using CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,6 +20,8 @@ internal class CmdOptions
     public bool FallbackAnonymous { get; set; } = false;
 }
 
+// See https://aka.ms/new-console-template for more information
+
 internal static class Program
 {
     private static ServiceProvider GetServiceProvider()
@@ -36,7 +38,7 @@ internal static class Program
 
         loggerFactory ??= NullLoggerFactory.Instance;
 
-        await BasicExample.Run(
+        await QueryExample.Run(
             endpoint: cmdOptions.Endpoint,
             database: cmdOptions.Database,
             credentialsProvider: await AuthUtils.MakeCredentialsFromEnv(
@@ -48,7 +50,7 @@ internal static class Program
         );
     }
 
-    private static async Task Main(string[] args)
+    public static async Task Main(string[] args)
     {
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 

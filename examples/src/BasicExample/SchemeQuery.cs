@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-
 namespace Ydb.Sdk.Examples;
 
 internal partial class BasicExample

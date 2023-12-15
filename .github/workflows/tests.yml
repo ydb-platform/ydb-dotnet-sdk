@@ -8,6 +8,7 @@ on:
 jobs:
   unit-tests:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-22.04, windows-2022, macos-12]
         dotnet-version: [6.0.x, 7.0.x]

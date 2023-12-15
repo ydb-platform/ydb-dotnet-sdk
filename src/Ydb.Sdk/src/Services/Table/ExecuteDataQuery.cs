@@ -40,7 +40,7 @@ public class ExecuteDataQueryResponse : ResponseWithResultBase<ExecuteDataQueryR
         internal static ResultData FromProto(ExecuteQueryResult resultProto)
         {
             var resultSets = resultProto.ResultSets
-                .Select(r => Value.ResultSet.FromProto(r))
+                .Select(Value.ResultSet.FromProto)
                 .ToList();
 
             return new ResultData(
@@ -65,8 +65,8 @@ public partial class Session
         {
             OperationParams = MakeOperationParams(settings),
             SessionId = Id,
-            TxControl = txControl.ToProto(_logger),
-            Query = new Query
+            TxControl = txControl.ToProto(),
+            Query = new Ydb.Table.Query
             {
                 YqlText = query
             },
@@ -96,7 +96,7 @@ public partial class Session
                     ? TransactionState.Active
                     : TransactionState.Void;
 
-                tx = Transaction.FromProto(resultProto.TxMeta, _logger);
+                tx = Transaction.FromProto(resultProto.TxMeta, Logger);
             }
 
             ExecuteDataQueryResponse.ResultData? result = null;

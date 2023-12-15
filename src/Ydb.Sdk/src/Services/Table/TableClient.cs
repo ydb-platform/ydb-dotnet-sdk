@@ -1,4 +1,5 @@
 ﻿using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Sessions;
 
 namespace Ydb.Sdk.Services.Table;
 
@@ -15,7 +16,7 @@ public class TableClientConfig
 
 public partial class TableClient : ClientBase, IDisposable
 {
-    private readonly ISessionPool _sessionPool;
+    private readonly ISessionPool<Session> _sessionPool;
     private bool _disposed;
 
     public TableClient(Driver driver, TableClientConfig? config = null)
@@ -28,7 +29,7 @@ public partial class TableClient : ClientBase, IDisposable
             config: config.SessionPoolConfig);
     }
 
-    internal TableClient(Driver driver, ISessionPool sessionPool)
+    internal TableClient(Driver driver, ISessionPool<Session> sessionPool)
         : base(driver)
     {
         _sessionPool = sessionPool;

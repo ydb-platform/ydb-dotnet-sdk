@@ -129,5 +129,7 @@ public class ResultSet
         public YdbValue this[int columnIndex] => new(_columns[columnIndex].Type, _row.Items[columnIndex]);
 
         public YdbValue this[string columnName] => this[_columnsMap[columnName]];
+
+        internal int ColumnCount => _columns.Count;
     }
 }

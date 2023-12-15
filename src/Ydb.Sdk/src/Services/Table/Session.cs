@@ -1,37 +1,19 @@
 ﻿using Grpc.Core;
 using Microsoft.Extensions.Logging;
-using ClientBase = Ydb.Sdk.Client.ClientBase;
+using Ydb.Sdk.Services.Sessions;
 
 namespace Ydb.Sdk.Services.Table;
 
-public partial class Session : ClientBase, IDisposable
+public partial class Session : SessionBase
 {
-    internal static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(1);
-
     private readonly SessionPool? _sessionPool;
-    private readonly ILogger _logger;
-    private bool _disposed;
 
     internal Session(Driver driver, SessionPool? sessionPool, string id, string? endpoint)
-        : base(driver)
+        : base(driver, id, endpoint, driver.LoggerFactory.CreateLogger<Session>())
     {
         _sessionPool = sessionPool;
-        _logger = Driver.LoggerFactory.CreateLogger<Session>();
-        Id = id;
-        Endpoint = endpoint;
     }
 
-    public string Id { get; }
-
-    internal string? Endpoint { get; }
-
-    private void CheckSession()
-    {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(GetType().FullName);
-        }
-    }
 
     private void OnResponseStatus(Status status)
     {
@@ -57,14 +39,10 @@ public partial class Session : ClientBase, IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        Dispose(true);
-    }
 
-    protected virtual void Dispose(bool disposing)
+    protected override void Dispose(bool disposing)
     {
-        if (_disposed)
+        if (Disposed)
         {
             return;
         }
@@ -73,9 +51,9 @@ public partial class Session : ClientBase, IDisposable
         {
             if (_sessionPool is null)
             {
-                _logger.LogTrace($"Closing detached session on dispose: {Id}");
+                Logger.LogTrace($"Closing detached session on dispose: {Id}");
 
-                var client = new TableClient(Driver, new NoPool());
+                var client = new TableClient(Driver, new NoPool<Session>());
                 var task = client.DeleteSession(Id, new DeleteSessionSettings
                 {
                     TransportTimeout = DeleteSessionTimeout
@@ -88,7 +66,7 @@ public partial class Session : ClientBase, IDisposable
             }
         }
 
-        _disposed = true;
+        Disposed = true;
     }
 
     internal async Task<Driver.UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(

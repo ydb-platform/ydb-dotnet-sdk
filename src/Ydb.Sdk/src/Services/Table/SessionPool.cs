@@ -1,202 +1,63 @@
 ﻿using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Sessions;
 
 namespace Ydb.Sdk.Services.Table;
 
-public class SessionPoolConfig
+using GetSessionResponse = GetSessionResponse<Session>;
+using NoPool = NoPool<Session>;
+
+internal sealed class SessionPool : SessionPoolBase<Session, TableClient>
 {
-    public SessionPoolConfig(
-        uint? sizeLimit = null,
-        TimeSpan? keepAliveIdleThreshold = null,
-        TimeSpan? periodicCheckInterval = null,
-        TimeSpan? keepAliveTimeout = null,
-        TimeSpan? createSessionTimeout = null
-    )
+    public SessionPool(Driver driver, SessionPoolConfig config) :
+        base(
+            driver: driver,
+            config: config,
+            client: new TableClient(driver, new NoPool()),
+            logger: driver.LoggerFactory.CreateLogger<SessionPool>())
     {
-        SizeLimit = sizeLimit ?? 100;
-        KeepAliveIdleThreshold = keepAliveIdleThreshold ?? TimeSpan.FromMinutes(5);
-        PeriodicCheckInterval = periodicCheckInterval ?? TimeSpan.FromSeconds(10);
-        KeepAliveTimeout = keepAliveTimeout ?? TimeSpan.FromSeconds(1);
-        CreateSessionTimeout = createSessionTimeout ?? TimeSpan.FromSeconds(1);
-    }
-
-    public uint SizeLimit { get; }
-    public TimeSpan KeepAliveIdleThreshold { get; }
-    public TimeSpan PeriodicCheckInterval { get; }
-    public TimeSpan KeepAliveTimeout { get; }
-    public TimeSpan CreateSessionTimeout { get; }
-}
-
-internal class GetSessionResponse : ResponseWithResultBase<Session>, IDisposable
-{
-    internal GetSessionResponse(Status status, Session? session = null)
-        : base(status, session)
-    {
-    }
-
-    public void Dispose()
-    {
-        Dispose(true);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            Result.Dispose();
-        }
-    }
-}
-
-internal interface ISessionPool : IDisposable
-{
-    public Task<GetSessionResponse> GetSession();
-}
-
-internal class NoPool : ISessionPool
-{
-    public Task<GetSessionResponse> GetSession()
-    {
-        throw new InvalidOperationException("Unexpected session pool access.");
-    }
-
-    public void Dispose()
-    {
-    }
-}
-
-internal sealed class SessionPool : ISessionPool
-{
-    private readonly Driver _driver;
-    private readonly SessionPoolConfig _config;
-
-    private readonly object _lock = new();
-    private readonly ILogger _logger;
-    private readonly TableClient _client;
-    private bool _disposed;
-
-    private readonly Dictionary<string, SessionState> _sessions = new();
-    private readonly Stack<string> _idleSessions = new();
-    private uint _pendingSessions;
-
-    public SessionPool(Driver driver, SessionPoolConfig config)
-    {
-        _driver = driver;
-        _config = config;
-
-        _logger = _driver.LoggerFactory.CreateLogger<SessionPool>();
-        _client = new TableClient(_driver, new NoPool());
-
         Task.Run(PeriodicCheck);
     }
 
-    public async Task<GetSessionResponse> GetSession()
+    private protected override async Task<GetSessionResponse> CreateSession()
     {
-        const int maxAttempts = 100;
-
-        GetSessionResponse getSessionResponse = null!;
-        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        var createSessionResponse = await Client.CreateSession(new CreateSessionSettings
         {
-            getSessionResponse = await GetSessionAttempt();
-            if (getSessionResponse.Status.IsSuccess) return getSessionResponse;
-        }
-
-        _logger.LogError($"Failed to get session from pool or create it (attempts: {maxAttempts})");
-        return getSessionResponse;
-    }
-
-    private async Task<GetSessionResponse> GetSessionAttempt()
-    {
-        lock (_lock)
-        {
-            while (_idleSessions.Count > 0)
-            {
-                var sessionId = _idleSessions.Pop();
-
-                if (!_sessions.TryGetValue(sessionId, out var sessionState))
-                {
-                    continue;
-                }
-
-                _logger.LogTrace($"Session removed from pool: {sessionId}");
-                return new GetSessionResponse(new Status(StatusCode.Success), sessionState.Session);
-            }
-
-            if (_sessions.Count + _pendingSessions >= _config.SizeLimit)
-            {
-                _logger.LogWarning($"Session pool size limit exceeded" +
-                                   $", limit: {_config.SizeLimit}" +
-                                   $", pending sessions: {_pendingSessions}");
-
-                var status = new Status(StatusCode.ClientResourceExhausted, new List<Issue>
-                {
-                    new("Session pool max active sessions limit exceeded.")
-                });
-
-                return new GetSessionResponse(status);
-            }
-
-            ++_pendingSessions;
-        }
-
-        var createSessionResponse = await _client.CreateSession(new CreateSessionSettings
-        {
-            TransportTimeout = _config.CreateSessionTimeout,
-            OperationTimeout = _config.CreateSessionTimeout
+            TransportTimeout = Config.CreateSessionTimeout,
+            OperationTimeout = Config.CreateSessionTimeout
         });
 
-        lock (_lock)
+        lock (Lock)
         {
-            --_pendingSessions;
+            --PendingSessions;
 
             if (createSessionResponse.Status.IsSuccess)
             {
                 var session = new Session(
-                    driver: _driver,
+                    driver: Driver,
                     sessionPool: this,
                     id: createSessionResponse.Result.Session.Id,
                     endpoint: createSessionResponse.Result.Session.Endpoint);
 
-                _sessions.Add(session.Id, new SessionState(session));
+                Sessions.Add(session.Id, new SessionState(session));
 
-                _logger.LogTrace($"Session created from pool: {session.Id}, endpoint: {session.Endpoint}");
+                Logger.LogTrace($"Session created from pool: {session.Id}, endpoint: {session.Endpoint}");
 
                 return new GetSessionResponse(createSessionResponse.Status, session);
             }
 
-            _logger.LogWarning($"Failed to create session: {createSessionResponse.Status}");
+            Logger.LogWarning($"Failed to create session: {createSessionResponse.Status}");
         }
 
         return new GetSessionResponse(createSessionResponse.Status);
     }
 
-    internal void ReturnSession(string id)
+    private protected override Session CopySession(Session other)
     {
-        lock (_lock)
-        {
-            if (_sessions.TryGetValue(id, out var oldSession))
-            {
-                var session = new Session(
-                    driver: _driver,
-                    sessionPool: this,
-                    id: id,
-                    endpoint: oldSession.Session.Endpoint);
-
-                _sessions[id] = new SessionState(session);
-                _idleSessions.Push(id);
-
-                _logger.LogTrace($"Session returned to pool: {session.Id}");
-            }
-        }
-    }
-
-    internal void InvalidateSession(string id)
-    {
-        lock (_lock)
-        {
-            _sessions.Remove(id);
-            _logger.LogInformation($"Session invalidated in pool: {id}");
-        }
+        return new Session(
+            driver: Driver,
+            sessionPool: this,
+            id: other.Id,
+            endpoint: other.Endpoint);
     }
 
     private async Task PeriodicCheck()
@@ -206,35 +67,35 @@ internal sealed class SessionPool : ISessionPool
         {
             try
             {
-                await Task.Delay(_config.PeriodicCheckInterval);
+                await Task.Delay(Config.PeriodicCheckInterval);
                 await CheckSessions();
             }
             catch (Exception e)
             {
-                _logger.LogError($"Unexpected exception during session pool periodic check: {e}");
+                Logger.LogError($"Unexpected exception during session pool periodic check: {e}");
             }
 
-            lock (_lock)
+            lock (Lock)
             {
-                stop = _disposed;
+                stop = Disposed;
             }
         }
     }
 
     private async Task CheckSessions()
     {
-        _logger.LogDebug($"Check sessions" +
-                         $", sessions: {_sessions.Count}" +
-                         $", pending sessions: {_pendingSessions}" +
-                         $", idle sessions: {_idleSessions.Count}");
+        Logger.LogDebug("Check sessions" +
+                        $", sessions: {Sessions.Count}" +
+                        $", pending sessions: {PendingSessions}" +
+                        $", idle sessions: {IdleSessions.Count}");
 
         var keepAliveIds = new List<string>();
 
-        lock (_lock)
+        lock (Lock)
         {
-            foreach (var state in _sessions.Values)
+            foreach (var state in Sessions.Values)
             {
-                if (state.LastAccessTime + _config.KeepAliveIdleThreshold < DateTime.Now)
+                if (state.LastAccessTime + Config.KeepAliveIdleThreshold < DateTime.Now)
                 {
                     keepAliveIds.Add(state.Session.Id);
                 }
@@ -243,20 +104,19 @@ internal sealed class SessionPool : ISessionPool
 
         foreach (var id in keepAliveIds)
         {
-            var response = await _client.KeepAlive(id, new KeepAliveSettings
+            var response = await Client.KeepAlive(id, new KeepAliveSettings
             {
-                TransportTimeout = _config.KeepAliveTimeout,
-                OperationTimeout = _config.KeepAliveTimeout
+                TransportTimeout = Config.KeepAliveTimeout,
+                OperationTimeout = Config.KeepAliveTimeout
             });
 
             if (response.Status.IsSuccess)
             {
-                _logger.LogTrace($"Successful keepalive for session: {id}");
+                Logger.LogTrace($"Successful keepalive for session: {id}");
 
-                lock (_lock)
+                lock (Lock)
                 {
-                    SessionState? sessionState;
-                    if (_sessions.TryGetValue(id, out sessionState))
+                    if (Sessions.TryGetValue(id, out var sessionState))
                     {
                         sessionState.LastAccessTime = DateTime.Now;
                     }
@@ -264,67 +124,27 @@ internal sealed class SessionPool : ISessionPool
             }
             else if (response.Status.StatusCode == StatusCode.BadSession)
             {
-                _logger.LogInformation($"Session invalidated by keepalive: {id}");
+                Logger.LogInformation($"Session invalidated by keepalive: {id}");
 
-                lock (_lock)
+                lock (Lock)
                 {
-                    _sessions.Remove(id);
+                    Sessions.Remove(id);
                 }
             }
             else
             {
-                _logger.LogWarning($"Unsuccessful keepalive" +
-                                   $", session: {id}" +
-                                   $", status: {response.Status}");
+                Logger.LogWarning("Unsuccessful keepalive" +
+                                  $", session: {id}" +
+                                  $", status: {response.Status}");
             }
         }
     }
 
-    public void Dispose()
+    private protected override async Task DeleteSession(string id)
     {
-        Dispose(true);
-    }
-
-    private void Dispose(bool disposing)
-    {
-        lock (_lock)
+        await Client.DeleteSession(id, new DeleteSessionSettings
         {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                var tasks = new Task[_sessions.Count];
-                var i = 0;
-                foreach (var state in _sessions.Values)
-                {
-                    _logger.LogTrace($"Closing session on session pool dispose: {state.Session.Id}");
-
-                    var task = _client.DeleteSession(state.Session.Id, new DeleteSessionSettings
-                    {
-                        TransportTimeout = Session.DeleteSessionTimeout
-                    });
-                    tasks[i++] = task;
-                }
-
-                Task.WaitAll(tasks);
-            }
-
-            _disposed = true;
-        }
-    }
-
-    private class SessionState
-    {
-        public SessionState(Session session)
-        {
-            Session = session;
-            LastAccessTime = DateTime.Now;
-        }
-
-        public Session Session { get; }
-        public DateTime LastAccessTime { get; set; }
+            TransportTimeout = SessionBase.DeleteSessionTimeout
+        });
     }
 }
