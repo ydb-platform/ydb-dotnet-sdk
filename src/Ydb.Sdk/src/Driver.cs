@@ -19,6 +19,8 @@ public class Driver : IDisposable, IAsyncDisposable
     private readonly ChannelsCache _channels;
     private bool _disposed;
 
+    internal string Database => _config.Database;
+
     public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null)
     {
         LoggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
