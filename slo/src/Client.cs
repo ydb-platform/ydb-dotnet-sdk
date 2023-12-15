@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk;
+using Ydb.Sdk.Services.Sessions;
 using Ydb.Sdk.Services.Table;
 
 namespace slo;

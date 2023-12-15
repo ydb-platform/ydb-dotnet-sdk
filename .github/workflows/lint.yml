@@ -9,6 +9,7 @@ on:
 jobs:
   autoformatter:
     strategy:
+      fail-fast: false
       matrix:
         source-dir: ["./src/", "./examples/src/", "./slo/src/"]
         include:
@@ -38,6 +39,7 @@ jobs:
 
   inspection:
     strategy:
+      fail-fast: false
       matrix:
         solutionPath: ["./src/YdbSdk.sln", "./examples/src/YdbExamples.sln", "./slo/src/src.sln"]
     runs-on: ubuntu-latest

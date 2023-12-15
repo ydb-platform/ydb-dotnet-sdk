@@ -96,7 +96,7 @@ public partial class Session
                     ? TransactionState.Active
                     : TransactionState.Void;
 
-                tx = Transaction.FromProto(resultProto.TxMeta, _logger);
+                tx = Transaction.FromProto(resultProto.TxMeta, Logger);
             }
 
             ExecuteDataQueryResponse.ResultData? result = null;

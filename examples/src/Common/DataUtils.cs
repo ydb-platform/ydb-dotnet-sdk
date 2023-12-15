@@ -7,7 +7,7 @@ namespace Ydb.Sdk.Examples;
 
 public record Series(ulong SeriesId, string Title, DateTime ReleaseDate, string Info)
 {
-    public static Series FromRow(Sdk.Value.ResultSet.Row row)
+    public static Series FromRow(Value.ResultSet.Row row)
     {
         return new Series(
             SeriesId: (ulong)row["series_id"].GetOptionalUint64()!,
