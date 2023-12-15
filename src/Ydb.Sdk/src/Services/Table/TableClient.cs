@@ -53,4 +53,9 @@ public partial class TableClient : ClientBase, IDisposable
 
         _disposed = true;
     }
+
+    internal string MakeTablePath(string path)
+    {
+        return path.StartsWith('/') ? path : $"{Driver.Database}/{path}";
+    }
 }
