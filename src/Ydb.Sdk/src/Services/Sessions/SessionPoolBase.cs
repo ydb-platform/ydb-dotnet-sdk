@@ -191,7 +191,7 @@ public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession
                     var task = DeleteSession(state.Session.Id);
                     tasks[i++] = task;
                 }
-                
+
                 Task.WaitAll(tasks);
             }
 
