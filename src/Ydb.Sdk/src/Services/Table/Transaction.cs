@@ -13,6 +13,8 @@ public class Transaction
     public string TxId { get; }
 
     internal int? TxNum { get; private set; }
+    
+    private static int _txCounter;
 
     internal static Transaction? FromProto(TransactionMeta proto, ILogger? logger = null)
     {
@@ -23,26 +25,17 @@ public class Transaction
 
         var tx = new Transaction(
             txId: proto.Id);
+        
         if (!string.IsNullOrEmpty(proto.Id))
         {
-            tx.TxNum = GetTxCounter();
+            tx.TxNum = IncTxCounter();
             logger.LogTrace($"Received tx #{tx.TxNum}");
         }
 
         return tx;
     }
-
-    private static readonly object TxCounterLock = new();
-    private static int _txCounter;
-
-    private static int GetTxCounter()
-    {
-        lock (TxCounterLock)
-        {
-            _txCounter++;
-            return _txCounter;
-        }
-    }
+    
+    private static int IncTxCounter() => Interlocked.Increment(ref _txCounter);
 }
 
 public enum TransactionState
