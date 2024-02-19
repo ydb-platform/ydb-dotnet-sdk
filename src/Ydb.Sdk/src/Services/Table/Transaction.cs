@@ -13,7 +13,6 @@ public class Transaction
     public string TxId { get; }
 
     internal int? TxNum { get; private set; }
-    
     private static int _txCounter;
 
     internal static Transaction? FromProto(TransactionMeta proto, ILogger? logger = null)
