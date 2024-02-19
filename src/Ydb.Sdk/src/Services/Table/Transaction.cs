@@ -33,7 +33,10 @@ public class Transaction
         return tx;
     }
     
-    private static int IncTxCounter() => Interlocked.Increment(ref _txCounter);
+    private static int IncTxCounter()
+    {
+        return Interlocked.Increment(ref _txCounter);
+    }
 }
 
 public enum TransactionState
