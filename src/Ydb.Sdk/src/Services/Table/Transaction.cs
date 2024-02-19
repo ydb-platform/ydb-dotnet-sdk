@@ -24,7 +24,6 @@ public class Transaction
 
         var tx = new Transaction(
             txId: proto.Id);
-        
         if (!string.IsNullOrEmpty(proto.Id))
         {
             tx.TxNum = IncTxCounter();
