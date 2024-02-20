@@ -32,7 +32,6 @@ public class Transaction
 
         return tx;
     }
-    
     private static int IncTxCounter()
     {
         return Interlocked.Increment(ref _txCounter);
