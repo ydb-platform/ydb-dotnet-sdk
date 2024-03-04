@@ -86,7 +86,7 @@ public class Driver : IDisposable, IAsyncDisposable
         var initializeStartTime = DateTime.Now;
         var successDiscover = false;
 
-        while (initializeStartTime.Add(_config.DiscoveryTimout) < DateTime.Now)
+        while (initializeStartTime.Add(_config.DiscoveryTimout) >= DateTime.Now)
         {
             try
             {
