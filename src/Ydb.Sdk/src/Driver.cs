@@ -82,9 +82,7 @@ public class Driver : IDisposable, IAsyncDisposable
         }
 
         _logger.LogInformation("Started initial endpoint discovery");
-
-        var successDiscover = false;
-
+        
         for (var i = 0; i < _config.AttemptDiscovery; i++)
         {
             try
@@ -92,8 +90,9 @@ public class Driver : IDisposable, IAsyncDisposable
                 var status = await DiscoverEndpoints();
                 if (status.IsSuccess)
                 {
-                    successDiscover = true;
-                    break;
+                    _ = Task.Run(PeriodicDiscovery);
+                    
+                    return;
                 }
 
                 _logger.LogCritical($"Error during initial endpoint discovery: {status}");
@@ -103,13 +102,8 @@ public class Driver : IDisposable, IAsyncDisposable
                 _logger.LogCritical($"RPC error during initial endpoint discovery: {e.Status}");
             }
         }
-
-        if (!successDiscover)
-        {
-            throw new InitializationFailureException("Error during initial endpoint discovery");
-        }
-
-        _ = Task.Run(PeriodicDiscovery);
+        
+        throw new InitializationFailureException("Error during initial endpoint discovery");
     }
 
     internal async Task<UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
