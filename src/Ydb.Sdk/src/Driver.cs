@@ -83,10 +83,9 @@ public class Driver : IDisposable, IAsyncDisposable
 
         _logger.LogInformation("Started initial endpoint discovery");
 
-        var initializeStartTime = DateTime.Now;
         var successDiscover = false;
 
-        while (initializeStartTime.Add(_config.DiscoveryTimout) >= DateTime.Now)
+        for (var i = 0; i < _config.AttemptDiscovery; i++)
         {
             try
             {
