@@ -82,7 +82,7 @@ public class Driver : IDisposable, IAsyncDisposable
         }
 
         _logger.LogInformation("Started initial endpoint discovery");
-        
+
         for (var i = 0; i < _config.AttemptDiscovery; i++)
         {
             try
@@ -91,7 +91,7 @@ public class Driver : IDisposable, IAsyncDisposable
                 if (status.IsSuccess)
                 {
                     _ = Task.Run(PeriodicDiscovery);
-                    
+
                     return;
                 }
 
@@ -102,7 +102,7 @@ public class Driver : IDisposable, IAsyncDisposable
                 _logger.LogCritical($"RPC error during initial endpoint discovery: {e.Status}");
             }
         }
-        
+
         throw new InitializationFailureException("Error during initial endpoint discovery");
     }
 
