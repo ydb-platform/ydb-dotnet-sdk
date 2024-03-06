@@ -1,5 +1,7 @@
 [![Nuget](https://img.shields.io/nuget/v/Ydb.Sdk)](https://www.nuget.org/packages/Ydb.Sdk/)
 
+test
+
 # YDB .NET SDK
 YDB client libraries for .NET.
 
