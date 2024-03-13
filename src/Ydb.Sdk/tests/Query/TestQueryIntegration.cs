@@ -137,6 +137,10 @@ public class TestQueryIntegration
         };
 
         const string upsertQuery = @$"
+            DECLARE $id AS Int32;
+            DECLARE $name AS Text;
+            DECLARE $payload AS Bytes;
+            DECLARE $is_valid AS Bool;
             UPSERT INTO `{tableName}` (id, name, payload, is_valid) 
             VALUES ($id, $name, $payload, $is_valid)
         ";
