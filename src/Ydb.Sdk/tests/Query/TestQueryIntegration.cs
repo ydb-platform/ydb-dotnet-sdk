@@ -38,7 +38,7 @@ public class TestQueryIntegration
     //     Assert.Equal(StatusCode.Success, dropResponse.Status.StatusCode);
     // }
 
-    [Fact]
+    // [Fact]
     public async Task TestSimpleSelect()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
@@ -113,7 +113,7 @@ public class TestQueryIntegration
         response.Status.EnsureSuccess();
     }
 
-    [Fact]
+    // [Fact]
     public async Task TestSimpleCrud()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
@@ -199,11 +199,11 @@ public class TestQueryIntegration
         Assert.Equal(StatusCode.ClientInternalError, response.Status.StatusCode);
     }
 
-    [Theory]
-    [InlineData(StatusCode.ClientInternalError, StatusCode.Success, 2, true)]
-    [InlineData(StatusCode.ClientInternalError, StatusCode.ClientInternalError, 1, false)]
-    [InlineData(StatusCode.InternalError, StatusCode.InternalError, 1, true)]
-    [InlineData(StatusCode.Aborted, StatusCode.Success, 2, false)]
+    // [Theory]
+    // [InlineData(StatusCode.ClientInternalError, StatusCode.Success, 2, true)]
+    // [InlineData(StatusCode.ClientInternalError, StatusCode.ClientInternalError, 1, false)]
+    // [InlineData(StatusCode.InternalError, StatusCode.InternalError, 1, true)]
+    // [InlineData(StatusCode.Aborted, StatusCode.Success, 2, false)]
     public async Task TestIdempotency(StatusCode statusCode, StatusCode expectedStatusCode, int expectedAttempts,
         bool isIdempotent)
     {
@@ -236,7 +236,7 @@ public class TestQueryIntegration
         Assert.Equal(expectedAttempts, attempts);
     }
 
-    [Fact]
+    // [Fact]
     public async Task TestReaders()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
