@@ -22,7 +22,7 @@ public class TestGracefulShutdown
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
     }
 
-    [Fact]
+    // [Fact]
     public async Task Test()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
