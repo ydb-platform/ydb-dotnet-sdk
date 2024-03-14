@@ -16,6 +16,7 @@ public class QueryClientConfig
     }
 }
 
+[Obsolete("Experimental! This class is not well tested.")]
 public class QueryClient : QueryClientGrpc, IDisposable
 {
     private readonly ISessionPool<Session> _sessionPool;
