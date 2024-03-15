@@ -241,6 +241,7 @@ public class TestQueryIntegration
     }
 
     // [Fact]
+    // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/66
     public async Task TestReaders()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
