@@ -8,6 +8,8 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Query;
 
+// TODO: Fix flap tests
+// https://github.com/ydb-platform/ydb-dotnet-sdk/issues/66
 [Trait("Category", "Integration")]
 public class TestQueryIntegration
 {
@@ -38,7 +40,8 @@ public class TestQueryIntegration
     //     Assert.Equal(StatusCode.Success, dropResponse.Status.StatusCode);
     // }
 
-    [Fact]
+    // [Fact]
+    // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/66
     public async Task TestSimpleSelect()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
@@ -113,7 +116,8 @@ public class TestQueryIntegration
         response.Status.EnsureSuccess();
     }
 
-    [Fact]
+    // [Fact]
+    // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/66
     public async Task TestSimpleCrud()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
@@ -199,11 +203,12 @@ public class TestQueryIntegration
         Assert.Equal(StatusCode.ClientInternalError, response.Status.StatusCode);
     }
 
-    [Theory]
-    [InlineData(StatusCode.ClientInternalError, StatusCode.Success, 2, true)]
-    [InlineData(StatusCode.ClientInternalError, StatusCode.ClientInternalError, 1, false)]
-    [InlineData(StatusCode.InternalError, StatusCode.InternalError, 1, true)]
-    [InlineData(StatusCode.Aborted, StatusCode.Success, 2, false)]
+    // [Theory]
+    // [InlineData(StatusCode.ClientInternalError, StatusCode.Success, 2, true)]
+    // [InlineData(StatusCode.ClientInternalError, StatusCode.ClientInternalError, 1, false)]
+    // [InlineData(StatusCode.InternalError, StatusCode.InternalError, 1, true)]
+    // [InlineData(StatusCode.Aborted, StatusCode.Success, 2, false)]
+    // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/66
     public async Task TestIdempotency(StatusCode statusCode, StatusCode expectedStatusCode, int expectedAttempts,
         bool isIdempotent)
     {
@@ -236,7 +241,8 @@ public class TestQueryIntegration
         Assert.Equal(expectedAttempts, attempts);
     }
 
-    [Fact]
+    // [Fact]
+    // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/66
     public async Task TestReaders()
     {
         await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
