@@ -9,6 +9,7 @@ using Ydb.Sdk.Value;
 namespace Ydb.Sdk.Tests.Query;
 
 // TODO: Fix flap tests
+// https://github.com/ydb-platform/ydb-dotnet-sdk/issues/66
 [Trait("Category", "Integration")]
 public class TestQueryIntegration
 {
