@@ -207,6 +207,7 @@ public class TestQueryIntegration
     // [InlineData(StatusCode.ClientInternalError, StatusCode.ClientInternalError, 1, false)]
     // [InlineData(StatusCode.InternalError, StatusCode.InternalError, 1, true)]
     // [InlineData(StatusCode.Aborted, StatusCode.Success, 2, false)]
+    // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/66
     public async Task TestIdempotency(StatusCode statusCode, StatusCode expectedStatusCode, int expectedAttempts,
         bool isIdempotent)
     {
