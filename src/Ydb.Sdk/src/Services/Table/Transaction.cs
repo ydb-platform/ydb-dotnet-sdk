@@ -114,7 +114,7 @@ public class TxControl
         return this;
     }
 
-    internal TransactionControl ToProto(ILogger? logger = null)
+    internal TransactionControl ToProto(ILogger logger)
     {
         if (_txNum != null)
         {
