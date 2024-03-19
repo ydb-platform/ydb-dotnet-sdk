@@ -20,6 +20,7 @@ public class DriverConfig
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal double PessimizedEndpointRatioTreshold = 0.5;
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
+    internal readonly int AttemptDiscovery = 10;
 
     public DriverConfig(
         string endpoint,

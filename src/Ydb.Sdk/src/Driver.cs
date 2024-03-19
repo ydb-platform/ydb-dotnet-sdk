@@ -83,23 +83,34 @@ public class Driver : IDisposable, IAsyncDisposable
 
         _logger.LogInformation("Started initial endpoint discovery");
 
-        try
+        for (var i = 0; i < _config.AttemptDiscovery; i++)
         {
-            var status = await DiscoverEndpoints();
-            if (!status.IsSuccess)
+            try
             {
-                var error = $"Error during initial endpoint discovery: {status}";
-                _logger.LogCritical(error);
-                throw new InitializationFailureException(error);
+                var status = await DiscoverEndpoints();
+                if (status.IsSuccess)
+                {
+                    _ = Task.Run(PeriodicDiscovery);
+
+                    return;
+                }
+
+                _logger.LogCritical($"Error during initial endpoint discovery: {status}");
             }
-        }
-        catch (RpcException e)
-        {
-            _logger.LogCritical($"RPC error during initial endpoint discovery: {e.Status}");
-            throw new InitializationFailureException("Failed to discover initial endpoints", e);
+            catch (RpcException e)
+            {
+                _logger.LogCritical($"RPC error during initial endpoint discovery: {e.Status}");
+
+                if (i == _config.AttemptDiscovery - 1)
+                {
+                    throw;
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(i * 200)); // await 0 ms, 200 ms, 400ms, .. 1.8 sec
         }
 
-        _ = Task.Run(PeriodicDiscovery);
+        throw new InitializationFailureException("Error during initial endpoint discovery");
     }
 
     internal async Task<UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
@@ -227,7 +238,7 @@ public class Driver : IDisposable, IAsyncDisposable
             try
             {
                 await Task.Delay(_config.EndpointDiscoveryInterval);
-                var _ = await DiscoverEndpoints();
+                _ = await DiscoverEndpoints();
             }
             catch (RpcException e)
             {
