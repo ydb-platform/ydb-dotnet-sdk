@@ -106,7 +106,7 @@ public class Driver : IDisposable, IAsyncDisposable
                     throw;
                 }
             }
-            
+
             await Task.Delay(TimeSpan.FromMilliseconds(i * 200)); // await 0 ms, 200 ms, 400ms, .. 1.8 sec
         }
 
