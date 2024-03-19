@@ -100,7 +100,14 @@ public class Driver : IDisposable, IAsyncDisposable
             catch (RpcException e)
             {
                 _logger.LogCritical($"RPC error during initial endpoint discovery: {e.Status}");
+
+                if (i == _config.AttemptDiscovery - 1)
+                {
+                    throw;
+                }
             }
+            
+            await Task.Delay(TimeSpan.FromMilliseconds(i * 200)); // await 0 ms, 200 ms, 400ms, .. 1.8 sec
         }
 
         throw new InitializationFailureException("Error during initial endpoint discovery");
