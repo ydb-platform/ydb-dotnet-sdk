@@ -1,4 +1,3 @@
-## v0.2.1
 - Retry discovery on driver initialize
 
 ## v0.2.0
