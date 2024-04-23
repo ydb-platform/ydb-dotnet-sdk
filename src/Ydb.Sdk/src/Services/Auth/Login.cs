@@ -10,8 +10,7 @@ public class LoginSettings : OperationRequestSettings
 
 public class LoginResponse : ResponseWithResultBase<LoginResponse.ResultData>
 {
-    internal LoginResponse(Status status, ResultData? result = null)
-        : base(status, result)
+    internal LoginResponse(Status status, ResultData? result = null) : base(status, result)
     {
     }
 

@@ -5,6 +5,8 @@ namespace Ydb.Sdk.Services.Table;
 
 public class Transaction
 {
+    private static int _txCounter;
+
     internal Transaction(string txId)
     {
         TxId = txId;
@@ -25,23 +27,16 @@ public class Transaction
             txId: proto.Id);
         if (!string.IsNullOrEmpty(proto.Id))
         {
-            tx.TxNum = GetTxCounter();
+            tx.TxNum = IncTxCounter();
             logger.LogTrace($"Received tx #{tx.TxNum}");
         }
 
         return tx;
     }
-
-    private static readonly object TxCounterLock = new();
-    private static int _txCounter;
-
-    private static int GetTxCounter()
+    
+    private static int IncTxCounter()
     {
-        lock (TxCounterLock)
-        {
-            _txCounter++;
-            return _txCounter;
-        }
+        return Interlocked.Increment(ref _txCounter);
     }
 }
 

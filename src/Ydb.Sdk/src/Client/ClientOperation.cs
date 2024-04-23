@@ -69,8 +69,7 @@ public class ClientOperation : IClientOperation
         }
     }
 
-    public TResult UnpackResult<TResult>()
-        where TResult : IMessage, new()
+    public TResult UnpackResult<TResult>() where TResult : IMessage, new()
     {
         EnsureReady();
 
@@ -91,8 +90,7 @@ public class ClientOperation : IClientOperation
 
 public class OperationException : Exception
 {
-    public OperationException(string operationId, string message)
-        : base($"Operation {operationId}: {message}")
+    public OperationException(string operationId, string message) : base($"Operation {operationId}: {message}")
     {
         OperationId = operationId;
     }

@@ -267,15 +267,12 @@ public partial class YdbValue
     {
         EnsureType(Type.TypeOneofCase.OptionalType);
 
-        switch (_protoValue.ValueCase)
+        return _protoValue.ValueCase switch
         {
-            case Ydb.Value.ValueOneofCase.NullFlagValue:
-                return null;
-            case Ydb.Value.ValueOneofCase.NestedValue:
-                return new YdbValue(_protoType.OptionalType.Item, _protoValue.NestedValue);
-            default:
-                return new YdbValue(_protoType.OptionalType.Item, _protoValue);
-        }
+            Ydb.Value.ValueOneofCase.NullFlagValue => null,
+            Ydb.Value.ValueOneofCase.NestedValue => new YdbValue(_protoType.OptionalType.Item, _protoValue.NestedValue),
+            _ => new YdbValue(_protoType.OptionalType.Item, _protoValue)
+        };
     }
 
     public IReadOnlyList<YdbValue> GetList()

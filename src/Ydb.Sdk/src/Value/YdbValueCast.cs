@@ -169,32 +169,31 @@ public partial class YdbValue
     [return: NotNullIfNotNull("value")]
     private static object? GetObjectInternal(YdbTypeId typeId, YdbValue? value, System.Type targetType)
     {
-        switch (typeId)
+        return typeId switch
         {
-            case YdbTypeId.Bool: return value?.GetBool();
-            case YdbTypeId.Int8: return value?.GetInt8();
-            case YdbTypeId.Uint8: return value?.GetUint8();
-            case YdbTypeId.Int16: return value?.GetInt16();
-            case YdbTypeId.Uint16: return value?.GetUint16();
-            case YdbTypeId.Int32: return value?.GetInt32();
-            case YdbTypeId.Uint32: return value?.GetUint32();
-            case YdbTypeId.Int64: return value?.GetInt64();
-            case YdbTypeId.Uint64: return value?.GetUint64();
-            case YdbTypeId.Float: return value?.GetFloat();
-            case YdbTypeId.Double: return value?.GetDouble();
-            case YdbTypeId.Date: return value?.GetDate();
-            case YdbTypeId.Datetime: return value?.GetDatetime();
-            case YdbTypeId.Timestamp: return value?.GetTimestamp();
-            case YdbTypeId.Interval: return value?.GetInterval();
-            case YdbTypeId.String: return value?.GetString();
-            case YdbTypeId.Utf8: return value?.GetUtf8();
-            case YdbTypeId.Yson: return value?.GetYson();
-            case YdbTypeId.Json: return value?.GetJson();
-            case YdbTypeId.JsonDocument: return value?.GetJsonDocument();
-            case YdbTypeId.DecimalType: return value?.GetDecimal();
-            default:
-                throw new InvalidCastException($"Cannot cast YDB type {typeId} to {targetType.Name}.");
-        }
+            YdbTypeId.Bool => value?.GetBool(),
+            YdbTypeId.Int8 => value?.GetInt8(),
+            YdbTypeId.Uint8 => value?.GetUint8(),
+            YdbTypeId.Int16 => value?.GetInt16(),
+            YdbTypeId.Uint16 => value?.GetUint16(),
+            YdbTypeId.Int32 => value?.GetInt32(),
+            YdbTypeId.Uint32 => value?.GetUint32(),
+            YdbTypeId.Int64 => value?.GetInt64(),
+            YdbTypeId.Uint64 => value?.GetUint64(),
+            YdbTypeId.Float => value?.GetFloat(),
+            YdbTypeId.Double => value?.GetDouble(),
+            YdbTypeId.Date => value?.GetDate(),
+            YdbTypeId.Datetime => value?.GetDatetime(),
+            YdbTypeId.Timestamp => value?.GetTimestamp(),
+            YdbTypeId.Interval => value?.GetInterval(),
+            YdbTypeId.String => value?.GetString(),
+            YdbTypeId.Utf8 => value?.GetUtf8(),
+            YdbTypeId.Yson => value?.GetYson(),
+            YdbTypeId.Json => value?.GetJson(),
+            YdbTypeId.JsonDocument => value?.GetJsonDocument(),
+            YdbTypeId.DecimalType => value?.GetDecimal(),
+            _ => throw new InvalidCastException($"Cannot cast YDB type {typeId} to {targetType.Name}.")
+        };
     }
 
     public static explicit operator YdbValue(bool value)

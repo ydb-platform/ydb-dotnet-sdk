@@ -21,8 +21,7 @@ public class SessionPoolConfig
 
 public class GetSessionResponse<TSession> : ResponseWithResultBase<TSession>, IDisposable where TSession : SessionBase
 {
-    internal GetSessionResponse(Status status, TSession? session = null)
-        : base(status, session)
+    internal GetSessionResponse(Status status, TSession? session = null) : base(status, session)
     {
     }
 
@@ -66,11 +65,9 @@ public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession
     private protected readonly ILogger Logger;
     private protected readonly SessionPoolConfig Config;
 
-
     protected readonly object Lock = new();
     protected bool Disposed;
-
-
+    
     private protected readonly Dictionary<string, SessionState> Sessions = new();
     private protected readonly Stack<string> IdleSessions = new();
     protected uint PendingSessions;

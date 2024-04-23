@@ -8,7 +8,6 @@ namespace Ydb.Sdk.Auth;
 public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 {
     private readonly ILogger _logger;
-
     private readonly string _user;
     private readonly string? _password;
 

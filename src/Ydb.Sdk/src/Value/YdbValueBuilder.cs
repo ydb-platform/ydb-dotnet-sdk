@@ -411,12 +411,7 @@ public partial class YdbValue
 
     private static YdbValue MakeOptionalOf<T>(T? value, YdbTypeId type, Func<T, YdbValue> func) where T : struct
     {
-        if (value is null)
-        {
-            return MakeEmptyOptional(type);
-        }
-
-        return MakeOptional(func((T)value));
+        return value is null ? MakeEmptyOptional(type) : MakeOptional(func((T)value));
     }
 
     public static YdbValue MakeOptionalBool(bool? value)
@@ -536,12 +531,7 @@ public partial class YdbValue
 
     public static YdbValue MakeOptionalJsonDocument(string? value)
     {
-        if (value is null)
-        {
-            return MakeEmptyOptional(YdbTypeId.JsonDocument);
-        }
-
-        return MakeOptional(MakeJsonDocument(value));
+        return value is null ? MakeEmptyOptional(YdbTypeId.JsonDocument) : MakeOptional(MakeJsonDocument(value));
     }
 
     public static YdbValue MakeOptionalDecimal(decimal? value)
