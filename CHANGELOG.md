@@ -1,3 +1,5 @@
+- Add rollback transaction API
+
 ## v0.2.2
 - Passed logger to TxControl.ToProto
 
