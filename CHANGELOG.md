@@ -1,3 +1,5 @@
+- Passed logger to TxControl.ToProto
+
 ## v0.2.1
 - Retry discovery on driver initialize
 
