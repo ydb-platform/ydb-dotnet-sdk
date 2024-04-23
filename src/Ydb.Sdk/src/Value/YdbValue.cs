@@ -78,39 +78,20 @@ public sealed partial class YdbValue
 
     private static YdbTypeId GetYdbTypeId(Type protoType)
     {
-        switch (protoType.TypeCase)
+        return protoType.TypeCase switch
         {
-            case Type.TypeOneofCase.TypeId:
-                return Enum.IsDefined(typeof(YdbTypeId), (uint)protoType.TypeId)
-                    ? (YdbTypeId)protoType.TypeId
-                    : YdbTypeId.Unknown;
-
-            case Type.TypeOneofCase.DecimalType:
-                return YdbTypeId.DecimalType;
-
-            case Type.TypeOneofCase.OptionalType:
-                return YdbTypeId.OptionalType;
-
-            case Type.TypeOneofCase.ListType:
-                return YdbTypeId.ListType;
-
-            case Type.TypeOneofCase.TupleType:
-                return YdbTypeId.TupleType;
-
-            case Type.TypeOneofCase.StructType:
-                return YdbTypeId.StructType;
-
-            case Type.TypeOneofCase.DictType:
-                return YdbTypeId.DictType;
-
-            case Type.TypeOneofCase.VariantType:
-                return YdbTypeId.VariantType;
-
-            case Type.TypeOneofCase.VoidType:
-                return YdbTypeId.VoidType;
-
-            default:
-                return YdbTypeId.Unknown;
-        }
+            Type.TypeOneofCase.TypeId => Enum.IsDefined(typeof(YdbTypeId), (uint)protoType.TypeId)
+                ? (YdbTypeId)protoType.TypeId
+                : YdbTypeId.Unknown,
+            Type.TypeOneofCase.DecimalType => YdbTypeId.DecimalType,
+            Type.TypeOneofCase.OptionalType => YdbTypeId.OptionalType,
+            Type.TypeOneofCase.ListType => YdbTypeId.ListType,
+            Type.TypeOneofCase.TupleType => YdbTypeId.TupleType,
+            Type.TypeOneofCase.StructType => YdbTypeId.StructType,
+            Type.TypeOneofCase.DictType => YdbTypeId.DictType,
+            Type.TypeOneofCase.VariantType => YdbTypeId.VariantType,
+            Type.TypeOneofCase.VoidType => YdbTypeId.VoidType,
+            _ => YdbTypeId.Unknown
+        };
     }
 }

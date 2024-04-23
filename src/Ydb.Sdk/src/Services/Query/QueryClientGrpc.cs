@@ -6,8 +6,7 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
-public abstract class QueryClientGrpc :
-    ClientBase
+public abstract class QueryClientGrpc : ClientBase
 {
     private protected QueryClientGrpc(Driver driver) : base(driver)
     {

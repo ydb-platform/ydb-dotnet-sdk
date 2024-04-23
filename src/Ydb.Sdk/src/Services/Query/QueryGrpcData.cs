@@ -24,7 +24,7 @@ public enum Syntax
     YqlV1 = 1,
 
     /// <summary>
-    /// PostgresQL
+    /// PostgresSQL
     /// </summary>
     Pg = 2
 }

@@ -24,8 +24,7 @@ public class ResponseBase : IResponse
 
 public class ClientInternalErrorResponse : ResponseBase
 {
-    public ClientInternalErrorResponse(string message)
-        : base(new Status(StatusCode.ClientInternalError, message))
+    public ClientInternalErrorResponse(string message) : base(new Status(StatusCode.ClientInternalError, message))
     {
     }
 }
@@ -35,13 +34,11 @@ public class ResponseWithResultBase<TResult> : ResponseBase
 {
     private readonly TResult? _result;
 
-    protected ResponseWithResultBase(Status status)
-        : base(status)
+    protected ResponseWithResultBase(Status status) : base(status)
     {
     }
 
-    protected ResponseWithResultBase(Status status, TResult? result)
-        : base(status)
+    protected ResponseWithResultBase(Status status, TResult? result) : base(status)
     {
         if (result != null)
         {

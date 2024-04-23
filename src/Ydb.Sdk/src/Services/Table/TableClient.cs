@@ -19,18 +19,14 @@ public partial class TableClient : ClientBase, IDisposable
     private readonly ISessionPool<Session> _sessionPool;
     private bool _disposed;
 
-    public TableClient(Driver driver, TableClientConfig? config = null)
-        : base(driver)
+    public TableClient(Driver driver, TableClientConfig? config = null) : base(driver)
     {
         config ??= new TableClientConfig();
 
-        _sessionPool = new SessionPool(
-            driver: driver,
-            config: config.SessionPoolConfig);
+        _sessionPool = new SessionPool(driver, config.SessionPoolConfig);
     }
 
-    internal TableClient(Driver driver, ISessionPool<Session> sessionPool)
-        : base(driver)
+    internal TableClient(Driver driver, ISessionPool<Session> sessionPool) : base(driver)
     {
         _sessionPool = sessionPool;
     }

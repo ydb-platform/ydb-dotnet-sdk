@@ -202,12 +202,14 @@ public class Status
         var sb = new StringBuilder();
         sb.Append($"Status: {StatusCode}");
 
-        if (Issues.Count > 0)
+        if (Issues.Count == 0)
         {
-            sb.Append(", Issues:");
-            sb.Append(Environment.NewLine);
-            sb.Append(Issue.IssuesToString(Issues));
+            return sb.ToString();
         }
+
+        sb.Append(", Issues:");
+        sb.Append(Environment.NewLine);
+        sb.Append(Issue.IssuesToString(Issues));
 
         return sb.ToString();
     }
