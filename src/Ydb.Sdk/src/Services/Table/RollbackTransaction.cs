@@ -28,7 +28,7 @@ public partial class Session
         {
             TxId = txId,
             SessionId = Id,
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = MakeOperationParams(settings)
         };
 
         try
