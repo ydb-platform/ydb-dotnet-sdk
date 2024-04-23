@@ -49,7 +49,7 @@ public class TestRollbackTable
         );
 
         response.Status.EnsureSuccess();
-        
-        Assert.Equal((ulong) 0, ((ExecuteDataQueryResponse)response).Result.ResultSets[0].Rows[0][0].GetUint64());
+
+        Assert.Equal((ulong)0, ((ExecuteDataQueryResponse)response).Result.ResultSets[0].Rows[0][0].GetUint64());
     }
 }
