@@ -80,7 +80,7 @@ public sealed partial class YdbValue
     {
         return protoType.TypeCase switch
         {
-            Type.TypeOneofCase.TypeId => Enum.IsDefined(typeof(YdbTypeId), (uint)protoType.TypeId) 
+            Type.TypeOneofCase.TypeId => Enum.IsDefined(typeof(YdbTypeId), (uint)protoType.TypeId)
                 ? (YdbTypeId)protoType.TypeId
                 : YdbTypeId.Unknown,
             Type.TypeOneofCase.DecimalType => YdbTypeId.DecimalType,

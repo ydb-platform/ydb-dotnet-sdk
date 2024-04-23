@@ -6,13 +6,13 @@ namespace Ydb.Sdk.Services.Sessions;
 public abstract class SessionBase : ClientBase, IDisposable
 {
     internal static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(1);
-    
+
     public string Id { get; }
     internal string? Endpoint { get; }
 
     private protected bool Disposed;
     protected readonly ILogger Logger;
-    
+
     protected SessionBase(Driver driver, string id, string? endpoint, ILogger logger) : base(driver)
     {
         Id = id;

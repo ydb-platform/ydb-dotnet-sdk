@@ -206,7 +206,7 @@ public class Status
         {
             return sb.ToString();
         }
-        
+
         sb.Append(", Issues:");
         sb.Append(Environment.NewLine);
         sb.Append(Issue.IssuesToString(Issues));

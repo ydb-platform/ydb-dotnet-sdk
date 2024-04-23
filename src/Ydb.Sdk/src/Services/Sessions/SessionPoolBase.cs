@@ -67,7 +67,7 @@ public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession
 
     protected readonly object Lock = new();
     protected bool Disposed;
-    
+
     private protected readonly Dictionary<string, SessionState> Sessions = new();
     private protected readonly Stack<string> IdleSessions = new();
     protected uint PendingSessions;
