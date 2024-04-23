@@ -1,3 +1,4 @@
+## v0.2.2
 - Passed logger to TxControl.ToProto
 
 ## v0.2.1
