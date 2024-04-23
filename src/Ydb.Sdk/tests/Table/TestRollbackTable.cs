@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using Ydb.Sdk.Services.Query;
 using Ydb.Sdk.Services.Table;
 
 namespace Ydb.Sdk.Tests.Table;
