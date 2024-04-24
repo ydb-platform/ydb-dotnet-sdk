@@ -1,3 +1,4 @@
+## v0.3.0
 - Add rollback transaction API
 
 ## v0.2.2
