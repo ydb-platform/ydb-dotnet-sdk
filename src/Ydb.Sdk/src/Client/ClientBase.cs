@@ -4,23 +4,23 @@ using Ydb.Operations;
 
 namespace Ydb.Sdk.Client;
 
-public class ClientBase
+public abstract class ClientBase
 {
-    protected internal Driver Driver { get; }
+    protected Driver Driver { get; }
 
     protected internal ClientBase(Driver driver)
     {
         Driver = driver;
     }
 
-    protected internal static Status UnpackOperation(Operations.Operation operationProto)
+    protected static Status UnpackOperation(Operations.Operation operationProto)
     {
         var operation = ClientOperation.FromProto(operationProto);
         operation.EnsureReady();
         return operation.Status;
     }
 
-    protected internal static Status UnpackOperation<TResult>(Operations.Operation operationProto,
+    protected static Status UnpackOperation<TResult>(Operations.Operation operationProto,
         out TResult? result)
         where TResult : class, IMessage, new()
     {
@@ -39,7 +39,7 @@ public class ClientBase
         return status;
     }
 
-    protected internal static OperationParams MakeOperationParams(OperationRequestSettings settings)
+    protected static OperationParams MakeOperationParams(OperationRequestSettings settings)
     {
         var opParams = new OperationParams();
 
