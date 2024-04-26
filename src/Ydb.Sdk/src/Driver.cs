@@ -11,13 +11,11 @@ namespace Ydb.Sdk;
 public class Driver : IDisposable, IAsyncDisposable
 {
     private readonly DriverConfig _config;
-
-    private readonly object _lock = new();
     private readonly ILogger _logger;
-
     private readonly string _sdkInfo;
     private readonly ChannelsCache _channels;
-    private bool _disposed;
+
+    private volatile bool _disposed;
 
     internal string Database => _config.Database;
 
@@ -50,15 +48,7 @@ public class Driver : IDisposable, IAsyncDisposable
 
     private void Dispose(bool disposing)
     {
-        lock (_lock)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _disposed = true;
-        }
+        _disposed = true;
 
         if (disposing)
         {
@@ -232,8 +222,7 @@ public class Driver : IDisposable, IAsyncDisposable
 
     private async Task PeriodicDiscovery()
     {
-        var stop = false;
-        while (!stop)
+        while (!_disposed)
         {
             try
             {
@@ -247,11 +236,6 @@ public class Driver : IDisposable, IAsyncDisposable
             catch (Exception e)
             {
                 _logger.LogError($"Unexpected exception during session pool periodic check: {e}");
-            }
-
-            lock (_lock)
-            {
-                stop = _disposed;
             }
         }
     }
@@ -268,8 +252,10 @@ public class Driver : IDisposable, IAsyncDisposable
 
     private CallOptions GetCallOptions(RequestSettings settings, bool streaming)
     {
-        var meta = new Grpc.Core.Metadata();
-        meta.Add(Metadata.RpcDatabaseHeader, _config.Database);
+        var meta = new Grpc.Core.Metadata
+        {
+            { Metadata.RpcDatabaseHeader, _config.Database }
+        };
 
         var authInfo = _config.Credentials.GetAuthInfo();
         if (authInfo != null)
@@ -305,19 +291,14 @@ public class Driver : IDisposable, IAsyncDisposable
 
     private static StatusCode ConvertStatusCode(Grpc.Core.StatusCode rpcStatusCode)
     {
-        switch (rpcStatusCode)
+        return rpcStatusCode switch
         {
-            case Grpc.Core.StatusCode.Unavailable:
-                return StatusCode.ClientTransportUnavailable;
-            case Grpc.Core.StatusCode.DeadlineExceeded:
-                return StatusCode.ClientTransportTimeout;
-            case Grpc.Core.StatusCode.ResourceExhausted:
-                return StatusCode.ClientTransportResourceExhausted;
-            case Grpc.Core.StatusCode.Unimplemented:
-                return StatusCode.ClientTransportUnimplemented;
-            default:
-                return StatusCode.ClientTransportUnknown;
-        }
+            Grpc.Core.StatusCode.Unavailable => StatusCode.ClientTransportUnavailable,
+            Grpc.Core.StatusCode.DeadlineExceeded => StatusCode.ClientTransportTimeout,
+            Grpc.Core.StatusCode.ResourceExhausted => StatusCode.ClientTransportResourceExhausted,
+            Grpc.Core.StatusCode.Unimplemented => StatusCode.ClientTransportUnimplemented,
+            _ => StatusCode.ClientTransportUnknown
+        };
     }
 
     private static Status ConvertStatus(Grpc.Core.Status rpcStatus)
@@ -374,21 +355,18 @@ public class Driver : IDisposable, IAsyncDisposable
 
     public class InitializationFailureException : Exception
     {
-        internal InitializationFailureException(string message)
-            : base(message)
+        internal InitializationFailureException(string message) : base(message)
         {
         }
 
-        internal InitializationFailureException(string message, Exception inner)
-            : base(message, inner)
+        internal InitializationFailureException(string message, Exception inner) : base(message, inner)
         {
         }
     }
 
     public class TransportException : Exception
     {
-        internal TransportException(RpcException e)
-            : base($"Transport exception: {e.Message}", e)
+        internal TransportException(RpcException e) : base($"Transport exception: {e.Message}", e)
         {
             Status = ConvertStatus(e.Status);
         }
