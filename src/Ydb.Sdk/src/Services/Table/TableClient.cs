@@ -1,5 +1,4 @@
-﻿using Ydb.Sdk.Client;
-using Ydb.Sdk.Services.Sessions;
+﻿using Ydb.Sdk.Services.Sessions;
 
 namespace Ydb.Sdk.Services.Table;
 
