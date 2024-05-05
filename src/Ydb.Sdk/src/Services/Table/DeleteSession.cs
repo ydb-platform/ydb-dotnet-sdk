@@ -1,6 +1,5 @@
 ﻿using Ydb.Sdk.Client;
 using Ydb.Sdk.Services.Operations;
-
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -12,8 +11,7 @@ public class DeleteSessionSettings : OperationRequestSettings
 
 public class DeleteSessionResponse : ResponseBase
 {
-    internal DeleteSessionResponse(Status status)
-        : base(status)
+    internal DeleteSessionResponse(Status status) : base(status)
     {
     }
 }

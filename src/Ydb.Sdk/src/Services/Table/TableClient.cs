@@ -18,7 +18,7 @@ public partial class TableClient : IDisposable
 {
     private readonly ISessionPool<Session> _sessionPool;
     private readonly Driver _driver;
-    
+
     private bool _disposed;
 
     public TableClient(Driver driver, TableClientConfig? config = null)

@@ -98,7 +98,7 @@ public abstract class QueryClientGrpc
                 request: request,
                 settings: settings
             );
-            
+
             return BeginTransactionResponse.FromProto(response.Data, this, sessionId);
         }
         catch (Driver.TransportException e)
@@ -123,7 +123,7 @@ public abstract class QueryClientGrpc
                 request: request,
                 settings: settings
             );
-            
+
             return CommitTransactionResponse.FromProto(response.Data);
         }
         catch (Driver.TransportException e)

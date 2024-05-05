@@ -13,7 +13,7 @@ public class RequestSettings
 public class OperationRequestSettings : RequestSettings
 {
     public TimeSpan? OperationTimeout { get; set; }
-    
+
     internal OperationParams MakeOperationParams()
     {
         var opParams = new OperationParams();

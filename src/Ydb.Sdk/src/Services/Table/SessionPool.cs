@@ -9,6 +9,7 @@ using NoPool = NoPool<Session>;
 internal sealed class SessionPool : SessionPoolBase<Session>
 {
     private readonly TableClient _tableClient;
+
     public SessionPool(Driver driver, SessionPoolConfig config) :
         base(
             driver: driver,
@@ -16,7 +17,7 @@ internal sealed class SessionPool : SessionPoolBase<Session>
             logger: driver.LoggerFactory.CreateLogger<SessionPool>())
     {
         _tableClient = new TableClient(driver, new NoPool());
-        
+
         Task.Run(PeriodicCheck);
     }
 

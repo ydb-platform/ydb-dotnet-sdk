@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Client;
 
 namespace Ydb.Sdk.Services.Sessions;
 

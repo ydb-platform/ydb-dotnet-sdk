@@ -44,7 +44,7 @@ public class Driver : IDisposable, IAsyncDisposable
     {
         Dispose(_disposed);
     }
-    
+
     public void Dispose()
     {
         Dispose(true);
