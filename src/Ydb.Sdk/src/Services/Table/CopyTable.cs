@@ -1,4 +1,5 @@
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -58,19 +59,20 @@ public partial class TableClient
         settings ??= new CopyTableSettings();
         var request = new CopyTableRequest
         {
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = settings.MakeOperationParams(),
             SourcePath = MakeTablePath(sourcePath),
             DestinationPath = MakeTablePath(destinationPath)
         };
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: TableService.CopyTableMethod,
                 request: request,
-                settings: settings);
+                settings: settings
+            );
 
-            var status = UnpackOperation(response.Data.Operation);
+            var status = response.Data.Operation.Unpack();
             return new CopyTableResponse(status);
         }
         catch (Driver.TransportException e)
@@ -85,18 +87,18 @@ public partial class TableClient
         settings ??= new CopyTablesSettings();
         var request = new CopyTablesRequest
         {
-            OperationParams = MakeOperationParams(settings)
+            OperationParams = settings.MakeOperationParams()
         };
         request.Tables.AddRange(tableItems.Select(item => item.GetProto(this)));
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: TableService.CopyTablesMethod,
                 request: request,
                 settings: settings);
 
-            var status = UnpackOperation(response.Data.Operation);
+            var status = response.Data.Operation.Unpack();
             return new CopyTablesResponse(status);
         }
         catch (Driver.TransportException e)

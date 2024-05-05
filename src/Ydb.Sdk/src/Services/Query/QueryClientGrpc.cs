@@ -6,11 +6,14 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
-public abstract class QueryClientGrpc : ClientBase
+public abstract class QueryClientGrpc
 {
-    private protected QueryClientGrpc(Driver driver) : base(driver)
+    private readonly Driver _driver;
+
+    private protected QueryClientGrpc(Driver driver)
     {
-        Driver.LoggerFactory.CreateLogger<QueryClient>();
+        _driver = driver;
+        _driver.LoggerFactory.CreateLogger<QueryClient>();
     }
 
     internal async Task<CreateSessionResponse> CreateSession(CreateSessionSettings? settings = null)
@@ -20,7 +23,7 @@ public abstract class QueryClientGrpc : ClientBase
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: QueryService.CreateSessionMethod,
                 request: request,
                 settings: settings);
@@ -31,7 +34,7 @@ public abstract class QueryClientGrpc : ClientBase
 
             if (status.IsSuccess)
             {
-                result = CreateSessionResponse.ResultData.FromProto(response.Data, Driver, response.UsedEndpoint);
+                result = CreateSessionResponse.ResultData.FromProto(response.Data, _driver, response.UsedEndpoint);
             }
 
             return new CreateSessionResponse(status, result);
@@ -52,11 +55,11 @@ public abstract class QueryClientGrpc : ClientBase
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: QueryService.DeleteSessionMethod,
                 request: request,
-                settings: settings);
-
+                settings: settings
+            );
 
             return DeleteSessionResponse.FromProto(response.Data);
         }
@@ -72,7 +75,7 @@ public abstract class QueryClientGrpc : ClientBase
 
         var request = new AttachSessionRequest { SessionId = sessionId };
 
-        var streamIterator = Driver.StreamCall(
+        var streamIterator = _driver.StreamCall(
             method: QueryService.AttachSessionMethod,
             request: request,
             settings: settings
@@ -90,11 +93,12 @@ public abstract class QueryClientGrpc : ClientBase
         var request = new BeginTransactionRequest { SessionId = sessionId, TxSettings = tx.ToProto().BeginTx };
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 QueryService.BeginTransactionMethod,
                 request: request,
                 settings: settings
             );
+            
             return BeginTransactionResponse.FromProto(response.Data, this, sessionId);
         }
         catch (Driver.TransportException e)
@@ -114,11 +118,12 @@ public abstract class QueryClientGrpc : ClientBase
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 QueryService.CommitTransactionMethod,
                 request: request,
                 settings: settings
             );
+            
             return CommitTransactionResponse.FromProto(response.Data);
         }
         catch (Driver.TransportException e)
@@ -137,7 +142,7 @@ public abstract class QueryClientGrpc : ClientBase
         var request = new RollbackTransactionRequest { SessionId = sessionId, TxId = tx.TxId };
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 QueryService.RollbackTransactionMethod,
                 request: request,
                 settings: settings
@@ -172,7 +177,7 @@ public abstract class QueryClientGrpc : ClientBase
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        var streamIterator = Driver.StreamCall(
+        var streamIterator = _driver.StreamCall(
             method: QueryService.ExecuteQueryMethod,
             request: request,
             settings: settings);

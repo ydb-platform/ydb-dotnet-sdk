@@ -1,4 +1,7 @@
-﻿namespace Ydb.Sdk;
+﻿using Google.Protobuf.WellKnownTypes;
+using Ydb.Operations;
+
+namespace Ydb.Sdk;
 
 public class RequestSettings
 {
@@ -10,4 +13,16 @@ public class RequestSettings
 public class OperationRequestSettings : RequestSettings
 {
     public TimeSpan? OperationTimeout { get; set; }
+    
+    internal OperationParams MakeOperationParams()
+    {
+        var opParams = new OperationParams();
+
+        if (OperationTimeout != null)
+        {
+            opParams.OperationTimeout = Duration.FromTimeSpan(OperationTimeout.Value);
+        }
+
+        return opParams;
+    }
 }

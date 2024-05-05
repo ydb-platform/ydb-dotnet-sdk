@@ -40,6 +40,11 @@ public class Driver : IDisposable, IAsyncDisposable
 
     public ILoggerFactory LoggerFactory { get; }
 
+    ~Driver()
+    {
+        Dispose(_disposed);
+    }
+    
     public void Dispose()
     {
         Dispose(true);

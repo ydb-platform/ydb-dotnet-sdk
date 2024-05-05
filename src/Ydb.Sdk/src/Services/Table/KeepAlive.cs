@@ -1,4 +1,5 @@
 ﻿using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -59,19 +60,19 @@ public partial class TableClient
 
         var request = new KeepAliveRequest
         {
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = settings.MakeOperationParams(),
             SessionId = sessionId
         };
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: TableService.KeepAliveMethod,
                 request: request,
-                settings: settings);
+                settings: settings
+            );
 
-            KeepAliveResult? resultProto;
-            var status = UnpackOperation(response.Data.Operation, out resultProto);
+            var status = response.Data.Operation.TryUnpack(out KeepAliveResult? resultProto);
 
             KeepAliveResponse.ResultData? result = null;
             if (status.IsSuccess && resultProto != null)

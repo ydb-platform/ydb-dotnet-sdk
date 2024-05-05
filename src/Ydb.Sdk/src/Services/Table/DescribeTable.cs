@@ -1,5 +1,6 @@
 using Ydb.Scheme;
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Sdk.Value;
 using Ydb.Table;
 using Ydb.Table.V1;
@@ -546,7 +547,7 @@ public partial class TableClient
         settings ??= new DescribeTableSettings();
         var request = new DescribeTableRequest
         {
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = settings.MakeOperationParams(),
             Path = MakeTablePath(tablePath),
             IncludeShardKeyBounds = settings.IncludeShardKeyBounds,
             IncludeTableStats = settings.IncludeTableStats,
@@ -555,12 +556,13 @@ public partial class TableClient
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: TableService.DescribeTableMethod,
                 request: request,
-                settings: settings);
+                settings: settings
+            );
 
-            var status = UnpackOperation(response.Data.Operation, out DescribeTableResult? resultProto);
+            var status = response.Data.Operation.TryUnpack(out DescribeTableResult? resultProto);
             DescribeTableResponse.ResultData? result = null;
 
             if (status.IsSuccess && resultProto is not null)
