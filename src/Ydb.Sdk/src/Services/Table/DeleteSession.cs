@@ -1,4 +1,5 @@
 ﻿using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -10,8 +11,7 @@ public class DeleteSessionSettings : OperationRequestSettings
 
 public class DeleteSessionResponse : ResponseBase
 {
-    internal DeleteSessionResponse(Status status)
-        : base(status)
+    internal DeleteSessionResponse(Status status) : base(status)
     {
     }
 }
@@ -24,18 +24,18 @@ public partial class TableClient
 
         var request = new DeleteSessionRequest
         {
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = settings.MakeOperationParams(),
             SessionId = sessionId
         };
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: TableService.DeleteSessionMethod,
                 request: request,
                 settings: settings);
 
-            var status = UnpackOperation(response.Data.Operation);
+            var status = response.Data.Operation.Unpack();
 
             return new DeleteSessionResponse(status);
         }

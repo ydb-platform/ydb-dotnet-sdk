@@ -76,10 +76,11 @@ public partial class TableClient
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        var streamIterator = Driver.StreamCall(
+        var streamIterator = _driver.StreamCall(
             method: TableService.StreamExecuteScanQueryMethod,
             request: request,
-            settings: settings);
+            settings: settings
+        );
 
         return new ExecuteScanQueryStream(streamIterator);
     }

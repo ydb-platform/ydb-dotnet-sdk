@@ -27,7 +27,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
     {
         config ??= new QueryClientConfig();
 
-        _logger = Driver.LoggerFactory.CreateLogger<QueryClient>();
+        _logger = driver.LoggerFactory.CreateLogger<QueryClient>();
 
         _sessionPool = new SessionPool(driver, config.SessionPoolConfig);
     }

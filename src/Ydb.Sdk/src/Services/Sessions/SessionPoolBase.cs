@@ -56,12 +56,10 @@ internal class NoPool<TSession> : ISessionPool<TSession> where TSession : Sessio
     }
 }
 
-public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession>
+public abstract class SessionPoolBase<TSession> : ISessionPool<TSession>
     where TSession : SessionBase
-    where TClient : ClientBase
 {
     private protected readonly Driver Driver;
-    private protected readonly TClient Client;
     private protected readonly ILogger Logger;
     private protected readonly SessionPoolConfig Config;
 
@@ -72,11 +70,10 @@ public abstract class SessionPoolBase<TSession, TClient> : ISessionPool<TSession
     private protected readonly Stack<string> IdleSessions = new();
     protected uint PendingSessions;
 
-    protected SessionPoolBase(Driver driver, SessionPoolConfig config, TClient client, ILogger logger)
+    protected SessionPoolBase(Driver driver, SessionPoolConfig config, ILogger logger)
     {
         Driver = driver;
         Config = config;
-        Client = client;
         Logger = logger;
     }
 

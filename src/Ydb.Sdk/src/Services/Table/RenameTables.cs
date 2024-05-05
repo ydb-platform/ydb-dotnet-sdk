@@ -1,4 +1,5 @@
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -47,18 +48,19 @@ public partial class TableClient
         settings ??= new RenameTablesSettings();
         var request = new RenameTablesRequest
         {
-            OperationParams = MakeOperationParams(settings)
+            OperationParams = settings.MakeOperationParams()
         };
         request.Tables.AddRange(tableItems.Select(item => item.GetProto(this)));
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: TableService.RenameTablesMethod,
                 request: request,
-                settings: settings);
+                settings: settings
+            );
 
-            var status = UnpackOperation(response.Data.Operation);
+            var status = response.Data.Operation.Unpack();
             return new RenameTablesResponse(status);
         }
         catch (Driver.TransportException e)

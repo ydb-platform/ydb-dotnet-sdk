@@ -6,22 +6,20 @@ namespace Ydb.Sdk.Services.Query;
 using GetSessionResponse = GetSessionResponse<Session>;
 using NoPool = NoPool<Session>;
 
-internal class SessionPool : SessionPoolBase<Session, QueryClient>
+internal class SessionPool : SessionPoolBase<Session>
 {
     private readonly Dictionary<string, CancellationTokenSource> _attachedSessions = new();
+    private readonly QueryClient _client;
 
     public SessionPool(Driver driver, SessionPoolConfig config) :
-        base(
-            driver: driver,
-            config: config,
-            client: new QueryClient(driver, new NoPool()),
-            logger: driver.LoggerFactory.CreateLogger<SessionPool>())
+        base(driver, config, driver.LoggerFactory.CreateLogger<SessionPool>())
     {
+        _client = new QueryClient(driver, new NoPool());
     }
 
     private protected override async Task<GetSessionResponse> CreateSession()
     {
-        var createSessionResponse = await Client.CreateSession(new CreateSessionSettings
+        var createSessionResponse = await _client.CreateSession(new CreateSessionSettings
             { TransportTimeout = Config.CreateSessionTimeout });
 
         lock (Lock)
@@ -54,7 +52,7 @@ internal class SessionPool : SessionPoolBase<Session, QueryClient>
 
     private async Task AttachAndMonitor(string sessionId)
     {
-        var stream = Client.AttachSession(sessionId);
+        var stream = _client.AttachSession(sessionId);
 
         var cts = new CancellationTokenSource();
         cts.CancelAfter(Config.CreateSessionTimeout);
@@ -157,7 +155,7 @@ internal class SessionPool : SessionPoolBase<Session, QueryClient>
     {
         DetachSession(id);
 
-        await Client.DeleteSession(id, new DeleteSessionSettings
+        await _client.DeleteSession(id, new DeleteSessionSettings
         {
             TransportTimeout = SessionBase.DeleteSessionTimeout
         });

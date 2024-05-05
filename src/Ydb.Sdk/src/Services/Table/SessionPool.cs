@@ -6,21 +6,24 @@ namespace Ydb.Sdk.Services.Table;
 using GetSessionResponse = GetSessionResponse<Session>;
 using NoPool = NoPool<Session>;
 
-internal sealed class SessionPool : SessionPoolBase<Session, TableClient>
+internal sealed class SessionPool : SessionPoolBase<Session>
 {
+    private readonly TableClient _tableClient;
+
     public SessionPool(Driver driver, SessionPoolConfig config) :
         base(
             driver: driver,
             config: config,
-            client: new TableClient(driver, new NoPool()),
             logger: driver.LoggerFactory.CreateLogger<SessionPool>())
     {
+        _tableClient = new TableClient(driver, new NoPool());
+
         Task.Run(PeriodicCheck);
     }
 
     private protected override async Task<GetSessionResponse> CreateSession()
     {
-        var createSessionResponse = await Client.CreateSession(new CreateSessionSettings
+        var createSessionResponse = await _tableClient.CreateSession(new CreateSessionSettings
         {
             TransportTimeout = Config.CreateSessionTimeout,
             OperationTimeout = Config.CreateSessionTimeout
@@ -104,7 +107,7 @@ internal sealed class SessionPool : SessionPoolBase<Session, TableClient>
 
         foreach (var id in keepAliveIds)
         {
-            var response = await Client.KeepAlive(id, new KeepAliveSettings
+            var response = await _tableClient.KeepAlive(id, new KeepAliveSettings
             {
                 TransportTimeout = Config.KeepAliveTimeout,
                 OperationTimeout = Config.KeepAliveTimeout
@@ -142,7 +145,7 @@ internal sealed class SessionPool : SessionPoolBase<Session, TableClient>
 
     private protected override async Task DeleteSession(string id)
     {
-        await Client.DeleteSession(id, new DeleteSessionSettings
+        await _tableClient.DeleteSession(id, new DeleteSessionSettings
         {
             TransportTimeout = SessionBase.DeleteSessionTimeout
         });

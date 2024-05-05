@@ -75,10 +75,11 @@ public partial class TableClient
             Ordered = settings.Ordered
         };
 
-        var streamIterator = Driver.StreamCall(
+        var streamIterator = _driver.StreamCall(
             method: TableService.StreamReadTableMethod,
             request: request,
-            settings: settings);
+            settings: settings
+        );
 
         return new ReadTableStream(streamIterator);
     }

@@ -1,4 +1,5 @@
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -27,7 +28,7 @@ public partial class Session
 
         var request = new ExecuteSchemeQueryRequest
         {
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = settings.MakeOperationParams(),
             SessionId = Id,
             YqlText = query
         };
@@ -37,9 +38,10 @@ public partial class Session
             var response = await UnaryCall(
                 method: TableService.ExecuteSchemeQueryMethod,
                 request: request,
-                settings: settings);
+                settings: settings
+            );
 
-            var status = UnpackOperation(response.Data.Operation);
+            var status = response.Data.Operation.Unpack();
             OnResponseStatus(status);
 
             return new ExecuteSchemeQueryResponse(status);

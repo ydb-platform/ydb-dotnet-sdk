@@ -1,10 +1,10 @@
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Client;
 
 namespace Ydb.Sdk.Services.Sessions;
 
-public abstract class SessionBase : ClientBase, IDisposable
+public abstract class SessionBase : IDisposable
 {
+    protected readonly Driver Driver;
     internal static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(1);
 
     public string Id { get; }
@@ -13,8 +13,9 @@ public abstract class SessionBase : ClientBase, IDisposable
     private protected bool Disposed;
     protected readonly ILogger Logger;
 
-    protected SessionBase(Driver driver, string id, string? endpoint, ILogger logger) : base(driver)
+    protected SessionBase(Driver driver, string id, string? endpoint, ILogger logger)
     {
+        Driver = driver;
         Id = id;
         Endpoint = endpoint;
         Logger = logger;
@@ -31,6 +32,7 @@ public abstract class SessionBase : ClientBase, IDisposable
     public void Dispose()
     {
         Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
     protected abstract void Dispose(bool disposing);

@@ -1,4 +1,5 @@
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -28,14 +29,14 @@ public partial class Session
         {
             TxId = txId,
             SessionId = Id,
-            OperationParams = MakeOperationParams(settings)
+            OperationParams = settings.MakeOperationParams()
         };
 
         try
         {
             var response = await UnaryCall(TableService.RollbackTransactionMethod, request, settings);
 
-            var status = UnpackOperation(response.Data.Operation);
+            var status = response.Data.Operation.Unpack();
             OnResponseStatus(status);
 
             return new RollbackTransactionResponse(status);
