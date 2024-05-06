@@ -11,7 +11,13 @@ internal class FixedGrpcChannelTransport : GrpcTransport
     public FixedGrpcChannelTransport(
         DriverConfig driverConfig,
         ILogger logger
-    ) : base(driverConfig, logger)
+    ) : base(
+        new DriverConfig(
+            endpoint: driverConfig.Endpoint,
+            database: driverConfig.Database,
+            customServerCertificate: driverConfig.CustomServerCertificate
+        ), logger
+    )
     {
         _channel = ChannelsCache.CreateChannel(Config.Endpoint, Config);
     }
