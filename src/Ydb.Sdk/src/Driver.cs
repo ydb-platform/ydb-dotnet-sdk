@@ -294,23 +294,9 @@ public class Driver : IDisposable, IAsyncDisposable
         return options;
     }
 
-    private static StatusCode ConvertStatusCode(Grpc.Core.StatusCode rpcStatusCode)
-    {
-        return rpcStatusCode switch
-        {
-            Grpc.Core.StatusCode.Unavailable => StatusCode.ClientTransportUnavailable,
-            Grpc.Core.StatusCode.DeadlineExceeded => StatusCode.ClientTransportTimeout,
-            Grpc.Core.StatusCode.ResourceExhausted => StatusCode.ClientTransportResourceExhausted,
-            Grpc.Core.StatusCode.Unimplemented => StatusCode.ClientTransportUnimplemented,
-            _ => StatusCode.ClientTransportUnknown
-        };
-    }
-
     private static Status ConvertStatus(Grpc.Core.Status rpcStatus)
     {
-        return new Status(
-            ConvertStatusCode(rpcStatus.StatusCode),
-            new List<Issue> { new(rpcStatus.Detail) });
+        return rpcStatus.ConvertStatus();
     }
 
     internal sealed class UnaryResponse<TResponse>
