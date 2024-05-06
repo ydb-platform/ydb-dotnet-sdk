@@ -1,23 +1,30 @@
 ﻿using System.Reflection;
 using Grpc.Core;
-using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
 using Ydb.Discovery.V1;
 using Ydb.Sdk.Auth;
 
 namespace Ydb.Sdk;
 
-public class Driver : GrpcTransport
+public class Driver : IDisposable, IAsyncDisposable
 {
+    private readonly DriverConfig _config;
+    private readonly ILogger _logger;
     private readonly string _sdkInfo;
     private readonly ChannelsCache _channels;
 
-    internal string Database => Config.Database;
+    private volatile bool _disposed;
 
-    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null) : base(config, loggerFactory)
+    internal string Database => _config.Database;
+
+    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null)
     {
-        _channels = new ChannelsCache(Config, LoggerFactory);
+        LoggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+        _logger = LoggerFactory.CreateLogger<Driver>();
+        _config = config;
+        _channels = new ChannelsCache(_config, LoggerFactory);
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         var versionStr = version is null ? "unknown" : version.ToString(3);
@@ -31,9 +38,22 @@ public class Driver : GrpcTransport
         return driver;
     }
 
-    protected override void Dispose(bool disposing)
+    public ILoggerFactory LoggerFactory { get; }
+
+    ~Driver()
     {
-        Disposed = true;
+        Dispose(_disposed);
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    private void Dispose(bool disposing)
+    {
+        _disposed = true;
 
         if (disposing)
         {
@@ -41,17 +61,24 @@ public class Driver : GrpcTransport
         }
     }
 
+    public ValueTask DisposeAsync()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+        return default;
+    }
+
     public async Task Initialize()
     {
-        if (Config.Credentials is IUseDriverConfig useDriverConfig)
+        if (_config.Credentials is IUseDriverConfig useDriverConfig)
         {
-            await useDriverConfig.ProvideConfig(Config);
-            Logger.LogInformation("DriverConfig provided to IUseDriverConfig interface");
+            await useDriverConfig.ProvideConfig(_config);
+            _logger.LogInformation("DriverConfig provided to IUseDriverConfig interface");
         }
 
-        Logger.LogInformation("Started initial endpoint discovery");
+        _logger.LogInformation("Started initial endpoint discovery");
 
-        for (var i = 0; i < Config.AttemptDiscovery; i++)
+        for (var i = 0; i < _config.AttemptDiscovery; i++)
         {
             try
             {
@@ -63,13 +90,13 @@ public class Driver : GrpcTransport
                     return;
                 }
 
-                Logger.LogCritical($"Error during initial endpoint discovery: {status}");
+                _logger.LogCritical($"Error during initial endpoint discovery: {status}");
             }
             catch (RpcException e)
             {
-                Logger.LogCritical($"RPC error during initial endpoint discovery: {e.Status}");
+                _logger.LogCritical($"RPC error during initial endpoint discovery: {e.Status}");
 
-                if (i == Config.AttemptDiscovery - 1)
+                if (i == _config.AttemptDiscovery - 1)
                 {
                     throw;
                 }
@@ -79,6 +106,44 @@ public class Driver : GrpcTransport
         }
 
         throw new InitializationFailureException("Error during initial endpoint discovery");
+    }
+
+    internal async Task<UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
+        Method<TRequest, TResponse> method,
+        TRequest request,
+        RequestSettings settings,
+        string? preferredEndpoint = null)
+        where TRequest : class
+        where TResponse : class
+    {
+        var (endpoint, channel) = _channels.GetChannel(preferredEndpoint);
+        var callInvoker = channel.CreateCallInvoker();
+
+        _logger.LogTrace($"Unary call" +
+                         $", method: {method.Name}" +
+                         $", endpoint: {endpoint}");
+
+        try
+        {
+            using var call = callInvoker.AsyncUnaryCall(
+                method: method,
+                host: null,
+                options: GetCallOptions(settings, false),
+                request: request);
+
+            var data = await call.ResponseAsync;
+            var trailers = call.GetTrailers();
+
+            return new UnaryResponse<TResponse>(
+                data: data,
+                usedEndpoint: endpoint,
+                trailers: trailers);
+        }
+        catch (RpcException e)
+        {
+            PessimizeEndpoint(endpoint);
+            throw new TransportException(e);
+        }
     }
 
     internal StreamIterator<TResponse> StreamCall<TRequest, TResponse>(
@@ -100,23 +165,23 @@ public class Driver : GrpcTransport
 
         return new StreamIterator<TResponse>(
             call,
-            _ => { OnRpcError(endpoint); });
+            _ => { PessimizeEndpoint(endpoint); });
     }
 
     private async Task<Status> DiscoverEndpoints()
     {
-        using var channel = ChannelsCache.CreateChannel(Config.Endpoint, Config, LoggerFactory);
+        using var channel = ChannelsCache.CreateChannel(_config.Endpoint, _config, LoggerFactory);
 
         var client = new DiscoveryService.DiscoveryServiceClient(channel);
 
         var request = new ListEndpointsRequest
         {
-            Database = Config.Database
+            Database = _config.Database
         };
 
         var requestSettings = new RequestSettings
         {
-            TransportTimeout = Config.EndpointDiscoveryTimeout
+            TransportTimeout = _config.EndpointDiscoveryTimeout
         };
 
         var options = GetCallOptions(requestSettings, false);
@@ -129,7 +194,7 @@ public class Driver : GrpcTransport
         if (!response.Operation.Ready)
         {
             var error = "Unexpected non-ready endpoint discovery operation.";
-            Logger.LogError($"Endpoint discovery internal error: {error}");
+            _logger.LogError($"Endpoint discovery internal error: {error}");
 
             return new Status(StatusCode.ClientInternalError, error);
         }
@@ -137,23 +202,23 @@ public class Driver : GrpcTransport
         var status = Status.FromProto(response.Operation.Status, response.Operation.Issues);
         if (!status.IsSuccess)
         {
-            Logger.LogWarning($"Unsuccessful endpoint discovery: {status}");
+            _logger.LogWarning($"Unsuccessful endpoint discovery: {status}");
             return status;
         }
 
         if (response.Operation.Result is null)
         {
             var error = "Unexpected empty endpoint discovery result.";
-            Logger.LogError($"Endpoint discovery internal error: {error}");
+            _logger.LogError($"Endpoint discovery internal error: {error}");
 
             return new Status(StatusCode.ClientInternalError, error);
         }
 
         var resultProto = response.Operation.Result.Unpack<ListEndpointsResult>();
 
-        Logger.LogInformation($"Successfully discovered endpoints: {resultProto.Endpoints.Count}" +
-                              $", self location: {resultProto.SelfLocation}" +
-                              $", sdk info: {_sdkInfo}");
+        _logger.LogInformation($"Successfully discovered endpoints: {resultProto.Endpoints.Count}" +
+                               $", self location: {resultProto.SelfLocation}" +
+                               $", sdk info: {_sdkInfo}");
 
         _channels.UpdateEndpoints(resultProto);
 
@@ -162,47 +227,42 @@ public class Driver : GrpcTransport
 
     private async Task PeriodicDiscovery()
     {
-        while (!Disposed)
+        while (!_disposed)
         {
             try
             {
-                await Task.Delay(Config.EndpointDiscoveryInterval);
+                await Task.Delay(_config.EndpointDiscoveryInterval);
                 _ = await DiscoverEndpoints();
             }
             catch (RpcException e)
             {
-                Logger.LogWarning($"RPC error during endpoint discovery: {e.Status}");
+                _logger.LogWarning($"RPC error during endpoint discovery: {e.Status}");
             }
             catch (Exception e)
             {
-                Logger.LogError($"Unexpected exception during session pool periodic check: {e}");
+                _logger.LogError($"Unexpected exception during session pool periodic check: {e}");
             }
         }
     }
 
-    protected override void OnRpcError(string endpoint)
+    private void PessimizeEndpoint(string endpoint)
     {
         var ratio = _channels.PessimizeEndpoint(endpoint);
-        if (ratio != null && ratio > Config.PessimizedEndpointRatioTreshold)
+        if (ratio != null && ratio > _config.PessimizedEndpointRatioTreshold)
         {
-            Logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
+            _logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
             _ = Task.Run(DiscoverEndpoints);
         }
-    }
-
-    protected override (string, GrpcChannel) GetChannel(string? preferredEndpoint)
-    {
-        return _channels.GetChannel(preferredEndpoint);
     }
 
     private CallOptions GetCallOptions(RequestSettings settings, bool streaming)
     {
         var meta = new Grpc.Core.Metadata
         {
-            { Metadata.RpcDatabaseHeader, Config.Database }
+            { Metadata.RpcDatabaseHeader, _config.Database }
         };
-
-        var authInfo = Config.Credentials.GetAuthInfo();
+        
+        var authInfo = _config.Credentials.GetAuthInfo();
         if (authInfo != null)
         {
             meta.Add(Metadata.RpcAuthHeader, authInfo);
@@ -214,8 +274,8 @@ public class Driver : GrpcTransport
         }
 
         var transportTimeout = streaming
-            ? Config.DefaultStreamingTransportTimeout
-            : Config.DefaultTransportTimeout;
+            ? _config.DefaultStreamingTransportTimeout
+            : _config.DefaultTransportTimeout;
 
         if (settings.TransportTimeout != null)
         {
@@ -233,23 +293,12 @@ public class Driver : GrpcTransport
 
         return options;
     }
-
+    
     private static Status ConvertStatus(Grpc.Core.Status rpcStatus)
     {
-        return new Status(
-            rpcStatus.StatusCode switch
-            {
-                Grpc.Core.StatusCode.Unavailable => StatusCode.ClientTransportUnavailable,
-                Grpc.Core.StatusCode.DeadlineExceeded => StatusCode.ClientTransportTimeout,
-                Grpc.Core.StatusCode.ResourceExhausted => StatusCode.ClientTransportResourceExhausted,
-                Grpc.Core.StatusCode.Unimplemented => StatusCode.ClientTransportUnimplemented,
-                _ => StatusCode.ClientTransportUnknown
-            },
-            new List<Issue> { new(rpcStatus.Detail) }
-        );
+        return rpcStatus.ConvertStatus();
     }
 
-    // TODO Refactoring
     internal sealed class UnaryResponse<TResponse>
     {
         internal UnaryResponse(TResponse data,

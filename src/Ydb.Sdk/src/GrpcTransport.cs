@@ -1,30 +1,24 @@
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Ydb.Sdk;
 
 // TODO Experimental [for Driver with fix call options]
 public abstract class GrpcTransport : IDisposable, IAsyncDisposable
 {
-    public ILoggerFactory LoggerFactory { get; }
-
     protected readonly ILogger Logger;
     protected readonly DriverConfig Config;
 
-    protected volatile bool Disposed;
-
-    internal GrpcTransport(DriverConfig driverConfig, ILoggerFactory? loggerFactory)
+    internal GrpcTransport(DriverConfig driverConfig, ILogger logger)
     {
-        LoggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
-        Logger = LoggerFactory.CreateLogger<GrpcTransport>();
+        Logger = logger;
         Config = driverConfig;
     }
 
     ~GrpcTransport()
     {
-        Dispose(Disposed);
+        Dispose(false);
     }
 
     public void Dispose()
@@ -42,19 +36,16 @@ public abstract class GrpcTransport : IDisposable, IAsyncDisposable
 
     protected abstract void Dispose(bool disposing);
 
-    internal async Task<Driver.UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
+    internal async Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         RequestSettings settings,
-        TRequest request,
-        string? preferredEndpoint = null
+        TRequest request
     ) where TRequest : class where TResponse : class
     {
-        var (endpoint, channel) = GetChannel(preferredEndpoint);
+        var (endpoint, channel) = GetChannel();
         var callInvoker = channel.CreateCallInvoker();
 
-        Logger.LogTrace($"Unary call" +
-                        $", method: {method.Name}" +
-                        $", endpoint: {endpoint}");
+        Logger.LogTrace("Unary call, method: {MethodName}, endpoint: {Endpoint}", method.Name, endpoint);
 
         try
         {
@@ -62,27 +53,21 @@ public abstract class GrpcTransport : IDisposable, IAsyncDisposable
                 method: method,
                 host: null,
                 options: GetCallOptions(settings, false),
-                request: request);
-
-            var data = await call.ResponseAsync;
-            var trailers = call.GetTrailers();
-
-            return new Driver.UnaryResponse<TResponse>(
-                data: data,
-                usedEndpoint: endpoint,
-                trailers: trailers
+                request: request
             );
+
+            return await call.ResponseAsync;
         }
         catch (RpcException e)
         {
-            OnRpcError(endpoint);
-            throw new Driver.TransportException(e); // TODO fix 
+            OnRpcError(endpoint, e);
+            throw new TransportException(e);
         }
     }
 
-    protected abstract (string, GrpcChannel) GetChannel(string? preferredEndpoint);
+    protected abstract (string, GrpcChannel) GetChannel();
 
-    protected abstract void OnRpcError(string endpoint);
+    protected abstract void OnRpcError(string endpoint, RpcException e);
 
     private CallOptions GetCallOptions(RequestSettings settings, bool streaming)
     {
@@ -122,4 +107,14 @@ public abstract class GrpcTransport : IDisposable, IAsyncDisposable
 
         return options;
     }
+}
+
+public class TransportException : Exception
+{
+    internal TransportException(RpcException e) : base($"Transport exception: {e.Message}", e)
+    {
+        Status = e.Status.ConvertStatus();
+    }
+
+    public Status Status { get; }
 }
