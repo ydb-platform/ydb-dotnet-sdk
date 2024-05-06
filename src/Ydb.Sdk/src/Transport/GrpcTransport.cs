@@ -2,13 +2,13 @@ using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 
-namespace Ydb.Sdk;
+namespace Ydb.Sdk.Transport;
 
 // TODO Experimental [for Driver with fix call options]
 public abstract class GrpcTransport : IDisposable, IAsyncDisposable
 {
-    protected readonly ILogger Logger;
     protected readonly DriverConfig Config;
+    protected readonly ILogger Logger;
 
     internal GrpcTransport(DriverConfig driverConfig, ILogger logger)
     {
