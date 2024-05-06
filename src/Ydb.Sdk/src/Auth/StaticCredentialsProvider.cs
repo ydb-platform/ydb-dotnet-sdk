@@ -194,3 +194,10 @@ public class StaticCredentialsProvider : ICredentialsProvider
         }
     }
 }
+
+public class InvalidCredentialsException : Exception
+{
+    public InvalidCredentialsException(string message) : base(message)
+    {
+    }
+}
