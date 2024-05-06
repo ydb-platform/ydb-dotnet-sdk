@@ -261,7 +261,7 @@ public class Driver : IDisposable, IAsyncDisposable
         {
             { Metadata.RpcDatabaseHeader, _config.Database }
         };
-        
+
         var authInfo = _config.Credentials.GetAuthInfo();
         if (authInfo != null)
         {
@@ -293,7 +293,7 @@ public class Driver : IDisposable, IAsyncDisposable
 
         return options;
     }
-    
+
     private static Status ConvertStatus(Grpc.Core.Status rpcStatus)
     {
         return rpcStatus.ConvertStatus();
