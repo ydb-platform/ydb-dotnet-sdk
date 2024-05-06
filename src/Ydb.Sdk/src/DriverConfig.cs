@@ -6,15 +6,10 @@ namespace Ydb.Sdk;
 public class DriverConfig
 {
     public string Endpoint { get; }
-
     public string Database { get; }
-
     public ICredentialsProvider Credentials { get; }
-
     public X509Certificate? CustomServerCertificate { get; }
-
     public TimeSpan DefaultTransportTimeout { get; }
-
     public TimeSpan DefaultStreamingTransportTimeout { get; }
 
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);

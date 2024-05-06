@@ -247,3 +247,21 @@ public class StatusUnsuccessfulException : Exception
 
     public Status Status { get; }
 }
+
+internal static class StatusExtensions
+{
+    internal static Status ConvertStatus(this Grpc.Core.Status rpcStatus)
+    {
+        return new Status(
+            rpcStatus.StatusCode switch
+            {
+                Grpc.Core.StatusCode.Unavailable => StatusCode.ClientTransportUnavailable,
+                Grpc.Core.StatusCode.DeadlineExceeded => StatusCode.ClientTransportTimeout,
+                Grpc.Core.StatusCode.ResourceExhausted => StatusCode.ClientTransportResourceExhausted,
+                Grpc.Core.StatusCode.Unimplemented => StatusCode.ClientTransportUnimplemented,
+                _ => StatusCode.ClientTransportUnknown
+            },
+            new List<Issue> { new(rpcStatus.Detail) }
+        );
+    }
+}
