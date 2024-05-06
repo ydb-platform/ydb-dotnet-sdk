@@ -5,7 +5,7 @@ using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk.Auth;
 
-public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
+public class StaticCredentialsProvider : ICredentialsProvider
 {
     private readonly ILogger _logger;
     private readonly string _user;
@@ -22,6 +22,8 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 
     public float RefreshRatio = .1f;
 
+    private AuthClient? _authClient;
+
     /// <summary>
     /// 
     /// </summary>
@@ -36,11 +38,6 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
         _logger = loggerFactory.CreateLogger<StaticCredentialsProvider>();
     }
 
-    private async Task Initialize()
-    {
-        _token = await ReceiveToken();
-    }
-
     public string GetAuthInfo()
     {
         var token = _token;
@@ -53,7 +50,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
                 _logger.LogWarning(
                     "Blocking for initial token acquirement, please use explicit Initialize async method.");
 
-                Initialize().Wait();
+                _token = ReceiveToken().Result;
 
                 return _token!.Token;
             }
@@ -134,14 +131,13 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 
     private async Task<TokenData> FetchToken()
     {
-        if (_driver is null)
+        if (_driver is null && _authClient is null)
         {
             _logger.LogError("Driver in for static auth not provided");
             throw new NullReferenceException();
         }
-
-        var client = new AuthClient(_driver);
-        var loginResponse = await client.Login(_user, _password);
+        
+        var loginResponse = await _authClient!.Login(_user, _password);
         if (loginResponse.Status.StatusCode == StatusCode.Unauthorized)
         {
             throw new InvalidCredentialsException(Issue.IssuesToString(loginResponse.Status.Issues));
@@ -149,22 +145,13 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 
         loginResponse.Status.EnsureSuccess();
         var token = loginResponse.Result.Token;
-        var jwt = new JwtSecurityToken(token);
-        return new TokenData(token, jwt.ValidTo, RefreshRatio);
+        
+        return new TokenData(token, new JwtSecurityToken(token).ValidTo, RefreshRatio);
     }
 
-    public async Task ProvideConfig(DriverConfig driverConfig)
+    public void ProvideConfig(DriverConfig driverConfig)
     {
-        _driver = await Driver.CreateInitialized(
-            new DriverConfig(
-                driverConfig.Endpoint,
-                driverConfig.Database,
-                new AnonymousProvider(),
-                driverConfig.DefaultTransportTimeout,
-                driverConfig.DefaultStreamingTransportTimeout,
-                driverConfig.CustomServerCertificate));
-
-        await Initialize();
+        _authClient = new AuthClient(driverConfig, _logger);
     }
 
     private class TokenData

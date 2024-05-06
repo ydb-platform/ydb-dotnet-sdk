@@ -70,12 +70,6 @@ public class Driver : IDisposable, IAsyncDisposable
 
     public async Task Initialize()
     {
-        if (_config.Credentials is IUseDriverConfig useDriverConfig)
-        {
-            await useDriverConfig.ProvideConfig(_config);
-            _logger.LogInformation("DriverConfig provided to IUseDriverConfig interface");
-        }
-
         _logger.LogInformation("Started initial endpoint discovery");
 
         for (var i = 0; i < _config.AttemptDiscovery; i++)
