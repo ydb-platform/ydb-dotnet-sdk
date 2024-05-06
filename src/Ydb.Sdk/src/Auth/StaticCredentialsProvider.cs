@@ -136,7 +136,7 @@ public class StaticCredentialsProvider : ICredentialsProvider
             _logger.LogError("Driver in for static auth not provided");
             throw new NullReferenceException();
         }
-        
+
         var loginResponse = await _authClient!.Login(_user, _password);
         if (loginResponse.Status.StatusCode == StatusCode.Unauthorized)
         {
@@ -145,7 +145,7 @@ public class StaticCredentialsProvider : ICredentialsProvider
 
         loginResponse.Status.EnsureSuccess();
         var token = loginResponse.Result.Token;
-        
+
         return new TokenData(token, new JwtSecurityToken(token).ValidTo, RefreshRatio);
     }
 

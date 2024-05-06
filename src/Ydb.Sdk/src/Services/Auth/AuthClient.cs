@@ -26,7 +26,7 @@ internal class AuthClient
             OperationParams = settings.MakeOperationParams(),
             User = user
         };
-        
+
         if (password is not null)
         {
             request.Password = password;
