@@ -1,4 +1,5 @@
 ﻿using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Sdk.Value;
 using Ydb.Table;
 using Ydb.Table.V1;
@@ -63,7 +64,7 @@ public partial class Session
 
         var request = new ExecuteDataQueryRequest
         {
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = settings.MakeOperationParams(),
             SessionId = Id,
             TxControl = txControl.ToProto(Logger),
             Query = new Ydb.Table.Query
@@ -83,14 +84,15 @@ public partial class Session
             var response = await UnaryCall(
                 method: TableService.ExecuteDataQueryMethod,
                 request: request,
-                settings: settings);
+                settings: settings
+            );
 
-            var status = UnpackOperation(response.Data.Operation, out ExecuteQueryResult? resultProto);
+            var status = response.Data.Operation.TryUnpack(out ExecuteQueryResult? resultProto);
             OnResponseStatus(status);
 
             var txState = TransactionState.Unknown;
             Transaction? tx = null;
-            if (resultProto != null && resultProto.TxMeta != null)
+            if (resultProto?.TxMeta != null)
             {
                 txState = resultProto.TxMeta.Id.Length > 0
                     ? TransactionState.Active

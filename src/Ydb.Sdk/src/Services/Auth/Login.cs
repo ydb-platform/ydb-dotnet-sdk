@@ -1,6 +1,7 @@
 using Ydb.Auth;
 using Ydb.Auth.V1;
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 
 namespace Ydb.Sdk.Services.Auth;
 
@@ -39,7 +40,7 @@ public partial class AuthClient
         settings ??= new LoginSettings();
         var request = new LoginRequest
         {
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = settings.MakeOperationParams(),
             User = user
         };
         if (password is not null)
@@ -49,13 +50,13 @@ public partial class AuthClient
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: AuthService.LoginMethod,
                 request: request,
                 settings: settings
             );
 
-            var status = UnpackOperation(response.Data.Operation, out LoginResult? resultProto);
+            var status = response.Data.Operation.TryUnpack(out LoginResult? resultProto);
 
             LoginResponse.ResultData? result = null;
 

@@ -91,7 +91,7 @@ public partial class TableClient
 
         var request = new AlterTableRequest
         {
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = settings.MakeOperationParams(),
             Path = tablePath,
             AddIndexes =
             {
@@ -106,18 +106,20 @@ public partial class TableClient
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: TableService.AlterTableMethod,
                 request: request,
-                settings: settings);
+                settings: settings
+            );
 
             return new AlterTableOperation(
-                new OperationsClient(Driver),
-                ClientOperation.FromProto(response.Data.Operation));
+                new OperationsClient(_driver),
+                ClientOperation.FromProto(response.Data.Operation)
+            );
         }
         catch (Driver.TransportException e)
         {
-            return new AlterTableOperation(new OperationsClient(Driver), e.Status);
+            return new AlterTableOperation(new OperationsClient(_driver), e.Status);
         }
     }
 }

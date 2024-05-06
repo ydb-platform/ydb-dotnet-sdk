@@ -1,4 +1,5 @@
 ﻿using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -30,7 +31,8 @@ public class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespons
                 driver: driver,
                 sessionPool: null,
                 id: resultProto.SessionId,
-                endpoint: endpoint);
+                endpoint: endpoint
+            );
 
             return new ResultData(
                 session: session
@@ -47,22 +49,23 @@ public partial class TableClient
 
         var request = new CreateSessionRequest
         {
-            OperationParams = MakeOperationParams(settings)
+            OperationParams = settings.MakeOperationParams()
         };
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: TableService.CreateSessionMethod,
                 request: request,
-                settings: settings);
+                settings: settings
+            );
 
-            var status = UnpackOperation(response.Data.Operation, out CreateSessionResult? resultProto);
+            var status = response.Data.Operation.TryUnpack(out CreateSessionResult? resultProto);
 
             CreateSessionResponse.ResultData? result = null;
             if (status.IsSuccess && resultProto != null)
             {
-                result = CreateSessionResponse.ResultData.FromProto(resultProto, Driver, response.UsedEndpoint);
+                result = CreateSessionResponse.ResultData.FromProto(resultProto, _driver, response.UsedEndpoint);
             }
 
             return new CreateSessionResponse(status, result);

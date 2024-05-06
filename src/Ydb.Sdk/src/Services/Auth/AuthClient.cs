@@ -1,10 +1,11 @@
-using Ydb.Sdk.Client;
-
 namespace Ydb.Sdk.Services.Auth;
 
-public partial class AuthClient : ClientBase
+public partial class AuthClient
 {
-    public AuthClient(Driver driver) : base(driver)
+    private readonly Driver _driver;
+
+    public AuthClient(Driver driver)
     {
+        _driver = driver;
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Ydb.Scheme;
 using Ydb.Scheme.V1;
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Services.Operations;
 
 namespace Ydb.Sdk.Services.Scheme;
 
@@ -117,11 +118,13 @@ public class ListDirectoryResponse : ResponseWithResultBase<ListDirectoryRespons
     }
 }
 
-public class SchemeClient : ClientBase
+public class SchemeClient
 {
+    private readonly Driver _driver;
+
     public SchemeClient(Driver driver)
-        : base(driver)
     {
+        _driver = driver;
     }
 
     public async Task<ListDirectoryResponse> ListDirectory(string path, ListDirectorySettings? settings = null)
@@ -130,19 +133,19 @@ public class SchemeClient : ClientBase
 
         var request = new ListDirectoryRequest
         {
-            OperationParams = MakeOperationParams(settings),
+            OperationParams = settings.MakeOperationParams(),
             Path = path
         };
 
         try
         {
-            var response = await Driver.UnaryCall(
+            var response = await _driver.UnaryCall(
                 method: SchemeService.ListDirectoryMethod,
                 request: request,
-                settings: settings);
+                settings: settings
+            );
 
-            ListDirectoryResult? resultProto;
-            var status = UnpackOperation(response.Data.Operation, out resultProto);
+            var status = response.Data.Operation.TryUnpack(out ListDirectoryResult? resultProto);
 
             ListDirectoryResponse.ResultData? result = null;
             if (status.IsSuccess && resultProto != null)
