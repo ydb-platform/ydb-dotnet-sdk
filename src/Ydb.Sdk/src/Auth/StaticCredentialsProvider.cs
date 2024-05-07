@@ -11,8 +11,6 @@ public class StaticCredentialsProvider : ICredentialsProvider
     private readonly string _user;
     private readonly string? _password;
 
-    private Driver? _driver;
-
     public int MaxRetries = 5;
 
     private readonly object _lock = new();
@@ -38,6 +36,11 @@ public class StaticCredentialsProvider : ICredentialsProvider
         _logger = loggerFactory.CreateLogger<StaticCredentialsProvider>();
     }
 
+    private async Task UpdateToken()
+    {
+        _token = await ReceiveToken();
+    }
+
     public string GetAuthInfo()
     {
         var token = _token;
@@ -50,7 +53,7 @@ public class StaticCredentialsProvider : ICredentialsProvider
                 _logger.LogWarning(
                     "Blocking for initial token acquirement, please use explicit Initialize async method.");
 
-                _token = ReceiveToken().Result;
+                UpdateToken().Wait();
 
                 return _token!.Token;
             }
@@ -63,7 +66,7 @@ public class StaticCredentialsProvider : ICredentialsProvider
                 if (!_token!.IsExpired()) return _token.Token;
                 _logger.LogWarning("Blocking on expired token.");
 
-                _token = ReceiveToken().Result;
+                UpdateToken().Wait();
 
                 return _token.Token;
             }
@@ -131,7 +134,7 @@ public class StaticCredentialsProvider : ICredentialsProvider
 
     private async Task<TokenData> FetchToken()
     {
-        if (_driver is null && _authClient is null)
+        if (_authClient is null)
         {
             _logger.LogError("Driver in for static auth not provided");
             throw new NullReferenceException();

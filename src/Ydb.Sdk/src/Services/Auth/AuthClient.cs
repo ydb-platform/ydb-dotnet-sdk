@@ -12,7 +12,7 @@ internal class AuthClient
     private readonly DriverConfig _config;
     private readonly ILogger _logger;
 
-    public AuthClient(DriverConfig config, ILogger logger)
+    public AuthClient(DriverConfig config,  ILogger logger)
     {
         _config = config;
         _logger = logger;
@@ -34,7 +34,7 @@ internal class AuthClient
 
         try
         {
-            await using var transport = new FixedGrpcChannelTransport(_config, _logger);
+            await using var transport = new AuthGrpcChannelTransport(_config, _logger);
 
             var response = await transport.UnaryCall(
                 method: AuthService.LoginMethod,
