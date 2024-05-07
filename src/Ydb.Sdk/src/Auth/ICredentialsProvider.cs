@@ -4,5 +4,8 @@ public interface ICredentialsProvider
 {
     string? GetAuthInfo();
 
-    Task ProvideConfig(DriverConfig driverConfig) => Task.CompletedTask;
+    Task ProvideConfig(DriverConfig driverConfig)
+    {
+        return Task.CompletedTask;
+    }
 }

@@ -12,7 +12,7 @@ internal class AuthClient
     private readonly DriverConfig _config;
     private readonly ILogger _logger;
 
-    public AuthClient(DriverConfig config,  ILogger logger)
+    public AuthClient(DriverConfig config, ILogger logger)
     {
         _config = config;
         _logger = logger;
