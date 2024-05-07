@@ -5,13 +5,11 @@ using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk.Auth;
 
-public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
+public class StaticCredentialsProvider : ICredentialsProvider
 {
     private readonly ILogger _logger;
     private readonly string _user;
     private readonly string? _password;
-
-    private Driver? _driver;
 
     public int MaxRetries = 5;
 
@@ -21,6 +19,8 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
     private volatile Task? _refreshTask;
 
     public float RefreshRatio = .1f;
+
+    private AuthClient? _authClient;
 
     /// <summary>
     /// 
@@ -36,7 +36,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
         _logger = loggerFactory.CreateLogger<StaticCredentialsProvider>();
     }
 
-    private async Task Initialize()
+    private async Task UpdateToken()
     {
         _token = await ReceiveToken();
     }
@@ -53,7 +53,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
                 _logger.LogWarning(
                     "Blocking for initial token acquirement, please use explicit Initialize async method.");
 
-                Initialize().Wait();
+                UpdateToken().Wait();
 
                 return _token!.Token;
             }
@@ -66,7 +66,7 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
                 if (!_token!.IsExpired()) return _token.Token;
                 _logger.LogWarning("Blocking on expired token.");
 
-                _token = ReceiveToken().Result;
+                UpdateToken().Wait();
 
                 return _token.Token;
             }
@@ -134,14 +134,13 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 
     private async Task<TokenData> FetchToken()
     {
-        if (_driver is null)
+        if (_authClient is null)
         {
             _logger.LogError("Driver in for static auth not provided");
             throw new NullReferenceException();
         }
 
-        var client = new AuthClient(_driver);
-        var loginResponse = await client.Login(_user, _password);
+        var loginResponse = await _authClient!.Login(_user, _password);
         if (loginResponse.Status.StatusCode == StatusCode.Unauthorized)
         {
             throw new InvalidCredentialsException(Issue.IssuesToString(loginResponse.Status.Issues));
@@ -149,22 +148,15 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
 
         loginResponse.Status.EnsureSuccess();
         var token = loginResponse.Result.Token;
-        var jwt = new JwtSecurityToken(token);
-        return new TokenData(token, jwt.ValidTo, RefreshRatio);
+
+        return new TokenData(token, new JwtSecurityToken(token).ValidTo, RefreshRatio);
     }
 
     public async Task ProvideConfig(DriverConfig driverConfig)
     {
-        _driver = await Driver.CreateInitialized(
-            new DriverConfig(
-                driverConfig.Endpoint,
-                driverConfig.Database,
-                new AnonymousProvider(),
-                driverConfig.DefaultTransportTimeout,
-                driverConfig.DefaultStreamingTransportTimeout,
-                driverConfig.CustomServerCertificate));
+        _authClient = new AuthClient(driverConfig, _logger);
 
-        await Initialize();
+        await UpdateToken();
     }
 
     private class TokenData
@@ -205,5 +197,12 @@ public class StaticCredentialsProvider : ICredentialsProvider, IUseDriverConfig
         {
             return DateTime.UtcNow >= RefreshAt;
         }
+    }
+}
+
+public class InvalidCredentialsException : Exception
+{
+    public InvalidCredentialsException(string message) : base(message)
+    {
     }
 }

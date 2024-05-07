@@ -4,11 +4,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Transport;
 
-internal class FixedGrpcChannelTransport : GrpcTransport
+internal class AuthGrpcChannelTransport : GrpcTransport
 {
     private readonly GrpcChannel _channel;
 
-    public FixedGrpcChannelTransport(
+    public AuthGrpcChannelTransport(
         DriverConfig driverConfig,
         ILogger logger
     ) : base(
