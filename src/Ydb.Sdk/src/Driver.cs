@@ -33,7 +33,6 @@ public class Driver : IDisposable, IAsyncDisposable
     public static async Task<Driver> CreateInitialized(DriverConfig config, ILoggerFactory? loggerFactory = null)
     {
         var driver = new Driver(config, loggerFactory);
-        await config.Credentials.ProvideConfig(config);
         await driver.Initialize();
         return driver;
     }
@@ -70,6 +69,8 @@ public class Driver : IDisposable, IAsyncDisposable
 
     public async Task Initialize()
     {
+        await _config.Credentials.ProvideConfig(_config);
+        
         _logger.LogInformation("Started initial endpoint discovery");
 
         for (var i = 0; i < _config.AttemptDiscovery; i++)
