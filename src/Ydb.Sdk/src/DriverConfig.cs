@@ -31,8 +31,6 @@ public class DriverConfig
         DefaultTransportTimeout = defaultTransportTimeout ?? TimeSpan.FromMinutes(1);
         DefaultStreamingTransportTimeout = defaultStreamingTransportTimeout ?? TimeSpan.FromMinutes(10);
         CustomServerCertificate = customServerCertificate;
-
-        Credentials.ProvideConfig(this);
     }
 
     private static string FormatEndpoint(string endpoint)

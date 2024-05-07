@@ -33,6 +33,7 @@ public class Driver : IDisposable, IAsyncDisposable
     public static async Task<Driver> CreateInitialized(DriverConfig config, ILoggerFactory? loggerFactory = null)
     {
         var driver = new Driver(config, loggerFactory);
+        await config.Credentials.ProvideConfig(config);
         await driver.Initialize();
         return driver;
     }
