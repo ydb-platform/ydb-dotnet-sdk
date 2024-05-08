@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Xunit;
 using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Tests.Fixture;
@@ -11,14 +10,14 @@ namespace Ydb.Sdk.Tests.Table;
 public class GracefulShutdownTests : IClassFixture<TableClientFixture>
 {
     private const string ShutdownUrl = "http://localhost:8765/actors/kqp_proxy?force_shutdown=all";
-    
+
     private readonly TableClientFixture _tableClientFixture;
 
     public GracefulShutdownTests(TableClientFixture tableClientFixture)
     {
         _tableClientFixture = tableClientFixture;
     }
-    
+
     // [Fact]
     // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/68
     public async Task Test()

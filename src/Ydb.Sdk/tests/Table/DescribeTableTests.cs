@@ -1,7 +1,4 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Table;
@@ -15,7 +12,7 @@ public class DescribeTableTests : IClassFixture<TableClientFixture>
     {
         _tableClientFixture = tableClientFixture;
     }
-    
+
     [Fact]
     public async Task DescribeNotExisting()
     {

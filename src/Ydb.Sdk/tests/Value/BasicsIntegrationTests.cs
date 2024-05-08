@@ -9,12 +9,12 @@ namespace Ydb.Sdk.Tests.Value;
 public class TestBasicIntegration : IClassFixture<TableClientFixture>
 {
     private readonly TableClientFixture _tableClientFixture;
-    
+
     public TestBasicIntegration(TableClientFixture tableClientFixture)
     {
         _tableClientFixture = tableClientFixture;
     }
-    
+
     [Fact]
     public async Task Select1()
     {

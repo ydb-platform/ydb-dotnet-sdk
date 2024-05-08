@@ -7,7 +7,7 @@ namespace Ydb.Sdk.Tests.Fixture;
 public abstract class DriverFixture : IAsyncLifetime
 {
     protected readonly Driver Driver;
-    
+
     protected DriverFixture(DriverConfig? driverConfig = null)
     {
         driverConfig ??= new DriverConfig(
@@ -17,7 +17,7 @@ public abstract class DriverFixture : IAsyncLifetime
 
         Driver = new Driver(driverConfig, GetLoggerFactory());
     }
-    
+
     protected abstract void ClientDispose();
 
     public Task InitializeAsync() => Driver.Initialize();
@@ -25,10 +25,10 @@ public abstract class DriverFixture : IAsyncLifetime
     public Task DisposeAsync()
     {
         ClientDispose();
-        
+
         return Driver.DisposeAsync().AsTask();
     }
-    
+
     private static ILoggerFactory? GetLoggerFactory()
     {
         return new ServiceCollection()
