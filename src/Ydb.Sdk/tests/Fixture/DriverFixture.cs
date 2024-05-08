@@ -20,7 +20,10 @@ public abstract class DriverFixture : IAsyncLifetime
 
     protected abstract void ClientDispose();
 
-    public Task InitializeAsync() => Driver.Initialize();
+    public Task InitializeAsync()
+    {
+        return Driver.Initialize();
+    }
 
     public Task DisposeAsync()
     {
