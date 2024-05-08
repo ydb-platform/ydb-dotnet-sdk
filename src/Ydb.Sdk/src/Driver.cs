@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
 using Ydb.Discovery.V1;
-using Ydb.Sdk.Auth;
 
 namespace Ydb.Sdk;
 
@@ -70,11 +69,7 @@ public class Driver : IDisposable, IAsyncDisposable
 
     public async Task Initialize()
     {
-        if (_config.Credentials is IUseDriverConfig useDriverConfig)
-        {
-            await useDriverConfig.ProvideConfig(_config);
-            _logger.LogInformation("DriverConfig provided to IUseDriverConfig interface");
-        }
+        await _config.Credentials.ProvideConfig(_config);
 
         _logger.LogInformation("Started initial endpoint discovery");
 

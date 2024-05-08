@@ -8,7 +8,7 @@ using Ydb.Sdk.Services.Table;
 namespace Ydb.Sdk.Tests.Auth;
 
 [Trait("Category", "Integration")]
-[Collection("TODO")]
+[Collection("Auth tests")]
 public class TestStaticAuth : IDisposable
 {
     // ReSharper disable once NotAccessedField.Local

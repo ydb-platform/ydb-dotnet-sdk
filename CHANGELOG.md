@@ -1,3 +1,6 @@
+## v0.3.1
+- Fix error: Access denied without user token
+
 ## v0.3.0
 - Add rollback transaction API
 
