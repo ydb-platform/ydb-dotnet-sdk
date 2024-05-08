@@ -1,37 +1,30 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Table;
 
 [Trait("Category", "Integration")]
-public class TestGracefulShutdown
+[CollectionDefinition("GracefulShutdown isolation test", DisableParallelization = true)]
+[Collection("GracefulShutdown isolation test")]
+public class GracefulShutdownTests : IClassFixture<TableClientFixture>
 {
-    private readonly ILoggerFactory _loggerFactory;
-
-    private readonly DriverConfig _driverConfig = new(
-        endpoint: "grpc://localhost:2136",
-        database: "/local"
-    );
-
     private const string ShutdownUrl = "http://localhost:8765/actors/kqp_proxy?force_shutdown=all";
+    
+    private readonly TableClientFixture _tableClientFixture;
 
-    public TestGracefulShutdown()
+    public GracefulShutdownTests(TableClientFixture tableClientFixture)
     {
-        _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
+        _tableClientFixture = tableClientFixture;
     }
-
+    
     // [Fact]
     // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/68
     public async Task Test()
     {
-        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
-        using var tableClient = new TableClient(driver);
-
-
         var session1 = "";
-        await tableClient.SessionExec(
+        await _tableClientFixture.TableClient.SessionExec(
             async session =>
             {
                 session1 = session.Id;
@@ -40,7 +33,7 @@ public class TestGracefulShutdown
         );
 
         var session2 = "";
-        await tableClient.SessionExec(
+        await _tableClientFixture.TableClient.SessionExec(
             async session =>
             {
                 session2 = session.Id;
@@ -58,7 +51,7 @@ public class TestGracefulShutdown
 
         // new session
         var session3 = "";
-        await tableClient.SessionExec(
+        await _tableClientFixture.TableClient.SessionExec(
             async session =>
             {
                 session3 = session.Id;
@@ -69,7 +62,7 @@ public class TestGracefulShutdown
         Assert.Equal(session2, session3);
 
         var session4 = "";
-        await tableClient.SessionExec(
+        await _tableClientFixture.TableClient.SessionExec(
             async session =>
             {
                 session4 = session.Id;

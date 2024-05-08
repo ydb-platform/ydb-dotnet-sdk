@@ -1,26 +1,22 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Table;
 
-public class TestRollbackTable
+public class RollbackTableTests : IClassFixture<TableClientFixture>
 {
-    private readonly ILoggerFactory _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
+    private readonly TableClientFixture _tableClientFixture;
 
-    private readonly DriverConfig _driverConfig = new(
-        endpoint: "grpc://localhost:2136",
-        database: "/local"
-    );
+    public RollbackTableTests(TableClientFixture tableClientFixture)
+    {
+        _tableClientFixture = tableClientFixture;
+    }
 
     [Fact]
     public async Task RollbackTransactionTest()
     {
-        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
-        using var tableClient = new TableClient(driver);
-
-        var response = await tableClient.SessionExec(
+        var response = await _tableClientFixture.TableClient.SessionExec(
             async session => await session.ExecuteSchemeQuery(@"
                 CREATE TABLE `test` (
                     id Int32 NOT NULL,
@@ -30,7 +26,7 @@ public class TestRollbackTable
         );
         response.Status.EnsureSuccess();
 
-        response = await tableClient.SessionExec(async session =>
+        response = await _tableClientFixture.TableClient.SessionExec(async session =>
             {
                 var res = await session.ExecuteDataQuery("UPSERT INTO test(id, name) VALUES (1, 'Example')",
                     TxControl.BeginSerializableRW());
@@ -43,7 +39,7 @@ public class TestRollbackTable
 
         response.Status.EnsureSuccess();
 
-        response = await tableClient.SessionExec(async session =>
+        response = await _tableClientFixture.TableClient.SessionExec(async session =>
             await session.ExecuteDataQuery("SELECT COUNT(*) FROM test", TxControl.BeginSerializableRW().Commit())
         );
 
