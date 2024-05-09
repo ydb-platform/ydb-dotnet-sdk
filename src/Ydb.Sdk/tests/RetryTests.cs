@@ -5,7 +5,7 @@ using Ydb.Issue;
 namespace Ydb.Sdk.Tests;
 
 [Trait("Category", "Unit")]
-public class TestRetry
+public class RetryTests
 {
     private const StatusCode WrongStatusCode = (StatusCode)123456; // there is no status code with this value 
 

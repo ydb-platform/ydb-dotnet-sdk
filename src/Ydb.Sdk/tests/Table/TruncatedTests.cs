@@ -1,58 +1,44 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Tests.Fixture;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Table;
 
 [Trait("Category", "Integration")]
-public class Truncated
+public class TruncatedTests : IClassFixture<TableClientFixture>
 {
-    private readonly ILoggerFactory _loggerFactory;
+    private readonly TableClientFixture _tableClientFixture;
 
-    private readonly DriverConfig _driverConfig = new(
-        endpoint: "grpc://localhost:2136",
-        database: "/local"
-    );
-
-    public Truncated()
+    public TruncatedTests(TableClientFixture tableClientFixture)
     {
-        _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
+        _tableClientFixture = tableClientFixture;
     }
 
 
     [Fact]
     public async Task NotAllowTruncated()
     {
-        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
-        using var tableClient = new TableClient(driver);
-
-
         const string query = "SELECT * FROM AS_TABLE($data)";
         var parameters = new Dictionary<string, YdbValue> { { "$data", MakeData(1001) } };
 
-        await Assert.ThrowsAsync<TruncateException>(async () => await tableClient.SessionExec(async session =>
-            await session.ExecuteDataQuery(
-                query: query,
-                parameters: parameters,
-                txControl: TxControl.BeginSerializableRW().Commit()
-            )
-        ));
+        await Assert.ThrowsAsync<TruncateException>(async () => await _tableClientFixture.TableClient
+            .SessionExec(async session => await session.ExecuteDataQuery(
+                    query: query,
+                    parameters: parameters,
+                    txControl: TxControl.BeginSerializableRW().Commit()
+                )
+            ));
     }
 
     [Fact]
     public async Task AllowTruncated()
     {
-        await using var driver = await Driver.CreateInitialized(_driverConfig, _loggerFactory);
-        using var tableClient = new TableClient(driver);
-
-
         const string query = "SELECT * FROM AS_TABLE($data)";
         var parameters = new Dictionary<string, YdbValue> { { "$data", MakeData(1001) } };
         var settings = new ExecuteDataQuerySettings { AllowTruncated = true };
 
-        var response = await tableClient.SessionExec(async session =>
+        var response = await _tableClientFixture.TableClient.SessionExec(async session =>
             await session.ExecuteDataQuery(
                 query: query,
                 parameters: parameters,

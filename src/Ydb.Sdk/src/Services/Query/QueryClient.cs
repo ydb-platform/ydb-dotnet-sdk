@@ -9,8 +9,7 @@ public class QueryClientConfig
 {
     public SessionPoolConfig SessionPoolConfig { get; }
 
-    public QueryClientConfig(
-        SessionPoolConfig? sessionPoolConfig = null)
+    public QueryClientConfig(SessionPoolConfig? sessionPoolConfig = null)
     {
         SessionPoolConfig = sessionPoolConfig ?? new SessionPoolConfig();
     }
@@ -64,7 +63,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
     }
 
     public async Task<QueryResponseWithResult<T>> Query<T>(
-        string queryString,
+        string yql,
         Dictionary<string, YdbValue>? parameters,
         Func<ExecuteQueryStream, Task<T>> func,
         ITxModeSettings? txModeSettings = null,
@@ -79,7 +78,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
             async session =>
             {
                 var tx = Tx.Begin(txModeSettings, this, session.Id);
-                return await tx.Query(queryString, parameters, func, executeQuerySettings);
+                return await tx.Query(yql, parameters, func, executeQuerySettings);
             },
             retrySettings
         );
@@ -92,13 +91,13 @@ public class QueryClient : QueryClientGrpc, IDisposable
     }
 
     public async Task<QueryResponseWithResult<T>> Query<T>(
-        string queryString,
+        string yql,
         Func<ExecuteQueryStream, Task<T>> func,
         ITxModeSettings? txModeSettings = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
-        return await Query(queryString, new Dictionary<string, YdbValue>(), func, txModeSettings, executeQuerySettings,
+        return await Query(yql, new Dictionary<string, YdbValue>(), func, txModeSettings, executeQuerySettings,
             retrySettings);
     }
 
@@ -324,6 +323,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
     public void Dispose()
     {
         Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
     private void Dispose(bool disposing)
