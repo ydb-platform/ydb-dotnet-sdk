@@ -40,18 +40,12 @@ public static class Utils
         return (ExecuteSchemeQueryResponse)response;
     }
 
-
-    internal static ServiceProvider GetServiceProvider()
+    internal static ILoggerFactory? GetLoggerFactory()
     {
         return new ServiceCollection()
             .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
-            .BuildServiceProvider();
-    }
-
-    internal static ILoggerFactory? GetLoggerFactory()
-    {
-        var serviceProvider = GetServiceProvider();
-        return serviceProvider.GetService<ILoggerFactory>();
+            .BuildServiceProvider()
+            .GetService<ILoggerFactory>();
     }
 
     internal static async Task<ExecuteSchemeQueryResponse> CreateSimpleTable(

@@ -9,18 +9,18 @@ namespace Ydb.Sdk.Tests.Auth;
 
 [Trait("Category", "Integration")]
 [Collection("Auth tests")]
-public class TestStaticAuth : IDisposable
+public class StaticAuthTests : IDisposable
 {
     // ReSharper disable once NotAccessedField.Local
     private readonly ITestOutputHelper _output;
     private readonly ILoggerFactory? _loggerFactory;
     private readonly ILogger _logger;
 
-    public TestStaticAuth(ITestOutputHelper output)
+    public StaticAuthTests(ITestOutputHelper output)
     {
         _output = output;
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
-        _logger = _loggerFactory.CreateLogger<TestStaticAuth>();
+        _logger = _loggerFactory.CreateLogger<StaticAuthTests>();
     }
 
     public void Dispose()

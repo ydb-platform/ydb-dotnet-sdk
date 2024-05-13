@@ -11,7 +11,7 @@ namespace Ydb.Sdk.Tests.Query;
 // TODO: Fix flap tests
 // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/66
 [Trait("Category", "Integration")]
-public class TestQueryIntegration
+public class QueryIntegrationTests
 {
     private readonly ILoggerFactory _loggerFactory;
 
@@ -20,10 +20,10 @@ public class TestQueryIntegration
         database: "/local"
     );
 
-    public TestQueryIntegration()
+    public QueryIntegrationTests()
     {
         _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
-        _loggerFactory.CreateLogger<TestQueryIntegration>();
+        _loggerFactory.CreateLogger<QueryIntegrationTests>();
     }
 
     // TODO uncomment when DDL support will be available on the server side

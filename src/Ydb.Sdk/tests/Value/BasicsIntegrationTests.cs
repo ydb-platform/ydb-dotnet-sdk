@@ -1,45 +1,24 @@
 using System.Text;
 using Xunit;
-using Xunit.Abstractions;
-using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Tests.Fixture;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Value;
 
 [Trait("Category", "Integration")]
-public class TestBasicIntegration : IDisposable
+public class TestBasicIntegration : IClassFixture<TableClientFixture>
 {
-    // ReSharper disable once NotAccessedField.Local
-    private readonly ITestOutputHelper _output;
+    private readonly TableClientFixture _tableClientFixture;
 
-    private readonly Driver _driver;
-    private readonly TableClient _tableClient;
-
-    public TestBasicIntegration(ITestOutputHelper output)
+    public TestBasicIntegration(TableClientFixture tableClientFixture)
     {
-        _output = output;
-        var driverConfig = new DriverConfig(
-            endpoint: "grpc://localhost:2136",
-            database: "/local"
-        );
-
-        _driver = new Driver(driverConfig);
-        _driver.Initialize().Wait();
-
-        _tableClient = new TableClient(_driver);
-    }
-
-    public void Dispose()
-    {
-        _tableClient.Dispose();
-        _driver.Dispose();
-        GC.SuppressFinalize(this);
+        _tableClientFixture = tableClientFixture;
     }
 
     [Fact]
     public async Task Select1()
     {
-        var response = await Utils.ExecuteDataQuery(_tableClient, "SELECT 1");
+        var response = await Utils.ExecuteDataQuery(_tableClientFixture.TableClient, "SELECT 1");
         var row = response.Result.ResultSets[0].Rows[0];
         Assert.Equal(1, row[0].GetInt32());
     }
@@ -47,7 +26,7 @@ public class TestBasicIntegration : IDisposable
     private async Task<YdbValue> SelectPassed(YdbValue value)
     {
         var response = await Utils.ExecuteDataQuery(
-            _tableClient,
+            _tableClientFixture.TableClient,
             "SELECT $value;",
             new Dictionary<string, YdbValue> { { "$value", value } });
         Assert.True(response.Result.ResultSets.Count > 0);
@@ -164,6 +143,7 @@ public class TestBasicIntegration : IDisposable
         var resultUint16 = await SelectPassed(YdbValue.MakeOptionalUint16(valueUint16));
         Assert.Equal(resultUint16.GetOptionalUint16(), valueUint16);
 
+        await Task.Delay(TimeSpan.FromSeconds(30));
         var valueInt32 = -40000;
         var resultInt32 = await SelectPassed(YdbValue.MakeOptionalInt32(valueInt32));
         Assert.Equal(resultInt32.GetOptionalInt32(), valueInt32);
@@ -290,7 +270,7 @@ CREATE TABLE decimal_test
     PRIMARY KEY (key)
 );
 ";
-        await Utils.ExecuteSchemeQuery(_tableClient, query);
+        await Utils.ExecuteSchemeQuery(_tableClientFixture.TableClient, query);
     }
 
     private async Task UpsertAndCheckDecimal(ulong key, decimal value)
@@ -308,7 +288,7 @@ SELECT value FROM decimal_test WHERE key = $key;
             { "$value", (YdbValue)value }
         };
 
-        var response = await Utils.ExecuteDataQuery(_tableClient, query, parameters);
+        var response = await Utils.ExecuteDataQuery(_tableClientFixture.TableClient, query, parameters);
 
         var resultSet = response.Result.ResultSets[0];
 

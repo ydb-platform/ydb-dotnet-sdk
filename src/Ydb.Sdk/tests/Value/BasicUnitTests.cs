@@ -6,12 +6,12 @@ using Ydb.Sdk.Value;
 namespace Ydb.Sdk.Tests.Value;
 
 [Trait("Category", "Unit")]
-public class TestBasicUnit
+public class BasicUnitTests
 {
     // ReSharper disable once NotAccessedField.Local
     private readonly ITestOutputHelper _output;
 
-    public TestBasicUnit(ITestOutputHelper output)
+    public BasicUnitTests(ITestOutputHelper output)
     {
         _output = output;
     }
