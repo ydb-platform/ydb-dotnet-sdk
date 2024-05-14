@@ -105,7 +105,7 @@ public class QueryExample
 
         // TODO replace with QueryClient
         // var response = await Client.Exec(
-        //     queryString: createQuery
+        //     query: createQuery
         // );
         // response.EnsureSuccess();
         using var client = new TableClient(Driver);
@@ -131,7 +131,7 @@ public class QueryExample
                 ";
 
         var response = await Client.Exec(
-            queryString: query,
+            query: query,
             parameters: DataUtils.GetDataParams(),
             txMode: TxMode.SerializableRw,
             executeQuerySettings: DefaultQuerySettings
