@@ -222,7 +222,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IClassFi
     {
         const string tableName = "readTable";
         await InitEntityTable(_tableClientFixture.TableClient, tableName);
-        
+
         const string upsertQuery = @$"
             UPSERT INTO `{tableName}` (id, name, payload, is_valid) 
             VALUES ($id, $name, $payload, $is_valid)

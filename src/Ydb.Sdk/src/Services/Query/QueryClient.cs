@@ -230,7 +230,7 @@ public class QueryClient : IDisposable
             async session =>
             {
                 var tx = Tx.Begin(txMode, _queryClientRpc, session.Id);
-                
+
                 var beginTransactionResponse = await _queryClientRpc
                     .BeginTransaction(session.Id, tx);
                 beginTransactionResponse.EnsureSuccess();

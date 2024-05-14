@@ -100,7 +100,7 @@ internal class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespo
 
         public Session Session { get; }
 
-        internal static ResultData FromProto(SessionPool sessionPool, 
+        internal static ResultData FromProto(SessionPool sessionPool,
             Ydb.Query.CreateSessionResponse resultProto, Driver driver, string endpoint)
         {
             var session = new Session(

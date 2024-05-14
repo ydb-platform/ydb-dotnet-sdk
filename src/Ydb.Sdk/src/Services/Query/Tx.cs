@@ -32,8 +32,6 @@ internal static class TxModeExtensions
     private static readonly TransactionSettings OnlineInconsistentRo = new()
         { OnlineReadOnly = new OnlineModeSettings { AllowInconsistentReads = true } };
 
-    private static readonly TransactionSettings None = new();
-
     internal static TransactionSettings? TransactionSettings(this TxMode mode)
     {
         return mode switch
@@ -56,7 +54,7 @@ public class Tx
     internal string? TxId { get; set; }
     internal TxMode TxMode { get; }
     internal bool AutoCommit { get; }
-    
+
     private Tx(TxMode txMode, QueryClientRpc client, string sessionId, bool commit)
     {
         TxMode = txMode;
@@ -90,10 +88,10 @@ public class Tx
             return new QueryResponseWithResult<T>(e.Status);
         }
     }
-    
+
     public async Task<QueryResponse> Exec(
         string query,
-        Dictionary<string, YdbValue>? parameters = null, 
+        Dictionary<string, YdbValue>? parameters = null,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
         var response = await Query<QueryClient.None>(
@@ -114,5 +112,13 @@ public class Tx
         ExecuteQuerySettings? executeQuerySettings = null)
     {
         return await Query(query, parameters, QueryClient.ReadSingleRowHelper, executeQuerySettings);
+    }
+
+    public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(
+        string query,
+        Dictionary<string, YdbValue>? parameters = null,
+        ExecuteQuerySettings? executeQuerySettings = null)
+    {
+        return await Query(query, parameters, QueryClient.ReadScalarHelper, executeQuerySettings);
     }
 }

@@ -11,7 +11,6 @@ public class QueryExample
 {
     private QueryClient Client { get; }
     private string BasePath { get; }
-
     private Driver Driver { get; }
 
     protected QueryExample(QueryClient client, string database, string path, Driver driver)
@@ -20,7 +19,6 @@ public class QueryExample
         BasePath = string.Join('/', database, path);
         Driver = driver;
     }
-
 
     public static async Task Run(
         string endpoint,

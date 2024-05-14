@@ -59,7 +59,7 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession>
     where TSession : SessionBase
 {
     private const int MaxAttempts = 100;
-    
+
     private protected readonly Driver Driver;
     private protected readonly ILogger Logger;
     private protected readonly SessionPoolConfig Config;

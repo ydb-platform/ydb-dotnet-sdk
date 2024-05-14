@@ -14,7 +14,7 @@ public class Session : SessionBase
 {
     private readonly SessionPool _sessionPool;
 
-    internal Session(Driver driver, SessionPool sessionPool, string id, long nodeId, string? endpoint) : 
+    internal Session(Driver driver, SessionPool sessionPool, string id, long nodeId, string? endpoint) :
         base(driver, id, endpoint, driver.LoggerFactory.CreateLogger<Session>())
     {
         _sessionPool = sessionPool;
@@ -22,7 +22,7 @@ public class Session : SessionBase
     }
 
     public long NodeId { get; }
-    
+
     protected override void Dispose(bool disposing)
     {
         if (Disposed)
@@ -32,7 +32,7 @@ public class Session : SessionBase
 
         if (disposing)
         {
-            _sessionPool.ReturnSession(Id); 
+            _sessionPool.ReturnSession(Id);
         }
 
         Disposed = true;
