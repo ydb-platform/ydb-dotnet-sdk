@@ -88,8 +88,7 @@ internal class RollbackTransactionSettings : RequestSettings
 
 internal class CreateSessionResponse : ResponseWithResultBase<CreateSessionResponse.ResultData>
 {
-    internal CreateSessionResponse(Status status, ResultData? result = null)
-        : base(status, result)
+    internal CreateSessionResponse(Status status, ResultData? result = null) : base(status, result)
     {
     }
 
@@ -112,9 +111,7 @@ internal class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespo
                 nodeId: resultProto.NodeId,
                 endpoint: endpoint);
 
-            return new ResultData(
-                session: session
-            );
+            return new ResultData(session);
         }
     }
 }
@@ -195,8 +192,9 @@ public class ExecuteQueryResponsePart : ResponseBase
     }
 }
 
-public class ExecuteQueryStream : StreamResponse<Ydb.Query.ExecuteQueryResponsePart, ExecuteQueryResponsePart>
-    , IAsyncEnumerable<ExecuteQueryResponsePart>
+public class ExecuteQueryStream : 
+    StreamResponse<Ydb.Query.ExecuteQueryResponsePart, ExecuteQueryResponsePart>,
+    IAsyncEnumerable<ExecuteQueryResponsePart>
 {
     internal ExecuteQueryStream(Driver.StreamIterator<Ydb.Query.ExecuteQueryResponsePart> iterator) : base(iterator)
     {
@@ -239,20 +237,17 @@ internal class BeginTransactionResponse : ResponseBase
     {
     }
 
-    internal Tx? Tx { get; }
+    internal string? TxId { get; }
 
-    private BeginTransactionResponse(Ydb.Query.BeginTransactionResponse proto, QueryClientGrpc client, string sessionId)
-        : base(
-            Status.FromProto(proto.Status, proto.Issues))
+    private BeginTransactionResponse(Ydb.Query.BeginTransactionResponse proto)
+        : base(Status.FromProto(proto.Status, proto.Issues))
     {
-        var txId = proto.TxMeta.Id;
-        Tx = new Tx(new TransactionControl { TxId = txId }, client, sessionId);
+        TxId = proto.TxMeta.Id;
     }
 
-    internal static BeginTransactionResponse FromProto(Ydb.Query.BeginTransactionResponse proto, QueryClientGrpc client,
-        string sessionId)
+    internal static BeginTransactionResponse FromProto(Ydb.Query.BeginTransactionResponse proto)
     {
-        return new BeginTransactionResponse(proto, client, sessionId);
+        return new BeginTransactionResponse(proto);
     }
 }
 

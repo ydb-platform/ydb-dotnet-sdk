@@ -4,23 +4,26 @@ using Ydb.Sdk.Services.Sessions;
 namespace Ydb.Sdk.Services.Query;
 
 using GetSessionResponse = GetSessionResponse<Session>;
-using NoPool = NoPool<Session>;
 
 internal class SessionPool : SessionPoolBase<Session>
 {
     private readonly Dictionary<string, CancellationTokenSource> _attachedSessions = new();
-    private readonly QueryClient _client;
+    private readonly QueryClientRpc _client;
 
     public SessionPool(Driver driver, SessionPoolConfig config) :
         base(driver, config, driver.LoggerFactory.CreateLogger<SessionPool>())
     {
-        _client = new QueryClient(driver, new NoPool());
+        _client = new QueryClientRpc(driver);
     }
 
     private protected override async Task<GetSessionResponse> CreateSession()
     {
-        var createSessionResponse = await _client.CreateSession(new CreateSessionSettings
-            { TransportTimeout = Config.CreateSessionTimeout });
+        var createSessionResponse = await _client.CreateSession(
+            new CreateSessionSettings
+            {
+                TransportTimeout = Config.CreateSessionTimeout
+            }
+        );
 
         lock (Lock)
         {

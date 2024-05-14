@@ -7,49 +7,26 @@ namespace Ydb.Sdk.Services.Query;
 
 public class QueryClientConfig
 {
-    public SessionPoolConfig SessionPoolConfig { get; }
-
-    public QueryClientConfig(SessionPoolConfig? sessionPoolConfig = null)
-    {
-        SessionPoolConfig = sessionPoolConfig ?? new SessionPoolConfig();
-    }
+    public SessionPoolConfig SessionPoolConfig { get; set; } = new();
 }
 
-// "Experimental! This class is not well tested."
-public class QueryClient : QueryClientGrpc, IDisposable
+// Experimental
+public class QueryClient : IDisposable
 {
-    private readonly ISessionPool<Session> _sessionPool;
+    private readonly SessionPool _sessionPool;
+    private readonly QueryClientRpc _queryClientRpc;
     private readonly ILogger _logger;
+
     private bool _disposed;
 
-    public QueryClient(Driver driver, QueryClientConfig? config = null) : base(driver)
+    public QueryClient(Driver driver, QueryClientConfig? config = null)
     {
         config ??= new QueryClientConfig();
 
         _logger = driver.LoggerFactory.CreateLogger<QueryClient>();
 
         _sessionPool = new SessionPool(driver, config.SessionPoolConfig);
-    }
-
-    internal QueryClient(Driver driver, ISessionPool<Session> sessionPool) : base(driver)
-    {
-        _logger = driver.LoggerFactory.CreateLogger<QueryClient>();
-
-        _sessionPool = sessionPool;
-    }
-
-    private async Task<IResponse> ExecOnSession(
-        Func<Session, Task<IResponse>> func,
-        RetrySettings? retrySettings = null
-    )
-    {
-        if (_sessionPool is not SessionPool sessionPool)
-        {
-            throw new InvalidCastException(
-                $"Unexpected cast error: {nameof(_sessionPool)} is not object of type {typeof(SessionPool).FullName}");
-        }
-
-        return await sessionPool.ExecOnSession(func, retrySettings);
+        _queryClientRpc = new QueryClientRpc(driver);
     }
 
     internal static async Task<None> EmptyStreamReadFunc(ExecuteQueryStream stream)
@@ -63,22 +40,21 @@ public class QueryClient : QueryClientGrpc, IDisposable
     }
 
     public async Task<QueryResponseWithResult<T>> Query<T>(
-        string yql,
+        string query,
         Dictionary<string, YdbValue>? parameters,
         Func<ExecuteQueryStream, Task<T>> func,
-        ITxModeSettings? txModeSettings = null,
+        TxMode? txMode = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
         parameters ??= new Dictionary<string, YdbValue>();
-        txModeSettings ??= new TxModeSerializableSettings();
         executeQuerySettings ??= new ExecuteQuerySettings();
 
-        var response = await ExecOnSession(
+        var response = await _sessionPool.ExecOnSession(
             async session =>
             {
-                var tx = Tx.Begin(txModeSettings, this, session.Id);
-                return await tx.Query(yql, parameters, func, executeQuerySettings);
+                var tx = Tx.Begin(txMode, _queryClientRpc, session.Id);
+                return await tx.Query(query, parameters, func, executeQuerySettings);
             },
             retrySettings
         );
@@ -91,30 +67,31 @@ public class QueryClient : QueryClientGrpc, IDisposable
     }
 
     public async Task<QueryResponseWithResult<T>> Query<T>(
-        string yql,
+        string query,
         Func<ExecuteQueryStream, Task<T>> func,
-        ITxModeSettings? txModeSettings = null,
+        TxMode? txMode = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
-        return await Query(yql, new Dictionary<string, YdbValue>(), func, txModeSettings, executeQuerySettings,
+        return await Query(query, new Dictionary<string, YdbValue>(), func, txMode, executeQuerySettings,
             retrySettings);
     }
 
-    public async Task<QueryResponse> Exec(string queryString,
+    public async Task<QueryResponse> Exec(
+        string query,
         Dictionary<string, YdbValue>? parameters = null,
-        ITxModeSettings? txModeSettings = null,
+        TxMode? txMode = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
-        var response = await Query<None>(
-            queryString,
+        return await Query<None>(
+            query,
             parameters,
             async session => await EmptyStreamReadFunc(session),
-            txModeSettings,
+            txMode,
             executeQuerySettings,
-            retrySettings);
-        return response;
+            retrySettings
+        );
     }
 
     internal static async Task<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>> ReadAllResultSetsHelper(
@@ -182,50 +159,49 @@ public class QueryClient : QueryClientGrpc, IDisposable
     }
 
     public async Task<QueryResponseWithResult<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>>> ReadAllResultSets(
-        string queryString,
+        string query,
         Dictionary<string, YdbValue>? parameters = null,
-        ITxModeSettings? txModeSettings = null,
+        TxMode? txMode = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
-        var response = await Query(queryString, parameters, ReadAllResultSetsHelper, txModeSettings,
+        var response = await Query(query, parameters, ReadAllResultSetsHelper, txMode,
             executeQuerySettings, retrySettings);
         return response;
     }
 
 
-    public async Task<QueryResponseWithResult<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(string queryString,
+    public async Task<QueryResponseWithResult<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(
+        string query,
         Dictionary<string, YdbValue>? parameters = null,
-        ITxModeSettings? txModeSettings = null,
+        TxMode? txMode = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
-        var response = await Query(queryString, parameters, ReadAllRowsHelper, txModeSettings,
+        var response = await Query(query, parameters, ReadAllRowsHelper, txMode,
             executeQuerySettings, retrySettings);
         return response;
     }
 
 
-    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadSingleRow(string queryString,
+    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadSingleRow(
+        string query,
         Dictionary<string, YdbValue>? parameters = null,
-        ITxModeSettings? txModeSettings = null,
+        TxMode? txMode = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
-        var response = await Query(queryString, parameters, ReadSingleRowHelper, txModeSettings,
-            executeQuerySettings, retrySettings);
-        return response;
+        return await Query(query, parameters, ReadSingleRowHelper, txMode, executeQuerySettings, retrySettings);
     }
 
-    public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(string queryString,
+    public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(
+        string query,
         Dictionary<string, YdbValue>? parameters = null,
-        ITxModeSettings? txModeSettings = null,
+        TxMode? txMode = null,
         ExecuteQuerySettings? executeQuerySettings = null,
         RetrySettings? retrySettings = null)
     {
-        var response = await Query(queryString, parameters, ReadScalarHelper, txModeSettings,
-            executeQuerySettings, retrySettings);
-        return response;
+        return await Query(query, parameters, ReadScalarHelper, txMode, executeQuerySettings, retrySettings);
     }
 
     private async Task<QueryResponseWithResult<T>> Rollback<T>(Session session, Tx tx, Status status)
@@ -233,7 +209,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
         _logger.LogTrace($"Transaction {tx.TxId} not committed, try to rollback");
         try
         {
-            var rollbackResponse = await RollbackTransaction(session.Id, tx);
+            var rollbackResponse = await _queryClientRpc.RollbackTransaction(session.Id, tx);
             rollbackResponse.EnsureSuccess();
         }
         catch (StatusUnsuccessfulException e)
@@ -245,17 +221,20 @@ public class QueryClient : QueryClientGrpc, IDisposable
         return new QueryResponseWithResult<T>(status);
     }
 
-    public async Task<QueryResponseWithResult<T>> DoTx<T>(Func<Tx, Task<T>> func,
-        ITxModeSettings? txModeSettings = null,
+    public async Task<QueryResponseWithResult<T>> DoTx<T>(
+        Func<Tx, Task<T>> func,
+        TxMode? txMode = null,
         RetrySettings? retrySettings = null)
     {
-        var response = await ExecOnSession(
+        var response = await _sessionPool.ExecOnSession(
             async session =>
             {
-                var beginTransactionResponse =
-                    await BeginTransaction(session.Id, Tx.Begin(txModeSettings, this, session.Id));
+                var tx = Tx.Begin(txMode, _queryClientRpc, session.Id);
+                
+                var beginTransactionResponse = await _queryClientRpc
+                    .BeginTransaction(session.Id, tx);
                 beginTransactionResponse.EnsureSuccess();
-                var tx = beginTransactionResponse.Tx!;
+                tx.TxId = beginTransactionResponse.TxId!;
 
                 T response;
                 try
@@ -276,7 +255,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
                     return rollbackResponse;
                 }
 
-                var commitResponse = await CommitTransaction(session.Id, tx);
+                var commitResponse = await _queryClientRpc.CommitTransaction(session.Id, tx);
                 if (!commitResponse.Status.IsSuccess)
                 {
                     var rollbackResponse = await Rollback<T>(session, tx, commitResponse.Status);
@@ -300,7 +279,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
     }
 
     public async Task<QueryResponse> DoTx(Func<Tx, Task> func,
-        ITxModeSettings? txModeSettings = null,
+        TxMode? txMode = null,
         RetrySettings? retrySettings = null)
     {
         var response = await DoTx<None>(
@@ -309,7 +288,7 @@ public class QueryClient : QueryClientGrpc, IDisposable
                 await func(tx);
                 return None.Instance;
             },
-            txModeSettings,
+            txMode,
             retrySettings
         );
         return response;

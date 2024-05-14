@@ -3,104 +3,81 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
-public interface ITxModeSettings
+public enum TxMode
 {
+    None,
+
+    SerializableRw,
+    SnapshotRo,
+    StaleRo,
+
+    OnlineRo,
+    OnlineInconsistentRo
 }
 
-public class TxModeSerializableSettings : ITxModeSettings
+internal static class TxModeExtensions
 {
-}
+    private static readonly TransactionSettings SerializableRw = new()
+        { SerializableReadWrite = new SerializableModeSettings() };
 
-public class TxModeOnlineSettings : ITxModeSettings
-{
-    public TxModeOnlineSettings(bool allowInconsistentReads = false)
+    private static readonly TransactionSettings SnapshotRo = new()
+        { SnapshotReadOnly = new SnapshotModeSettings() };
+
+    private static readonly TransactionSettings StaleRo = new()
+        { StaleReadOnly = new StaleModeSettings() };
+
+    private static readonly TransactionSettings OnlineRo = new()
+        { OnlineReadOnly = new OnlineModeSettings { AllowInconsistentReads = false } };
+
+    private static readonly TransactionSettings OnlineInconsistentRo = new()
+        { OnlineReadOnly = new OnlineModeSettings { AllowInconsistentReads = true } };
+
+    private static readonly TransactionSettings None = new();
+
+    internal static TransactionSettings? TransactionSettings(this TxMode mode)
     {
-        AllowInconsistentReads = allowInconsistentReads;
+        return mode switch
+        {
+            TxMode.SerializableRw => SerializableRw,
+            TxMode.SnapshotRo => SnapshotRo,
+            TxMode.StaleRo => StaleRo,
+            TxMode.OnlineRo => OnlineRo,
+            TxMode.OnlineInconsistentRo => OnlineInconsistentRo,
+            _ => null
+        };
     }
-
-    public bool AllowInconsistentReads { get; }
-}
-
-public class TxModeStaleSettings : ITxModeSettings
-{
-}
-
-public class TxModeSnapshotSettings : ITxModeSettings
-{
 }
 
 public class Tx
 {
-    private QueryClientGrpc Client { get; }
+    private QueryClientRpc Client { get; }
     private string SessionId { get; }
 
-    public string? TxId => _proto.TxId;
-
-    private readonly TransactionControl _proto;
-
-    internal Tx(TransactionControl proto, QueryClientGrpc client, string sessionId)
+    internal string? TxId { get; set; }
+    internal TxMode TxMode { get; }
+    internal bool AutoCommit { get; }
+    
+    private Tx(TxMode txMode, QueryClientRpc client, string sessionId, bool commit)
     {
-        _proto = proto;
+        TxMode = txMode;
         Client = client;
         SessionId = sessionId;
+        AutoCommit = commit;
     }
 
-    internal TransactionControl ToProto()
+    internal static Tx Begin(TxMode? txMode, QueryClientRpc client, string sessionId, bool commit = true)
     {
-        return _proto.Clone();
-    }
-
-    internal static Tx Begin(ITxModeSettings? txModeSettings, QueryClient client, string sessionId, bool commit = true)
-    {
-        txModeSettings ??= new TxModeSerializableSettings();
-
-        var txSettings = GetTransactionSettings(txModeSettings);
-
-        var tx = new Tx(new TransactionControl { BeginTx = txSettings, CommitTx = commit }, client, sessionId);
-        return tx;
-    }
-
-    private static TransactionSettings GetTransactionSettings(ITxModeSettings txModeSettings)
-    {
-        var txSettings = txModeSettings switch
-        {
-            TxModeSerializableSettings => new TransactionSettings
-            {
-                SerializableReadWrite = new SerializableModeSettings()
-            },
-            TxModeOnlineSettings onlineModeSettings => new TransactionSettings
-            {
-                OnlineReadOnly = new OnlineModeSettings
-                {
-                    AllowInconsistentReads = onlineModeSettings.AllowInconsistentReads
-                }
-            },
-            TxModeStaleSettings => new TransactionSettings
-            {
-                StaleReadOnly = new StaleModeSettings()
-            },
-            TxModeSnapshotSettings => new TransactionSettings
-            {
-                SnapshotReadOnly = new SnapshotModeSettings()
-            },
-            _ => throw new InvalidCastException(nameof(txModeSettings))
-        };
-        return txSettings;
+        return new Tx(txMode ?? TxMode.SerializableRw, client, sessionId, commit);
     }
 
     public async Task<QueryResponseWithResult<T>> Query<T>(
-        string queryString,
+        string query,
         Dictionary<string, YdbValue>? parameters,
         Func<ExecuteQueryStream, Task<T>> func,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
-        if (SessionId is null)
-        {
-            throw new NullReferenceException($"{nameof(SessionId)} is null");
-        }
+        var stream = Client.ExecuteQuery(SessionId, query, this, parameters, executeQuerySettings);
 
-        var stream = Client.ExecuteQuery(SessionId, queryString, this, parameters,
-            executeQuerySettings);
         try
         {
             var response = await func(stream);
@@ -113,19 +90,14 @@ public class Tx
             return new QueryResponseWithResult<T>(e.Status);
         }
     }
-
-    public async Task<QueryResponseWithResult<T>> Query<T>(string queryString, Func<ExecuteQueryStream, Task<T>> func,
+    
+    public async Task<QueryResponse> Exec(
+        string query,
+        Dictionary<string, YdbValue>? parameters = null, 
         ExecuteQuerySettings? executeQuerySettings = null)
     {
-        return await Query(queryString, new Dictionary<string, YdbValue>(), func, executeQuerySettings);
-    }
-
-    public async Task<QueryResponse> Exec(string queryString,
-        Dictionary<string, YdbValue>? parameters = null
-        , ExecuteQuerySettings? executeQuerySettings = null)
-    {
         var response = await Query<QueryClient.None>(
-            queryString,
+            query,
             parameters,
             async session =>
             {
@@ -136,42 +108,11 @@ public class Tx
         return response;
     }
 
-    public async Task<QueryResponseWithResult<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>>> ReadAllResultSets(
-        string queryString,
-        Dictionary<string, YdbValue>? parameters = null,
-        ExecuteQuerySettings? executeQuerySettings = null)
-    {
-        var response = await Query(queryString, parameters, QueryClient.ReadAllResultSetsHelper,
-            executeQuerySettings);
-        return response;
-    }
-
-    public async Task<QueryResponseWithResult<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(
-        string queryString,
-        Dictionary<string, YdbValue>? parameters = null,
-        ExecuteQuerySettings? executeQuerySettings = null)
-    {
-        var response = await Query(queryString, parameters, QueryClient.ReadAllRowsHelper, executeQuerySettings);
-        return response;
-    }
-
     public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadSingleRow(
-        string queryString,
+        string query,
         Dictionary<string, YdbValue>? parameters = null,
         ExecuteQuerySettings? executeQuerySettings = null)
     {
-        var response = await Query(queryString, parameters, QueryClient.ReadSingleRowHelper,
-            executeQuerySettings);
-        return response;
-    }
-
-    public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(
-        string queryString,
-        Dictionary<string, YdbValue>? parameters = null,
-        ExecuteQuerySettings? executeQuerySettings = null)
-    {
-        var response = await Query(queryString, parameters, QueryClient.ReadScalarHelper,
-            executeQuerySettings);
-        return response;
+        return await Query(query, parameters, QueryClient.ReadSingleRowHelper, executeQuerySettings);
     }
 }
