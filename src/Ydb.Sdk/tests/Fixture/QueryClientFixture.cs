@@ -11,7 +11,7 @@ public class QueryClientFixture : DriverFixture
     {
         QueryClient = new QueryClient(Driver);
     }
-    
+
     protected override void ClientDispose()
     {
         QueryClient.Dispose();
