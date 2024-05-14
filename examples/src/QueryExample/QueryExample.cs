@@ -135,7 +135,7 @@ public class QueryExample
         var response = await Client.Exec(
             queryString: query,
             parameters: DataUtils.GetDataParams(),
-            txModeSettings: new TxModeSerializableSettings(),
+            txMode: TxMode.SerializableRw,
             executeQuerySettings: DefaultQuerySettings
         );
         response.EnsureSuccess();
