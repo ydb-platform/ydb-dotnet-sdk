@@ -18,8 +18,7 @@ public class GracefulShutdownTests : IClassFixture<TableClientFixture>
         _tableClientFixture = tableClientFixture;
     }
 
-    // [Fact]
-    // https://github.com/ydb-platform/ydb-dotnet-sdk/issues/68
+    [Fact]
     public async Task Test()
     {
         var session1 = "";
