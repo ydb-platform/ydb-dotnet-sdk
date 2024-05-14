@@ -101,12 +101,12 @@ internal class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespo
 
         public Session Session { get; }
 
-        internal static ResultData FromProto(Ydb.Query.CreateSessionResponse resultProto, Driver driver,
-            string endpoint)
+        internal static ResultData FromProto(SessionPool sessionPool, 
+            Ydb.Query.CreateSessionResponse resultProto, Driver driver, string endpoint)
         {
             var session = new Session(
                 driver: driver,
-                sessionPool: null,
+                sessionPool: sessionPool,
                 id: resultProto.SessionId,
                 nodeId: resultProto.NodeId,
                 endpoint: endpoint);
@@ -192,7 +192,7 @@ public class ExecuteQueryResponsePart : ResponseBase
     }
 }
 
-public class ExecuteQueryStream : 
+public class ExecuteQueryStream :
     StreamResponse<Ydb.Query.ExecuteQueryResponsePart, ExecuteQueryResponsePart>,
     IAsyncEnumerable<ExecuteQueryResponsePart>
 {

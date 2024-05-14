@@ -19,6 +19,7 @@ internal class SessionPool : SessionPoolBase<Session>
     private protected override async Task<GetSessionResponse> CreateSession()
     {
         var createSessionResponse = await _client.CreateSession(
+            this, 
             new CreateSessionSettings
             {
                 TransportTimeout = Config.CreateSessionTimeout

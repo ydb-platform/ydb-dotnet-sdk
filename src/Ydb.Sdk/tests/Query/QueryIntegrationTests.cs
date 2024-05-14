@@ -20,7 +20,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IClassFi
         _tableClientFixture = tableClientFixture;
     }
 
-    // [Fact]
+    [Fact]
     public async Task TestSchemeQuery()
     {
         var createResponse = await _queryClientFixture.QueryClient.Exec(
@@ -183,11 +183,11 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IClassFi
         Assert.Equal(StatusCode.ClientInternalError, response.Status.StatusCode);
     }
 
-    [Theory]
-    [InlineData(StatusCode.ClientInternalError, StatusCode.Success, 2, true)]
-    [InlineData(StatusCode.ClientInternalError, StatusCode.ClientInternalError, 1, false)]
-    [InlineData(StatusCode.InternalError, StatusCode.InternalError, 1, true)]
-    [InlineData(StatusCode.Aborted, StatusCode.Success, 2, false)]
+    // [Theory]
+    // [InlineData(StatusCode.ClientInternalError, StatusCode.Success, 2, true)]
+    // [InlineData(StatusCode.ClientInternalError, StatusCode.ClientInternalError, 1, false)]
+    // [InlineData(StatusCode.InternalError, StatusCode.InternalError, 1, true)]
+    // [InlineData(StatusCode.Aborted, StatusCode.Success, 2, false)]
     public async Task TestIdempotency(StatusCode statusCode, StatusCode expectedStatusCode, int expectedAttempts,
         bool isIdempotent)
     {

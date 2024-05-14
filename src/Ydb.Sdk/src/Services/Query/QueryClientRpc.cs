@@ -15,7 +15,7 @@ internal class QueryClientRpc
         _driver.LoggerFactory.CreateLogger<QueryClient>();
     }
 
-    internal async Task<CreateSessionResponse> CreateSession(CreateSessionSettings? settings = null)
+    internal async Task<CreateSessionResponse> CreateSession(SessionPool sessionPool, CreateSessionSettings? settings = null)
     {
         settings ??= new CreateSessionSettings();
         var request = new CreateSessionRequest();
@@ -33,7 +33,7 @@ internal class QueryClientRpc
 
             if (status.IsSuccess)
             {
-                result = CreateSessionResponse.ResultData.FromProto(response.Data, _driver, response.UsedEndpoint);
+                result = CreateSessionResponse.ResultData.FromProto(sessionPool, response.Data,  _driver, response.UsedEndpoint);
             }
 
             return new CreateSessionResponse(status, result);
