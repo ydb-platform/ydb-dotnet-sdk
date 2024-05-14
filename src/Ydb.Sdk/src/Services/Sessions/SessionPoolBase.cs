@@ -5,8 +5,7 @@ namespace Ydb.Sdk.Services.Sessions;
 
 public class SessionPoolConfig
 {
-    public SessionPoolConfig(
-        uint? sizeLimit = null)
+    public SessionPoolConfig(uint? sizeLimit = null)
     {
         SizeLimit = sizeLimit ?? 100;
     }
@@ -59,6 +58,8 @@ internal class NoPool<TSession> : ISessionPool<TSession> where TSession : Sessio
 public abstract class SessionPoolBase<TSession> : ISessionPool<TSession>
     where TSession : SessionBase
 {
+    private const int MaxAttempts = 100;
+
     private protected readonly Driver Driver;
     private protected readonly ILogger Logger;
     private protected readonly SessionPoolConfig Config;
@@ -79,16 +80,14 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession>
 
     public async Task<GetSessionResponse<TSession>> GetSession()
     {
-        const int maxAttempts = 100;
-
         GetSessionResponse<TSession> getSessionResponse = null!;
-        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        for (var attempt = 0; attempt < MaxAttempts; attempt++)
         {
             getSessionResponse = await AttemptGetSession();
             if (getSessionResponse.Status.IsSuccess) return getSessionResponse;
         }
 
-        Logger.LogError($"Failed to get session from pool or create it (attempts: {maxAttempts})");
+        Logger.LogError($"Failed to get session from pool or create it (attempts: {MaxAttempts})");
         return getSessionResponse;
     }
 

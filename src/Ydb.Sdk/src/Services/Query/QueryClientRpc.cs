@@ -5,17 +5,18 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
-public abstract class QueryClientGrpc
+internal class QueryClientRpc
 {
     private readonly Driver _driver;
 
-    private protected QueryClientGrpc(Driver driver)
+    internal QueryClientRpc(Driver driver)
     {
         _driver = driver;
         _driver.LoggerFactory.CreateLogger<QueryClient>();
     }
 
-    internal async Task<CreateSessionResponse> CreateSession(CreateSessionSettings? settings = null)
+    internal async Task<CreateSessionResponse> CreateSession(SessionPool sessionPool,
+        CreateSessionSettings? settings = null)
     {
         settings ??= new CreateSessionSettings();
         var request = new CreateSessionRequest();
@@ -33,7 +34,8 @@ public abstract class QueryClientGrpc
 
             if (status.IsSuccess)
             {
-                result = CreateSessionResponse.ResultData.FromProto(response.Data, _driver, response.UsedEndpoint);
+                result = CreateSessionResponse.ResultData.FromProto(sessionPool, response.Data, _driver,
+                    response.UsedEndpoint);
             }
 
             return new CreateSessionResponse(status, result);
@@ -82,14 +84,15 @@ public abstract class QueryClientGrpc
         return new SessionStateStream(streamIterator);
     }
 
-    private protected async Task<BeginTransactionResponse> BeginTransaction(
+    internal async Task<BeginTransactionResponse> BeginTransaction(
         string sessionId,
         Tx tx,
         BeginTransactionSettings? settings = null)
     {
         settings ??= new BeginTransactionSettings();
 
-        var request = new BeginTransactionRequest { SessionId = sessionId, TxSettings = tx.ToProto().BeginTx };
+        var request = new BeginTransactionRequest
+            { SessionId = sessionId, TxSettings = tx.TxMode.TransactionSettings() };
         try
         {
             var response = await _driver.UnaryCall(
@@ -98,7 +101,7 @@ public abstract class QueryClientGrpc
                 settings: settings
             );
 
-            return BeginTransactionResponse.FromProto(response.Data, this, sessionId);
+            return BeginTransactionResponse.FromProto(response.Data);
         }
         catch (Driver.TransportException e)
         {
@@ -106,7 +109,7 @@ public abstract class QueryClientGrpc
         }
     }
 
-    private protected async Task<CommitTransactionResponse> CommitTransaction(
+    internal async Task<CommitTransactionResponse> CommitTransaction(
         string sessionId,
         Tx tx,
         CommitTransactionSettings? settings = null)
@@ -131,7 +134,7 @@ public abstract class QueryClientGrpc
         }
     }
 
-    private protected async Task<RollbackTransactionResponse> RollbackTransaction(
+    internal async Task<RollbackTransactionResponse> RollbackTransaction(
         string sessionId,
         Tx tx,
         RollbackTransactionSettings? settings = null)
@@ -157,7 +160,7 @@ public abstract class QueryClientGrpc
 
     protected internal ExecuteQueryStream ExecuteQuery(
         string sessionId,
-        string queryString,
+        string query,
         Tx tx,
         IReadOnlyDictionary<string, YdbValue>? parameters,
         ExecuteQuerySettings? settings = null)
@@ -169,10 +172,18 @@ public abstract class QueryClientGrpc
         {
             SessionId = sessionId,
             ExecMode = (Ydb.Query.ExecMode)settings.ExecMode,
-            TxControl = tx.ToProto(),
-            QueryContent = new QueryContent { Syntax = (Ydb.Query.Syntax)settings.Syntax, Text = queryString },
+            QueryContent = new QueryContent { Syntax = (Ydb.Query.Syntax)settings.Syntax, Text = query },
             StatsMode = (Ydb.Query.StatsMode)settings.StatsMode
         };
+
+        if (tx.TxMode != TxMode.None)
+        {
+            request.TxControl = new TransactionControl
+            {
+                BeginTx = tx.TxMode.TransactionSettings(),
+                CommitTx = tx.AutoCommit
+            };
+        }
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 

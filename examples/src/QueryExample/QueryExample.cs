@@ -11,7 +11,6 @@ public class QueryExample
 {
     private QueryClient Client { get; }
     private string BasePath { get; }
-
     private Driver Driver { get; }
 
     protected QueryExample(QueryClient client, string database, string path, Driver driver)
@@ -20,7 +19,6 @@ public class QueryExample
         BasePath = string.Join('/', database, path);
         Driver = driver;
     }
-
 
     public static async Task Run(
         string endpoint,
@@ -107,7 +105,7 @@ public class QueryExample
 
         // TODO replace with QueryClient
         // var response = await Client.Exec(
-        //     queryString: createQuery
+        //     query: createQuery
         // );
         // response.EnsureSuccess();
         using var client = new TableClient(Driver);
@@ -133,9 +131,9 @@ public class QueryExample
                 ";
 
         var response = await Client.Exec(
-            queryString: query,
+            query: query,
             parameters: DataUtils.GetDataParams(),
-            txModeSettings: new TxModeSerializableSettings(),
+            txMode: TxMode.SerializableRw,
             executeQuerySettings: DefaultQuerySettings
         );
         response.EnsureSuccess();

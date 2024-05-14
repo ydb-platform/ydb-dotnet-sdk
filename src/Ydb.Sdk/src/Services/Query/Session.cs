@@ -4,7 +4,7 @@ using Ydb.Sdk.Services.Sessions;
 namespace Ydb.Sdk.Services.Query;
 
 /// <summary>
-/// Sessions are basic primitives for communicating with YDB Query Service. The are similar to
+/// Sessions are basic primitives for communicating with YDB Query Service. They are similar to
 /// connections for classic relational DBs. Sessions serve three main purposes:
 /// 1. Provide a flow control for DB requests with limited number of active channels.
 /// 2. Distribute load evenly across multiple DB nodes.
@@ -12,17 +12,16 @@ namespace Ydb.Sdk.Services.Query;
 /// </summary>
 public class Session : SessionBase
 {
-    private readonly SessionPool? _sessionPool;
+    private readonly SessionPool _sessionPool;
 
-    internal Session(Driver driver, SessionPool? sessionPool, string id, long nodeId, string? endpoint)
-        : base(driver, id, endpoint, driver.LoggerFactory.CreateLogger<Session>())
+    internal Session(Driver driver, SessionPool sessionPool, string id, long nodeId, string? endpoint) :
+        base(driver, id, endpoint, driver.LoggerFactory.CreateLogger<Session>())
     {
         _sessionPool = sessionPool;
         NodeId = nodeId;
     }
 
     public long NodeId { get; }
-
 
     protected override void Dispose(bool disposing)
     {
@@ -33,20 +32,7 @@ public class Session : SessionBase
 
         if (disposing)
         {
-            if (_sessionPool is null)
-            {
-                Logger.LogTrace($"Closing detached session on dispose: {Id}");
-
-                var client = new QueryClient(Driver, new NoPool<Session>());
-                _ = client.DeleteSession(Id, new DeleteSessionSettings
-                {
-                    TransportTimeout = DeleteSessionTimeout
-                });
-            }
-            else
-            {
-                _sessionPool.ReturnSession(Id);
-            }
+            _sessionPool.ReturnSession(Id);
         }
 
         Disposed = true;
