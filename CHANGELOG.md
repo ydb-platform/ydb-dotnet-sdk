@@ -1,3 +1,4 @@
+## v0.3.2
 - Make KeepAlive method public for TableClient
 
 ## v0.3.1
