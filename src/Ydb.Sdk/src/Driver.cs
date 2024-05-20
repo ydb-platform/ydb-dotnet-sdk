@@ -15,7 +15,7 @@ public class Driver : IDisposable, IAsyncDisposable
     private readonly ChannelsCache _channels;
 
     private volatile bool _disposed;
-    
+
     internal ILoggerFactory LoggerFactory { get; }
     internal string Database => _config.Database;
 

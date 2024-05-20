@@ -255,7 +255,7 @@ internal class CommitTransactionResponse : ResponseBase
     {
     }
 
-    private CommitTransactionResponse(Ydb.Query.CommitTransactionResponse proto) 
+    private CommitTransactionResponse(Ydb.Query.CommitTransactionResponse proto)
         : base(Status.FromProto(proto.Status, proto.Issues))
     {
     }
@@ -272,7 +272,7 @@ internal class RollbackTransactionResponse : ResponseBase
     {
     }
 
-    private RollbackTransactionResponse(Ydb.Query.RollbackTransactionResponse proto) 
+    private RollbackTransactionResponse(Ydb.Query.RollbackTransactionResponse proto)
         : base(Status.FromProto(proto.Status, proto.Issues))
     {
     }
