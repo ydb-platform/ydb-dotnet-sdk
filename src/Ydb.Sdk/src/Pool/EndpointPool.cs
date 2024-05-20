@@ -152,7 +152,7 @@ public class EndpointPool
         }
 
         internal bool IsPessimized => Priority == int.MaxValue;
-    };
+    }
 }
 
 public record EndpointSettings(int NodeId, string Endpoint, string LocationDc);
