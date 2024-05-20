@@ -19,9 +19,7 @@ public class EndpointPool
     public EndpointPool(ILogger<EndpointPool> logger, IRandom? random = null)
     {
         _logger = logger;
-        random ??= ThreadLocalRandom.Instance;
-
-        _random = random;
+        _random = random ?? ThreadLocalRandom.Instance;
     }
 
     public string GetEndpoint(int nodeId = 0)
