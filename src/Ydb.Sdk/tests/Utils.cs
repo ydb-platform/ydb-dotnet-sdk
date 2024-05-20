@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
@@ -40,12 +41,12 @@ public static class Utils
         return (ExecuteSchemeQueryResponse)response;
     }
 
-    internal static ILoggerFactory? GetLoggerFactory()
+    internal static ILoggerFactory GetLoggerFactory()
     {
         return new ServiceCollection()
             .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
             .BuildServiceProvider()
-            .GetService<ILoggerFactory>();
+            .GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
     }
 
     internal static async Task<ExecuteSchemeQueryResponse> CreateSimpleTable(

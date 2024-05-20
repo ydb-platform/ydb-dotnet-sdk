@@ -160,8 +160,6 @@ internal class SessionPool : SessionPoolBase<Session>
         DetachSession(id);
 
         await _client.DeleteSession(id, new DeleteSessionSettings
-        {
-            TransportTimeout = SessionBase.DeleteSessionTimeout
-        });
+            { TransportTimeout = SessionBase.DeleteSessionTimeout });
     }
 }

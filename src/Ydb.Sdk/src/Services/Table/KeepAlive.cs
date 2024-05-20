@@ -11,8 +11,7 @@ public class KeepAliveSettings : OperationRequestSettings
 
 public class KeepAliveResponse : ResponseWithResultBase<KeepAliveResponse.ResultData>
 {
-    internal KeepAliveResponse(Status status, ResultData? result = null)
-        : base(status, result)
+    public KeepAliveResponse(Status status, ResultData? result = null) : base(status, result)
     {
     }
 
@@ -25,7 +24,7 @@ public class KeepAliveResponse : ResponseWithResultBase<KeepAliveResponse.Result
 
     public class ResultData
     {
-        internal ResultData(SessionStatus sessionStatus)
+        private ResultData(SessionStatus sessionStatus)
         {
             SessionStatus = sessionStatus;
         }
@@ -54,7 +53,7 @@ public class KeepAliveResponse : ResponseWithResultBase<KeepAliveResponse.Result
 
 public partial class TableClient
 {
-    internal async Task<KeepAliveResponse> KeepAlive(string sessionId, KeepAliveSettings? settings = null)
+    public async Task<KeepAliveResponse> KeepAlive(string sessionId, KeepAliveSettings? settings = null)
     {
         settings ??= new KeepAliveSettings();
 
