@@ -1,3 +1,5 @@
+- Make KeepAlive method public for TableClient
+
 ## v0.3.1
 - Fix error: Access denied without user token
 

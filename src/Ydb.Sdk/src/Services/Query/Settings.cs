@@ -57,7 +57,6 @@ public class ExecuteQuerySettings : RequestSettings
 {
     public ExecMode ExecMode { get; set; } = ExecMode.Execute;
     public Syntax Syntax { get; set; }
-
     public StatsMode StatsMode { get; set; }
 }
 
@@ -256,8 +255,8 @@ internal class CommitTransactionResponse : ResponseBase
     {
     }
 
-    private CommitTransactionResponse(Ydb.Query.CommitTransactionResponse proto) : base(
-        Status.FromProto(proto.Status, proto.Issues))
+    private CommitTransactionResponse(Ydb.Query.CommitTransactionResponse proto)
+        : base(Status.FromProto(proto.Status, proto.Issues))
     {
     }
 
@@ -273,8 +272,8 @@ internal class RollbackTransactionResponse : ResponseBase
     {
     }
 
-    private RollbackTransactionResponse(Ydb.Query.RollbackTransactionResponse proto) : base(
-        Status.FromProto(proto.Status, proto.Issues))
+    private RollbackTransactionResponse(Ydb.Query.RollbackTransactionResponse proto)
+        : base(Status.FromProto(proto.Status, proto.Issues))
     {
     }
 

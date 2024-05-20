@@ -1,5 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Ydb.Sdk.Tests.Fixture;
@@ -15,7 +13,7 @@ public abstract class DriverFixture : IAsyncLifetime
             database: "/local"
         );
 
-        Driver = new Driver(driverConfig, GetLoggerFactory());
+        Driver = new Driver(driverConfig, Utils.GetLoggerFactory());
     }
 
     protected abstract void ClientDispose();
@@ -30,13 +28,5 @@ public abstract class DriverFixture : IAsyncLifetime
         ClientDispose();
 
         return Driver.DisposeAsync().AsTask();
-    }
-
-    private static ILoggerFactory? GetLoggerFactory()
-    {
-        return new ServiceCollection()
-            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
-            .BuildServiceProvider()
-            .GetService<ILoggerFactory>();
     }
 }

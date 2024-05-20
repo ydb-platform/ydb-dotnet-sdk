@@ -163,8 +163,9 @@ public class Issue
 
 public class Status
 {
-    public StatusCode StatusCode { get; }
+    public static readonly Status Success = new(StatusCode.Success);
 
+    public StatusCode StatusCode { get; }
     public IReadOnlyList<Issue> Issues { get; }
 
     public Status(StatusCode statusCode, IReadOnlyList<Issue> issues)
@@ -173,19 +174,13 @@ public class Status
         Issues = issues;
     }
 
-    public Status(StatusCode statusCode) : this(
-        statusCode: statusCode,
-        issues: Array.Empty<Issue>())
+    public Status(StatusCode statusCode) : this(statusCode, Array.Empty<Issue>())
     {
     }
 
-    public Status(StatusCode statusCode, string message) : this(
-        statusCode: statusCode,
-        issues: new List<Issue> { new(message) })
+    public Status(StatusCode statusCode, string message) : this(statusCode, new List<Issue> { new(message) })
     {
     }
-
-    public static readonly Status Success = new(StatusCode.Success);
 
     public bool IsSuccess => StatusCode == StatusCode.Success;
 
@@ -229,18 +224,13 @@ public class Status
         StatusIds.Types.StatusCode statusCode,
         RepeatedField<IssueMessage> issues)
     {
-        var issuesList = issues
-            .Select(i => new Issue(i))
-            .ToList();
-
-        return new Status(ConvertStatusCode(statusCode), issuesList);
+        return new Status(ConvertStatusCode(statusCode), issues.Select(i => new Issue(i)).ToList());
     }
 }
 
 public class StatusUnsuccessfulException : Exception
 {
-    public StatusUnsuccessfulException(Status status)
-        : base(status.ToString())
+    public StatusUnsuccessfulException(Status status) : base(status.ToString())
     {
         Status = status;
     }

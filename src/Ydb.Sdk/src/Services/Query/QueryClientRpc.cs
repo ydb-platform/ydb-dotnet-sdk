@@ -23,10 +23,7 @@ internal class QueryClientRpc
 
         try
         {
-            var response = await _driver.UnaryCall(
-                method: QueryService.CreateSessionMethod,
-                request: request,
-                settings: settings);
+            var response = await _driver.UnaryCall(QueryService.CreateSessionMethod, request, settings);
 
             var status = Status.FromProto(response.Data.Status, response.Data.Issues);
 

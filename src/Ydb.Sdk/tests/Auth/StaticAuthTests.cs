@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Xunit.Abstractions;
 using Ydb.Sdk.Auth;
@@ -19,7 +18,7 @@ public class StaticAuthTests : IDisposable
     public StaticAuthTests(ITestOutputHelper output)
     {
         _output = output;
-        _loggerFactory = Utils.GetLoggerFactory() ?? NullLoggerFactory.Instance;
+        _loggerFactory = Utils.GetLoggerFactory();
         _logger = _loggerFactory.CreateLogger<StaticAuthTests>();
     }
 

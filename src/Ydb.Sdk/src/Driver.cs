@@ -16,6 +16,7 @@ public class Driver : IDisposable, IAsyncDisposable
 
     private volatile bool _disposed;
 
+    internal ILoggerFactory LoggerFactory { get; }
     internal string Database => _config.Database;
 
     public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null)
@@ -36,8 +37,6 @@ public class Driver : IDisposable, IAsyncDisposable
         await driver.Initialize();
         return driver;
     }
-
-    public ILoggerFactory LoggerFactory { get; }
 
     ~Driver()
     {
@@ -289,11 +288,6 @@ public class Driver : IDisposable, IAsyncDisposable
         return options;
     }
 
-    private static Status ConvertStatus(Grpc.Core.Status rpcStatus)
-    {
-        return rpcStatus.ConvertStatus();
-    }
-
     internal sealed class UnaryResponse<TResponse>
     {
         internal UnaryResponse(TResponse data,
@@ -354,7 +348,7 @@ public class Driver : IDisposable, IAsyncDisposable
     {
         internal TransportException(RpcException e) : base($"Transport exception: {e.Message}", e)
         {
-            Status = ConvertStatus(e.Status);
+            Status = e.Status.ConvertStatus();
         }
 
         public Status Status { get; }
