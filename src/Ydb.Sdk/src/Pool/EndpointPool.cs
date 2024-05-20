@@ -99,7 +99,7 @@ public class EndpointPool
         {
             _logger.LogTrace("Endpoint {Endpoint} is already pessimized", endpoint);
 
-            return false;
+            return false; // if we got a twice pessimized node, that is, the first time with an accurate need discovery 
         }
 
         _rwLock.EnterWriteLock();

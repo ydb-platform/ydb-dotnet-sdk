@@ -17,12 +17,12 @@ public class EndpointPoolTests
         new EndpointSettings(5, "n5.ydb.tech", "VLA")
     );
 
-    public class MockRandomTests
+    public class MockRandomUnitTests
     {
         private readonly Mock<IRandom> _mockRandom = new();
         private readonly EndpointPool _endpointPool;
 
-        public MockRandomTests()
+        public MockRandomUnitTests()
         {
             _endpointPool = new EndpointPool(Utils.GetLoggerFactory().CreateLogger<EndpointPool>(), _mockRandom.Object);
             _endpointPool.Reset(EndpointSettingsList);
@@ -36,6 +36,18 @@ public class EndpointPoolTests
         [InlineData(5, "n5.ydb.tech")]
         public void GetEndpoint_WhenResetNewState_ReturnEndpointByNodeId(int nodeId, string endpoint)
         {
+            Assert.Equal(endpoint, _endpointPool.GetEndpoint(nodeId));
+        }
+
+        [Theory]
+        [InlineData(1, "n1.ydb.tech")]
+        [InlineData(2, "n2.ydb.tech")]
+        [InlineData(3, "n3.ydb.tech")]
+        [InlineData(4, "n4.ydb.tech")]
+        [InlineData(5, "n5.ydb.tech")]
+        public void GetEndpoint_WhenPessimizedEndpoint_ReturnEndpointByNodeId(int nodeId, string endpoint)
+        {
+            _endpointPool.PessimizeEndpoint(endpoint);
             Assert.Equal(endpoint, _endpointPool.GetEndpoint(nodeId));
         }
 
@@ -143,6 +155,21 @@ public class EndpointPoolTests
                 Assert.Equal(listNewEndpointSettings[i].Endpoint, _endpointPool.GetEndpoint());
             }
         }
+
+        [Fact]
+        public void PessimizeEndpoint_WhenPessimizedAllNodes_ReturnRandomEndpoint()
+        {
+            foreach (var endpointSettings in EndpointSettingsList)
+            {
+                _endpointPool.PessimizeEndpoint(endpointSettings.Endpoint);
+            }
+
+            for (var i = 0; i < EndpointSettingsList.Length; i++)
+            {
+                _mockRandom.Setup(random => random.Next(EndpointSettingsList.Length)).Returns(i);
+                Assert.Equal(EndpointSettingsList[i].Endpoint, _endpointPool.GetEndpoint());
+            }
+        }
     }
 
     public class ThreadLocalRandomTests
@@ -155,25 +182,30 @@ public class EndpointPoolTests
         }
 
         [Theory]
-        [InlineData(1, "n1.ydb.tech")]
-        [InlineData(2, "n2.ydb.tech")]
-        [InlineData(3, "n3.ydb.tech")]
-        [InlineData(4, "n4.ydb.tech")]
-        [InlineData(5, "n5.ydb.tech")]
-        public void GetEndpoint_WhenResetNewState_ReturnEndpointByNodeId(int nodeId, string endpoint)
-        {
-            Assert.Equal(endpoint, _endpointPool.GetEndpoint(nodeId));
-        }
-
-        [Fact]
-        public void EndpointPool_AllMethodsWorkAsExpected()
+        [InlineData("n1.ydb.tech")]
+        [InlineData("n2.ydb.tech")]
+        [InlineData("n3.ydb.tech")]
+        [InlineData("n4.ydb.tech")]
+        [InlineData("n5.ydb.tech")]
+        public void EndpointPool_AllMethodsWorkAsExpected(string endpoint)
         {
             var expectedEndpoints = new HashSet<string>
             {
                 "n1.ydb.tech", "n2.ydb.tech", "n3.ydb.tech", "n4.ydb.tech", "n5.ydb.tech"
             };
 
-            Assert.Contains(_endpointPool.GetEndpoint(), expectedEndpoints);
+            for (var it = 0; it < 10; it++)
+            {
+                Assert.Contains(_endpointPool.GetEndpoint(), expectedEndpoints);
+            }
+
+            _endpointPool.PessimizeEndpoint(endpoint);
+
+            expectedEndpoints.Remove(endpoint);
+            for (var it = 0; it < 100; it++)
+            {
+                Assert.Contains(_endpointPool.GetEndpoint(), expectedEndpoints);
+            }
         }
     }
 }
