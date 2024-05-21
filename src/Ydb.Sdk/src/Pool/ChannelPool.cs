@@ -11,7 +11,7 @@ namespace Ydb.Sdk.Pool;
 
 public class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposable
 {
-    private readonly ConcurrentDictionary<string, T> _channels = new();
+    private readonly ConcurrentDictionary<string, Lazy<T>> _channels = new();
 
     private readonly ILogger<ChannelPool<T>> _logger;
     private readonly IChannelFactory<T> _channelFactory;
@@ -24,7 +24,7 @@ public class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposabl
 
     public T GetChannel(string endpoint)
     {
-        return _channels.GetOrAdd(endpoint, _channelFactory.CreateChannel(endpoint));
+        return _channels.GetOrAdd(endpoint, new Lazy<T>(() => _channelFactory.CreateChannel(endpoint))).Value;
     }
 
     public async ValueTask RemoveChannels(ImmutableArray<string> removedEndpoints)
@@ -33,9 +33,9 @@ public class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposabl
 
         foreach (var endpoint in removedEndpoints)
         {
-            if (_channels.TryRemove(endpoint, out var grpcChannel))
+            if (_channels.TryRemove(endpoint, out var lazyGrpcChannel) && lazyGrpcChannel.IsValueCreated)
             {
-                shutdownGrpcChannels.Add(grpcChannel);
+                shutdownGrpcChannels.Add(lazyGrpcChannel.Value);
             }
         }
 
@@ -46,7 +46,11 @@ public class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposabl
     {
         GC.SuppressFinalize(this);
 
-        await ShutdownChannels(_channels.Values);
+        await ShutdownChannels(_channels.Values
+            .Where(lazyChannel => lazyChannel.IsValueCreated)
+            .Select(lazyChannel => lazyChannel.Value)
+            .ToImmutableArray()
+        );
     }
 
     private async ValueTask ShutdownChannels(ICollection<T> channels)
