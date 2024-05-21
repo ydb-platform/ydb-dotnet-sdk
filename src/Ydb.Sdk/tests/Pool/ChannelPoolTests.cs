@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
@@ -11,18 +12,12 @@ public class ChannelPoolTests
 {
     private readonly Mock<IChannelFactory<TestChannel>> _mockChannelFactory = new();
     private readonly ChannelPool<TestChannel> _channelPool;
+    private readonly ConcurrentDictionary<string, Mock<TestChannel>> _endpointToMockChannel = new();
 
     public ChannelPoolTests()
     {
         _channelPool = new ChannelPool<TestChannel>(Utils.GetLoggerFactory().CreateLogger<ChannelPool<TestChannel>>(),
             _mockChannelFactory.Object);
-    }
-
-    [Fact]
-    public async Task ChannelPool_AllMethodsWorkAsExpected()
-    {
-        var endpointToMockChannel = new Dictionary<string, Mock<TestChannel>>();
-
         _mockChannelFactory
             .Setup(channelFactory => channelFactory.CreateChannel(It.IsAny<string>()))
             .Returns<string>(endpoint =>
@@ -30,11 +25,15 @@ public class ChannelPoolTests
                 var mockChannel = new Mock<TestChannel>();
 
                 mockChannel.Setup(channel => channel.ToString()).Returns(endpoint);
-                endpointToMockChannel[endpoint] = mockChannel;
+                _endpointToMockChannel[endpoint] = mockChannel;
 
                 return mockChannel.Object;
             });
+    }
 
+    [Fact]
+    public async Task ChannelPool_AllMethodsWorkAsExpected()
+    {
         const string n1YdbTech = "n1.ydb.tech";
         const string n2YdbTech = "n2.ydb.tech";
         const string n3YdbTech = "n3.ydb.tech";
@@ -54,13 +53,13 @@ public class ChannelPoolTests
 
         await _channelPool.RemoveChannels(ImmutableArray.Create(n1YdbTech, n2YdbTech));
 
-        endpointToMockChannel.Remove(n1YdbTech, out var mockChannel1);
-        endpointToMockChannel.Remove(n2YdbTech, out var mockChannel2);
+        _endpointToMockChannel.Remove(n1YdbTech, out var mockChannel1);
+        _endpointToMockChannel.Remove(n2YdbTech, out var mockChannel2);
 
         mockChannel1!.Verify(channel => channel.Dispose(), Times.Once);
         mockChannel2!.Verify(channel => channel.Dispose(), Times.Once);
 
-        endpointToMockChannel[n3YdbTech].Verify(channel => channel.Dispose(), Times.Never);
+        _endpointToMockChannel[n3YdbTech].Verify(channel => channel.Dispose(), Times.Never);
 
         foreach (var endpoint in endpoints)
         {
@@ -73,8 +72,42 @@ public class ChannelPoolTests
         );
 
         await _channelPool.DisposeAsync();
+    }
 
-        foreach (var mockChannel in endpointToMockChannel.Values)
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetChannel_WhenRaceCondition_ChannelIsCreatedOneTime(bool useAsParallel)
+    {
+        const int endpointCount = 50000;
+        var endpoints = new List<string>();
+
+        for (var i = 0; i < 10 * endpointCount; i++)
+        {
+            endpoints.Add($"n{i % endpointCount}.ydb.tech");
+        }
+
+        var tasks = useAsParallel
+            ? endpoints.AsParallel()
+                .Select(endpoint => Task.Run(() => _channelPool.GetChannel(endpoint)))
+                .ToArray()
+            : endpoints
+                .Select(endpoint => Task.Run(() => _channelPool.GetChannel(endpoint)))
+                .ToArray();
+
+        // ReSharper disable once CoVariantArrayConversion
+        Task.WaitAll(tasks);
+
+        _mockChannelFactory.Verify(
+            channelPool => channelPool.CreateChannel(It.IsAny<string>()), Times.Exactly(endpointCount)
+        );
+
+        await _channelPool.DisposeAsync();
+    }
+
+    ~ChannelPoolTests()
+    {
+        foreach (var mockChannel in _endpointToMockChannel.Values)
         {
             mockChannel.Verify(channel => channel.Dispose(), Times.Once);
         }
