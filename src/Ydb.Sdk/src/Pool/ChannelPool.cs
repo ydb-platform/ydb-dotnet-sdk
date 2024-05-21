@@ -1,11 +1,11 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Security;
-using X509Certificate = System.Security.Cryptography.X509Certificates.X509Certificate;
 
 namespace Ydb.Sdk.Pool;
 
