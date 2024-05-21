@@ -88,7 +88,7 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
     public GrpcChannel CreateChannel(string endpoint)
     {
         _logger.LogDebug("Initializing new gRPC channel for endpoint {Endpoint}", endpoint);
-        
+
         var channelOptions = new GrpcChannelOptions
         {
             LoggerFactory = _loggerFactory
