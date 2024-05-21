@@ -24,12 +24,6 @@ public class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposabl
 
     public T GetChannel(string endpoint)
     {
-        if (_channels.TryGetValue(endpoint, out var channel))
-        {
-            return channel;
-        }
-
-        _logger.LogDebug("Grpc channel {Endpoint} was not found in pool, so it starts creating it ...", endpoint);
         return _channels.GetOrAdd(endpoint, _channelFactory.CreateChannel(endpoint));
     }
 
@@ -93,6 +87,8 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 
     public GrpcChannel CreateChannel(string endpoint)
     {
+        _logger.LogDebug("Initializing new gRPC channel for endpoint {Endpoint}", endpoint);
+        
         var channelOptions = new GrpcChannelOptions
         {
             LoggerFactory = _loggerFactory
