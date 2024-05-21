@@ -9,14 +9,14 @@ using X509Certificate = System.Security.Cryptography.X509Certificates.X509Certif
 
 namespace Ydb.Sdk.Pool;
 
-public class GrpcChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposable
+public class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposable
 {
     private readonly ConcurrentDictionary<string, T> _channels = new();
 
-    private readonly ILogger<GrpcChannelPool<T>> _logger;
-    private readonly IGrpcChannelFactory<T> _channelFactory;
+    private readonly ILogger<ChannelPool<T>> _logger;
+    private readonly IChannelFactory<T> _channelFactory;
 
-    public GrpcChannelPool(ILogger<GrpcChannelPool<T>> logger, IGrpcChannelFactory<T> channelFactory)
+    public ChannelPool(ILogger<ChannelPool<T>> logger, IChannelFactory<T> channelFactory)
     {
         _logger = logger;
         _channelFactory = channelFactory;
@@ -73,12 +73,12 @@ public class GrpcChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDispo
     }
 }
 
-public interface IGrpcChannelFactory<out T> where T : ChannelBase, IDisposable
+public interface IChannelFactory<out T> where T : ChannelBase, IDisposable
 {
     T CreateChannel(string endpoint);
 }
 
-internal class GrpcChannelFactory : IGrpcChannelFactory<GrpcChannel>
+internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly X509Certificate? _x509Certificate;

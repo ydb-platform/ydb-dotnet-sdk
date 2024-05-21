@@ -7,24 +7,24 @@ using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Tests.Pool;
 
-public class GrpcChannelPoolTests
+public class ChannelPoolTests
 {
-    private readonly Mock<IGrpcChannelFactory<TestChannel>> _mockGrpcChannelFactory = new();
-    private readonly GrpcChannelPool<TestChannel> _grpcChannelPool;
+    private readonly Mock<IChannelFactory<TestChannel>> _mockChannelFactory = new();
+    private readonly ChannelPool<TestChannel> _channelPool;
 
-    public GrpcChannelPoolTests()
+    public ChannelPoolTests()
     {
-        _grpcChannelPool = new GrpcChannelPool<TestChannel>(Utils.GetLoggerFactory().CreateLogger<GrpcChannelPool<TestChannel>>(),
-            _mockGrpcChannelFactory.Object);
+        _channelPool = new ChannelPool<TestChannel>(Utils.GetLoggerFactory().CreateLogger<ChannelPool<TestChannel>>(),
+            _mockChannelFactory.Object);
     }
 
     [Fact]
-    public async Task GrpcChannelPool_AllMethodsWorkAsExpected()
+    public async Task ChannelPool_AllMethodsWorkAsExpected()
     {
         var endpointToMockChannel = new Dictionary<string, Mock<TestChannel>>();
-        
-        _mockGrpcChannelFactory
-            .Setup(grpcChannelFactory => grpcChannelFactory.CreateChannel(It.IsAny<string>()))
+
+        _mockChannelFactory
+            .Setup(channelFactory => channelFactory.CreateChannel(It.IsAny<string>()))
             .Returns<string>(endpoint =>
             {
                 var mockChannel = new Mock<TestChannel>();
@@ -38,41 +38,41 @@ public class GrpcChannelPoolTests
         const string n1YdbTech = "n1.ydb.tech";
         const string n2YdbTech = "n2.ydb.tech";
         const string n3YdbTech = "n3.ydb.tech";
-        
+
         var endpoints = ImmutableArray.Create<string>(
             n1YdbTech, n2YdbTech, n3YdbTech, "n4.ydb.tech", "n5.ydb.tech"
         );
 
         foreach (var endpoint in endpoints)
         {
-            Assert.Equal(endpoint, _grpcChannelPool.GetChannel(endpoint).ToString());
+            Assert.Equal(endpoint, _channelPool.GetChannel(endpoint).ToString());
         }
-        
-        _mockGrpcChannelFactory.Verify(
-            grpcChannelPool => grpcChannelPool.CreateChannel(It.IsAny<string>()), Times.Exactly(5)
+
+        _mockChannelFactory.Verify(
+            channelPool => channelPool.CreateChannel(It.IsAny<string>()), Times.Exactly(5)
         );
 
-        await _grpcChannelPool.RemoveChannels(ImmutableArray.Create(n1YdbTech, n2YdbTech));
-        
+        await _channelPool.RemoveChannels(ImmutableArray.Create(n1YdbTech, n2YdbTech));
+
         endpointToMockChannel.Remove(n1YdbTech, out var mockChannel1);
         endpointToMockChannel.Remove(n2YdbTech, out var mockChannel2);
-        
+
         mockChannel1!.Verify(channel => channel.Dispose(), Times.Once);
         mockChannel2!.Verify(channel => channel.Dispose(), Times.Once);
-        
+
         endpointToMockChannel[n3YdbTech].Verify(channel => channel.Dispose(), Times.Never);
-        
+
         foreach (var endpoint in endpoints)
         {
-            Assert.Equal(endpoint, _grpcChannelPool.GetChannel(endpoint).ToString());
+            Assert.Equal(endpoint, _channelPool.GetChannel(endpoint).ToString());
         }
-        
+
         // created two channels
-        _mockGrpcChannelFactory.Verify(
-            grpcChannelPool => grpcChannelPool.CreateChannel(It.IsAny<string>()), Times.Exactly(7)
+        _mockChannelFactory.Verify(
+            channelPool => channelPool.CreateChannel(It.IsAny<string>()), Times.Exactly(7)
         );
 
-        await _grpcChannelPool.DisposeAsync();
+        await _channelPool.DisposeAsync();
 
         foreach (var mockChannel in endpointToMockChannel.Values)
         {
@@ -86,7 +86,7 @@ public class GrpcChannelPoolTests
         protected TestChannel() : base("")
         {
         }
-        
+
         public abstract void Dispose();
     }
 }
