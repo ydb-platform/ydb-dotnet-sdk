@@ -9,7 +9,7 @@ using Org.BouncyCastle.Security;
 
 namespace Ydb.Sdk.Pool;
 
-public class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposable
+internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposable
 {
     private readonly ConcurrentDictionary<string, Lazy<T>> _channels = new();
 
