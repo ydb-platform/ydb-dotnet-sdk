@@ -19,12 +19,12 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     {
         await _semaphoreSlim.WaitAsync();
 
-        if (_idleSessions.TryDequeue(out var session) && !session.IsInvalidated)
+        if (_idleSessions.TryDequeue(out var session) && session.IsActive)
         {
             return (Status.Success, session);
         }
 
-        if (session?.IsInvalidated ?? false)
+        if (session != null) // not active
         {
             _ = DeleteSession().ContinueWith(s =>
                 _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s)
@@ -64,8 +64,8 @@ public abstract class SessionBase<T> where T : SessionBase<T>
 
     public string SessionId { get; }
     public int NodeId { get; }
-
-    public volatile bool IsInvalidated;
+    
+    internal volatile bool IsActive = true;
 
     internal SessionBase(SessionPool<T> sessionPool, string sessionId, int nodeId)
     {
@@ -79,7 +79,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
         if (status.StatusCode is StatusCode.BadSession or StatusCode.SessionBusy or StatusCode.InternalError
             or StatusCode.ClientTransportTimeout or StatusCode.Unavailable)
         {
-            IsInvalidated = true;
+            IsActive = false;
         }
     }
 
