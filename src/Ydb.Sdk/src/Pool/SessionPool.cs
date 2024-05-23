@@ -64,7 +64,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
 
     public string SessionId { get; }
     public int NodeId { get; }
-    
+
     internal volatile bool IsActive = true;
 
     internal SessionBase(SessionPool<T> sessionPool, string sessionId, int nodeId)
