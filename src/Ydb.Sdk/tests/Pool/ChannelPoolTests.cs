@@ -8,6 +8,7 @@ using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Tests.Pool;
 
+[Trait("Category", "Unit")]
 public class ChannelPoolTests
 {
     private readonly Mock<IChannelFactory<TestChannel>> _mockChannelFactory = new();

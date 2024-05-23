@@ -6,6 +6,7 @@ using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Tests.Pool;
 
+[Trait("Category", "Unit")]
 public class SessionPoolTests
 {
     public const int TestSessionPoolSize = 50;
@@ -91,7 +92,7 @@ internal class TestSessionPool : SessionPool<TestSession>
     {
         Interlocked.Increment(ref InvokedCreateSession);
 
-        return Task.FromResult((CreatedStatus, CreatedStatus.IsSuccess ? new TestSession(this) : null))!;
+        return Task.FromResult((CreatedStatus, CreatedStatus.IsSuccess ? new TestSession(this) : null));
     }
 
     protected override Task<Status> DeleteSession()
