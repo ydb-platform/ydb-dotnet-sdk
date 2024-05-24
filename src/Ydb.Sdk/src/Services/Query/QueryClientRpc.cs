@@ -14,7 +14,8 @@ internal class QueryClientRpc
         _driver = driver;
     }
 
-    internal async Task<CreateSessionResponse> CreateSession(SessionPool sessionPool, CreateSessionSettings? settings = null)
+    internal async Task<CreateSessionResponse> CreateSession(SessionPool sessionPool,
+        CreateSessionSettings? settings = null)
     {
         settings ??= new CreateSessionSettings();
         var request = new CreateSessionRequest();
