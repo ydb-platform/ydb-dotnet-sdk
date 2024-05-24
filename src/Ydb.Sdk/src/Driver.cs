@@ -233,7 +233,8 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         _endpointPool.Reset(resultProto.Endpoints
             .Select(endpointSettings => new EndpointSettings(
                 (int)endpointSettings.NodeId,
-                (endpointSettings.Ssl ? "https://" : "http://") + endpointSettings.Address + ":" + endpointSettings.Port,
+                (endpointSettings.Ssl ? "https://" : "http://") +
+                endpointSettings.Address + ":" + endpointSettings.Port,
                 endpointSettings.Location))
             .ToImmutableArray()
         );
