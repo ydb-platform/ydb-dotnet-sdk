@@ -1,18 +1,24 @@
-﻿using System.Reflection;
+﻿using System.Collections.Immutable;
+using System.Reflection;
 using Grpc.Core;
+using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
 using Ydb.Discovery.V1;
+using Ydb.Sdk.Pool;
+using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk;
 
-public class Driver : IDisposable, IAsyncDisposable
+public sealed class Driver : IDisposable, IAsyncDisposable
 {
     private readonly DriverConfig _config;
-    private readonly ILogger _logger;
+    private readonly ILogger<Driver> _logger;
     private readonly string _sdkInfo;
-    private readonly ChannelsCache _channels;
+    private readonly GrpcChannelFactory _grpcChannelFactory;
+    private readonly EndpointPool _endpointPool;
+    private readonly ChannelPool<GrpcChannel> _channelPool;
 
     private volatile bool _disposed;
 
@@ -24,7 +30,12 @@ public class Driver : IDisposable, IAsyncDisposable
         LoggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
         _logger = LoggerFactory.CreateLogger<Driver>();
         _config = config;
-        _channels = new ChannelsCache(_config, LoggerFactory);
+        _grpcChannelFactory = new GrpcChannelFactory(LoggerFactory, config);
+        _endpointPool = new EndpointPool(LoggerFactory.CreateLogger<EndpointPool>());
+        _channelPool = new ChannelPool<GrpcChannel>(
+            LoggerFactory.CreateLogger<ChannelPool<GrpcChannel>>(),
+            _grpcChannelFactory
+        );
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         var versionStr = version is null ? "unknown" : version.ToString(3);
@@ -55,7 +66,7 @@ public class Driver : IDisposable, IAsyncDisposable
 
         if (disposing)
         {
-            _channels.Dispose();
+            _channelPool.DisposeAsync().AsTask().Wait();
         }
     }
 
@@ -68,7 +79,7 @@ public class Driver : IDisposable, IAsyncDisposable
 
     public async Task Initialize()
     {
-        await _config.Credentials.ProvideConfig(_config);
+        await _config.Credentials.ProvideAuthClient(new AuthClient(_config, _grpcChannelFactory, LoggerFactory));
 
         _logger.LogInformation("Started initial endpoint discovery");
 
@@ -105,12 +116,11 @@ public class Driver : IDisposable, IAsyncDisposable
     internal async Task<UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
-        GrpcRequestSettings settings,
-        string? preferredEndpoint = null)
+        GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class
     {
-        var (endpoint, channel) = _channels.GetChannel(preferredEndpoint);
+        var (endpoint, channel) = GetChannel(settings.NodeId);
         var callInvoker = channel.CreateCallInvoker();
 
         _logger.LogTrace($"Unary call" +
@@ -143,12 +153,11 @@ public class Driver : IDisposable, IAsyncDisposable
     internal StreamIterator<TResponse> StreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
-        GrpcRequestSettings settings,
-        string? preferredEndpoint = null)
+        GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class
     {
-        var (endpoint, channel) = _channels.GetChannel(preferredEndpoint);
+        var (endpoint, channel) = GetChannel(settings.NodeId);
         var callInvoker = channel.CreateCallInvoker();
 
         var call = callInvoker.AsyncServerStreamingCall(
@@ -162,9 +171,16 @@ public class Driver : IDisposable, IAsyncDisposable
             _ => { PessimizeEndpoint(endpoint); });
     }
 
+    private (string, GrpcChannel) GetChannel(int nodeId)
+    {
+        var endpoint = _endpointPool.GetEndpoint(nodeId);
+
+        return (endpoint, _channelPool.GetChannel(endpoint));
+    }
+
     private async Task<Status> DiscoverEndpoints()
     {
-        using var channel = ChannelsCache.CreateChannel(_config.Endpoint, _config, LoggerFactory);
+        using var channel = _grpcChannelFactory.CreateChannel(_config.Endpoint);
 
         var client = new DiscoveryService.DiscoveryServiceClient(channel);
 
@@ -214,7 +230,14 @@ public class Driver : IDisposable, IAsyncDisposable
                                $", self location: {resultProto.SelfLocation}" +
                                $", sdk info: {_sdkInfo}");
 
-        _channels.UpdateEndpoints(resultProto);
+        _endpointPool.Reset(resultProto.Endpoints
+            .Select(endpointSettings => new EndpointSettings(
+                (int)endpointSettings.NodeId,
+                (endpointSettings.Ssl ? "https://" : "http://") +
+                endpointSettings.Address + ":" + endpointSettings.Port,
+                endpointSettings.Location))
+            .ToImmutableArray()
+        );
 
         return new Status(StatusCode.Success);
     }
@@ -241,12 +264,13 @@ public class Driver : IDisposable, IAsyncDisposable
 
     private void PessimizeEndpoint(string endpoint)
     {
-        var ratio = _channels.PessimizeEndpoint(endpoint);
-        if (ratio != null && ratio > _config.PessimizedEndpointRatioTreshold)
+        if (!_endpointPool.PessimizeEndpoint(endpoint))
         {
-            _logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
-            _ = Task.Run(DiscoverEndpoints);
+            return;
         }
+
+        _logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
+        _ = Task.Run(DiscoverEndpoints);
     }
 
     private CallOptions GetCallOptions(GrpcRequestSettings settings, bool streaming)

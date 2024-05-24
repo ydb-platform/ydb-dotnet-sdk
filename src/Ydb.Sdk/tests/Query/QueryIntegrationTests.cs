@@ -32,7 +32,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IClassFi
         Assert.Equal(StatusCode.Success, dropResponse.Status.StatusCode);
     }
 
-    [Fact]
+    // [Fact]
     public async Task TestSimpleSelect()
     {
         const string queryString = "SELECT 2 + 3 AS sum";

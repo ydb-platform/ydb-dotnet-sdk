@@ -79,8 +79,7 @@ public partial class Session : SessionBase
         var response = await Driver.UnaryCall(
             method: method,
             request: request,
-            settings: settings,
-            preferredEndpoint: Endpoint
+            settings: settings
         );
         OnResponseTrailers(response.Trailers);
         return response;
