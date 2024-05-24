@@ -31,9 +31,9 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         _logger = LoggerFactory.CreateLogger<Driver>();
         _config = config;
         _grpcChannelFactory = new GrpcChannelFactory(LoggerFactory, config);
-        _endpointPool = new EndpointPool(loggerFactory.CreateLogger<EndpointPool>());
+        _endpointPool = new EndpointPool(LoggerFactory.CreateLogger<EndpointPool>());
         _channelPool = new ChannelPool<GrpcChannel>(
-            loggerFactory.CreateLogger<ChannelPool<GrpcChannel>>(),
+            LoggerFactory.CreateLogger<ChannelPool<GrpcChannel>>(),
             _grpcChannelFactory
         );
 
@@ -233,7 +233,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         _endpointPool.Reset(resultProto.Endpoints
             .Select(endpointSettings => new EndpointSettings(
                 (int)endpointSettings.NodeId,
-                endpointSettings.Address + ":" + endpointSettings.Port,
+                (endpointSettings.Ssl ? "https://" : "http://") + endpointSettings.Address + ":" + endpointSettings.Port,
                 endpointSettings.Location))
             .ToImmutableArray()
         );
