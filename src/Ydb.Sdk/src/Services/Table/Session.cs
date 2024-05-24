@@ -72,7 +72,7 @@ public partial class Session : SessionBase
     internal async Task<Driver.UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
-        RequestSettings settings)
+        GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class
     {

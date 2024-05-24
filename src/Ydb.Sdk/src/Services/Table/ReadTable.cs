@@ -4,7 +4,7 @@ using Ydb.Table.V1;
 
 namespace Ydb.Sdk.Services.Table;
 
-public class ReadTableSettings : RequestSettings
+public class ReadTableSettings : GrpcRequestSettings
 {
     public List<string> Columns { get; set; } = new();
 

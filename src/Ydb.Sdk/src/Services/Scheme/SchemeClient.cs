@@ -5,7 +5,7 @@ using Ydb.Sdk.Services.Operations;
 
 namespace Ydb.Sdk.Services.Scheme;
 
-public class ListDirectorySettings : OperationRequestSettings
+public class ListDirectorySettings : OperationSettings
 {
 }
 

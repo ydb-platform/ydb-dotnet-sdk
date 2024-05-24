@@ -221,9 +221,7 @@ public class Status
         return StatusCode.Unspecified;
     }
 
-    public static Status FromProto(
-        StatusIds.Types.StatusCode statusCode,
-        RepeatedField<IssueMessage> issues)
+    public static Status FromProto(StatusIds.Types.StatusCode statusCode, RepeatedField<IssueMessage> issues)
     {
         return new Status(ConvertStatusCode(statusCode), issues.Select(i => new Issue(i)).ToList());
     }

@@ -29,11 +29,11 @@ public class CopyTableItem
     }
 }
 
-public class CopyTableSettings : OperationRequestSettings
+public class CopyTableSettings : OperationSettings
 {
 }
 
-public class CopyTablesSettings : OperationRequestSettings
+public class CopyTablesSettings : OperationSettings
 {
 }
 

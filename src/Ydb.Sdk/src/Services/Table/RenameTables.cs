@@ -29,7 +29,7 @@ public class RenameTableItem
     }
 }
 
-public class RenameTablesSettings : OperationRequestSettings
+public class RenameTablesSettings : OperationSettings
 {
 }
 

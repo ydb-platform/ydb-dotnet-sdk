@@ -55,8 +55,7 @@ internal class NoPool<TSession> : ISessionPool<TSession> where TSession : Sessio
     }
 }
 
-public abstract class SessionPoolBase<TSession> : ISessionPool<TSession>
-    where TSession : SessionBase
+public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where TSession : SessionBase
 {
     private const int MaxAttempts = 100;
 

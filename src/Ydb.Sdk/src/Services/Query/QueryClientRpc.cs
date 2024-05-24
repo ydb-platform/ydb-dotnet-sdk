@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Value;
@@ -12,7 +11,6 @@ internal class QueryClientRpc
     internal QueryClientRpc(Driver driver)
     {
         _driver = driver;
-        _driver.LoggerFactory.CreateLogger<QueryClient>();
     }
 
     internal async Task<CreateSessionResponse> CreateSession(SessionPool sessionPool,

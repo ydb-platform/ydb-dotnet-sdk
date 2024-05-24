@@ -449,7 +449,7 @@ public class ReadReplicasSettings
     }
 }
 
-public class DescribeTableSettings : OperationRequestSettings
+public class DescribeTableSettings : OperationSettings
 {
     public bool IncludeShardKeyBounds { get; private set; }
     public bool IncludeTableStats { get; private set; }
