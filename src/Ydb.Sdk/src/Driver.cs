@@ -194,7 +194,7 @@ public class Driver : IDisposable, IAsyncDisposable
         }
 
         var status = Status.FromProto(response.Operation.Status, response.Operation.Issues);
-        if (!status.IsSuccess)
+        if (status.IsNotSuccess)
         {
             _logger.LogWarning($"Unsuccessful endpoint discovery: {status}");
             return status;

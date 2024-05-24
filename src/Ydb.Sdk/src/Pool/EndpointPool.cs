@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Pool;
 
-public class EndpointPool
+internal class EndpointPool
 {
     private const int DiscoveryDegradationLimit = 50;
 
@@ -16,7 +16,7 @@ public class EndpointPool
     private Dictionary<int, string> _nodeIdToEndpoint = new();
     private int _preferredEndpointCount;
 
-    public EndpointPool(ILogger<EndpointPool> logger, IRandom? random = null)
+    internal EndpointPool(ILogger<EndpointPool> logger, IRandom? random = null)
     {
         _logger = logger;
         _random = random ?? ThreadLocalRandom.Instance;

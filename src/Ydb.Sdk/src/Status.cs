@@ -183,6 +183,7 @@ public class Status
     }
 
     public bool IsSuccess => StatusCode == StatusCode.Success;
+    public bool IsNotSuccess => !IsSuccess;
 
     public void EnsureSuccess()
     {

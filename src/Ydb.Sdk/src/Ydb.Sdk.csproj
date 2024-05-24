@@ -37,4 +37,9 @@
   <ItemGroup Condition="$(TargetFramework.Equals('net7.0'))">
   </ItemGroup>
 
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Ydb.Sdk.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>
