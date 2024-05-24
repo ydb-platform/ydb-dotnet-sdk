@@ -6,7 +6,7 @@ using Ydb.Table.V1;
 
 namespace Ydb.Sdk.Services.Table;
 
-public class ExecuteDataQuerySettings : OperationRequestSettings
+public class ExecuteDataQuerySettings : OperationSettings
 {
     public bool KeepInQueryCache { get; set; } = true;
     public bool AllowTruncated { get; set; }

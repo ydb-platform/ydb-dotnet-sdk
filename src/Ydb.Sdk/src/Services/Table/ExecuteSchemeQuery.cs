@@ -5,7 +5,7 @@ using Ydb.Table.V1;
 
 namespace Ydb.Sdk.Services.Table;
 
-public class ExecuteSchemeQuerySettings : OperationRequestSettings
+public class ExecuteSchemeQuerySettings : OperationSettings
 {
 }
 

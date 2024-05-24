@@ -6,9 +6,9 @@ namespace Ydb.Sdk.Services.Operations;
 
 public partial class OperationsClient
 {
-    public async Task<ClientOperation> GetOperation(string id, RequestSettings? settings = null)
+    public async Task<ClientOperation> GetOperation(string id, GrpcRequestSettings? settings = null)
     {
-        settings ??= new RequestSettings();
+        settings ??= new GrpcRequestSettings();
 
         var request = new GetOperationRequest
         {

@@ -60,7 +60,7 @@ internal class AuthClient
     }
 }
 
-public class LoginSettings : OperationRequestSettings
+public class LoginSettings : OperationSettings
 {
 }
 

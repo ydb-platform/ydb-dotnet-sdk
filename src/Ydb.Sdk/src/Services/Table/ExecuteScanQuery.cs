@@ -5,7 +5,7 @@ using Ydb.Table.V1;
 
 namespace Ydb.Sdk.Services.Table;
 
-public class ExecuteScanQuerySettings : RequestSettings
+public class ExecuteScanQuerySettings : GrpcRequestSettings
 {
 }
 

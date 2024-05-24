@@ -38,7 +38,7 @@ public abstract class GrpcTransport : IDisposable, IAsyncDisposable
 
     internal async Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
-        RequestSettings settings,
+        GrpcRequestSettings settings,
         TRequest request
     ) where TRequest : class where TResponse : class
     {
@@ -69,7 +69,7 @@ public abstract class GrpcTransport : IDisposable, IAsyncDisposable
 
     protected abstract void OnRpcError(string endpoint, RpcException e);
 
-    private CallOptions GetCallOptions(RequestSettings settings, bool streaming)
+    private CallOptions GetCallOptions(GrpcRequestSettings settings, bool streaming)
     {
         var meta = new Grpc.Core.Metadata
         {

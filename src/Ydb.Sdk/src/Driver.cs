@@ -105,7 +105,7 @@ public class Driver : IDisposable, IAsyncDisposable
     internal async Task<UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
-        RequestSettings settings,
+        GrpcRequestSettings settings,
         string? preferredEndpoint = null)
         where TRequest : class
         where TResponse : class
@@ -143,7 +143,7 @@ public class Driver : IDisposable, IAsyncDisposable
     internal StreamIterator<TResponse> StreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
-        RequestSettings settings,
+        GrpcRequestSettings settings,
         string? preferredEndpoint = null)
         where TRequest : class
         where TResponse : class
@@ -173,7 +173,7 @@ public class Driver : IDisposable, IAsyncDisposable
             Database = _config.Database
         };
 
-        var requestSettings = new RequestSettings
+        var requestSettings = new GrpcRequestSettings
         {
             TransportTimeout = _config.EndpointDiscoveryTimeout
         };
@@ -249,7 +249,7 @@ public class Driver : IDisposable, IAsyncDisposable
         }
     }
 
-    private CallOptions GetCallOptions(RequestSettings settings, bool streaming)
+    private CallOptions GetCallOptions(GrpcRequestSettings settings, bool streaming)
     {
         var meta = new Grpc.Core.Metadata
         {

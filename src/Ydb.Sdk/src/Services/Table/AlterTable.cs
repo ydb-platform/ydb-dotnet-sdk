@@ -29,13 +29,9 @@ public class AlterTableMetadata
 
     internal static AlterTableMetadata FromProto(Any metaProto)
     {
-        if (metaProto.Is(Ydb.Table.IndexBuildMetadata.Descriptor))
-        {
-            return new AlterTableMetadata(metaProto.Unpack<Ydb.Table.IndexBuildMetadata>());
-        }
-
-
-        return new AlterTableMetadata();
+        return metaProto.Is(Ydb.Table.IndexBuildMetadata.Descriptor)
+            ? new AlterTableMetadata(metaProto.Unpack<Ydb.Table.IndexBuildMetadata>())
+            : new AlterTableMetadata();
     }
 }
 
@@ -77,7 +73,7 @@ public sealed class AlterTableOperation : OperationResponse<EmptyResult, AlterTa
     }
 }
 
-public class AddIndexSettings : OperationRequestSettings
+public class AddIndexSettings : OperationSettings
 {
     public string Name { get; set; } = string.Empty;
     public List<string> IndexColumns { get; set; } = new();

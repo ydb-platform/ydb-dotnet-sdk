@@ -12,11 +12,9 @@ internal class QueryClientRpc
     internal QueryClientRpc(Driver driver)
     {
         _driver = driver;
-        _driver.LoggerFactory.CreateLogger<QueryClient>();
     }
 
-    internal async Task<CreateSessionResponse> CreateSession(SessionPool sessionPool,
-        CreateSessionSettings? settings = null)
+    internal async Task<CreateSessionResponse> CreateSession(SessionPool sessionPool, CreateSessionSettings? settings = null)
     {
         settings ??= new CreateSessionSettings();
         var request = new CreateSessionRequest();

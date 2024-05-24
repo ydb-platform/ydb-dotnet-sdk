@@ -53,34 +53,34 @@ public enum StatsMode
     Profile = 40
 }
 
-public class ExecuteQuerySettings : RequestSettings
+public class ExecuteQuerySettings : GrpcRequestSettings
 {
     public ExecMode ExecMode { get; set; } = ExecMode.Execute;
     public Syntax Syntax { get; set; }
     public StatsMode StatsMode { get; set; }
 }
 
-internal class CreateSessionSettings : RequestSettings
+internal class CreateSessionSettings : GrpcRequestSettings
 {
 }
 
-internal class DeleteSessionSettings : RequestSettings
+internal class DeleteSessionSettings : GrpcRequestSettings
 {
 }
 
-internal class AttachSessionSettings : RequestSettings
+internal class AttachSessionSettings : GrpcRequestSettings
 {
 }
 
-internal class BeginTransactionSettings : RequestSettings
+internal class BeginTransactionSettings : GrpcRequestSettings
 {
 }
 
-internal class CommitTransactionSettings : RequestSettings
+internal class CommitTransactionSettings : GrpcRequestSettings
 {
 }
 
-internal class RollbackTransactionSettings : RequestSettings
+internal class RollbackTransactionSettings : GrpcRequestSettings
 {
 }
 

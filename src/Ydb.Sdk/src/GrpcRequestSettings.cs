@@ -1,16 +1,22 @@
-﻿using Google.Protobuf.WellKnownTypes;
+﻿using System.Collections.Immutable;
+using Google.Protobuf.WellKnownTypes;
 using Ydb.Operations;
 
 namespace Ydb.Sdk;
 
-public class RequestSettings
+public class GrpcRequestSettings
 {
     public string TraceId { get; set; } = string.Empty;
-
     public TimeSpan? TransportTimeout { get; set; }
+
+    public ImmutableArray<string> CustomClientHeaders { get; set; }
+
+    internal int NodeId { get; set; } = 0;
+
+    internal Action<Grpc.Core.Metadata?> TrailersHandler { get; set; } = _ => { };
 }
 
-public class OperationRequestSettings : RequestSettings
+public class OperationSettings : GrpcRequestSettings
 {
     public TimeSpan? OperationTimeout { get; set; }
 
