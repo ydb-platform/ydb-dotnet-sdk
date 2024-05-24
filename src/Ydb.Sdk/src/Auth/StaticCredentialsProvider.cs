@@ -152,9 +152,9 @@ public class StaticCredentialsProvider : ICredentialsProvider
         return new TokenData(token, new JwtSecurityToken(token).ValidTo, RefreshRatio);
     }
 
-    public async Task ProvideConfig(DriverConfig driverConfig)
+    public async Task ProvideAuthClient(AuthClient authClient)
     {
-        _authClient = new AuthClient(driverConfig, _logger);
+        _authClient = authClient;
 
         await UpdateToken();
     }

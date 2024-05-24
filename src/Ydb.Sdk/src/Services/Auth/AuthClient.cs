@@ -2,20 +2,23 @@ using Microsoft.Extensions.Logging;
 using Ydb.Auth;
 using Ydb.Auth.V1;
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Operations;
 using Ydb.Sdk.Transport;
 
 namespace Ydb.Sdk.Services.Auth;
 
-internal class AuthClient
+public class AuthClient
 {
     private readonly DriverConfig _config;
-    private readonly ILogger _logger;
+    private readonly GrpcChannelFactory _grpcChannelFactory;
+    private readonly ILoggerFactory _loggerFactory;
 
-    public AuthClient(DriverConfig config, ILogger logger)
+    internal AuthClient(DriverConfig config, GrpcChannelFactory grpcChannelFactory, ILoggerFactory loggerFactory)
     {
         _config = config;
-        _logger = logger;
+        _grpcChannelFactory = grpcChannelFactory;
+        _loggerFactory = loggerFactory;
     }
 
     public async Task<LoginResponse> Login(string user, string? password, LoginSettings? settings = null)
@@ -34,7 +37,7 @@ internal class AuthClient
 
         try
         {
-            await using var transport = new AuthGrpcChannelTransport(_config, _logger);
+            await using var transport = new AuthGrpcChannelTransport(_config, _grpcChannelFactory, _loggerFactory);
 
             var response = await transport.UnaryCall(
                 method: AuthService.LoginMethod,

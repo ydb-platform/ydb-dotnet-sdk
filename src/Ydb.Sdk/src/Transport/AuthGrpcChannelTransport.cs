@@ -1,6 +1,7 @@
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Transport;
 
@@ -10,16 +11,17 @@ internal class AuthGrpcChannelTransport : GrpcTransport
 
     public AuthGrpcChannelTransport(
         DriverConfig driverConfig,
-        ILogger logger
+        GrpcChannelFactory grpcChannelFactory,
+        ILoggerFactory loggerFactory
     ) : base(
         new DriverConfig(
             endpoint: driverConfig.Endpoint,
             database: driverConfig.Database,
             customServerCertificate: driverConfig.CustomServerCertificate
-        ), logger
+        ), loggerFactory.CreateLogger<AuthGrpcChannelTransport>()
     )
     {
-        _channel = ChannelsCache.CreateChannel(Config.Endpoint, Config);
+        _channel = grpcChannelFactory.CreateChannel(Config.Endpoint);
     }
 
     protected override void Dispose(bool disposing)

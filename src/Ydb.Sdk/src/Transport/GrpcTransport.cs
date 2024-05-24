@@ -8,9 +8,9 @@ namespace Ydb.Sdk.Transport;
 public abstract class GrpcTransport : IDisposable, IAsyncDisposable
 {
     protected readonly DriverConfig Config;
-    protected readonly ILogger Logger;
+    protected readonly ILogger<GrpcTransport> Logger;
 
-    internal GrpcTransport(DriverConfig driverConfig, ILogger logger)
+    internal GrpcTransport(DriverConfig driverConfig, ILogger<GrpcTransport> logger)
     {
         Logger = logger;
         Config = driverConfig;
