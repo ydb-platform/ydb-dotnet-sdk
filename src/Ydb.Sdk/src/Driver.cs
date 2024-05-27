@@ -310,7 +310,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
         return options;
     }
-    
+
     internal sealed class StreamIterator<TResponse>
     {
         private readonly AsyncServerStreamingCall<TResponse> _responseStream;
