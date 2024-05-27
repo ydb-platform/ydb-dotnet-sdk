@@ -145,7 +145,7 @@ public class SchemeClient
                 settings: settings
             );
 
-            var status = response.Data.Operation.TryUnpack(out ListDirectoryResult? resultProto);
+            var status = response.Operation.TryUnpack(out ListDirectoryResult? resultProto);
 
             ListDirectoryResponse.ResultData? result = null;
             if (status.IsSuccess && resultProto != null)

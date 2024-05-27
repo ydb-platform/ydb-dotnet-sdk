@@ -23,13 +23,13 @@ internal class QueryClientRpc
         {
             var response = await _driver.UnaryCall(QueryService.CreateSessionMethod, request, settings);
 
-            var status = Status.FromProto(response.Data.Status, response.Data.Issues);
+            var status = Status.FromProto(response.Status, response.Issues);
 
             CreateSessionResponse.ResultData? result = null;
 
             if (status.IsSuccess)
             {
-                result = CreateSessionResponse.ResultData.FromProto(sessionPool, response.Data, _driver);
+                result = CreateSessionResponse.ResultData.FromProto(sessionPool, response, _driver);
             }
 
             return new CreateSessionResponse(status, result);
@@ -56,7 +56,7 @@ internal class QueryClientRpc
                 settings: settings
             );
 
-            return DeleteSessionResponse.FromProto(response.Data);
+            return DeleteSessionResponse.FromProto(response);
         }
         catch (Driver.TransportException e)
         {
@@ -95,7 +95,7 @@ internal class QueryClientRpc
                 settings: settings
             );
 
-            return BeginTransactionResponse.FromProto(response.Data);
+            return BeginTransactionResponse.FromProto(response);
         }
         catch (Driver.TransportException e)
         {
@@ -120,7 +120,7 @@ internal class QueryClientRpc
                 settings: settings
             );
 
-            return CommitTransactionResponse.FromProto(response.Data);
+            return CommitTransactionResponse.FromProto(response);
         }
         catch (Driver.TransportException e)
         {
@@ -143,7 +143,7 @@ internal class QueryClientRpc
                 request: request,
                 settings: settings
             );
-            return RollbackTransactionResponse.FromProto(response.Data);
+            return RollbackTransactionResponse.FromProto(response);
         }
         catch (Driver.TransportException e)
         {

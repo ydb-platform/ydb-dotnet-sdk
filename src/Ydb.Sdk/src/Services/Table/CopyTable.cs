@@ -72,7 +72,7 @@ public partial class TableClient
                 settings: settings
             );
 
-            var status = response.Data.Operation.Unpack();
+            var status = response.Operation.Unpack();
             return new CopyTableResponse(status);
         }
         catch (Driver.TransportException e)
@@ -98,7 +98,7 @@ public partial class TableClient
                 request: request,
                 settings: settings);
 
-            var status = response.Data.Operation.Unpack();
+            var status = response.Operation.Unpack();
             return new CopyTablesResponse(status);
         }
         catch (Driver.TransportException e)

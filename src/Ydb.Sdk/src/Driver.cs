@@ -115,7 +115,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         throw new InitializationFailureException("Error during initial endpoint discovery");
     }
 
-    internal async Task<UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
+    internal async Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
@@ -140,7 +140,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
             var data = await call.ResponseAsync;
             settings.TrailersHandler(call.GetTrailers());
 
-            return new UnaryResponse<TResponse>(data: data, usedEndpoint: endpoint);
+            return data;
         }
         catch (RpcException e)
         {
@@ -310,20 +310,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
         return options;
     }
-
-    internal sealed class UnaryResponse<TResponse>
-    {
-        internal UnaryResponse(TResponse data, string usedEndpoint)
-        {
-            Data = data;
-            UsedEndpoint = usedEndpoint;
-        }
-
-        public TResponse Data { get; }
-
-        public string UsedEndpoint { get; }
-    }
-
+    
     internal sealed class StreamIterator<TResponse>
     {
         private readonly AsyncServerStreamingCall<TResponse> _responseStream;

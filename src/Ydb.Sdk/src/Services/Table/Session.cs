@@ -69,7 +69,7 @@ public partial class Session : SessionBase
         Disposed = true;
     }
 
-    private async Task<Driver.UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
+    private async Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
@@ -79,11 +79,10 @@ public partial class Session : SessionBase
         settings.NodeId = NodeId;
         settings.TrailersHandler = OnResponseTrailers;
 
-        var response = await Driver.UnaryCall(
+        return await Driver.UnaryCall(
             method: method,
             request: request,
             settings: settings
         );
-        return response;
     }
 }

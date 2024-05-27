@@ -41,7 +41,7 @@ public partial class Session
                 settings: settings
             );
 
-            var status = response.Data.Operation.Unpack();
+            var status = response.Operation.Unpack();
             OnResponseStatus(status);
 
             return new ExecuteSchemeQueryResponse(status);

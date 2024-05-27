@@ -110,7 +110,7 @@ public partial class TableClient
 
             return new AlterTableOperation(
                 new OperationsClient(_driver),
-                ClientOperation.FromProto(response.Data.Operation)
+                ClientOperation.FromProto(response.Operation)
             );
         }
         catch (Driver.TransportException e)
