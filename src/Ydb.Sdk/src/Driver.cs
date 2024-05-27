@@ -138,12 +138,9 @@ public sealed class Driver : IDisposable, IAsyncDisposable
                 request: request);
 
             var data = await call.ResponseAsync;
-            var trailers = call.GetTrailers();
-
-            return new UnaryResponse<TResponse>(
-                data: data,
-                usedEndpoint: endpoint,
-                trailers: trailers);
+            settings.TrailersHandler(call.GetTrailers());
+            
+            return new UnaryResponse<TResponse>(data: data, usedEndpoint: endpoint);
         }
         catch (RpcException e)
         {
@@ -173,7 +170,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
             _ => { PessimizeEndpoint(endpoint); });
     }
 
-    private (string, GrpcChannel) GetChannel(int nodeId)
+    private (string, GrpcChannel) GetChannel(long nodeId)
     {
         var endpoint = _endpointPool.GetEndpoint(nodeId);
 
@@ -316,20 +313,15 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
     internal sealed class UnaryResponse<TResponse>
     {
-        internal UnaryResponse(TResponse data,
-            string usedEndpoint,
-            Grpc.Core.Metadata? trailers)
+        internal UnaryResponse(TResponse data, string usedEndpoint)
         {
             Data = data;
             UsedEndpoint = usedEndpoint;
-            Trailers = trailers;
         }
 
         public TResponse Data { get; }
 
         public string UsedEndpoint { get; }
-
-        public Grpc.Core.Metadata? Trailers { get; }
     }
 
     internal sealed class StreamIterator<TResponse>

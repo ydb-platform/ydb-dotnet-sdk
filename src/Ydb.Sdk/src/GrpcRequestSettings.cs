@@ -11,7 +11,7 @@ public class GrpcRequestSettings
 
     public ImmutableArray<string> CustomClientHeaders { get; set; }
 
-    internal int NodeId { get; set; } = 0;
+    internal long NodeId { get; set; }
 
     internal Action<Grpc.Core.Metadata?> TrailersHandler { get; set; } = _ => { };
 }
