@@ -36,7 +36,7 @@ public partial class Session
         {
             var response = await UnaryCall(TableService.RollbackTransactionMethod, request, settings);
 
-            var status = response.Data.Operation.Unpack();
+            var status = response.Operation.Unpack();
             OnResponseStatus(status);
 
             return new RollbackTransactionResponse(status);

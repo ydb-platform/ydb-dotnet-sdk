@@ -13,7 +13,7 @@ internal class EndpointPool
 
     // [0, 0, 0, int.Max, int.Max]
     private ImmutableArray<PriorityEndpoint> _sortedByPriorityEndpoints = ImmutableArray<PriorityEndpoint>.Empty;
-    private Dictionary<int, string> _nodeIdToEndpoint = new();
+    private Dictionary<long, string> _nodeIdToEndpoint = new();
     private int _preferredEndpointCount;
 
     internal EndpointPool(ILogger<EndpointPool> logger, IRandom? random = null)
@@ -22,7 +22,7 @@ internal class EndpointPool
         _random = random ?? ThreadLocalRandom.Instance;
     }
 
-    public string GetEndpoint(int nodeId = 0)
+    public string GetEndpoint(long nodeId = 0)
     {
         _rwLock.EnterReadLock();
         try
@@ -39,7 +39,7 @@ internal class EndpointPool
 
     public ImmutableArray<string> Reset(ImmutableArray<EndpointSettings> endpointSettingsList)
     {
-        Dictionary<int, string> nodeIdToEndpoint = new();
+        Dictionary<long, string> nodeIdToEndpoint = new();
         HashSet<string> newEndpoints = new();
 
         _logger.LogDebug("Init endpoint pool with {EndpointLength} endpoints", endpointSettingsList.Length);
@@ -153,7 +153,7 @@ internal class EndpointPool
     }
 }
 
-public record EndpointSettings(int NodeId, string Endpoint, string LocationDc);
+public record EndpointSettings(long NodeId, string Endpoint, string LocationDc);
 
 public interface IRandom
 {

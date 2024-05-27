@@ -562,7 +562,7 @@ public partial class TableClient
                 settings: settings
             );
 
-            var status = response.Data.Operation.TryUnpack(out DescribeTableResult? resultProto);
+            var status = response.Operation.TryUnpack(out DescribeTableResult? resultProto);
             DescribeTableResponse.ResultData? result = null;
 
             if (status.IsSuccess && resultProto is not null)

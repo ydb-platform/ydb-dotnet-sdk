@@ -39,11 +39,11 @@ internal sealed class SessionPool : SessionPoolBase<Session>
                     driver: Driver,
                     sessionPool: this,
                     id: createSessionResponse.Result.Session.Id,
-                    endpoint: createSessionResponse.Result.Session.Endpoint);
+                    nodeId: createSessionResponse.Result.Session.NodeId);
 
                 Sessions.Add(session.Id, new SessionState(session));
 
-                Logger.LogTrace($"Session created from pool: {session.Id}, endpoint: {session.Endpoint}");
+                Logger.LogTrace($"Session created from pool: {session.Id}");
 
                 return new GetSessionResponse(createSessionResponse.Status, session);
             }
@@ -60,7 +60,7 @@ internal sealed class SessionPool : SessionPoolBase<Session>
             driver: Driver,
             sessionPool: this,
             id: other.Id,
-            endpoint: other.Endpoint);
+            nodeId: other.NodeId);
     }
 
     private async Task PeriodicCheck()

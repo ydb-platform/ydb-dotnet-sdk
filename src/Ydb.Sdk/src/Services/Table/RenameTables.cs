@@ -60,7 +60,7 @@ public partial class TableClient
                 settings: settings
             );
 
-            var status = response.Data.Operation.Unpack();
+            var status = response.Operation.Unpack();
             return new RenameTablesResponse(status);
         }
         catch (Driver.TransportException e)

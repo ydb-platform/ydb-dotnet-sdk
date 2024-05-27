@@ -13,6 +13,8 @@ namespace Ydb.Sdk;
 
 public sealed class Driver : IDisposable, IAsyncDisposable
 {
+    private const int AttemptDiscovery = 10;
+
     private readonly DriverConfig _config;
     private readonly ILogger<Driver> _logger;
     private readonly string _sdkInfo;
@@ -83,7 +85,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
         _logger.LogInformation("Started initial endpoint discovery");
 
-        for (var i = 0; i < _config.AttemptDiscovery; i++)
+        for (var i = 0; i < AttemptDiscovery; i++)
         {
             try
             {
@@ -95,13 +97,13 @@ public sealed class Driver : IDisposable, IAsyncDisposable
                     return;
                 }
 
-                _logger.LogCritical($"Error during initial endpoint discovery: {status}");
+                _logger.LogCritical("Error during initial endpoint discovery: {status}", status);
             }
             catch (RpcException e)
             {
-                _logger.LogCritical($"RPC error during initial endpoint discovery: {e.Status}");
+                _logger.LogCritical("RPC error during initial endpoint discovery: {e.Status}", e.Status);
 
-                if (i == _config.AttemptDiscovery - 1)
+                if (i == AttemptDiscovery - 1)
                 {
                     throw;
                 }
@@ -113,7 +115,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         throw new InitializationFailureException("Error during initial endpoint discovery");
     }
 
-    internal async Task<UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
+    internal async Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
@@ -136,12 +138,9 @@ public sealed class Driver : IDisposable, IAsyncDisposable
                 request: request);
 
             var data = await call.ResponseAsync;
-            var trailers = call.GetTrailers();
+            settings.TrailersHandler(call.GetTrailers());
 
-            return new UnaryResponse<TResponse>(
-                data: data,
-                usedEndpoint: endpoint,
-                trailers: trailers);
+            return data;
         }
         catch (RpcException e)
         {
@@ -171,7 +170,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
             _ => { PessimizeEndpoint(endpoint); });
     }
 
-    private (string, GrpcChannel) GetChannel(int nodeId)
+    private (string, GrpcChannel) GetChannel(long nodeId)
     {
         var endpoint = _endpointPool.GetEndpoint(nodeId);
 
@@ -310,24 +309,6 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         }
 
         return options;
-    }
-
-    internal sealed class UnaryResponse<TResponse>
-    {
-        internal UnaryResponse(TResponse data,
-            string usedEndpoint,
-            Grpc.Core.Metadata? trailers)
-        {
-            Data = data;
-            UsedEndpoint = usedEndpoint;
-            Trailers = trailers;
-        }
-
-        public TResponse Data { get; }
-
-        public string UsedEndpoint { get; }
-
-        public Grpc.Core.Metadata? Trailers { get; }
     }
 
     internal sealed class StreamIterator<TResponse>

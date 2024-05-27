@@ -42,7 +42,7 @@ public abstract class GrpcTransport : IDisposable, IAsyncDisposable
         TRequest request
     ) where TRequest : class where TResponse : class
     {
-        var (endpoint, channel) = GetChannel();
+        var (endpoint, channel) = GetChannel(settings.NodeId);
         var callInvoker = channel.CreateCallInvoker();
 
         Logger.LogTrace("Unary call, method: {MethodName}, endpoint: {Endpoint}", method.Name, endpoint);
@@ -56,6 +56,8 @@ public abstract class GrpcTransport : IDisposable, IAsyncDisposable
                 request: request
             );
 
+            // settings.TrailersHandler(call.GetTrailers());
+
             return await call.ResponseAsync;
         }
         catch (RpcException e)
@@ -65,7 +67,7 @@ public abstract class GrpcTransport : IDisposable, IAsyncDisposable
         }
     }
 
-    protected abstract (string, GrpcChannel) GetChannel();
+    protected abstract (string, GrpcChannel) GetChannel(long nodeId);
 
     protected abstract void OnRpcError(string endpoint, RpcException e);
 

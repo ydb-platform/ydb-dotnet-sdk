@@ -35,7 +35,7 @@ public partial class TableClient
                 request: request,
                 settings: settings);
 
-            var status = response.Data.Operation.Unpack();
+            var status = response.Operation.Unpack();
 
             return new DeleteSessionResponse(status);
         }

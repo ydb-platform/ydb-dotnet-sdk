@@ -8,16 +8,16 @@ public abstract class SessionBase : IDisposable
     internal static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(1);
 
     public string Id { get; }
-    internal string? Endpoint { get; }
+    public long NodeId { get; }
 
     private protected bool Disposed;
     protected readonly ILogger Logger;
 
-    protected SessionBase(Driver driver, string id, string? endpoint, ILogger logger)
+    protected SessionBase(Driver driver, string id, long nodeId, ILogger logger)
     {
         Driver = driver;
         Id = id;
-        Endpoint = endpoint;
+        NodeId = nodeId;
         Logger = logger;
     }
 

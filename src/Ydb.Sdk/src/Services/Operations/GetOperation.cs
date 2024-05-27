@@ -22,7 +22,7 @@ public partial class OperationsClient
                 request: request,
                 settings: settings);
 
-            return ClientOperation.FromProto(response.Data.Operation);
+            return ClientOperation.FromProto(response.Operation);
         }
         catch (Driver.TransportException e)
         {

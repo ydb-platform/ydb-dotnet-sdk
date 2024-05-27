@@ -71,7 +71,7 @@ public partial class TableClient
                 settings: settings
             );
 
-            var status = response.Data.Operation.TryUnpack(out KeepAliveResult? resultProto);
+            var status = response.Operation.TryUnpack(out KeepAliveResult? resultProto);
 
             KeepAliveResponse.ResultData? result = null;
             if (status.IsSuccess && resultProto != null)

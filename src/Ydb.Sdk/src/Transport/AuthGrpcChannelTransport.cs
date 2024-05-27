@@ -32,7 +32,7 @@ internal class AuthGrpcChannelTransport : GrpcTransport
         }
     }
 
-    protected override (string, GrpcChannel) GetChannel()
+    protected override (string, GrpcChannel) GetChannel(long nodeId)
     {
         return (Config.Endpoint, _channel);
     }

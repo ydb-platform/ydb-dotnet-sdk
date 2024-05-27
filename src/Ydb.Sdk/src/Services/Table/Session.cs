@@ -8,8 +8,8 @@ public partial class Session : SessionBase
 {
     private readonly SessionPool? _sessionPool;
 
-    internal Session(Driver driver, SessionPool? sessionPool, string id, string? endpoint)
-        : base(driver, id, endpoint, driver.LoggerFactory.CreateLogger<Session>())
+    internal Session(Driver driver, SessionPool? sessionPool, string id, long nodeId)
+        : base(driver, id, nodeId, driver.LoggerFactory.CreateLogger<Session>())
     {
         _sessionPool = sessionPool;
     }
@@ -69,19 +69,20 @@ public partial class Session : SessionBase
         Disposed = true;
     }
 
-    internal async Task<Driver.UnaryResponse<TResponse>> UnaryCall<TRequest, TResponse>(
+    private async Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class
     {
-        var response = await Driver.UnaryCall(
+        settings.NodeId = NodeId;
+        settings.TrailersHandler = OnResponseTrailers;
+
+        return await Driver.UnaryCall(
             method: method,
             request: request,
             settings: settings
         );
-        OnResponseTrailers(response.Trailers);
-        return response;
     }
 }

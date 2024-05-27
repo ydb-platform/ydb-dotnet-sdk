@@ -6,18 +6,18 @@ namespace Ydb.Sdk.Pool;
 internal abstract class SessionPool<TSession> where TSession : SessionBase<TSession>
 {
     private readonly ILogger<SessionPool<TSession>> _logger;
-    private readonly SemaphoreSlim _semaphoreSlim;
+    private readonly SemaphoreSlim _semaphore;
     private readonly ConcurrentQueue<TSession> _idleSessions = new();
 
     protected SessionPool(ILogger<SessionPool<TSession>> logger, int? size = null)
     {
         _logger = logger;
-        _semaphoreSlim = new SemaphoreSlim(size ?? 100);
+        _semaphore = new SemaphoreSlim(size ?? 100);
     }
 
     public async Task<(Status, TSession?)> GetSession()
     {
-        await _semaphoreSlim.WaitAsync();
+        await _semaphore.WaitAsync();
 
         if (_idleSessions.TryDequeue(out var session) && session.IsActive)
         {
@@ -26,9 +26,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
         if (session != null) // not active
         {
-            _ = DeleteSession().ContinueWith(s =>
-                _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s)
-            );
+            DeleteNotActiveSession(session);
         }
 
         var (status, newSession) = await CreateSession();
@@ -47,14 +45,28 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     public void ReleaseSession(TSession session)
     {
-        _idleSessions.Enqueue(session);
+        if (session.IsActive)
+        {
+            _idleSessions.Enqueue(session);
+        }
+        else
+        {
+            DeleteNotActiveSession(session);
+        }
 
         Release();
     }
 
-    public void Release()
+    private void Release()
     {
-        _semaphoreSlim.Release();
+        _semaphore.Release();
+    }
+
+    private void DeleteNotActiveSession(TSession session)
+    {
+        _ = DeleteSession().ContinueWith(s =>
+            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s)
+        );
     }
 }
 
@@ -63,11 +75,11 @@ public abstract class SessionBase<T> where T : SessionBase<T>
     private readonly SessionPool<T> _sessionPool;
 
     public string SessionId { get; }
-    public int NodeId { get; }
+    public long NodeId { get; }
 
     internal volatile bool IsActive = true;
 
-    internal SessionBase(SessionPool<T> sessionPool, string sessionId, int nodeId)
+    internal SessionBase(SessionPool<T> sessionPool, string sessionId, long nodeId)
     {
         _sessionPool = sessionPool;
         SessionId = sessionId;
