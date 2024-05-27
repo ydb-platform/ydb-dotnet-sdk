@@ -8,8 +8,8 @@ public abstract class SessionBase : IDisposable
     internal static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(1);
 
     public string Id { get; }
-    public long NodeId { get;  }
-    
+    public long NodeId { get; }
+
     private protected bool Disposed;
     protected readonly ILogger Logger;
 

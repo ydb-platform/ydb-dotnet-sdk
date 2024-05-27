@@ -78,7 +78,7 @@ public partial class Session : SessionBase
     {
         settings.NodeId = NodeId;
         settings.TrailersHandler = OnResponseTrailers;
-        
+
         var response = await Driver.UnaryCall(
             method: method,
             request: request,

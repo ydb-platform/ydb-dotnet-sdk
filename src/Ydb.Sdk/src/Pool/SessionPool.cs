@@ -38,7 +38,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
         return (status, newSession);
     }
-    
+
     protected abstract Task<(Status, TSession?)> CreateSession();
 
     protected abstract Task<Status> DeleteSession();
@@ -47,7 +47,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     {
         if (session.IsActive)
         {
-            _idleSessions.Enqueue(session);    
+            _idleSessions.Enqueue(session);
         }
         else
         {
@@ -61,7 +61,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     {
         _semaphore.Release();
     }
-    
+
     private void DeleteNotActiveSession(TSession session)
     {
         _ = DeleteSession().ContinueWith(s =>

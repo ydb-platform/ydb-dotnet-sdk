@@ -14,7 +14,7 @@ namespace Ydb.Sdk;
 public sealed class Driver : IDisposable, IAsyncDisposable
 {
     private const int AttemptDiscovery = 10;
-    
+
     private readonly DriverConfig _config;
     private readonly ILogger<Driver> _logger;
     private readonly string _sdkInfo;
@@ -139,7 +139,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
             var data = await call.ResponseAsync;
             settings.TrailersHandler(call.GetTrailers());
-            
+
             return new UnaryResponse<TResponse>(data: data, usedEndpoint: endpoint);
         }
         catch (RpcException e)
