@@ -20,6 +20,12 @@ public class OperationSettings : GrpcRequestSettings
 {
     public TimeSpan? OperationTimeout { get; set; }
 
+    public TimeSpan? CancelTimeout { get; set; }
+
+    public bool IsAsyncMode { get; set; }
+
+    public bool ReportCostInfo { get; set; }
+
     internal OperationParams MakeOperationParams()
     {
         var opParams = new OperationParams();
@@ -27,6 +33,21 @@ public class OperationSettings : GrpcRequestSettings
         if (OperationTimeout != null)
         {
             opParams.OperationTimeout = Duration.FromTimeSpan(OperationTimeout.Value);
+        }
+
+        if (CancelTimeout != null)
+        {
+            opParams.CancelAfter = Duration.FromTimeSpan(CancelTimeout.Value);
+        }
+
+        if (IsAsyncMode)
+        {
+            opParams.OperationMode = OperationParams.Types.OperationMode.Async;
+        }
+
+        if (ReportCostInfo)
+        {
+            opParams.ReportCostInfo = FeatureFlag.Types.Status.Enabled;
         }
 
         return opParams;

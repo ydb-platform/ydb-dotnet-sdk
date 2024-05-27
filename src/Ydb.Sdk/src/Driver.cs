@@ -13,6 +13,8 @@ namespace Ydb.Sdk;
 
 public sealed class Driver : IDisposable, IAsyncDisposable
 {
+    private const int AttemptDiscovery = 10;
+    
     private readonly DriverConfig _config;
     private readonly ILogger<Driver> _logger;
     private readonly string _sdkInfo;
@@ -83,7 +85,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
         _logger.LogInformation("Started initial endpoint discovery");
 
-        for (var i = 0; i < _config.AttemptDiscovery; i++)
+        for (var i = 0; i < AttemptDiscovery; i++)
         {
             try
             {
@@ -95,13 +97,13 @@ public sealed class Driver : IDisposable, IAsyncDisposable
                     return;
                 }
 
-                _logger.LogCritical($"Error during initial endpoint discovery: {status}");
+                _logger.LogCritical("Error during initial endpoint discovery: {status}", status);
             }
             catch (RpcException e)
             {
-                _logger.LogCritical($"RPC error during initial endpoint discovery: {e.Status}");
+                _logger.LogCritical("RPC error during initial endpoint discovery: {e.Status}", e.Status);
 
-                if (i == _config.AttemptDiscovery - 1)
+                if (i == AttemptDiscovery - 1)
                 {
                     throw;
                 }

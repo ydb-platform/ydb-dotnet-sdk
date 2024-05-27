@@ -100,14 +100,13 @@ internal class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespo
         public Session Session { get; }
 
         internal static ResultData FromProto(SessionPool sessionPool,
-            Ydb.Query.CreateSessionResponse resultProto, Driver driver, string endpoint)
+            Ydb.Query.CreateSessionResponse resultProto, Driver driver)
         {
             var session = new Session(
                 driver: driver,
                 sessionPool: sessionPool,
                 id: resultProto.SessionId,
-                nodeId: resultProto.NodeId,
-                endpoint: endpoint);
+                nodeId: resultProto.NodeId);
 
             return new ResultData(session);
         }

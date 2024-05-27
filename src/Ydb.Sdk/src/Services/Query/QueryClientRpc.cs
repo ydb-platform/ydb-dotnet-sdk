@@ -29,8 +29,7 @@ internal class QueryClientRpc
 
             if (status.IsSuccess)
             {
-                result = CreateSessionResponse.ResultData.FromProto(sessionPool, response.Data, _driver,
-                    response.UsedEndpoint);
+                result = CreateSessionResponse.ResultData.FromProto(sessionPool, response.Data, _driver);
             }
 
             return new CreateSessionResponse(status, result);

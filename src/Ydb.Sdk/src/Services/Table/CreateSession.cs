@@ -1,4 +1,5 @@
-﻿using Ydb.Sdk.Client;
+﻿using System.Web;
+using Ydb.Sdk.Client;
 using Ydb.Sdk.Services.Operations;
 using Ydb.Table;
 using Ydb.Table.V1;
@@ -18,20 +19,20 @@ public class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespons
 
     public class ResultData
     {
-        internal ResultData(Session session)
+        private ResultData(Session session)
         {
             Session = session;
         }
 
         public Session Session { get; }
 
-        internal static ResultData FromProto(CreateSessionResult resultProto, Driver driver, string endpoint)
+        internal static ResultData FromProto(CreateSessionResult resultProto, Driver driver)
         {
             var session = new Session(
                 driver: driver,
                 sessionPool: null,
                 id: resultProto.SessionId,
-                endpoint: endpoint
+                nodeId: long.Parse(HttpUtility.ParseQueryString(new Uri(resultProto.SessionId).Query)["node_id"] ?? "0")
             );
 
             return new ResultData(
@@ -65,7 +66,7 @@ public partial class TableClient
             CreateSessionResponse.ResultData? result = null;
             if (status.IsSuccess && resultProto != null)
             {
-                result = CreateSessionResponse.ResultData.FromProto(resultProto, _driver, response.UsedEndpoint);
+                result = CreateSessionResponse.ResultData.FromProto(resultProto, _driver);
             }
 
             return new CreateSessionResponse(status, result);

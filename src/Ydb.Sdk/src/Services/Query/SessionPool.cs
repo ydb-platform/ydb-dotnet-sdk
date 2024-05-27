@@ -35,8 +35,7 @@ internal class SessionPool : SessionPoolBase<Session>
                     driver: Driver,
                     sessionPool: this,
                     id: createSessionResponse.Result.Session.Id,
-                    nodeId: createSessionResponse.Result.Session.NodeId,
-                    endpoint: createSessionResponse.Result.Session.Endpoint);
+                    nodeId: createSessionResponse.Result.Session.NodeId);
 
                 Sessions.Add(session.Id, new SessionState(session));
 
@@ -44,7 +43,6 @@ internal class SessionPool : SessionPoolBase<Session>
 
 
                 Logger.LogTrace($"Session {session.Id} created, " +
-                                $"endpoint: {session.Endpoint}, " +
                                 $"nodeId: {session.NodeId}");
                 return new GetSessionResponse(createSessionResponse.Status, session);
             }
@@ -151,8 +149,7 @@ internal class SessionPool : SessionPoolBase<Session>
             driver: Driver,
             sessionPool: this,
             id: other.Id,
-            nodeId: other.NodeId,
-            endpoint: other.Endpoint);
+            nodeId: other.NodeId);
     }
 
     private protected override async Task DeleteSession(string id)

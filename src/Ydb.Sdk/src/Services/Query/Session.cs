@@ -14,14 +14,11 @@ public class Session : SessionBase
 {
     private readonly SessionPool _sessionPool;
 
-    internal Session(Driver driver, SessionPool sessionPool, string id, long nodeId, string? endpoint) :
-        base(driver, id, endpoint, driver.LoggerFactory.CreateLogger<Session>())
+    internal Session(Driver driver, SessionPool sessionPool, string id, long nodeId) :
+        base(driver, id, nodeId, driver.LoggerFactory.CreateLogger<Session>())
     {
         _sessionPool = sessionPool;
-        NodeId = nodeId;
     }
-
-    public long NodeId { get; }
 
     protected override void Dispose(bool disposing)
     {
