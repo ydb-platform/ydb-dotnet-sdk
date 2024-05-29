@@ -1,8 +1,7 @@
 ﻿using System.Collections;
 using Google.Protobuf.Collections;
-using Ydb.Sdk.Value;
 
-namespace Ydb.Sdk;
+namespace Ydb.Sdk.Value;
 
 public static class ResultSetExtension
 {

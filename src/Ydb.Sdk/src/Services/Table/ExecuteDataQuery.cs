@@ -31,12 +31,12 @@ public class ExecuteDataQueryResponse : ResponseWithResultBase<ExecuteDataQueryR
 
     public class ResultData
     {
-        internal ResultData(IReadOnlyList<ResultSet> resultSets)
+        internal ResultData(IReadOnlyList<Value.ResultSet> resultSets)
         {
             ResultSets = resultSets;
         }
 
-        public IReadOnlyList<ResultSet> ResultSets { get; }
+        public IReadOnlyList<Value.ResultSet> ResultSets { get; }
 
         internal static ResultData FromProto(ExecuteQueryResult resultProto)
         {

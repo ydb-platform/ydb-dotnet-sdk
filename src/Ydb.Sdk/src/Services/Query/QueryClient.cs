@@ -57,29 +57,29 @@ public class QueryClient : IAsyncDisposable
     }
 
     // Reading the result set stream into memory
-    public Task<Result<IReadOnlyList<ResultSet.Row>>> Query(string query,
+    public Task<Result<IReadOnlyList<Value.ResultSet.Row>>> Query(string query,
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.None,
         ExecuteQuerySettings? settings = null)
     {
-        return ExecOnSession<IReadOnlyList<ResultSet.Row>>(async session =>
+        return ExecOnSession<IReadOnlyList<Value.ResultSet.Row>>(async session =>
         {
-            List<ResultSet.Row> rows = new();
+            List<Value.ResultSet.Row> rows = new();
 
             await foreach (var (status, resultSet) in session.ExecuteQuery(query, parameters, txMode, settings))
             {
                 if (status.IsNotSuccess)
                 {
-                    return Result.Fail<IReadOnlyList<ResultSet.Row>>(status);
+                    return Result.Fail<IReadOnlyList<Value.ResultSet.Row>>(status);
                 }
 
-                rows.AddRange(resultSet?.FromProto().Rows ?? ImmutableList<ResultSet.Row>.Empty);
+                rows.AddRange(resultSet?.FromProto().Rows ?? ImmutableList<Value.ResultSet.Row>.Empty);
             }
 
-            return Result.Success<IReadOnlyList<ResultSet.Row>>(rows.AsReadOnly());
+            return Result.Success<IReadOnlyList<Value.ResultSet.Row>>(rows.AsReadOnly());
         });
     }
 
-    public async Task<(Status, ResultSet.Row?)> QueryFetchFirstRow(string query,
+    public async Task<(Status, Value.ResultSet.Row?)> QueryFetchFirstRow(string query,
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.None,
         ExecuteQuerySettings? settings = null)
     {

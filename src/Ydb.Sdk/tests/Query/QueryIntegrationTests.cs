@@ -87,13 +87,14 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
 
         Assert.Equal("Test Episode", row![0].GetOptionalUtf8());
 
-        status = await _queryClient.Exec("DELETE FROM episodes WHERE series_id = 2 AND season_id = 5 AND episode_id = 13");
-        
+        status = await _queryClient.Exec(
+            "DELETE FROM episodes WHERE series_id = 2 AND season_id = 5 AND episode_id = 13");
+
         status.EnsureSuccess();
 
         var (selectStatus, nullRow) = await _queryClient.QueryFetchFirstRow(
             "SELECT * FROM episodes WHERE series_id = 2 AND season_id = 5 AND episode_id = 13");
-        
+
         selectStatus.EnsureSuccess();
         Assert.Null(nullRow);
     }
