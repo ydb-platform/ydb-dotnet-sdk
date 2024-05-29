@@ -1,7 +1,16 @@
 ﻿using System.Collections;
 using Google.Protobuf.Collections;
+using Ydb.Sdk.Value;
 
-namespace Ydb.Sdk.Value;
+namespace Ydb.Sdk;
+
+public static class ResultSetExtension
+{
+    internal static ResultSet FromProto(this Ydb.ResultSet resultSetProto)
+    {
+        return new ResultSet(resultSetProto);
+    }
+}
 
 public class ResultSet
 {
@@ -21,11 +30,6 @@ public class ResultSet
         Truncated = resultSetProto.Truncated;
     }
 
-    public static ResultSet FromProto(Ydb.ResultSet resultSetProto)
-    {
-        return new ResultSet(resultSetProto);
-    }
-
     public class Column
     {
         public string Name { get; }
@@ -39,7 +43,7 @@ public class ResultSet
         }
     }
 
-    public class RowsList : IReadOnlyList<Row>
+    private class RowsList : IReadOnlyList<Row>
     {
         private readonly RepeatedField<Ydb.Value> _rows;
         private readonly IReadOnlyList<Column> _columns;

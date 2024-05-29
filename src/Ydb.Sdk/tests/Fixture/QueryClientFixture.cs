@@ -14,6 +14,6 @@ public class QueryClientFixture : DriverFixture
 
     protected override void ClientDispose()
     {
-        QueryClient.Dispose();
+        QueryClient.DisposeAsync().AsTask().Wait();
     }
 }

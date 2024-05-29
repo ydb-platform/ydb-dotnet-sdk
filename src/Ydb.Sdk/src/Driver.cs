@@ -311,7 +311,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         return options;
     }
 
-    internal sealed class StreamIterator<TResponse>
+    internal sealed class StreamIterator<TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
     {
         private readonly AsyncServerStreamingCall<TResponse> _responseStream;
         private readonly Action<RpcException> _rpcErrorAction;
@@ -322,19 +322,31 @@ public sealed class Driver : IDisposable, IAsyncDisposable
             _rpcErrorAction = rpcErrorAction;
         }
 
-        public TResponse Response => _responseStream.ResponseStream.Current;
+        public ValueTask DisposeAsync()
+        {
+            _responseStream.Dispose();
 
-        public async Task<bool> Next()
+            return default;
+        }
+
+        public async ValueTask<bool> MoveNextAsync()
         {
             try
             {
-                return await _responseStream.ResponseStream.MoveNext(new CancellationToken());
+                return await _responseStream.ResponseStream.MoveNext(CancellationToken.None);
             }
             catch (RpcException e)
             {
                 _rpcErrorAction(e);
                 throw new TransportException(e);
             }
+        }
+
+        public TResponse Current => _responseStream.ResponseStream.Current;
+
+        public IAsyncEnumerator<TResponse> GetAsyncEnumerator(CancellationToken cancellationToken = new())
+        {
+            return this;
         }
     }
 

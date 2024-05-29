@@ -22,18 +22,16 @@ public class ReadTablePart : ResponseWithResultBase<ReadTablePart.ResultData>
 
     public class ResultData
     {
-        internal ResultData(Value.ResultSet resultSet)
+        internal ResultData(ResultSet resultSet)
         {
             ResultSet = resultSet;
         }
 
-        public Value.ResultSet ResultSet { get; }
+        public ResultSet ResultSet { get; }
 
         internal static ResultData FromProto(ReadTableResult resultProto)
         {
-            return new ResultData(
-                resultSet: Value.ResultSet.FromProto(resultProto.ResultSet)
-            );
+            return new ResultData(resultProto.ResultSet.FromProto());
         }
     }
 }

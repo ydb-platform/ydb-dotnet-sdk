@@ -6,9 +6,10 @@ namespace Ydb.Sdk;
 
 public class GrpcRequestSettings
 {
+    internal static readonly GrpcRequestSettings DefaultInstance = new();
+
     public string TraceId { get; set; } = string.Empty;
     public TimeSpan? TransportTimeout { get; set; }
-
     public ImmutableArray<string> CustomClientHeaders { get; set; }
 
     internal long NodeId { get; set; }

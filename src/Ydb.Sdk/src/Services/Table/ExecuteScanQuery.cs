@@ -18,17 +18,16 @@ public class ExecuteScanQueryPart : ResponseWithResultBase<ExecuteScanQueryPart.
 
     public class ResultData
     {
-        internal ResultData(Value.ResultSet? resultSetPart)
+        internal ResultData(ResultSet? resultSetPart)
         {
             ResultSetPart = resultSetPart;
         }
 
-        public Value.ResultSet? ResultSetPart { get; }
+        public ResultSet? ResultSetPart { get; }
 
         internal static ResultData FromProto(ExecuteScanQueryPartialResult resultProto)
         {
-            return new ResultData(
-                resultProto.ResultSet is null ? null : Value.ResultSet.FromProto(resultProto.ResultSet));
+            return new ResultData(resultProto.ResultSet?.FromProto());
         }
     }
 }

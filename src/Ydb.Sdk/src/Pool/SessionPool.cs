@@ -65,7 +65,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private void DeleteNotActiveSession(TSession session)
     {
         _ = DeleteSession().ContinueWith(s =>
-            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s)
+            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result)
         );
     }
 }
@@ -75,7 +75,8 @@ public abstract class SessionBase<T> where T : SessionBase<T>
     private readonly SessionPool<T> _sessionPool;
 
     public string SessionId { get; }
-    public long NodeId { get; }
+
+    internal long NodeId { get; }
 
     internal volatile bool IsActive = true;
 
