@@ -150,7 +150,10 @@ public class YdbValueTests : IClassFixture<TableClientFixture>
                 { new Data<string?>("unicode str", YdbValue.MakeOptionalUtf8, value => value.GetOptionalUtf8()) },
             new object[] { new Data<string?>(null, YdbValue.MakeOptionalUtf8, value => value.GetOptionalUtf8()) },
             new object[]
-                { new Data<byte[]>(Encoding.ASCII.GetBytes("{type=\"yson\"}"), YdbValue.MakeYson, value => value.GetYson()) },
+            {
+                new Data<byte[]>(Encoding.ASCII.GetBytes("{type=\"yson\"}"), YdbValue.MakeYson,
+                    value => value.GetYson())
+            },
             new object[]
             {
                 new Data<byte[]?>(Encoding.ASCII.GetBytes("{type=\"yson\"}"), YdbValue.MakeOptionalYson,
