@@ -179,7 +179,10 @@ public class YdbValueTests : IClassFixture<TableClientFixture>
                 { new Data<string?>(null, YdbValue.MakeOptionalJsonDocument, value => value.GetOptionalJsonDocument()) }
         };
 
-        public IEnumerator<object[]> GetEnumerator() => _data.GetEnumerator();
+        public IEnumerator<object[]> GetEnumerator()
+        {
+            return _data.GetEnumerator();
+        }
 
         IEnumerator IEnumerable.GetEnumerator()
         {

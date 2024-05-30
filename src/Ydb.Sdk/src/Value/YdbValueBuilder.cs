@@ -18,7 +18,7 @@ public partial class YdbValue
     public static YdbValue MakeUint8(byte value)
     {
         return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint8),
-            new Ydb.Value { Uint32Value = value, });
+            new Ydb.Value { Uint32Value = value });
     }
 
     public static YdbValue MakeInt16(short value)
