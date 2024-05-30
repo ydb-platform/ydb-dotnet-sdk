@@ -7,133 +7,79 @@ public partial class YdbValue
 {
     public static YdbValue MakeBool(bool value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Bool),
-            new Ydb.Value
-            {
-                BoolValue = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Bool), new Ydb.Value { BoolValue = value });
     }
 
     public static YdbValue MakeInt8(sbyte value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Int8),
-            new Ydb.Value
-            {
-                Int32Value = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int8), new Ydb.Value { Int32Value = value });
     }
 
     public static YdbValue MakeUint8(byte value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint8),
-            new Ydb.Value
-            {
-                Uint32Value = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint8),
+            new Ydb.Value { Uint32Value = value, });
     }
 
     public static YdbValue MakeInt16(short value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Int16),
-            new Ydb.Value
-            {
-                Int32Value = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int16), new Ydb.Value { Int32Value = value });
     }
 
     public static YdbValue MakeUint16(ushort value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint16),
-            new Ydb.Value
-            {
-                Uint32Value = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint16),
+            new Ydb.Value { Uint32Value = value });
     }
 
     public static YdbValue MakeInt32(int value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Int32),
-            new Ydb.Value
-            {
-                Int32Value = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int32), new Ydb.Value { Int32Value = value });
     }
 
     public static YdbValue MakeUint32(uint value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint32),
-            new Ydb.Value
-            {
-                Uint32Value = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint32),
+            new Ydb.Value { Uint32Value = value });
     }
 
     public static YdbValue MakeInt64(long value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Int64),
-            new Ydb.Value
-            {
-                Int64Value = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int64),
+            new Ydb.Value { Int64Value = value });
     }
 
     public static YdbValue MakeUint64(ulong value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint64),
-            new Ydb.Value
-            {
-                Uint64Value = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint64),
+            new Ydb.Value { Uint64Value = value });
     }
 
     public static YdbValue MakeFloat(float value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Float),
-            new Ydb.Value
-            {
-                FloatValue = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Float),
+            new Ydb.Value { FloatValue = value });
     }
 
     public static YdbValue MakeDouble(double value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Double),
-            new Ydb.Value
-            {
-                DoubleValue = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Double),
+            new Ydb.Value { DoubleValue = value });
     }
 
     public static YdbValue MakeDate(DateTime value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Date),
-            new Ydb.Value
-            {
-                Uint32Value = (uint)value.Subtract(DateTime.UnixEpoch).TotalDays
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Date), new Ydb.Value
+            { Uint32Value = (uint)value.Subtract(DateTime.UnixEpoch).TotalDays });
     }
 
     public static YdbValue MakeDatetime(DateTime value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Datetime),
-            new Ydb.Value
-            {
-                Uint32Value = (uint)((value.Ticks - DateTime.UnixEpoch.Ticks) *
-                    Duration.NanosecondsPerTick / Duration.NanosecondsPerSecond)
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Datetime), new Ydb.Value
+        {
+            Uint32Value = (uint)((value.Ticks - DateTime.UnixEpoch.Ticks) *
+                Duration.NanosecondsPerTick / Duration.NanosecondsPerSecond)
+        });
     }
 
     public static YdbValue MakeTimestamp(DateTime value)
@@ -144,62 +90,36 @@ public partial class YdbValue
 
     public static YdbValue MakeInterval(TimeSpan value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Interval),
-            new Ydb.Value
-            {
-                Int64Value = (long)(value.TotalMilliseconds * 1000)
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Interval), new Ydb.Value
+            { Int64Value = value.Ticks * Duration.NanosecondsPerTick / 1000 });
     }
 
     public static YdbValue MakeString(byte[] value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.String),
-            new Ydb.Value
-            {
-                BytesValue = ByteString.CopyFrom(value)
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.String), new Ydb.Value
+            { BytesValue = ByteString.CopyFrom(value) });
     }
 
     public static YdbValue MakeUtf8(string value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Utf8),
-            new Ydb.Value
-            {
-                TextValue = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Utf8), new Ydb.Value { TextValue = value });
     }
 
     public static YdbValue MakeYson(byte[] value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Yson),
-            new Ydb.Value
-            {
-                BytesValue = ByteString.CopyFrom(value)
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Yson),
+            new Ydb.Value { BytesValue = ByteString.CopyFrom(value) });
     }
 
     public static YdbValue MakeJson(string value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Json),
-            new Ydb.Value
-            {
-                TextValue = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Json), new Ydb.Value { TextValue = value });
     }
 
     public static YdbValue MakeJsonDocument(string value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.JsonDocument),
-            new Ydb.Value
-            {
-                TextValue = value
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.JsonDocument),
+            new Ydb.Value { TextValue = value });
     }
 
     private static byte GetDecimalScale(decimal value)
@@ -376,9 +296,7 @@ public partial class YdbValue
         var value = new Ydb.Value();
         value.Items.Add(members.Select(m => m.Value._protoValue));
 
-        return new YdbValue(
-            type,
-            value);
+        return new YdbValue(type, value);
     }
 
     private static Type MakePrimitiveType(Type.Types.PrimitiveTypeId primitiveTypeId)
