@@ -94,6 +94,14 @@ public class TestBasicIntegration : IClassFixture<TableClientFixture>
         var resultTimestamp = await SelectPassed(YdbValue.MakeTimestamp(valueTimestamp));
         Assert.Equal(resultTimestamp.GetTimestamp(), valueTimestamp);
 
+        var valueTimestamp1 = DateTime.Parse("2029-08-03T06:59:44.8578730Z");
+        var resultTimestamp1 = await SelectPassed(YdbValue.MakeTimestamp(valueTimestamp1));
+        Assert.Equal(resultTimestamp1.GetTimestamp(), valueTimestamp1);
+
+        var valueTimestamp2 = DateTime.Parse("2029-08-09T17:15:29.6935850Z");
+        var resultTimestamp2 = await SelectPassed(YdbValue.MakeTimestamp(valueTimestamp2));
+        Assert.Equal(resultTimestamp2.GetTimestamp(), valueTimestamp2);
+
         var valueInterval = -new TimeSpan(3, 7, 40, 27, 729);
         var resultInterval = await SelectPassed(YdbValue.MakeInterval(valueInterval));
         Assert.Equal(resultInterval.GetInterval(), valueInterval);
