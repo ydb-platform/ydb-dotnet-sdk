@@ -131,18 +131,15 @@ public partial class YdbValue
             MakePrimitiveType(Type.Types.PrimitiveTypeId.Datetime),
             new Ydb.Value
             {
-                Uint32Value = (uint)value.Subtract(DateTime.UnixEpoch).TotalSeconds
+                Uint32Value = (uint)((value.Ticks - DateTime.UnixEpoch.Ticks) *
+                    Duration.NanosecondsPerTick / Duration.NanosecondsPerSecond)
             });
     }
 
     public static YdbValue MakeTimestamp(DateTime value)
     {
-        return new YdbValue(
-            MakePrimitiveType(Type.Types.PrimitiveTypeId.Timestamp),
-            new Ydb.Value
-            {
-                Uint64Value = (ulong)(value.Subtract(DateTime.UnixEpoch).TotalMilliseconds * 1000)
-            });
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Timestamp), new Ydb.Value
+            { Uint64Value = (ulong)(value.Ticks - DateTime.UnixEpoch.Ticks) * Duration.NanosecondsPerTick / 1000 });
     }
 
     public static YdbValue MakeInterval(TimeSpan value)
