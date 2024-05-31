@@ -47,8 +47,9 @@ internal class QueryServiceRpc : IAsyncDisposable
 
         if (txMode != TxMode.None)
         {
-            request.TxControl = new TransactionControl
-                { BeginTx = txMode.TransactionSettings(), CommitTx = settings.AutoCommit };
+            request.TxControl = settings.TxId == null
+                ? new TransactionControl { BeginTx = txMode.TransactionSettings(), CommitTx = settings.AutoCommit }
+                : new TransactionControl { CommitTx = settings.AutoCommit, TxId = settings.TxId };
         }
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));

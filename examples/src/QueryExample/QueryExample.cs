@@ -134,7 +134,7 @@ public class QueryExample
             query: query,
             parameters: DataUtils.GetDataParams(),
             txMode: TxMode.SerializableRw,
-            executeQuerySettings: DefaultQuerySettings
+            settings: DefaultQuerySettings
         );
         response.EnsureSuccess();
     }
@@ -157,18 +157,14 @@ public class QueryExample
             query,
             parameters: parameters
         );
-        response.EnsureSuccess();
 
-        if (response.Result is not null)
+        foreach (var row in response.Value)
         {
-            foreach (var row in response.Result)
-            {
-                var series = Series.FromRow(row);
-                Console.WriteLine("> Series, " +
-                                  $"series_id: {series.SeriesId}, " +
-                                  $"title: {series.Title}, " +
-                                  $"release_date: {series.ReleaseDate}");
-            }
+            var series = Series.FromRow(row);
+            Console.WriteLine("> Series, " +
+                              $"series_id: {series.SeriesId}, " +
+                              $"title: {series.Title}, " +
+                              $"release_date: {series.ReleaseDate}");
         }
     }
 
@@ -198,8 +194,8 @@ public class QueryExample
 
     private async Task InteractiveTx()
     {
-        var doTxResponse = await Client.DoTx(
-            func: async tx =>
+        var doTxResponse = await Client.ExecOnSession(
+            async session =>
             {
                 var query1 = @$"
                     PRAGMA TablePathPrefix('{BasePath}');
@@ -214,13 +210,20 @@ public class QueryExample
                     { "$season_id", YdbValue.MakeUint64(3) }
                 };
 
-                var response = await tx.ReadScalar(
+                var response = session.ExecuteQuery(
                     query1,
-                    parameters1
-                );
-                response.EnsureSuccess();
+                    parameters1,
+                    TxMode.SerializableRw,
+                    new ExecuteQuerySettings { AutoCommit = false }
+                ).GetAsyncEnumerator();
 
-                var firstAired = response.Result!.GetOptionalDate()!.Value;
+                await response.MoveNextAsync();
+
+
+                var (status, resultSet) = response.Current;
+
+                status.EnsureSuccess();
+
                 var newAired = firstAired.AddDays(2);
 
                 var query2 = @$"

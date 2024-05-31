@@ -4,7 +4,7 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
-public class QueryConfig
+public class QueryClientConfig
 {
     public int SizeSessionPool { get; set; } = 100;
 }
@@ -13,15 +13,16 @@ public class QueryClient : IAsyncDisposable
 {
     private readonly SessionPool _sessionPool;
 
-    public QueryClient(Driver driver, QueryConfig? config = null)
+    public QueryClient(Driver driver, QueryClientConfig? config = null)
     {
-        config ??= new QueryConfig();
+        config ??= new QueryClientConfig();
 
         var rpc = new QueryServiceRpc(driver);
 
         _sessionPool = new SessionPool(rpc, driver.LoggerFactory.CreateLogger<SessionPool>(), config.SizeSessionPool);
     }
 
+    // method for ADO.NET
     internal Task<(Status, Session?)> GetSession()
     {
         return _sessionPool.GetSession();
@@ -57,7 +58,7 @@ public class QueryClient : IAsyncDisposable
     }
 
     // Reading the result set stream into memory
-    public Task<Result<IReadOnlyList<Value.ResultSet.Row>>> Query(string query,
+    public Task<Result<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(string query,
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.None,
         ExecuteQuerySettings? settings = null)
     {
@@ -79,11 +80,11 @@ public class QueryClient : IAsyncDisposable
         });
     }
 
-    public async Task<(Status, Value.ResultSet.Row?)> QueryFetchFirstRow(string query,
+    public async Task<(Status, Value.ResultSet.Row?)> ReadRow(string query,
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.None,
         ExecuteQuerySettings? settings = null)
     {
-        var result = await Query(query, parameters, txMode, settings);
+        var result = await ReadAllRows(query, parameters, txMode, settings);
 
         return result is { IsSuccess: true, Value.Count: > 0 }
             ? (result.Status, result.Value[0])
@@ -93,7 +94,7 @@ public class QueryClient : IAsyncDisposable
     public async Task<Status> Exec(string query, Dictionary<string, YdbValue>? parameters = null,
         TxMode txMode = TxMode.None, ExecuteQuerySettings? settings = null)
     {
-        var result = await Query(query, parameters, txMode, settings);
+        var result = await ReadAllRows(query, parameters, txMode, settings);
 
         return result.Status;
     }

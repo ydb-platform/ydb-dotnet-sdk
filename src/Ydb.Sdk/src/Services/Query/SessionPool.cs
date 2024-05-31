@@ -103,7 +103,7 @@ public class Session : SessionBase<Session>
         _rpc = rpc;
     }
 
-    public async IAsyncEnumerable<(Status, Ydb.ResultSet?)> ExecuteQuery(string query,
+    public async IAsyncEnumerable<(Status, ResultSet?)> ExecuteQuery(string query,
         Dictionary<string, YdbValue>? parameters = null,
         TxMode txMode = TxMode.None, ExecuteQuerySettings? settings = null)
     {

@@ -19,11 +19,11 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
     [Fact]
     public async Task Query_WhenSelectData_ReturnExpectedResult()
     {
-        var selectEpisodes = await _queryClient.Query("SELECT * FROM episodes");
+        var selectEpisodes = await _queryClient.ReadAllRows("SELECT * FROM episodes");
 
         Assert.Equal(70, selectEpisodes.Value.Count);
 
-        var selectSortAndFilter = (await _queryClient.Query(@"
+        var selectSortAndFilter = (await _queryClient.ReadAllRows(@"
             SELECT series_id, season_id, episode_id, air_date, title 
             FROM episodes WHERE series_id = 1 AND season_id > 1
             ORDER BY series_id, season_id, episode_id LIMIT 3")).Value;
@@ -35,7 +35,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
         Assert.Equal("Return of the Golden Child", selectSortAndFilter[1]["title"].GetOptionalUtf8());
         Assert.Equal("Moss and the German", selectSortAndFilter[2]["title"].GetOptionalUtf8());
 
-        var selectDataAggregation = (await _queryClient.Query(@"
+        var selectDataAggregation = (await _queryClient.ReadAllRows(@"
             SELECT series_id, COUNT(*) AS cnt FROM episodes GROUP BY series_id;")).Value;
 
         Assert.Equal(2, selectDataAggregation.Count);
@@ -43,7 +43,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
         Assert.Equal(24, (long)selectDataAggregation[0][1].GetUint64());
         Assert.Equal(46, (long)selectDataAggregation[1][1].GetUint64());
 
-        var selectJoin = (await _queryClient.Query(@"
+        var selectJoin = (await _queryClient.ReadAllRows(@"
             SELECT sa.title AS season_title, sr.title AS series_title, sr.series_id, sa.season_id
             FROM seasons AS sa
             INNER JOIN series AS sr
@@ -75,7 +75,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
 
         status.EnsureSuccess();
 
-        var (_, row) = await _queryClient.QueryFetchFirstRow(@"
+        var (_, row) = await _queryClient.ReadRow(@"
             SELECT title FROM episodes 
             WHERE series_id = $series_id AND season_id = $season_id
             AND episode_id = $episode_id;", new Dictionary<string, YdbValue>
@@ -92,7 +92,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
 
         status.EnsureSuccess();
 
-        var (selectStatus, nullRow) = await _queryClient.QueryFetchFirstRow(
+        var (selectStatus, nullRow) = await _queryClient.ReadRow(
             "SELECT * FROM episodes WHERE series_id = 2 AND season_id = 5 AND episode_id = 13");
 
         selectStatus.EnsureSuccess();

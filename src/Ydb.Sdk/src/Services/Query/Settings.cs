@@ -60,6 +60,7 @@ public class ExecuteQuerySettings : GrpcRequestSettings
     public StatsMode StatsMode { get; set; }
     public bool AutoCommit { get; set; } = true;
     public bool ConcurrentResultSets { get; set; }
+    public string? TxId { get; set; }
 }
 
 public enum TxMode
