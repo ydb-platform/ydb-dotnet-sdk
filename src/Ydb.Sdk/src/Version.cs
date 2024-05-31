@@ -6,6 +6,6 @@ using Verison = Version;
 public static class Version
 {
     public const uint Major = 0;
-    public const uint Minor = 3;
-    public const uint Patch = 2;
+    public const uint Minor = 4;
+    public const uint Patch = 0;
 }

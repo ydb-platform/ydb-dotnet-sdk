@@ -1,3 +1,4 @@
+## v0.4.0
 - Fix bug: rounding down when inserting a Timestamp YDB type
 - ChannelCache has been implemented using ChannelPool and EndpointPool
 
