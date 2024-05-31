@@ -1,3 +1,6 @@
+- Fix bug: rounding down when inserting a Timestamp YDB type
+- ChannelCache has been implemented using ChannelPool and EndpointPool
+
 ## v0.3.2
 - Make KeepAlive method public for TableClient
 
