@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Ydb.Sdk;
 
 public abstract class Result
@@ -9,6 +11,8 @@ public abstract class Result
 
     public static Result<TValue> Fail<TValue>(Status status) where TValue : class
     {
+        Debug.Assert(status.IsNotSuccess);
+        
         return new Result<TValue>(status, null);
     }
 }
@@ -46,6 +50,11 @@ public class UnexpectedResultException : Exception
     public Status Status { get; }
 
     public UnexpectedResultException(string message, Status status) : base(message + ": " + status)
+    {
+        Status = status;
+    }
+    
+    public UnexpectedResultException(Status status) : base(status.ToString())
     {
         Status = status;
     }

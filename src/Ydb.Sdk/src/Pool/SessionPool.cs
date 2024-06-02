@@ -15,7 +15,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         _semaphore = new SemaphoreSlim(size ?? 100);
     }
 
-    public async Task<(Status, TSession?)> GetSession()
+    internal async Task<(Status, TSession?)> GetSession()
     {
         await _semaphore.WaitAsync();
 
@@ -43,7 +43,37 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     protected abstract Task<Status> DeleteSession();
 
-    public void ReleaseSession(TSession session)
+    // TODO Retry policy and may be move to SessionPool method
+    internal async Task<Result<T>> ExecOnSession<T>(Func<TSession, Task<Result<T>>> onSession)
+        where T : class
+    {
+        TSession? session = null;
+        try
+        {
+            var (status, newSession) = await GetSession();
+
+            if (status.IsSuccess)
+            {
+                session = newSession;
+
+                return await onSession(session!); // TODO Retry
+            }
+
+            status.EnsureSuccess(); // throw exception; - fixed
+        }
+        catch (Driver.TransportException e)
+        {
+            // _logger.LogError(); - todo
+        }
+        finally
+        {
+            session?.Release();
+        }
+
+        throw new Exception();
+    }
+
+    internal void ReleaseSession(TSession session)
     {
         if (session.IsActive)
         {

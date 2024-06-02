@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Ydb.Query;
+using Ydb.Query.V1;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Value;
 
@@ -6,6 +8,8 @@ namespace Ydb.Sdk.Services.Query;
 
 internal class SessionPool : SessionPool<Session>, IAsyncDisposable
 {
+    private static readonly CreateSessionRequest CreateSessionRequest = new();
+
     private static readonly GrpcRequestSettings CreateSessionSettings = new()
     {
         TransportTimeout = TimeSpan.FromMinutes(2)
@@ -16,22 +20,24 @@ internal class SessionPool : SessionPool<Session>, IAsyncDisposable
         TransportTimeout = TimeSpan.FromMinutes(1)
     };
 
+    private static readonly DeleteSessionRequest DeleteSessionRequest = new();
+
     private static readonly GrpcRequestSettings DeleteSessionSettings = new()
     {
         TransportTimeout = TimeSpan.FromSeconds(5)
     };
 
-    private readonly QueryServiceRpc _rpc;
+    private readonly Driver _driver;
 
-    internal SessionPool(QueryServiceRpc rpc, ILogger<SessionPool<Session>> logger, int? size = null) 
-        : base(logger, size)
+    internal SessionPool(Driver driver, int? size = null) : base(driver.LoggerFactory.CreateLogger<SessionPool>(), size)
     {
-        _rpc = rpc;
+        _driver = driver;
     }
 
     protected override async Task<(Status, Session?)> CreateSession()
     {
-        var response = await _rpc.CreateSession(CreateSessionSettings);
+        var response = await _driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest,
+            CreateSessionSettings);
 
         var status = Status.FromProto(response.Status, response.Issues);
 
@@ -42,11 +48,12 @@ internal class SessionPool : SessionPool<Session>, IAsyncDisposable
 
         TaskCompletionSource<(Status, Session?)> completeTask = new();
 
-        var session = new Session(_rpc, this, response.SessionId, response.NodeId);
+        var session = new Session(_driver, this, response.SessionId, response.NodeId);
 
         _ = Task.Run(async () =>
         {
-            await using var stream = _rpc.AttachSession(response.SessionId, AttachSessionSettings);
+            await using var stream = _driver.StreamCall(QueryService.AttachSessionMethod, new AttachSessionRequest
+                { SessionId = response.SessionId }, AttachSessionSettings);
 
             if (!await stream.MoveNextAsync())
             {
@@ -82,65 +89,79 @@ internal class SessionPool : SessionPool<Session>, IAsyncDisposable
 
     protected override async Task<Status> DeleteSession()
     {
-        var deleteSessionResponse = await _rpc.DeleteSession(DeleteSessionSettings);
+        var deleteSessionResponse = await _driver.UnaryCall(QueryService.DeleteSessionMethod,
+            DeleteSessionRequest, DeleteSessionSettings);
 
         return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
     }
 
     public ValueTask DisposeAsync()
     {
-        return _rpc.DisposeAsync();
+        return _driver.DisposeAsync();
     }
 }
 
-public class Session : SessionBase<Session>
+internal class Session : SessionBase<Session>
 {
-    private readonly QueryServiceRpc _rpc;
+    private readonly Driver _driver;
 
-    internal Session(QueryServiceRpc rpc, SessionPool<Session> sessionPool, string sessionId, long nodeId)
+    internal Session(Driver driver, SessionPool<Session> sessionPool, string sessionId, long nodeId)
         : base(sessionPool, sessionId, nodeId)
     {
-        _rpc = rpc;
+        _driver = driver;
     }
 
-    public async IAsyncEnumerable<(Status, ResultSet?)> ExecuteQuery(string query,
-        Dictionary<string, YdbValue>? parameters = null,
-        TxMode txMode = TxMode.None, ExecuteQuerySettings? settings = null)
+    internal async IAsyncEnumerable<ExecuteQueryPart> ExecuteQuery(string query,
+        Dictionary<string, YdbValue>? parameters, ExecuteQuerySettings? settings, TransactionControl? txControl)
     {
         parameters ??= new Dictionary<string, YdbValue>();
-        settings ??= new ExecuteQuerySettings();
-
+        settings ??= ExecuteQuerySettings.DefaultInstance;
         settings.NodeId = NodeId;
 
-        await foreach (var resultPart in _rpc.ExecuteQuery(query, SessionId, txMode, parameters, settings))
+        var request = new ExecuteQueryRequest
+        {
+            SessionId = SessionId,
+            ExecMode = ExecMode.Execute,
+            QueryContent = new QueryContent { Text = query, Syntax = (Ydb.Query.Syntax)settings.Syntax },
+            StatsMode = StatsMode.None,
+            ConcurrentResultSets = settings.ConcurrentResultSets,
+            TxControl = txControl
+        };
+
+        request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
+
+        await foreach (var resultPart in _driver.StreamCall(QueryService.ExecuteQueryMethod, request, settings))
         {
             var status = Status.FromProto(resultPart.Status, resultPart.Issues);
 
             OnStatus(status);
 
-            yield return (status, resultPart.ResultSet);
+            yield return new ExecuteQueryPart(status, resultPart.ResultSet, resultPart.TxMeta.Id);
         }
     }
 
-    public async Task<(Status, string?)> BeginTransaction(TxMode txMode = TxMode.SerializableRw,
+    internal async Task<Result<string>> BeginTransaction(TxMode txMode = TxMode.SerializableRw,
         GrpcRequestSettings? settings = null)
     {
         settings ??= GrpcRequestSettings.DefaultInstance;
         settings.NodeId = NodeId;
 
-        var response = await _rpc.BeginTransaction(SessionId, txMode, settings);
+        var response = await _driver.UnaryCall(QueryService.BeginTransactionMethod, new BeginTransactionRequest
+            { SessionId = SessionId, TxSettings = txMode.TransactionSettings() }, settings);
+        ;
 
         var status = Status.FromProto(response.Status, response.Issues);
 
-        return status.IsSuccess ? (status, response.TxMeta.Id) : (status, null);
+        return status.IsSuccess ? Result.Success(response.TxMeta.Id) : Result.Fail<string>(status);
     }
 
-    public async Task<Status> CommitTransaction(string txId, GrpcRequestSettings? settings = null)
+    internal async Task<Status> CommitTransaction(string txId, GrpcRequestSettings? settings = null)
     {
         settings ??= GrpcRequestSettings.DefaultInstance;
         settings.NodeId = NodeId;
 
-        var response = await _rpc.CommitTransaction(SessionId, txId, settings);
+        var response = await _driver.UnaryCall(QueryService.CommitTransactionMethod, new CommitTransactionRequest
+            { SessionId = SessionId, TxId = txId }, settings);
 
         var status = Status.FromProto(response.Status, response.Issues);
 
@@ -149,12 +170,13 @@ public class Session : SessionBase<Session>
         return status;
     }
 
-    public async Task<Status> RollbackTransaction(string txId, GrpcRequestSettings? settings = null)
+    internal async Task<Status> RollbackTransaction(string txId, GrpcRequestSettings? settings = null)
     {
         settings ??= GrpcRequestSettings.DefaultInstance;
         settings.NodeId = NodeId;
 
-        var response = await _rpc.RollbackTransaction(SessionId, txId, settings);
+        var response = await _driver.UnaryCall(QueryService.RollbackTransactionMethod, new RollbackTransactionRequest
+            { SessionId = SessionId, TxId = txId }, settings);
 
         var status = Status.FromProto(response.Status, response.Issues);
 
