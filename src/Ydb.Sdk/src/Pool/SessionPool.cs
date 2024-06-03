@@ -65,6 +65,10 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             // _logger.LogError(); - todo
         }
+        catch (UnexpectedResultException e)
+        {
+            // _logger.LogError(); - todo
+        }
         finally
         {
             session?.Release();
