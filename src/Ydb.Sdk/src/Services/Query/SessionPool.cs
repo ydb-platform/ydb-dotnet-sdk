@@ -148,7 +148,6 @@ internal class Session : SessionBase<Session>
 
         var response = await _driver.UnaryCall(QueryService.BeginTransactionMethod, new BeginTransactionRequest
             { SessionId = SessionId, TxSettings = txMode.TransactionSettings() }, settings);
-        ;
 
         var status = Status.FromProto(response.Status, response.Issues);
 
