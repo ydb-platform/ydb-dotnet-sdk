@@ -222,7 +222,7 @@ public class QueryExample
                 {
                     { "$series_id", YdbValue.MakeUint64(1) },
                     { "$season_id", YdbValue.MakeUint64(3) },
-                    { "$first_aired", YdbValue.MakeDate(new DateTime(2022, 11, 21)) }
+                    { "$first_aired", YdbValue.MakeDate(newAired) }
                 };
 
                 await tx.Exec(query2, parameters2);

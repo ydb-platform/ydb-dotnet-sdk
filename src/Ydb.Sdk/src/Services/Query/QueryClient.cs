@@ -88,7 +88,7 @@ public class QueryClient : IAsyncDisposable
         });
     }
 
-    private static readonly object None = new object();
+    private static readonly object None = new();
 
     public async Task<Status> DoTx(Func<QueryTx, Task> queryTx, TxMode txMode = TxMode.SerializableRw)
     {
@@ -147,7 +147,7 @@ public class QueryTx
     }
 
     // ReSharper disable once MemberCanBePrivate.Global
-    public async IAsyncEnumerable<Ydb.Sdk.Value.ResultSet> Stream(string query,
+    public async IAsyncEnumerable<Value.ResultSet> Stream(string query,
         Dictionary<string, YdbValue>? parameters = null, bool commit = false, ExecuteQuerySettings? settings = null)
     {
         await foreach (var part in _session.ExecuteQuery(query, parameters, settings, TxControl(commit)))
