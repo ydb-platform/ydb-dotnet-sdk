@@ -80,10 +80,10 @@ internal static class TxModeExtensions
 public class ExecuteQueryPart
 {
     public Status Status { get; }
-    public ResultSet? ResultSet { get; }
+    public Ydb.Sdk.Value.ResultSet? ResultSet { get; }
     public string TxId { get; }
 
-    internal ExecuteQueryPart(Status status, ResultSet? resultSet, string txId)
+    internal ExecuteQueryPart(Status status, Ydb.Sdk.Value.ResultSet? resultSet, string txId)
     {
         Status = status;
         ResultSet = resultSet;

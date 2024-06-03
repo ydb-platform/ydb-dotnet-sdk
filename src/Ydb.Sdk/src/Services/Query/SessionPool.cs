@@ -136,7 +136,7 @@ internal class Session : SessionBase<Session>
 
             OnStatus(status);
 
-            yield return new ExecuteQueryPart(status, resultPart.ResultSet, resultPart.TxMeta.Id);
+            yield return new ExecuteQueryPart(status, resultPart.ResultSet?.FromProto(), resultPart.TxMeta.Id);
         }
     }
 

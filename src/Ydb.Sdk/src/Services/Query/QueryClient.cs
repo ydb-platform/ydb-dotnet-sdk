@@ -36,7 +36,7 @@ public class QueryClient : IAsyncDisposable
                     return Result.Fail<IReadOnlyList<Value.ResultSet.Row>>(part.Status);
                 }
 
-                rows.AddRange(part.ResultSet?.FromProto().Rows ?? ImmutableList<Value.ResultSet.Row>.Empty);
+                rows.AddRange(part.ResultSet?.Rows ?? ImmutableList<Value.ResultSet.Row>.Empty);
             }
 
             return Result.Success<IReadOnlyList<Value.ResultSet.Row>>(rows.AsReadOnly());
@@ -62,7 +62,7 @@ public class QueryClient : IAsyncDisposable
         return result.Status;
     }
 
-    public Task<Result<T>> DoTx<T>(Func<QueryTx, Result<T>> queryTx, TxMode txMode = TxMode.SerializableRw)
+    public Task<Result<T>> DoTx<T>(Func<QueryTx, Task<T>> queryTx, TxMode txMode = TxMode.SerializableRw)
         where T : class
     {
         return _sessionPool.ExecOnSession<T>(async session =>
@@ -71,15 +71,11 @@ public class QueryClient : IAsyncDisposable
 
             try
             {
-                var result = queryTx(tx);
+                var result = await queryTx(tx);
 
                 var commitResult = await tx.Commit();
-                if (result.IsSuccess && commitResult.IsNotSuccess)
-                {
-                    result = Result.Fail<T>(commitResult); // not success Commited
-                }
 
-                return result;
+                return commitResult.IsSuccess ? Result.Success(result) : Result.Fail<T>(commitResult);
             }
             catch (UnexpectedResultException e)
             {
@@ -90,6 +86,31 @@ public class QueryClient : IAsyncDisposable
                 session.Release();
             }
         });
+    }
+
+    public async Task<Status> DoTx(Func<QueryTx, Task> queryTx, TxMode txMode = TxMode.SerializableRw)
+    {
+        return (await _sessionPool.ExecOnSession<object>(async session =>
+        {
+            var tx = new QueryTx(session, txMode);
+
+            try
+            {
+                await queryTx(tx);
+
+                var commitResult = await tx.Commit();
+
+                return commitResult.IsSuccess ? Result.Success(new object()) : Result.Fail<object>(commitResult);
+            }
+            catch (UnexpectedResultException e)
+            {
+                return Result.Fail<object>(e.Status);
+            }
+            finally
+            {
+                session.Release();
+            }
+        })).Status;
     }
 
     public ValueTask DisposeAsync()
@@ -108,9 +129,14 @@ public class QueryTx
     private string? TxId { get; set; }
     private bool Commited { get; set; }
 
-    private TransactionControl TxControl(bool autocommit) => TxId == null
-        ? new TransactionControl { BeginTx = _txMode.TransactionSettings(), CommitTx = autocommit }
-        : new TransactionControl { TxId = TxId, CommitTx = autocommit };
+    private TransactionControl TxControl(bool commit)
+    {
+        Commited = commit | Commited;
+        
+        return TxId == null
+            ? new TransactionControl { BeginTx = _txMode.TransactionSettings(), CommitTx = commit }
+            : new TransactionControl { TxId = TxId, CommitTx = commit };
+    }
 
     internal QueryTx(Session session, TxMode txMode)
     {
@@ -118,11 +144,10 @@ public class QueryTx
         _txMode = txMode;
     }
 
-    public async Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRows(string query,
+    // ReSharper disable once MemberCanBePrivate.Global
+    public async IAsyncEnumerable<Ydb.Sdk.Value.ResultSet> Stream(string query,
         Dictionary<string, YdbValue>? parameters = null, bool commit = false, ExecuteQuerySettings? settings = null)
     {
-        List<Value.ResultSet.Row> rows = new();
-
         await foreach (var part in _session.ExecuteQuery(query, parameters, settings, TxControl(commit)))
         {
             if (part.Status.IsNotSuccess)
@@ -132,12 +157,32 @@ public class QueryTx
 
             TxId ??= part.TxId;
 
-            rows.AddRange(part.ResultSet?.FromProto().Rows!);
+            yield return part.ResultSet!;
+        }
+    }
+
+    public async Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRows(string query,
+        Dictionary<string, YdbValue>? parameters = null, bool commit = false, ExecuteQuerySettings? settings = null)
+    {
+        List<Value.ResultSet.Row> rows = new();
+
+        await foreach (var part in Stream(query, parameters, commit, settings))
+        {
+            rows.AddRange(part.Rows);
         }
 
-        Commited = commit | Commited;
-
         return rows.AsReadOnly();
+    }
+
+    public async Task<Value.ResultSet.Row?> ReadRow(string query, Dictionary<string, YdbValue>? parameters = null,
+        bool commit = false, ExecuteQuerySettings? settings = null)
+    {
+        await foreach (var part in Stream(query, parameters, commit, settings))
+        {
+            return part.Rows.Count > 0 ? part.Rows[0] : null;
+        }
+
+        return null;
     }
 
     public async Task Exec(string query, Dictionary<string, YdbValue>? parameters = null,
@@ -149,9 +194,9 @@ public class QueryTx
             {
                 throw new UnexpectedResultException(part.Status);
             }
-        }
 
-        Commited = commit | Commited;
+            TxId ??= part.TxId;
+        }
     }
 
     public Task Rollback()

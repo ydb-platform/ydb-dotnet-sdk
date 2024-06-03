@@ -17,7 +17,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
     }
 
     [Fact]
-    public async Task Query_WhenSelectData_ReturnExpectedResult()
+    public async Task ReadAllRows_WhenSelectData_ReturnExpectedResult()
     {
         var selectEpisodes = await _queryClient.ReadAllRows("SELECT * FROM episodes");
 
@@ -60,7 +60,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
     }
 
     [Fact]
-    public async Task QueryFetchFirstRow_UpsertDeleteSelectSingleRow_ReturnNewRow()
+    public async Task ReadRows_UpsertDeleteSelectSingleRow_ReturnNewRow()
     {
         var status = await _queryClient.Exec(@"
             UPSERT INTO episodes (series_id, season_id, episode_id, title, air_date) 
@@ -77,13 +77,13 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
 
         var (_, row) = await _queryClient.ReadRow(@"
             SELECT title FROM episodes 
-            WHERE series_id = $series_id AND season_id = $season_id
-            AND episode_id = $episode_id;", new Dictionary<string, YdbValue>
-        {
-            { "$series_id", YdbValue.MakeInt64(2) },
-            { "$season_id", YdbValue.MakeInt64(5) },
-            { "$episode_id", YdbValue.MakeInt64(13) }
-        });
+                         WHERE series_id = $series_id AND season_id = $season_id AND episode_id = $episode_id;",
+            new Dictionary<string, YdbValue>
+            {
+                { "$series_id", YdbValue.MakeInt64(2) },
+                { "$season_id", YdbValue.MakeInt64(5) },
+                { "$episode_id", YdbValue.MakeInt64(13) }
+            });
 
         Assert.Equal("Test Episode", row![0].GetOptionalUtf8());
 
@@ -97,6 +97,34 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
 
         selectStatus.EnsureSuccess();
         Assert.Null(nullRow);
+    }
+
+    [Fact]
+    public async Task DoTx_UpsertThenRollbackTransaction_ReturnNothing()
+    {
+        var rollbackStatus = await _queryClient.DoTx(async queryTx =>
+        {
+            await queryTx.Exec(@"
+                    UPSERT INTO seasons (series_id, season_id, first_aired) VALUES
+                    ($series_id, $season_id, $air_date);
+                ", new Dictionary<string, YdbValue>
+            {
+                { "$series_id", YdbValue.MakeUint64(1) },
+                { "$season_id", YdbValue.MakeUint64(3) },
+                { "$air_date", YdbValue.MakeDate(new DateTime(2022, 2, 24)) }
+            });
+
+            await queryTx.Rollback();
+        });
+
+        rollbackStatus.EnsureSuccess();
+
+        var (status, row) = await _queryClient.ReadRow(
+            "SELECT first_aired FROM seasons WHERE series_id = 1 AND season_id = 3");
+
+        status.EnsureSuccess();
+
+        Assert.Equal(new DateTime(2008, 11, 21), row![0].GetOptionalDate());
     }
 
     public async Task InitializeAsync()
