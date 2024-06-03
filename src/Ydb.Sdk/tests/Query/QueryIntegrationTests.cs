@@ -126,6 +126,39 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
 
         Assert.Equal(new DateTime(2008, 11, 21), row![0].GetOptionalDate());
     }
+    
+    [Fact]
+    public async Task DoTx_UpsertThenExceptionInTransaction_ReturnOldRow()
+    {
+        try
+        {
+            var rollbackStatus = await _queryClient.DoTx(async queryTx =>
+            {
+                await queryTx.Exec(@"
+                    UPSERT INTO seasons (series_id, season_id, first_aired) VALUES
+                    ($series_id, $season_id, $air_date);
+                ", new Dictionary<string, YdbValue>
+                {
+                    { "$series_id", YdbValue.MakeUint64(1) },
+                    { "$season_id", YdbValue.MakeUint64(3) },
+                    { "$air_date", YdbValue.MakeDate(new DateTime(2022, 2, 24)) }
+                });
+
+                throw new Exception();
+            });
+        }
+        catch (Exception)
+        {
+            // ignored
+        }
+
+        var (status, row) = await _queryClient.ReadRow(
+            "SELECT first_aired FROM seasons WHERE series_id = 1 AND season_id = 3");
+
+        status.EnsureSuccess();
+
+        Assert.Equal(new DateTime(2008, 11, 21), row![0].GetOptionalDate());
+    }
 
     [Fact]
     public async Task DoTx_InteractiveTransactionInAndOutCommitOperation_UpsertNewValue()

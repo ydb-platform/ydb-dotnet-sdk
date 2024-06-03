@@ -81,6 +81,15 @@ public class QueryClient : IAsyncDisposable
             {
                 return Result.Fail<T>(e.Status);
             }
+            catch (Driver.TransportException e)
+            {
+                return Result.Fail<T>(e.Status);
+            }
+            catch (Exception)
+            {
+                await tx.Rollback();
+                throw;
+            }
             finally
             {
                 session.Release();
@@ -107,6 +116,15 @@ public class QueryClient : IAsyncDisposable
             catch (UnexpectedResultException e)
             {
                 return Result.Fail<object>(e.Status);
+            }
+            catch (Driver.TransportException e)
+            {
+                return Result.Fail<object>(e.Status);
+            }
+            catch (Exception)
+            {
+                await tx.Rollback();
+                throw;
             }
             finally
             {
