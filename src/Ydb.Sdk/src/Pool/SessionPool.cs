@@ -61,11 +61,11 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
             status.EnsureSuccess(); // throw exception; - fixed
         }
-        catch (Driver.TransportException e)
+        catch (Driver.TransportException)
         {
             // _logger.LogError(); - todo
         }
-        catch (UnexpectedResultException e)
+        catch (UnexpectedResultException)
         {
             // _logger.LogError(); - todo
         }
