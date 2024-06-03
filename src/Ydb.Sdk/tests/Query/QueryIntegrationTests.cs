@@ -36,7 +36,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
         Assert.Equal("Moss and the German", selectSortAndFilter[2]["title"].GetOptionalUtf8());
 
         var selectDataAggregation = (await _queryClient.ReadAllRows(@"
-            SELECT series_id, COUNT(*) AS cnt FROM episodes GROUP BY series_id;")).Value;
+            SELECT series_id, COUNT(*) AS cnt FROM episodes GROUP BY series_id ORDER BY series_id;")).Value;
 
         Assert.Equal(2, selectDataAggregation.Count);
 
