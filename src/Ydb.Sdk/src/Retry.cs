@@ -59,7 +59,7 @@ public record RetryRule(BackoffSettings BackoffSettings, bool DeleteSession, Ide
 public class RetrySettings
 {
     public static readonly RetrySettings DefaultInstance = new();
-    
+
     public RetrySettings(
         uint maxAttempts = 10,
         BackoffSettings? fastBackoff = null,

@@ -12,7 +12,7 @@ public abstract class Result
     public static Result<TValue> Fail<TValue>(Status status) where TValue : class
     {
         Debug.Assert(status.IsNotSuccess);
-        
+
         return new Result<TValue>(status, null);
     }
 }
@@ -53,7 +53,7 @@ public class UnexpectedResultException : Exception
     {
         Status = status;
     }
-    
+
     public UnexpectedResultException(Status status) : base(status.ToString())
     {
         Status = status;
