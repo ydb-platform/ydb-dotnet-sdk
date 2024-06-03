@@ -88,6 +88,8 @@ public class QueryClient : IAsyncDisposable
         });
     }
 
+    private static readonly object None = new object();
+
     public async Task<Status> DoTx(Func<QueryTx, Task> queryTx, TxMode txMode = TxMode.SerializableRw)
     {
         return (await _sessionPool.ExecOnSession<object>(async session =>
@@ -100,7 +102,7 @@ public class QueryClient : IAsyncDisposable
 
                 var commitResult = await tx.Commit();
 
-                return commitResult.IsSuccess ? Result.Success(new object()) : Result.Fail<object>(commitResult);
+                return commitResult.IsSuccess ? Result.Success(None) : Result.Fail<object>(commitResult);
             }
             catch (UnexpectedResultException e)
             {
@@ -132,7 +134,7 @@ public class QueryTx
     private TransactionControl TxControl(bool commit)
     {
         Commited = commit | Commited;
-        
+
         return TxId == null
             ? new TransactionControl { BeginTx = _txMode.TransactionSettings(), CommitTx = commit }
             : new TransactionControl { TxId = TxId, CommitTx = commit };

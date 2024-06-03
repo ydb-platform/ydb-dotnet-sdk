@@ -100,7 +100,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
     }
 
     [Fact]
-    public async Task DoTx_UpsertThenRollbackTransaction_ReturnNothing()
+    public async Task DoTx_UpsertThenRollbackTransaction_ReturnOldRow()
     {
         var rollbackStatus = await _queryClient.DoTx(async queryTx =>
         {
@@ -126,6 +126,59 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
 
         Assert.Equal(new DateTime(2008, 11, 21), row![0].GetOptionalDate());
     }
+
+    [Fact]
+    public async Task DoTx_InteractiveTransactionInAndOutCommitOperation_UpsertNewValue()
+    {
+        var statusInsert = await _queryClient.DoTx(async tx =>
+        {
+            await tx.Exec(@"
+                INSERT INTO seasons(series_id, season_id, title, first_aired, last_aired) 
+                VALUES (2, 6, ""Season6"", Date(""2006-02-03""), Date(""2006-03-03""))");
+
+            await tx.Exec(@"
+                INSERT INTO episodes(series_id, season_id, episode_id, title, air_date)
+                VALUES (2, 6, 1, ""Yesterday's Jam"", Date(""2006-02-03""))");
+        }); // commit
+
+        statusInsert.EnsureSuccess();
+
+        var titles = await _queryClient.DoTx<string>(
+            async tx =>
+            {
+                var r1 = await tx.ReadRow("SELECT title FROM seasons WHERE series_id = 2 AND season_id = 6");
+                var r2 = await tx.ReadRow("SELECT title FROM episodes " +
+                                          "WHERE series_id = 2 AND season_id = 6 AND episode_id = 1");
+
+                return r1![0].GetOptionalUtf8() + "_" + r2![0].GetOptionalUtf8();
+            }, TxMode.SnapshotRo);
+
+        Assert.Equal("Season6_Yesterday's Jam", titles.Value);
+
+        var statusDelete = await _queryClient.DoTx(async tx =>
+        {
+            await tx.Exec("DELETE FROM seasons WHERE series_id = 2 AND season_id = 6");
+
+            await tx.Exec("DELETE FROM episodes WHERE series_id = 2 AND season_id = 6 AND episode_id = 1",
+                commit: true); // commit with operation
+        });
+
+        statusDelete.EnsureSuccess();
+
+        var (s1, row1) = await _queryClient.ReadRow(
+            "SELECT title FROM seasons WHERE series_id = 2 AND season_id = 6",
+            txMode: TxMode.SnapshotRo);
+        var (s2, row2) = await _queryClient.ReadRow(
+            "SELECT title FROM episodes WHERE series_id = 2 AND season_id = 6 AND episode_id = 1",
+            txMode: TxMode.SnapshotRo);
+
+        s1.EnsureSuccess();
+        s2.EnsureSuccess();
+
+        Assert.Null(row1);
+        Assert.Null(row2);
+    }
+
 
     public async Task InitializeAsync()
     {
