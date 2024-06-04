@@ -55,6 +55,8 @@ public enum StatsMode
 
 public class ExecuteQuerySettings : GrpcRequestSettings
 {
+    internal new static readonly ExecuteQuerySettings DefaultInstance = new();
+
     public ExecMode ExecMode { get; set; } = ExecMode.Execute;
     public Syntax Syntax { get; set; }
     public StatsMode StatsMode { get; set; }
@@ -279,5 +281,19 @@ internal class RollbackTransactionResponse : ResponseBase
     internal static RollbackTransactionResponse FromProto(Ydb.Query.RollbackTransactionResponse proto)
     {
         return new RollbackTransactionResponse(proto);
+    }
+}
+
+public class ExecuteQueryPart
+{
+    public Status Status { get; }
+    public Value.ResultSet? ResultSet { get; }
+    public string TxId { get; }
+
+    internal ExecuteQueryPart(Status status, Value.ResultSet? resultSet, string txId)
+    {
+        Status = status;
+        ResultSet = resultSet;
+        TxId = txId;
     }
 }

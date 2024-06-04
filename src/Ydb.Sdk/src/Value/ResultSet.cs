@@ -3,6 +3,14 @@ using Google.Protobuf.Collections;
 
 namespace Ydb.Sdk.Value;
 
+public static class ResultSetExtension
+{
+    internal static ResultSet FromProto(this Ydb.ResultSet resultSetProto)
+    {
+        return new ResultSet(resultSetProto);
+    }
+}
+
 public class ResultSet
 {
     public IReadOnlyList<Column> Columns { get; }

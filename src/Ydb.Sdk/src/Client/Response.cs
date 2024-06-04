@@ -94,10 +94,10 @@ public abstract class StreamResponse<TProtoResponse, TResponse>
 
         try
         {
-            var result = await _iterator.Next();
+            var result = await _iterator.MoveNextAsync();
             if (result)
             {
-                _response = MakeResponse(_iterator.Response);
+                _response = MakeResponse(_iterator.Current);
             }
 
             return result;
