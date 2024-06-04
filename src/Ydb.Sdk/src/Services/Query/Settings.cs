@@ -27,7 +27,7 @@ public class ExecuteQuerySettings : GrpcRequestSettings
 
 public enum TxMode
 {
-    Unspecified,
+    NoTx,
 
     SerializableRw,
     SnapshotRo,
@@ -67,12 +67,12 @@ internal static class TxModeExtensions
         };
     }
 
-    internal static TransactionControl? TransactionControl(this TxMode mode, bool autocommit = true)
+    internal static TransactionControl? TransactionControl(this TxMode mode, bool commit = true)
     {
         return mode switch
         {
-            TxMode.Unspecified => null,
-            _ => new TransactionControl { BeginTx = mode.TransactionSettings(), CommitTx = autocommit }
+            TxMode.NoTx => null,
+            _ => new TransactionControl { BeginTx = mode.TransactionSettings(), CommitTx = commit }
         };
     }
 }
@@ -81,9 +81,9 @@ public class ExecuteQueryPart
 {
     public Status Status { get; }
     public Value.ResultSet? ResultSet { get; }
-    public string TxId { get; }
+    public string? TxId { get; }
 
-    internal ExecuteQueryPart(Status status, Value.ResultSet? resultSet, string txId)
+    internal ExecuteQueryPart(Status status, Value.ResultSet? resultSet, string? txId)
     {
         Status = status;
         ResultSet = resultSet;

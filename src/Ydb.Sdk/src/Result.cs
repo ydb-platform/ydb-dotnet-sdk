@@ -43,6 +43,12 @@ public class Result<T> where T : class
         Status = status;
         _value = value;
     }
+
+    public void Deconstruct(out Status status, out T? res)
+    {
+        status = Status;
+        res = _value;
+    }
 }
 
 public class UnexpectedResultException : Exception

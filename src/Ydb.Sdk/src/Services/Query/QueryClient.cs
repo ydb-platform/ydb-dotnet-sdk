@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Threading.Channels;
 using Ydb.Query;
 using Ydb.Sdk.Value;
 
@@ -20,9 +21,32 @@ public class QueryClient : IAsyncDisposable
         _sessionPool = new SessionPool(driver, config.SizeSessionPool);
     }
 
+    public async Task<ChannelReader<(Status, Value.ResultSet)>> Stream(string query,
+        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
+        ExecuteQuerySettings? settings = null, int channelBufferSize = 10)
+    {
+        var channel = Channel.CreateBounded<(Status, Value.ResultSet)>(channelBufferSize);
+
+        var channelWriter = channel.Writer;
+
+        await _sessionPool.ExecOnSession<object>(async session =>
+        {
+            await foreach (var part in session.ExecuteQuery(query, parameters, settings, txMode.TransactionControl()))
+            {
+                await channelWriter.WriteAsync((part.Status, part.ResultSet!));
+            }
+
+            channelWriter.Complete(); // Stream is closed
+
+            return Result.Success(None);
+        });
+
+        return channel.Reader;
+    }
+
     // Reading the result set stream into memory
     public Task<Result<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(string query,
-        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.Unspecified,
+        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
         ExecuteQuerySettings? settings = null)
     {
         return _sessionPool.ExecOnSession<IReadOnlyList<Value.ResultSet.Row>>(async session =>
@@ -44,7 +68,7 @@ public class QueryClient : IAsyncDisposable
     }
 
     public async Task<(Status, Value.ResultSet.Row?)> ReadRow(string query,
-        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.Unspecified,
+        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
         ExecuteQuerySettings? settings = null)
     {
         var result = await ReadAllRows(query, parameters, txMode, settings);
@@ -55,7 +79,7 @@ public class QueryClient : IAsyncDisposable
     }
 
     public async Task<Status> Exec(string query, Dictionary<string, YdbValue>? parameters = null,
-        TxMode txMode = TxMode.Unspecified, ExecuteQuerySettings? settings = null)
+        TxMode txMode = TxMode.NoTx, ExecuteQuerySettings? settings = null)
     {
         var result = await ReadAllRows(query, parameters, txMode, settings);
 
@@ -149,12 +173,12 @@ public class QueryTx
     private string? TxId { get; set; }
     private bool Commited { get; set; }
 
-    private TransactionControl TxControl(bool commit)
+    private TransactionControl? TxControl(bool commit)
     {
         Commited = commit | Commited;
 
         return TxId == null
-            ? new TransactionControl { BeginTx = _txMode.TransactionSettings(), CommitTx = commit }
+            ? _txMode.TransactionControl(commit: commit)
             : new TransactionControl { TxId = TxId, CommitTx = commit };
     }
 

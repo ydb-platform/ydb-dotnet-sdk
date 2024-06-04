@@ -27,8 +27,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
             SELECT series_id, season_id, episode_id, air_date, title 
             FROM episodes WHERE series_id = 1 AND season_id > 1
             ORDER BY series_id, season_id, episode_id LIMIT 3")).Value;
-
-
+        
         Assert.Equal(3, selectSortAndFilter.Count);
 
         Assert.Equal("The Work Outing", selectSortAndFilter[0]["title"].GetOptionalUtf8());
@@ -126,13 +125,13 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
 
         Assert.Equal(new DateTime(2008, 11, 21), row![0].GetOptionalDate());
     }
-    
+
     [Fact]
     public async Task DoTx_UpsertThenExceptionInTransaction_ReturnOldRow()
     {
         try
         {
-            var rollbackStatus = await _queryClient.DoTx(async queryTx =>
+            _ = await _queryClient.DoTx(async queryTx =>
             {
                 await queryTx.Exec(@"
                     UPSERT INTO seasons (series_id, season_id, first_aired) VALUES
@@ -212,6 +211,46 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
         Assert.Null(row2);
     }
 
+    [Fact]
+    public async Task Stream_ReadingMore1000RowsFromChannel_ReturnChannelExecuteParts()
+    {
+        const int sizeSeasons = 20;
+        var tasks = new Task<Status>[sizeSeasons];
+
+        for (var i = 0; i < sizeSeasons; i++)
+        {
+            tasks[i] = _queryClient.Exec(
+                "INSERT INTO seasons(series_id, season_id, title) VALUES (3, $season_id, $title)",
+                new Dictionary<string, YdbValue>
+                {
+                    { "$season_id", YdbValue.MakeInt64(i) },
+                    { "$title", YdbValue.MakeUtf8("Season" + i) }
+                });
+        }
+
+        foreach (var task in tasks)
+        {
+            var status = await task;
+
+            status.EnsureSuccess();
+        }
+
+        var channelReader = await _queryClient.Stream(
+            "SELECT title FROM seasons ORDER BY series_id, season_id OFFSET 9",
+            channelBufferSize: 5);
+
+        var currentSeason = 0;
+
+        await foreach (var (status, resultSet) in channelReader.ReadAllAsync())
+        {
+            status.EnsureSuccess();
+
+            foreach (var row in resultSet.Rows)
+            {
+                Assert.Equal("Season" + currentSeason++, row[0].GetOptionalUtf8());
+            }
+        }
+    }
 
     public async Task InitializeAsync()
     {
