@@ -65,7 +65,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private void DeleteNotActiveSession(TSession session)
     {
         _ = DeleteSession().ContinueWith(s =>
-            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s)
+            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result)
         );
     }
 }
