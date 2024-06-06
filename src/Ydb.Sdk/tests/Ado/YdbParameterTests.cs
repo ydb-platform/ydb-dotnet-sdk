@@ -38,7 +38,8 @@ public class YdbParameterTests
     {
         var dateTimeOffset = DateTimeOffset.Parse("2029-08-03T06:59:44.8578730Z");
 
-        Assert.Equal(dateTimeOffset.UtcDateTime, new YdbParameter("$parameter") { Value = dateTimeOffset }.YdbValue.GetTimestamp());
+        Assert.Equal(dateTimeOffset.UtcDateTime,
+            new YdbParameter("$parameter") { Value = dateTimeOffset }.YdbValue.GetTimestamp());
         Assert.Equal(dateTimeOffset.UtcDateTime, new YdbParameter("$parameter")
             { Value = dateTimeOffset, DbType = DbType.DateTimeOffset }.YdbValue.GetTimestamp());
         Assert.Null(new YdbParameter("$parameter") { DbType = DbType.DateTimeOffset, IsNullable = true }
