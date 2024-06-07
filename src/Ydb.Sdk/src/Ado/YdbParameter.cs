@@ -1,5 +1,7 @@
+using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using Ydb.Sdk.Value;
 using static System.String;
 
@@ -7,9 +9,23 @@ namespace Ydb.Sdk.Ado;
 
 public sealed class YdbParameter : DbParameter
 {
-    public YdbParameter(string parameterName)
+    private string _parameterName = Empty;
+
+    
+    public YdbParameter()
+    {
+    }
+
+    public YdbParameter(string parameterName, object value)
     {
         ParameterName = parameterName;
+        Value = value;
+    }
+
+    public YdbParameter(string parameterName, DbType dbType, object? value = null)
+    {
+        ParameterName = parameterName;
+        DbType = dbType;
     }
 
     public override void ResetDbType()
@@ -21,7 +37,15 @@ public sealed class YdbParameter : DbParameter
     public override DbType DbType { get; set; } = DbType.Object;
     public override ParameterDirection Direction { get; set; } = ParameterDirection.InputOutput;
     public override bool IsNullable { get; set; }
-    public override string ParameterName { get; set; }
+
+    [AllowNull, DefaultValue("")]
+    public override string ParameterName
+    {
+        get => _parameterName;
+        set => _parameterName = value ?? throw new YdbAdoException("ParameterName must not be null!");
+    }
+
+    [AllowNull, DefaultValue("")]
     public override string SourceColumn { get; set; } = Empty;
     public override object? Value { get; set; }
     public override bool SourceColumnNullMapping { get; set; }
@@ -38,6 +62,7 @@ public sealed class YdbParameter : DbParameter
 
             return DbType switch
             {
+                DbType.Object => PrepareThenReturnYdbValue(),
                 DbType.String or DbType.AnsiString or DbType.AnsiStringFixedLength or DbType.StringFixedLength =>
                     Cast<string>(YdbValue.MakeOptionalUtf8, YdbValue.MakeUtf8),
                 DbType.Binary => Cast<byte[]>(YdbValue.MakeOptionalString, YdbValue.MakeString),
@@ -61,7 +86,6 @@ public sealed class YdbParameter : DbParameter
                     offset => YdbValue.MakeTimestamp(offset.UtcDateTime)),
                 DbType.Decimal or DbType.Currency => CastPrimitive<decimal>(YdbValue.MakeOptionalDecimal,
                     YdbValue.MakeDecimal),
-                DbType.Object => YdbValueFromObject(),
                 DbType.VarNumeric or DbType.Xml or DbType.Guid => throw new YdbAdoException(
                     $"Ydb don't supported this DbType: {DbType}"),
                 _ => throw new ArgumentOutOfRangeException()
@@ -69,7 +93,7 @@ public sealed class YdbParameter : DbParameter
         }
     }
 
-    private YdbValue YdbValueFromObject()
+    private YdbValue PrepareThenReturnYdbValue()
     {
         DbType = Value switch
         {

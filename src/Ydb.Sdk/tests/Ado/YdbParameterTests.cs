@@ -14,22 +14,21 @@ public class YdbParameterTests
     public void YdbValue_WhenValueIsNullAndDbTypeIsObject_ThrowException()
     {
         Assert.Equal("Error converting null to YdbValue", Assert.Throws<YdbAdoException>(() =>
-            new YdbParameter("$param").YdbValue).Message);
+            new YdbParameter().YdbValue).Message);
         Assert.Equal("Error converting System.Object to YdbValue", Assert.Throws<YdbAdoException>(() =>
-            new YdbParameter("$param") { Value = new object() }.YdbValue).Message);
+            new YdbParameter("$param", new object()).YdbValue).Message);
     }
 
     [Theory]
     [ClassData(typeof(TestDataGenerator))]
     public void YdbValue_WhenSetDbValue_ReturnYdbValue<T>(Data<T> data)
     {
-        Assert.Equal(data.Expected, data.FetchFun(new YdbParameter("$parameter")
-            { Value = data.Expected, DbType = data.DbType, IsNullable = data.IsNullable }.YdbValue));
+        Assert.Equal(data.Expected, data.FetchFun(new YdbParameter("$parameter", data.DbType, data.Expected)
+            { IsNullable = data.IsNullable }.YdbValue));
 
-        if (!data.IsNullable && data.DbType != DbType.DateTime2 && data.DbType != DbType.Date)
+        if (!data.IsNullable && data.DbType != DbType.DateTime2 && data.DbType != DbType.Date && data.Expected != null)
         {
-            Assert.Equal(data.Expected,
-                data.FetchFun(new YdbParameter("$parameter") { Value = data.Expected }.YdbValue));
+            Assert.Equal(data.Expected, data.FetchFun(new YdbParameter("$parameter", data.Expected).YdbValue));
         }
     }
 
@@ -39,21 +38,20 @@ public class YdbParameterTests
         var dateTimeOffset = DateTimeOffset.Parse("2029-08-03T06:59:44.8578730Z");
 
         Assert.Equal(dateTimeOffset.UtcDateTime,
-            new YdbParameter("$parameter") { Value = dateTimeOffset }.YdbValue.GetTimestamp());
-        Assert.Equal(dateTimeOffset.UtcDateTime, new YdbParameter("$parameter")
-            { Value = dateTimeOffset, DbType = DbType.DateTimeOffset }.YdbValue.GetTimestamp());
-        Assert.Null(new YdbParameter("$parameter") { DbType = DbType.DateTimeOffset, IsNullable = true }
+            new YdbParameter("$parameter", dateTimeOffset).YdbValue.GetTimestamp());
+        Assert.Equal(dateTimeOffset.UtcDateTime,
+            new YdbParameter("$parameter", DbType.DateTimeOffset, dateTimeOffset).YdbValue.GetTimestamp());
+        Assert.Null(new YdbParameter("$parameter", DbType.DateTimeOffset) { IsNullable = true }
             .YdbValue.GetOptionalTimestamp());
-        Assert.Equal(dateTimeOffset.UtcDateTime, new YdbParameter("$parameter")
-                { Value = dateTimeOffset, DbType = DbType.DateTimeOffset, IsNullable = true }
-            .YdbValue.GetOptionalTimestamp());
+        Assert.Equal(dateTimeOffset.UtcDateTime, new YdbParameter("$parameter", DbType.DateTimeOffset, dateTimeOffset)
+            { IsNullable = true }.YdbValue.GetOptionalTimestamp());
     }
 
     [Fact]
     public void YdbValue_WhenYdbValueIsSet_ReturnThis()
     {
         Assert.Equal("{\"type\": \"jsondoc\"}",
-            new YdbParameter("$parameter") { Value = YdbValue.MakeJsonDocument("{\"type\": \"jsondoc\"}") }.YdbValue
+            new YdbParameter("$parameter", YdbValue.MakeJsonDocument("{\"type\": \"jsondoc\"}")).YdbValue
                 .GetJsonDocument());
     }
 
@@ -64,8 +62,16 @@ public class YdbParameterTests
     public void YdbValue_WhenNoSupportedDbType_ThrowException(DbType dbType, string name)
     {
         Assert.Equal("Ydb don't supported this DbType: " + name,
-            Assert.Throws<YdbAdoException>(() => new YdbParameter("$parameter")
-                { DbType = dbType, IsNullable = true }.YdbValue).Message);
+            Assert.Throws<YdbAdoException>(() => new YdbParameter("$parameter", dbType)
+                { IsNullable = true }.YdbValue).Message);
+    }
+
+    [Fact]
+    public void Parameter_WhenSetAndNoSet_ReturnValueOrException()
+    {
+        Assert.Equal("$parameter", new YdbParameter { ParameterName = "$parameter" }.ParameterName);
+        Assert.Equal("ParameterName must not be null!",
+            Assert.Throws<YdbAdoException>(() => new YdbParameter { ParameterName = null }).Message);
     }
 
     public class Data<T>

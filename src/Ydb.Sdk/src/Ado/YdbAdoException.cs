@@ -2,7 +2,11 @@ namespace Ydb.Sdk.Ado;
 
 public class YdbAdoException : Exception
 {
-    internal YdbAdoException(string message) : base(message)
+    public YdbAdoException()
+    {
+    }
+
+    public YdbAdoException(string message) : base(message)
     {
     }
 }
