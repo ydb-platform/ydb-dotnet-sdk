@@ -39,14 +39,15 @@ public sealed class YdbParameter : DbParameter
     public override ParameterDirection Direction { get; set; } = ParameterDirection.InputOutput;
     public override bool IsNullable { get; set; }
 
-    [AllowNull, DefaultValue("")]
+    [AllowNull]
+    [DefaultValue("")]
     public override string ParameterName
     {
         get => _parameterName;
         set => _parameterName = value ?? throw new YdbAdoException("ParameterName must not be null!");
     }
 
-    [AllowNull, DefaultValue("")] public override string SourceColumn { get; set; } = Empty;
+    [AllowNull] [DefaultValue("")] public override string SourceColumn { get; set; } = Empty;
     public override object? Value { get; set; }
     public override bool SourceColumnNullMapping { get; set; }
     public override int Size { get; set; }
