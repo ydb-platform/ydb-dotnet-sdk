@@ -11,7 +11,7 @@ public sealed class YdbParameter : DbParameter
 {
     private string _parameterName = Empty;
 
-    
+
     public YdbParameter()
     {
     }
@@ -26,6 +26,7 @@ public sealed class YdbParameter : DbParameter
     {
         ParameterName = parameterName;
         DbType = dbType;
+        Value = value;
     }
 
     public override void ResetDbType()
@@ -45,8 +46,7 @@ public sealed class YdbParameter : DbParameter
         set => _parameterName = value ?? throw new YdbAdoException("ParameterName must not be null!");
     }
 
-    [AllowNull, DefaultValue("")]
-    public override string SourceColumn { get; set; } = Empty;
+    [AllowNull, DefaultValue("")] public override string SourceColumn { get; set; } = Empty;
     public override object? Value { get; set; }
     public override bool SourceColumnNullMapping { get; set; }
     public override int Size { get; set; }
@@ -123,7 +123,7 @@ public sealed class YdbParameter : DbParameter
 
     private YdbValue Cast<T>(Func<T?, YdbValue> nullableValue, Func<T, YdbValue> notNullValue) where T : class
     {
-        if (Value == null || IsNullable)
+        if (IsNullable)
         {
             return nullableValue((T?)Value);
         }
@@ -134,12 +134,12 @@ public sealed class YdbParameter : DbParameter
         }
 
         throw new YdbAdoException($"Invalidate parameter state: expected value with type " +
-                                  $"{typeof(T) + (IsNullable ? "?" : ", isNullable = false")}");
+                                  $"{typeof(T) + (IsNullable ? "" : ", isNullable = false")}");
     }
 
     private YdbValue CastPrimitive<T>(Func<T?, YdbValue> nullableValue, Func<T, YdbValue> notNullValue) where T : struct
     {
-        if (Value == null || IsNullable)
+        if (IsNullable)
         {
             return nullableValue((T?)Value);
         }
@@ -150,6 +150,6 @@ public sealed class YdbParameter : DbParameter
         }
 
         throw new YdbAdoException($"Invalidate parameter state: expected value with type " +
-                                  $"{typeof(T) + (IsNullable ? "?" : ", isNullable = false")}");
+                                  $"{typeof(T) + (IsNullable ? "" : ", isNullable = false")}");
     }
 }
