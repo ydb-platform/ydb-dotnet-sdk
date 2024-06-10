@@ -11,7 +11,6 @@ public sealed class YdbParameter : DbParameter
 {
     private string _parameterName = Empty;
 
-
     public YdbParameter()
     {
     }
@@ -126,7 +125,7 @@ public sealed class YdbParameter : DbParameter
     {
         if (IsNullable)
         {
-            return nullableValue((T?)Value);
+            return nullableValue(Value is DBNull ? null : (T?)Value);
         }
 
         if (Value is T v)
