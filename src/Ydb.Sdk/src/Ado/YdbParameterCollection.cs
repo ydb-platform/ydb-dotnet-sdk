@@ -23,7 +23,9 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <param name="parameterName">The name of the <see cref="YdbParameter"/>.</param>
     /// <param name="value">The value of the <see cref="YdbParameter"/> to add to the collection.</param>
     public void AddWithValue(string parameterName, object value)
-        => Add(new YdbParameter(parameterName, value));
+    {
+        Add(new YdbParameter(parameterName, value));
+    }
 
     /// <summary>
     /// Adds a <see cref="YdbParameter"/> to the <see cref="YdbParameterCollection"/> given the specified parameter name,
@@ -34,23 +36,29 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <param name="value">The value of the <see cref="YdbParameter"/> to add to the collection.</param>
     /// <returns>The parameter that was added.</returns>
     public void AddWithValue(string parameterName, DbType parameterType, object? value = null)
-        => Add(new YdbParameter(parameterName, parameterType) { Value = value });
+    {
+        Add(new YdbParameter(parameterName, parameterType) { Value = value });
+    }
+
+    /// <inheritdoc />
+    void ICollection<YdbParameter>.Add(YdbParameter item)
+        => Add(item);
 
     /// <inheritdoc />
     public override int Add(object value)
     {
-        _parameters.Add(Cast(value));
-
-        return _parameters.Count - 1;
+        return Add(Cast(value));
     }
 
     /// <summary>
     /// Adds the specified <see cref="YdbParameter"/> object to the <see cref="YdbParameterCollection"/>.
     /// </summary>
     /// <param name="item">The <see cref="YdbParameter"/> to add to the collection.</param>
-    public void Add(YdbParameter item)
+    public int Add(YdbParameter item)
     {
         _parameters.Add(item);
+
+        return _parameters.Count - 1;
     }
 
     /// <summary>
@@ -92,7 +100,7 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     {
         return _parameters.Remove(item);
     }
-    
+
     /// <inheritdoc />
     public override int IndexOf(object value)
     {

@@ -152,21 +152,4 @@ public sealed class YdbParameter : DbParameter
         throw new YdbAdoException($"Invalidate parameter state: expected value with type " +
                                   $"{typeof(T) + (IsNullable ? "" : ", isNullable = false")}");
     }
-
-    public override bool Equals(object? obj)
-    {
-        if (obj is YdbParameter other)
-        {
-            return _parameterName == other._parameterName && DbType == other.DbType && Direction == other.Direction &&
-                   IsNullable == other.IsNullable && SourceColumn == other.SourceColumn && Equals(Value, other.Value) &&
-                   SourceColumnNullMapping == other.SourceColumnNullMapping && Size == other.Size;
-        }
-
-        return false;
-    }
-
-    public override int GetHashCode()
-    {
-        return ParameterName.GetHashCode();
-    }
 }
