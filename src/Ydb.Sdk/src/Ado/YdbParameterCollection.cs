@@ -42,7 +42,9 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
 
     /// <inheritdoc />
     void ICollection<YdbParameter>.Add(YdbParameter item)
-        => Add(item);
+    {
+        Add(item);
+    }
 
     /// <inheritdoc />
     public override int Add(object value)

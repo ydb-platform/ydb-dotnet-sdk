@@ -42,10 +42,10 @@ public class YdbParameterCollectionTests
         _ydbParameterCollection.RemoveAt(0);
         Assert.False(_ydbParameterCollection.Contains("$param1"));
         Assert.False(_ydbParameterCollection.Contains("$param"));
-        
+
         _ydbParameterCollection.RemoveAt("$param2");
         Assert.False(_ydbParameterCollection.Contains("$param2"));
-        
+
         Assert.Single(_ydbParameterCollection);
     }
 
