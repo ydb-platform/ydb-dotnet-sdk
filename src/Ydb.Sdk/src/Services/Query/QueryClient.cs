@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Threading.Channels;
 using Ydb.Query;
+using Ydb.Sdk.Services.Query.Pool;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
