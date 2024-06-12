@@ -159,7 +159,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         var (endpoint, channel) = GetChannel(settings.NodeId);
         var callInvoker = channel.CreateCallInvoker();
 
-        using var call = callInvoker.AsyncServerStreamingCall(
+        var call = callInvoker.AsyncServerStreamingCall(
             method: method,
             host: null,
             options: GetCallOptions(settings, true),
