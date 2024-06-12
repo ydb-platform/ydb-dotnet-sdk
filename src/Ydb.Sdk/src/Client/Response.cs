@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics;
+using Google.Protobuf.Collections;
+using Ydb.Issue;
 
 namespace Ydb.Sdk.Client;
 
@@ -34,7 +36,11 @@ public class ResponseWithResultBase<TResult> : ResponseBase
 {
     private readonly TResult? _result;
 
-    protected ResponseWithResultBase(Status status) : base(status)
+    protected ResponseWithResultBase(
+        StatusIds.Types.StatusCode statusCode,
+        RepeatedField<IssueMessage> issues,
+        TResult? result)
+        : this(Status.FromProto(statusCode, issues), result)
     {
     }
 
@@ -58,7 +64,7 @@ public class ResponseWithResultBase<TResult> : ResponseBase
         }
     }
 }
-
+    
 public abstract class StreamResponse<TProtoResponse, TResponse>
     where TProtoResponse : class
     where TResponse : class

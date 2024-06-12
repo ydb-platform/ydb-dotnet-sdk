@@ -159,13 +159,28 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         var (endpoint, channel) = GetChannel(settings.NodeId);
         var callInvoker = channel.CreateCallInvoker();
 
-        var call = callInvoker.AsyncServerStreamingCall(
+        using var call = callInvoker.AsyncServerStreamingCall(
             method: method,
             host: null,
             options: GetCallOptions(settings, true),
             request: request);
 
         return new StreamIterator<TResponse>(
+            call,
+            _ => { PessimizeEndpoint(endpoint); });
+    }
+
+    internal BidirectionalStream<TRequest, TResponse> DuplexStreamCall<TRequest, TResponse>(
+        Method<TRequest, TResponse> method,
+        GrpcRequestSettings settings)
+        where TRequest : class
+        where TResponse : class
+    {
+        var (endpoint, channel) = GetChannel(settings.NodeId);
+        var callInvoker = channel.CreateCallInvoker();
+        var call = callInvoker.AsyncDuplexStreamingCall(method, null, GetCallOptions(settings, true));
+
+        return new BidirectionalStream<TRequest, TResponse>(
             call,
             _ => { PessimizeEndpoint(endpoint); });
     }
@@ -309,6 +324,69 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         }
 
         return options;
+    }
+
+    // internal class BidirectionalStream<TRequest, TResponse>: StreamIterator<TResponse>
+    // {
+    //     private readonly IClientStreamWriter<TRequest> streamWriter;
+    //
+    //     internal BidirectionalStream(
+    //         AsyncDuplexStreamingCall<TRequest, TResponse> call,
+    //         Action<RpcException> rpcErrorAction)
+    //         : base(call.ResponseStream, rpcErrorAction)
+    //     {
+    //         streamWriter = call.RequestStream;
+    //     }
+    //
+    //     public async Task Write(TRequest request)
+    //     {
+    //         await streamWriter.WriteAsync(request);
+    //     }
+    // }
+    internal class BidirectionalStream<TRequest, TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
+    {
+        private readonly AsyncDuplexStreamingCall<TRequest, TResponse> call;
+        private readonly Action<RpcException> rpcErrorAction;
+    
+        internal BidirectionalStream(
+            AsyncDuplexStreamingCall<TRequest, TResponse> call,
+            Action<RpcException> rpcErrorAction)
+        {
+            this.call = call;
+            this.rpcErrorAction = rpcErrorAction;
+        }
+
+        public async Task Write(TRequest request)
+        {
+            await call.RequestStream.WriteAsync(request);
+        }
+
+        public async ValueTask<bool> MoveNextAsync()
+        {
+            try
+            {
+                return await call.ResponseStream.MoveNext(CancellationToken.None);
+            }
+            catch (RpcException e)
+            {
+                rpcErrorAction(e);
+                throw new TransportException(e);
+            }
+        }
+
+        public TResponse Current => call.ResponseStream.Current;
+
+        public IAsyncEnumerator<TResponse> GetAsyncEnumerator(CancellationToken cancellationToken = new())
+        {
+            return this;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            call.Dispose();
+
+            return default;
+        }
     }
 
     internal sealed class StreamIterator<TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
