@@ -1,7 +1,6 @@
 ﻿using Ydb.Sdk.Services.Topic.Internal.Options;
-using Ydb.Sdk.Services.Topic.Models.Reader;
 
-namespace Ydb.Sdk.Services.Topic.Options;
+namespace Ydb.Sdk.Services.Topic.Options.Reader;
 
 internal class ReaderOption: IOption<ReaderConfig>
 {

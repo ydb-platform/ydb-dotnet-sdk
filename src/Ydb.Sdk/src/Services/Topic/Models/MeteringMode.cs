@@ -1,4 +1,4 @@
-﻿namespace Ydb.Sdk.Services.Topic.Internal.Options;
+﻿namespace Ydb.Sdk.Services.Topic.Models;
 
 public enum MeteringMode
 {

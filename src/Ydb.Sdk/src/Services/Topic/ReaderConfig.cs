@@ -3,5 +3,5 @@
 public class ReaderConfig
 {
     public string Consumer { get; set; } = null!;
-    public Models.RetrySettings RetrySettings { get; set; } = new();
+    public RetrySettings RetrySettings { get; set; } = new();
 }

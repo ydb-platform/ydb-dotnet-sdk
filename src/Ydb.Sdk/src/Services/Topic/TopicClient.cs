@@ -2,6 +2,7 @@
 using Ydb.Sdk.Services.Topic.Internal;
 using Ydb.Sdk.Services.Topic.Models.Reader;
 using Ydb.Sdk.Services.Topic.Options;
+using Ydb.Sdk.Services.Topic.Options.Reader;
 
 namespace Ydb.Sdk.Services.Topic;
 

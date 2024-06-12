@@ -1,6 +1,7 @@
 ﻿using Ydb.Sdk.GrpcWrappers.Topic.Codecs;
 using Ydb.Sdk.GrpcWrappers.Topic.ControlPlane.AlterTopic;
 using Ydb.Sdk.Services.Topic.Internal.Options;
+using Ydb.Sdk.Services.Topic.Models;
 using Codec = Ydb.Sdk.Services.Topic.Models.Codec;
 
 namespace Ydb.Sdk.Services.Topic.Options;

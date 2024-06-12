@@ -42,17 +42,17 @@ internal class ReaderReconnector: IDisposable, IAsyncDisposable
     {
         while (true)
         {
-            if (streamReader != null)
+            if (streamReader is null)
+                break;
+            try
             {
-                try
-                {
-                    await streamReader.WaitMessage();
-                    return;
-                }
-                catch (Exception)
-                {
-                }
+                await streamReader.WaitMessage();
+                return;
             }
+            catch (Exception)
+            {
+            }
+            
         }
     }
 

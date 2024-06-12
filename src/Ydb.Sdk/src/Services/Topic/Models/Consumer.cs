@@ -1,8 +1,4 @@
-﻿using Ydb.Sdk.Services.Topic.Internal;
-using Ydb.Sdk.Services.Topic.Models;
-using Ydb.Sdk.Utils;
-
-namespace Ydb.Sdk.Services.Topic.Options;
+﻿namespace Ydb.Sdk.Services.Topic.Models;
 
 public class Consumer
 {
@@ -21,6 +17,18 @@ public class Consumer
             ReadFrom = ReadFrom,
             Attributes = Attributes,
             SupportedCodecs = GrpcWrappers.Topic.Codecs.SupportedCodecs.FromPublic(SupportedCodecs)
+        };
+    }
+
+    internal Consumer FromWrapper(GrpcWrappers.Topic.ControlPlane.Consumer consumer)
+    {
+        return new Consumer
+        {
+            Name = Name,
+            IsImportant = IsImportant,
+            ReadFrom = ReadFrom,
+            Attributes = Attributes,
+            SupportedCodecs = SupportedCodecs
         };
     }
 }
