@@ -16,7 +16,7 @@ internal class CreateTopicRequest
     public Dictionary<string, string> Attributes { get; set; } = new();
     public List<Consumer> Consumers { get; set; } = new();
     public MeteringMode MeteringMode { get; set; }
-    public OperationRequestSettings OperationParameters { get; set; } = new();
+    public OperationSettings OperationParameters { get; set; } = new();
 
     public Ydb.Topic.CreateTopicRequest ToProto()
     {

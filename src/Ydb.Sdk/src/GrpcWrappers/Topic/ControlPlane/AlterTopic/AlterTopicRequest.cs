@@ -18,7 +18,7 @@ internal class AlterTopicRequest
     public List<string> ConsumersToDrop {get; set; } = new();
     public List<AlterConsumer> ConsumersToAlter {get; set; } = new();
     public MeteringMode MeteringMode {get; set; }
-    public OperationRequestSettings OperationParameters { get; set; } = new();
+    public OperationSettings OperationParameters { get; set; } = new();
 
     public Ydb.Topic.AlterTopicRequest ToProto()
     {
