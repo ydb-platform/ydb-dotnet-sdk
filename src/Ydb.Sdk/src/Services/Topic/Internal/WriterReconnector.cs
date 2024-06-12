@@ -118,10 +118,8 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
             var message = await newMessages.Reader.ReadAsync();
             if (message.SequenceNumber > lastSequenceNumber)
             {
-                foreach (var requestGroup in GetGroupedWriteRequests())
-                {
-                    await streamWriter.Write(requestGroup.Value);
-                }
+                //TODO
+                // await streamWriter.Write(new List<WriteRequest> {new WriteRequest {me}});
             }
         }
     }
@@ -189,12 +187,6 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
     private List<Message> PrepareMessages(List<PublicMessage> publicMessages)
     {
         // auto sequenceNumber?
-        throw new NotImplementedException();
-    }
-
-    private Dictionary<Codec, List<WriteRequest>> GetGroupedWriteRequests()
-    {
-        //Группируются по кодеку, а затем внутри группа еще делится на группы, суммарный размер которых не превышает заданного
         throw new NotImplementedException();
     }
 

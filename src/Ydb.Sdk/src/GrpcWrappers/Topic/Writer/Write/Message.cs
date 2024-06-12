@@ -1,5 +1,6 @@
 ﻿using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
+using Ydb.Sdk.GrpcWrappers.Topic.Codecs;
 using static Ydb.Topic.StreamWriteMessage.Types.WriteRequest;
 
 namespace Ydb.Sdk.GrpcWrappers.Topic.Writer.Write;
@@ -11,6 +12,7 @@ internal class Message: HasPartitioning<Types.MessageData>
     public long UncompressedSize { get; set; }
     public Partitioning Partitioning { get; set; } = null!; 
     public byte[] Data { get; set; } = null!;
+    public Codec Codec { get; set; } = Codec.Raw;
 
     public Types.MessageData ToProto()
     {
@@ -19,7 +21,7 @@ internal class Message: HasPartitioning<Types.MessageData>
             SeqNo = SequenceNumber,
             CreatedAt = Timestamp.FromDateTime(CreatedAt),
             Data = ByteString.CopyFrom(Data),
-            UncompressedSize = UncompressedSize,
+            UncompressedSize = UncompressedSize
         };
         SetPartitioningToProto(result, Partitioning);
 
