@@ -7,7 +7,7 @@ namespace Ydb.Sdk.GrpcWrappers.Topic.Writer.Write;
 
 internal class Message: HasPartitioning<Types.MessageData>
 {
-    public long SequenceNumber { get; set; }
+    public long SequenceNumber { get; set; } = -1;
     public DateTime CreatedAt { get; set; }
     public long UncompressedSize { get; set; }
     public Partitioning Partitioning { get; set; } = null!; 

@@ -17,6 +17,9 @@ internal class SupportedCodecs: List<Codec>
 
     public static SupportedCodecs FromPublic(IEnumerable<PublicCodec> codecs)
         => new(codecs.Select(EnumConverter.Convert<PublicCodec, Codec>));
+
+    public IEnumerable<PublicCodec> ToPublic()
+        => this.Select(EnumConverter.Convert<Codec, PublicCodec>);
     
     public bool IsAllowedCodec(Codec codec) => !this.Any() || Contains(codec);
 

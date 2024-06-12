@@ -6,4 +6,16 @@ public class Message
     public DateTime CreatedAt { get; set; }
     public byte[] Data { get; set; }
     public Dictionary<string, byte[]> MetaData { get; set; } = new();
+
+    internal GrpcWrappers.Topic.Writer.Write.Message ToWrapper()
+    {
+        return new GrpcWrappers.Topic.Writer.Write.Message
+        {
+            Codec = GrpcWrappers.Topic.Codecs.Codec.Raw,
+            SequenceNumber = SequenceNumber,
+            CreatedAt = CreatedAt,
+            Data = Data,
+            UncompressedSize = Data.Length
+        };
+    }
 }

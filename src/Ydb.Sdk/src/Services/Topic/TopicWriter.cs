@@ -12,7 +12,7 @@ public class TopicWriter: IDisposable, IAsyncDisposable
         this.writerReconnector = writerReconnector;
     }
 
-    public InitInfo WaitInit() => writerReconnector.WaitInit();
+    public async Task<InitInfo> WaitInit() => await writerReconnector.WaitInit();
 
     public async Task<List<Task<WriteResult>>> Write(List<Message> message) => await writerReconnector.Write(message);
 

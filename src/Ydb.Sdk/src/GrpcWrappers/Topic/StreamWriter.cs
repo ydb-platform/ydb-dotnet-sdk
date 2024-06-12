@@ -1,4 +1,5 @@
-﻿using Ydb.Sdk.GrpcWrappers.Topic.Writer;
+﻿using Ydb.Sdk.GrpcWrappers.Topic.Codecs;
+using Ydb.Sdk.GrpcWrappers.Topic.Writer;
 using static Ydb.Topic.StreamWriteMessage.Types;
 using InitRequest = Ydb.Sdk.GrpcWrappers.Topic.Writer.Init.InitRequest;
 using InitResponse = Ydb.Sdk.GrpcWrappers.Topic.Writer.Init.InitResponse;
@@ -21,6 +22,9 @@ internal class StreamWriter: IAsyncDisposable
         this.stream = stream;
     }
 
+    public long LastSequenceNumber { get; private set; }
+    public SupportedCodecs SupportedCodecs { get; private set; }
+
     public static async Task<StreamWriter> Init(
         Driver driver,
         InitRequest initRequest)
@@ -38,7 +42,11 @@ internal class StreamWriter: IAsyncDisposable
             throw new Exception("No init response received");
         var initResponse = (InitResponse)responseStream.Response;
 
-        return new StreamWriter(responseStream, writer);
+        var streamWriter = new StreamWriter(responseStream, writer);
+        streamWriter.LastSequenceNumber = initResponse.Result.LastSequenceNumber;
+        streamWriter.SupportedCodecs = initResponse.Result.SupportedCodecs;
+
+        return streamWriter;
     }
 
     public async Task Write(IEnumerable<WriteRequest> requests)

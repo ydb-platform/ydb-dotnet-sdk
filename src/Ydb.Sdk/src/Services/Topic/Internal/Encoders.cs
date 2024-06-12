@@ -35,4 +35,6 @@ internal class Encoders
 
         return encode(data);
     }
+
+    public bool HasEncoder(Codec codec) => encoders.ContainsKey(codec);
 }
