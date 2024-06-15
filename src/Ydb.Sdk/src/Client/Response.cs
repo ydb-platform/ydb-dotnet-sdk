@@ -65,15 +65,16 @@ public class ResponseWithResultBase<TResult> : ResponseBase
     }
 }
     
-public abstract class StreamResponse<TProtoResponse, TResponse>
+public abstract class StreamResponse<TProtoResponse, TResponse, TIterator>: IAsyncDisposable
     where TProtoResponse : class
     where TResponse : class
+    where TIterator : IAsyncEnumerator<TProtoResponse>, IAsyncEnumerable<TProtoResponse>
 {
-    private readonly Driver.StreamIterator<TProtoResponse> _iterator;
+    private readonly TIterator _iterator;
     private TResponse? _response;
     private bool _transportError;
 
-    internal StreamResponse(Driver.StreamIterator<TProtoResponse> iterator)
+    internal StreamResponse(TIterator iterator)
     {
         _iterator = iterator;
     }
@@ -114,6 +115,11 @@ public abstract class StreamResponse<TProtoResponse, TResponse>
             _transportError = true;
             return true;
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _iterator.DisposeAsync();
     }
 
     protected abstract TResponse MakeResponse(TProtoResponse protoResponse);

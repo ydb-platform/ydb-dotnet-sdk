@@ -15,7 +15,7 @@ public class Message
             SequenceNumber = SequenceNumber,
             CreatedAt = CreatedAt,
             Data = Data,
-            UncompressedSize = Data.Length
+            UncompressedSize = Data.Length,
         };
     }
 }

@@ -17,7 +17,7 @@ public class WriterConfig
 
     internal InitRequest ToInitRequest()
     {
-        EnsureProducer();
+        ProducerId ??= Guid.NewGuid().ToString();
         return new InitRequest
         {
             Path = Topic,
@@ -30,7 +30,6 @@ public class WriterConfig
 
     private Partitioning GetPartitioning()
     {
-        EnsureProducer();
         if (PartitionId.HasValue)
         {
             return new Partitioning
@@ -45,10 +44,5 @@ public class WriterConfig
             Type = PartitioningType.MessageGroupId,
             MessageGroupId = ProducerId!
         };
-    }
-
-    private void EnsureProducer()
-    {
-        ProducerId ??= Guid.NewGuid().ToString();
     }
 }

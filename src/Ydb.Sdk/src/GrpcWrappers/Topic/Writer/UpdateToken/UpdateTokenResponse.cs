@@ -1,6 +1,5 @@
-﻿namespace Ydb.Sdk.GrpcWrappers.Topic.Writer;
+﻿namespace Ydb.Sdk.GrpcWrappers.Topic.Writer.UpdateToken;
 
-internal class UpdateTokenResponse
+internal class UpdateTokenResponse: ITopicWriterResponse
 {
-    
 }

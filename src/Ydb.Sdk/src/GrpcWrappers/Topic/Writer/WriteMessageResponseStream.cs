@@ -1,4 +1,5 @@
 ﻿using Ydb.Sdk.Client;
+using Ydb.Sdk.GrpcWrappers.Topic.Writer.UpdateToken;
 using static Ydb.Topic.StreamWriteMessage.Types.FromServer;
 using static Ydb.Topic.StreamWriteMessage.Types;
 using InitResponse = Ydb.Sdk.GrpcWrappers.Topic.Writer.Init.InitResponse;
@@ -6,7 +7,7 @@ using WriteResponse = Ydb.Sdk.GrpcWrappers.Topic.Writer.Write.WriteResponse;
 
 namespace Ydb.Sdk.GrpcWrappers.Topic.Writer;
 
-internal class WriteMessageResponseStream: StreamResponse<FromServer, ITopicWriterResponse>
+internal class WriteMessageResponseStream: StreamResponse<FromServer, ITopicWriterResponse, Driver.BidirectionalStream<FromClient, FromServer>>
 {
     public WriteMessageResponseStream(Driver.StreamIterator<FromServer> iterator) : base(iterator)
     {
@@ -21,7 +22,7 @@ internal class WriteMessageResponseStream: StreamResponse<FromServer, ITopicWrit
             case ServerMessageOneofCase.WriteResponse:
                 return WriteResponse.FromProto(protoResponse);
             case ServerMessageOneofCase.UpdateTokenResponse:
-                //TODO
+                return new UpdateTokenResponse();
             default:
                 throw new ArgumentOutOfRangeException(
                     nameof(protoResponse),

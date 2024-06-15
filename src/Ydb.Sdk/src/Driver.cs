@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
 using Ydb.Discovery.V1;
+using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
 
@@ -26,6 +27,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
     internal ILoggerFactory LoggerFactory { get; }
     internal string Database => _config.Database;
+    internal ICredentialsProvider CredentialsProvider => _config.Credentials;
 
     public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null)
     {
@@ -326,23 +328,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         return options;
     }
 
-    // internal class BidirectionalStream<TRequest, TResponse>: StreamIterator<TResponse>
-    // {
-    //     private readonly IClientStreamWriter<TRequest> streamWriter;
-    //
-    //     internal BidirectionalStream(
-    //         AsyncDuplexStreamingCall<TRequest, TResponse> call,
-    //         Action<RpcException> rpcErrorAction)
-    //         : base(call.ResponseStream, rpcErrorAction)
-    //     {
-    //         streamWriter = call.RequestStream;
-    //     }
-    //
-    //     public async Task Write(TRequest request)
-    //     {
-    //         await streamWriter.WriteAsync(request);
-    //     }
-    // }
+    //TODO inherit from StreamIterator
     internal class BidirectionalStream<TRequest, TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
     {
         private readonly AsyncDuplexStreamingCall<TRequest, TResponse> call;

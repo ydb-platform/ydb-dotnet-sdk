@@ -1,7 +1,6 @@
 ﻿using System.Threading.Channels;
 using Ydb.Sdk.GrpcWrappers.Topic.Writer.Init;
 using Ydb.Sdk.GrpcWrappers.Topic.Writer.Write;
-using Ydb.Sdk.Services.Topic.Models;
 using Ydb.Sdk.Services.Topic.Models.Writer;
 using Ydb.Sdk.Utils;
 using Codec = Ydb.Sdk.GrpcWrappers.Topic.Codecs.Codec;
@@ -50,9 +49,9 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
         }
     }
 
-    public async Task<InitInfo> WaitInit()
+    public async Task<InitInfo> WaitInit(CancellationToken cancellationToken)
     {
-        while (true)
+        while (!cancellationToken.IsCancellationRequested)
         {
             if (initInfo != null)
                 return initInfo;
@@ -284,7 +283,7 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
             ? info.SupportedCodecs
             : new List<PublicCodec> {PublicCodec.Raw, PublicCodec.Gzip};
 
-        return supportedCodecs.Where(c => encoders.HasEncoder((GrpcWrappers.Topic.Codecs.Codec) c)).ToList();
+        return supportedCodecs.Where(c => encoders.HasEncoder((Codec) c)).ToList();
     }
 
     private List<Message> PrepareMessages(List<PublicMessage> publicMessages)
