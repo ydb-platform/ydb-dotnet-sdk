@@ -7,9 +7,9 @@ using WriteResponse = Ydb.Sdk.GrpcWrappers.Topic.Writer.Write.WriteResponse;
 
 namespace Ydb.Sdk.GrpcWrappers.Topic.Writer;
 
-internal class WriteMessageResponseStream: StreamResponse<FromServer, ITopicWriterResponse, Driver.BidirectionalStream<FromClient, FromServer>>
+internal class WriteMessageResponseStream: StreamResponse<FromServer, ITopicWriterResponse>
 {
-    public WriteMessageResponseStream(Driver.StreamIterator<FromServer> iterator) : base(iterator)
+    public WriteMessageResponseStream(IAsyncEnumerator<FromServer> iterator) : base(iterator)
     {
     }
 

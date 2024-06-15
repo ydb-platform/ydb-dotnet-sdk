@@ -65,16 +65,15 @@ public class ResponseWithResultBase<TResult> : ResponseBase
     }
 }
     
-public abstract class StreamResponse<TProtoResponse, TResponse, TIterator>: IAsyncDisposable
+public abstract class StreamResponse<TProtoResponse, TResponse>: IAsyncDisposable
     where TProtoResponse : class
     where TResponse : class
-    where TIterator : IAsyncEnumerator<TProtoResponse>, IAsyncEnumerable<TProtoResponse>
 {
-    private readonly TIterator _iterator;
+    private readonly IAsyncEnumerator<TProtoResponse> _iterator;
     private TResponse? _response;
     private bool _transportError;
 
-    internal StreamResponse(TIterator iterator)
+    internal StreamResponse(IAsyncEnumerator<TProtoResponse> iterator)
     {
         _iterator = iterator;
     }

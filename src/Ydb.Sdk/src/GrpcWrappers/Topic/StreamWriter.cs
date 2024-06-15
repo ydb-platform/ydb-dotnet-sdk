@@ -45,7 +45,7 @@ internal class StreamWriter: IAsyncDisposable
         var innerWriter = driver.DuplexStreamCall(Ydb.Topic.V1.TopicService.StreamWriteMethod, new GrpcRequestSettings());
         await innerWriter.Write(new FromClient {InitRequest = initRequest.ToProto()});
 
-        var responseStream = new WriteMessageResponseStream(default/*writer*/); // TODO writer 
+        var responseStream = new WriteMessageResponseStream(innerWriter); 
         if (!await responseStream.Next()) ;
             //TODO
         if (responseStream.Response is not InitResponse initResponse)
