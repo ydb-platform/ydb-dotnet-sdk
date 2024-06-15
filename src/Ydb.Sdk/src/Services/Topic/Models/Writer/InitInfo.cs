@@ -1,6 +1,4 @@
-﻿using Ydb.Sdk.GrpcWrappers.Topic.Codecs;
-
-namespace Ydb.Sdk.Services.Topic.Models.Writer;
+﻿namespace Ydb.Sdk.Services.Topic.Models.Writer;
 
 public class InitInfo
 {
