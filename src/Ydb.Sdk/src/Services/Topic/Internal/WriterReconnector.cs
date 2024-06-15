@@ -161,8 +161,7 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
         while (true)
         {
             var messages = await messagesToEncodeQueue.Reader.ReadAllAsync().ToListAsync();
-            var selectedCodec = await ChooseCodec(messages);
-            await EncodeMessages(selectedCodec, messages);
+            await EncodeMessages(codec.Value, messages);
             foreach (var message in messages)
             {
                 await messagesToSendQueue.Writer.WriteAsync(message);
@@ -210,80 +209,6 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
             messages[i].Codec = internalCodec;
             messages[i].Data = encodedContents[i];
         }
-    }
-
-    private async Task<PublicCodec> ChooseCodec(List<Message> messages)
-    {
-        if (codec != null)
-            return codec.Value;
-
-        PublicCodec publicCodec;
-        if (lastSelectedCodec.HasValue)
-        {
-            if (batchNumber % CheckBatchesInterval == 0)
-                lastSelectedCodec = await ChooseCodecByCompressionPower(messages);
-            publicCodec = lastSelectedCodec.Value;
-        }
-        else
-        {
-            var availableCodecs = await GetAvailableCodecs();
-            if (batchNumber < availableCodecs.Count)
-            {
-                publicCodec = availableCodecs[batchNumber];
-            }
-            else
-            {
-                publicCodec = await ChooseCodecByCompressionPower(messages);
-                lastSelectedCodec = publicCodec;
-            }
-        }
-
-        batchNumber++;
-        return publicCodec;
-    }
-
-    private async Task<PublicCodec> ChooseCodecByCompressionPower(List<Message> messages)
-    {
-        var testMessages = messages.Take(10).ToList();
-        var availableCodecs = await GetAvailableCodecs();
-
-        if (availableCodecs.Count == 1)
-            return availableCodecs.First();
-
-        return await Task.Run(SelectCodec);
-
-        PublicCodec SelectCodec()
-        {
-            var result = availableCodecs.First();
-            var minSize = GetCompressedSize(result);
-            foreach (var publicCodec in availableCodecs.Skip(1))
-            {
-                var size = GetCompressedSize(publicCodec);
-                if (size < minSize)
-                {
-                    result = publicCodec;
-                    minSize = size;
-                }
-            }
-
-            return result;
-        }
-
-        int GetCompressedSize(PublicCodec publicCodec)
-        {
-            var internalCodec = EnumConverter.Convert<PublicCodec, Codec>(publicCodec);
-            return testMessages.Sum(m => encoders.Encode(internalCodec, m.Data).Length);
-        }
-    }
-
-    private async Task<List<PublicCodec>> GetAvailableCodecs()
-    {
-        var info = await WaitInit();
-        var supportedCodecs = info.SupportedCodecs.Count != 0
-            ? info.SupportedCodecs
-            : new List<PublicCodec> {PublicCodec.Raw, PublicCodec.Gzip};
-
-        return supportedCodecs.Where(c => encoders.HasEncoder((Codec) c)).ToList();
     }
 
     private List<Message> PrepareMessages(List<PublicMessage> publicMessages)
