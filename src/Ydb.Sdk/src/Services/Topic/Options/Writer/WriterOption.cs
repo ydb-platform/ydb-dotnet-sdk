@@ -1,6 +1,4 @@
-﻿using Ydb.Sdk.Services.Topic.Internal.Options;
-
-namespace Ydb.Sdk.Services.Topic.Options;
+﻿namespace Ydb.Sdk.Services.Topic.Options;
 
 internal class WriterOption: IOption<WriterConfig>
 {

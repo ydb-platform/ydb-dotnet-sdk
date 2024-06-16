@@ -21,7 +21,7 @@ public class WriterConfig
         return new InitRequest
         {
             Path = Topic,
-            ProducerId = ProducerId!,
+            ProducerId = ProducerId,
             WriteSessionMeta = SessionMetaData ?? new Dictionary<string, string>(),
             Partitioning = GetPartitioning(),
             NeedLastSequenceNumber = true

@@ -157,8 +157,8 @@ internal class WriterReconnector
                     };
                 }
 
-                var sendLoopTask = Task.Run(async () => await SendLoop(streamWriter), cancellationToken);
-                var receiveLoopTask = Task.Run(async () => await ReadLoop(streamWriter), cancellationToken);
+                var sendLoopTask = Task.Run(async () => await SendLoop(streamWriter, cancellationToken), cancellationToken);
+                var receiveLoopTask = Task.Run(async () => await ReadLoop(streamWriter, cancellationToken), cancellationToken);
                 tasks.Add(sendLoopTask);
                 tasks.Add(receiveLoopTask);
                 await Task.WhenAny(tasks);
@@ -190,16 +190,16 @@ internal class WriterReconnector
         }
     }
 
-    private async Task SendLoop(StreamWriter streamWriter)
+    private async Task SendLoop(StreamWriter streamWriter, CancellationToken cts)
     {
         var codec = EnumConverter.Convert<PublicCodec, Codec>(_codec);
         try
         {
-            while (true)
+            while (!cts.IsCancellationRequested)
             {
                 if (!_messagesToSendQueue.Reader.CanPeek)
                     continue;
-                var message = await _messagesToSendQueue.Reader.ReadAsync();
+                var message = await _messagesToSendQueue.Reader.ReadAsync(cts);
                 await streamWriter.Write(new WriteRequest
                 {
                     Codec = codec,
@@ -214,9 +214,9 @@ internal class WriterReconnector
         }
     }
 
-    private async Task ReadLoop(StreamWriter streamWriter)
+    private async Task ReadLoop(StreamWriter streamWriter, CancellationToken cts)
     {
-        while (true)
+        while (!cts.IsCancellationRequested)
         {
             var response = await streamWriter.Receive();
             response.Result.Acks.ForEach(HandleAck);

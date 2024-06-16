@@ -12,17 +12,20 @@ public class TopicClient
         _driver = driver;
     }
 
-    public TopicWriter StartWriter(string topicPath, WriterOptions options)
+    public TopicWriter StartWriter(string topicPath, WriterOptions? options = null)
     {
-        var writerConfig = CreateWriterConfig(options);
+        var writerConfig = CreateWriterConfig(topicPath, options);
         var writerReconnector = new WriterReconnector(_driver, writerConfig);
         return new TopicWriter(writerReconnector);
     }
 
-    private static WriterConfig CreateWriterConfig(WriterOptions options)
+    private static WriterConfig CreateWriterConfig(string topicPath, WriterOptions? options)
     {
-        var config = new WriterConfig();
-        options.Options.ForEach(opt => opt.Apply(config));
+        var config = new WriterConfig
+        {
+            Topic = topicPath
+        };
+        options?.Options.ForEach(opt => opt.Apply(config));
         return config;
     }
 }

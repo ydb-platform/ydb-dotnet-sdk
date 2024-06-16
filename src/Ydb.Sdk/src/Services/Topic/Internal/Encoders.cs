@@ -5,11 +5,11 @@ namespace Ydb.Sdk.Services.Topic.Internal;
 
 internal class Encoders
 {
-    private readonly Dictionary<Codec, Func<byte[], byte[]>> encoders;
+    private readonly Dictionary<Codec, Func<byte[], byte[]>> _encoders;
 
     public Encoders()
     {
-        encoders = new Dictionary<Codec, Func<byte[], byte[]>>
+        _encoders = new Dictionary<Codec, Func<byte[], byte[]>>
         {
             {Codec.Raw, data => data},
             {Codec.Gzip, Gzip}
@@ -26,13 +26,13 @@ internal class Encoders
     }
 
     //TODO IDecoder to add like (data) => decoder.Decode(data) ? 
-    public void Add(Codec codec, Func<byte[], byte[]> decode) => encoders[codec] = decode;
+    public void Add(Codec codec, Func<byte[], byte[]> decode) => _encoders[codec] = decode;
 
     public byte[] Encode(Codec codec, byte[] data)
     {
         //TODO check for encode function existence
-        return encoders[codec](data);
+        return _encoders[codec](data);
     }
 
-    public bool HasEncoder(Codec codec) => encoders.ContainsKey(codec);
+    public bool HasEncoder(Codec codec) => _encoders.ContainsKey(codec);
 }

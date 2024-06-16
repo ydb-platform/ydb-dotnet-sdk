@@ -14,11 +14,6 @@ public class WriterOptions
     {
         private readonly List<WriterOption> _options = new();
 
-        internal Builder(string topicPath)
-        {
-            _options.Add(new WriterOption(config => config.Topic = topicPath));
-        }
-
         internal Builder(List<WriterOption> options) => _options = options;
 
         public WriterOptions Build()

@@ -4,7 +4,7 @@ public class Message
 {
     public long SequenceNumber { get; set; }
     public DateTime CreatedAt { get; set; }
-    public byte[] Data { get; set; }
+    public byte[] Data { get; set; } = Array.Empty<byte>();
     public Dictionary<string, byte[]> MetaData { get; set; } = new();
 
     internal GrpcWrappers.Topic.Writer.Write.Message ToWrapper()
