@@ -17,8 +17,8 @@ internal class WriterReconnector
 {
     private readonly Driver _driver;
     private readonly Encoders _encoders = new();
-    private readonly Channel<Message> _messagesToEncodeQueue = Channel.CreateUnbounded<Message>();
-    private readonly Channel<Message> _messagesToSendQueue = Channel.CreateUnbounded<Message>();
+    private readonly Queue<Message> _messagesToEncodeQueue = new();
+    private readonly Queue<Message> _messagesToSendQueue = new();
     private readonly Queue<TaskCompletionSource<WriteResult>> _writeResults = new();
     private readonly List<Task> _backgroundTasks;
     private readonly WriterConfig _config;
@@ -26,22 +26,16 @@ internal class WriterReconnector
     private readonly CancellationTokenSource _backgroundTasksCancellationSource = new();
     private readonly ILogger<WriterReconnector> _logger;
     private readonly RetrySettings _retrySettings = new();
-    private readonly TaskCompletionSource _stopReason = new();
+    private readonly TaskCompletionSource _stopReason;
+    private readonly PublicCodec _codec;
 
     private InitInfo? _initInfo;
-    private PublicCodec _codec;
     private long _lastKnownSequenceNumber;
     private bool _closed;
 
     public WriterReconnector(Driver driver, WriterConfig config)
     {
         _logger = driver.LoggerFactory.CreateLogger<WriterReconnector>();
-        var cancelBackgroundToken = _backgroundTasksCancellationSource.Token;
-        _backgroundTasks = new List<Task>
-        {
-            Task.Run(async () => await ConnectionLoop(cancelBackgroundToken)),
-            Task.Run(async () => await EncodeLoop(cancelBackgroundToken))
-        };
         _codec = config.Codec ?? PublicCodec.Gzip;
         if (config.Encoders != null)
         {
@@ -58,6 +52,13 @@ internal class WriterReconnector
         _driver = driver;
         _initRequest = config.ToInitRequest();
         _config = config;
+        _stopReason = new TaskCompletionSource();
+        var cancelBackgroundToken = _backgroundTasksCancellationSource.Token;
+        _backgroundTasks = new List<Task>
+        {
+            Task.Run(async () => await ConnectionLoop(cancelBackgroundToken)),
+            Task.Run(async () => await EncodeLoop(cancelBackgroundToken))
+        };
     }
 
     public async Task<List<Task<WriteResult>>> Write(List<PublicMessage> messages)
@@ -75,13 +76,13 @@ internal class WriterReconnector
 
         if (_codec == PublicCodec.Raw)
         {
-            await EnqueueSendMessages(internalMessages);
+            EnqueueSendMessages(internalMessages);
         }
         else
         {
             foreach (var message in internalMessages)
             {
-                await _messagesToEncodeQueue.Writer.WriteAsync(message);
+                _messagesToEncodeQueue.Enqueue(message);
             }
         }
 
@@ -197,9 +198,9 @@ internal class WriterReconnector
         {
             while (!cts.IsCancellationRequested)
             {
-                if (!_messagesToSendQueue.Reader.CanPeek)
+                if (!_messagesToSendQueue.Any())
                     continue;
-                var message = await _messagesToSendQueue.Reader.ReadAsync(cts);
+                var message = _messagesToSendQueue.Dequeue();
                 await streamWriter.Write(new WriteRequest
                 {
                     Codec = codec,
@@ -229,11 +230,13 @@ internal class WriterReconnector
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var messages = await _messagesToEncodeQueue.Reader.ReadAllAsync().ToListAsync();
+                var messages = new List<Message>();
+                while (_messagesToEncodeQueue.Any())
+                    messages.Add(_messagesToEncodeQueue.Dequeue());
                 await EncodeMessages(_codec, messages);
                 foreach (var message in messages)
                 {
-                    await _messagesToSendQueue.Writer.WriteAsync(message);
+                    _messagesToSendQueue.Enqueue(message);
                 }
             }
         }
@@ -258,11 +261,11 @@ internal class WriterReconnector
         }
     }
 
-    private async Task EnqueueSendMessages(IEnumerable<Message> messages)
+    private void EnqueueSendMessages(IEnumerable<Message> messages)
     {
         foreach (var message in messages)
         {
-            await _messagesToSendQueue.Writer.WriteAsync(message);
+            _messagesToSendQueue.Enqueue(message);
         }
     }
 
@@ -283,7 +286,7 @@ internal class WriterReconnector
 
     private List<Message> PrepareMessages(List<PublicMessage> publicMessages)
     {
-        var now = _config.AutoSetCreatedAt ? DateTime.Now : default;
+        var now = _config.AutoSetCreatedAt ? DateTime.UtcNow : default;
 
         var result = new List<Message>();
         foreach (var internalMessage in publicMessages.Select(message => message.ToWrapper()))

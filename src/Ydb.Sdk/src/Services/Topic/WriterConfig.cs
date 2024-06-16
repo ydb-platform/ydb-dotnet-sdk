@@ -10,8 +10,8 @@ public class WriterConfig
     public string? ProducerId { get; set; }
     public Dictionary<string, string>? SessionMetaData { get; set; }
     public long? PartitionId { get; set; }
-    public bool AutoSetSequenceNumber { get; set; }
-    public bool AutoSetCreatedAt { get; set; }
+    public bool AutoSetSequenceNumber { get; set; } = true;
+    public bool AutoSetCreatedAt { get; set; } = true;
     public Codec? Codec { get; set; }
     public Dictionary<Codec, Func<byte[], byte[]>>? Encoders { get; set; }
 

@@ -17,8 +17,8 @@ internal class Encoders
 
         byte[] Gzip(byte[] data)
         {
-            var gzippedDataStream = new MemoryStream();
-            using var gzipStream = new GZipStream(gzippedDataStream, CompressionMode.Decompress);
+            using var gzippedDataStream = new MemoryStream();
+            using var gzipStream = new GZipStream(gzippedDataStream, CompressionMode.Compress);
             gzipStream.Write(data);
 
             return gzippedDataStream.ToArray();

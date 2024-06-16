@@ -10,9 +10,9 @@ internal class SupportedCodecs: List<Codec>
     {
     }
 
-    public static SupportedCodecs FromProto(Ydb.Topic.SupportedCodecs source)
+    public static SupportedCodecs FromProto(Ydb.Topic.SupportedCodecs? source)
     {
-        return new SupportedCodecs(source.Codecs.Select(c => (Codec) c));
+        return new SupportedCodecs((source ?? new Ydb.Topic.SupportedCodecs()).Codecs.Select(c => (Codec) c));
     }
 
     public static SupportedCodecs FromPublic(IEnumerable<PublicCodec> codecs)

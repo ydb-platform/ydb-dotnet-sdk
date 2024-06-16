@@ -3,8 +3,11 @@
 internal abstract class HasPartitioning<TProto>
 {
     //TODO: common request interface in Ydb.Protos?
-    protected void SetPartitioningToProto(TProto result, Partitioning partitioning)
+    protected void SetPartitioningToProto(TProto result, Partitioning? partitioning)
     {
+        if (partitioning is null)
+            return;
+
         switch (partitioning.Type)
         {
             case PartitioningType.Undefined:
