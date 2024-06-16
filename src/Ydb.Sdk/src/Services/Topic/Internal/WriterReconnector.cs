@@ -1,5 +1,4 @@
-﻿using System.Threading.Channels;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Ydb.Sdk.GrpcWrappers.Topic.Exceptions;
 using Ydb.Sdk.GrpcWrappers.Topic.Writer.Init;
 using Ydb.Sdk.GrpcWrappers.Topic.Writer.Write;
@@ -143,7 +142,7 @@ internal class WriterReconnector
         {
             var attempt = 0u;
             var tasks = new List<Task>();
-            StreamWriter streamWriter = null;
+            StreamWriter? streamWriter = null;
             try
             {
                 streamWriter = await StreamWriter.Init(_driver, _initRequest);

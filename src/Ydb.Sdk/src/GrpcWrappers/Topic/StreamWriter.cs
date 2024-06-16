@@ -62,8 +62,7 @@ internal class StreamWriter : IAsyncDisposable
         await innerWriter.Write(new FromClient {InitRequest = initRequest.ToProto()});
 
         var responseStream = new WriteMessageResponseStream(innerWriter);
-        if (!await responseStream.Next()) ;
-        //TODO
+        await responseStream.Next(); //TODO if returned false
         if (responseStream.Response is not InitResponse initResponse)
         {
             throw new InvalidCastException(

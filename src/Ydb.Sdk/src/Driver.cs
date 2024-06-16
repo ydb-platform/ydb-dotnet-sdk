@@ -331,36 +331,36 @@ public sealed class Driver : IDisposable, IAsyncDisposable
     //TODO inherit from StreamIterator
     internal class BidirectionalStream<TRequest, TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
     {
-        private readonly AsyncDuplexStreamingCall<TRequest, TResponse> call;
-        private readonly Action<RpcException> rpcErrorAction;
+        private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _call;
+        private readonly Action<RpcException> _rpcErrorAction;
     
         internal BidirectionalStream(
             AsyncDuplexStreamingCall<TRequest, TResponse> call,
             Action<RpcException> rpcErrorAction)
         {
-            this.call = call;
-            this.rpcErrorAction = rpcErrorAction;
+            _call = call;
+            _rpcErrorAction = rpcErrorAction;
         }
 
         public async Task Write(TRequest request)
         {
-            await call.RequestStream.WriteAsync(request);
+            await _call.RequestStream.WriteAsync(request);
         }
 
         public async ValueTask<bool> MoveNextAsync()
         {
             try
             {
-                return await call.ResponseStream.MoveNext(CancellationToken.None);
+                return await _call.ResponseStream.MoveNext(CancellationToken.None);
             }
             catch (RpcException e)
             {
-                rpcErrorAction(e);
+                _rpcErrorAction(e);
                 throw new TransportException(e);
             }
         }
 
-        public TResponse Current => call.ResponseStream.Current;
+        public TResponse Current => _call.ResponseStream.Current;
 
         public IAsyncEnumerator<TResponse> GetAsyncEnumerator(CancellationToken cancellationToken = new())
         {
@@ -369,7 +369,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
         public ValueTask DisposeAsync()
         {
-            call.Dispose();
+            _call.Dispose();
 
             return default;
         }

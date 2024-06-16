@@ -1,5 +1,6 @@
 ﻿using Ydb.Sdk.Services.Topic.Models;
 
+// ReSharper disable once CheckNamespace
 namespace Ydb.Sdk.Services.Topic.Options;
 
 public class WriterOptions
@@ -12,6 +13,10 @@ public class WriterOptions
     public class Builder
     {
         private readonly List<WriterOption> _options = new();
+
+        internal Builder()
+        {
+        }
 
         internal Builder(List<WriterOption> options) => _options = options;
 
