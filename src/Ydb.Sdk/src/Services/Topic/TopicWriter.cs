@@ -3,28 +3,25 @@ using Ydb.Sdk.Services.Topic.Models.Writer;
 
 namespace Ydb.Sdk.Services.Topic;
 
-public class TopicWriter: IDisposable, IAsyncDisposable
+public class TopicWriter
 {
-    private readonly WriterReconnector writerReconnector;
+    private readonly WriterReconnector _writerReconnector;
 
     internal TopicWriter(WriterReconnector writerReconnector)
     {
-        this.writerReconnector = writerReconnector;
+        _writerReconnector = writerReconnector;
     }
 
-    public async Task<InitInfo> WaitInit() => await writerReconnector.WaitInit();
+    public async Task<InitInfo> WaitInit() => await _writerReconnector.WaitInit();
 
-    public async Task<List<Task<WriteResult>>> Write(List<Message> message) => await writerReconnector.Write(message);
-
-    public async Task Flush() => await writerReconnector.Flush();
-
-    public void Dispose()
+    public async Task<List<WriteResult>> Write(List<Message> messages)
     {
-        throw new NotImplementedException();
+        var resultTasks = await _writerReconnector.Write(messages);
+        var results = await Task.WhenAll(resultTasks);
+        return results.ToList();
     }
 
-    public async ValueTask DisposeAsync()
-    {
-        throw new NotImplementedException();
-    }
+    public async Task Flush() => await _writerReconnector.Flush();
+
+    public async Task Close(bool needFlush = true) => await _writerReconnector.Close(needFlush);
 }

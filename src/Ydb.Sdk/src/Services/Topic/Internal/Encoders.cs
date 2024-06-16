@@ -30,10 +30,8 @@ internal class Encoders
 
     public byte[] Encode(Codec codec, byte[] data)
     {
-        if (!encoders.TryGetValue(codec, out var encode))
-            /*TODO*/ ;
-
-        return encode(data);
+        //TODO check for encode function existence
+        return encoders[codec](data);
     }
 
     public bool HasEncoder(Codec codec) => encoders.ContainsKey(codec);

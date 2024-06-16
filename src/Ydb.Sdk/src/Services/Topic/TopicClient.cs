@@ -1,24 +1,21 @@
-﻿using Ydb.Sdk.GrpcWrappers.Topic;
-using Ydb.Sdk.Services.Topic.Internal;
+﻿using Ydb.Sdk.Services.Topic.Internal;
 using Ydb.Sdk.Services.Topic.Options;
 
 namespace Ydb.Sdk.Services.Topic;
 
 public class TopicClient
 {
-    private readonly TopicConfig config;
-    private readonly RawTopicClient rawClient;
-    private readonly Driver driver;
+    private readonly Driver _driver;
 
     public TopicClient(Driver driver)
     {
-        rawClient = new RawTopicClient(driver);
+        _driver = driver;
     }
 
     public TopicWriter StartWriter(string topicPath, WriterOptions options)
     {
         var writerConfig = CreateWriterConfig(options);
-        var writerReconnector = new WriterReconnector(driver, writerConfig);
+        var writerReconnector = new WriterReconnector(_driver, writerConfig);
         return new TopicWriter(writerReconnector);
     }
 

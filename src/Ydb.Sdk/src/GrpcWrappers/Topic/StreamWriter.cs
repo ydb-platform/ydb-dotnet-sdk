@@ -1,4 +1,5 @@
-﻿using Ydb.Sdk.Auth;
+﻿using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Auth;
 using Ydb.Sdk.GrpcWrappers.Topic.Codecs;
 using Ydb.Sdk.GrpcWrappers.Topic.Writer;
 using Ydb.Sdk.GrpcWrappers.Topic.Writer.UpdateToken;
@@ -20,22 +21,30 @@ internal class StreamWriter: IAsyncDisposable
     private readonly WriteMessageResponseStream _responseStream;
     private readonly Driver.BidirectionalStream<FromClient, FromServer> _stream;
     private readonly TimeSpan? _updateTokenInterval;
+    private readonly CancellationTokenSource _updateTokenCancellationSource = new();
     private readonly ICredentialsProvider _credentialsProvider;
+    private readonly ILogger<StreamWriter> _logger;
 
     private StreamWriter(
         WriteMessageResponseStream responseStream,
         Driver.BidirectionalStream<FromClient, FromServer> stream,
         ICredentialsProvider credentialsProvider,
+        ILogger<StreamWriter> logger,
+        SupportedCodecs supportedCodecs,
+        long lastSequenceNumber,
         TimeSpan? updateTokenInterval)
     {
         _responseStream = responseStream;
         _stream = stream;
         _credentialsProvider = credentialsProvider;
+        _logger = logger;
         _updateTokenInterval = updateTokenInterval;
+        SupportedCodecs = supportedCodecs;
+        LastSequenceNumber = lastSequenceNumber;
     }
 
-    public long LastSequenceNumber { get; private set; }
-    public SupportedCodecs? SupportedCodecs { get; private set; }
+    public long LastSequenceNumber { get; }
+    public SupportedCodecs SupportedCodecs { get; }
 
     public static async Task<StreamWriter> Init(
         Driver driver,
@@ -55,13 +64,19 @@ internal class StreamWriter: IAsyncDisposable
                 $"got {responseStream.Response.GetType()}");
         }
 
-        var writer = new StreamWriter(responseStream, innerWriter, driver.CredentialsProvider, updateTokenInterval);
-        writer.LastSequenceNumber = initResponse.Result.LastSequenceNumber;
-        writer.SupportedCodecs = initResponse.Result.SupportedCodecs;
+        var writer = new StreamWriter(
+            responseStream,
+            innerWriter,
+            driver.CredentialsProvider,
+            driver.LoggerFactory.CreateLogger<StreamWriter>(),
+            initResponse.Result.SupportedCodecs,
+            initResponse.Result.LastSequenceNumber,
+            updateTokenInterval);
         if (writer._updateTokenInterval != null)
         {
             writer._updateTokenWaiter = new TaskCompletionSource();
-            writer._updateTokenTask = Task.Run(writer.UpdateTokenLoop);
+            writer._updateTokenTask = Task.Run(
+                async () => await writer.UpdateTokenLoop(writer._updateTokenCancellationSource.Token));
         }
 
         return writer;
@@ -90,7 +105,7 @@ internal class StreamWriter: IAsyncDisposable
                 case WriteResponse writeResponse:
                     return writeResponse;
                 default:
-                    log
+                    _logger.LogWarning("Unknown response type: {type}", response.GetType());
                     break;
             }
         }
@@ -103,7 +118,7 @@ internal class StreamWriter: IAsyncDisposable
         _isClosed = true;
         if (_updateTokenTask != null)
         {
-            _updateTokenTask;
+            _updateTokenCancellationSource.Cancel();
             await _updateTokenTask;
         }
         await DisposeAsync();
@@ -115,11 +130,11 @@ internal class StreamWriter: IAsyncDisposable
         await _responseStream.DisposeAsync();
     }
 
-    private async Task UpdateTokenLoop()
+    private async Task UpdateTokenLoop(CancellationToken cancellationToken)
     {
-        while (true)
+        while (!cancellationToken.IsCancellationRequested)
         {
-            await Task.Delay(_updateTokenInterval!.Value);
+            await Task.Delay(_updateTokenInterval!.Value, cancellationToken);
             await UpdateToken(_credentialsProvider.GetAuthInfo() ?? "");
         }
     }

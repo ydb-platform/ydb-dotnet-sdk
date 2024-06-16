@@ -9,7 +9,7 @@ namespace Ydb.Sdk.GrpcWrappers.Topic.Writer;
 internal class WriterUtils
 {
     private const int DefaultMaxMessageSize = 64 * 1000_000;
-    private static readonly int messageDataOverhead = GetMessageDataOverhead();
+    private static readonly int MessageDataOverhead = GetMessageDataOverhead();
 
     public static List<WriteRequest> MessagesToWriteRequests(List<Message> messages)
     {
@@ -68,7 +68,7 @@ internal class WriterUtils
         return result;
     }
 
-    private static int GetMessageSize(Message message) => message.Data.Length + messageDataOverhead;
+    private static int GetMessageSize(Message message) => message.Data.Length + MessageDataOverhead;
 
     private static int GetMessageDataOverhead()
     {

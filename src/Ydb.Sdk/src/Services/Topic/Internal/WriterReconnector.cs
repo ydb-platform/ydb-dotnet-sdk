@@ -1,4 +1,6 @@
 ﻿using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
+using Ydb.Sdk.GrpcWrappers.Topic.Exceptions;
 using Ydb.Sdk.GrpcWrappers.Topic.Writer.Init;
 using Ydb.Sdk.GrpcWrappers.Topic.Writer.Write;
 using Ydb.Sdk.Services.Topic.Models.Writer;
@@ -11,63 +13,67 @@ using Message = Ydb.Sdk.GrpcWrappers.Topic.Writer.Write.Message;
 
 namespace Ydb.Sdk.Services.Topic.Internal;
 
-internal class WriterReconnector: IDisposable, IAsyncDisposable
+internal class WriterReconnector
 {
-    private const int CheckBatchesInterval = 10_000;
+    private readonly Driver _driver;
+    private readonly Encoders _encoders = new();
+    private readonly Channel<Message> _messagesToEncodeQueue = Channel.CreateUnbounded<Message>();
+    private readonly Channel<Message> _messagesToSendQueue = Channel.CreateUnbounded<Message>();
+    private readonly Queue<TaskCompletionSource<WriteResult>> _writeResults = new();
+    private readonly List<Task> _backgroundTasks;
+    private readonly WriterConfig _config;
+    private readonly InitRequest _initRequest;
+    private readonly CancellationTokenSource _backgroundTasksCancellationSource = new();
+    private readonly ILogger<WriterReconnector> _logger;
+    private readonly RetrySettings _retrySettings = new();
+    private readonly TaskCompletionSource _stopReason = new();
 
-    // ReSharper disable InconsistentNaming
-    private readonly Driver driver;
-    private readonly Encoders encoders;
-    private readonly Queue<Message> allMessages = new();
-    private readonly Channel<Message> newMessages = Channel.CreateUnbounded<Message>();
-    private readonly Channel<Message> messagesToEncodeQueue = Channel.CreateUnbounded<Message>();
-    private readonly Channel<Message> messagesToSendQueue = Channel.CreateUnbounded<Message>();
-    private readonly Queue<TaskCompletionSource<WriteResult>> writeResults = new();
-    private readonly List<Task> backgroundTasks;
-    private readonly WriterConfig config;
-    
-    private InitRequest initRequest;
-    private InitInfo? initInfo;
-    private PublicCodec? codec;
-    private long lastKnownSequenceNumber;
-    private PublicCodec? lastSelectedCodec;
-    private int batchNumber;
+    private InitInfo? _initInfo;
+    private PublicCodec _codec;
+    private long _lastKnownSequenceNumber;
+    private bool _closed;
 
     public WriterReconnector(Driver driver, WriterConfig config)
     {
-        this.driver = driver;
-        backgroundTasks = new List<Task>
+        _logger = driver.LoggerFactory.CreateLogger<WriterReconnector>();
+        var cancelBackgroundToken = _backgroundTasksCancellationSource.Token;
+        _backgroundTasks = new List<Task>
         {
-            Task.Run(ConnectionLoop),
-            Task.Run(EncodeLoop)
+            Task.Run(async () => await ConnectionLoop(cancelBackgroundToken)),
+            Task.Run(async () => await EncodeLoop(cancelBackgroundToken))
         };
-        encoders = new Encoders();
-        foreach (var encoder in config.Encoders)
+        _codec = config.Codec ?? PublicCodec.Gzip;
+        if (config.Encoders != null)
         {
-            var internalCodec = EnumConverter.Convert<PublicCodec, Codec>(encoder.Key);
-            encoders.Add(internalCodec, encoder.Value);
+            foreach (var encoder in config.Encoders)
+            {
+                var internalCodec = EnumConverter.Convert<PublicCodec, Codec>(encoder.Key);
+                _encoders.Add(internalCodec, encoder.Value);
+            }
         }
-    }
 
-    public async Task<InitInfo> WaitInit(CancellationToken cancellationToken)
-    {
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            if (initInfo != null)
-                return initInfo;
-        }
+        if (!_encoders.HasEncoder(EnumConverter.Convert<PublicCodec, Codec>(_codec)))
+            throw new Exception($"No encoder for codec {_codec}");
+        
+        _driver = driver;
+        _initRequest = config.ToInitRequest();
+        _config = config;
     }
 
     public async Task<List<Task<WriteResult>>> Write(List<PublicMessage> messages)
     {
+        EnsureNotStopped();
+        if (_config.AutoSetSequenceNumber)
+            await WaitInit();
+
         var internalMessages = PrepareMessages(messages);
         var taskSources = Enumerable
             .Range(0, messages.Count)
             .Select(_ => new TaskCompletionSource<WriteResult>())
             .ToList();
-        taskSources.ForEach(source => writeResults.Enqueue(source));
+        taskSources.ForEach(source => _writeResults.Enqueue(source));
 
-        if (codec == PublicCodec.Raw)
+        if (_codec == PublicCodec.Raw)
         {
             await EnqueueSendMessages(internalMessages);
         }
@@ -75,75 +81,136 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
         {
             foreach (var message in internalMessages)
             {
-                await messagesToEncodeQueue.Writer.WriteAsync(message);
+                await _messagesToEncodeQueue.Writer.WriteAsync(message);
             }
         }
 
         return taskSources.Select(s => s.Task).ToList();
     }
 
+    public async Task<InitInfo> WaitInit()
+    {
+        return await Task.Run(() =>
+        {
+            while (true)
+            {
+                EnsureNotStopped();
+
+                if (_initInfo != null)
+                    return _initInfo;
+            }
+        });
+    }
+
+    public async Task Close(bool needFlush)
+    {
+        if (_closed)
+            return;
+        _closed = true;
+        _logger.LogDebug("Closing writer reconnector");
+
+        if (needFlush)
+            await Flush();
+
+        _backgroundTasksCancellationSource.Cancel();
+        await Task.WhenAll(_backgroundTasks);
+
+        try
+        {
+            EnsureNotStopped();
+        }
+        catch (TopicWriterStoppedException)
+        {
+        }
+    }
+
     public async Task Flush()
     {
-        await Task.WhenAll(writeResults.Select(source => source.Task));
+        await Task.WhenAll(_writeResults.Select(source => source.Task));
     }
 
-    public void Dispose()
+    private void EnsureNotStopped()
     {
-        
+        if (_stopReason.Task is {IsCompleted: true, Exception: not null})
+            throw _stopReason.Task.Exception;
     }
 
-    public async ValueTask DisposeAsync()
+    private async Task ConnectionLoop(CancellationToken cancellationToken)
     {
-        
-    }
-
-    private async Task ConnectionLoop()
-    {
-        while (true)
+        //TODO use SessionPool?
+        while (!cancellationToken.IsCancellationRequested)
         {
+            var attempt = 0u;
+            var tasks = new List<Task>();
+            StreamWriter streamWriter = null;
             try
             {
-                var streamWriter = await StreamWriter.Init(driver, initRequest);
+                streamWriter = await StreamWriter.Init(_driver, _initRequest);
 
-                if (initInfo == null)
+                if (_initInfo == null)
                 {
-                    lastKnownSequenceNumber = streamWriter.LastSequenceNumber;
-                    initInfo = new InitInfo
+                    _lastKnownSequenceNumber = streamWriter.LastSequenceNumber;
+                    _initInfo = new InitInfo
                     {
                         LastSequenceNumber = streamWriter.LastSequenceNumber,
                         SupportedCodecs = streamWriter.SupportedCodecs.ToPublic().ToList()
                     };
                 }
-                var sendLoopTask = Task.Run(async () => await SendLoop(streamWriter));
-                var receiveLoopTask = Task.Run(async () => await ReadLoop(streamWriter));
-                await Task.WhenAny(sendLoopTask, receiveLoopTask);
+
+                var sendLoopTask = Task.Run(async () => await SendLoop(streamWriter), cancellationToken);
+                var receiveLoopTask = Task.Run(async () => await ReadLoop(streamWriter), cancellationToken);
+                tasks.Add(sendLoopTask);
+                tasks.Add(receiveLoopTask);
+                await Task.WhenAny(tasks);
+            }
+            catch (StatusUnsuccessfulException e)
+            {
+                var retryRule = _retrySettings.GetRetryRule(e.Status.StatusCode);
+                var isRetriable = retryRule.Idempotency == Idempotency.Idempotent && _retrySettings.IsIdempotent ||
+                                  retryRule.Idempotency == Idempotency.NonIdempotent;
+                if (!isRetriable)
+                {
+                    StopWriter(e);
+                    return;
+                }
+                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
+
             }
             catch (Exception e)
             {
-            
+                StopWriter(e);
+            }
+            finally
+            {
+                _backgroundTasksCancellationSource.Cancel();
+                await Task.WhenAll(tasks);
+                if (streamWriter != null)
+                    await streamWriter.Close();
             }
         }
     }
 
     private async Task SendLoop(StreamWriter streamWriter)
     {
-        var messages = allMessages.ToList();
-        var lastSequenceNumber = 0L;
-        
-        foreach (var message in messages)
+        var codec = EnumConverter.Convert<PublicCodec, Codec>(_codec);
+        try
         {
-            //await streamWriter.Write();
-            lastSequenceNumber = message.SequenceNumber;
-        }
-
-        while (true)
-        {
-            var message = await newMessages.Reader.ReadAsync();
-            if (message.SequenceNumber > lastSequenceNumber)
+            while (true)
             {
-                //TODO
-                // await streamWriter.Write(new List<WriteRequest> {new WriteRequest {me}});
+                if (!_messagesToSendQueue.Reader.CanPeek)
+                    continue;
+                var message = await _messagesToSendQueue.Reader.ReadAsync();
+                await streamWriter.Write(new WriteRequest
+                {
+                    Codec = codec,
+                    Messages = new List<Message> {message}
+                });
             }
+        }
+        catch (Exception e)
+        {
+            StopWriter(e);
+            throw;
         }
     }
 
@@ -156,25 +223,29 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
         }
     }
 
-    private async Task EncodeLoop()
+    private async Task EncodeLoop(CancellationToken cancellationToken)
     {
-        while (true)
+        try
         {
-            var messages = await messagesToEncodeQueue.Reader.ReadAllAsync().ToListAsync();
-            await EncodeMessages(codec.Value, messages);
-            foreach (var message in messages)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                await messagesToSendQueue.Writer.WriteAsync(message);
+                var messages = await _messagesToEncodeQueue.Reader.ReadAllAsync().ToListAsync();
+                await EncodeMessages(_codec, messages);
+                foreach (var message in messages)
+                {
+                    await _messagesToSendQueue.Writer.WriteAsync(message);
+                }
             }
+        }
+        catch (Exception e)
+        {
+            StopWriter(e);
         }
     }
 
     private void HandleAck(WriteAck ack)
     {
-        var currentMessage = allMessages.Dequeue();
-        var taskSource = writeResults.Dequeue();
-        if (currentMessage.SequenceNumber != ack.SequenceNumber)
-            /*TODO*/;
+        var taskSource = _writeResults.Dequeue();
         var writeStatus = ack.WriteStatus;
         switch (writeStatus.Type)
         {
@@ -183,16 +254,15 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
                 taskSource.SetResult(WriteResult.FromWrapper(writeStatus));
                 break;
             default:
-                throw new NotImplementedException();
+                throw new Exception($"Received ack with unexpected status {writeStatus.Type}");
         }
     }
 
-    private async Task EnqueueSendMessages(List<Message> messages)
+    private async Task EnqueueSendMessages(IEnumerable<Message> messages)
     {
         foreach (var message in messages)
         {
-            allMessages.Enqueue(message);
-            await newMessages.Writer.WriteAsync(message);
+            await _messagesToSendQueue.Writer.WriteAsync(message);
         }
     }
 
@@ -202,7 +272,7 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
             return;
 
         var internalCodec = EnumConverter.Convert<PublicCodec, Codec>(publicCodec);
-        var tasks = messages.Select(m => Task.Run(() => encoders.Encode(internalCodec, m.Data)));
+        var tasks = messages.Select(m => Task.Run(() => _encoders.Encode(internalCodec, m.Data)));
         var encodedContents = await Task.WhenAll(tasks);
         for (var i = 0; i < encodedContents.Length; i++)
         {
@@ -213,34 +283,46 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
 
     private List<Message> PrepareMessages(List<PublicMessage> publicMessages)
     {
-        var now = config.AutoSetCreatedAt ? DateTime.Now : default;
+        var now = _config.AutoSetCreatedAt ? DateTime.Now : default;
 
         var result = new List<Message>();
         foreach (var internalMessage in publicMessages.Select(message => message.ToWrapper()))
         {
-            if (config.AutoSetSequenceNumber)
+            if (_config.AutoSetSequenceNumber)
             {
-                if (internalMessage.SequenceNumber >= 0) ;
-                //TODO throw
-                lastKnownSequenceNumber++;
-                internalMessage.SequenceNumber = lastKnownSequenceNumber;
+                if (internalMessage.SequenceNumber >= 0)
+                {
+                    throw new InvalidOperationException(
+                        "Sequence number shouldn't be set when using it's auto increment");
+                }
+                _lastKnownSequenceNumber++;
+                internalMessage.SequenceNumber = _lastKnownSequenceNumber;
             }
             else
             {
-                if (internalMessage.SequenceNumber < 0) ;
-                //TODO throw
-                else if (internalMessage.SequenceNumber <= lastKnownSequenceNumber) ;
-                //TODO throw
-                else
-                    lastKnownSequenceNumber = internalMessage.SequenceNumber;
+                if (internalMessage.SequenceNumber < 0)
+                {
+                    throw new InvalidOperationException(
+                        "Message sequence number must be set in case of using it's manual controlling");
+                }
+
+                if (internalMessage.SequenceNumber <= _lastKnownSequenceNumber)
+                {
+                    throw new InvalidOperationException(
+                        "Duplicated message. Sequence number must be more then current max value");
+                }
+
+                _lastKnownSequenceNumber = internalMessage.SequenceNumber;
             }
 
-            if (config.AutoSetCreatedAt)
+            if (_config.AutoSetCreatedAt)
             {
-                if (internalMessage.CreatedAt != default) ;
-                //TODO throw
-                else
-                    internalMessage.CreatedAt = now;
+                if (internalMessage.CreatedAt != default)
+                {
+                    throw new InvalidOperationException(
+                        "Message creation time shouldn't be set when using it's auto increment");
+                }
+                internalMessage.CreatedAt = now;
             }
             result.Add(internalMessage);
         }
@@ -248,11 +330,17 @@ internal class WriterReconnector: IDisposable, IAsyncDisposable
         return result;
     }
 
-    private InitRequest CreateInitRequest()
+    private void StopWriter(Exception reason)
     {
-        return new InitRequest
-        {
+        if (_stopReason.Task.IsCompleted)
+            return;
 
-        };
+        _stopReason.SetException(reason);
+        foreach (var result in _writeResults)
+        {
+            result.SetException(reason);
+        }
+
+        _logger.LogInformation("Stopped writer because of {reason}", reason);
     }
 }
