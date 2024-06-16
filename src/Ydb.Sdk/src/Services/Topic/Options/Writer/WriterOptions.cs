@@ -25,19 +25,34 @@ public class WriterOptions
             return new WriterOptions(_options);
         }
 
-        public void SetProducerId(string producerId)
-            => _options.Add(new WriterOption(config => config.ProducerId = producerId));
+        public Builder SetProducerId(string producerId)
+        {
+            _options.Add(new WriterOption(config => config.ProducerId = producerId));
+            return this;
+        }
 
-        public void SetManualMessageSequenceNumberIncrement()
-            => _options.Add(new WriterOption(config => config.AutoSetSequenceNumber = false));
+        public Builder SetManualMessageSequenceNumberIncrement()
+        {
+            _options.Add(new WriterOption(config => config.AutoSetSequenceNumber = false));
+            return this;
+        }
 
-        public void SetManualMessageCreationTimeControl()
-            => _options.Add(new WriterOption(config => config.AutoSetSequenceNumber = false));
+        public Builder SetManualMessageCreationTimeControl()
+        {
+            _options.Add(new WriterOption(config => config.AutoSetSequenceNumber = false));
+            return this;
+        }
 
-        public void SetCodec(Codec codec)
-            => _options.Add(new WriterOption(config => config.Codec = codec));
+        public Builder SetCodec(Codec codec)
+        {
+            _options.Add(new WriterOption(config => config.Codec = codec));
+            return this;
+        }
 
-        public void SetEncoders(Dictionary<Codec, Func<byte[], byte[]>> encoders)
-            => _options.Add(new WriterOption(config => config.Encoders = encoders));
+        public Builder SetEncoders(Dictionary<Codec, Func<byte[], byte[]>> encoders)
+        {
+            _options.Add(new WriterOption(config => config.Encoders = encoders));
+            return this;
+        }
     }
 }
