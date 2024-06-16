@@ -19,8 +19,10 @@ public class TopicClient
         return new TopicWriter(writerReconnector);
     }
 
-    private WriterConfig CreateWriterConfig(WriterOptions options)
+    private static WriterConfig CreateWriterConfig(WriterOptions options)
     {
-        throw new NotImplementedException();
+        var config = new WriterConfig();
+        options.Options.ForEach(opt => opt.Apply(config));
+        return config;
     }
 }
