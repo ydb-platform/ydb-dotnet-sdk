@@ -6,7 +6,7 @@ using SupportedCodecs = Ydb.Sdk.GrpcWrappers.Topic.Codecs.SupportedCodecs;
 
 namespace Ydb.Sdk.GrpcWrappers.Topic.Writer.Init;
 
-internal class InitResponse: ResponseWithResultBase<InitResponse.ResultData>, ITopicWriterResponse
+internal class InitResponse : ResponseWithResultBase<InitResponse.ResultData>, ITopicWriterResponse
 {
     private InitResponse(
         StatusIds.Types.StatusCode statusCode,

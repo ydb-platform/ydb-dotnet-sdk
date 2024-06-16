@@ -2,7 +2,7 @@
 
 namespace Ydb.Sdk.GrpcWrappers.Topic.Writer.Init;
 
-internal class InitRequest: HasPartitioning<Types.InitRequest>
+internal class InitRequest : HasPartitioning<Types.InitRequest>
 {
     public string Path { get; set; } = null!;
     public string ProducerId { get; set; } = null!;

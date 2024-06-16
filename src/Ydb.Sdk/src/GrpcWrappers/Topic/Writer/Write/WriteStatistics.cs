@@ -8,7 +8,7 @@ internal class WriteStatistics
     public TimeSpan MinQueueWaitTime { get; set; }
     public TimeSpan MaxQueueWaitTime { get; set; }
     public TimeSpan TopicQuotaWaitTime { get; set; }
-        
+
     public static WriteStatistics FromProto(Types.WriteStatistics statistics)
     {
         return new WriteStatistics

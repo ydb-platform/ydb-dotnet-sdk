@@ -1,6 +1,6 @@
 ﻿namespace Ydb.Sdk.GrpcWrappers.Topic.Exceptions;
 
-internal class TopicWriterStoppedException: Exception
+internal class TopicWriterStoppedException : Exception
 {
     public TopicWriterStoppedException()
     {

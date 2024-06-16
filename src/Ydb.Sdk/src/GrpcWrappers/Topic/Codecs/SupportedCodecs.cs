@@ -4,7 +4,7 @@ using PublicCodec = Ydb.Sdk.Services.Topic.Models.Codec;
 
 namespace Ydb.Sdk.GrpcWrappers.Topic.Codecs;
 
-internal class SupportedCodecs: List<Codec>
+internal class SupportedCodecs : List<Codec>
 {
     public SupportedCodecs(IEnumerable<Codec> collection) : base(collection)
     {
@@ -20,7 +20,7 @@ internal class SupportedCodecs: List<Codec>
 
     public IEnumerable<PublicCodec> ToPublic()
         => this.Select(EnumConverter.Convert<Codec, PublicCodec>);
-    
+
     public bool IsAllowedCodec(Codec codec) => !this.Any() || Contains(codec);
 
     public SupportedCodecs Clone() => new(this);
@@ -28,7 +28,7 @@ internal class SupportedCodecs: List<Codec>
     public Ydb.Topic.SupportedCodecs ToProto()
     {
         var result = new Ydb.Topic.SupportedCodecs();
-        result.Codecs.AddRange(this.Select(c => (int)c.ToProto()));
+        result.Codecs.AddRange(this.Select(c => (int) c.ToProto()));
         return result;
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace Ydb.Sdk.Services.Topic.Options;
 
-internal class WriterOption: IOption<WriterConfig>
+internal class WriterOption : IOption<WriterConfig>
 {
     private readonly Action<WriterConfig> _apply;
 

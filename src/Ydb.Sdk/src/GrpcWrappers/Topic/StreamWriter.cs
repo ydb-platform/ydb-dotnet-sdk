@@ -11,19 +11,19 @@ using WriteResponse = Ydb.Sdk.GrpcWrappers.Topic.Writer.Write.WriteResponse;
 
 namespace Ydb.Sdk.GrpcWrappers.Topic;
 
-internal class StreamWriter: IAsyncDisposable
+internal class StreamWriter : IAsyncDisposable
 {
-    private TaskCompletionSource? _updateTokenWaiter;
-    private Task? _updateTokenTask;
-    private bool _isClosed;
+    private readonly ICredentialsProvider _credentialsProvider;
+    private readonly ILogger<StreamWriter> _logger;
 
     //TODO: common wrapper for both streams
     private readonly WriteMessageResponseStream _responseStream;
     private readonly Driver.BidirectionalStream<FromClient, FromServer> _stream;
-    private readonly TimeSpan? _updateTokenInterval;
     private readonly CancellationTokenSource _updateTokenCancellationSource = new();
-    private readonly ICredentialsProvider _credentialsProvider;
-    private readonly ILogger<StreamWriter> _logger;
+    private readonly TimeSpan? _updateTokenInterval;
+    private bool _isClosed;
+    private Task? _updateTokenTask;
+    private TaskCompletionSource? _updateTokenWaiter;
 
     private StreamWriter(
         WriteMessageResponseStream responseStream,
@@ -46,17 +46,24 @@ internal class StreamWriter: IAsyncDisposable
     public long LastSequenceNumber { get; }
     public SupportedCodecs SupportedCodecs { get; }
 
+    public async ValueTask DisposeAsync()
+    {
+        await _stream.DisposeAsync();
+        await _responseStream.DisposeAsync();
+    }
+
     public static async Task<StreamWriter> Init(
         Driver driver,
         InitRequest initRequest,
         TimeSpan? updateTokenInterval = null)
     {
-        var innerWriter = driver.DuplexStreamCall(Ydb.Topic.V1.TopicService.StreamWriteMethod, new GrpcRequestSettings());
+        var innerWriter =
+            driver.DuplexStreamCall(Ydb.Topic.V1.TopicService.StreamWriteMethod, new GrpcRequestSettings());
         await innerWriter.Write(new FromClient {InitRequest = initRequest.ToProto()});
 
-        var responseStream = new WriteMessageResponseStream(innerWriter); 
+        var responseStream = new WriteMessageResponseStream(innerWriter);
         if (!await responseStream.Next()) ;
-            //TODO
+        //TODO
         if (responseStream.Response is not InitResponse initResponse)
         {
             throw new InvalidCastException(
@@ -121,13 +128,8 @@ internal class StreamWriter: IAsyncDisposable
             _updateTokenCancellationSource.Cancel();
             await _updateTokenTask;
         }
-        await DisposeAsync();
-    }
 
-    public async ValueTask DisposeAsync()
-    {
-        await _stream.DisposeAsync();
-        await _responseStream.DisposeAsync();
+        await DisposeAsync();
     }
 
     private async Task UpdateTokenLoop(CancellationToken cancellationToken)

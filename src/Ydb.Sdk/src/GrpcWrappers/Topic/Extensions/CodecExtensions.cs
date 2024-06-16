@@ -6,11 +6,11 @@ internal static class CodecExtensions
 {
     public static bool IsCustomerCodec(this Codec c)
     {
-        return c is >= (Codec)CustomerCodecs.CodecCustomerStart and <= (Codec)CustomerCodecs.CodecCustomerEnd;
+        return c is >= (Codec) CustomerCodecs.CodecCustomerStart and <= (Codec) CustomerCodecs.CodecCustomerEnd;
     }
 
     public static Ydb.Topic.Codec ToProto(this Codec c)
     {
-        return (Ydb.Topic.Codec)c;
+        return (Ydb.Topic.Codec) c;
     }
 }

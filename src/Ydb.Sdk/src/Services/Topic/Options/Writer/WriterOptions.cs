@@ -4,9 +4,8 @@ namespace Ydb.Sdk.Services.Topic.Options;
 
 public class WriterOptions
 {
-    internal List<WriterOption> Options { get; }
-
     private WriterOptions(List<WriterOption> options) => Options = options;
+    internal List<WriterOption> Options { get; }
 
     public Builder ToBuilder() => new(Options);
 

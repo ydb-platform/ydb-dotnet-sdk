@@ -7,7 +7,7 @@ using WriteResponse = Ydb.Sdk.GrpcWrappers.Topic.Writer.Write.WriteResponse;
 
 namespace Ydb.Sdk.GrpcWrappers.Topic.Writer;
 
-internal class WriteMessageResponseStream: StreamResponse<FromServer, ITopicWriterResponse>
+internal class WriteMessageResponseStream : StreamResponse<FromServer, ITopicWriterResponse>
 {
     public WriteMessageResponseStream(IAsyncEnumerator<FromServer> iterator) : base(iterator)
     {

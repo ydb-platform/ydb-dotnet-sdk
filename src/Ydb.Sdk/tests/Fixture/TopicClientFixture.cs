@@ -2,7 +2,7 @@
 
 namespace Ydb.Sdk.Tests.Fixture;
 
-public class TopicClientFixture: DriverFixture
+public class TopicClientFixture : DriverFixture
 {
     public TopicClient TopicClient { get; }
 

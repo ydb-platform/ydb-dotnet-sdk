@@ -11,7 +11,7 @@ internal class MessageWriteStatus
 
     public static MessageWriteStatus FromProto(MessageWriteStatusOneofCase status, Written written, Skipped skipped)
     {
-        var result = new MessageWriteStatus(); 
+        var result = new MessageWriteStatus();
         switch (status)
         {
             case MessageWriteStatusOneofCase.Written:
@@ -20,7 +20,7 @@ internal class MessageWriteStatus
                 break;
             case MessageWriteStatusOneofCase.Skipped:
                 result.Type = WriteStatusType.Skipped;
-                result.SkippedReason = (WriteStatusSkipReason)skipped.Reason;
+                result.SkippedReason = (WriteStatusSkipReason) skipped.Reason;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(status), status, $"Invalid status: {status}");

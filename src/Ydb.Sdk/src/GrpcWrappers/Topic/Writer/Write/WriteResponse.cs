@@ -5,7 +5,7 @@ using Ydb.Topic;
 
 namespace Ydb.Sdk.GrpcWrappers.Topic.Writer.Write;
 
-internal class WriteResponse: ResponseWithResultBase<WriteResponse.ResultData>, ITopicWriterResponse
+internal class WriteResponse : ResponseWithResultBase<WriteResponse.ResultData>, ITopicWriterResponse
 {
     private WriteResponse(
         StatusIds.Types.StatusCode statusCode,

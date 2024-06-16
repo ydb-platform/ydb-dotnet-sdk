@@ -15,23 +15,23 @@ namespace Ydb.Sdk.Services.Topic.Internal;
 
 internal class WriterReconnector
 {
+    private readonly List<Task> _backgroundTasks;
+    private readonly CancellationTokenSource _backgroundTasksCancellationSource = new();
+    private readonly PublicCodec _codec;
+    private readonly WriterConfig _config;
     private readonly Driver _driver;
     private readonly Encoders _encoders = new();
+    private readonly InitRequest _initRequest;
+    private readonly ILogger<WriterReconnector> _logger;
     private readonly Queue<Message> _messagesToEncodeQueue = new();
     private readonly Queue<Message> _messagesToSendQueue = new();
-    private readonly Queue<TaskCompletionSource<WriteResult>> _writeResults = new();
-    private readonly List<Task> _backgroundTasks;
-    private readonly WriterConfig _config;
-    private readonly InitRequest _initRequest;
-    private readonly CancellationTokenSource _backgroundTasksCancellationSource = new();
-    private readonly ILogger<WriterReconnector> _logger;
     private readonly RetrySettings _retrySettings = new();
     private readonly TaskCompletionSource _stopReason;
-    private readonly PublicCodec _codec;
+    private readonly Queue<TaskCompletionSource<WriteResult>> _writeResults = new();
+    private bool _closed;
 
     private InitInfo? _initInfo;
     private long _lastKnownSequenceNumber;
-    private bool _closed;
 
     public WriterReconnector(Driver driver, WriterConfig config)
     {
@@ -48,7 +48,7 @@ internal class WriterReconnector
 
         if (!_encoders.HasEncoder(EnumConverter.Convert<PublicCodec, Codec>(_codec)))
             throw new Exception($"No encoder for codec {_codec}");
-        
+
         _driver = driver;
         _initRequest = config.ToInitRequest();
         _config = config;
@@ -158,8 +158,10 @@ internal class WriterReconnector
                     };
                 }
 
-                var sendLoopTask = Task.Run(async () => await SendLoop(streamWriter, cancellationToken), cancellationToken);
-                var receiveLoopTask = Task.Run(async () => await ReadLoop(streamWriter, cancellationToken), cancellationToken);
+                var sendLoopTask = Task.Run(async () => await SendLoop(streamWriter, cancellationToken),
+                    cancellationToken);
+                var receiveLoopTask = Task.Run(async () => await ReadLoop(streamWriter, cancellationToken),
+                    cancellationToken);
                 tasks.Add(sendLoopTask);
                 tasks.Add(receiveLoopTask);
                 await Task.WhenAny(tasks);
@@ -167,15 +169,15 @@ internal class WriterReconnector
             catch (StatusUnsuccessfulException e)
             {
                 var retryRule = _retrySettings.GetRetryRule(e.Status.StatusCode);
-                var isRetriable = retryRule.Idempotency == Idempotency.Idempotent && _retrySettings.IsIdempotent ||
+                var isRetriable = (retryRule.Idempotency == Idempotency.Idempotent && _retrySettings.IsIdempotent) ||
                                   retryRule.Idempotency == Idempotency.NonIdempotent;
                 if (!isRetriable)
                 {
                     StopWriter(e);
                     return;
                 }
-                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
 
+                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
             }
             catch (Exception e)
             {
@@ -298,6 +300,7 @@ internal class WriterReconnector
                     throw new InvalidOperationException(
                         "Sequence number shouldn't be set when using it's auto increment");
                 }
+
                 _lastKnownSequenceNumber++;
                 internalMessage.SequenceNumber = _lastKnownSequenceNumber;
             }
@@ -325,8 +328,10 @@ internal class WriterReconnector
                     throw new InvalidOperationException(
                         "Message creation time shouldn't be set when using it's auto increment");
                 }
+
                 internalMessage.CreatedAt = now;
             }
+
             result.Add(internalMessage);
         }
 
