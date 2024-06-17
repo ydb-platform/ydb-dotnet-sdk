@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Ydb.Sdk.Ado;
 
@@ -42,11 +43,11 @@ public sealed class YdbConnection : DbConnection
     public override string ConnectionString
     {
         get => _ydbContext.ConnectionString;
+        [param: AllowNull]
         set
         {
             if (value == null) throw new ArgumentNullException(nameof(value));
-            throw new YdbAdoException("TODO");
-        }
+        } // TODO
     }
 
     public override string Database => _ydbContext.Database;

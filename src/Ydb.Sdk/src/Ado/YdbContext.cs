@@ -15,7 +15,7 @@ internal class YdbContext
         ConnectionString = connectionString;
         Database = database;
     }
-    
+
     public async Task<Session> GetSessionAsync()
     {
         var (status, session) = await _sessionPool.GetSession();

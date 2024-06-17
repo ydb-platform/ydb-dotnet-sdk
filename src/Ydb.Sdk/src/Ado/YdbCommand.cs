@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Ydb.Sdk.Ado;
 
@@ -7,9 +8,7 @@ public sealed class YdbCommand : DbCommand
 {
     private readonly YdbConnection _ydbConnection;
 
-    private string _commandText;
-
-    private IsolationLevel IsolationLevel { get; set; } = IsolationLevel.Serializable;
+    private string _commandText = string.Empty;
 
     internal YdbCommand(YdbConnection ydbConnection)
     {
@@ -39,9 +38,10 @@ public sealed class YdbCommand : DbCommand
     public override string CommandText
     {
         get => _commandText;
+        [param: AllowNull]
         set
         {
-            _commandText = value ?? string.Empty;
+            _commandText = value ?? throw new ArgumentNullException(nameof(value));
             DbParameterCollection.Clear();
         }
     }
