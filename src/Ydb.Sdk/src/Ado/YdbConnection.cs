@@ -58,6 +58,6 @@ public sealed class YdbConnection : DbConnection
 
     protected override YdbCommand CreateDbCommand()
     {
-        return new YdbCommand(this);
+        return new YdbCommand();
     }
 }

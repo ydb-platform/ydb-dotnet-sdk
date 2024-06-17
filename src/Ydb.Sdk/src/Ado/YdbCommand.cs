@@ -6,13 +6,10 @@ namespace Ydb.Sdk.Ado;
 
 public sealed class YdbCommand : DbCommand
 {
-    private readonly YdbConnection _ydbConnection;
-
     private string _commandText = string.Empty;
 
-    internal YdbCommand(YdbConnection ydbConnection)
+    internal YdbCommand()
     {
-        _ydbConnection = ydbConnection;
     }
 
     public override void Cancel()

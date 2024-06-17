@@ -27,4 +27,4 @@ internal class YdbContext
 
         throw new YdbAdoException(status);
     }
-};
+}
