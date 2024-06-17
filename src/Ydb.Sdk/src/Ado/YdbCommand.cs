@@ -1,6 +1,5 @@
 using System.Data;
 using System.Data.Common;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Ydb.Sdk.Ado;
 
@@ -35,8 +34,9 @@ public sealed class YdbCommand : DbCommand
     public override string CommandText
     {
         get => _commandText;
-        [param: AllowNull]
+#pragma warning disable CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
         set
+#pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
         {
             _commandText = value ?? throw new ArgumentNullException(nameof(value));
             DbParameterCollection.Clear();
