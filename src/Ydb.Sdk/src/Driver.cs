@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
 using Ydb.Discovery.V1;
+using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
 
@@ -26,6 +27,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
     internal ILoggerFactory LoggerFactory { get; }
     internal string Database => _config.Database;
+    internal ICredentialsProvider CredentialsProvider => _config.Credentials;
 
     public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null)
     {
@@ -170,6 +172,21 @@ public sealed class Driver : IDisposable, IAsyncDisposable
             _ => { PessimizeEndpoint(endpoint); });
     }
 
+    internal BidirectionalStream<TRequest, TResponse> DuplexStreamCall<TRequest, TResponse>(
+        Method<TRequest, TResponse> method,
+        GrpcRequestSettings settings)
+        where TRequest : class
+        where TResponse : class
+    {
+        var (endpoint, channel) = GetChannel(settings.NodeId);
+        var callInvoker = channel.CreateCallInvoker();
+        var call = callInvoker.AsyncDuplexStreamingCall(method, null, GetCallOptions(settings, true));
+
+        return new BidirectionalStream<TRequest, TResponse>(
+            call,
+            _ => { PessimizeEndpoint(endpoint); });
+    }
+
     private (string, GrpcChannel) GetChannel(long nodeId)
     {
         var endpoint = _endpointPool.GetEndpoint(nodeId);
@@ -309,6 +326,53 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         }
 
         return options;
+    }
+
+    //TODO inherit from StreamIterator
+    internal class BidirectionalStream<TRequest, TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
+    {
+        private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _call;
+        private readonly Action<RpcException> _rpcErrorAction;
+    
+        internal BidirectionalStream(
+            AsyncDuplexStreamingCall<TRequest, TResponse> call,
+            Action<RpcException> rpcErrorAction)
+        {
+            _call = call;
+            _rpcErrorAction = rpcErrorAction;
+        }
+
+        public async Task Write(TRequest request)
+        {
+            await _call.RequestStream.WriteAsync(request);
+        }
+
+        public async ValueTask<bool> MoveNextAsync()
+        {
+            try
+            {
+                return await _call.ResponseStream.MoveNext(CancellationToken.None);
+            }
+            catch (RpcException e)
+            {
+                _rpcErrorAction(e);
+                throw new TransportException(e);
+            }
+        }
+
+        public TResponse Current => _call.ResponseStream.Current;
+
+        public IAsyncEnumerator<TResponse> GetAsyncEnumerator(CancellationToken cancellationToken = new())
+        {
+            return this;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            _call.Dispose();
+
+            return default;
+        }
     }
 
     internal sealed class StreamIterator<TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
