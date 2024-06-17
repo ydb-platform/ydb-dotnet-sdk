@@ -167,16 +167,17 @@ internal class WriterReconnector
             }
             catch (StatusUnsuccessfulException e)
             {
+                attempt++;
                 var retryRule = _retrySettings.GetRetryRule(e.Status.StatusCode);
                 var isRetriable = (retryRule.Idempotency == Idempotency.Idempotent && _retrySettings.IsIdempotent) ||
                                   retryRule.Idempotency == Idempotency.NonIdempotent;
-                if (!isRetriable)
+                if (!isRetriable || attempt > _retrySettings.MaxAttempts)
                 {
                     StopWriter(e);
                     return;
                 }
 
-                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
+                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt), cancellationToken);
             }
             catch (Exception e)
             {

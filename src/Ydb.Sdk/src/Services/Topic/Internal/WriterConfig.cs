@@ -2,9 +2,9 @@
 using Ydb.Sdk.GrpcWrappers.Topic.Writer.Init;
 using Ydb.Sdk.Services.Topic.Models;
 
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Services.Topic.Internal;
 
-public class WriterConfig
+internal class WriterConfig
 {
     public string Topic { get; set; } = null!;
     public string? ProducerId { get; set; }

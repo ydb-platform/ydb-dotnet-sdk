@@ -1,4 +1,6 @@
-﻿// ReSharper disable once CheckNamespace
+﻿using Ydb.Sdk.Services.Topic.Internal;
+
+// ReSharper disable once CheckNamespace
 namespace Ydb.Sdk.Services.Topic.Options;
 
 internal class WriterOption : IOption<WriterConfig>
