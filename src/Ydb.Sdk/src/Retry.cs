@@ -4,24 +4,24 @@ public class BackoffSettings
 {
     public static readonly double MaxBackoffDurationMs = TimeSpan.FromHours(1).TotalMilliseconds;
 
+    private readonly TimeSpan _slotDuration;
+    private readonly uint _ceiling;
+    private readonly double _uncertainRatio;
+
     public BackoffSettings(TimeSpan slotDuration, uint ceiling, double uncertainRation)
     {
-        SlotDuration = slotDuration;
-        Ceiling = ceiling;
-        UncertainRatio = uncertainRation;
+        _slotDuration = slotDuration;
+        _ceiling = ceiling;
+        _uncertainRatio = uncertainRation;
     }
 
-    public TimeSpan SlotDuration { get; }
-    public uint Ceiling { get; }
-    public double UncertainRatio { get; }
-
-    public static BackoffSettings DefaultFastBackoff { get; } = new(
+    public static readonly BackoffSettings DefaultFastBackoff = new(
         slotDuration: TimeSpan.FromMilliseconds(1),
         ceiling: 10,
         uncertainRation: 0.5
     );
 
-    public static BackoffSettings DefaultSlowBackoff { get; } = new(
+    public static readonly BackoffSettings DefaultSlowBackoff = new(
         slotDuration: TimeSpan.FromSeconds(1),
         ceiling: 6,
         uncertainRation: 0.5
@@ -31,9 +31,9 @@ public class BackoffSettings
     {
         var random = new Random();
 
-        var backoffSlots = 1u << (int)Math.Min(attemptNumber, Ceiling);
-        var maxDuration = SlotDuration * backoffSlots;
-        var uncertaintyRatio = Math.Max(Math.Min(UncertainRatio, 1.0), 0.0);
+        var backoffSlots = 1u << (int)Math.Min(attemptNumber, _ceiling);
+        var maxDuration = _slotDuration * backoffSlots;
+        var uncertaintyRatio = Math.Max(Math.Min(_uncertainRatio, 1.0), 0.0);
         var uncertaintyMultiplier = random.NextDouble() * uncertaintyRatio - uncertaintyRatio + 1.0;
 
         var durationMs = Math.Round(maxDuration.TotalMilliseconds * uncertaintyMultiplier);
@@ -58,6 +58,8 @@ public record RetryRule(BackoffSettings BackoffSettings, bool DeleteSession, Ide
 
 public class RetrySettings
 {
+    public static readonly RetrySettings DefaultInstance = new();
+
     public RetrySettings(
         uint maxAttempts = 10,
         BackoffSettings? fastBackoff = null,

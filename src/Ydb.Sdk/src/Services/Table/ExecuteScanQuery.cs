@@ -27,8 +27,7 @@ public class ExecuteScanQueryPart : ResponseWithResultBase<ExecuteScanQueryPart.
 
         internal static ResultData FromProto(ExecuteScanQueryPartialResult resultProto)
         {
-            return new ResultData(
-                resultProto.ResultSet is null ? null : Value.ResultSet.FromProto(resultProto.ResultSet));
+            return new ResultData(resultProto.ResultSet?.FromProto());
         }
     }
 }
