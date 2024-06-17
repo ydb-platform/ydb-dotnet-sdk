@@ -101,5 +101,5 @@ internal sealed class ClosedState : IYdbConnectionState
         throw new YdbAdoException(ClosedStateMessage);
     }
 
-    public bool IsClosed => false;
+    public bool IsClosed => true;
 }
