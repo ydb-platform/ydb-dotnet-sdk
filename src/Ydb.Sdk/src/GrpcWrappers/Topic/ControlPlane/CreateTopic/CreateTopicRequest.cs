@@ -7,10 +7,10 @@ namespace Ydb.Sdk.GrpcWrappers.Topic.ControlPlane.CreateTopic;
 internal class CreateTopicRequest
 {
     public string Path { get; set; } = null!;
-    public PartitioningSettings PartitionSettings { get; set; } = null!;
+    public PartitioningSettings? PartitionSettings { get; set; }
     public TimeSpan RetentionPeriod { get; set; }
     public long RetentionStorageMb { get; set; }
-    public SupportedCodecs SupportedCodecs { get; set; } = null!;
+    public SupportedCodecs? SupportedCodecs { get; set; }
     public long PartitionWriteSpeedBytesPerSecond { get; set; }
     public long PartitionWriteBurstBytes { get; set; }
     public Dictionary<string, string> Attributes { get; set; } = new();
@@ -24,10 +24,10 @@ internal class CreateTopicRequest
         {
             Path = Path,
             OperationParams = OperationSettings.MakeOperationParams(),
-            PartitioningSettings = PartitionSettings.ToProto(),
+            PartitioningSettings = PartitionSettings?.ToProto() ?? new Ydb.Topic.PartitioningSettings(),
             RetentionPeriod = RetentionPeriod.ToDuration(),
             RetentionStorageMb = RetentionStorageMb,
-            SupportedCodecs = SupportedCodecs.ToProto(),
+            SupportedCodecs = SupportedCodecs?.ToProto() ?? new Ydb.Topic.SupportedCodecs(), //TODO
             PartitionWriteSpeedBytesPerSecond = PartitionWriteSpeedBytesPerSecond,
             PartitionWriteBurstBytes = PartitionWriteBurstBytes,
             Attributes = {Attributes},
