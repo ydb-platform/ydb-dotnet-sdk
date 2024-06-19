@@ -1,4 +1,5 @@
-﻿using Ydb.Sdk.Services.Topic.Internal;
+﻿using Ydb.Sdk.GrpcWrappers.Topic;
+using Ydb.Sdk.Services.Topic.Internal;
 using Ydb.Sdk.Services.Topic.Options;
 
 namespace Ydb.Sdk.Services.Topic;
@@ -6,10 +7,12 @@ namespace Ydb.Sdk.Services.Topic;
 public class TopicClient
 {
     private readonly Driver _driver;
+    private readonly RawTopicClient _rawTopicClient;
 
     public TopicClient(Driver driver)
     {
         _driver = driver;
+        _rawTopicClient = new RawTopicClient(driver);
     }
 
     public TopicWriter StartWriter(string topicPath, WriterOptions? options = null)
