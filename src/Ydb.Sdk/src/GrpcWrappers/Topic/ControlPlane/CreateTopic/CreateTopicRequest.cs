@@ -8,7 +8,7 @@ internal class CreateTopicRequest
 {
     public string Path { get; set; } = null!;
     public PartitioningSettings? PartitionSettings { get; set; }
-    public TimeSpan RetentionPeriod { get; set; }
+    public TimeSpan RetentionPeriod { get; set; } //TODO required
     public long RetentionStorageMb { get; set; }
     public SupportedCodecs? SupportedCodecs { get; set; }
     public long PartitionWriteSpeedBytesPerSecond { get; set; }

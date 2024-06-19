@@ -22,21 +22,29 @@ internal class AlterTopicRequest
 
     public Ydb.Topic.AlterTopicRequest ToProto()
     {
-        return new Ydb.Topic.AlterTopicRequest
+        var result =  new Ydb.Topic.AlterTopicRequest
         {
             Path = Path,
             OperationParams = OperationParameters.MakeOperationParams(),
             AlterPartitioningSettings = AlterPartitionSettings.ToProto(),
-            SetRetentionPeriod = RetentionPeriod.ToDuration(),
-            SetRetentionStorageMb = RetentionStorageMb.GetValueOrDefault(),
-            SetPartitionWriteSpeedBytesPerSecond = PartitionWriteSpeedBytesPerSecond.GetValueOrDefault(),
-            SetPartitionWriteBurstBytes = PartitionWriteBurstBytes.GetValueOrDefault(),
             SetMeteringMode = EnumConverter.Convert<MeteringMode, Ydb.Topic.MeteringMode>(MeteringMode),
-            SetSupportedCodecs = SupportedCodecs?.ToProto(),
             AlterAttributes = {AlterAttributes},
             AddConsumers = {ConsumersToAdd.Select(c => c.ToProto())},
             DropConsumers = {ConsumersToDrop},
             AlterConsumers = {ConsumersToAlter.Select(c => c.ToProto())}
         };
+
+        if (RetentionPeriod.HasValue)
+            result.SetRetentionPeriod = RetentionPeriod.ToDuration();
+        if (RetentionStorageMb.HasValue)
+            result.SetRetentionStorageMb = RetentionStorageMb.Value;
+        if (PartitionWriteSpeedBytesPerSecond.HasValue)
+            result.SetPartitionWriteSpeedBytesPerSecond = PartitionWriteSpeedBytesPerSecond.Value;
+        if (PartitionWriteBurstBytes.HasValue)
+            result.SetPartitionWriteBurstBytes = PartitionWriteBurstBytes.Value;
+        if (SupportedCodecs != null)
+            result.SetSupportedCodecs = SupportedCodecs.ToProto();
+
+        return result;
     }
 }

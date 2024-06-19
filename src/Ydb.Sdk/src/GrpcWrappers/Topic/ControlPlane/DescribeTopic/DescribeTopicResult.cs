@@ -1,4 +1,5 @@
-﻿using Ydb.Sdk.GrpcWrappers.Topic.Extensions;
+﻿using Ydb.Sdk.Client;
+using Ydb.Sdk.GrpcWrappers.Topic.Extensions;
 using Ydb.Sdk.Services.Scheme;
 using Ydb.Sdk.Utils;
 using SupportedCodecs = Ydb.Sdk.GrpcWrappers.Topic.Codecs.SupportedCodecs;
@@ -18,6 +19,7 @@ internal class DescribeTopicResult
     public Dictionary<string, string> Attributes { get; set; } = new();
     public List<Consumer> Consumers {get; set; } = new();
     public MeteringMode MeteringMode {get; set; }
+    public ClientOperation Operation { get; set; }
 
     public static DescribeTopicResult FromProto(Ydb.Topic.DescribeTopicResponse response)
     {
@@ -35,7 +37,8 @@ internal class DescribeTopicResult
             PartitionWriteBurstBytes = result.PartitionWriteBurstBytes,
             Attributes = result.Attributes.ToDictionary(),
             Consumers = result.Consumers.Select(Consumer.FromProto).ToList(),
-            MeteringMode = EnumConverter.Convert<Ydb.Topic.MeteringMode, MeteringMode>(result.MeteringMode)
+            MeteringMode = EnumConverter.Convert<Ydb.Topic.MeteringMode, MeteringMode>(result.MeteringMode),
+            Operation = ClientOperation.FromProto(response.Operation)
         };
     }
 }
