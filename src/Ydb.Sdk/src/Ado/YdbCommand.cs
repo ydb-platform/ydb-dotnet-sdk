@@ -58,7 +58,7 @@ public sealed class YdbCommand : DbCommand
         return new YdbParameter();
     }
 
-    protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
+    protected override YdbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
         throw new NotImplementedException();
     }

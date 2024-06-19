@@ -111,7 +111,7 @@ internal class Session : SessionBase<Session>
         _driver = driver;
     }
 
-    internal async IAsyncEnumerable<ExecuteQueryPart> ExecuteQuery(string query,
+    internal IAsyncEnumerator<Ydb.Query.ExecuteQueryResponsePart> ExecuteQuery(string query,
         Dictionary<string, YdbValue>? parameters, ExecuteQuerySettings? settings, TransactionControl? txControl)
     {
         parameters ??= new Dictionary<string, YdbValue>();
@@ -129,14 +129,7 @@ internal class Session : SessionBase<Session>
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        await foreach (var resultPart in _driver.StreamCall(QueryService.ExecuteQueryMethod, request, settings))
-        {
-            var status = Status.FromProto(resultPart.Status, resultPart.Issues);
-
-            OnStatus(status);
-
-            yield return new ExecuteQueryPart(status, resultPart.ResultSet?.FromProto(), resultPart.TxMeta.Id);
-        }
+        return _driver.StreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
     internal async Task<(Status, string)> BeginTransaction(TxMode txMode = TxMode.SerializableRw,

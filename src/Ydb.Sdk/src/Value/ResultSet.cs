@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Immutable;
 using Google.Protobuf.Collections;
 
 namespace Ydb.Sdk.Value;
@@ -13,25 +14,41 @@ public static class ResultSetExtension
 
 public class ResultSet
 {
+    internal static readonly ResultSet Empty = new ResultSet();
+    
     public IReadOnlyList<Column> Columns { get; }
     public IReadOnlyList<Row> Rows { get; }
     public bool Truncated { get; }
+
+    private readonly IReadOnlyDictionary<string, int> _columnNameToOrdinal;
 
     internal ResultSet(Ydb.ResultSet resultSetProto)
     {
         Columns = resultSetProto.Columns.Select(c => new Column(c.Type, c.Name)).ToList();
 
-        var columnsMap = Columns
+        _columnNameToOrdinal = Columns
             .Select((c, idx) => (c.Name, Index: idx))
             .ToDictionary(t => t.Name, t => t.Index);
 
-        Rows = new RowsList(resultSetProto.Rows, Columns, columnsMap);
+        Rows = new RowsList(resultSetProto.Rows, Columns, _columnNameToOrdinal);
         Truncated = resultSetProto.Truncated;
+    }
+
+    private ResultSet()
+    {
+        Columns = ImmutableList<Column>.Empty;
+        Rows = ImmutableList<Row>.Empty;
+        _columnNameToOrdinal = ImmutableDictionary<string, int>.Empty;
     }
 
     public static ResultSet FromProto(Ydb.ResultSet resultSetProto)
     {
         return new ResultSet(resultSetProto);
+    }
+
+    public int GetOrdinal(string name)
+    {
+        return _columnNameToOrdinal[name];
     }
 
     public class Column
@@ -47,7 +64,7 @@ public class ResultSet
         }
     }
 
-    public class RowsList : IReadOnlyList<Row>
+    private class RowsList : IReadOnlyList<Row>
     {
         private readonly RepeatedField<Ydb.Value> _rows;
         private readonly IReadOnlyList<Column> _columns;
