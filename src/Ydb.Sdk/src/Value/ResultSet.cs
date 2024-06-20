@@ -16,7 +16,7 @@ public static class ResultSetExtension
 public class ResultSet
 {
     internal static readonly ResultSet Empty = new();
-    
+
     public IReadOnlyList<Column> Columns { get; }
     public IReadOnlyList<Row> Rows { get; }
     public bool Truncated { get; }

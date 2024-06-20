@@ -27,7 +27,7 @@ public sealed class YdbDataReader : DbDataReader
     {
         { ReaderState: State.ReadResultState, _currentRowIndex: >= 0 } => _currentResultSet,
         { ReaderState: State.Closed } => throw new InvalidOperationException("The reader is closed"),
-        _ => throw new InvalidOperationException("Invalid attempt to read when no data is present"),
+        _ => throw new InvalidOperationException("Invalid attempt to read when no data is present")
     };
 
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
@@ -250,8 +250,7 @@ public sealed class YdbDataReader : DbDataReader
         }
 
         return ++_currentRowIndex < RowsCount ||
-               (ReaderState = await NextResultSet()) == State.ReadResultState &&
-               ++_currentRowIndex < RowsCount;
+               ((ReaderState = await NextResultSet()) == State.ReadResultState && ++_currentRowIndex < RowsCount);
     }
 
     public override int Depth => 0;
