@@ -159,15 +159,23 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         var (endpoint, channel) = GetChannel(settings.NodeId);
         var callInvoker = channel.CreateCallInvoker();
 
-        var call = callInvoker.AsyncServerStreamingCall(
-            method: method,
-            host: null,
-            options: GetCallOptions(settings, true),
-            request: request);
+        try
+        {
+            var call = callInvoker.AsyncServerStreamingCall(
+                method: method,
+                host: null,
+                options: GetCallOptions(settings, true),
+                request: request);
 
-        return new StreamIterator<TResponse>(
-            call,
-            _ => { PessimizeEndpoint(endpoint); });
+            return new StreamIterator<TResponse>(
+                call,
+                _ => { PessimizeEndpoint(endpoint); });
+        }
+        catch (RpcException e)
+        {
+            PessimizeEndpoint(endpoint);
+            throw new TransportException(e);
+        }
     }
 
     private (string, GrpcChannel) GetChannel(long nodeId)
