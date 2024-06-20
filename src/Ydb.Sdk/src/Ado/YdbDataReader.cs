@@ -243,12 +243,14 @@ public sealed class YdbDataReader : DbDataReader
     {
         var nextResult = ReaderState != State.NotStarted || await NextResultAsync(cancellationToken);
 
-        if (nextResult && ++_currentRowIndex < CurrentResultSet.Rows.Count)
+        if (!nextResult || ReaderState == State.Closed)
         {
-            return true;
+            return false;
         }
 
-        return (ReaderState = await NextResultSet()) == State.ReadResultState;
+        return ++_currentRowIndex < CurrentResultSet.Rows.Count ||
+               (ReaderState = await NextResultSet()) == State.ReadResultState &&
+               ++_currentRowIndex < CurrentResultSet.Rows.Count;
     }
 
     public override int Depth => 0;
