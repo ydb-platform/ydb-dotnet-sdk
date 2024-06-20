@@ -31,6 +31,7 @@ public sealed class YdbDataReader : DbDataReader
     };
 
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
+    private int RowsCount => CurrentResultSet.Rows.Count;
 
     internal YdbDataReader(IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream)
     {
@@ -205,7 +206,7 @@ public sealed class YdbDataReader : DbDataReader
     public override object this[string name] => GetValue(GetOrdinal(name));
 
     public override int RecordsAffected => 0;
-    public override bool HasRows => CurrentResultSet.Rows.Count > 0;
+    public override bool HasRows => RowsCount > 0;
     public override bool IsClosed => ReaderState == State.Closed;
 
     public override bool NextResult()
@@ -248,9 +249,9 @@ public sealed class YdbDataReader : DbDataReader
             return false;
         }
 
-        return ++_currentRowIndex < CurrentResultSet.Rows.Count ||
+        return ++_currentRowIndex < RowsCount ||
                (ReaderState = await NextResultSet()) == State.ReadResultState &&
-               ++_currentRowIndex < CurrentResultSet.Rows.Count;
+               ++_currentRowIndex < RowsCount;
     }
 
     public override int Depth => 0;
