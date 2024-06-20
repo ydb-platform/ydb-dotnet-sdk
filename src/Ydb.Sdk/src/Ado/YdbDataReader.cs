@@ -5,33 +5,40 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
+using Stream = IAsyncEnumerator<ExecuteQueryResponsePart>;
+
 public sealed class YdbDataReader : DbDataReader
 {
-    private const int NullRowIndex = int.MinValue;
-    private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _resultSetStream;
+    private readonly Stream _stream;
 
-    private int _rowIndex = NullRowIndex; // not fetched result set
-    private int _resultSetIndex = NullRowIndex;
-    private Value.ResultSet? _currentResultSet;
+    private int _currentRowIndex = -1;
+    private long _resultSetIndex = -1; // not fetched result set
+    private Value.ResultSet _currentResultSet = null!;
 
-    private Value.ResultSet CurrentResultSet
+    private enum State
     {
-        get
-        {
-            if (_resultSetIndex == NullRowIndex)
-            {
-                throw new InvalidOperationException("Invalid attempt to read when no data is present");
-            }
-            
-            return _currentResultSet ?? Value.ResultSet.Empty;
-        }
+        NotStarted,
+        NewResultState,
+        ReadResultState,
+        Closed
     }
 
-    private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_rowIndex];
+    private State ReaderState { get; set; }
 
-    internal YdbDataReader(IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream)
+    private Value.ResultSet CurrentResultSet => ReaderState switch
     {
-        _resultSetStream = resultSetStream;
+        State.ReadResultState or State.NewResultState => _currentResultSet,
+        State.NotStarted => throw new InvalidOperationException("Invalid attempt to read when no data is present"),
+        State.Closed => throw new InvalidOperationException("The reader is closed"),
+        _ => throw new ArgumentOutOfRangeException()
+    };
+
+    private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
+
+    internal YdbDataReader(Stream resultSetStream)
+    {
+        ReaderState = State.NotStarted;
+        _stream = resultSetStream;
     }
 
     public override bool GetBoolean(int ordinal)
@@ -203,18 +210,11 @@ public sealed class YdbDataReader : DbDataReader
 
     public override int RecordsAffected => 0;
     public override bool HasRows => CurrentResultSet.Rows.Count > 0;
-    public override bool IsClosed { get; }
+    public override bool IsClosed => ReaderState == State.Closed;
 
     public override bool NextResult()
     {
         return NextResultAsync().GetAwaiter().GetResult();
-    }
-
-    public override Task<bool> NextResultAsync(CancellationToken cancellationToken)
-    {
-        _rowIndex = -1; // reset row index 
-
-        return _resultSetStream.MoveNextAsync().AsTask();
     }
 
     public override bool Read()
@@ -222,11 +222,58 @@ public sealed class YdbDataReader : DbDataReader
         return ReadAsync().GetAwaiter().GetResult();
     }
 
+    public override async Task<bool> NextResultAsync(CancellationToken cancellationToken)
+    {
+        ReaderState = ReaderState switch
+        {
+            State.Closed => State.Closed,
+            State.NewResultState => State.ReadResultState,
+            State.NotStarted or State.ReadResultState => await new Func<Task<State>>(async () =>
+            {
+                State state;
+                while ((state = await NextResultSet()) == State.ReadResultState)
+                {
+                }
+
+                return state;
+            })(),
+            _ => throw new ArgumentOutOfRangeException(ReaderState.ToString())
+        };
+
+        return ReaderState != State.Closed;
+    }
+
     public override async Task<bool> ReadAsync(CancellationToken cancellationToken)
     {
-        var nextResult = _rowIndex != NullRowIndex || await NextResultAsync(cancellationToken);
+        var nextResult = ReaderState != State.NotStarted || await NextResultAsync(cancellationToken);
 
-        return nextResult && ++_rowIndex < CurrentResultSet.Rows.Count;
+        if (nextResult && ++_currentRowIndex < CurrentResultSet.Rows.Count)
+        {
+            return true;
+        }
+
+        return (ReaderState = await NextResultSet()) == State.ReadResultState;
+    }
+
+    private async Task<State> NextResultSet()
+    {
+        _currentRowIndex = -1;
+        if (!await _stream.MoveNextAsync())
+        {
+            return State.Closed;
+        }
+
+        var currentExecPart = _stream.Current;
+        _currentResultSet = currentExecPart.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
+
+        if (currentExecPart.ResultSetIndex <= _resultSetIndex)
+        {
+            return State.ReadResultState;
+        }
+
+        _resultSetIndex = currentExecPart.ResultSetIndex;
+
+        return State.ReadResultState;
     }
 
     public override int Depth => 0;
@@ -234,6 +281,18 @@ public sealed class YdbDataReader : DbDataReader
     public override IEnumerator GetEnumerator()
     {
         throw new NotImplementedException();
+    }
+
+    public override async Task CloseAsync()
+    {
+        ReaderState = State.Closed;
+
+        await _stream.DisposeAsync();
+    }
+
+    public override void Close()
+    {
+        CloseAsync().GetAwaiter().GetResult();
     }
 
     private YdbValue GetFieldYdbValue(int ordinal)
@@ -281,15 +340,5 @@ public sealed class YdbDataReader : DbDataReader
             YdbTypeId.DecimalType => (typeof(decimal), ydbValue.GetDecimal()),
             _ => throw new YdbAdoException($"Unsupported ydb type {ydbValue.TypeId}")
         };
-    }
-
-    public override async Task CloseAsync()
-    {
-        await _resultSetStream.DisposeAsync();
-    }
-
-    public override void Close()
-    {
-        CloseAsync().GetAwaiter().GetResult();
     }
 }
