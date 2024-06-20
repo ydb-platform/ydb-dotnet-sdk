@@ -74,13 +74,7 @@ public sealed class YdbDataReader : DbDataReader
         var ydbValue = GetFieldYdbValue(ordinal);
 
         // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
-        return ydbValue.TypeId switch
-        {
-            YdbTypeId.Timestamp => "Timestamp",
-            YdbTypeId.Datetime => "Datetime",
-            YdbTypeId.Date => "Date",
-            _ => throw new InvalidCastException($"YdbValue: {ydbValue} can't be cast to Datetime type")
-        };
+        return ydbValue.TypeId.ToString();
     }
 
     public override DateTime GetDateTime(int ordinal)

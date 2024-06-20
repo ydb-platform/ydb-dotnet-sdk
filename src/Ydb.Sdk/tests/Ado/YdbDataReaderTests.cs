@@ -22,6 +22,7 @@ public class YdbDataReaderTests
 
         Assert.True(reader.Read());
         Assert.True(reader.GetBoolean(0));
+        Assert.Equal("Bool", reader.GetDataTypeName(0));
 
         Assert.Equal("Ordinal must be between 0 and 0",
             Assert.Throws<IndexOutOfRangeException>(() => reader.GetBoolean(1)).Message);
