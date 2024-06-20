@@ -243,8 +243,20 @@ public sealed class YdbDataReader : DbDataReader
             return false;
         }
 
-        return ++_currentRowIndex < RowsCount ||
-               ((ReaderState = await NextExecPart()) == State.ReadResultState && ++_currentRowIndex < RowsCount);
+        if (++_currentRowIndex < RowsCount)
+        {
+            return true;
+        }
+
+        while ((ReaderState = await NextExecPart()) == State.ReadResultState) // reset _currentRowIndex
+        {
+            if (++_currentRowIndex < RowsCount)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public override int Depth => 0;
