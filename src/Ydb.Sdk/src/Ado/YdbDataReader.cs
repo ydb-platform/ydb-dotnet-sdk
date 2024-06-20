@@ -222,7 +222,7 @@ public sealed class YdbDataReader : DbDataReader
             State.NotStarted or State.ReadResultState => await new Func<Task<State>>(async () =>
             {
                 State state;
-                while ((state = await NextResultSet()) == State.ReadResultState)
+                while ((state = await NextExecPart()) == State.ReadResultState)
                 {
                 }
 
@@ -244,7 +244,7 @@ public sealed class YdbDataReader : DbDataReader
         }
 
         return ++_currentRowIndex < RowsCount ||
-               ((ReaderState = await NextResultSet()) == State.ReadResultState && ++_currentRowIndex < RowsCount);
+               ((ReaderState = await NextExecPart()) == State.ReadResultState && ++_currentRowIndex < RowsCount);
     }
 
     public override int Depth => 0;
@@ -318,7 +318,7 @@ public sealed class YdbDataReader : DbDataReader
         };
     }
 
-    private async Task<State> NextResultSet()
+    private async Task<State> NextExecPart()
     {
         _currentRowIndex = -1;
         try
