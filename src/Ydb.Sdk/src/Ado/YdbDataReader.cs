@@ -203,7 +203,6 @@ public sealed class YdbDataReader : DbDataReader
     public override int FieldCount => CurrentRow.ColumnCount;
 
     public override object this[int ordinal] => GetValue(ordinal);
-
     public override object this[string name] => GetValue(GetOrdinal(name));
 
     public override int RecordsAffected => 0;
@@ -233,7 +232,7 @@ public sealed class YdbDataReader : DbDataReader
                 {
                 }
 
-                return state;
+                return state == State.NewResultState ? State.ReadResultState : state;
             })(),
             _ => throw new ArgumentOutOfRangeException(ReaderState.ToString())
         };
@@ -251,27 +250,6 @@ public sealed class YdbDataReader : DbDataReader
         }
 
         return (ReaderState = await NextResultSet()) == State.ReadResultState;
-    }
-
-    private async Task<State> NextResultSet()
-    {
-        _currentRowIndex = -1;
-        if (!await _stream.MoveNextAsync())
-        {
-            return State.Closed;
-        }
-
-        var currentExecPart = _stream.Current;
-        _currentResultSet = currentExecPart.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
-
-        if (currentExecPart.ResultSetIndex <= _resultSetIndex)
-        {
-            return State.ReadResultState;
-        }
-
-        _resultSetIndex = currentExecPart.ResultSetIndex;
-
-        return State.ReadResultState;
     }
 
     public override int Depth => 0;
@@ -338,5 +316,26 @@ public sealed class YdbDataReader : DbDataReader
             YdbTypeId.DecimalType => (typeof(decimal), ydbValue.GetDecimal()),
             _ => throw new YdbAdoException($"Unsupported ydb type {ydbValue.TypeId}")
         };
+    }
+
+    private async Task<State> NextResultSet()
+    {
+        _currentRowIndex = -1;
+        if (!await _stream.MoveNextAsync())
+        {
+            return State.Closed;
+        }
+
+        var currentExecPart = _stream.Current;
+        _currentResultSet = currentExecPart.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
+
+        if (currentExecPart.ResultSetIndex <= _resultSetIndex)
+        {
+            return State.ReadResultState;
+        }
+
+        _resultSetIndex = currentExecPart.ResultSetIndex;
+
+        return State.NewResultState;
     }
 }
