@@ -21,6 +21,8 @@ public class MockAsyncEnumerator<T> : IAsyncEnumerator<T>
 
     public ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
+
         _inner.Dispose();
         return new ValueTask();
     }

@@ -23,12 +23,11 @@ public sealed class YdbDataReader : DbDataReader
 
     private State ReaderState { get; set; }
 
-    private Value.ResultSet CurrentResultSet => ReaderState switch
+    private Value.ResultSet CurrentResultSet => this switch
     {
-        State.ReadResultState or State.NewResultState => _currentResultSet,
-        State.NotStarted => throw new InvalidOperationException("Invalid attempt to read when no data is present"),
-        State.Closed => throw new InvalidOperationException("The reader is closed"),
-        _ => throw new ArgumentOutOfRangeException()
+        { ReaderState: State.ReadResultState, _currentRowIndex: >= 0 } => _currentResultSet,
+        { ReaderState: State.Closed } => throw new InvalidOperationException("The reader is closed"),
+        _ => throw new InvalidOperationException("Invalid attempt to read when no data is present"),
     };
 
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
@@ -273,6 +272,11 @@ public sealed class YdbDataReader : DbDataReader
 
     private YdbValue GetFieldYdbValue(int ordinal)
     {
+        if (0 > ordinal || ordinal >= FieldCount)
+        {
+            throw new IndexOutOfRangeException("Ordinal must be between 0 and " + (FieldCount - 1));
+        }
+
         var ydbValue = CurrentRow[ordinal];
 
         return ydbValue.TypeId == YdbTypeId.OptionalType
@@ -321,21 +325,31 @@ public sealed class YdbDataReader : DbDataReader
     private async Task<State> NextResultSet()
     {
         _currentRowIndex = -1;
-        if (!await _stream.MoveNextAsync())
+        try
         {
-            return State.Closed;
+            if (!await _stream.MoveNextAsync())
+            {
+                return State.Closed;
+            }
+
+            var currentExecPart = _stream.Current;
+
+            Status.FromProto(currentExecPart.Status, currentExecPart.Issues).EnsureSuccess();
+
+            _currentResultSet = currentExecPart.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
+
+            if (currentExecPart.ResultSetIndex <= _resultSetIndex)
+            {
+                return State.ReadResultState;
+            }
+
+            _resultSetIndex = currentExecPart.ResultSetIndex;
+
+            return State.NewResultState;
         }
-
-        var currentExecPart = _stream.Current;
-        _currentResultSet = currentExecPart.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
-
-        if (currentExecPart.ResultSetIndex <= _resultSetIndex)
+        catch (Exception e)
         {
-            return State.ReadResultState;
+            throw new YdbAdoException("Unable to read data from the transport connection", e);
         }
-
-        _resultSetIndex = currentExecPart.ResultSetIndex;
-
-        return State.NewResultState;
     }
 }
