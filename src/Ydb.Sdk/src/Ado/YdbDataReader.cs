@@ -5,11 +5,9 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
-using Stream = IAsyncEnumerator<ExecuteQueryResponsePart>;
-
 public sealed class YdbDataReader : DbDataReader
 {
-    private readonly Stream _stream;
+    private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1; // not fetched result set
@@ -35,7 +33,7 @@ public sealed class YdbDataReader : DbDataReader
 
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
 
-    internal YdbDataReader(Stream resultSetStream)
+    internal YdbDataReader(IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream)
     {
         ReaderState = State.NotStarted;
         _stream = resultSetStream;
