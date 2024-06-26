@@ -5,19 +5,19 @@ namespace Ydb.Sdk.Ado;
 
 public sealed class YdbConnection : DbConnection
 {
-    private readonly YdbContext _ydbContext;
+    private readonly YdbDataSource _ydbDataSource;
 
     internal IYdbConnectionState YdbConnectionState { get; private set; }
 
     internal void NextOutTransactionState()
     {
-        YdbConnectionState = new OutTransactionState(); // TODO
+        YdbConnectionState = new OutTransactionState(_ydbDataSource); // TODO
     }
 
-    internal YdbConnection(YdbContext ydbContext)
+    internal YdbConnection(YdbDataSource ydbDataSource)
     {
-        _ydbContext = ydbContext;
-        YdbConnectionState = new OutTransactionState();
+        _ydbDataSource = ydbDataSource;
+        YdbConnectionState = new OutTransactionState(_ydbDataSource);
     }
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
@@ -41,7 +41,7 @@ public sealed class YdbConnection : DbConnection
 
     public override string ConnectionString
     {
-        get => _ydbContext.ConnectionString;
+        get => _ydbDataSource.ConnectionString;
 #pragma warning disable CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
         set
 #pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
@@ -50,7 +50,7 @@ public sealed class YdbConnection : DbConnection
         } // TODO
     }
 
-    public override string Database => _ydbContext.Database;
+    public override string Database => _ydbDataSource.Database;
 
     public override ConnectionState State => ConnectionState.Open; // TODO
     public override string DataSource => string.Empty; // TODO

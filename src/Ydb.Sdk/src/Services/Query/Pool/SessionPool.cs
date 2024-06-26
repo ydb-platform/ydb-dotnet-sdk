@@ -20,8 +20,6 @@ internal class SessionPool : SessionPool<Session>, IAsyncDisposable
         TransportTimeout = TimeSpan.FromMinutes(1)
     };
 
-    private static readonly DeleteSessionRequest DeleteSessionRequest = new();
-
     private static readonly GrpcRequestSettings DeleteSessionSettings = new()
     {
         TransportTimeout = TimeSpan.FromSeconds(5)
@@ -87,10 +85,10 @@ internal class SessionPool : SessionPool<Session>, IAsyncDisposable
         return await completeTask.Task;
     }
 
-    protected override async Task<Status> DeleteSession()
+    protected override async Task<Status> DeleteSession(string sessionId)
     {
         var deleteSessionResponse = await _driver.UnaryCall(QueryService.DeleteSessionMethod,
-            DeleteSessionRequest, DeleteSessionSettings);
+            new DeleteSessionRequest { SessionId = sessionId }, DeleteSessionSettings);
 
         return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
     }

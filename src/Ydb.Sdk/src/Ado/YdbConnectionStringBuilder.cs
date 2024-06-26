@@ -60,7 +60,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         set
         {
             _database = value;
-            base[nameof(Database)] = value;
+            SaveValue(nameof(Database), value);
         }
     }
 
