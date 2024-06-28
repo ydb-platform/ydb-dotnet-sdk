@@ -330,7 +330,7 @@ public sealed class YdbDataReader : DbDataReader
 
     private void EnsureOrdinal(int ordinal)
     {
-        if (ordinal >= FieldCount && 0 > ordinal) // get FieldCount throw InvalidOperationException if State == Closed
+        if (ordinal >= FieldCount || 0 > ordinal) // get FieldCount throw InvalidOperationException if State == Closed
         {
             throw new IndexOutOfRangeException("Ordinal must be between 0 and " + (FieldCount - 1));
         }
