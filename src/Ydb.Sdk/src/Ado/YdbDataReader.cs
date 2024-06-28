@@ -1,13 +1,12 @@
 using System.Collections;
 using System.Data.Common;
-using Ydb.Query;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
 public sealed class YdbDataReader : DbDataReader
 {
-    private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
+    private readonly IAsyncEnumerator<(long, ResultSet?)> _stream;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1; // not fetched result set
@@ -33,7 +32,7 @@ public sealed class YdbDataReader : DbDataReader
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
     private int RowsCount => CurrentResultSet.Rows.Count;
 
-    internal YdbDataReader(IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream)
+    internal YdbDataReader(IAsyncEnumerator<(long, ResultSet?)> resultSetStream)
     {
         ReaderState = State.NotStarted;
         _stream = resultSetStream;
@@ -280,10 +279,7 @@ public sealed class YdbDataReader : DbDataReader
 
     private YdbValue GetFieldYdbValue(int ordinal)
     {
-        if (0 > ordinal || ordinal >= FieldCount)
-        {
-            throw new IndexOutOfRangeException("Ordinal must be between 0 and " + (FieldCount - 1));
-        }
+        EnsureOrdinal(ordinal);
 
         var ydbValue = CurrentRow[ordinal];
 
@@ -294,6 +290,8 @@ public sealed class YdbDataReader : DbDataReader
 
     private (System.Type Type, object Value) GetFieldTypeAndValue(int ordinal)
     {
+        EnsureOrdinal(ordinal);
+
         var ydbValue = CurrentRow[ordinal];
 
         // ReSharper disable once InvertIf
@@ -330,6 +328,14 @@ public sealed class YdbDataReader : DbDataReader
         };
     }
 
+    private void EnsureOrdinal(int ordinal)
+    {
+        if (ordinal >= FieldCount && 0 > ordinal) // get FieldCount throw InvalidOperationException if State == Closed
+        {
+            throw new IndexOutOfRangeException("Ordinal must be between 0 and " + (FieldCount - 1));
+        }
+    }
+
     private async Task<State> NextExecPart()
     {
         _currentRowIndex = -1;
@@ -340,18 +346,16 @@ public sealed class YdbDataReader : DbDataReader
                 return State.Closed;
             }
 
-            var currentExecPart = _stream.Current;
+            var (resultSetIndex, resultSet) = _stream.Current;
 
-            Status.FromProto(currentExecPart.Status, currentExecPart.Issues).EnsureSuccess();
+            _currentResultSet = resultSet?.FromProto() ?? Value.ResultSet.Empty;
 
-            _currentResultSet = currentExecPart.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
-
-            if (currentExecPart.ResultSetIndex <= _resultSetIndex)
+            if (resultSetIndex <= _resultSetIndex)
             {
                 return State.ReadResultState;
             }
 
-            _resultSetIndex = currentExecPart.ResultSetIndex;
+            _resultSetIndex = resultSetIndex;
 
             return State.NewResultState;
         }

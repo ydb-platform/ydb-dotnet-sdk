@@ -6,7 +6,7 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query.Pool;
 
-internal class SessionPool : SessionPool<Session>, IAsyncDisposable
+internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 {
     private static readonly CreateSessionRequest CreateSessionRequest = new();
 
@@ -50,35 +50,49 @@ internal class SessionPool : SessionPool<Session>, IAsyncDisposable
 
         _ = Task.Run(async () =>
         {
-            await using var stream = _driver.StreamCall(QueryService.AttachSessionMethod, new AttachSessionRequest
-                { SessionId = response.SessionId }, AttachSessionSettings);
-
-            if (!await stream.MoveNextAsync())
+            try
             {
-                completeTask.SetResult(
-                    (new Status(StatusCode.Cancelled, "Attach stream is not started!"), null)
-                ); // Session wasn't started!
+                await using var stream = _driver.StreamCall(QueryService.AttachSessionMethod, new AttachSessionRequest
+                    { SessionId = response.SessionId }, AttachSessionSettings);
 
-                return;
-            }
-
-            var statusSession = Status.FromProto(stream.Current.Status, stream.Current.Issues);
-
-            if (statusSession.IsNotSuccess)
-            {
-                completeTask.SetResult((statusSession, null));
-            }
-
-            completeTask.SetResult((status, session));
-
-            await foreach (var sessionState in stream)
-            {
-                session.OnStatus(Status.FromProto(sessionState.Status, sessionState.Issues));
-
-                if (!session.IsActive)
+                if (!await stream.MoveNextAsync())
                 {
+                    completeTask.SetResult(
+                        (new Status(StatusCode.Cancelled, "Attach stream is not started!"), null)
+                    ); // Session wasn't started!
+
                     return;
                 }
+
+                var statusSession = Status.FromProto(stream.Current.Status, stream.Current.Issues);
+
+                if (statusSession.IsNotSuccess)
+                {
+                    completeTask.SetResult((statusSession, null));
+                }
+
+                completeTask.SetResult((status, session));
+
+                try
+                {
+                    await foreach (var sessionState in stream) // watch attach stream session cycle life
+                    {
+                        session.OnStatus(Status.FromProto(sessionState.Status, sessionState.Issues));
+
+                        if (!session.IsActive)
+                        {
+                            return;
+                        }
+                    }
+                }
+                catch (Driver.TransportException e)
+                {
+                    session.OnStatus(e.Status);
+                }
+            }
+            catch (Driver.TransportException e)
+            {
+                completeTask.SetResult((e.Status, null));
             }
         });
 
@@ -109,8 +123,11 @@ internal class Session : SessionBase<Session>
         _driver = driver;
     }
 
-    internal IAsyncEnumerator<Ydb.Query.ExecuteQueryResponsePart> ExecuteQuery(string query,
-        Dictionary<string, YdbValue>? parameters, ExecuteQuerySettings? settings, TransactionControl? txControl)
+    internal Driver.StreamIterator<Ydb.Query.ExecuteQueryResponsePart> ExecuteQuery(
+        string query,
+        Dictionary<string, YdbValue>? parameters,
+        ExecuteQuerySettings? settings,
+        TransactionControl? txControl)
     {
         parameters ??= new Dictionary<string, YdbValue>();
         settings ??= ExecuteQuerySettings.DefaultInstance;
@@ -128,18 +145,6 @@ internal class Session : SessionBase<Session>
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
         return _driver.StreamCall(QueryService.ExecuteQueryMethod, request, settings);
-    }
-
-    internal async Task<(Status, string)> BeginTransaction(TxMode txMode = TxMode.SerializableRw,
-        GrpcRequestSettings? settings = null)
-    {
-        settings ??= GrpcRequestSettings.DefaultInstance;
-        settings.NodeId = NodeId;
-
-        var response = await _driver.UnaryCall(QueryService.BeginTransactionMethod, new BeginTransactionRequest
-            { SessionId = SessionId, TxSettings = txMode.TransactionSettings() }, settings);
-
-        return (Status.FromProto(response.Status, response.Issues), response.TxMeta.Id);
     }
 
     internal async Task<Status> CommitTransaction(string txId, GrpcRequestSettings? settings = null)

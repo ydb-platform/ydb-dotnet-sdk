@@ -1,14 +1,18 @@
 using System.Data;
 using System.Data.Common;
+using Ydb.Sdk.Services.Query;
 
 namespace Ydb.Sdk.Ado;
 
 public sealed class YdbCommand : DbCommand
 {
+    private readonly YdbConnection _ydbConnection;
+
     private string _commandText = string.Empty;
 
-    internal YdbCommand()
+    internal YdbCommand(YdbConnection ydbConnection)
     {
+        _ydbConnection = ydbConnection;
     }
 
     public override void Cancel()
@@ -60,6 +64,15 @@ public sealed class YdbCommand : DbCommand
 
     protected override YdbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
-        throw new NotImplementedException();
+        var execSettings = CommandTimeout > 0
+            ? new ExecuteQuerySettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
+            : ExecuteQuerySettings.DefaultInstance;
+
+        var ydbDataReader = new YdbDataReader(_ydbConnection.ExecuteQuery(_commandText,
+            DbParameterCollection.YdbParameters, execSettings, (YdbTransaction?)DbTransaction));
+
+        _ydbConnection.CurrentReader = ydbDataReader;
+
+        return ydbDataReader;
     }
 }

@@ -89,7 +89,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
     internal void OnStatus(Status status)
     {
         if (status.StatusCode is StatusCode.BadSession or StatusCode.SessionBusy or StatusCode.InternalError
-            or StatusCode.ClientTransportTimeout or StatusCode.Unavailable)
+            or StatusCode.ClientTransportTimeout or StatusCode.Unavailable or StatusCode.ClientTransportUnavailable)
         {
             IsActive = false;
         }

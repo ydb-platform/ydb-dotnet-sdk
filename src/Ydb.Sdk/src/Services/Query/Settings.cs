@@ -1,3 +1,4 @@
+using Grpc.Core;
 using Ydb.Sdk.Client;
 
 namespace Ydb.Sdk.Services.Query;
@@ -60,6 +61,7 @@ public class ExecuteQuerySettings : GrpcRequestSettings
     public ExecMode ExecMode { get; set; } = ExecMode.Execute;
     public Syntax Syntax { get; set; }
     public StatsMode StatsMode { get; set; }
+    public Action<RpcException> RpcErrorHandler { get; set; } = _ => { };
 }
 
 internal class CreateSessionSettings : GrpcRequestSettings
