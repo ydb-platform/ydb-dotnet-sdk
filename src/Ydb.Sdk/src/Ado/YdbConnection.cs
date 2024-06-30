@@ -9,13 +9,24 @@ namespace Ydb.Sdk.Ado;
 
 public sealed class YdbConnection : DbConnection
 {
-    private YdbConnectionStringBuilder ConnectionStringBuilder { get; }
+    private static readonly YdbConnectionStringBuilder DefaultSettings = new();
 
-    internal Session Session { get; }
+    private YdbConnectionStringBuilder ConnectionStringBuilder { get; set; }
 
-    internal YdbConnection(Session session, YdbConnectionStringBuilder connectionStringBuilder)
+    internal Session Session { get; private set; } = null!;
+
+    public YdbConnection()
     {
-        Session = session;
+        ConnectionStringBuilder = DefaultSettings;
+    }
+
+    public YdbConnection(string connectionString)
+    {
+        ConnectionStringBuilder = new YdbConnectionStringBuilder(connectionString);
+    }
+
+    public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
+    {
         ConnectionStringBuilder = connectionStringBuilder;
     }
 
@@ -47,6 +58,14 @@ public sealed class YdbConnection : DbConnection
 
     public override void Open()
     {
+        OpenAsync().GetAwaiter().GetResult();
+    }
+
+    public override async Task OpenAsync(CancellationToken cancellationToken)
+    {
+        EnsureConnectionClosed();
+
+        Session = await PoolManager.GetSession(ConnectionStringBuilder);
     }
 
     public override async Task CloseAsync()
@@ -76,7 +95,10 @@ public sealed class YdbConnection : DbConnection
         set
 #pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
         {
-            throw new NotImplementedException("Use YdbDataSource for creating connection");
+            EnsureConnectionClosed();
+
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            ConnectionStringBuilder = value != null ? new YdbConnectionStringBuilder(value) : DefaultSettings;
         }
     }
 
@@ -84,7 +106,7 @@ public sealed class YdbConnection : DbConnection
 
     public override ConnectionState State => ConnectionState;
 
-    private ConnectionState ConnectionState { get; set; } = ConnectionState.Open;
+    private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
     internal YdbDataReader? CurrentReader { get; set; }
 
     public override string DataSource => string.Empty; // TODO
@@ -144,7 +166,15 @@ public sealed class YdbConnection : DbConnection
     {
         if (ConnectionState == ConnectionState.Closed)
         {
-            throw new InvalidOperationException("The connection is closed.");
+            throw new InvalidOperationException("The connection is closed");
+        }
+    }
+
+    private void EnsureConnectionClosed()
+    {
+        if (ConnectionState != ConnectionState.Closed)
+        {
+            throw new InvalidOperationException("ConnectionState: " + ConnectionState);
         }
     }
 }

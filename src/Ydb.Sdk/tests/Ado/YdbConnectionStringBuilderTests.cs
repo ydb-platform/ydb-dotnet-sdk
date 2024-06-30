@@ -16,7 +16,7 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(100, connectionString.MaxSessionPool);
         Assert.Null(connectionString.User);
         Assert.Null(connectionString.Password);
-        Assert.Equal("Host=localhost;Port=2136;Database=/local;MaxSessionPool=100", connectionString.ConnectionString);
+        Assert.Equal("", connectionString.ConnectionString);
     }
 
     [Fact]
@@ -32,7 +32,8 @@ public class YdbConnectionStringBuilderTests
     [Fact]
     public void InitConnectionStringBuilder_WhenExpectedKeys_ReturnUpdatedConnectionString()
     {
-        var connectionString = new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path;User=Kirill");
+        var connectionString =
+            new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true");
 
         Assert.Equal(2135, connectionString.Port);
         Assert.Equal("server", connectionString.Host);
@@ -40,7 +41,7 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(100, connectionString.MaxSessionPool);
         Assert.Equal("Kirill", connectionString.User);
         Assert.Null(connectionString.Password);
-        Assert.Equal("Host=server;Port=2135;Database=/my/path;MaxSessionPool=100;User=Kirill",
+        Assert.Equal("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=True",
             connectionString.ConnectionString);
     }
 
@@ -48,10 +49,12 @@ public class YdbConnectionStringBuilderTests
     public void Host_WhenSetInProperty_ReturnUpdatedConnectionString()
     {
         var connectionString = new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path;User=Kirill");
-        connectionString.Host = "new_server";
 
+        Assert.Equal("server", connectionString.Host);
+        connectionString.Host = "new_server";
         Assert.Equal("new_server", connectionString.Host);
-        Assert.Equal("Host=new_server;Port=2135;Database=/my/path;MaxSessionPool=100;User=Kirill",
+
+        Assert.Equal("Host=new_server;Port=2135;Database=/my/path;User=Kirill",
             connectionString.ConnectionString);
     }
 }

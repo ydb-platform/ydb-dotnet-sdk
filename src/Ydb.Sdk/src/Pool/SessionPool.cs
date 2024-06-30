@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Services.Query.Pool;
 
 namespace Ydb.Sdk.Pool;
 
