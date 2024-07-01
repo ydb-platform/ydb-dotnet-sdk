@@ -48,7 +48,12 @@ public class ResultSet
 
     public int GetOrdinal(string name)
     {
-        return _columnNameToOrdinal[name];
+        if (_columnNameToOrdinal.TryGetValue(name, out var ordinal))
+        {
+            return ordinal;
+        }
+
+        throw new IndexOutOfRangeException($"Field not found in row: {name}");
     }
 
     public class Column
