@@ -30,12 +30,12 @@ jobs:
       NUGET_TOKEN: ${{ secrets.YDB_PLATFORM_NUGET_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
           fetch-depth: 0
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
             6.0.x
