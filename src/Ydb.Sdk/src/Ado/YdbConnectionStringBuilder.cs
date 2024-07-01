@@ -1,5 +1,7 @@
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Ydb.Sdk.Ado;
 
@@ -10,7 +12,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         InitDefaultValues();
     }
 
-    internal YdbConnectionStringBuilder(string connectionString)
+    public YdbConnectionStringBuilder(string connectionString)
     {
         InitDefaultValues();
         ConnectionString = connectionString;
@@ -19,10 +21,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     // Init default connection string
     private void InitDefaultValues()
     {
-        Host = "localhost";
-        Port = 2136;
-        Database = "/local";
-        MaxSessionPool = 100;
+        _host = "localhost";
+        _port = 2136;
+        _database = "/local";
+        _maxSessionPool = 100;
+        _useTls = false;
     }
 
     public string Host
@@ -60,7 +63,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         set
         {
             _database = value;
-            base[nameof(Database)] = value;
+            SaveValue(nameof(Database), value);
         }
     }
 
@@ -107,6 +110,20 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private int _maxSessionPool;
 
+    public bool UseTls
+    {
+        get => _useTls;
+        set
+        {
+            _useTls = value;
+            SaveValue(nameof(UseTls), value);
+        }
+    }
+
+    private bool _useTls;
+
+    public ILoggerFactory LoggerFactory { get; set; } = new NullLoggerFactory();
+
     private void SaveValue(string propertyName, object? value)
     {
         if (value == null)
@@ -143,6 +160,13 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         }
     }
 
+    private string Endpoint => $"{(UseTls ? "grpcs" : "grpc")}://{Host}:{Port}";
+
+    internal Task<Driver> BuildDriver()
+    {
+        return Driver.CreateInitialized(new DriverConfig(Endpoint, Database), LoggerFactory);
+    }
+
     public override void Clear()
     {
         base.Clear();
@@ -155,8 +179,10 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         {
             return value switch
             {
-                int valueInt => valueInt,
-                string valueStr when int.TryParse(valueStr.Trim(), out var result) => result,
+                int intValue => intValue,
+                string strValue => int.TryParse(strValue.Trim(), out var result)
+                    ? result
+                    : throw new ArgumentException("Invalid value for integer conversion"),
                 _ => UnexpectedArgumentException<int>(key, value)
             };
         };
@@ -165,8 +191,23 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         {
             return value switch
             {
-                string valueStr => valueStr,
+                string strValue => strValue,
                 _ => UnexpectedArgumentException<string>(key, value)
+            };
+        };
+
+        private static readonly Func<string, object, bool> BoolExtractor = (key, value) =>
+        {
+            return value switch
+            {
+                bool boolValue => boolValue,
+                string strValue => strValue switch
+                {
+                    "on" or "true" or "1" => true,
+                    "off" or "false" or "0" => false,
+                    _ => throw new ArgumentException("Invalid value for boolean conversion")
+                },
+                _ => UnexpectedArgumentException<bool>(key, value)
             };
         };
 
@@ -191,6 +232,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<int>(IntExtractor,
                     (builder, maxSessionPool) => builder.MaxSessionPool = maxSessionPool),
                 "MaxSessionPool", "Max Session Pool", "Maximum Pool Size", "Max Pool Size", "MaximumPoolSize");
+            AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, useTls) => builder.UseTls = useTls),
+                "UseTls", "Use Tls");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)

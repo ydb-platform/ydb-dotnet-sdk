@@ -1,5 +1,6 @@
+using Google.Protobuf.Collections;
 using Xunit;
-using Ydb.Query;
+using Ydb.Issue;
 using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tests.Ado;
@@ -39,19 +40,19 @@ public class YdbDataReaderTests
     [Fact]
     public void Read_WhenNextResultThrowException_ThrowException()
     {
-        var reader = new YdbDataReader(SingleEnumeratorFailed);
+        var reader = new YdbDataReader(SingleEnumeratorFailed());
 
-        Assert.Equal("Unable to read data from the transport connection",
-            Assert.Throws<YdbAdoException>(() => reader.Read()).Message);
+        Assert.Equal("Status: Aborted",
+            Assert.Throws<StatusUnsuccessfulException>(() => reader.Read()).Message);
     }
 
     [Fact]
     public void NextResult_WhenNextResultThrowException_ThrowException()
     {
-        var reader = new YdbDataReader(SingleEnumeratorFailed);
+        var reader = new YdbDataReader(SingleEnumeratorFailed());
 
-        Assert.Equal("Unable to read data from the transport connection",
-            Assert.Throws<YdbAdoException>(() => reader.NextResult()).Message);
+        Assert.Equal("Status: Aborted",
+            Assert.Throws<StatusUnsuccessfulException>(() => reader.NextResult()).Message);
     }
 
     [Fact]
@@ -104,7 +105,7 @@ public class YdbDataReaderTests
         Assert.False(reader.Read());
     }
 
-    private static MockAsyncEnumerator<ExecuteQueryResponsePart> EnumeratorSuccess(int size = 1,
+    private static MockAsyncEnumerator<(long, ResultSet?)> EnumeratorSuccess(int size = 1,
         bool longFirstResultSet = false)
     {
         var result = ResultSet.Parser.ParseJson(
@@ -113,23 +114,29 @@ public class YdbDataReaderTests
             "\"rows\": [ { \"items\": [ { \"boolValue\": true } ] } ] }"
         );
 
-        var list = new List<ExecuteQueryResponsePart>();
+        var list = new List<(long, ResultSet?)>();
 
         if (longFirstResultSet)
         {
-            list.Add(new ExecuteQueryResponsePart
-                { ResultSetIndex = 0, Status = StatusIds.Types.StatusCode.Success, ResultSet = result });
+            list.Add((0, result));
         }
 
         for (var i = 0; i < size; i++)
         {
-            list.Add(new ExecuteQueryResponsePart
-                { ResultSetIndex = i, Status = StatusIds.Types.StatusCode.Success, ResultSet = result });
+            list.Add((i, result));
         }
 
-        return new MockAsyncEnumerator<ExecuteQueryResponsePart>(list);
+        return new MockAsyncEnumerator<(long, ResultSet?)>(list);
     }
 
-    private static MockAsyncEnumerator<ExecuteQueryResponsePart> SingleEnumeratorFailed =>
-        new(new List<ExecuteQueryResponsePart> { new() { Status = StatusIds.Types.StatusCode.NotFound } });
+    private static async IAsyncEnumerator<(long, ResultSet?)> SingleEnumeratorFailed()
+    {
+        Console.WriteLine("Before any yield");
+        Status.FromProto(StatusIds.Types.StatusCode.Aborted, new RepeatedField<IssueMessage>())
+            .EnsureSuccess();
+
+        await Task.Delay(100);
+
+        yield return (1, null);
+    }
 }

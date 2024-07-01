@@ -167,13 +167,17 @@ public sealed class Driver : IDisposable, IAsyncDisposable
                 options: GetCallOptions(settings, true),
                 request: request);
 
-            return new StreamIterator<TResponse>(
-                call,
-                _ => { PessimizeEndpoint(endpoint); });
+            return new StreamIterator<TResponse>(call, e =>
+            {
+                settings.RpcErrorHandler(e);
+                PessimizeEndpoint(endpoint);
+            });
         }
         catch (RpcException e)
         {
+            settings.RpcErrorHandler(e);
             PessimizeEndpoint(endpoint);
+
             throw new TransportException(e);
         }
     }
@@ -369,7 +373,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         }
     }
 
-    public class TransportException : Exception
+    public class TransportException : IOException
     {
         internal TransportException(RpcException e) : base($"Transport exception: {e.Message}", e)
         {

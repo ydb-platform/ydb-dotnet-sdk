@@ -44,6 +44,15 @@ internal static class TxModeExtensions
             _ => null
         };
     }
+
+    internal static TransactionControl? BeginTransactionControl(this TxMode mode, bool commit = true)
+    {
+        return mode switch
+        {
+            TxMode.None => null,
+            _ => new TransactionControl { BeginTx = mode.TransactionSettings(), CommitTx = commit }
+        };
+    }
 }
 
 public class Tx
