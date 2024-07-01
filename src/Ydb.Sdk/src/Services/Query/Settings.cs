@@ -1,4 +1,3 @@
-using Grpc.Core;
 using Ydb.Sdk.Client;
 
 namespace Ydb.Sdk.Services.Query;
