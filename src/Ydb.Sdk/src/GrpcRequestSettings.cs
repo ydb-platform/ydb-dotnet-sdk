@@ -17,7 +17,7 @@ public class GrpcRequestSettings
     internal long NodeId { get; set; }
 
     internal Action<Grpc.Core.Metadata?> TrailersHandler { get; set; } = _ => { };
-    
+
     internal Action<RpcException> RpcErrorHandler { get; set; } = _ => { };
 }
 

@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Ydb.Sdk.Ado;
 
@@ -121,7 +122,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private bool _useTls;
 
-    public ILoggerFactory LoggerFactory { get; set; }
+    public ILoggerFactory LoggerFactory { get; set; } = new NullLoggerFactory();
 
     private void SaveValue(string propertyName, object? value)
     {
