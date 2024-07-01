@@ -373,7 +373,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         }
     }
 
-    public class TransportException : Exception
+    public class TransportException : IOException
     {
         internal TransportException(RpcException e) : base($"Transport exception: {e.Message}", e)
         {

@@ -210,7 +210,7 @@ public partial class YdbValue
     }
 
     // TODO: EmptyOptional with complex types
-    public static YdbValue MakeEmptyOptional(YdbTypeId typeId)
+    private static YdbValue MakeEmptyOptional(YdbTypeId typeId)
     {
         if (IsPrimitiveTypeId(typeId))
         {
@@ -224,7 +224,8 @@ public partial class YdbValue
             return new YdbValue(
                 new Type
                 {
-                    OptionalType = new OptionalType { Item = new Type { DecimalType = new DecimalType() } }
+                    OptionalType = new OptionalType
+                        { Item = new Type { DecimalType = new DecimalType { Scale = 9, Precision = 22 } } }
                 },
                 new Ydb.Value { NullFlagValue = new NullValue() }
             );

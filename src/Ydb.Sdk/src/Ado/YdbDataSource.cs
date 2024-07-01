@@ -7,11 +7,8 @@ namespace Ydb.Sdk.Ado;
 
 public class YdbDataSource : DbDataSource
 {
-    private readonly SessionPool _sessionPool;
-
-    internal YdbDataSource(SessionPool sessionPool, YdbConnectionStringBuilder connectionString)
+    internal YdbDataSource(YdbConnectionStringBuilder connectionString)
     {
-        _sessionPool = sessionPool;
         ConnectionString = connectionString.ConnectionString;
         Database = connectionString.Database;
     }
@@ -24,17 +21,5 @@ public class YdbDataSource : DbDataSource
     public override string ConnectionString { get; }
 
     internal string Database { get; }
-
-    internal async Task<Session> GetSessionAsync()
-    {
-        var (status, session) = await _sessionPool.GetSession();
-
-        if (status.IsSuccess)
-        {
-            return session!;
-        }
-
-        throw new YdbAdoException(status);
-    }
 }
 # endif

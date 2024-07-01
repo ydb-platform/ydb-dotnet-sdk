@@ -32,6 +32,8 @@ public sealed class YdbConnection : DbConnection
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
     {
+        EnsureConnectionOpen();
+
         if (isolationLevel is not (Serializable or Unspecified))
         {
             throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel);
@@ -53,6 +55,8 @@ public sealed class YdbConnection : DbConnection
 
     public override void Close()
     {
+        EnsureConnectionClosed();
+
         CloseAsync().GetAwaiter().GetResult();
     }
 
@@ -66,6 +70,7 @@ public sealed class YdbConnection : DbConnection
         EnsureConnectionClosed();
 
         Session = await PoolManager.GetSession(ConnectionStringBuilder);
+        ConnectionState = ConnectionState.Open;
     }
 
     public override async Task CloseAsync()
@@ -79,8 +84,9 @@ public sealed class YdbConnection : DbConnection
                 await CurrentReader.CloseAsync();
 
                 CurrentReader = null;
-                ConnectionState = ConnectionState.Closed;
             }
+
+            ConnectionState = ConnectionState.Closed;
         }
         finally
         {
@@ -126,12 +132,6 @@ public sealed class YdbConnection : DbConnection
         YdbTransaction? ydbTransaction = null)
     {
         EnsureConnectionOpen();
-
-        if (CurrentReader != null)
-        {
-            throw new InvalidOperationException(
-                "There is already an open YdbDataReader. Check if the previously opened YdbDataReader has  been closed.");
-        }
 
         try
         {

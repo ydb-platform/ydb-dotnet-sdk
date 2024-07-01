@@ -159,9 +159,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         }
     }
 
+    private string Endpoint => $"{(UseTls ? "grpcs" : "grpc")}://{Host}:{Port}";
+
     internal Task<Driver> BuildDriver()
     {
-        return Driver.CreateInitialized(new DriverConfig(Host, Database), LoggerFactory);
+        return Driver.CreateInitialized(new DriverConfig(Endpoint, Database), LoggerFactory);
     }
 
     public override void Clear()

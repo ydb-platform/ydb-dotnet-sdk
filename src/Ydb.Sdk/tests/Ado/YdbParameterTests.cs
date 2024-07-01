@@ -90,7 +90,7 @@ public class YdbParameterTests
         public Func<YdbValue, T> FetchFun { get; }
     }
 
-    private class TestDataGenerator : IEnumerable<object[]>
+    public class TestDataGenerator : IEnumerable<object[]>
     {
         private readonly List<object[]> _data = new()
         {

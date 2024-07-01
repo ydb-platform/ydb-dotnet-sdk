@@ -84,6 +84,9 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                             return;
                         }
                     }
+
+                    // attach stream is closed
+                    session.IsActive = false;
                 }
                 catch (Driver.TransportException e)
                 {

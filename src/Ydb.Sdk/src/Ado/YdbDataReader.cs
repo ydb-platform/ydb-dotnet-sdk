@@ -339,29 +339,23 @@ public sealed class YdbDataReader : DbDataReader
     private async Task<State> NextExecPart()
     {
         _currentRowIndex = -1;
-        try
+
+        if (!await _stream.MoveNextAsync())
         {
-            if (!await _stream.MoveNextAsync())
-            {
-                return State.Closed;
-            }
-
-            var (resultSetIndex, resultSet) = _stream.Current;
-
-            _currentResultSet = resultSet?.FromProto() ?? Value.ResultSet.Empty;
-
-            if (resultSetIndex <= _resultSetIndex)
-            {
-                return State.ReadResultState;
-            }
-
-            _resultSetIndex = resultSetIndex;
-
-            return State.NewResultState;
+            return State.Closed;
         }
-        catch (Exception e)
+
+        var (resultSetIndex, resultSet) = _stream.Current;
+
+        _currentResultSet = resultSet?.FromProto() ?? Value.ResultSet.Empty;
+
+        if (resultSetIndex <= _resultSetIndex)
         {
-            throw new YdbAdoException("Unable to read data from the transport connection", e);
+            return State.ReadResultState;
         }
+
+        _resultSetIndex = resultSetIndex;
+
+        return State.NewResultState;
     }
 }
