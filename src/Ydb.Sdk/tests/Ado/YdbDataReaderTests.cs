@@ -42,8 +42,8 @@ public class YdbDataReaderTests
     {
         var reader = new YdbDataReader(SingleEnumeratorFailed());
 
-        Assert.Equal("Unable to read data from the transport connection",
-            Assert.Throws<YdbAdoException>(() => reader.Read()).Message);
+        Assert.Equal("Status: Aborted",
+            Assert.Throws<StatusUnsuccessfulException>(() => reader.Read()).Message);
     }
 
     [Fact]
@@ -51,8 +51,8 @@ public class YdbDataReaderTests
     {
         var reader = new YdbDataReader(SingleEnumeratorFailed());
 
-        Assert.Equal("Unable to read data from the transport connection",
-            Assert.Throws<YdbAdoException>(() => reader.NextResult()).Message);
+        Assert.Equal("Status: Aborted",
+            Assert.Throws<StatusUnsuccessfulException>(() => reader.NextResult()).Message);
     }
 
     [Fact]

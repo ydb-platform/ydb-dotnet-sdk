@@ -134,4 +134,23 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal("CommandTimeout can't be less than zero. (Parameter 'value')\nActual value was -1.",
             Assert.Throws<ArgumentOutOfRangeException>(() => dbCommand.CommandTimeout = -1).Message);
     }
+
+    [Fact]
+    public void ExecuteDbDataReader_WhenPreviousIsNotClosed_ThrowException()
+    {
+        using var connection = new YdbConnection();
+        connection.Open();
+
+        var dbCommand = connection.CreateCommand();
+
+        dbCommand.CommandText = "SELECT 1; SELECT 1;";
+
+        var ydbDataReader = dbCommand.ExecuteReader();
+
+        Assert.Equal("There is already an open YdbDataReader. " +
+                     "Check if the previously opened YdbDataReader has been closed.",
+            Assert.Throws<InvalidOperationException>(() => dbCommand.ExecuteReader()).Message);
+        ydbDataReader.Close();
+        Assert.True(ydbDataReader.IsClosed);
+    }
 }
