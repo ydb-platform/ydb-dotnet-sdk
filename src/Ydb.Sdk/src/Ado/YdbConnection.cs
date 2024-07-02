@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics;
 using Ydb.Sdk.Services.Query;
 using Ydb.Sdk.Value;
 using static System.Data.IsolationLevel;
@@ -10,6 +11,8 @@ namespace Ydb.Sdk.Ado;
 public sealed class YdbConnection : DbConnection
 {
     private static readonly YdbConnectionStringBuilder DefaultSettings = new();
+
+    private bool _disposed;
 
     private YdbConnectionStringBuilder ConnectionStringBuilder { get; set; }
 
@@ -34,12 +37,11 @@ public sealed class YdbConnection : DbConnection
     {
         EnsureConnectionOpen();
 
-        if (isolationLevel is not (Serializable or Unspecified))
+        return BeginTransaction(isolationLevel switch
         {
-            throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel);
-        }
-
-        return BeginTransaction();
+            Serializable or Unspecified => TxMode.SerializableRw,
+            _ => throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel)
+        });
     }
 
     public YdbTransaction BeginTransaction(TxMode txMode = TxMode.SerializableRw)
@@ -55,8 +57,6 @@ public sealed class YdbConnection : DbConnection
 
     public override void Close()
     {
-        EnsureConnectionClosed();
-
         CloseAsync().GetAwaiter().GetResult();
     }
 
@@ -176,5 +176,31 @@ public sealed class YdbConnection : DbConnection
         {
             throw new InvalidOperationException("ConnectionState: " + ConnectionState);
         }
+    }
+
+    /// <summary>
+    /// Releases all resources used by the <see cref="YdbConnection"/>.
+    /// </summary>
+    /// <param name="disposing"><see langword="true"/> when called from <see cref="Dispose"/>;
+    /// <see langword="false"/> when being called from the finalizer.</param>
+    protected override void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+        if (disposing)
+            Close();
+        _disposed = true;
+    }
+
+    /// <summary>
+    /// Releases all resources used by the <see cref="YdbConnection"/>.
+    /// </summary>
+    public override async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        await CloseAsync();
+        _disposed = true;
     }
 }
