@@ -159,15 +159,27 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         var (endpoint, channel) = GetChannel(settings.NodeId);
         var callInvoker = channel.CreateCallInvoker();
 
-        var call = callInvoker.AsyncServerStreamingCall(
-            method: method,
-            host: null,
-            options: GetCallOptions(settings, true),
-            request: request);
+        try
+        {
+            var call = callInvoker.AsyncServerStreamingCall(
+                method: method,
+                host: null,
+                options: GetCallOptions(settings, true),
+                request: request);
 
-        return new StreamIterator<TResponse>(
-            call,
-            _ => { PessimizeEndpoint(endpoint); });
+            return new StreamIterator<TResponse>(call, e =>
+            {
+                settings.RpcErrorHandler(e);
+                PessimizeEndpoint(endpoint);
+            });
+        }
+        catch (RpcException e)
+        {
+            settings.RpcErrorHandler(e);
+            PessimizeEndpoint(endpoint);
+
+            throw new TransportException(e);
+        }
     }
 
     private (string, GrpcChannel) GetChannel(long nodeId)
@@ -361,7 +373,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         }
     }
 
-    public class TransportException : Exception
+    public class TransportException : IOException
     {
         internal TransportException(RpcException e) : base($"Transport exception: {e.Message}", e)
         {

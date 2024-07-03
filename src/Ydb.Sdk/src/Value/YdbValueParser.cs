@@ -314,7 +314,7 @@ public partial class YdbValue
         }
     }
 
-    public class InvalidTypeException : Exception
+    public class InvalidTypeException : InvalidCastException
     {
         internal InvalidTypeException(string expectedType, string actualType)
             : base($"Invalid type of YDB value, expected: {expectedType}, actual: {actualType}.")

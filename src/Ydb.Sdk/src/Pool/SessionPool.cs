@@ -41,7 +41,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     protected abstract Task<(Status, TSession?)> CreateSession();
 
-    protected abstract Task<Status> DeleteSession();
+    protected abstract Task<Status> DeleteSession(string sessionId);
 
     // TODO Retry policy and may be move to SessionPool method
     internal async Task<Result<T>> ExecOnSession<T>(Func<TSession, Task<Result<T>>> onSession)
@@ -124,7 +124,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
     internal void OnStatus(Status status)
     {
         if (status.StatusCode is StatusCode.BadSession or StatusCode.SessionBusy or StatusCode.InternalError
-            or StatusCode.ClientTransportTimeout or StatusCode.Unavailable)
+            or StatusCode.ClientTransportTimeout or StatusCode.Unavailable or StatusCode.ClientTransportUnavailable)
         {
             IsActive = false;
         }

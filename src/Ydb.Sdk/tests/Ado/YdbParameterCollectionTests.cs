@@ -4,6 +4,7 @@ using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tests.Ado;
 
+[Trait("Category", "Unit")]
 public class YdbParameterCollectionTests
 {
     private readonly YdbParameterCollection _ydbParameterCollection;
