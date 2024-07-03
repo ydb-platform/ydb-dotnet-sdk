@@ -82,6 +82,9 @@ public class YdbParameterTests
         Assert.Equal("Value was either too large or too small for an Int16.",
             Assert.Throws<OverflowException>(() =>
                 new YdbParameter("$parameter", DbType.Int16) { Value = 1000000U }.YdbValue.GetUint64()).Message);
+        Assert.Equal("Value was either too large or too small for a UInt16.",
+            Assert.Throws<OverflowException>(() =>
+                new YdbParameter("$parameter", DbType.UInt16) { Value = -1 }.YdbValue.GetUint64()).Message);
     }
 
     public class Data<T>
