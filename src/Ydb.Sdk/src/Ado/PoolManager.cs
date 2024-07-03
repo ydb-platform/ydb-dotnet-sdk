@@ -50,6 +50,6 @@ internal static class SessionPoolExtension
             return session!;
         }
 
-        throw new YdbAdoException(status);
+        throw new YdbException(status);
     }
 }
