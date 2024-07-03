@@ -1,4 +1,4 @@
-namespace Ydb.Sdk.Ado;
+namespace Ydb.Sdk;
 
 public class YdbException : Exception
 {

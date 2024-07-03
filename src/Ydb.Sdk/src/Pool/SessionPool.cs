@@ -44,7 +44,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     protected abstract Task<Status> DeleteSession(string sessionId);
 
     // TODO Retry policy and may be move to SessionPool method
-    internal async Task<Result<T>> ExecOnSession<T>(Func<TSession, Task<Result<T>>> onSession)
+    internal async Task<T> ExecOnSession<T>(Func<TSession, Task<T>> onSession)
         where T : class
     {
         TSession? session = null;
@@ -65,7 +65,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             // _logger.LogError(); - todo
         }
-        catch (UnexpectedResultException)
+        catch (StatusUnsuccessfulException)
         {
             // _logger.LogError(); - todo
         }
@@ -98,7 +98,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     private void DeleteNotActiveSession(TSession session)
     {
-        _ = DeleteSession().ContinueWith(s =>
+        _ = DeleteSession(session.SessionId).ContinueWith(s =>
             _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result)
         );
     }

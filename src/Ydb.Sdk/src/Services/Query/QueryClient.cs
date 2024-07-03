@@ -8,7 +8,21 @@ namespace Ydb.Sdk.Services.Query;
 
 public class QueryClientConfig
 {
-    public int SizeSessionPool { get; set; } = 100;
+    public int MaxSessionPool
+    {
+        get => _masSessionPool;
+        set
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid max session pool: " + value);
+            }
+
+            _masSessionPool = value;
+        }
+    }
+
+    private int _masSessionPool = 100;
 }
 
 public class QueryClient : IAsyncDisposable
@@ -19,10 +33,11 @@ public class QueryClient : IAsyncDisposable
     {
         config ??= new QueryClientConfig();
 
-        _sessionPool = new SessionPool(driver, config.SizeSessionPool);
+        _sessionPool = new SessionPool(driver, config.MaxSessionPool);
     }
 
-    public async Task<ChannelReader<(Status, Value.ResultSet)>> Stream(string query,
+    public async Task<T> Stream<T>(string query,
+        
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
         ExecuteQuerySettings? settings = null, int channelBufferSize = 10)
     {
