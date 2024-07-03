@@ -1,12 +1,13 @@
 using System.Collections;
 using System.Data.Common;
+using Ydb.Query;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
 public sealed class YdbDataReader : DbDataReader
 {
-    private readonly IAsyncEnumerator<Query.ExecuteQueryResponsePart> _stream;
+    private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
     private readonly YdbTransaction? _ydbTransaction;
 
     private int _currentRowIndex = -1;
@@ -33,7 +34,7 @@ public sealed class YdbDataReader : DbDataReader
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
     private int RowsCount => CurrentResultSet.Rows.Count;
 
-    internal YdbDataReader(IAsyncEnumerator<Query.ExecuteQueryResponsePart> resultSetStream,
+    internal YdbDataReader(IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
         YdbTransaction? ydbTransaction = null)
     {
         ReaderState = State.NotStarted;
