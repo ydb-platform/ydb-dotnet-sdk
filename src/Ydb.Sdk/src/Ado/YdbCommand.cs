@@ -34,7 +34,7 @@ public sealed class YdbCommand : DbCommand
             return dataReader.RecordsAffected;
         }
 
-        throw new YdbAdoException("YDB server closed the stream");
+        throw new YdbException("YDB server closed the stream");
     }
 
     public override object? ExecuteScalar()

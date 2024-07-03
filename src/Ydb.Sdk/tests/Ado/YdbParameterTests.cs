@@ -13,9 +13,9 @@ public class YdbParameterTests
     [Fact]
     public void YdbValue_WhenValueIsNullAndDbTypeIsObject_ThrowException()
     {
-        Assert.Equal("Error converting null to YdbValue", Assert.Throws<YdbAdoException>(() =>
+        Assert.Equal("Error converting null to YdbValue", Assert.Throws<YdbException>(() =>
             new YdbParameter().YdbValue).Message);
-        Assert.Equal("Error converting System.Object to YdbValue", Assert.Throws<YdbAdoException>(() =>
+        Assert.Equal("Error converting System.Object to YdbValue", Assert.Throws<YdbException>(() =>
             new YdbParameter("$param", new object()).YdbValue).Message);
     }
 
@@ -44,7 +44,7 @@ public class YdbParameterTests
         Assert.Null(new YdbParameter("$parameter", DbType.DateTimeOffset) { IsNullable = true }
             .YdbValue.GetOptionalTimestamp());
         Assert.Equal(dateTimeOffset.UtcDateTime, new YdbParameter("$parameter", DbType.DateTimeOffset, dateTimeOffset)
-            { IsNullable = true }.YdbValue.GetOptionalTimestamp());
+            { IsNullable = true }.YdbValue.GetTimestamp());
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class YdbParameterTests
     public void YdbValue_WhenNoSupportedDbType_ThrowException(DbType dbType, string name)
     {
         Assert.Equal("Ydb don't supported this DbType: " + name,
-            Assert.Throws<YdbAdoException>(() => new YdbParameter("$parameter", dbType)
+            Assert.Throws<YdbException>(() => new YdbParameter("$parameter", dbType)
                 { IsNullable = true }.YdbValue).Message);
     }
 
@@ -71,7 +71,7 @@ public class YdbParameterTests
     {
         Assert.Equal("$parameter", new YdbParameter { ParameterName = "$parameter" }.ParameterName);
         Assert.Equal("ParameterName must not be null!",
-            Assert.Throws<YdbAdoException>(() => new YdbParameter { ParameterName = null }).Message);
+            Assert.Throws<YdbException>(() => new YdbParameter { ParameterName = null }).Message);
     }
 
     public class Data<T>

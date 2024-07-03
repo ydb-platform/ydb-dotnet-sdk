@@ -43,7 +43,7 @@ public sealed class YdbParameter : DbParameter
     public override string ParameterName
     {
         get => _parameterName;
-        set => _parameterName = value ?? throw new YdbAdoException("ParameterName must not be null!");
+        set => _parameterName = value ?? throw new YdbException("ParameterName must not be null!");
     }
 
     [AllowNull] [DefaultValue("")] public override string SourceColumn { get; set; } = Empty;
@@ -66,27 +66,27 @@ public sealed class YdbParameter : DbParameter
                 DbType.String or DbType.AnsiString or DbType.AnsiStringFixedLength or DbType.StringFixedLength =>
                     Cast<string>(YdbValue.MakeOptionalUtf8, YdbValue.MakeUtf8),
                 DbType.Binary => Cast<byte[]>(YdbValue.MakeOptionalString, YdbValue.MakeString),
-                DbType.Byte => CastPrimitive<byte>(YdbValue.MakeOptionalUint8, YdbValue.MakeUint8),
-                DbType.Boolean => CastPrimitive<bool>(YdbValue.MakeOptionalBool, YdbValue.MakeBool),
-                DbType.Int32 => CastPrimitive<int>(YdbValue.MakeOptionalInt32, YdbValue.MakeInt32),
-                DbType.Int64 => CastPrimitive<long>(YdbValue.MakeOptionalInt64, YdbValue.MakeInt64),
-                DbType.UInt32 => CastPrimitive<uint>(YdbValue.MakeOptionalUint32, YdbValue.MakeUint32),
-                DbType.UInt64 => CastPrimitive<ulong>(YdbValue.MakeOptionalUint64, YdbValue.MakeUint64),
-                DbType.SByte => CastPrimitive<sbyte>(YdbValue.MakeOptionalInt8, YdbValue.MakeInt8),
-                DbType.Int16 => CastPrimitive<short>(YdbValue.MakeOptionalInt16, YdbValue.MakeInt16),
-                DbType.UInt16 => CastPrimitive<ushort>(YdbValue.MakeOptionalUint16, YdbValue.MakeUint16),
-                DbType.Double => CastPrimitive<double>(YdbValue.MakeOptionalDouble, YdbValue.MakeDouble),
-                DbType.Single => CastPrimitive<float>(YdbValue.MakeOptionalFloat, YdbValue.MakeFloat),
-                DbType.Date => CastPrimitive<DateTime>(YdbValue.MakeOptionalDate, YdbValue.MakeDate),
-                DbType.Time or DbType.DateTime => CastPrimitive<DateTime>(YdbValue.MakeOptionalDatetime,
-                    YdbValue.MakeDatetime),
-                DbType.DateTime2 => CastPrimitive<DateTime>(YdbValue.MakeOptionalTimestamp, YdbValue.MakeTimestamp),
-                DbType.DateTimeOffset => CastPrimitive<DateTimeOffset>(
-                    offset => YdbValue.MakeOptionalTimestamp(offset?.UtcDateTime),
-                    offset => YdbValue.MakeTimestamp(offset.UtcDateTime)),
-                DbType.Decimal or DbType.Currency => CastPrimitive<decimal>(YdbValue.MakeOptionalDecimal,
-                    YdbValue.MakeDecimal),
-                DbType.VarNumeric or DbType.Xml or DbType.Guid => throw new YdbAdoException(
+                DbType.Byte => CastPrimitive(YdbValue.MakeOptionalUint8, YdbValue.MakeUint8, Convert.ToByte),
+                DbType.Boolean => CastPrimitive(YdbValue.MakeOptionalBool, YdbValue.MakeBool, Convert.ToBoolean),
+                DbType.Int32 => CastPrimitive(YdbValue.MakeOptionalInt32, YdbValue.MakeInt32, Convert.ToInt32),
+                DbType.Int64 => CastPrimitive(YdbValue.MakeOptionalInt64, YdbValue.MakeInt64, Convert.ToInt64),
+                DbType.UInt32 => CastPrimitive(YdbValue.MakeOptionalUint32, YdbValue.MakeUint32, Convert.ToUInt32),
+                DbType.UInt64 => CastPrimitive(YdbValue.MakeOptionalUint64, YdbValue.MakeUint64, Convert.ToUInt64),
+                DbType.SByte => CastPrimitive(YdbValue.MakeOptionalInt8, YdbValue.MakeInt8, Convert.ToSByte),
+                DbType.Int16 => CastPrimitive(YdbValue.MakeOptionalInt16, YdbValue.MakeInt16, Convert.ToInt16),
+                DbType.UInt16 => CastPrimitive(YdbValue.MakeOptionalUint16, YdbValue.MakeUint16, Convert.ToUInt16),
+                DbType.Double => CastPrimitive(YdbValue.MakeOptionalDouble, YdbValue.MakeDouble, Convert.ToDouble),
+                DbType.Single => CastPrimitive(YdbValue.MakeOptionalFloat, YdbValue.MakeFloat, Convert.ToSingle),
+                DbType.Date => CastPrimitive(YdbValue.MakeOptionalDate, YdbValue.MakeDate, Convert.ToDateTime),
+                DbType.Time or DbType.DateTime => CastPrimitive(YdbValue.MakeOptionalDatetime, YdbValue.MakeDatetime,
+                    Convert.ToDateTime),
+                DbType.DateTime2 => CastPrimitive(YdbValue.MakeOptionalTimestamp, YdbValue.MakeTimestamp,
+                    Convert.ToDateTime),
+                DbType.DateTimeOffset => CastPrimitive(offset => YdbValue.MakeOptionalTimestamp(offset?.UtcDateTime),
+                    offset => YdbValue.MakeTimestamp(offset.UtcDateTime), o => (DateTimeOffset)o),
+                DbType.Decimal or DbType.Currency => CastPrimitive(YdbValue.MakeOptionalDecimal, YdbValue.MakeDecimal,
+                    Convert.ToDecimal),
+                DbType.VarNumeric or DbType.Xml or DbType.Guid => throw new YdbException(
                     $"Ydb don't supported this DbType: {DbType}"),
                 _ => throw new ArgumentOutOfRangeException()
             };
@@ -114,42 +114,32 @@ public sealed class YdbParameter : DbParameter
             Guid => DbType.Guid,
             DateTime => DbType.DateTime,
             DateTimeOffset => DbType.DateTimeOffset,
-            _ => throw new YdbAdoException($"Error converting {Value?.GetType().ToString() ?? "null"} to YdbValue")
+            _ => throw new YdbException($"Error converting {Value?.GetType().ToString() ?? "null"} to YdbValue")
         };
         IsNullable = false;
 
         return YdbValue;
     }
 
-    private YdbValue Cast<T>(Func<T?, YdbValue> nullableValue, Func<T, YdbValue> notNullValue) where T : class
+    private YdbValue Cast<T>(Func<T?, YdbValue> makeOptionalYdbValue, Func<T, YdbValue> makeYdbValue) where T : class
     {
-        if (IsNullable)
+        return Value switch
         {
-            return nullableValue(Value is DBNull ? null : (T?)Value);
-        }
-
-        if (Value is T v)
-        {
-            return notNullValue(v);
-        }
-
-        throw new YdbAdoException($"Invalidate parameter state: expected value with type " +
-                                  $"{typeof(T) + (IsNullable ? "" : ", isNullable = false")}");
+            T value => makeYdbValue(value), // YdbValue will set to optional YdbValue type - it's ok
+            DBNull or null when IsNullable => makeOptionalYdbValue(null),
+            _ => throw new InvalidCastException($"Expected value with type {typeof(T)}, but actual {Value?.GetType()}")
+        };
     }
 
-    private YdbValue CastPrimitive<T>(Func<T?, YdbValue> nullableValue, Func<T, YdbValue> notNullValue) where T : struct
+    private YdbValue CastPrimitive<T>(Func<T?, YdbValue> makeOptionalYdbValue, Func<T, YdbValue> makeYdbValue,
+        Func<object, T> converter) where T : struct
     {
-        if (IsNullable)
+        return Value switch
         {
-            return nullableValue((T?)Value);
-        }
-
-        if (Value is T v)
-        {
-            return notNullValue(v);
-        }
-
-        throw new YdbAdoException($"Invalidate parameter state: expected value with type " +
-                                  $"{typeof(T) + (IsNullable ? "" : ", isNullable = false")}");
+            T value => makeYdbValue(value), // YdbValue will set to optional YdbValue type - it's ok
+            DBNull or null when IsNullable => makeOptionalYdbValue(null),
+            IConvertible convertible => makeYdbValue(converter.Invoke(convertible)),
+            _ => throw new InvalidCastException($"Expected value with type {typeof(T)}, but actual {Value?.GetType()}")
+        };
     }
 }

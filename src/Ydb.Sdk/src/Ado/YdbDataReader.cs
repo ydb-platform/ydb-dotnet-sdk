@@ -324,7 +324,7 @@ public sealed class YdbDataReader : DbDataReader
                 (typeof(string), GetString(ordinal)),
             YdbTypeId.String => (typeof(byte[]), ydbValue.GetString()),
             YdbTypeId.DecimalType => (typeof(decimal), ydbValue.GetDecimal()),
-            _ => throw new YdbAdoException($"Unsupported ydb type {ydbValue.TypeId}")
+            _ => throw new YdbException($"Unsupported ydb type {ydbValue.TypeId}")
         };
     }
 
