@@ -10,6 +10,7 @@ public sealed class YdbTransaction : DbTransaction
     private readonly TxMode _txMode;
 
     internal string? TxId { get; set; }
+    internal bool Completed { get; private set; }
 
     internal TransactionControl TransactionControl => TxId == null
         ? new TransactionControl { BeginTx = _txMode.TransactionSettings() }
@@ -29,14 +30,7 @@ public sealed class YdbTransaction : DbTransaction
     // TODO propagate cancellation token
     public override async Task CommitAsync(CancellationToken cancellationToken = new())
     {
-        if (TxId == null)
-        {
-            return;
-        }
-
-        var status = await DbConnection.Session.CommitTransaction(TxId);
-
-        status.EnsureSuccess();
+        await FinishTransaction(txId => DbConnection.Session.CommitTransaction(txId));
     }
 
     public override void Rollback()
@@ -47,14 +41,7 @@ public sealed class YdbTransaction : DbTransaction
     // TODO propagate cancellation token
     public override async Task RollbackAsync(CancellationToken cancellationToken = new())
     {
-        if (TxId == null)
-        {
-            return;
-        }
-
-        var status = await DbConnection.Session.RollbackTransaction(TxId);
-
-        status.EnsureSuccess();
+        await FinishTransaction(txId => DbConnection.Session.RollbackTransaction(txId));
     }
 
     protected override YdbConnection DbConnection { get; }
@@ -62,4 +49,28 @@ public sealed class YdbTransaction : DbTransaction
     public override IsolationLevel IsolationLevel => _txMode == TxMode.SerializableRw
         ? IsolationLevel.Serializable
         : IsolationLevel.Unspecified;
+
+    private async Task FinishTransaction(Func<string, Task<Status>> finishMethod)
+    {
+        if (Completed)
+        {
+            throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
+        }
+
+        if (DbConnection.LastReader is { IsClosed: false })
+        {
+            throw new YdbOperationInProgressException(DbConnection);
+        }
+
+        Completed = true;
+
+        if (TxId == null)
+        {
+            return; // transaction isn't started
+        }
+
+        var status = await finishMethod(TxId);
+
+        status.EnsureSuccess();
+    }
 }

@@ -6,7 +6,8 @@ namespace Ydb.Sdk.Ado;
 
 public sealed class YdbDataReader : DbDataReader
 {
-    private readonly IAsyncEnumerator<(long, ResultSet?)> _stream;
+    private readonly IAsyncEnumerator<Query.ExecuteQueryResponsePart> _stream;
+    private readonly YdbTransaction? _ydbTransaction;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1; // not fetched result set
@@ -32,10 +33,12 @@ public sealed class YdbDataReader : DbDataReader
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
     private int RowsCount => CurrentResultSet.Rows.Count;
 
-    internal YdbDataReader(IAsyncEnumerator<(long, ResultSet?)> resultSetStream)
+    internal YdbDataReader(IAsyncEnumerator<Query.ExecuteQueryResponsePart> resultSetStream,
+        YdbTransaction? ydbTransaction = null)
     {
         ReaderState = State.NotStarted;
         _stream = resultSetStream;
+        _ydbTransaction = ydbTransaction;
     }
 
     public override bool GetBoolean(int ordinal)
@@ -345,17 +348,34 @@ public sealed class YdbDataReader : DbDataReader
             return State.Closed;
         }
 
-        var (resultSetIndex, resultSet) = _stream.Current;
+        var part = _stream.Current;
 
-        _currentResultSet = resultSet?.FromProto() ?? Value.ResultSet.Empty;
+        var status = Status.FromProto(part.Status, part.Issues);
 
-        if (resultSetIndex <= _resultSetIndex)
+        if (status.IsNotSuccess)
+        {
+            throw new YdbException(status);
+        }
+
+        _currentResultSet = part.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
+
+        if (_ydbTransaction != null)
+        {
+            _ydbTransaction.TxId ??= part.TxMeta.Id;
+        }
+
+        if (part.ResultSetIndex <= _resultSetIndex)
         {
             return State.ReadResultState;
         }
 
-        _resultSetIndex = resultSetIndex;
+        _resultSetIndex = part.ResultSetIndex;
 
         return State.NewResultState;
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        await CloseAsync();
     }
 }

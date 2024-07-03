@@ -147,9 +147,8 @@ SELECT Key, Value FROM AS_TABLE($new_data);
 
         var ydbDataReader = dbCommand.ExecuteReader();
 
-        Assert.Equal("There is already an open YdbDataReader. " +
-                     "Check if the previously opened YdbDataReader has been closed.",
-            Assert.Throws<InvalidOperationException>(() => dbCommand.ExecuteReader()).Message);
+        Assert.Equal("A command is already in progress: SELECT 1; SELECT 1;",
+            Assert.Throws<YdbOperationInProgressException>(() => dbCommand.ExecuteReader()).Message);
         ydbDataReader.Close();
         Assert.True(ydbDataReader.IsClosed);
     }

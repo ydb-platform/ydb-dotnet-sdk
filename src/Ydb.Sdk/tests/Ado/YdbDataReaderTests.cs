@@ -1,6 +1,5 @@
-using Google.Protobuf.Collections;
 using Xunit;
-using Ydb.Issue;
+using Ydb.Query;
 using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tests.Ado;
@@ -40,19 +39,19 @@ public class YdbDataReaderTests
     [Fact]
     public void Read_WhenNextResultThrowException_ThrowException()
     {
-        var reader = new YdbDataReader(SingleEnumeratorFailed());
+        var reader = new YdbDataReader(SingleEnumeratorFailed);
 
         Assert.Equal("Status: Aborted",
-            Assert.Throws<StatusUnsuccessfulException>(() => reader.Read()).Message);
+            Assert.Throws<YdbException>(() => reader.Read()).Message);
     }
 
     [Fact]
     public void NextResult_WhenNextResultThrowException_ThrowException()
     {
-        var reader = new YdbDataReader(SingleEnumeratorFailed());
+        var reader = new YdbDataReader(SingleEnumeratorFailed);
 
         Assert.Equal("Status: Aborted",
-            Assert.Throws<StatusUnsuccessfulException>(() => reader.NextResult()).Message);
+            Assert.Throws<YdbException>(() => reader.NextResult()).Message);
     }
 
     [Fact]
@@ -105,7 +104,7 @@ public class YdbDataReaderTests
         Assert.False(reader.Read());
     }
 
-    private static MockAsyncEnumerator<(long, ResultSet?)> EnumeratorSuccess(int size = 1,
+    private static MockAsyncEnumerator<ExecuteQueryResponsePart> EnumeratorSuccess(int size = 1,
         bool longFirstResultSet = false)
     {
         var result = ResultSet.Parser.ParseJson(
@@ -114,29 +113,23 @@ public class YdbDataReaderTests
             "\"rows\": [ { \"items\": [ { \"boolValue\": true } ] } ] }"
         );
 
-        var list = new List<(long, ResultSet?)>();
+        var list = new List<ExecuteQueryResponsePart>();
 
         if (longFirstResultSet)
         {
-            list.Add((0, result));
+            list.Add(new ExecuteQueryResponsePart
+                { ResultSetIndex = 0, Status = StatusIds.Types.StatusCode.Success, ResultSet = result });
         }
 
         for (var i = 0; i < size; i++)
         {
-            list.Add((i, result));
+            list.Add(new ExecuteQueryResponsePart
+                { ResultSetIndex = i, Status = StatusIds.Types.StatusCode.Success, ResultSet = result });
         }
 
-        return new MockAsyncEnumerator<(long, ResultSet?)>(list);
+        return new MockAsyncEnumerator<ExecuteQueryResponsePart>(list);
     }
 
-    private static async IAsyncEnumerator<(long, ResultSet?)> SingleEnumeratorFailed()
-    {
-        Console.WriteLine("Before any yield");
-        Status.FromProto(StatusIds.Types.StatusCode.Aborted, new RepeatedField<IssueMessage>())
-            .EnsureSuccess();
-
-        await Task.Delay(100);
-
-        yield return (1, null);
-    }
+    private static MockAsyncEnumerator<ExecuteQueryResponsePart> SingleEnumeratorFailed =>
+        new(new List<ExecuteQueryResponsePart> { new() { Status = StatusIds.Types.StatusCode.Aborted } });
 }

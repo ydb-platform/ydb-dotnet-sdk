@@ -1,8 +1,6 @@
 using System.Data;
 using System.Data.Common;
-using System.Diagnostics;
 using Ydb.Sdk.Services.Query;
-using Ydb.Sdk.Value;
 using static System.Data.IsolationLevel;
 using Session = Ydb.Sdk.Services.Query.Pool.Session;
 
@@ -44,6 +42,11 @@ public sealed class YdbConnection : DbConnection
         });
     }
 
+    public new YdbTransaction BeginTransaction(IsolationLevel isolationLevel)
+    {
+        return BeginDbTransaction(isolationLevel);
+    }
+
     public YdbTransaction BeginTransaction(TxMode txMode = TxMode.SerializableRw)
     {
         EnsureConnectionOpen();
@@ -79,11 +82,9 @@ public sealed class YdbConnection : DbConnection
 
         try
         {
-            if (CurrentReader != null)
+            if (LastReader is { IsClosed: false })
             {
-                await CurrentReader.CloseAsync();
-
-                CurrentReader = null;
+                await LastReader.CloseAsync();
             }
 
             ConnectionState = ConnectionState.Closed;
@@ -113,7 +114,9 @@ public sealed class YdbConnection : DbConnection
     public override ConnectionState State => ConnectionState;
 
     private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
-    internal YdbDataReader? CurrentReader { get; set; }
+
+    internal YdbDataReader? LastReader { get; set; }
+    internal string LastCommand { get; set; } = string.Empty;
 
     public override string DataSource => string.Empty; // TODO
     public override string ServerVersion => string.Empty; // TODO
@@ -125,41 +128,9 @@ public sealed class YdbConnection : DbConnection
         return new YdbCommand(this);
     }
 
-    internal async IAsyncEnumerator<(long, ResultSet?)> ExecuteQuery(
-        string query,
-        Dictionary<string, YdbValue> parameters,
-        ExecuteQuerySettings executeQuerySettings,
-        YdbTransaction? ydbTransaction = null)
+    public new YdbCommand CreateCommand()
     {
-        EnsureConnectionOpen();
-
-        try
-        {
-            executeQuerySettings.RpcErrorHandler = e => { Session.OnStatus(e.Status.ConvertStatus()); };
-
-            await using var streamIterator = Session.ExecuteQuery(query, parameters, executeQuerySettings,
-                ydbTransaction?.TransactionControl); // closing grpc stream when will close this IAsyncEnumerator
-
-            await foreach (var part in streamIterator)
-            {
-                var status = Status.FromProto(part.Status, part.Issues);
-
-                Session.OnStatus(status);
-
-                status.EnsureSuccess();
-
-                if (ydbTransaction != null)
-                {
-                    ydbTransaction.TxId ??= part.TxMeta.Id;
-                }
-
-                yield return (part.ResultSetIndex, part.ResultSet);
-            }
-        }
-        finally
-        {
-            CurrentReader = null;
-        }
+        return CreateDbCommand();
     }
 
     private void EnsureConnectionOpen()
