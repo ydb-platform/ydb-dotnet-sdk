@@ -14,7 +14,18 @@ public sealed class YdbConnection : DbConnection
 
     private YdbConnectionStringBuilder ConnectionStringBuilder { get; set; }
 
-    internal Session Session { get; private set; } = null!;
+    internal Session Session
+    {
+        get
+        {
+            EnsureConnectionOpen();
+
+            return _session;
+        }
+        private set => _session = value;
+    }
+
+    private Session _session = null!;
 
     public YdbConnection()
     {
@@ -78,7 +89,10 @@ public sealed class YdbConnection : DbConnection
 
     public override async Task CloseAsync()
     {
-        EnsureConnectionOpen();
+        if (State == ConnectionState.Closed)
+        {
+            return;
+        }
 
         try
         {
@@ -91,7 +105,7 @@ public sealed class YdbConnection : DbConnection
         }
         finally
         {
-            Session.Release();
+            _session.Release();
         }
     }
 
@@ -117,6 +131,7 @@ public sealed class YdbConnection : DbConnection
 
     internal YdbDataReader? LastReader { get; set; }
     internal string LastCommand { get; set; } = string.Empty;
+    internal bool IsBusy => LastReader is { IsClosed: false };
 
     public override string DataSource => string.Empty; // TODO
     public override string ServerVersion => string.Empty; // TODO
@@ -145,7 +160,7 @@ public sealed class YdbConnection : DbConnection
     {
         if (ConnectionState != ConnectionState.Closed)
         {
-            throw new InvalidOperationException("ConnectionState: " + ConnectionState);
+            throw new InvalidOperationException("Connection already open");
         }
     }
 

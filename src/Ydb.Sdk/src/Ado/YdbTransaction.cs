@@ -57,7 +57,7 @@ public sealed class YdbTransaction : DbTransaction
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
         }
 
-        if (DbConnection.LastReader is { IsClosed: false })
+        if (DbConnection.IsBusy)
         {
             throw new YdbOperationInProgressException(DbConnection);
         }
