@@ -157,7 +157,22 @@ public class YdbTransactionTests : IAsyncLifetime
         Assert.Equal(true, ydbCommand.ExecuteScalar());
 
         connection.Close();
-        Assert.Equal("The connection is closed",
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbTransaction.Commit()).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbTransaction.Rollback()).Message);
+    }
+
+    [Fact]
+    public void Commit_WhenConnectionIsClosedAndTxDoesNotStarted_ThrowException()
+    {
+        using var connection = new YdbConnection();
+        connection.Open();
+
+        var ydbTransaction = connection.BeginTransaction();
+        connection.Close();
+
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             Assert.Throws<InvalidOperationException>(() => ydbTransaction.Commit()).Message);
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             Assert.Throws<InvalidOperationException>(() => ydbTransaction.Rollback()).Message);

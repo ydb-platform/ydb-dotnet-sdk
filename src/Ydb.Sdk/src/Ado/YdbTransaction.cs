@@ -52,7 +52,7 @@ public sealed class YdbTransaction : DbTransaction
 
     private async Task FinishTransaction(Func<string, Task<Status>> finishMethod)
     {
-        if (Completed)
+        if (Completed || DbConnection.State == ConnectionState.Closed)
         {
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
         }

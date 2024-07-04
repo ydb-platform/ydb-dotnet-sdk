@@ -101,6 +101,11 @@ public sealed class YdbConnection : DbConnection
                 await LastReader.CloseAsync();
             }
 
+            if (LastTransaction is { Completed: false })
+            {
+                await LastTransaction.RollbackAsync();
+            }
+
             ConnectionState = ConnectionState.Closed;
         }
         finally
@@ -131,6 +136,7 @@ public sealed class YdbConnection : DbConnection
 
     internal YdbDataReader? LastReader { get; set; }
     internal string LastCommand { get; set; } = string.Empty;
+    internal YdbTransaction? LastTransaction { get; set; }
     internal bool IsBusy => LastReader is { IsClosed: false };
 
     public override string DataSource => string.Empty; // TODO
