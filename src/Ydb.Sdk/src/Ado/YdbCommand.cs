@@ -108,7 +108,7 @@ public sealed class YdbCommand : DbCommand
 
     protected override DbTransaction? DbTransaction
     {
-        get => _ydbTransaction;
+        get => Transaction;
         set
         {
             if (value is null or YdbTransaction)
@@ -123,6 +123,20 @@ public sealed class YdbCommand : DbCommand
         }
     }
 
+    public new YdbTransaction? Transaction
+    {
+        get
+        {
+            if (_ydbTransaction?.Completed ?? false)
+            {
+                _ydbTransaction = null;
+            }
+
+            return _ydbTransaction;
+        }
+        set => _ydbTransaction = value;
+    }
+
     private YdbTransaction? _ydbTransaction;
 
     public override bool DesignTimeVisible { get; set; }
@@ -134,20 +148,20 @@ public sealed class YdbCommand : DbCommand
 
     protected override YdbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
-        if (YdbConnection.CurrentReader != null)
+        if (YdbConnection.LastReader is { IsClosed: false })
         {
-            throw new InvalidOperationException(
-                "There is already an open YdbDataReader. Check if the previously opened YdbDataReader has been closed.");
+            throw new YdbOperationInProgressException(YdbConnection);
         }
 
         var execSettings = CommandTimeout > 0
             ? new ExecuteQuerySettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
             : ExecuteQuerySettings.DefaultInstance;
 
-        var ydbDataReader = new YdbDataReader(YdbConnection.ExecuteQuery(_commandText,
-            DbParameterCollection.YdbParameters, execSettings, _ydbTransaction));
+        var ydbDataReader = new YdbDataReader(YdbConnection.Session.ExecuteQuery(_commandText,
+            DbParameterCollection.YdbParameters, execSettings, Transaction?.TransactionControl), Transaction);
 
-        YdbConnection.CurrentReader = ydbDataReader;
+        YdbConnection.LastReader = ydbDataReader;
+        YdbConnection.LastCommand = CommandText;
 
         return ydbDataReader;
     }
