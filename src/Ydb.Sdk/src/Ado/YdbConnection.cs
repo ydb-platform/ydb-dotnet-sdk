@@ -1,7 +1,6 @@
 using System.Data;
 using System.Data.Common;
 using Ydb.Sdk.Services.Query;
-using Ydb.Sdk.Value;
 using static System.Data.IsolationLevel;
 using Session = Ydb.Sdk.Services.Query.Session;
 
@@ -11,9 +10,22 @@ public sealed class YdbConnection : DbConnection
 {
     private static readonly YdbConnectionStringBuilder DefaultSettings = new();
 
+    private bool _disposed;
+
     private YdbConnectionStringBuilder ConnectionStringBuilder { get; set; }
 
-    internal Session Session { get; private set; } = null!;
+    internal Session Session
+    {
+        get
+        {
+            EnsureConnectionOpen();
+
+            return _session;
+        }
+        private set => _session = value;
+    }
+
+    private Session _session = null!;
 
     public YdbConnection()
     {
@@ -34,12 +46,16 @@ public sealed class YdbConnection : DbConnection
     {
         EnsureConnectionOpen();
 
-        if (isolationLevel is not (Serializable or Unspecified))
+        return BeginTransaction(isolationLevel switch
         {
-            throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel);
-        }
+            Serializable or Unspecified => TxMode.SerializableRw,
+            _ => throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel)
+        });
+    }
 
-        return BeginTransaction();
+    public new YdbTransaction BeginTransaction(IsolationLevel isolationLevel)
+    {
+        return BeginDbTransaction(isolationLevel);
     }
 
     public YdbTransaction BeginTransaction(TxMode txMode = TxMode.SerializableRw)
@@ -55,8 +71,6 @@ public sealed class YdbConnection : DbConnection
 
     public override void Close()
     {
-        EnsureConnectionClosed();
-
         CloseAsync().GetAwaiter().GetResult();
     }
 
@@ -75,22 +89,28 @@ public sealed class YdbConnection : DbConnection
 
     public override async Task CloseAsync()
     {
-        EnsureConnectionOpen();
+        if (State == ConnectionState.Closed)
+        {
+            return;
+        }
 
         try
         {
-            if (CurrentReader != null)
+            if (LastReader is { IsClosed: false })
             {
-                await CurrentReader.CloseAsync();
+                await LastReader.CloseAsync();
+            }
 
-                CurrentReader = null;
+            if (LastTransaction is { Completed: false })
+            {
+                await LastTransaction.RollbackAsync();
             }
 
             ConnectionState = ConnectionState.Closed;
         }
         finally
         {
-            Session.Release();
+            _session.Release();
         }
     }
 
@@ -113,7 +133,11 @@ public sealed class YdbConnection : DbConnection
     public override ConnectionState State => ConnectionState;
 
     private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
-    internal YdbDataReader? CurrentReader { get; set; }
+
+    internal YdbDataReader? LastReader { get; set; }
+    internal string LastCommand { get; set; } = string.Empty;
+    internal YdbTransaction? LastTransaction { get; set; }
+    internal bool IsBusy => LastReader is { IsClosed: false };
 
     public override string DataSource => string.Empty; // TODO
     public override string ServerVersion => string.Empty; // TODO
@@ -125,41 +149,9 @@ public sealed class YdbConnection : DbConnection
         return new YdbCommand(this);
     }
 
-    internal async IAsyncEnumerator<(long, ResultSet?)> ExecuteQuery(
-        string query,
-        Dictionary<string, YdbValue> parameters,
-        ExecuteQuerySettings executeQuerySettings,
-        YdbTransaction? ydbTransaction = null)
+    public new YdbCommand CreateCommand()
     {
-        EnsureConnectionOpen();
-
-        try
-        {
-            executeQuerySettings.RpcErrorHandler = e => { Session.OnStatus(e.Status.ConvertStatus()); };
-
-            await using var streamIterator = Session.ExecuteQuery(query, parameters, executeQuerySettings,
-                ydbTransaction?.TransactionControl); // closing grpc stream when will close this IAsyncEnumerator
-
-            await foreach (var part in streamIterator)
-            {
-                var status = Status.FromProto(part.Status, part.Issues);
-
-                Session.OnStatus(status);
-
-                status.EnsureSuccess();
-
-                if (ydbTransaction != null)
-                {
-                    ydbTransaction.TxId ??= part.TxMeta.Id;
-                }
-
-                yield return (part.ResultSetIndex, part.ResultSet);
-            }
-        }
-        finally
-        {
-            CurrentReader = null;
-        }
+        return CreateDbCommand();
     }
 
     private void EnsureConnectionOpen()
@@ -174,7 +166,33 @@ public sealed class YdbConnection : DbConnection
     {
         if (ConnectionState != ConnectionState.Closed)
         {
-            throw new InvalidOperationException("ConnectionState: " + ConnectionState);
+            throw new InvalidOperationException("Connection already open");
         }
+    }
+
+    /// <summary>
+    /// Releases all resources used by the <see cref="YdbConnection"/>.
+    /// </summary>
+    /// <param name="disposing"><see langword="true"/> when called from <see cref="Dispose"/>;
+    /// <see langword="false"/> when being called from the finalizer.</param>
+    protected override void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+        if (disposing)
+            Close();
+        _disposed = true;
+    }
+
+    /// <summary>
+    /// Releases all resources used by the <see cref="YdbConnection"/>.
+    /// </summary>
+    public override async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        await CloseAsync();
+        _disposed = true;
     }
 }
