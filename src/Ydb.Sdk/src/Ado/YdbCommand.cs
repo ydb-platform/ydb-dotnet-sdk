@@ -162,6 +162,7 @@ public sealed class YdbCommand : DbCommand
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;
+        YdbConnection.LastTransaction = Transaction;
 
         return ydbDataReader;
     }
