@@ -4,7 +4,7 @@ using Ydb.Query.V1;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Value;
 
-namespace Ydb.Sdk.Services.Query.Pool;
+namespace Ydb.Sdk.Services.Query;
 
 internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 {
@@ -126,7 +126,7 @@ internal class Session : SessionBase<Session>
         _driver = driver;
     }
 
-    internal Driver.StreamIterator<Ydb.Query.ExecuteQueryResponsePart> ExecuteQuery(
+    internal Driver.StreamIterator<ExecuteQueryResponsePart> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue>? parameters,
         ExecuteQuerySettings? settings,
@@ -139,9 +139,9 @@ internal class Session : SessionBase<Session>
         var request = new ExecuteQueryRequest
         {
             SessionId = SessionId,
-            ExecMode = Ydb.Query.ExecMode.Execute,
+            ExecMode = ExecMode.Execute,
             QueryContent = new QueryContent { Text = query, Syntax = (Ydb.Query.Syntax)settings.Syntax },
-            StatsMode = Ydb.Query.StatsMode.None,
+            StatsMode = StatsMode.None,
             TxControl = txControl
         };
 

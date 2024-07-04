@@ -1,4 +1,5 @@
 using Ydb.Query;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
@@ -79,14 +80,49 @@ internal static class TxModeExtensions
 
 public class ExecuteQueryPart
 {
-    public Status Status { get; }
     public Value.ResultSet? ResultSet { get; }
     public string? TxId { get; }
 
-    internal ExecuteQueryPart(Status status, Value.ResultSet? resultSet, string? txId)
+    public long ResultSetIndex { get; }
+
+    internal ExecuteQueryPart(ExecuteQueryResponsePart part)
     {
-        Status = status;
-        ResultSet = resultSet;
-        TxId = txId;
+        ResultSet = part.ResultSet?.FromProto();
+        TxId = part.TxMeta.Id;
+        ResultSetIndex = part.ResultSetIndex;
+    }
+}
+
+public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAsyncEnumerable<ExecuteQueryPart>
+{
+    private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
+
+    internal ExecuteQueryStream(IAsyncEnumerator<ExecuteQueryResponsePart> stream)
+    {
+        _stream = stream;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        return _stream.DisposeAsync();
+    }
+
+    public async ValueTask<bool> MoveNextAsync()
+    {
+        var isNext = await _stream.MoveNextAsync();
+
+        if (isNext)
+        {
+            Status.FromProto(_stream.Current.Status, _stream.Current.Issues).EnsureSuccess();
+        }
+
+        return isNext;
+    }
+
+    public ExecuteQueryPart Current => new(_stream.Current);
+
+    public IAsyncEnumerator<ExecuteQueryPart> GetAsyncEnumerator(CancellationToken cancellationToken = new())
+    {
+        return this;
     }
 }

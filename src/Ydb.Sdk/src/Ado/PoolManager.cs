@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
-using Ydb.Sdk.Services.Query.Pool;
+using Ydb.Sdk.Services.Query;
 
 namespace Ydb.Sdk.Ado;
 
-public class PoolManager
+internal static class PoolManager
 {
     private static readonly SemaphoreSlim SemaphoreSlim = new(1); // async mutex
 
