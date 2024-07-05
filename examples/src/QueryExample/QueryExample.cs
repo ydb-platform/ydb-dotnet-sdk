@@ -2,7 +2,6 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Services.Query;
-using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Examples;
@@ -11,13 +10,11 @@ public class QueryExample
 {
     private QueryClient Client { get; }
     private string BasePath { get; }
-    private Driver Driver { get; }
 
     private QueryExample(QueryClient client, string database, string path, Driver driver)
     {
         Client = client;
         BasePath = string.Join('/', database, path);
-        Driver = driver;
     }
 
     public static async Task Run(
@@ -102,16 +99,10 @@ public class QueryExample
                     );
                 ";
 
-        // TODO replace with QueryClient
-        // var response = await Client.Exec(
-        //     query: createQuery
-        // );
-        // response.EnsureSuccess();
-        using var client = new TableClient(Driver);
-        var response = await client.SessionExec(async session =>
-            await session.ExecuteSchemeQuery(createQuery));
 
-        response.Status.EnsureSuccess();
+        await Client.Exec(
+            query: createQuery
+        );
     }
 
     private async Task FillData()
