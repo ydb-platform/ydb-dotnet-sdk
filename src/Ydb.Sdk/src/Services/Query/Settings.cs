@@ -81,14 +81,11 @@ internal static class TxModeExtensions
 public class ExecuteQueryPart
 {
     public Value.ResultSet? ResultSet { get; }
-    public string? TxId { get; }
-
     public long ResultSetIndex { get; }
 
     internal ExecuteQueryPart(ExecuteQueryResponsePart part)
     {
         ResultSet = part.ResultSet?.FromProto();
-        TxId = part.TxMeta.Id;
         ResultSetIndex = part.ResultSetIndex;
     }
 }
@@ -96,9 +93,9 @@ public class ExecuteQueryPart
 public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAsyncEnumerable<ExecuteQueryPart>
 {
     private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
-    private readonly Action<string> _onTxId;
+    private readonly Action<string?> _onTxId;
 
-    internal ExecuteQueryStream(IAsyncEnumerator<ExecuteQueryResponsePart> stream, Action<string>? onTx = null)
+    internal ExecuteQueryStream(IAsyncEnumerator<ExecuteQueryResponsePart> stream, Action<string?>? onTx = null)
     {
         _stream = stream;
         _onTxId = onTx ?? (_ => { });
@@ -120,7 +117,7 @@ public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAs
 
         Status.FromProto(_stream.Current.Status, _stream.Current.Issues).EnsureSuccess();
 
-        _onTxId.Invoke(_stream.Current.TxMeta.Id);
+        _onTxId.Invoke(_stream.Current.TxMeta?.Id);
 
         return isNext;
     }
