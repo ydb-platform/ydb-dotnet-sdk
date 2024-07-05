@@ -1,4 +1,5 @@
 ﻿using Ydb.Sdk.Client;
+using Ydb.Sdk.Value;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -31,9 +32,7 @@ public class ReadTablePart : ResponseWithResultBase<ReadTablePart.ResultData>
 
         internal static ResultData FromProto(ReadTableResult resultProto)
         {
-            return new ResultData(
-                resultSet: Value.ResultSet.FromProto(resultProto.ResultSet)
-            );
+            return new ResultData(resultProto.ResultSet.FromProto());
         }
     }
 }

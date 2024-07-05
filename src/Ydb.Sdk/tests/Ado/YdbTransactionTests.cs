@@ -183,9 +183,9 @@ public class YdbTransactionTests : IAsyncLifetime
         await using var connection = new YdbConnection();
         await connection.OpenAsync();
         var ydbCommand = connection.CreateCommand();
-        ydbCommand.CommandText = Tables.CreateTables();
+        ydbCommand.CommandText = Tables.CreateTables;
         await ydbCommand.ExecuteNonQueryAsync();
-        ydbCommand.CommandText = Tables.UpsertData();
+        ydbCommand.CommandText = Tables.UpsertData;
         await ydbCommand.ExecuteNonQueryAsync();
     }
 
@@ -194,7 +194,7 @@ public class YdbTransactionTests : IAsyncLifetime
         await using var connection = new YdbConnection();
         await connection.OpenAsync();
         var ydbCommand = connection.CreateCommand();
-        ydbCommand.CommandText = Tables.DeleteTables();
+        ydbCommand.CommandText = Tables.DeleteTables;
         await ydbCommand.ExecuteNonQueryAsync();
     }
 }

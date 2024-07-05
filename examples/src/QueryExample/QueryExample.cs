@@ -2,7 +2,6 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Services.Query;
-using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Examples;
@@ -11,13 +10,11 @@ public class QueryExample
 {
     private QueryClient Client { get; }
     private string BasePath { get; }
-    private Driver Driver { get; }
 
-    protected QueryExample(QueryClient client, string database, string path, Driver driver)
+    private QueryExample(QueryClient client, string database, string path)
     {
         Client = client;
         BasePath = string.Join('/', database, path);
-        Driver = driver;
     }
 
     public static async Task Run(
@@ -40,9 +37,9 @@ public class QueryExample
             loggerFactory: loggerFactory
         );
 
-        using var tableClient = new QueryClient(driver, new QueryClientConfig());
+        await using var tableClient = new QueryClient(driver, new QueryClientConfig());
 
-        var example = new QueryExample(tableClient, database, path, driver);
+        var example = new QueryExample(tableClient, database, path);
 
         await example.SchemeQuery();
         await example.FillData();
@@ -66,7 +63,6 @@ public class QueryExample
             // server some time to issue a response.
             TransportTimeout = TimeSpan.FromSeconds(5),
 
-            ExecMode = ExecMode.Execute,
             Syntax = Syntax.YqlV1
         };
 
@@ -103,16 +99,10 @@ public class QueryExample
                     );
                 ";
 
-        // TODO replace with QueryClient
-        // var response = await Client.Exec(
-        //     query: createQuery
-        // );
-        // response.EnsureSuccess();
-        using var client = new TableClient(Driver);
-        var response = await client.SessionExec(async session =>
-            await session.ExecuteSchemeQuery(createQuery));
 
-        response.Status.EnsureSuccess();
+        await Client.Exec(
+            query: createQuery
+        );
     }
 
     private async Task FillData()
@@ -130,13 +120,12 @@ public class QueryExample
                     SELECT * FROM AS_TABLE($episodesData);
                 ";
 
-        var response = await Client.Exec(
+        await Client.Exec(
             query: query,
             parameters: DataUtils.GetDataParams(),
             txMode: TxMode.SerializableRw,
-            executeQuerySettings: DefaultQuerySettings
+            settings: DefaultQuerySettings
         );
-        response.EnsureSuccess();
     }
 
 
@@ -157,18 +146,14 @@ public class QueryExample
             query,
             parameters: parameters
         );
-        response.EnsureSuccess();
 
-        if (response.Result is not null)
+        foreach (var row in response)
         {
-            foreach (var row in response.Result)
-            {
-                var series = Series.FromRow(row);
-                Console.WriteLine("> Series, " +
-                                  $"series_id: {series.SeriesId}, " +
-                                  $"title: {series.Title}, " +
-                                  $"release_date: {series.ReleaseDate}");
-            }
+            var series = Series.FromRow(row);
+            Console.WriteLine("> Series, " +
+                              $"series_id: {series.SeriesId}, " +
+                              $"title: {series.Title}, " +
+                              $"release_date: {series.ReleaseDate}");
         }
     }
 
@@ -188,18 +173,16 @@ public class QueryExample
             { "$release_date", YdbValue.MakeDate(date) }
         };
 
-        var response = await Client.Exec(
+        await Client.Exec(
             query,
             parameters
         );
-        response.EnsureSuccess();
     }
 
 
     private async Task InteractiveTx()
     {
-        var doTxResponse = await Client.DoTx(
-            func: async tx =>
+        await Client.DoTx(async tx =>
             {
                 var query1 = @$"
                     PRAGMA TablePathPrefix('{BasePath}');
@@ -214,33 +197,26 @@ public class QueryExample
                     { "$season_id", YdbValue.MakeUint64(3) }
                 };
 
-                var response = await tx.ReadScalar(
-                    query1,
-                    parameters1
-                );
-                response.EnsureSuccess();
+                var response = await tx.ReadRow(query1, parameters1);
 
-                var firstAired = response.Result!.GetOptionalDate()!.Value;
-                var newAired = firstAired.AddDays(2);
+                var newAired = response![0].GetOptionalDate()!.Value.AddDays(2);
 
                 var query2 = @$"
                     PRAGMA TablePathPrefix('{BasePath}');
 
                     UPSERT INTO seasons (series_id, season_id, first_aired) VALUES
-                        ($series_id, $season_id, $air_date);
+                        ($series_id, $season_id, $first_aired);
                 ";
                 var parameters2 = new Dictionary<string, YdbValue>
                 {
                     { "$series_id", YdbValue.MakeUint64(1) },
                     { "$season_id", YdbValue.MakeUint64(3) },
-                    { "$air_date", YdbValue.MakeDate(newAired) }
+                    { "$first_aired", YdbValue.MakeDate(newAired) }
                 };
 
-                var response2 = await tx.Exec(query2, parameters2);
-                response2.EnsureSuccess();
+                await tx.Exec(query2, parameters2);
             }
         );
-        doTxResponse.EnsureSuccess();
     }
 
     private async Task StreamSelect()
@@ -253,31 +229,16 @@ public class QueryExample
                 ";
 
 
-        var response = await Client.Query(
-            query,
-            func: async stream =>
-            {
-                var result = new List<Series>();
-                await foreach (var part in stream)
-                {
-                    if (part.ResultSet == null) continue;
-                    foreach (var row in part.ResultSet.Rows)
-                    {
-                        result.Add(Series.FromRow(row));
-                    }
-                }
-
-                return result;
-            }
-        ).ConfigureAwait(false);
-        response.EnsureSuccess();
-        if (response.Result != null)
+        await Client.DoTx(async tx =>
         {
-            foreach (var series in response.Result)
+            await foreach (var part in tx.Stream(query, commit: true))
             {
-                Console.WriteLine(series);
+                foreach (var row in part.ResultSet!.Rows)
+                {
+                    Console.WriteLine(Series.FromRow(row));
+                }
             }
-        }
+        });
     }
 
     private async Task ReadScalar()
@@ -290,10 +251,9 @@ public class QueryExample
                 ";
 
 
-        var response = await Client.ReadScalar(query).ConfigureAwait(false);
-        response.EnsureSuccess();
+        var row = await Client.ReadRow(query);
 
-        var count = response.Result!.GetUint64();
+        var count = row![0].GetUint64();
 
         Console.WriteLine($"There is {count} rows in 'series' table");
     }
@@ -310,10 +270,9 @@ public class QueryExample
                 ";
 
 
-        var response = await Client.ReadSingleRow(query).ConfigureAwait(false);
-        response.EnsureSuccess();
+        var row = await Client.ReadRow(query);
 
-        var series = Series.FromRow(response.Result!);
+        var series = Series.FromRow(row!);
 
         Console.WriteLine($"First row in 'series' table is {series}");
     }
@@ -329,10 +288,9 @@ public class QueryExample
                 ";
 
 
-        var response = await Client.ReadAllRows(query).ConfigureAwait(false);
-        response.EnsureSuccess();
+        var response = await Client.ReadAllRows(query);
 
-        var series = response.Result!.Select(Series.FromRow);
+        var series = response.Select(Series.FromRow);
 
         Console.WriteLine("'series' table contains:");
         foreach (var elem in series)
@@ -355,10 +313,16 @@ public class QueryExample
                 ";
 
 
-        var response = await Client.ReadAllResultSets(query).ConfigureAwait(false);
-        response.EnsureSuccess();
+        var resultSets = await Client.DoTx(async tx =>
+        {
+            var resultSets = new List<Value.ResultSet>();
+            await foreach (var resultSet in tx.Stream(query, commit: true))
+            {
+                resultSets.Add(resultSet.ResultSet!);
+            }
 
-        var resultSets = response.Result!;
+            return resultSets;
+        });
 
         var seriesSet = resultSets[0];
         var episodesSet = resultSets[1];
@@ -366,13 +330,13 @@ public class QueryExample
         Console.WriteLine("Multiple sets selected:");
 
         Console.WriteLine("\t'series' contains:");
-        foreach (var row in seriesSet)
+        foreach (var row in seriesSet.Rows)
         {
             Console.WriteLine($"\t\t{Series.FromRow(row)}");
         }
 
         Console.WriteLine("\t'episodes' contains:");
-        foreach (var row in episodesSet)
+        foreach (var row in episodesSet.Rows)
         {
             Console.WriteLine($"\t\t{Episode.FromRow(row)}");
         }

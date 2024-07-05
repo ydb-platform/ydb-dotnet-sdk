@@ -41,11 +41,6 @@ public class ResultSet
         _columnNameToOrdinal = ImmutableDictionary<string, int>.Empty;
     }
 
-    public static ResultSet FromProto(Ydb.ResultSet resultSetProto)
-    {
-        return new ResultSet(resultSetProto);
-    }
-
     public int GetOrdinal(string name)
     {
         if (_columnNameToOrdinal.TryGetValue(name, out var ordinal))

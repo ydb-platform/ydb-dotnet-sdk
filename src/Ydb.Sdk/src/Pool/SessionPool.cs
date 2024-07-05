@@ -15,7 +15,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         _semaphore = new SemaphoreSlim(size ?? 100);
     }
 
-    public async Task<(Status, TSession?)> GetSession()
+    internal async Task<(Status, TSession?)> GetSession()
     {
         await _semaphore.WaitAsync();
 
@@ -43,7 +43,48 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     protected abstract Task<Status> DeleteSession(string sessionId);
 
-    public void ReleaseSession(TSession session)
+    // TODO Retry policy and may be move to SessionPool method
+    internal async Task<T> ExecOnSession<T>(Func<TSession, Task<T>> onSession, RetrySettings? retrySettings = null)
+    {
+        retrySettings ??= RetrySettings.DefaultInstance;
+        var status = new Status(StatusCode.Unspecified);
+        TSession? session = null;
+
+        for (uint attempt = 0; attempt < retrySettings.MaxAttempts; attempt++)
+        {
+            try
+            {
+                (status, session) = await GetSession();
+
+                status.EnsureSuccess();
+
+                return await onSession(session!);
+            }
+            catch (Driver.TransportException e)
+            {
+                status = e.Status;
+            }
+            catch (StatusUnsuccessfulException e)
+            {
+                status = e.Status;
+            }
+            finally
+            {
+                session?.Release();
+            }
+
+            // TODO Retry policy
+            var retryRule = retrySettings.GetRetryRule(status.StatusCode);
+            // _logger.LogTrace("Retry: attempt {attempt}, Session ${SessionId}, idempotent error {Status} retrying",
+            //     attempt, session?.SessionId ?? "was not created", status);
+
+            await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
+        }
+
+        throw new StatusUnsuccessfulException(status);
+    }
+
+    internal void ReleaseSession(TSession session)
     {
         if (session.IsActive)
         {
@@ -75,6 +116,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
     private readonly SessionPool<T> _sessionPool;
 
     public string SessionId { get; }
+
     internal long NodeId { get; }
 
     internal volatile bool IsActive = true;

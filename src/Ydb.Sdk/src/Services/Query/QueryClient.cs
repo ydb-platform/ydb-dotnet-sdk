@@ -1,346 +1,155 @@
-using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Client;
-using Ydb.Sdk.Services.Sessions;
+using System.Collections.Immutable;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
 public class QueryClientConfig
 {
-    public SessionPoolConfig SessionPoolConfig { get; set; } = new();
+    public int MaxSessionPool
+    {
+        get => _masSessionPool;
+        set
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid max session pool: " + value);
+            }
+
+            _masSessionPool = value;
+        }
+    }
+
+    private int _masSessionPool = 100;
 }
 
-// Experimental
-public class QueryClient : IDisposable
+public class QueryClient : IAsyncDisposable
 {
     private readonly SessionPool _sessionPool;
-    private readonly QueryClientRpc _queryClientRpc;
-    private readonly ILogger _logger;
-
-    private bool _disposed;
 
     public QueryClient(Driver driver, QueryClientConfig? config = null)
     {
         config ??= new QueryClientConfig();
 
-        _logger = driver.LoggerFactory.CreateLogger<QueryClient>();
-
-        _sessionPool = new SessionPool(driver, config.SessionPoolConfig);
-        _queryClientRpc = new QueryClientRpc(driver);
+        _sessionPool = new SessionPool(driver, config.MaxSessionPool);
     }
 
-    internal static async Task<None> EmptyStreamReadFunc(ExecuteQueryStream stream)
+    public Task<T> Stream<T>(string query, Func<ExecuteQueryStream, Task<T>> onStream,
+        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
+        ExecuteQuerySettings? settings = null)
     {
-        while (await stream.Next())
+        return _sessionPool.ExecOnSession(session => onStream(new ExecuteQueryStream(
+            session.ExecuteQuery(query, parameters, settings, txMode.TransactionControl()))));
+    }
+
+    public Task Stream(string query, Func<ExecuteQueryStream, Task> onStream,
+        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
+        ExecuteQuerySettings? settings = null)
+    {
+        return Stream<object>(query, async stream =>
         {
-            stream.Response.EnsureSuccess();
-        }
-
-        return None.Instance;
+            await onStream(stream);
+            return None;
+        }, parameters, txMode, settings);
     }
 
-    public async Task<QueryResponseWithResult<T>> Query<T>(
-        string query,
-        Dictionary<string, YdbValue>? parameters,
-        Func<ExecuteQueryStream, Task<T>> func,
-        TxMode? txMode = null,
-        ExecuteQuerySettings? executeQuerySettings = null,
-        RetrySettings? retrySettings = null)
+    public Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRows(string query,
+        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
+        ExecuteQuerySettings? settings = null)
     {
-        parameters ??= new Dictionary<string, YdbValue>();
-        executeQuerySettings ??= new ExecuteQuerySettings();
+        return Stream<IReadOnlyList<Value.ResultSet.Row>>(query, async stream =>
+        {
+            await using var uStream = stream;
+            List<Value.ResultSet.Row> rows = new();
 
-        var response = await _sessionPool.ExecOnSession(
-            async session =>
+            await foreach (var part in uStream)
             {
-                var tx = Tx.Begin(txMode, _queryClientRpc, session.Id);
-                return await tx.Query(query, parameters, func, executeQuerySettings);
-            },
-            retrySettings
-        );
-        return response switch
-        {
-            QueryResponseWithResult<T> queryResponseWithResult => queryResponseWithResult,
-            _ => throw new InvalidCastException(
-                $"Unexpected cast error: {nameof(response)} is not object of type {typeof(QueryResponseWithResult<T>).FullName}")
-        };
-    }
+                if (part.ResultSetIndex > 0)
+                {
+                    break;
+                }
 
-    public async Task<QueryResponseWithResult<T>> Query<T>(
-        string query,
-        Func<ExecuteQueryStream, Task<T>> func,
-        TxMode? txMode = null,
-        ExecuteQuerySettings? executeQuerySettings = null,
-        RetrySettings? retrySettings = null)
-    {
-        return await Query(query, new Dictionary<string, YdbValue>(), func, txMode, executeQuerySettings,
-            retrySettings);
-    }
-
-    public async Task<QueryResponse> Exec(
-        string query,
-        Dictionary<string, YdbValue>? parameters = null,
-        TxMode? txMode = null,
-        ExecuteQuerySettings? executeQuerySettings = null,
-        RetrySettings? retrySettings = null)
-    {
-        return await Query<None>(
-            query,
-            parameters,
-            async session => await EmptyStreamReadFunc(session),
-            txMode,
-            executeQuerySettings,
-            retrySettings
-        );
-    }
-
-    internal static async Task<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>> ReadAllResultSetsHelper(
-        ExecuteQueryStream stream)
-    {
-        var resultSets = new List<List<Value.ResultSet.Row>>();
-        await foreach (var part in stream)
-        {
-            if (part.ResultSet is null) continue;
-            while (resultSets.Count <= part.ResultSetIndex)
-            {
-                resultSets.Add(new List<Value.ResultSet.Row>());
+                rows.AddRange(part.ResultSet?.Rows ?? ImmutableList<Value.ResultSet.Row>.Empty);
             }
 
-            resultSets[(int)part.ResultSetIndex].AddRange(part.ResultSet.Rows);
-        }
-
-        return resultSets;
+            return rows.AsReadOnly();
+        }, parameters, txMode, settings);
     }
 
-    internal static async Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRowsHelper(ExecuteQueryStream stream)
+    public async Task<Value.ResultSet.Row?> ReadRow(string query,
+        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
+        ExecuteQuerySettings? settings = null)
     {
-        var resultSets = await ReadAllResultSetsHelper(stream);
-        if (resultSets.Count > 1)
-        {
-            throw new QueryWrongResultFormatException("Should be only one resultSet");
-        }
+        var result = await ReadAllRows(query, parameters, txMode, settings);
 
-        return resultSets[0];
+        return result is { Count: > 0 } ? result[0] : null;
     }
 
-    internal static async Task<Value.ResultSet.Row> ReadSingleRowHelper(ExecuteQueryStream stream)
+    public async Task Exec(string query, Dictionary<string, YdbValue>? parameters = null,
+        TxMode txMode = TxMode.NoTx, ExecuteQuerySettings? settings = null)
     {
-        Value.ResultSet.Row? row = null;
-        await foreach (var part in stream)
+        await Stream(query, async stream =>
         {
-            if (row is null && part.ResultSet is null)
+            await using var uStream = stream;
+
+            _ = await stream.MoveNextAsync();
+        }, parameters, txMode, settings);
+    }
+
+    public Task<T> DoTx<T>(Func<QueryTx, Task<T>> queryTx, TxMode txMode = TxMode.SerializableRw)
+    {
+        if (txMode == TxMode.NoTx)
+        {
+            throw new ArgumentException("DoTx requires a txMode other than None");
+        }
+
+        return _sessionPool.ExecOnSession<T>(async session =>
+        {
+            var tx = new QueryTx(session, txMode);
+
+            try
             {
-                throw new QueryWrongResultFormatException("ResultSet is null");
+                var result = await queryTx(tx);
+
+                await tx.Commit();
+
+                return result;
             }
-
-            if (part.ResultSet is not null)
+            catch (StatusUnsuccessfulException)
             {
-                if (row is not null || part.ResultSet.Rows.Count != 1)
-                {
-                    throw new QueryWrongResultFormatException("ResultSet should contain exactly one row");
-                }
-
-                row = part.ResultSet.Rows[0];
+                throw;
             }
-        }
-
-        return row!;
-    }
-
-    internal static async Task<YdbValue> ReadScalarHelper(ExecuteQueryStream stream)
-    {
-        var row = await ReadSingleRowHelper(stream);
-        if (row.ColumnCount != 1)
-        {
-            throw new QueryWrongResultFormatException("Row should contain exactly one field");
-        }
-
-        return row[0];
-    }
-
-    public async Task<QueryResponseWithResult<IReadOnlyList<IReadOnlyList<Value.ResultSet.Row>>>> ReadAllResultSets(
-        string query,
-        Dictionary<string, YdbValue>? parameters = null,
-        TxMode? txMode = null,
-        ExecuteQuerySettings? executeQuerySettings = null,
-        RetrySettings? retrySettings = null)
-    {
-        var response = await Query(query, parameters, ReadAllResultSetsHelper, txMode,
-            executeQuerySettings, retrySettings);
-        return response;
-    }
-
-
-    public async Task<QueryResponseWithResult<IReadOnlyList<Value.ResultSet.Row>>> ReadAllRows(
-        string query,
-        Dictionary<string, YdbValue>? parameters = null,
-        TxMode? txMode = null,
-        ExecuteQuerySettings? executeQuerySettings = null,
-        RetrySettings? retrySettings = null)
-    {
-        var response = await Query(query, parameters, ReadAllRowsHelper, txMode,
-            executeQuerySettings, retrySettings);
-        return response;
-    }
-
-
-    public async Task<QueryResponseWithResult<Value.ResultSet.Row>> ReadSingleRow(
-        string query,
-        Dictionary<string, YdbValue>? parameters = null,
-        TxMode? txMode = null,
-        ExecuteQuerySettings? executeQuerySettings = null,
-        RetrySettings? retrySettings = null)
-    {
-        return await Query(query, parameters, ReadSingleRowHelper, txMode, executeQuerySettings, retrySettings);
-    }
-
-    public async Task<QueryResponseWithResult<YdbValue>> ReadScalar(
-        string query,
-        Dictionary<string, YdbValue>? parameters = null,
-        TxMode? txMode = null,
-        ExecuteQuerySettings? executeQuerySettings = null,
-        RetrySettings? retrySettings = null)
-    {
-        return await Query(query, parameters, ReadScalarHelper, txMode, executeQuerySettings, retrySettings);
-    }
-
-    private async Task<QueryResponseWithResult<T>> Rollback<T>(Session session, Tx tx, Status status)
-    {
-        _logger.LogTrace($"Transaction {tx.TxId} not committed, try to rollback");
-        try
-        {
-            var rollbackResponse = await _queryClientRpc.RollbackTransaction(session.Id, tx);
-            rollbackResponse.EnsureSuccess();
-        }
-        catch (StatusUnsuccessfulException e)
-        {
-            _logger.LogError($"Transaction {tx.TxId} rollback not successful {e.Status}");
-            return new QueryResponseWithResult<T>(e.Status);
-        }
-
-        return new QueryResponseWithResult<T>(status);
-    }
-
-    public async Task<QueryResponseWithResult<T>> DoTx<T>(
-        Func<Tx, Task<T>> func,
-        TxMode? txMode = null,
-        RetrySettings? retrySettings = null)
-    {
-        var response = await _sessionPool.ExecOnSession(
-            async session =>
+            catch (Driver.TransportException)
             {
-                var tx = Tx.Begin(txMode, _queryClientRpc, session.Id);
-
-                var beginTransactionResponse = await _queryClientRpc
-                    .BeginTransaction(session.Id, tx);
-                beginTransactionResponse.EnsureSuccess();
-                tx.TxId = beginTransactionResponse.TxId!;
-
-                T response;
-                try
-                {
-                    response = await func(tx);
-                }
-                catch (StatusUnsuccessfulException e)
-                {
-                    var rollbackResponse = await Rollback<T>(session, tx, e.Status);
-                    return rollbackResponse;
-                }
-                catch (Exception e)
-                {
-                    var status = new Status(
-                        StatusCode.ClientInternalError,
-                        $"Failed to execute lambda on tx {tx.TxId}: {e.Message}");
-                    var rollbackResponse = await Rollback<T>(session, tx, status);
-                    return rollbackResponse;
-                }
-
-                var commitResponse = await _queryClientRpc.CommitTransaction(session.Id, tx);
-                if (!commitResponse.Status.IsSuccess)
-                {
-                    var rollbackResponse = await Rollback<T>(session, tx, commitResponse.Status);
-                    return rollbackResponse;
-                }
-
-                return response switch
-                {
-                    None => new QueryResponseWithResult<T>(Status.Success),
-                    _ => new QueryResponseWithResult<T>(Status.Success, response)
-                };
-            },
-            retrySettings
-        );
-        return response switch
-        {
-            QueryResponseWithResult<T> queryResponseWithResult => queryResponseWithResult,
-            _ => throw new InvalidCastException(
-                $"Unexpected cast error: {nameof(response)} is not object of type {typeof(QueryResponseWithResult<T>).FullName}")
-        };
-    }
-
-    public async Task<QueryResponse> DoTx(Func<Tx, Task> func,
-        TxMode? txMode = null,
-        RetrySettings? retrySettings = null)
-    {
-        var response = await DoTx<None>(
-            async tx =>
+                throw;
+            }
+            catch (Exception)
             {
-                await func(tx);
-                return None.Instance;
-            },
-            txMode,
-            retrySettings
-        );
-        return response;
+                await tx.Rollback();
+                throw;
+            }
+            finally
+            {
+                session.Release();
+            }
+        });
     }
 
-    internal record None
+    private static readonly object None = new();
+
+    public async Task DoTx(Func<QueryTx, Task> queryTx, TxMode txMode = TxMode.SerializableRw)
     {
-        internal static readonly None Instance = new();
+        await DoTx<object>(async tx =>
+        {
+            await queryTx(tx);
+
+            return None;
+        }, txMode);
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        Dispose(true);
         GC.SuppressFinalize(this);
-    }
 
-    private void Dispose(bool disposing)
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        if (disposing)
-        {
-            _sessionPool.Dispose();
-        }
-
-        _disposed = true;
-    }
-}
-
-public class QueryResponse : ResponseBase
-{
-    public QueryResponse(Status status) : base(status)
-    {
-    }
-}
-
-public sealed class QueryResponseWithResult<TResult> : QueryResponse
-{
-    public readonly TResult? Result;
-
-    public QueryResponseWithResult(Status status, TResult? result = default) : base(status)
-    {
-        Result = result;
-    }
-}
-
-public class QueryWrongResultFormatException : Exception
-{
-    public QueryWrongResultFormatException(string message) : base(message)
-    {
+        return _sessionPool.DisposeAsync();
     }
 }

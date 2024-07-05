@@ -168,17 +168,17 @@ public class Status
     public StatusCode StatusCode { get; }
     public IReadOnlyList<Issue> Issues { get; }
 
-    public Status(StatusCode statusCode, IReadOnlyList<Issue> issues)
+    internal Status(StatusCode statusCode, IReadOnlyList<Issue> issues)
     {
         StatusCode = statusCode;
         Issues = issues;
     }
 
-    public Status(StatusCode statusCode) : this(statusCode, Array.Empty<Issue>())
+    internal Status(StatusCode statusCode) : this(statusCode, Array.Empty<Issue>())
     {
     }
 
-    public Status(StatusCode statusCode, string message) : this(statusCode, new List<Issue> { new(message) })
+    internal Status(StatusCode statusCode, string message) : this(statusCode, new List<Issue> { new(message) })
     {
     }
 

@@ -1,162 +1,182 @@
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Services.Sessions;
+using Ydb.Query;
+using Ydb.Query.V1;
+using Ydb.Sdk.Pool;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
 
-using GetSessionResponse = GetSessionResponse<Session>;
-
-internal class SessionPool : SessionPoolBase<Session>
+internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 {
-    private readonly Dictionary<string, CancellationTokenSource> _attachedSessions = new();
-    private readonly QueryClientRpc _client;
+    private static readonly CreateSessionRequest CreateSessionRequest = new();
 
-    public SessionPool(Driver driver, SessionPoolConfig config) :
-        base(driver, config, driver.LoggerFactory.CreateLogger<SessionPool>())
+    private static readonly GrpcRequestSettings CreateSessionSettings = new()
     {
-        _client = new QueryClientRpc(driver);
+        TransportTimeout = TimeSpan.FromMinutes(2)
+    };
+
+    private static readonly GrpcRequestSettings AttachSessionSettings = new()
+    {
+        TransportTimeout = TimeSpan.FromMinutes(1)
+    };
+
+    private static readonly GrpcRequestSettings DeleteSessionSettings = new()
+    {
+        TransportTimeout = TimeSpan.FromSeconds(5)
+    };
+
+    private readonly Driver _driver;
+
+    internal SessionPool(Driver driver, int? size = null) : base(driver.LoggerFactory.CreateLogger<SessionPool>(), size)
+    {
+        _driver = driver;
     }
 
-    private protected override async Task<GetSessionResponse> CreateSession()
+    protected override async Task<(Status, Session?)> CreateSession()
     {
-        var createSessionResponse = await _client.CreateSession(
-            this,
-            new CreateSessionSettings
-            {
-                TransportTimeout = Config.CreateSessionTimeout
-            }
-        );
+        var response = await _driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest,
+            CreateSessionSettings);
 
-        lock (Lock)
+        var status = Status.FromProto(response.Status, response.Issues);
+
+        if (status.IsNotSuccess)
         {
-            PendingSessions--;
-            if (createSessionResponse.Status.IsSuccess)
-            {
-                var session = new Session(
-                    driver: Driver,
-                    sessionPool: this,
-                    id: createSessionResponse.Result.Session.Id,
-                    nodeId: createSessionResponse.Result.Session.NodeId);
-
-                Sessions.Add(session.Id, new SessionState(session));
-
-                _ = Task.Run(() => AttachAndMonitor(session.Id));
-
-
-                Logger.LogTrace($"Session {session.Id} created, " +
-                                $"nodeId: {session.NodeId}");
-                return new GetSessionResponse(createSessionResponse.Status, session);
-            }
-
-            Logger.LogWarning($"Failed to create session: {createSessionResponse.Status}");
-            return new GetSessionResponse(createSessionResponse.Status);
-        }
-    }
-
-    private async Task AttachAndMonitor(string sessionId)
-    {
-        var stream = _client.AttachSession(sessionId);
-
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(Config.CreateSessionTimeout);
-
-        var firstPartTask = Task.Run(async () =>
-        {
-            if (await stream.Next())
-            {
-                return stream.Response;
-            }
-
-            return null;
-        }, cts.Token);
-
-        var firstPart = await firstPartTask;
-
-        if (firstPartTask.IsCanceled || firstPart is null)
-        {
-            InvalidateSession(sessionId);
-            return;
+            return (status, null);
         }
 
-        CheckPart(firstPart, sessionId);
+        TaskCompletionSource<(Status, Session?)> completeTask = new();
 
-        cts = new CancellationTokenSource();
+        var session = new Session(_driver, this, response.SessionId, response.NodeId);
 
-        var monitorTask = Task.Run(async () => await Monitor(sessionId, stream), cts.Token);
-        lock (Lock)
+        _ = Task.Run(async () =>
         {
-            _attachedSessions.Add(sessionId, cts);
-        }
-
-        await monitorTask;
-        lock (Lock)
-        {
-            _attachedSessions.Remove(sessionId);
-        }
-    }
-
-    private async Task Monitor(string sessionId, SessionStateStream stream)
-    {
-        while (await stream.Next())
-        {
-            var part = stream.Response;
-            if (!CheckPart(part, sessionId))
+            try
             {
-                break;
-            }
-        }
-    }
+                await using var stream = _driver.StreamCall(QueryService.AttachSessionMethod, new AttachSessionRequest
+                    { SessionId = response.SessionId }, AttachSessionSettings);
 
-    private bool CheckPart(Query.SessionState part, string sessionId)
-    {
-        if (part.Status.IsSuccess)
-        {
-            Logger.LogTrace($"Successful stream response for session: {sessionId}");
-
-            lock (Lock)
-            {
-                if (Sessions.TryGetValue(sessionId, out var sessionState))
+                if (!await stream.MoveNextAsync())
                 {
-                    sessionState.LastAccessTime = DateTime.Now;
+                    completeTask.SetResult(
+                        (new Status(StatusCode.Cancelled, "Attach stream is not started!"), null)
+                    ); // Session wasn't started!
+
+                    return;
+                }
+
+                var statusSession = Status.FromProto(stream.Current.Status, stream.Current.Issues);
+
+                if (statusSession.IsNotSuccess)
+                {
+                    completeTask.SetResult((statusSession, null));
+                }
+
+                completeTask.SetResult((status, session));
+
+                try
+                {
+                    await foreach (var sessionState in stream) // watch attach stream session cycle life
+                    {
+                        session.OnStatus(Status.FromProto(sessionState.Status, sessionState.Issues));
+
+                        if (!session.IsActive)
+                        {
+                            return;
+                        }
+                    }
+
+                    // attach stream is closed
+                    session.IsActive = false;
+                }
+                catch (Driver.TransportException e)
+                {
+                    session.OnStatus(e.Status);
                 }
             }
+            catch (Driver.TransportException e)
+            {
+                completeTask.SetResult((e.Status, null));
+            }
+        });
 
-            return true;
-        }
-
-        InvalidateSession(sessionId);
-        return false;
+        return await completeTask.Task;
     }
 
-    private new void InvalidateSession(string id)
+    protected override async Task<Status> DeleteSession(string sessionId)
     {
-        DetachSession(id);
-        base.InvalidateSession(id);
+        var deleteSessionResponse = await _driver.UnaryCall(QueryService.DeleteSessionMethod,
+            new DeleteSessionRequest { SessionId = sessionId }, DeleteSessionSettings);
+
+        return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
     }
 
-    private void DetachSession(string id)
+    public ValueTask DisposeAsync()
     {
-        lock (Lock)
+        return _driver.DisposeAsync();
+    }
+}
+
+internal class Session : SessionBase<Session>
+{
+    private readonly Driver _driver;
+
+    internal Session(Driver driver, SessionPool<Session> sessionPool, string sessionId, long nodeId)
+        : base(sessionPool, sessionId, nodeId)
+    {
+        _driver = driver;
+    }
+
+    internal Driver.StreamIterator<ExecuteQueryResponsePart> ExecuteQuery(
+        string query,
+        Dictionary<string, YdbValue>? parameters,
+        ExecuteQuerySettings? settings,
+        TransactionControl? txControl)
+    {
+        parameters ??= new Dictionary<string, YdbValue>();
+        settings ??= ExecuteQuerySettings.DefaultInstance;
+        settings.NodeId = NodeId;
+
+        var request = new ExecuteQueryRequest
         {
-            _attachedSessions.Remove(id, out var cts);
-            cts?.Cancel();
-            Logger.LogInformation($"Session detached: {id}");
-        }
+            SessionId = SessionId,
+            ExecMode = ExecMode.Execute,
+            QueryContent = new QueryContent { Text = query, Syntax = (Ydb.Query.Syntax)settings.Syntax },
+            StatsMode = StatsMode.None,
+            TxControl = txControl
+        };
+
+        request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
+
+        return _driver.StreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    private protected override Session CopySession(Session other)
+    internal async Task<Status> CommitTransaction(string txId, GrpcRequestSettings? settings = null)
     {
-        return new Session(
-            driver: Driver,
-            sessionPool: this,
-            id: other.Id,
-            nodeId: other.NodeId);
+        settings ??= GrpcRequestSettings.DefaultInstance;
+        settings.NodeId = NodeId;
+
+        var response = await _driver.UnaryCall(QueryService.CommitTransactionMethod, new CommitTransactionRequest
+            { SessionId = SessionId, TxId = txId }, settings);
+
+        var status = Status.FromProto(response.Status, response.Issues);
+
+        OnStatus(status);
+
+        return status;
     }
 
-    private protected override async Task DeleteSession(string id)
+    internal async Task<Status> RollbackTransaction(string txId, GrpcRequestSettings? settings = null)
     {
-        DetachSession(id);
+        settings ??= GrpcRequestSettings.DefaultInstance;
+        settings.NodeId = NodeId;
 
-        await _client.DeleteSession(id, new DeleteSessionSettings
-            { TransportTimeout = SessionBase.DeleteSessionTimeout });
+        var response = await _driver.UnaryCall(QueryService.RollbackTransactionMethod, new RollbackTransactionRequest
+            { SessionId = SessionId, TxId = txId }, settings);
+
+        var status = Status.FromProto(response.Status, response.Issues);
+
+        OnStatus(status);
+
+        return status;
     }
 }
