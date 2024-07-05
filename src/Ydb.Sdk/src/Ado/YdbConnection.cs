@@ -2,7 +2,6 @@ using System.Data;
 using System.Data.Common;
 using Ydb.Sdk.Services.Query;
 using static System.Data.IsolationLevel;
-using Session = Ydb.Sdk.Services.Query.Session;
 
 namespace Ydb.Sdk.Ado;
 

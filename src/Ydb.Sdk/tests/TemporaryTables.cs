@@ -6,10 +6,6 @@ public class TemporaryTables<T>
     internal readonly string Seasons = "seasons_from_" + typeof(T).Name;
     internal readonly string Episodes = "episodes_from_" + typeof(T).Name;
 
-    public TemporaryTables()
-    {
-    }
-
     internal string CreateTables => $@"
 CREATE TABLE {Series}
 (
