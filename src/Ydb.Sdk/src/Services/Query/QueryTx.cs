@@ -26,11 +26,12 @@ public class QueryTx
         _session = session;
         _txMode = txMode;
     }
-    
+
     public ExecuteQueryStream Stream(string query, Dictionary<string, YdbValue>? parameters = null,
         bool commit = false, ExecuteQuerySettings? settings = null)
     {
-        return new ExecuteQueryStream(_session.ExecuteQuery(query, parameters, settings, TxControl(commit)));
+        return new ExecuteQueryStream(_session.ExecuteQuery(query, parameters, settings, TxControl(commit)),
+            txId => TxId = txId);
     }
 
     public async Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRows(string query,

@@ -2,20 +2,15 @@ namespace Ydb.Sdk.Tests;
 
 public class TemporaryTables<T>
 {
-    internal string Series { get; }
-    internal string Seasons { get; }
-    internal string Episodes { get; }
+    internal readonly string Series = "series_from_" + typeof(T).Name;
+    internal readonly string Seasons = "seasons_from_" + typeof(T).Name;
+    internal readonly string Episodes = "episodes_from_" + typeof(T).Name;
 
     public TemporaryTables()
     {
-        Series = "series_from_" + typeof(T).Name;
-        Seasons = "seasons_from_" + typeof(T).Name;
-        Episodes = "episodes_from_" + typeof(T).Name;
     }
 
-    internal string CreateTables()
-    {
-        return $@"
+    internal string CreateTables => $@"
 CREATE TABLE {Series}
 (
     series_id Uint64,
@@ -43,11 +38,8 @@ CREATE TABLE {Episodes}
     PRIMARY KEY (series_id, season_id, episode_id)
 );
 ";
-    }
 
-    internal string UpsertData()
-    {
-        return $@"
+    internal string UpsertData => $@"
 UPSERT INTO {Series} (series_id, title, release_date, series_info)
 VALUES (1, ""IT Crowd"", Date(""2006-02-03""),
 ""The IT Crowd is a British sitcom produced by Channel 4, written by Graham Linehan, produced by Ash Atalla and starring Chris O'Dowd, Richard Ayoade, Katherine Parkinson, and Matt Berry.""),
@@ -135,10 +127,6 @@ VALUES (1, 1, 1, ""Yesterday's Jam"", Date(""2006-02-03"")),
     (2, 5, 7, ""Initial Coin Offering"", Date(""2018-05-06"")),
     (2, 5, 8, ""Fifty-One Percent"", Date(""2018-05-13""));
 ";
-    }
 
-    internal string DeleteTables()
-    {
-        return $"DROP TABLE {Series}; DROP TABLE {Seasons}; DROP TABLE {Episodes};";
-    }
+    internal string DeleteTables => $"DROP TABLE {Series}; DROP TABLE {Seasons}; DROP TABLE {Episodes};";
 }
