@@ -11,7 +11,7 @@ public class QueryExample
     private QueryClient Client { get; }
     private string BasePath { get; }
 
-    private QueryExample(QueryClient client, string database, string path, Driver driver)
+    private QueryExample(QueryClient client, string database, string path)
     {
         Client = client;
         BasePath = string.Join('/', database, path);
@@ -39,7 +39,7 @@ public class QueryExample
 
         await using var tableClient = new QueryClient(driver, new QueryClientConfig());
 
-        var example = new QueryExample(tableClient, database, path, driver);
+        var example = new QueryExample(tableClient, database, path);
 
         await example.SchemeQuery();
         await example.FillData();
