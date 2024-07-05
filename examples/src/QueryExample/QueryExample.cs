@@ -129,13 +129,12 @@ public class QueryExample
                     SELECT * FROM AS_TABLE($episodesData);
                 ";
 
-        var response = await Client.Exec(
+        await Client.Exec(
             query: query,
             parameters: DataUtils.GetDataParams(),
             txMode: TxMode.SerializableRw,
             settings: DefaultQuerySettings
         );
-        response.EnsureSuccess();
     }
 
 
@@ -157,7 +156,7 @@ public class QueryExample
             parameters: parameters
         );
 
-        foreach (var row in response.Value)
+        foreach (var row in response)
         {
             var series = Series.FromRow(row);
             Console.WriteLine("> Series, " +
@@ -183,17 +182,16 @@ public class QueryExample
             { "$release_date", YdbValue.MakeDate(date) }
         };
 
-        var response = await Client.Exec(
+        await Client.Exec(
             query,
             parameters
         );
-        response.EnsureSuccess();
     }
 
 
     private async Task InteractiveTx()
     {
-        var doTxResponse = await Client.DoTx(async tx =>
+        await Client.DoTx(async tx =>
             {
                 var query1 = @$"
                     PRAGMA TablePathPrefix('{BasePath}');
@@ -228,8 +226,6 @@ public class QueryExample
                 await tx.Exec(query2, parameters2);
             }
         );
-
-        doTxResponse.EnsureSuccess();
     }
 
     private async Task StreamSelect()
@@ -242,18 +238,16 @@ public class QueryExample
                 ";
 
 
-        var response = await Client.DoTx(async tx =>
+        await Client.DoTx(async tx =>
         {
             await foreach (var part in tx.Stream(query, commit: true))
             {
-                foreach (var row in part.Rows)
+                foreach (var row in part.ResultSet!.Rows)
                 {
                     Console.WriteLine(Series.FromRow(row));
                 }
             }
         });
-
-        response.EnsureSuccess();
     }
 
     private async Task ReadScalar()
@@ -266,8 +260,7 @@ public class QueryExample
                 ";
 
 
-        var (status, row) = await Client.ReadRow(query);
-        status.EnsureSuccess();
+        var row = await Client.ReadRow(query);
 
         var count = row![0].GetUint64();
 
@@ -286,8 +279,7 @@ public class QueryExample
                 ";
 
 
-        var (status, row) = await Client.ReadRow(query);
-        status.EnsureSuccess();
+        var row = await Client.ReadRow(query);
 
         var series = Series.FromRow(row!);
 
@@ -305,7 +297,7 @@ public class QueryExample
                 ";
 
 
-        var response = (await Client.ReadAllRows(query)).Value;
+        var response = await Client.ReadAllRows(query);
 
         var series = response.Select(Series.FromRow);
 
@@ -330,18 +322,16 @@ public class QueryExample
                 ";
 
 
-        var response = await Client.DoTx(async tx =>
+        var resultSets = await Client.DoTx(async tx =>
         {
             var resultSets = new List<Value.ResultSet>();
             await foreach (var resultSet in tx.Stream(query, commit: true))
             {
-                resultSets.Add(resultSet);
+                resultSets.Add(resultSet.ResultSet!);
             }
 
             return resultSets;
         });
-
-        var resultSets = response.Value;
 
         var seriesSet = resultSets[0];
         var episodesSet = resultSets[1];
