@@ -1,7 +1,9 @@
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Ydb.Sdk.Auth;
 
 namespace Ydb.Sdk.Ado;
 
@@ -122,7 +124,46 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private bool _useTls;
 
+    public string? TlsCertificate
+    {
+        get => _tslCertificate;
+        set
+        {
+            _tslCertificate = value;
+            SaveValue(nameof(TlsCertificate), value);
+
+            UseTls = true;
+        }
+    }
+
+    private string? _tslCertificate;
+
+    public string? TlsPassword
+    {
+        get => _tlsPassword;
+        set
+        {
+            _tlsPassword = value;
+            SaveValue(nameof(TlsPassword), value);
+        }
+    }
+
+    private string? _tlsPassword;
+
     public ILoggerFactory LoggerFactory { get; set; } = new NullLoggerFactory();
+
+    public ICredentialsProvider? CredentialsProvider
+    {
+        get => _credentialsProvider;
+        set
+        {
+            _credentialsProvider = value;
+
+            UseTls = true;
+        }
+    }
+
+    private ICredentialsProvider? _credentialsProvider;
 
     private void SaveValue(string propertyName, object? value)
     {
@@ -164,7 +205,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     internal Task<Driver> BuildDriver()
     {
-        return Driver.CreateInitialized(new DriverConfig(Endpoint, Database), LoggerFactory);
+        var credentialsProvider = CredentialsProvider ??
+                                  (User != null ? new StaticCredentialsProvider(User, Password) : null);
+        var cert = TlsCertificate != null ? new X509Certificate2(TlsCertificate, TlsPassword) : null;
+
+        return Driver.CreateInitialized(new DriverConfig(Endpoint, Database, credentialsProvider,
+            customServerCertificate: cert), LoggerFactory);
     }
 
     public override void Clear()
