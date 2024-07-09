@@ -8,15 +8,25 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private readonly ILogger<SessionPool<TSession>> _logger;
     private readonly SemaphoreSlim _semaphore;
     private readonly ConcurrentQueue<TSession> _idleSessions = new();
+    private readonly int _size;
 
-    protected SessionPool(ILogger<SessionPool<TSession>> logger, int? size = null)
+    private volatile bool _disposed;
+    private int _disposedSession;
+
+    protected SessionPool(ILogger<SessionPool<TSession>> logger, int? maxSessionPool = null)
     {
         _logger = logger;
-        _semaphore = new SemaphoreSlim(size ?? 100);
+        _size = maxSessionPool ?? 100;
+        _semaphore = new SemaphoreSlim(_size);
     }
 
     internal async Task<(Status, TSession?)> GetSession()
     {
+        if (_disposed)
+        {
+            return (new Status(StatusCode.Cancelled, "Session pool is closed"), null);
+        }
+
         await _semaphore.WaitAsync();
 
         if (_idleSessions.TryDequeue(out var session) && session.IsActive)
@@ -26,7 +36,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
         if (session != null) // not active
         {
-            DeleteNotActiveSession(session);
+            _ = DeleteNotActiveSession(session);
         }
 
         var (status, newSession) = await CreateSession();
@@ -70,7 +80,10 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             }
             finally
             {
-                session?.Release();
+                if (session != null)
+                {
+                    await session.Release();
+                }
             }
 
             // TODO Retry policy
@@ -84,15 +97,20 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         throw new StatusUnsuccessfulException(status);
     }
 
-    internal void ReleaseSession(TSession session)
+    internal async ValueTask ReleaseSession(TSession session)
     {
+        if (_disposed)
+        {
+            await DeleteNotActiveSession(session);
+        }
+
         if (session.IsActive)
         {
             _idleSessions.Enqueue(session);
         }
         else
         {
-            DeleteNotActiveSession(session);
+            _ = DeleteNotActiveSession(session);
         }
 
         Release();
@@ -103,11 +121,42 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         _semaphore.Release();
     }
 
-    private void DeleteNotActiveSession(TSession session)
+    private Task DeleteNotActiveSession(TSession session)
     {
-        _ = DeleteSession(session.SessionId).ContinueWith(s =>
-            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result)
-        );
+        return DeleteSession(session.SessionId).ContinueWith(async s =>
+        {
+            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
+
+            if (_size == Interlocked.Increment(ref _disposedSession))
+            {
+                _logger.LogInformation("Disposing grpc transport");
+
+                await DisposeDriver();
+            }
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        var tasks = new List<Task>();
+        while (_idleSessions.TryDequeue(out var session)) // thread safe iteration
+        {
+            tasks.Add(DeleteNotActiveSession(session));
+        }
+
+        await Task.WhenAll(tasks);
+    }
+
+    protected virtual ValueTask DisposeDriver()
+    {
+        return default;
     }
 }
 
@@ -137,8 +186,8 @@ public abstract class SessionBase<T> where T : SessionBase<T>
         }
     }
 
-    internal void Release()
+    internal ValueTask Release()
     {
-        _sessionPool.ReleaseSession((T)this);
+        return _sessionPool.ReleaseSession((T)this);
     }
 }

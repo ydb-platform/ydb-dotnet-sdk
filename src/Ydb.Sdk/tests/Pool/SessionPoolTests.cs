@@ -68,7 +68,7 @@ public class SessionPoolTests
 
                 onSession.Invoke(session!);
 
-                session!.Release();
+                await session!.Release();
             });
         }
 

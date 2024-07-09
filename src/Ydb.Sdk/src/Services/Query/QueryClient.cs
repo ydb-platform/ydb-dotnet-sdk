@@ -129,7 +129,7 @@ public class QueryClient : IAsyncDisposable
             }
             finally
             {
-                session.Release();
+                await session.Release();
             }
         });
     }

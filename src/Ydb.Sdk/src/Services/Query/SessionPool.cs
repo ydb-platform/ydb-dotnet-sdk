@@ -26,10 +26,13 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
     };
 
     private readonly Driver _driver;
+    private readonly bool _disposingDriver;
 
-    internal SessionPool(Driver driver, int? size = null) : base(driver.LoggerFactory.CreateLogger<SessionPool>(), size)
+    internal SessionPool(Driver driver, int? maxSessionPool = null, bool disposingDriver = false)
+        : base(driver.LoggerFactory.CreateLogger<SessionPool>(), maxSessionPool)
     {
         _driver = driver;
+        _disposingDriver = disposingDriver;
     }
 
     protected override async Task<(Status, Session?)> CreateSession()
@@ -44,7 +47,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             return (status, null);
         }
 
-        TaskCompletionSource<(Status, Session?)> completeTask = new();
+        TaskCompletionSource<Status> completeTask = new();
 
         var session = new Session(_driver, this, response.SessionId, response.NodeId);
 
@@ -57,9 +60,8 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
                 if (!await stream.MoveNextAsync())
                 {
-                    completeTask.SetResult(
-                        (new Status(StatusCode.Cancelled, "Attach stream is not started!"), null)
-                    ); // Session wasn't started!
+                    // Session wasn't started!
+                    completeTask.SetResult(new Status(StatusCode.Cancelled, "Attach stream is not started!"));
 
                     return;
                 }
@@ -68,10 +70,10 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
                 if (statusSession.IsNotSuccess)
                 {
-                    completeTask.SetResult((statusSession, null));
+                    completeTask.SetResult(statusSession);
                 }
 
-                completeTask.SetResult((status, session));
+                completeTask.SetResult(Status.Success);
 
                 try
                 {
@@ -86,33 +88,42 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                     }
 
                     // attach stream is closed
-                    session.IsActive = false;
                 }
-                catch (Driver.TransportException e)
+                catch (Driver.TransportException)
                 {
-                    session.OnStatus(e.Status);
                 }
             }
             catch (Driver.TransportException e)
             {
-                completeTask.SetResult((e.Status, null));
+                completeTask.SetResult(e.Status);
+            }
+            finally
+            {
+                session.IsActive = false;
             }
         });
 
-        return await completeTask.Task;
+        return (await completeTask.Task, session);
     }
 
     protected override async Task<Status> DeleteSession(string sessionId)
     {
-        var deleteSessionResponse = await _driver.UnaryCall(QueryService.DeleteSessionMethod,
-            new DeleteSessionRequest { SessionId = sessionId }, DeleteSessionSettings);
+        try
+        {
+            var deleteSessionResponse = await _driver.UnaryCall(QueryService.DeleteSessionMethod,
+                new DeleteSessionRequest { SessionId = sessionId }, DeleteSessionSettings);
 
-        return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
+            return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
+        }
+        catch (Driver.TransportException e)
+        {
+            return e.Status;
+        }
     }
 
-    public ValueTask DisposeAsync()
+    protected override ValueTask DisposeDriver()
     {
-        return _driver.DisposeAsync();
+        return _disposingDriver ? _driver.DisposeAsync() : default;
     }
 }
 
