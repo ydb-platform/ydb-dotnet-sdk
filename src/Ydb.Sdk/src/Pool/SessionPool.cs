@@ -22,15 +22,15 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     internal async Task<(Status, TSession?)> GetSession()
     {
+        Interlocked.Increment(ref _waitingCount);
+
         if (_disposed)
         {
             return (new Status(StatusCode.Cancelled, "Session pool is closed"), null);
         }
 
-        Interlocked.Increment(ref _waitingCount);
         await _semaphore.WaitAsync();
         Interlocked.Decrement(ref _waitingCount);
-
 
         if (_idleSessions.TryDequeue(out var session) && session.IsActive)
         {
@@ -165,7 +165,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     private async ValueTask TryDriverDispose()
     {
-        if (_disposed && _waitingCount == 0 && _semaphore.CurrentCount == _size - 1)
+        if (_disposed && _waitingCount == 0 && _semaphore.CurrentCount >= _size - 1)
         {
             await DisposeDriver();
         }
