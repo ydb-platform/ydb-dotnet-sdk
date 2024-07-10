@@ -10,8 +10,8 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private readonly ConcurrentQueue<TSession> _idleSessions = new();
     private readonly int _size;
 
+    private volatile int _waitingCount;
     private volatile bool _disposed;
-    private int _disposedSession;
 
     protected SessionPool(ILogger<SessionPool<TSession>> logger, int? maxSessionPool = null)
     {
@@ -27,7 +27,10 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             return (new Status(StatusCode.Cancelled, "Session pool is closed"), null);
         }
 
+        Interlocked.Increment(ref _waitingCount);
         await _semaphore.WaitAsync();
+        Interlocked.Decrement(ref _waitingCount);
+
 
         if (_idleSessions.TryDequeue(out var session) && session.IsActive)
         {
@@ -99,23 +102,28 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     internal async ValueTask ReleaseSession(TSession session)
     {
-        if (_disposed)
+        try
         {
-            await DeleteNotActiveSession(session);
+            if (_disposed)
+            {
+                await DeleteNotActiveSession(session);
 
-            return;
+                return;
+            }
+
+            if (session.IsActive)
+            {
+                _idleSessions.Enqueue(session);
+            }
+            else
+            {
+                _ = DeleteNotActiveSession(session);
+            }
         }
-
-        if (session.IsActive)
+        finally
         {
-            _idleSessions.Enqueue(session);
+            Release();
         }
-        else
-        {
-            _ = DeleteNotActiveSession(session);
-        }
-
-        Release();
     }
 
     private void Release()
@@ -129,7 +137,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
 
-            if (_size == Interlocked.Increment(ref _disposedSession))
+            if (_waitingCount == 0 && _semaphore.CurrentCount == _size - 1)
             {
                 _logger.LogInformation("Disposing grpc transport");
 
