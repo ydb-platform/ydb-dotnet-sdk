@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Pool;
+using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
@@ -18,11 +19,6 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
     private static readonly GrpcRequestSettings AttachSessionSettings = new()
     {
         TransportTimeout = TimeSpan.FromMinutes(1)
-    };
-
-    private static readonly GrpcRequestSettings DeleteSessionSettings = new()
-    {
-        TransportTimeout = TimeSpan.FromSeconds(5)
     };
 
     private readonly Driver _driver;
@@ -106,12 +102,19 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         return (await completeTask.Task, session);
     }
 
-    protected override async Task<Status> DeleteSession(string sessionId)
+    protected override async Task<Status> DeleteSession(Session session)
     {
         try
         {
+            var settings = new GrpcRequestSettings
+            {
+                TransportTimeout = TimeSpan.FromSeconds(5),
+                NodeId = session.NodeId
+            };
+
+
             var deleteSessionResponse = await _driver.UnaryCall(QueryService.DeleteSessionMethod,
-                new DeleteSessionRequest { SessionId = sessionId }, DeleteSessionSettings);
+                new DeleteSessionRequest { SessionId = session.SessionId }, settings);
 
             return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
         }

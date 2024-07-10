@@ -54,7 +54,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     protected abstract Task<(Status, TSession?)> CreateSession();
 
-    protected abstract Task<Status> DeleteSession(string sessionId);
+    protected abstract Task<Status> DeleteSession(TSession session);
 
     // TODO Retry policy and may be move to SessionPool method
     internal async Task<T> ExecOnSession<T>(Func<TSession, Task<T>> onSession, RetrySettings? retrySettings = null)
@@ -133,14 +133,12 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     private Task DeleteNotActiveSession(TSession session)
     {
-        return DeleteSession(session.SessionId).ContinueWith(async s =>
+        return DeleteSession(session).ContinueWith(async s =>
         {
             _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
 
             if (_waitingCount == 0 && _semaphore.CurrentCount == _size - 1)
             {
-                _logger.LogInformation("Disposing grpc transport");
-
                 await DisposeDriver();
             }
         });
