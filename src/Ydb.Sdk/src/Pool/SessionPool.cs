@@ -165,7 +165,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     private async ValueTask TryDriverDispose()
     {
-        if (_disposed && _waitingCount == 0 && _semaphore.CurrentCount == _size - 1)
+        if (_disposed && _waitingCount == 0 && _semaphore.CurrentCount >= _size - 1)
         {
             await DisposeDriver();
         }
