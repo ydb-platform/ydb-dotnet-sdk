@@ -95,7 +95,7 @@ internal class TestSessionPool : SessionPool<TestSession>
         return Task.FromResult((CreatedStatus, CreatedStatus.IsSuccess ? new TestSession(this) : null));
     }
 
-    protected override Task<Status> DeleteSession(string sessionId)
+    protected override Task<Status> DeleteSession(TestSession session)
     {
         return Task.FromResult(Status.Success);
     }
