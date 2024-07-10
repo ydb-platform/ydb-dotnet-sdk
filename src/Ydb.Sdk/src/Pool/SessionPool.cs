@@ -23,12 +23,12 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     internal async Task<(Status, TSession?)> GetSession()
     {
         Interlocked.Increment(ref _waitingCount);
-        
+
         if (_disposed)
         {
             return (new Status(StatusCode.Cancelled, "Session pool is closed"), null);
         }
-        
+
         await _semaphore.WaitAsync();
         Interlocked.Decrement(ref _waitingCount);
 
