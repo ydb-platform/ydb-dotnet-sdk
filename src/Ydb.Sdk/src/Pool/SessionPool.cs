@@ -31,7 +31,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         await _semaphore.WaitAsync();
         Interlocked.Decrement(ref _waitingCount);
 
-
         if (_idleSessions.TryDequeue(out var session) && session.IsActive)
         {
             return (Status.Success, session);
