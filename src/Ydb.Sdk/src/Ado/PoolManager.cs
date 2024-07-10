@@ -25,7 +25,8 @@ internal static class PoolManager
                 return await pool.Session();
             }
 
-            var newSessionPool = new SessionPool(await connectionString.BuildDriver(), connectionString.MaxSessionPool);
+            var newSessionPool = new SessionPool(await connectionString.BuildDriver(), connectionString.MaxSessionPool,
+                disposingDriver: true);
 
             Pools[connectionString.ConnectionString] = newSessionPool;
 
@@ -35,6 +36,32 @@ internal static class PoolManager
         {
             SemaphoreSlim.Release();
         }
+    }
+
+    internal static async Task ClearPool(string connectionString)
+    {
+        if (Pools.Remove(connectionString, out var sessionPool))
+        {
+            try
+            {
+                await SemaphoreSlim.WaitAsync();
+
+                await sessionPool.DisposeAsync();
+            }
+            finally
+            {
+                SemaphoreSlim.Release();
+            }
+        }
+    }
+
+    internal static async Task ClearAllPools()
+    {
+        var keys = Pools.Keys.ToList();
+
+        var tasks = keys.Select(ClearPool).ToList();
+
+        await Task.WhenAll(tasks);
     }
 }
 
