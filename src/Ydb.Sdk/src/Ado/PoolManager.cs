@@ -20,7 +20,6 @@ internal static class PoolManager
         {
             await SemaphoreSlim.WaitAsync();
 
-            Console.WriteLine("CREATE POOL");
             if (Pools.TryGetValue(connectionString.ConnectionString, out var pool))
             {
                 return await pool.Session();
