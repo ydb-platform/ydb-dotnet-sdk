@@ -197,21 +197,21 @@ public sealed class YdbConnection : DbConnection
 
     /// <summary>
     /// Clears the connection pool. All idle physical connections in the pool of the given connection are
-    /// immediately closed, and any busy connections which were opened before <see cref="ClosePool"/> was called
+    /// immediately closed, and any busy connections which were opened before <see cref="ClearPool"/> was called
     /// will be closed when returned to the pool.
     /// </summary>
-    public static Task ClosePool(YdbConnection connection)
+    public static Task ClearPool(YdbConnection connection)
     {
-        return PoolManager.ClosePool(connection.ConnectionString);
+        return PoolManager.ClearPool(connection.ConnectionString);
     }
 
     /// <summary>
     /// Clear all connection pools. All idle physical connections in all pools are immediately closed, and any busy
-    /// connections which were opened before <see cref="CloseAllPools"/> was called will be closed when returned
+    /// connections which were opened before <see cref="ClearAllPools"/> was called will be closed when returned
     /// to their pool.
     /// </summary>
-    public static Task CloseAllPools()
+    public static Task ClearAllPools()
     {
-        return PoolManager.CloseAllPools();
+        return PoolManager.ClearAllPools();
     }
 }

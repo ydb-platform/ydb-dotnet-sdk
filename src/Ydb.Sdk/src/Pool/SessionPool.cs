@@ -27,7 +27,9 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             return (new Status(StatusCode.Cancelled, "Session pool is closed"), null);
         }
 
+        Console.WriteLine("WAIT _semaphore");
         await _semaphore.WaitAsync();
+        Console.WriteLine("GET _semaphore");
 
         if (_idleSessions.TryDequeue(out var session) && session.IsActive)
         {
@@ -101,7 +103,10 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     {
         if (_disposed)
         {
+            Console.WriteLine("DELETE SESSION");
             await DeleteNotActiveSession(session);
+
+            return;
         }
 
         if (session.IsActive)
@@ -113,6 +118,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             _ = DeleteNotActiveSession(session);
         }
 
+        Console.WriteLine("RELEASE SESSION");
         Release();
     }
 
@@ -142,6 +148,8 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             return;
         }
+        
+        Console.WriteLine("SESSION POOL START CLOSING");
 
         _disposed = true;
 
