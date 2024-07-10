@@ -148,8 +148,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             return;
         }
-        
-        Console.WriteLine("SESSION POOL START CLOSING");
 
         _disposed = true;
 
