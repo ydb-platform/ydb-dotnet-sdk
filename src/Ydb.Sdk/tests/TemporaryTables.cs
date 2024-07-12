@@ -1,10 +1,13 @@
+using System.Runtime.InteropServices;
+
 namespace Ydb.Sdk.Tests;
 
 public class TemporaryTables<T>
 {
-    internal readonly string Series = "series_from_" + typeof(T).Name;
-    internal readonly string Seasons = "seasons_from_" + typeof(T).Name;
-    internal readonly string Episodes = "episodes_from_" + typeof(T).Name;
+    private static string Net => RuntimeInformation.FrameworkDescription.Split(".")[1].Split(" ")[1];
+    internal readonly string Series = $"`series_from_{typeof(T).Name}_{Net}`";
+    internal readonly string Seasons = $"`seasons_from_{typeof(T).Name}_{Net}`";
+    internal readonly string Episodes = $"`episodes_from_{typeof(T).Name}_{Net}`";
 
     internal string CreateTables => $@"
 CREATE TABLE {Series}

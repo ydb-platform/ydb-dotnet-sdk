@@ -107,7 +107,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             if (_disposed)
             {
                 await DeleteNotActiveSession(session);
-                await TryDriverDispose();
+                await TryDriverDispose(_size - 1);
 
                 return;
             }
@@ -135,8 +135,10 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private Task DeleteNotActiveSession(TSession session)
     {
         return DeleteSession(session).ContinueWith(s =>
-            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result)
-        );
+        {
+            Console.WriteLine("Session[{id}] removed with status {status}");
+            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
+        });
     }
 
     public async ValueTask DisposeAsync()
@@ -155,7 +157,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         }
 
         await Task.WhenAll(tasks);
-        await TryDriverDispose();
+        await TryDriverDispose(_size);
     }
 
     protected virtual ValueTask DisposeDriver()
@@ -163,9 +165,9 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         return default;
     }
 
-    private async ValueTask TryDriverDispose()
+    private async ValueTask TryDriverDispose(int expectedCurrentCount)
     {
-        if (_disposed && _waitingCount == 0 && _semaphore.CurrentCount >= _size - 1)
+        if (_disposed && _waitingCount == 0 && _semaphore.CurrentCount == expectedCurrentCount)
         {
             await DisposeDriver();
         }

@@ -111,7 +111,6 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                 NodeId = session.NodeId
             };
 
-
             var deleteSessionResponse = await _driver.UnaryCall(QueryService.DeleteSessionMethod,
                 new DeleteSessionRequest { SessionId = session.SessionId }, settings);
 

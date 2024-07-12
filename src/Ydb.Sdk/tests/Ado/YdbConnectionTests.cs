@@ -3,9 +3,8 @@ using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Collection("Integration YdbConnectionTests test")]
-[CollectionDefinition("YdbConnectionTests isolation test", DisableParallelization = true)]
 [Trait("Category", "Integration")]
+[Collection("YdbConnectionTests")]
 public class YdbConnectionTests
 {
     private static readonly TemporaryTables<YdbConnectionTests> Tables = new();

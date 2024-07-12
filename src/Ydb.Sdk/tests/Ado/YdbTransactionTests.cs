@@ -5,7 +5,6 @@ using Ydb.Sdk.Services.Query;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Collection("Integration YdbTransaction tests")]
 [Trait("Category", "Integration")]
 public class YdbTransactionTests : IAsyncLifetime
 {
