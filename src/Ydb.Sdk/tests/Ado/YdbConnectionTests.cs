@@ -3,6 +3,8 @@ using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tests.Ado;
 
+[Collection("Integration YdbConnectionTests test")]
+[CollectionDefinition("YdbConnectionTests isolation test", DisableParallelization = true)]
 [Trait("Category", "Integration")]
 public class YdbConnectionTests
 {
@@ -141,10 +143,10 @@ public class YdbConnectionTests
         var ydbCommand = connection.CreateCommand();
         ydbCommand.CommandText = "CREATE USER kurdyukovkirya PASSWORD 'password'";
         await ydbCommand.ExecuteNonQueryAsync();
+        await connection.CloseAsync();
 
         await using var userPasswordConnection = new YdbConnection("User=kurdyukovkirya;Password=password;");
         await userPasswordConnection.OpenAsync();
-
         ydbCommand = userPasswordConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1 + 2";
         Assert.Equal(3, await ydbCommand.ExecuteScalarAsync());
