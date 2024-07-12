@@ -143,8 +143,6 @@ public sealed class YdbConnection : DbConnection
 
     protected override YdbCommand CreateDbCommand()
     {
-        EnsureConnectionOpen();
-
         return new YdbCommand(this);
     }
 
@@ -157,7 +155,7 @@ public sealed class YdbConnection : DbConnection
     {
         if (ConnectionState == ConnectionState.Closed)
         {
-            throw new InvalidOperationException("The connection is closed");
+            throw new InvalidOperationException("Connection is closed");
         }
     }
 

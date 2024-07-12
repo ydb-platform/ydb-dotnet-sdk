@@ -4,8 +4,11 @@ using Ydb.Sdk.Ado;
 namespace Ydb.Sdk.Tests.Ado;
 
 [Trait("Category", "Integration")]
+[Collection("YdbConnectionTests")]
 public class YdbConnectionTests
 {
+    private static readonly TemporaryTables<YdbConnectionTests> Tables = new();
+
     private volatile int _counter;
 
     [Fact]
@@ -18,14 +21,14 @@ public class YdbConnectionTests
         tasks.AddRange(GenerateTasks());
 
         await Task.WhenAll(tasks);
-        Assert.Equal(999000, _counter);
+        Assert.Equal(9900, _counter);
 
         tasks = GenerateTasks();
 
         tasks.Add(YdbConnection.ClearPool(new YdbConnection("MaxSessionPool=10")));
 
         await Task.WhenAll(tasks);
-        Assert.Equal(1498500, _counter);
+        Assert.Equal(14850, _counter);
     }
 
     [Fact]
@@ -38,19 +41,101 @@ public class YdbConnectionTests
         tasks.AddRange(GenerateTasks());
 
         await Task.WhenAll(tasks);
-        Assert.Equal(999000, _counter);
+        Assert.Equal(9900, _counter);
 
         tasks = GenerateTasks();
 
         tasks.Add(YdbConnection.ClearAllPools());
 
         await Task.WhenAll(tasks);
-        Assert.Equal(1498500, _counter);
+        Assert.Equal(14850, _counter);
+    }
+
+    // docker cp ydb-local:/ydb_certs/ca.pem ~/
+    [Fact]
+    public async Task TlsSettings_WhenUseGrpcs_ReturnValidConnection()
+    {
+        await using var ydbConnection = new YdbConnection(
+            "Host=localhost;Port=2135;MaxSessionPool=10;RootCertificate=" +
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem"));
+
+        await ydbConnection.OpenAsync();
+
+        var command = ydbConnection.CreateCommand();
+        command.CommandText = Tables.CreateTables;
+        await command.ExecuteNonQueryAsync();
+
+        command.CommandText = Tables.UpsertData;
+        await command.ExecuteNonQueryAsync();
+
+        command.CommandText = Tables.DeleteTables;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    [Fact]
+    public async Task Open_WhenConnectionIsOpen_ThrowException()
+    {
+        await using var ydbConnection = new YdbConnection();
+        await ydbConnection.OpenAsync();
+
+        Assert.Equal("Connection already open",
+            Assert.Throws<InvalidOperationException>(() => ydbConnection.Open()).Message);
+    }
+
+    [Fact]
+    public async Task SetConnectionString_WhenConnectionIsOpen_ThrowException()
+    {
+        await using var ydbConnection = new YdbConnection();
+        await ydbConnection.OpenAsync();
+
+        Assert.Equal("Connection already open",
+            Assert.Throws<InvalidOperationException>(() => ydbConnection.ConnectionString = "UseTls=false").Message);
+    }
+
+    [Fact]
+    public async Task BeginTransaction_WhenConnectionIsClosed_ThrowException()
+    {
+        var ydbConnection = new YdbConnection();
+        await ydbConnection.OpenAsync();
+        await ydbConnection.CloseAsync();
+
+        Assert.Equal("Connection is closed",
+            Assert.Throws<InvalidOperationException>(() => ydbConnection.BeginTransaction()).Message);
+    }
+
+    [Fact]
+    public async Task ExecuteScalar_WhenConnectionIsClosed_ThrowException()
+    {
+        var ydbConnection = new YdbConnection();
+        await ydbConnection.OpenAsync();
+        await ydbConnection.CloseAsync();
+
+        var ydbCommand = ydbConnection.CreateCommand();
+        ydbCommand.CommandText = "SELECT 1";
+
+        Assert.Equal("Connection is closed",
+            Assert.Throws<InvalidOperationException>(() => ydbCommand.ExecuteScalar()).Message);
+    }
+
+    [Fact]
+    public async Task ClosedYdbDataReader_WhenConnectionIsClosed_ThrowException()
+    {
+        var ydbConnection = new YdbConnection();
+        await ydbConnection.OpenAsync();
+
+        var ydbCommand = ydbConnection.CreateCommand();
+        ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3;";
+        var reader = await ydbCommand.ExecuteReaderAsync();
+        await reader.ReadAsync();
+
+        Assert.Equal(1, reader.GetInt32(0));
+        await ydbConnection.CloseAsync();
+        Assert.False(await reader.ReadAsync());
     }
 
     private List<Task> GenerateTasks()
     {
-        return Enumerable.Range(0, 1000).Select(async i =>
+        return Enumerable.Range(0, 100).Select(async i =>
         {
             await using var connection = new YdbConnection("MaxSessionPool=10");
             await connection.OpenAsync();

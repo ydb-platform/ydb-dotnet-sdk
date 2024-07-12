@@ -52,7 +52,7 @@ jobs:
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
           YDB_USE_IN_MEMORY_PDISKS: true
-        options: '-h localhost'
+        options: '--name ydb-local -h localhost'
     env:
       OS: ubuntu-22.04
       YDB_VERSION: ${{ matrix.ydb-version }}
@@ -66,6 +66,7 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
       - name: Integration test
-        run: | 
+        run: |
+          docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src
           dotnet test --filter "Category=Integration" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=normal"
