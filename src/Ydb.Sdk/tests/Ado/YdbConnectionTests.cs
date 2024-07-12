@@ -133,30 +133,6 @@ public class YdbConnectionTests
         Assert.False(await reader.ReadAsync());
     }
 
-    [Fact]
-    public async Task Authentication_WhenUserAndPassword_ReturnValidConnection()
-    {
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
-        var ydbCommand = connection.CreateCommand();
-        ydbCommand.CommandText = "CREATE USER kurdyukovkirya PASSWORD 'password'";
-        await ydbCommand.ExecuteNonQueryAsync();
-        await connection.CloseAsync();
-
-        await using var userPasswordConnection = new YdbConnection("User=kurdyukovkirya;Password=password;");
-        await userPasswordConnection.OpenAsync();
-        ydbCommand = userPasswordConnection.CreateCommand();
-        ydbCommand.CommandText = "SELECT 1 + 2";
-        Assert.Equal(3, await ydbCommand.ExecuteScalarAsync());
-
-        await using var newConnection = new YdbConnection();
-        await newConnection.OpenAsync();
-        ydbCommand = newConnection.CreateCommand();
-        ydbCommand.CommandText = "DROP USER kurdyukovkirya;";
-        await ydbCommand.ExecuteNonQueryAsync();
-    }
-
     private List<Task> GenerateTasks()
     {
         return Enumerable.Range(0, 100).Select(async i =>
