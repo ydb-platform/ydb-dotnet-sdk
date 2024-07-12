@@ -149,9 +149,11 @@ public class YdbConnectionTests
         ydbCommand.CommandText = "SELECT 1 + 2";
         Assert.Equal(3, await ydbCommand.ExecuteScalarAsync());
 
-        ydbCommand = connection.CreateCommand();
+        await using var newConnection = new YdbConnection();
+        await newConnection.OpenAsync();
+        ydbCommand = newConnection.CreateCommand();
         ydbCommand.CommandText = "DROP USER kurdyukovkirya;";
-        await ydbCommand.ExecuteScalarAsync();
+        await ydbCommand.ExecuteNonQueryAsync();
     }
 
     private List<Task> GenerateTasks()
