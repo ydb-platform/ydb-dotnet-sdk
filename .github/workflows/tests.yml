@@ -44,7 +44,6 @@ jobs:
             dotnet-target-framework: net7.0
     services:
       ydb:
-        container_name: ydb-local
         image: cr.yandex/yc/yandex-docker-local-ydb:${{ matrix.ydb-version }}
         ports:
           - 2135:2135
@@ -53,7 +52,7 @@ jobs:
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
           YDB_USE_IN_MEMORY_PDISKS: true
-        options: '-h localhost'
+        options: '--name ydb-local -h localhost'
     env:
       OS: ubuntu-22.04
       YDB_VERSION: ${{ matrix.ydb-version }}

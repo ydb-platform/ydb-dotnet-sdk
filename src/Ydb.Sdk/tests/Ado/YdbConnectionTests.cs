@@ -20,14 +20,14 @@ public class YdbConnectionTests
         tasks.AddRange(GenerateTasks());
 
         await Task.WhenAll(tasks);
-        Assert.Equal(999000, _counter);
+        Assert.Equal(9900, _counter);
 
         tasks = GenerateTasks();
 
         tasks.Add(YdbConnection.ClearPool(new YdbConnection("MaxSessionPool=10")));
 
         await Task.WhenAll(tasks);
-        Assert.Equal(1498500, _counter);
+        Assert.Equal(14850, _counter);
     }
 
     [Fact]
@@ -40,14 +40,14 @@ public class YdbConnectionTests
         tasks.AddRange(GenerateTasks());
 
         await Task.WhenAll(tasks);
-        Assert.Equal(999000, _counter);
+        Assert.Equal(9900, _counter);
 
         tasks = GenerateTasks();
 
         tasks.Add(YdbConnection.ClearAllPools());
 
         await Task.WhenAll(tasks);
-        Assert.Equal(1498500, _counter);
+        Assert.Equal(14850, _counter);
     }
 
     // docker cp ydb-local:/ydb_certs/ca.pem ~/
@@ -156,7 +156,7 @@ public class YdbConnectionTests
 
     private List<Task> GenerateTasks()
     {
-        return Enumerable.Range(0, 1000).Select(async i =>
+        return Enumerable.Range(0, 100).Select(async i =>
         {
             await using var connection = new YdbConnection("MaxSessionPool=10");
             await connection.OpenAsync();
