@@ -124,46 +124,23 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private bool _useTls;
 
-    public string? TlsCertificate
+    public string? RootCertificate
     {
-        get => _tslCertificate;
+        get => _rootCertificate;
         set
         {
-            _tslCertificate = value;
-            SaveValue(nameof(TlsCertificate), value);
+            _rootCertificate = value;
+            SaveValue(nameof(RootCertificate), value);
 
             UseTls = true;
         }
     }
 
-    private string? _tslCertificate;
-
-    public string? TlsPassword
-    {
-        get => _tlsPassword;
-        set
-        {
-            _tlsPassword = value;
-            SaveValue(nameof(TlsPassword), value);
-        }
-    }
-
-    private string? _tlsPassword;
+    private string? _rootCertificate;
 
     public ILoggerFactory LoggerFactory { get; set; } = new NullLoggerFactory();
 
-    public ICredentialsProvider? CredentialsProvider
-    {
-        get => _credentialsProvider;
-        set
-        {
-            _credentialsProvider = value;
-
-            UseTls = true;
-        }
-    }
-
-    private ICredentialsProvider? _credentialsProvider;
+    public ICredentialsProvider? CredentialsProvider { get; set; }
 
     private void SaveValue(string propertyName, object? value)
     {
@@ -207,10 +184,14 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     {
         var credentialsProvider = CredentialsProvider ??
                                   (User != null ? new StaticCredentialsProvider(User, Password) : null);
-        var cert = TlsCertificate != null ? new X509Certificate2(TlsCertificate, TlsPassword) : null;
+        var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
 
-        return Driver.CreateInitialized(new DriverConfig(Endpoint, Database, credentialsProvider,
-            customServerCertificate: cert), LoggerFactory);
+        return Driver.CreateInitialized(new DriverConfig(
+            endpoint: Endpoint,
+            database: Database,
+            credentials: credentialsProvider,
+            customServerCertificate: cert
+        ), LoggerFactory);
     }
 
     public override void Clear()
@@ -280,6 +261,10 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 "MaxSessionPool", "Max Session Pool", "Maximum Pool Size", "Max Pool Size", "MaximumPoolSize");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, useTls) => builder.UseTls = useTls),
                 "UseTls", "Use Tls");
+            AddOption(
+                new YdbConnectionOption<string>(StringExtractor,
+                    (builder, rootCertificate) => builder.RootCertificate = rootCertificate),
+                "RootCertificate", "Root Certificate");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)
