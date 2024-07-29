@@ -166,7 +166,7 @@ public class Status
     public static readonly Status Success = new(StatusCode.Success);
 
     private readonly List<Issue> _issues;
-    public StatusCode StatusCode { get; private set; }
+    public StatusCode StatusCode { get; }
     public IReadOnlyList<Issue> Issues => _issues;
 
     internal Status(StatusCode statusCode, List<Issue> issues)
