@@ -4,8 +4,6 @@ using Ydb.Sdk.Ado;
 namespace Ydb.Sdk.Tests.Ado;
 
 [Trait("Category", "Integration")]
-[CollectionDefinition("YdbAdoUserPasswordTests isolation test", DisableParallelization = true)]
-[Collection("YdbAdoUserPasswordTests isolation test")]
 public class YdbAdoUserPasswordTests
 {
     [Fact]
@@ -15,11 +13,12 @@ public class YdbAdoUserPasswordTests
         await connection.OpenAsync();
 
         var ydbCommand = connection.CreateCommand();
-        ydbCommand.CommandText = "CREATE USER kurdyukovkirya PASSWORD 'password'";
+        var kurdyukovkirya = "kurdyukovkirya" + Random.Shared.Next();
+        ydbCommand.CommandText = $"CREATE USER {kurdyukovkirya} PASSWORD 'password'";
         await ydbCommand.ExecuteNonQueryAsync();
         await connection.CloseAsync();
 
-        await using var userPasswordConnection = new YdbConnection("User=kurdyukovkirya;Password=password;");
+        await using var userPasswordConnection = new YdbConnection($"User={kurdyukovkirya};Password=password;");
         await userPasswordConnection.OpenAsync();
         ydbCommand = userPasswordConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1 + 2";
@@ -28,7 +27,7 @@ public class YdbAdoUserPasswordTests
         await using var newConnection = new YdbConnection();
         await newConnection.OpenAsync();
         ydbCommand = newConnection.CreateCommand();
-        ydbCommand.CommandText = "DROP USER kurdyukovkirya;";
+        ydbCommand.CommandText = $"DROP USER {kurdyukovkirya};";
         await ydbCommand.ExecuteNonQueryAsync();
     }
 }

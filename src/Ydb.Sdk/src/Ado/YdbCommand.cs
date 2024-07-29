@@ -29,12 +29,16 @@ public sealed class YdbCommand : DbCommand
     {
         await using var dataReader = ExecuteDbDataReader(CommandBehavior.Default);
 
-        if (await dataReader.NextResultAsync(cancellationToken))
+        if (!await dataReader.NextResultAsync(cancellationToken))
         {
-            return dataReader.RecordsAffected;
+            throw new YdbException("YDB server closed the stream");
         }
 
-        throw new YdbException("YDB server closed the stream");
+        while (await dataReader.ReadAsync(cancellationToken))
+        {
+        }
+
+        return dataReader.RecordsAffected;
     }
 
     public override object? ExecuteScalar()
@@ -46,9 +50,15 @@ public sealed class YdbCommand : DbCommand
     {
         await using var dataReader = ExecuteDbDataReader(CommandBehavior.Default);
 
-        return await dataReader.ReadAsync(cancellationToken)
+        var data = await dataReader.ReadAsync(cancellationToken)
             ? dataReader.IsDBNull(0) ? null : dataReader.GetValue(0)
             : null;
+
+        while (await dataReader.ReadAsync(cancellationToken))
+        {
+        }
+
+        return data;
     }
 
     public override void Prepare()

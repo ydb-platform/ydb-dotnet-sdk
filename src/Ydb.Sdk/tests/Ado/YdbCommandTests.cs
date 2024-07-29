@@ -32,7 +32,7 @@ public class YdbCommandTests
     }
 
     [Fact]
-    public async Task ExecuteNonQueryAsync_WhenCreateTopic_ReturnEmptyResultSet()
+    public async Task ExecuteNonQueryAsync_WhenCreateUser_ReturnEmptyResultSet()
     {
         await using var connection = new YdbConnection();
         await connection.OpenAsync();
