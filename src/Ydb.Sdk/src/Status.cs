@@ -165,17 +165,16 @@ public class Status
 {
     public static readonly Status Success = new(StatusCode.Success);
 
-    private readonly List<Issue> _issues;
     public StatusCode StatusCode { get; }
-    public IReadOnlyList<Issue> Issues => _issues;
+    public IReadOnlyList<Issue> Issues { get; }
 
-    internal Status(StatusCode statusCode, List<Issue> issues)
+    internal Status(StatusCode statusCode, IReadOnlyList<Issue> issues)
     {
         StatusCode = statusCode;
-        _issues = issues;
+        Issues = issues;
     }
 
-    internal Status(StatusCode statusCode) : this(statusCode, new List<Issue>())
+    internal Status(StatusCode statusCode) : this(statusCode, Array.Empty<Issue>())
     {
     }
 
