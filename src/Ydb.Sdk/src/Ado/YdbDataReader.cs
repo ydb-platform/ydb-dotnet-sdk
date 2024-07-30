@@ -363,7 +363,7 @@ public sealed class YdbDataReader : DbDataReader
             {
                 _issueMessagesInStream.AddRange(_stream.Current.Issues);
             }
-            
+
             throw new YdbException(Status.FromProto(part.Status, _issueMessagesInStream));
         }
 
