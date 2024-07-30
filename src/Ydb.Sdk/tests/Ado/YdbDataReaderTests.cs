@@ -145,15 +145,14 @@ public class YdbDataReaderTests
 
         var reader = new YdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
             new List<ExecuteQueryResponsePart> { successPart, failPart, nextFailPart }));
-        
+
         Assert.True(reader.Read());
         Assert.Equal(@"Status: Aborted, Issues:
 [0] Fatal: Some message 1
 [0] Fatal: Some message 2
 [0] Fatal: Some message 2
 [0] Fatal: Some message 3
-",
-            Assert.Throws<YdbException>(() => reader.Read()).Message);
+", Assert.Throws<YdbException>(() => reader.Read()).Message);
     }
 
     private static MockAsyncEnumerator<ExecuteQueryResponsePart> EnumeratorSuccess(int size = 1,
