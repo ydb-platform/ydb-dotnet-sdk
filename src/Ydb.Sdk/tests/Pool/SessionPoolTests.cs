@@ -25,10 +25,9 @@ public class SessionPoolTests
         _testSessionPool.CreatedStatus = Status
             .FromProto(StatusIds.Types.StatusCode.Unavailable, new RepeatedField<IssueMessage>());
 
-        var (status, session) = await _testSessionPool.GetSession();
+        var e = await Assert.ThrowsAsync<StatusUnsuccessfulException>(async () => await _testSessionPool.GetSession());
 
-        Assert.Equal(StatusCode.Unavailable, status.StatusCode);
-        Assert.Null(session);
+        Assert.Equal(StatusCode.Unavailable, e.Status.StatusCode);
 
         _testSessionPool.CreatedStatus = Status.Success;
 
@@ -62,11 +61,11 @@ public class SessionPoolTests
         {
             tasks[i] = Task.Run(async () =>
             {
-                var (_, session) = await _testSessionPool.GetSession();
+                var session = await _testSessionPool.GetSession();
 
                 await Task.Delay(100);
 
-                onSession.Invoke(session!);
+                onSession.Invoke(session);
 
                 await session!.Release();
             });
@@ -88,11 +87,15 @@ internal class TestSessionPool : SessionPool<TestSession>
     {
     }
 
-    protected override Task<(Status, TestSession?)> CreateSession()
+    protected override Task<TestSession> CreateSession()
     {
         Interlocked.Increment(ref InvokedCreateSession);
 
-        return Task.FromResult((CreatedStatus, CreatedStatus.IsSuccess ? new TestSession(this) : null));
+        return Task.FromResult(((Func<TestSession>)(() =>
+        {
+            CreatedStatus.EnsureSuccess();
+            return new TestSession(this);
+        }))());
     }
 
     protected override Task<Status> DeleteSession(TestSession session)

@@ -30,17 +30,14 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         _disposingDriver = disposingDriver;
     }
 
-    protected override async Task<(Status, Session?)> CreateSession()
+    protected override async Task<Session> CreateSession()
     {
         var response = await _driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest,
             CreateSessionSettings);
 
         var status = Status.FromProto(response.Status, response.Issues);
 
-        if (status.IsNotSuccess)
-        {
-            return (status, null);
-        }
+        status.EnsureSuccess();
 
         TaskCompletionSource<Status> completeTask = new();
 
@@ -98,7 +95,9 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             }
         });
 
-        return (await completeTask.Task, session);
+        (await completeTask.Task).EnsureSuccess();
+        
+        return session;
     }
 
     protected override async Task<Status> DeleteSession(Session session)

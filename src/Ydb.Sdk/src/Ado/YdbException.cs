@@ -6,6 +6,10 @@ public class YdbException : Exception
     {
     }
 
+    public YdbException(string message, Exception e) : base(message, e)
+    {
+    }
+
     public YdbException(Status status) : base(status.ToString())
     {
     }

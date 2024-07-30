@@ -82,7 +82,15 @@ public sealed class YdbConnection : DbConnection
     {
         EnsureConnectionClosed();
 
-        Session = await PoolManager.GetSession(ConnectionStringBuilder);
+        try
+        {
+            Session = await PoolManager.GetSession(ConnectionStringBuilder);
+        }
+        catch (Exception e)
+        {
+            throw new YdbException(e.Message, e);
+        }
+
         ConnectionState = ConnectionState.Open;
     }
 

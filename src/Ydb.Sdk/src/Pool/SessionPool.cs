@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Pool;
 
@@ -20,13 +21,13 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         _semaphore = new SemaphoreSlim(_size);
     }
 
-    internal async Task<(Status, TSession?)> GetSession()
+    internal async Task<TSession> GetSession()
     {
         Interlocked.Increment(ref _waitingCount);
 
         if (_disposed)
         {
-            return (new Status(StatusCode.Cancelled, "Session pool is closed"), null);
+            throw new YdbException( "Session pool is closed");
         }
 
         await _semaphore.WaitAsync();
@@ -34,7 +35,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
         if (_idleSessions.TryDequeue(out var session) && session.IsActive)
         {
-            return (Status.Success, session);
+            return session;
         }
 
         if (session != null) // not active
@@ -44,22 +45,23 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
         try
         {
-            var (status, newSession) = await CreateSession();
-
-            if (status.IsNotSuccess)
-            {
-                Release();
-            }
-
-            return (status, newSession);
+            return await CreateSession();
         }
-        catch (Driver.TransportException e)
+        catch (Driver.TransportException) // Transport exception
         {
-            return (e.Status, null);
+            Release();
+
+            throw;
+        }
+        catch (StatusUnsuccessfulException)
+        {
+            Release();
+
+            throw;
         }
     }
 
-    protected abstract Task<(Status, TSession?)> CreateSession();
+    protected abstract Task<TSession> CreateSession();
 
     protected abstract Task<Status> DeleteSession(TSession session);
 
@@ -74,7 +76,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             try
             {
-                (status, session) = await GetSession();
+                session = await GetSession();
 
                 status.EnsureSuccess();
 
