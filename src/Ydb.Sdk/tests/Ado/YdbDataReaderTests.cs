@@ -1,4 +1,3 @@
-using Google.Protobuf.Collections;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Query;
@@ -106,21 +105,24 @@ public class YdbDataReaderTests
         Assert.False(reader.Read());
     }
 
-    [Fact]
     [Trait("Category", "Integration")]
-    public async Task CloseAsync_WhenDoubleInvoke_Idempotent()
+    public class Integration
     {
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
+        [Fact]
+        public async Task CloseAsync_WhenDoubleInvoke_Idempotent()
+        {
+            await using var connection = new YdbConnection();
+            await connection.OpenAsync();
 
-        var ydbCommand = connection.CreateCommand();
-        ydbCommand.CommandText = "SELECT 1;";
-        var ydbDataReader = ydbCommand.ExecuteReader();
+            var ydbCommand = connection.CreateCommand();
+            ydbCommand.CommandText = "SELECT 1;";
+            var ydbDataReader = ydbCommand.ExecuteReader();
 
-        Assert.True(await ydbDataReader.NextResultAsync());
-        await ydbDataReader.CloseAsync();
-        await ydbDataReader.CloseAsync();
-        Assert.False(await ydbDataReader.NextResultAsync());
+            Assert.True(await ydbDataReader.NextResultAsync());
+            await ydbDataReader.CloseAsync();
+            await ydbDataReader.CloseAsync();
+            Assert.False(await ydbDataReader.NextResultAsync());
+        }
     }
 
     [Fact]
