@@ -105,26 +105,6 @@ public class YdbDataReaderTests
         Assert.False(reader.Read());
     }
 
-    [Trait("Category", "Integration")]
-    public class Integration
-    {
-        [Fact]
-        public async Task CloseAsync_WhenDoubleInvoke_Idempotent()
-        {
-            await using var connection = new YdbConnection();
-            await connection.OpenAsync();
-
-            var ydbCommand = connection.CreateCommand();
-            ydbCommand.CommandText = "SELECT 1;";
-            var ydbDataReader = ydbCommand.ExecuteReader();
-
-            Assert.True(await ydbDataReader.NextResultAsync());
-            await ydbDataReader.CloseAsync();
-            await ydbDataReader.CloseAsync();
-            Assert.False(await ydbDataReader.NextResultAsync());
-        }
-    }
-
     [Fact]
     public void Read_WhenReadAsyncThrowException_AggregateIssuesBeforeErrorAndAfter()
     {

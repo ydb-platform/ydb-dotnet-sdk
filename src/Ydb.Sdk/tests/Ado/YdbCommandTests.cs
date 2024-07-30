@@ -47,6 +47,22 @@ public class YdbCommandTests
     }
 
     [Fact]
+    public async Task CloseAsync_WhenDoubleInvoke_Idempotent()
+    {
+        await using var connection = new YdbConnection();
+        await connection.OpenAsync();
+
+        var ydbCommand = connection.CreateCommand();
+        ydbCommand.CommandText = "SELECT 1;";
+        var ydbDataReader = ydbCommand.ExecuteReader();
+
+        Assert.True(await ydbDataReader.NextResultAsync());
+        await ydbDataReader.CloseAsync();
+        await ydbDataReader.CloseAsync();
+        Assert.False(await ydbDataReader.NextResultAsync());
+    }
+
+    [Fact]
     public async Task ExecuteDbDataReader_WhenSelectManyResultSet_ReturnYdbDataReader()
     {
         await using var connection = new YdbConnection();

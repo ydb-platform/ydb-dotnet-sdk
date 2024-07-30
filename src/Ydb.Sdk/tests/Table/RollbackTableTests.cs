@@ -4,6 +4,7 @@ using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Table;
 
+[Trait("Category", "Integration")]
 public class RollbackTableTests : IClassFixture<TableClientFixture>
 {
     private readonly TableClientFixture _tableClientFixture;
