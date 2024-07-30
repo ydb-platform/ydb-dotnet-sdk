@@ -1,4 +1,5 @@
 using Xunit;
+using Ydb.Issue;
 using Ydb.Query;
 using Ydb.Sdk.Ado;
 
@@ -102,6 +103,38 @@ public class YdbDataReaderTests
 
         Assert.False(reader.NextResult());
         Assert.False(reader.Read());
+    }
+
+    [Fact]
+    public void Read_WhenReadAsyncThrowException_AggregateIssuesBeforeErrorAndAfter()
+    {
+        var result = ResultSet.Parser.ParseJson(
+            "{ \"columns\": [ { \"name\": \"column0\", " +
+            "\"type\": { \"typeId\": \"BOOL\" } } ], " +
+            "\"rows\": [ { \"items\": [ { \"boolValue\": true } ] } ] }"
+        );
+
+        var successPart = new ExecuteQueryResponsePart
+            { ResultSetIndex = 0, Status = StatusIds.Types.StatusCode.Success, ResultSet = result };
+        successPart.Issues.Add(new IssueMessage { Message = "Some message 1" });
+
+        var failPart = new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Aborted };
+        failPart.Issues.Add(new IssueMessage { Message = "Some message 2" });
+        failPart.Issues.Add(new IssueMessage { Message = "Some message 2" });
+
+        var nextFailPart = new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Aborted };
+        nextFailPart.Issues.Add(new IssueMessage { Message = "Some message 3" });
+
+        var reader = new YdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+            new List<ExecuteQueryResponsePart> { successPart, failPart, nextFailPart }));
+
+        Assert.True(reader.Read());
+        Assert.Equal(@"Status: Aborted, Issues:
+[0] Fatal: Some message 1
+[0] Fatal: Some message 2
+[0] Fatal: Some message 2
+[0] Fatal: Some message 3
+", Assert.Throws<YdbException>(() => reader.Read()).Message);
     }
 
     private static MockAsyncEnumerator<ExecuteQueryResponsePart> EnumeratorSuccess(int size = 1,

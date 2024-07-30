@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Data.Common;
+using Google.Protobuf.Collections;
+using Ydb.Issue;
 using Ydb.Query;
 using Ydb.Sdk.Value;
 
@@ -9,6 +11,7 @@ public sealed class YdbDataReader : DbDataReader
 {
     private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
     private readonly YdbTransaction? _ydbTransaction;
+    private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1; // not fetched result set
@@ -351,11 +354,17 @@ public sealed class YdbDataReader : DbDataReader
 
         var part = _stream.Current;
 
-        var status = Status.FromProto(part.Status, part.Issues);
+        _issueMessagesInStream.AddRange(part.Issues);
 
-        if (status.IsNotSuccess)
+        if (part.Status != StatusIds.Types.StatusCode.Success)
         {
-            throw new YdbException(status);
+            ReaderState = State.Closed;
+            while (await _stream.MoveNextAsync())
+            {
+                _issueMessagesInStream.AddRange(_stream.Current.Issues);
+            }
+
+            throw new YdbException(Status.FromProto(part.Status, _issueMessagesInStream));
         }
 
         _currentResultSet = part.ResultSet?.FromProto() ?? Value.ResultSet.Empty;

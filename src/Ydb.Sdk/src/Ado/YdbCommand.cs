@@ -27,14 +27,18 @@ public sealed class YdbCommand : DbCommand
 
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {
-        await using var dataReader = ExecuteDbDataReader(CommandBehavior.Default);
+        await using var dataReader = ExecuteReader();
 
-        if (await dataReader.NextResultAsync(cancellationToken))
+        if (!await dataReader.NextResultAsync(cancellationToken))
         {
-            return dataReader.RecordsAffected;
+            throw new YdbException("YDB server closed the stream");
         }
 
-        throw new YdbException("YDB server closed the stream");
+        while (await dataReader.ReadAsync(cancellationToken))
+        {
+        }
+
+        return dataReader.RecordsAffected;
     }
 
     public override object? ExecuteScalar()
@@ -46,9 +50,15 @@ public sealed class YdbCommand : DbCommand
     {
         await using var dataReader = ExecuteDbDataReader(CommandBehavior.Default);
 
-        return await dataReader.ReadAsync(cancellationToken)
+        var data = await dataReader.ReadAsync(cancellationToken)
             ? dataReader.IsDBNull(0) ? null : dataReader.GetValue(0)
             : null;
+
+        while (await dataReader.ReadAsync(cancellationToken))
+        {
+        }
+
+        return data;
     }
 
     public override void Prepare()
@@ -144,6 +154,11 @@ public sealed class YdbCommand : DbCommand
     protected override YdbParameter CreateDbParameter()
     {
         return new YdbParameter();
+    }
+
+    public new YdbDataReader ExecuteReader(CommandBehavior behavior = CommandBehavior.Default)
+    {
+        return ExecuteDbDataReader(behavior);
     }
 
     protected override YdbDataReader ExecuteDbDataReader(CommandBehavior behavior)

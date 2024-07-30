@@ -32,7 +32,7 @@ public class YdbCommandTests
     }
 
     [Fact]
-    public async Task ExecuteNonQueryAsync_WhenCreateTopic_ReturnEmptyResultSet()
+    public async Task ExecuteNonQueryAsync_WhenCreateUser_ReturnEmptyResultSet()
     {
         await using var connection = new YdbConnection();
         await connection.OpenAsync();
@@ -44,6 +44,22 @@ public class YdbCommandTests
 
         dbCommand.CommandText = "DROP USER user;";
         await dbCommand.ExecuteNonQueryAsync();
+    }
+
+    [Fact]
+    public async Task CloseAsync_WhenDoubleInvoke_Idempotent()
+    {
+        await using var connection = new YdbConnection();
+        await connection.OpenAsync();
+
+        var ydbCommand = connection.CreateCommand();
+        ydbCommand.CommandText = "SELECT 1;";
+        var ydbDataReader = ydbCommand.ExecuteReader();
+
+        Assert.True(await ydbDataReader.NextResultAsync());
+        await ydbDataReader.CloseAsync();
+        await ydbDataReader.CloseAsync();
+        Assert.False(await ydbDataReader.NextResultAsync());
     }
 
     [Fact]

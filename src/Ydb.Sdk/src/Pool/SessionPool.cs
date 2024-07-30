@@ -42,14 +42,21 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             _ = DeleteNotActiveSession(session);
         }
 
-        var (status, newSession) = await CreateSession();
-
-        if (status.IsNotSuccess)
+        try
         {
-            Release();
-        }
+            var (status, newSession) = await CreateSession();
 
-        return (status, newSession);
+            if (status.IsNotSuccess)
+            {
+                Release();
+            }
+
+            return (status, newSession);
+        }
+        catch (Driver.TransportException e)
+        {
+            return (e.Status, null);
+        }
     }
 
     protected abstract Task<(Status, TSession?)> CreateSession();
