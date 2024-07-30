@@ -96,7 +96,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         });
 
         (await completeTask.Task).EnsureSuccess();
-        
+
         return session;
     }
 

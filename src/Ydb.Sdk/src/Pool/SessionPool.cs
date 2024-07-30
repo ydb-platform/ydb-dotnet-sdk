@@ -27,7 +27,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
         if (_disposed)
         {
-            throw new YdbException( "Session pool is closed");
+            throw new YdbException("Session pool is closed");
         }
 
         await _semaphore.WaitAsync();
@@ -69,7 +69,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     internal async Task<T> ExecOnSession<T>(Func<TSession, Task<T>> onSession, RetrySettings? retrySettings = null)
     {
         retrySettings ??= RetrySettings.DefaultInstance;
-        var status = new Status(StatusCode.Unspecified);
+        Status status = null!;
         TSession? session = null;
 
         for (uint attempt = 0; attempt < retrySettings.MaxAttempts; attempt++)
@@ -78,9 +78,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             {
                 session = await GetSession();
 
-                status.EnsureSuccess();
-
-                return await onSession(session!);
+                return await onSession(session);
             }
             catch (Driver.TransportException e)
             {
