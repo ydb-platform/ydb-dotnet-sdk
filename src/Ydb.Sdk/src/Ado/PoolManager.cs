@@ -13,7 +13,7 @@ internal static class PoolManager
     {
         if (Pools.TryGetValue(connectionString.ConnectionString, out var sessionPool))
         {
-            return await sessionPool.Session();
+            return await sessionPool.GetSession();
         }
 
         try
@@ -22,7 +22,7 @@ internal static class PoolManager
 
             if (Pools.TryGetValue(connectionString.ConnectionString, out var pool))
             {
-                return await pool.Session();
+                return await pool.GetSession();
             }
 
             var newSessionPool = new SessionPool(await connectionString.BuildDriver(), connectionString.MaxSessionPool,
@@ -30,7 +30,7 @@ internal static class PoolManager
 
             Pools[connectionString.ConnectionString] = newSessionPool;
 
-            return await newSessionPool.Session();
+            return await newSessionPool.GetSession();
         }
         finally
         {
@@ -62,21 +62,5 @@ internal static class PoolManager
         var tasks = keys.Select(ClearPool).ToList();
 
         await Task.WhenAll(tasks);
-    }
-}
-
-internal static class SessionPoolExtension
-{
-    // TODO Retry policy
-    internal static async Task<Session> Session(this SessionPool sessionPool)
-    {
-        var (status, session) = await sessionPool.GetSession();
-
-        if (status.IsSuccess)
-        {
-            return session!;
-        }
-
-        throw new YdbException(status);
     }
 }
