@@ -27,7 +27,7 @@ public sealed class YdbCommand : DbCommand
 
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {
-        await using var dataReader = ExecuteDbDataReader(CommandBehavior.Default);
+        await using var dataReader = ExecuteReader();
 
         if (!await dataReader.NextResultAsync(cancellationToken))
         {
@@ -154,6 +154,11 @@ public sealed class YdbCommand : DbCommand
     protected override YdbParameter CreateDbParameter()
     {
         return new YdbParameter();
+    }
+
+    public new YdbDataReader ExecuteReader(CommandBehavior behavior = CommandBehavior.Default)
+    {
+        return ExecuteDbDataReader(behavior);
     }
 
     protected override YdbDataReader ExecuteDbDataReader(CommandBehavior behavior)
