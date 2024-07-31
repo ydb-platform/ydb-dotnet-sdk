@@ -264,7 +264,7 @@ internal class AppContext
         ydbCommand.CommandText = """
                                  INSERT INTO episodes(series_id, season_id, episode_id, title, air_date)
                                  VALUES 
-                                     (2, 5, 21, "Test 21", Date("2018-08-27")),                                      
+                                     (2, 5, 21, "Test 21", Date("2018-08-27")),
                                      (2, 5, 22, "Test 22", Date("2018-08-27"))
                                  """;
         _logger.LogInformation("Inserting data, SQL script: {CommandText}", ydbCommand.CommandText);
@@ -313,7 +313,7 @@ internal class AppContext
                               ORDER BY                         -- Sorting of the results.
                                   sr.series_id,
                                   sa.season_id                 -- ORDER BY sorts the values by one column
-                              ;   
+                              ;
                               """;
         var ydbDataReader = command.ExecuteReader();
 
