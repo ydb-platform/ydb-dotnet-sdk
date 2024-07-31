@@ -35,9 +35,9 @@ internal class AppContext
 
         _logger.LogInformation("Cleared all pools");
 
-        await InteractiveTransactionWithUserPassword();
+        await InteractiveTransaction();
         await TlsConnectionExample();
-        await ReadResultSets();
+        await ReadResultSetsWithUserPassword();
         await ConnectionWithLoggerFactory();
 
         _logger.LogInformation("Finish app example");
@@ -46,7 +46,7 @@ internal class AppContext
     private async Task InitTables()
     {
         // YdbConnection from connection string
-        await using var connection = new YdbConnection(_cmdOptions.ConnectionString);
+        await using var connection = new YdbConnection(_cmdOptions.SimpleConnectionString);
         await connection.OpenAsync();
 
         var ydbCommand = connection.CreateCommand();
@@ -192,7 +192,7 @@ internal class AppContext
 
     private async Task SelectWithParameters()
     {
-        await using var connection = new YdbConnection(_cmdOptions.ConnectionString);
+        await using var connection = new YdbConnection(_cmdOptions.SimpleConnectionString);
         await connection.OpenAsync();
 
         var ydbCommand = connection.CreateCommand();
@@ -229,26 +229,26 @@ internal class AppContext
             _logger.LogInformation(
                 "series_id: {series_id}, season_id: {season_id}, episode_id: {episode_id}, air_date: {air_date}, title: {title}",
                 ydbDataReader.GetUint64(0), ydbDataReader.GetUint64(1), ydbDataReader.GetUint64(2),
-                ydbDataReader.GetData(3), ydbDataReader.GetString(4));
+                ydbDataReader.GetDateTime(3), ydbDataReader.GetString(4));
         }
     }
 
     private async Task CreatingUser()
     {
-        await using var ydbConnection = new YdbConnection();
+        await using var ydbConnection = new YdbConnection(_cmdOptions.SimpleConnectionString);
         await ydbConnection.OpenAsync();
 
         var ydbCommand = ydbConnection.CreateCommand();
-        ydbCommand.CommandText = "CREATE USER user PASSWORD password";
+        ydbCommand.CommandText = "CREATE USER user PASSWORD 'password'";
 
         _logger.LogInformation("Creating user with password: [user, password]");
         await ydbCommand.ExecuteNonQueryAsync();
         _logger.LogInformation("Created user, next steps will be using the user with a password");
     }
 
-    private async Task InteractiveTransactionWithUserPassword()
+    private async Task InteractiveTransaction()
     {
-        await using var ydbConnection = new YdbConnection("User=user;Password=password");
+        await using var ydbConnection = new YdbConnection(_cmdOptions.SimpleConnectionString);
         await ydbConnection.OpenAsync();
 
         var ydbCommand = ydbConnection.CreateCommand();
@@ -294,7 +294,7 @@ internal class AppContext
         }
 
         await using var ydbConnection = new YdbConnection(
-            "Port=2135;User=user;Password=password;RootCertificate=" +
+            $"Host={_cmdOptions.Host};Port={_cmdOptions.TlsPort};RootCertificate=" +
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem"));
 
         var command = ydbConnection.CreateCommand();
@@ -325,9 +325,10 @@ internal class AppContext
         }
     }
 
-    private async Task ReadResultSets()
+    private async Task ReadResultSetsWithUserPassword()
     {
-        await using var ydbConnection = new YdbConnection();
+        await using var ydbConnection =
+            new YdbConnection($"{_cmdOptions.SimpleConnectionString};User=user;Password=password");
         await ydbConnection.OpenAsync();
 
         var ydbCommand = ydbConnection.CreateCommand();
@@ -348,17 +349,19 @@ internal class AppContext
     {
         var connectionStringBuilder = new YdbConnectionStringBuilder
         {
+            Host = _cmdOptions.Host,
+            Port = _cmdOptions.Port,
             LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug))
         };
         await using var ydbConnection = new YdbConnection(connectionStringBuilder);
         await ydbConnection.OpenAsync();
-        
+
         var ydbCommand = ydbConnection.CreateCommand();
-        
+
         _logger.LogInformation("Dropping tables of examples");
-        ydbCommand.CommandText = "DROP TABLE episodes; DROP TABLE seasons; DROP TABLE series;";
+        ydbCommand.CommandText = "DROP TABLE episodes; DROP TABLE seasons; DROP TABLE series; DROP USER user;";
         _logger.LogInformation("Dropped tables of examples");
-        
+
         await ydbCommand.ExecuteNonQueryAsync();
     }
 }
