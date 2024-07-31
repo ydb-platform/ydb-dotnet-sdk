@@ -13,5 +13,8 @@ internal class CmdOptions
     [Option('d', "database", Required = true, HelpText = "Database name")]
     public string Database { get; set; } = "/local";
 
+    [Option("useTls", Required = true, HelpText = "Using tls")]
+    public bool UseTls { get; set; } = false;
+
     public string ConnectionString => $"Host={Host};Port={Port};Database={Database}";
 }
