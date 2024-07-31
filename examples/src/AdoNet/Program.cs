@@ -201,7 +201,7 @@ internal class AppContext
                                     series_id,
                                     season_id,
                                     episode_id,
-                                    air_date, 
+                                    air_date,
                                     title
                                  FROM episodes
                                  WHERE
@@ -263,7 +263,7 @@ internal class AppContext
 
         ydbCommand.CommandText = """
                                  INSERT INTO episodes(series_id, season_id, episode_id, title, air_date)
-                                 VALUES 
+                                 VALUES
                                      (2, 5, 21, "Test 21", Date("2018-08-27")),
                                      (2, 5, 22, "Test 22", Date("2018-08-27"))
                                  """;
