@@ -55,42 +55,127 @@ public sealed class YdbParameter : DbParameter
     {
         get
         {
-            if (Value is YdbValue value)
+            if (Value is YdbValue ydbValue)
             {
-                return value;
+                return ydbValue;
             }
 
             return DbType switch
             {
                 DbType.Object => PrepareThenReturnYdbValue(),
-                DbType.String or DbType.AnsiString or DbType.AnsiStringFixedLength or DbType.StringFixedLength =>
-                    Cast<string>(YdbValue.MakeOptionalUtf8, YdbValue.MakeUtf8),
-                DbType.Binary => Cast<byte[]>(YdbValue.MakeOptionalString, YdbValue.MakeString),
-                DbType.Byte => CastPrimitive(YdbValue.MakeOptionalUint8, YdbValue.MakeUint8, Convert.ToByte),
-                DbType.Boolean => CastPrimitive(YdbValue.MakeOptionalBool, YdbValue.MakeBool, Convert.ToBoolean),
-                DbType.Int32 => CastPrimitive(YdbValue.MakeOptionalInt32, YdbValue.MakeInt32, Convert.ToInt32),
-                DbType.Int64 => CastPrimitive(YdbValue.MakeOptionalInt64, YdbValue.MakeInt64, Convert.ToInt64),
-                DbType.UInt32 => CastPrimitive(YdbValue.MakeOptionalUint32, YdbValue.MakeUint32, Convert.ToUInt32),
-                DbType.UInt64 => CastPrimitive(YdbValue.MakeOptionalUint64, YdbValue.MakeUint64, Convert.ToUInt64),
-                DbType.SByte => CastPrimitive(YdbValue.MakeOptionalInt8, YdbValue.MakeInt8, Convert.ToSByte),
-                DbType.Int16 => CastPrimitive(YdbValue.MakeOptionalInt16, YdbValue.MakeInt16, Convert.ToInt16),
-                DbType.UInt16 => CastPrimitive(YdbValue.MakeOptionalUint16, YdbValue.MakeUint16, Convert.ToUInt16),
-                DbType.Double => CastPrimitive(YdbValue.MakeOptionalDouble, YdbValue.MakeDouble, Convert.ToDouble),
-                DbType.Single => CastPrimitive(YdbValue.MakeOptionalFloat, YdbValue.MakeFloat, Convert.ToSingle),
-                DbType.Date => CastPrimitive(YdbValue.MakeOptionalDate, YdbValue.MakeDate, Convert.ToDateTime),
-                DbType.Time or DbType.DateTime => CastPrimitive(YdbValue.MakeOptionalDatetime, YdbValue.MakeDatetime,
-                    Convert.ToDateTime),
-                DbType.DateTime2 => CastPrimitive(YdbValue.MakeOptionalTimestamp, YdbValue.MakeTimestamp,
-                    Convert.ToDateTime),
-                DbType.DateTimeOffset => CastPrimitive(offset => YdbValue.MakeOptionalTimestamp(offset?.UtcDateTime),
-                    offset => YdbValue.MakeTimestamp(offset.UtcDateTime), o => (DateTimeOffset)o),
-                DbType.Decimal or DbType.Currency => CastPrimitive(YdbValue.MakeOptionalDecimal, YdbValue.MakeDecimal,
-                    Convert.ToDecimal),
+                DbType.String or DbType.AnsiString or DbType.AnsiStringFixedLength
+                    or DbType.StringFixedLength => Value switch
+                    {
+                        string valueString => YdbValue.MakeUtf8(valueString), null => YdbValue.TextNull,
+                        _ => ThrowInvalidCast()
+                    },
+                DbType.Int32 => Value switch
+                {
+                    int intValue => YdbValue.MakeInt32(intValue),
+                    sbyte or byte or short or ushort => YdbValue.MakeInt32(Convert.ToInt32(Value)),
+                    null => YdbValue.Int32Null,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Int64 => Value switch
+                {
+                    long longValue => YdbValue.MakeInt64(longValue),
+                    sbyte or byte or short or ushort or int or uint => YdbValue.MakeInt64(Convert.ToInt64(Value)),
+                    null => YdbValue.Int64Null,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Boolean => Value switch
+                {
+                    bool boolValue => YdbValue.MakeBool(boolValue), null => YdbValue.BoolNull,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.UInt32 => Value switch
+                {
+                    uint uintValue => YdbValue.MakeUint32(uintValue),
+                    byte or ushort => YdbValue.MakeUint32(Convert.ToUInt32(Value)),
+                    null => YdbValue.Uint32Null,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.UInt64 => Value switch
+                {
+                    ulong ulongValue => YdbValue.MakeUint64(ulongValue),
+                    byte or ushort or uint => YdbValue.MakeUint64(Convert.ToUInt64(Value)),
+                    null => YdbValue.Uint64Null,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.SByte => Value switch
+                {
+                    sbyte sbyteValue => YdbValue.MakeInt8(sbyteValue), null => YdbValue.Int8Null,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Int16 => Value switch
+                {
+                    short shortValue => YdbValue.MakeInt16(shortValue),
+                    sbyte or byte => YdbValue.MakeInt16(Convert.ToInt16(Value)),
+                    null => YdbValue.Int16Null,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.UInt16 => Value switch
+                {
+                    ushort ushortValue => YdbValue.MakeUint16(ushortValue),
+                    byte => YdbValue.MakeUint16(Convert.ToUInt16(Value)),
+                    null => YdbValue.Uint16Null,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Double => Value switch
+                {
+                    double doubleValue => YdbValue.MakeDouble(doubleValue),
+                    float => YdbValue.MakeDouble(Convert.ToSingle(Value)),
+                    null => YdbValue.DoubleNull,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Single => Value switch
+                {
+                    float floatValue => YdbValue.MakeFloat(floatValue), null => YdbValue.FloatNull,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Date => Value switch
+                {
+                    DateTime dateTimeValue => YdbValue.MakeDate(dateTimeValue), null => YdbValue.DateNull,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Time or DbType.DateTime => Value switch
+                {
+                    DateTime dateTimeValue => YdbValue.MakeDatetime(dateTimeValue), null => YdbValue.DatetimeNull,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.DateTime2 or DbType.DateTimeOffset => Value switch
+                {
+                    DateTime dateTimeValue => YdbValue.MakeTimestamp(dateTimeValue),
+                    DateTimeOffset dateTimeOffset => YdbValue.MakeTimestamp(dateTimeOffset.UtcDateTime),
+                    null => YdbValue.TimestampNull,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Decimal or DbType.Currency => Value switch
+                {
+                    decimal decimalValue => YdbValue.MakeDecimal(decimalValue), null => YdbValue.DecimalNull,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Binary => Value switch
+                {
+                    byte[] bytes => YdbValue.MakeString(bytes), null => YdbValue.BytesNull,
+                    _ => ThrowInvalidCast()
+                },
+                DbType.Byte => Value switch
+                {
+                    byte valueByte => YdbValue.MakeUint8(valueByte), null => YdbValue.Uint8Null,
+                    _ => ThrowInvalidCast()
+                },
                 DbType.VarNumeric or DbType.Xml or DbType.Guid => throw new YdbException(
                     $"Ydb don't supported this DbType: {DbType}"),
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
+    }
+
+    private YdbValue ThrowInvalidCast()
+    {
+        throw new InvalidCastException(
+            $"Writing values of '{Value?.GetType()}' is not supported for parameters having DbType '{DbType}'");
     }
 
     private YdbValue PrepareThenReturnYdbValue()
@@ -119,27 +204,5 @@ public sealed class YdbParameter : DbParameter
         IsNullable = false;
 
         return YdbValue;
-    }
-
-    private YdbValue Cast<T>(Func<T?, YdbValue> makeOptionalYdbValue, Func<T, YdbValue> makeYdbValue) where T : class
-    {
-        return Value switch
-        {
-            T value => makeYdbValue(value), // YdbValue will set to optional YdbValue type - it's ok
-            DBNull or null when IsNullable => makeOptionalYdbValue(null),
-            _ => throw new InvalidCastException($"Expected value with type {typeof(T)}, but actual {Value?.GetType()}")
-        };
-    }
-
-    private YdbValue CastPrimitive<T>(Func<T?, YdbValue> makeOptionalYdbValue, Func<T, YdbValue> makeYdbValue,
-        Func<object, T> converter) where T : struct
-    {
-        return Value switch
-        {
-            T value => makeYdbValue(value), // YdbValue will set to optional YdbValue type - it's ok
-            DBNull or null when IsNullable => makeOptionalYdbValue(null),
-            IConvertible convertible => makeYdbValue(converter.Invoke(convertible)),
-            _ => throw new InvalidCastException($"Expected value with type {typeof(T)}, but actual {Value?.GetType()}")
-        };
     }
 }

@@ -243,7 +243,7 @@ internal class AppContext
 
         _logger.LogInformation("Creating user with password: [user, password]");
         await ydbCommand.ExecuteNonQueryAsync();
-        _logger.LogInformation("Created user, next steps will be using the user with a password");
+        _logger.LogInformation("Created user");
     }
 
     private async Task InteractiveTransaction()

@@ -24,8 +24,10 @@ public class YdbTransactionTests : IAsyncLifetime
                                 UPSERT INTO {Tables.Seasons} (series_id, season_id, first_aired) 
                                 VALUES ($series_id, $season_id, $air_date);
                                 ";
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$series_id", DbType = DbType.UInt64, Value = 1 });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$season_id", DbType = DbType.UInt64, Value = 3 });
+        ydbCommand.Parameters.Add(new YdbParameter
+            { ParameterName = "$series_id", DbType = DbType.UInt64, Value = 1U });
+        ydbCommand.Parameters.Add(new YdbParameter
+            { ParameterName = "$season_id", DbType = DbType.UInt64, Value = 3U });
         ydbCommand.Parameters.Add(new YdbParameter
             { ParameterName = "$air_date", DbType = DbType.Date, Value = new DateTime(2022, 2, 24) });
         ydbCommand.ExecuteNonQuery();

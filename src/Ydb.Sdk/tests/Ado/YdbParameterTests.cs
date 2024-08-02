@@ -55,6 +55,20 @@ public class YdbParameterTests
                 .GetJsonDocument());
     }
 
+    [Fact]
+    public void YdbValue_WhenUnCastTypes_ThrowInvalidCastException()
+    {
+        Assert.Equal("Writing values of 'System.Int32' is not supported for parameters having DbType 'Boolean'",
+            Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.Boolean, 1).YdbValue).Message);
+        Assert.Equal("Writing values of 'System.Int32' is not supported for parameters having DbType 'SByte'",
+            Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.SByte, 1).YdbValue).Message);
+        Assert.Equal("Writing values of 'System.String' is not supported for parameters having DbType 'Boolean'",
+            Assert.Throws<InvalidCastException>(() => new YdbParameter("$parameter", DbType.Boolean)
+                { Value = "true" }.YdbValue).Message);
+        Assert.Equal("Writing values of 'System.Double' is not supported for parameters having DbType 'Single'",
+            Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.Single, 1.1).YdbValue).Message);
+    }
+
     [Theory]
     [InlineData(DbType.VarNumeric, "VarNumeric")]
     [InlineData(DbType.Xml, "Xml")]
@@ -75,16 +89,33 @@ public class YdbParameterTests
     }
 
     [Fact]
-    public void Parameter_WhenSetDbType_ReturnConvertValue()
+    public void YdbValue_WhenSetDbType_ReturnConvertValue()
     {
-        Assert.True(new YdbParameter("$parameter", DbType.Boolean) { Value = "true" }.YdbValue.GetBool());
-        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt64) { Value = 1 }.YdbValue.GetUint64());
-        Assert.Equal("Value was either too large or too small for an Int16.",
-            Assert.Throws<OverflowException>(() =>
-                new YdbParameter("$parameter", DbType.Int16) { Value = 1000000U }.YdbValue.GetUint64()).Message);
-        Assert.Equal("Value was either too large or too small for a UInt16.",
-            Assert.Throws<OverflowException>(() =>
-                new YdbParameter("$parameter", DbType.UInt16) { Value = -1 }.YdbValue.GetUint64()).Message);
+        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt64) { Value = 1U }.YdbValue.GetUint64());
+        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt64) { Value = (ushort)1U }.YdbValue.GetUint64());
+        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt64) { Value = (byte)1U }.YdbValue.GetUint64());
+
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = 1 }.YdbValue.GetInt64());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (uint)1 }.YdbValue.GetInt64());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (ushort)1 }.YdbValue.GetInt64());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (byte)1 }.YdbValue.GetInt64());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (short)1 }.YdbValue.GetInt64());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (sbyte)1 }.YdbValue.GetInt64());
+        
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (ushort)1 }.YdbValue.GetInt32());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (byte)1 }.YdbValue.GetInt32());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (short)1 }.YdbValue.GetInt32());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (sbyte)1 }.YdbValue.GetInt32());
+        
+        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt32) { Value = (ushort)1 }.YdbValue.GetUint32());
+        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt32) { Value = (byte)1 }.YdbValue.GetUint32());
+        
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int16) { Value = (byte)1 }.YdbValue.GetInt16());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int16) { Value = (sbyte)1 }.YdbValue.GetInt16());
+        
+        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt16) { Value = (byte)1 }.YdbValue.GetUint16());
+        
+        Assert.Equal(1.1f, new YdbParameter("$parameter", DbType.Double) { Value = 1.1f }.YdbValue.GetDouble());
     }
 
     public class Data<T>
