@@ -1,199 +1,199 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-namespace Ydb.Sdk.Value;
+﻿namespace Ydb.Sdk.Value;
 
 public partial class YdbValue
 {
     public static explicit operator bool(YdbValue value)
     {
-        return (bool)GetObject(value, typeof(bool));
+        return GetObject<bool>(value);
     }
 
     public static explicit operator bool?(YdbValue value)
     {
-        return (bool?)GetOptionalObject(value, typeof(bool));
+        return GetOptionalPrimitive<bool>(value);
     }
 
     public static explicit operator sbyte(YdbValue value)
     {
-        return (sbyte)GetObject(value, typeof(sbyte));
+        return GetObject<sbyte>(value);
     }
 
     public static explicit operator sbyte?(YdbValue value)
     {
-        return (sbyte?)GetOptionalObject(value, typeof(sbyte));
+        return GetOptionalPrimitive<sbyte>(value);
     }
 
     public static explicit operator byte(YdbValue value)
     {
-        return (byte)GetObject(value, typeof(byte));
+        return GetObject<byte>(value);
     }
 
     public static explicit operator byte?(YdbValue value)
     {
-        return (byte?)GetOptionalObject(value, typeof(byte));
+        return GetOptionalPrimitive<byte>(value);
     }
 
     public static explicit operator short(YdbValue value)
     {
-        return (short)GetObject(value, typeof(short));
+        return GetObject<short>(value);
     }
 
     public static explicit operator short?(YdbValue value)
     {
-        return (short?)GetOptionalObject(value, typeof(short));
+        return GetOptionalPrimitive<short>(value);
     }
 
     public static explicit operator ushort(YdbValue value)
     {
-        return (ushort)GetObject(value, typeof(ushort));
+        return GetObject<ushort>(value);
     }
 
     public static explicit operator ushort?(YdbValue value)
     {
-        return (ushort?)GetOptionalObject(value, typeof(ushort));
+        return GetOptionalPrimitive<ushort>(value);
     }
 
     public static explicit operator int(YdbValue value)
     {
-        return (int)GetObject(value, typeof(int));
+        return GetObject<int>(value);
     }
 
     public static explicit operator int?(YdbValue value)
     {
-        return (int?)GetOptionalObject(value, typeof(int));
+        return GetOptionalPrimitive<int>(value);
     }
 
     public static explicit operator uint(YdbValue value)
     {
-        return (uint)GetObject(value, typeof(uint));
+        return GetObject<uint>(value);
     }
 
     public static explicit operator uint?(YdbValue value)
     {
-        return (uint?)GetOptionalObject(value, typeof(uint));
+        return GetOptionalPrimitive<uint>(value);
     }
 
     public static explicit operator long(YdbValue value)
     {
-        return (long)GetObject(value, typeof(long));
+        return GetObject<long>(value);
     }
 
     public static explicit operator long?(YdbValue value)
     {
-        return (long?)GetOptionalObject(value, typeof(long));
+        return GetOptionalPrimitive<long>(value);
     }
 
     public static explicit operator ulong(YdbValue value)
     {
-        return (ulong)GetObject(value, typeof(ulong));
+        return GetObject<ulong>(value);
     }
 
     public static explicit operator ulong?(YdbValue value)
     {
-        return (ulong?)GetOptionalObject(value, typeof(ulong));
+        return GetOptionalPrimitive<ulong>(value);
     }
 
     public static explicit operator float(YdbValue value)
     {
-        return (float)GetObject(value, typeof(float));
+        return GetObject<float>(value);
     }
 
     public static explicit operator float?(YdbValue value)
     {
-        return (float?)GetOptionalObject(value, typeof(float));
+        return GetOptionalPrimitive<float>(value);
     }
 
     public static explicit operator double(YdbValue value)
     {
-        return (double)GetObject(value, typeof(double));
+        return GetObject<double>(value);
     }
 
     public static explicit operator double?(YdbValue value)
     {
-        return (double?)GetOptionalObject(value, typeof(double));
+        return GetOptionalPrimitive<double>(value);
     }
 
     public static explicit operator DateTime(YdbValue value)
     {
-        return (DateTime)GetObject(value, typeof(DateTime));
+        return GetObject<DateTime>(value);
     }
 
     public static explicit operator DateTime?(YdbValue value)
     {
-        return (DateTime?)GetOptionalObject(value, typeof(DateTime));
+        return GetOptionalPrimitive<DateTime>(value);
     }
 
     public static explicit operator TimeSpan(YdbValue value)
     {
-        return (TimeSpan)GetObject(value, typeof(TimeSpan));
+        return GetObject<TimeSpan>(value);
     }
 
     public static explicit operator TimeSpan?(YdbValue value)
     {
-        return (TimeSpan?)GetOptionalObject(value, typeof(TimeSpan));
+        return GetOptionalPrimitive<TimeSpan>(value);
     }
 
     public static explicit operator string?(YdbValue value)
     {
-        return (string?)GetOptionalObject(value, typeof(string));
+        return GetOptionalObject<string>(value);
     }
 
     public static explicit operator byte[]?(YdbValue value)
     {
-        return (byte[]?)GetOptionalObject(value, typeof(byte[]));
+        return GetOptionalObject<byte[]>(value);
     }
 
     public static explicit operator decimal(YdbValue value)
     {
-        return (decimal)GetObject(value, typeof(decimal));
+        return GetObject<decimal>(value);
     }
 
     public static explicit operator decimal?(YdbValue value)
     {
-        return (decimal?)GetOptionalObject(value, typeof(decimal));
+        return GetOptionalPrimitive<decimal>(value);
     }
 
-    private static object GetObject(YdbValue value, System.Type targetType)
-    {
-        return GetObjectInternal(value.TypeId, value, targetType);
-    }
 
-    private static object? GetOptionalObject(YdbValue value, System.Type targetType)
+    private static T? GetOptionalPrimitive<T>(YdbValue value) where T : struct
     {
         return value.TypeId == YdbTypeId.OptionalType
-            ? GetObjectInternal(GetYdbTypeId(value._protoType.OptionalType.Item), value.GetOptional(), targetType)
-            : GetObject(value, targetType);
+            ? value.GetOptional() is not null ? GetObject<T>(value.GetOptional()!) : null
+            : GetObject<T>(value);
     }
 
-    [return: NotNullIfNotNull("value")]
-    private static object? GetObjectInternal(YdbTypeId typeId, YdbValue? value, System.Type targetType)
+    private static T? GetOptionalObject<T>(YdbValue value) where T : class
     {
-        return typeId switch
+        return value.TypeId == YdbTypeId.OptionalType
+            ? value.GetOptional() is not null ? GetObject<T>(value.GetOptional()!) : null
+            : GetObject<T>(value);
+    }
+
+    private static T GetObject<T>(YdbValue value)
+    {
+        return (T)(object)(value.TypeId switch
         {
-            YdbTypeId.Bool => value?.GetBool(),
-            YdbTypeId.Int8 => value?.GetInt8(),
-            YdbTypeId.Uint8 => value?.GetUint8(),
-            YdbTypeId.Int16 => value?.GetInt16(),
-            YdbTypeId.Uint16 => value?.GetUint16(),
-            YdbTypeId.Int32 => value?.GetInt32(),
-            YdbTypeId.Uint32 => value?.GetUint32(),
-            YdbTypeId.Int64 => value?.GetInt64(),
-            YdbTypeId.Uint64 => value?.GetUint64(),
-            YdbTypeId.Float => value?.GetFloat(),
-            YdbTypeId.Double => value?.GetDouble(),
-            YdbTypeId.Date => value?.GetDate(),
-            YdbTypeId.Datetime => value?.GetDatetime(),
-            YdbTypeId.Timestamp => value?.GetTimestamp(),
-            YdbTypeId.Interval => value?.GetInterval(),
-            YdbTypeId.String => value?.GetString(),
-            YdbTypeId.Utf8 => value?.GetUtf8(),
-            YdbTypeId.Yson => value?.GetYson(),
-            YdbTypeId.Json => value?.GetJson(),
-            YdbTypeId.JsonDocument => value?.GetJsonDocument(),
-            YdbTypeId.DecimalType => value?.GetDecimal(),
-            _ => throw new InvalidCastException($"Cannot cast YDB type {typeId} to {targetType.Name}.")
-        };
+            YdbTypeId.Bool => value.GetBool(),
+            YdbTypeId.Int8 => value.GetInt8(),
+            YdbTypeId.Uint8 => value.GetUint8(),
+            YdbTypeId.Int16 => value.GetInt16(),
+            YdbTypeId.Uint16 => value.GetUint16(),
+            YdbTypeId.Int32 => value.GetInt32(),
+            YdbTypeId.Uint32 => value.GetUint32(),
+            YdbTypeId.Int64 => value.GetInt64(),
+            YdbTypeId.Uint64 => value.GetUint64(),
+            YdbTypeId.Float => value.GetFloat(),
+            YdbTypeId.Double => value.GetDouble(),
+            YdbTypeId.Date => value.GetDate(),
+            YdbTypeId.Datetime => value.GetDatetime(),
+            YdbTypeId.Timestamp => value.GetTimestamp(),
+            YdbTypeId.Interval => value.GetInterval(),
+            YdbTypeId.String => value.GetString(),
+            YdbTypeId.Utf8 => value.GetUtf8(),
+            YdbTypeId.Yson => value.GetYson(),
+            YdbTypeId.Json => value.GetJson(),
+            YdbTypeId.JsonDocument => value.GetJsonDocument(),
+            YdbTypeId.DecimalType => value.GetDecimal(),
+            _ => throw new InvalidCastException($"Cannot cast YDB type {value.TypeId} to {typeof(T).Name}.")
+        });
     }
 
     public static explicit operator YdbValue(bool value)

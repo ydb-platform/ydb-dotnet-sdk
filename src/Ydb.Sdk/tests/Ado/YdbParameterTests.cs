@@ -13,8 +13,7 @@ public class YdbParameterTests
     [Fact]
     public void YdbValue_WhenValueIsNullAndDbTypeIsObject_ThrowException()
     {
-        Assert.Equal("Error converting null to YdbValue", Assert.Throws<YdbException>(() =>
-            new YdbParameter().YdbValue).Message);
+        Assert.Equal(YdbValue.Null, new YdbParameter().YdbValue);
         Assert.Equal("Error converting System.Object to YdbValue", Assert.Throws<YdbException>(() =>
             new YdbParameter("$param", new object()).YdbValue).Message);
     }
