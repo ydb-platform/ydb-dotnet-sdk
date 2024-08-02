@@ -215,9 +215,9 @@ internal class AppContext
                                                        -- "get top N" or "get bottom N" results,
                                  ;                     -- depending on sort order.
                                  """;
-        ydbCommand.Parameters.Add(new YdbParameter("$series_id", DbType.UInt64, 1));
-        ydbCommand.Parameters.Add(new YdbParameter("$season_id", DbType.UInt64, 1));
-        ydbCommand.Parameters.Add(new YdbParameter("$limit_size", DbType.UInt64, 3));
+        ydbCommand.Parameters.Add(new YdbParameter("$series_id", DbType.UInt64, 1U));
+        ydbCommand.Parameters.Add(new YdbParameter("$season_id", DbType.UInt64, 1U));
+        ydbCommand.Parameters.Add(new YdbParameter("$limit_size", DbType.UInt64, 3U));
 
         _logger.LogInformation("Selecting data, SQL script: {CommandText}", ydbCommand.CommandText);
 
@@ -243,7 +243,7 @@ internal class AppContext
 
         _logger.LogInformation("Creating user with password: [user, password]");
         await ydbCommand.ExecuteNonQueryAsync();
-        _logger.LogInformation("Created user, next steps will be using the user with a password");
+        _logger.LogInformation("Created user");
     }
 
     private async Task InteractiveTransaction()

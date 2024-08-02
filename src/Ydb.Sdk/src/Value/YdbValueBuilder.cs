@@ -5,6 +5,11 @@ namespace Ydb.Sdk.Value;
 
 public partial class YdbValue
 {
+    internal static readonly YdbValue Null = new(
+        new Type { OptionalType = new OptionalType { Item = new Type { VoidType = NullValue.NullValue } } },
+        new Ydb.Value { NullFlagValue = new NullValue() }
+    );
+
     public static YdbValue MakeBool(bool value)
     {
         return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Bool), new Ydb.Value { BoolValue = value });
@@ -209,32 +214,7 @@ public partial class YdbValue
         return MakeDecimalWithPrecision(value, 22, 9);
     }
 
-    // TODO: EmptyOptional with complex types
-    private static YdbValue MakeEmptyOptional(YdbTypeId typeId)
-    {
-        if (IsPrimitiveTypeId(typeId))
-        {
-            return new YdbValue(
-                new Type { OptionalType = new OptionalType { Item = MakePrimitiveType(typeId) } },
-                new Ydb.Value { NullFlagValue = new NullValue() });
-        }
-
-        if (typeId == YdbTypeId.DecimalType)
-        {
-            return new YdbValue(
-                new Type
-                {
-                    OptionalType = new OptionalType
-                        { Item = new Type { DecimalType = new DecimalType { Scale = 9, Precision = 22 } } }
-                },
-                new Ydb.Value { NullFlagValue = new NullValue() }
-            );
-        }
-
-        throw new ArgumentException($"This type is not supported: {typeId}", nameof(typeId));
-    }
-
-    public static YdbValue MakeOptional(YdbValue value)
+    private static YdbValue MakeOptional(YdbValue value)
     {
         return new YdbValue(
             new Type { OptionalType = new OptionalType { Item = value._protoType } },
@@ -325,133 +305,113 @@ public partial class YdbValue
     }
 
 
-    private static YdbValue MakeOptionalOf<T>(T? value, YdbTypeId type, Func<T, YdbValue> func) where T : struct
+    private static YdbValue MakeOptionalOf<T>(T? value, Func<T, YdbValue> func) where T : struct
     {
-        return value is null ? MakeEmptyOptional(type) : MakeOptional(func((T)value));
+        return value is null ? Null : MakeOptional(func((T)value));
     }
 
     public static YdbValue MakeOptionalBool(bool? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Bool, MakeBool);
+        return MakeOptionalOf(value, MakeBool);
     }
 
     public static YdbValue MakeOptionalInt8(sbyte? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Int8, MakeInt8);
+        return MakeOptionalOf(value, MakeInt8);
     }
 
     public static YdbValue MakeOptionalUint8(byte? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Uint8, MakeUint8);
+        return MakeOptionalOf(value, MakeUint8);
     }
 
     public static YdbValue MakeOptionalInt16(short? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Int16, MakeInt16);
+        return MakeOptionalOf(value, MakeInt16);
     }
 
     public static YdbValue MakeOptionalUint16(ushort? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Uint16, MakeUint16);
+        return MakeOptionalOf(value, MakeUint16);
     }
 
     public static YdbValue MakeOptionalInt32(int? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Int32, MakeInt32);
+        return MakeOptionalOf(value, MakeInt32);
     }
 
     public static YdbValue MakeOptionalUint32(uint? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Uint32, MakeUint32);
+        return MakeOptionalOf(value, MakeUint32);
     }
 
     public static YdbValue MakeOptionalInt64(long? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Int64, MakeInt64);
+        return MakeOptionalOf(value, MakeInt64);
     }
 
     public static YdbValue MakeOptionalUint64(ulong? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Uint64, MakeUint64);
+        return MakeOptionalOf(value, MakeUint64);
     }
 
     public static YdbValue MakeOptionalFloat(float? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Float, MakeFloat);
+        return MakeOptionalOf(value, MakeFloat);
     }
 
     public static YdbValue MakeOptionalDouble(double? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Double, MakeDouble);
+        return MakeOptionalOf(value, MakeDouble);
     }
 
     public static YdbValue MakeOptionalDate(DateTime? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Date, MakeDate);
+        return MakeOptionalOf(value, MakeDate);
     }
 
     public static YdbValue MakeOptionalDatetime(DateTime? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Datetime, MakeDatetime);
+        return MakeOptionalOf(value, MakeDatetime);
     }
 
     public static YdbValue MakeOptionalTimestamp(DateTime? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Timestamp, MakeTimestamp);
+        return MakeOptionalOf(value, MakeTimestamp);
     }
 
     public static YdbValue MakeOptionalInterval(TimeSpan? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.Interval, MakeInterval);
+        return MakeOptionalOf(value, MakeInterval);
     }
 
     public static YdbValue MakeOptionalString(byte[]? value)
     {
-        if (value is null)
-        {
-            return MakeEmptyOptional(YdbTypeId.String);
-        }
-
-        return MakeOptional(MakeString(value));
+        return value is null ? Null : MakeOptional(MakeString(value));
     }
 
     public static YdbValue MakeOptionalUtf8(string? value)
     {
-        if (value is null)
-        {
-            return MakeEmptyOptional(YdbTypeId.Utf8);
-        }
-
-        return MakeOptional(MakeUtf8(value));
+        return value is null ? Null : MakeOptional(MakeUtf8(value));
     }
 
     public static YdbValue MakeOptionalYson(byte[]? value)
     {
-        if (value is null)
-        {
-            return MakeEmptyOptional(YdbTypeId.Yson);
-        }
-
-        return MakeOptional(MakeYson(value));
+        return value is null ? Null : MakeOptional(MakeYson(value));
     }
 
     public static YdbValue MakeOptionalJson(string? value)
     {
-        if (value is null)
-        {
-            return MakeEmptyOptional(YdbTypeId.Json);
-        }
-
-        return MakeOptional(MakeJson(value));
+        return value is null ? Null : MakeOptional(MakeJson(value));
     }
 
     public static YdbValue MakeOptionalJsonDocument(string? value)
     {
-        return value is null ? MakeEmptyOptional(YdbTypeId.JsonDocument) : MakeOptional(MakeJsonDocument(value));
+        return value is null ? Null : MakeOptional(MakeJsonDocument(value));
     }
 
     public static YdbValue MakeOptionalDecimal(decimal? value)
     {
-        return MakeOptionalOf(value, YdbTypeId.DecimalType, MakeDecimal);
+        return MakeOptionalOf(value, MakeDecimal);
     }
 }
