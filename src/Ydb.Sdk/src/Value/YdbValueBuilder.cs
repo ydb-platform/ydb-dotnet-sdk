@@ -6,10 +6,7 @@ namespace Ydb.Sdk.Value;
 public partial class YdbValue
 {
     internal static readonly YdbValue Null = new(
-        new Type
-        {
-            OptionalType = new OptionalType { Item = new Type { VoidType = NullValue.NullValue } }
-        },
+        new Type { OptionalType = new OptionalType { Item = new Type { VoidType = NullValue.NullValue } } },
         new Ydb.Value { NullFlagValue = new NullValue() }
     );
 
