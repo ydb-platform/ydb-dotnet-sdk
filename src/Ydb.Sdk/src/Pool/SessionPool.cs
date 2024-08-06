@@ -143,7 +143,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     {
         return DeleteSession(session).ContinueWith(s =>
         {
-            Console.WriteLine("Session[{id}] removed with status {status}");
             _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
         });
     }

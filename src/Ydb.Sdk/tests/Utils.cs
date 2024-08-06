@@ -44,22 +44,21 @@ public static class Utils
     internal static ILoggerFactory GetLoggerFactory()
     {
         return new ServiceCollection()
-            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
+            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Debug))
             .BuildServiceProvider()
             .GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
     }
 
-    internal static async Task<ExecuteSchemeQueryResponse> CreateSimpleTable(
-        TableClient tableClient, string tableName, string columnName = "key")
+    internal static async Task CreateSimpleTable(TableClient tableClient, string tableName, string columnName = "key")
     {
-        return await ExecuteSchemeQuery(
+        await ExecuteSchemeQuery(
             tableClient,
             query: $"CREATE TABLE {tableName} ({columnName} Uint64, PRIMARY KEY ({columnName}))");
     }
 
-    internal static async Task<ExecuteSchemeQueryResponse> DropTable(TableClient tableClient, string tableName)
+    internal static async Task DropTable(TableClient tableClient, string tableName)
     {
-        return await ExecuteSchemeQuery(
+        await ExecuteSchemeQuery(
             tableClient,
             query: $"DROP TABLE {tableName}");
     }

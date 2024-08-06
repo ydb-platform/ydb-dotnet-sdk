@@ -13,7 +13,7 @@ public static class Cli
         "YDB database to connect to");
 
     private static readonly Option<string> TableOption = new(
-        ["-t", "--table-name"],
+        new[] { "-t", "--table-name" },
         () => "testingTable",
         "table name to create\n ");
 
@@ -38,7 +38,7 @@ public static class Cli
         "partition size in mb");
 
     private static readonly Option<int> InitialDataCountOption = new(
-        ["-c", "--initial-data-count"],
+        new[] { "-c", "--initial-data-count" },
         () => 1000,
         "amount of initially created rows");
 
