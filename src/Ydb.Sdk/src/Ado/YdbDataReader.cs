@@ -360,6 +360,8 @@ public sealed class YdbDataReader : DbDataReader
 
             if (part.Status != StatusIds.Types.StatusCode.Success)
             {
+                CompleteTransaction();
+
                 ReaderState = State.Closed;
                 while (await _stream.MoveNextAsync())
                 {
@@ -387,7 +389,17 @@ public sealed class YdbDataReader : DbDataReader
         }
         catch (Driver.TransportException e)
         {
+            CompleteTransaction();
+
             throw new YdbException(e.Status);
+        }
+    }
+
+    private void CompleteTransaction()
+    {
+        if (_ydbTransaction != null)
+        {
+            _ydbTransaction.Completed = true;
         }
     }
 

@@ -10,7 +10,7 @@ public sealed class YdbTransaction : DbTransaction
     private readonly TxMode _txMode;
 
     internal string? TxId { get; set; }
-    internal bool Completed { get; private set; }
+    internal bool Completed { get; set; }
 
     internal TransactionControl TransactionControl => TxId == null
         ? new TransactionControl { BeginTx = _txMode.TransactionSettings() }
@@ -69,8 +69,18 @@ public sealed class YdbTransaction : DbTransaction
             return; // transaction isn't started
         }
 
-        var status = await finishMethod(TxId);
+        try
+        {
+            var status = await finishMethod(TxId); // Commit or Rollback
 
-        status.EnsureSuccess();
+            if (status.IsNotSuccess)
+            {
+                throw new YdbException(status);
+            }
+        }
+        catch (Driver.TransportException e)
+        {
+            throw new YdbException(e.Status);
+        }
     }
 }
