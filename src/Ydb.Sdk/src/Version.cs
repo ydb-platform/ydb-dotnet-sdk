@@ -1,8 +1,5 @@
 namespace Ydb.Sdk;
 
-// Deprecated
-using Verison = Version;
-
 public static class Version
 {
     public const uint Major = 0;

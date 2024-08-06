@@ -64,10 +64,10 @@ public abstract class SloContext(ILogger logger)
 
     protected abstract Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters, int readTimeout);
 
-    public async Task CleanUp(CleanUpConfig config)
-    {
-        await CleanUp($"DROP TABLE ${config.TableName}", config.WriteTimeout);
-    }
+    // public async Task CleanUp(CleanUpConfig config)
+    // {
+    //     await CleanUp($"DROP TABLE ${config.TableName}", config.WriteTimeout);
+    // }
 
     protected abstract Task CleanUp(string dropTableSql, int operationTimeout);
 
@@ -92,16 +92,16 @@ public abstract class SloContext(ILogger logger)
         }, config.WriteTimeout);
     }
 
-    private Task<string> Select(RunConfig config)
-    {
-        return Select(
-            $"""
-             SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
-             FROM `{config.TableName}` WHERE id = $id AND hash = Digest::NumericHash($id)
-             """,
-            new Dictionary<string, YdbValue>
-            {
-                { "$id", YdbValue.MakeUint64((ulong)Random.Shared.Next(_maxId)) }
-            }, config.ReadTimeout);
-    }
+//     private Task<string> Select(RunConfig config)
+//     {
+//         return Select(
+//             $"""
+//              SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
+//              FROM `{config.TableName}` WHERE id = $id AND hash = Digest::NumericHash($id)
+//              """,
+//             new Dictionary<string, YdbValue>
+//             {
+//                 { "$id", YdbValue.MakeUint64((ulong)Random.Shared.Next(_maxId)) }
+//             }, config.ReadTimeout);
+//     }
 }
