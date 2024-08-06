@@ -1,6 +1,6 @@
 using Ydb.Sdk;
 
-namespace slo;
+namespace Internal;
 
 public static class Utils
 {

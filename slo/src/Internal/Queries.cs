@@ -1,4 +1,4 @@
-namespace slo;
+namespace Internal;
 
 public static class Queries
 {

@@ -10,7 +10,7 @@ public sealed class YdbCommand : DbCommand
 
     private string _commandText = string.Empty;
 
-    internal YdbCommand(YdbConnection ydbConnection)
+    public YdbCommand(YdbConnection ydbConnection)
     {
         YdbConnection = ydbConnection;
     }
@@ -115,6 +115,8 @@ public sealed class YdbCommand : DbCommand
     }
 
     protected override YdbParameterCollection DbParameterCollection { get; } = new();
+
+    public new YdbParameterCollection Parameters => DbParameterCollection;
 
     protected override DbTransaction? DbTransaction
     {

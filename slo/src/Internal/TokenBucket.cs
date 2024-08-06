@@ -1,9 +1,8 @@
 using System.Collections.Concurrent;
-using System.Runtime.Serialization;
 using System.Timers;
 using Timer = System.Timers.Timer;
 
-namespace slo;
+namespace Internal;
 
 public record Token;
 
@@ -21,10 +20,6 @@ internal class NoTokensAvailableException : Exception
     }
 
     public NoTokensAvailableException(string? message, Exception? innerException) : base(message, innerException)
-    {
-    }
-
-    protected NoTokensAvailableException(SerializationInfo info, StreamingContext context) : base(info, context)
     {
     }
 }

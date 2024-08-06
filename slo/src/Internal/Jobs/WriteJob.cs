@@ -1,6 +1,6 @@
-namespace slo.Jobs;
+namespace Internal.Jobs;
 
-internal class WriteJob : Job
+public class WriteJob : Job
 {
     public WriteJob(Client client, RateLimitedCaller rateLimitedCaller, TimeSpan timeout) :
         base(client, rateLimitedCaller, "write", timeout)

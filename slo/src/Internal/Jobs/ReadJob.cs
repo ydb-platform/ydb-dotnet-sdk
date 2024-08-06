@@ -1,8 +1,8 @@
 using Ydb.Sdk.Value;
 
-namespace slo.Jobs;
+namespace Internal.Jobs;
 
-internal class ReadJob : Job
+public class ReadJob : Job
 {
     public ReadJob(Client client, RateLimitedCaller rateLimitedCaller, TimeSpan timeout) :
         base(client, rateLimitedCaller, "read", timeout)

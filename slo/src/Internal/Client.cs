@@ -5,7 +5,7 @@ using Ydb.Sdk;
 using Ydb.Sdk.Services.Sessions;
 using Ydb.Sdk.Services.Table;
 
-namespace slo;
+namespace Internal;
 
 public class Client : IAsyncDisposable
 {
@@ -29,7 +29,7 @@ public class Client : IAsyncDisposable
         _semaphore = new Semaphore((int)sessionPoolLimit, (int)sessionPoolLimit);
     }
 
-    public async Task Init(int initialDataCount, int partitionSize, int minPartitionsCount, int maxPartitionsCount,
+    public async Task Init(int partitionSize, int minPartitionsCount, int maxPartitionsCount,
         TimeSpan timeout)
     {
         await Executor.ExecuteSchemeQuery(
@@ -37,19 +37,6 @@ public class Client : IAsyncDisposable
             timeout);
 
         await DataGenerator.LoadMaxId(TableName, Executor);
-
-        var tasks = new List<Task> { Capacity = initialDataCount };
-
-        for (var i = 0; i < initialDataCount; i++)
-        {
-            await CallFuncWithSessionPoolLimit(() => Executor.ExecuteDataQuery(
-                Queries.GetWriteQuery(TableName),
-                DataGenerator.GetUpsertData(),
-                timeout: timeout
-            ));
-        }
-
-        await Task.WhenAll(tasks);
     }
 
     public async Task CleanUp(TimeSpan timeout)
