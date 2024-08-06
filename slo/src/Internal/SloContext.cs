@@ -56,10 +56,9 @@ public abstract class SloContext(ILogger logger)
 
     protected abstract Task Create(string createTableSql, int operationTimeout);
 
-    public async Task Run(RunConfig runConfig)
-    {
-        
-    }
+    // public async Task Run(RunConfig runConfig)
+    // {
+    // }
 
     protected abstract Task Upsert(string upsertSql, Dictionary<string, YdbValue> parameters, int writeTimeout);
 
@@ -97,12 +96,12 @@ public abstract class SloContext(ILogger logger)
     {
         return Select(
             $"""
-             SELECT id, payload_str, payload_double, payload_timestamp, payload_hash 
+             SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
              FROM `{config.TableName}` WHERE id = $id AND hash = Digest::NumericHash($id)
              """,
             new Dictionary<string, YdbValue>
             {
-                { "$id", YdbValue.MakeUint64((ulong)Random.Shared.Next(_maxId))}
+                { "$id", YdbValue.MakeUint64((ulong)Random.Shared.Next(_maxId)) }
             }, config.ReadTimeout);
-    } 
+    }
 }

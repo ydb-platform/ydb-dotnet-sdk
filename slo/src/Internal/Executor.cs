@@ -47,6 +47,7 @@ public class Executor(TableClient tableClient)
                 {
                     return response;
                 }
+
                 errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "retried").Inc();
                 Console.WriteLine(response.Status);
 

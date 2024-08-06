@@ -48,8 +48,7 @@ public abstract class Job
                     new(0.99, 0.005),
                     new(0.999, 0.0005)
                 }
-            }
-        );
+            });
 
         AttemptsHistogram = metricFactory.CreateHistogram("attempts", "summary of amount for request", ["status"],
             new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
