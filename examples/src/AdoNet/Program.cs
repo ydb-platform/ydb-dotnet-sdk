@@ -2,6 +2,7 @@
 using AdoNet;
 using CommandLine;
 using Microsoft.Extensions.Logging;
+using Polly;
 using Ydb.Sdk.Ado;
 
 using var factory = LoggerFactory.Create(builder => builder.AddConsole());
@@ -27,6 +28,7 @@ internal class AppContext
         await InitTables();
         await LoadData();
         await SelectWithParameters();
+        await RetryPolicy();
         await CreatingUser();
 
         _logger.LogInformation("Clearing all pools...");
@@ -231,6 +233,54 @@ internal class AppContext
                 ydbDataReader.GetUint64(0), ydbDataReader.GetUint64(1), ydbDataReader.GetUint64(2),
                 ydbDataReader.GetDateTime(3), ydbDataReader.GetString(4));
         }
+    }
+
+    private async Task RetryPolicy()
+    {
+        var policy = Policy.Handle<YdbException>(exception => exception.IsTransient)
+            .WaitAndRetryAsync(10, _ => TimeSpan.FromSeconds(1));
+
+        // Retry idempotent operation
+        var policyIdempotent = Policy.Handle<YdbException>(exception => exception.IsTransientWhenIdempotent)
+            .WaitAndRetryAsync(10, _ => TimeSpan.FromSeconds(1));
+
+        await policy.ExecuteAsync(async () =>
+        {
+            await using var ydbConnection = new YdbConnection(_cmdOptions.SimpleConnectionString);
+            await ydbConnection.OpenAsync();
+            var ydbDataReader = new YdbCommand(ydbConnection)
+            {
+                CommandText = """
+                              SELECT
+                                  series_id,
+                                  season_id,
+                                  COUNT(*) AS cnt  -- Aggregation function COUNT returns the number of rows
+                                                   -- output by the query.
+                                                   -- Asterisk (*) specifies that COUNT
+                                                   -- counts the total number of rows in the table.
+                                                   -- COUNT(*) returns the number of rows in
+                                                   -- the specified table, preserving the duplicate rows.
+                                                   -- It counts each row separately.
+                                                   -- The result includes rows that contain null values.
+                              FROM episodes
+
+                              GROUP BY
+                                  series_id,       -- The query result will follow the listed order of columns.
+                                  season_id        -- Multiple columns are separated by a comma.
+                                                   -- Other columns can be listed after a SELECT only if
+                                                   -- they are passed to an aggregate function.
+                              ORDER BY
+                                  series_id,
+                                  season_id;
+                              """
+            }.ExecuteReader();
+
+            while (await ydbDataReader.ReadAsync())
+            {
+                _logger.LogInformation("series_id: {series_id}, season_id: {season_id}, cnt: {cnt}",
+                    ydbDataReader.GetUint64(0), ydbDataReader.GetUint64(1), ydbDataReader.GetUint64(2));
+            }
+        });
     }
 
     private async Task CreatingUser()
