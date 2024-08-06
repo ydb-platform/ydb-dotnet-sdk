@@ -31,7 +31,7 @@ jobs:
       - name: Restore
         run: dotnet restore ${{ matrix.source-dir }}${{ matrix.solutionFile }}
       - name: Install ReSharper
-        run: dotnet tool install -g JetBrains.ReSharper.GlobalTools --version 2023.2.1
+        run: dotnet tool install -g JetBrains.ReSharper.GlobalTools
       - name: format all files with auto-formatter
         run: bash ./.github/scripts/format-all-dotnet-code.sh ${{ matrix.source-dir }} ${{ matrix.solutionFile }} "Custom Cleanup"
       - name: Check repository diff
