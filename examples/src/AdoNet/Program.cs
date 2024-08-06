@@ -241,8 +241,8 @@ internal class AppContext
             .WaitAndRetryAsync(10, _ => TimeSpan.FromSeconds(1));
 
         // Retry idempotent operation
-        var policyIdempotent = Policy.Handle<YdbException>(exception => exception.IsTransientWhenIdempotent)
-            .WaitAndRetryAsync(10, _ => TimeSpan.FromSeconds(1));
+        // var policyIdempotent = Policy.Handle<YdbException>(exception => exception.IsTransientWhenIdempotent)
+        //     .WaitAndRetryAsync(10, _ => TimeSpan.FromSeconds(1));
 
         await policy.ExecuteAsync(async () =>
         {
