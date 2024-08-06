@@ -23,10 +23,6 @@ internal class NoTokensAvailableException : Exception
     public NoTokensAvailableException(string? message, Exception? innerException) : base(message, innerException)
     {
     }
-
-    protected NoTokensAvailableException(SerializationInfo info, StreamingContext context) : base(info, context)
-    {
-    }
 }
 
 public class TokenBucket
