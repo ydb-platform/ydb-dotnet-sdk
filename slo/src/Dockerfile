@@ -4,8 +4,8 @@ COPY ../ /src
 RUN ls /src
 WORKDIR /src/slo/src/${SRC_PATH}
 RUN ls
-RUN dotnet restore *.sln
-RUN dotnet publish *.sln -c release -o /app --no-restore -f net8.0
+RUN dotnet restore "${SRC_PATH}.csproj"
+RUN dotnet publish "${SRC_PATH}.csproj" -c release -o /app --no-restore -f net8.0
 
 #####################
 
