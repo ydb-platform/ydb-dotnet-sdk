@@ -55,7 +55,7 @@ public class YdbExceptionTests
         }).IsTransient);
         await new YdbCommand(anotherConnection)
         {
-            CommandText = "DROP TABLE Bank"
+            CommandText = $"DROP TABLE {bankTable}"
         }.ExecuteNonQueryAsync();
     }
 }

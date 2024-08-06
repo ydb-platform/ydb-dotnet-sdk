@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-
 namespace Ydb.Sdk.Tests;
 
 public class TemporaryTables<T>
