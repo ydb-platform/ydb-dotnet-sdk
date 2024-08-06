@@ -345,43 +345,50 @@ public sealed class YdbDataReader : DbDataReader
 
     private async Task<State> NextExecPart()
     {
-        _currentRowIndex = -1;
-
-        if (!await _stream.MoveNextAsync())
+        try
         {
-            return State.Closed;
-        }
+            _currentRowIndex = -1;
 
-        var part = _stream.Current;
-
-        _issueMessagesInStream.AddRange(part.Issues);
-
-        if (part.Status != StatusIds.Types.StatusCode.Success)
-        {
-            ReaderState = State.Closed;
-            while (await _stream.MoveNextAsync())
+            if (!await _stream.MoveNextAsync())
             {
-                _issueMessagesInStream.AddRange(_stream.Current.Issues);
+                return State.Closed;
             }
 
-            throw new YdbException(Status.FromProto(part.Status, _issueMessagesInStream));
+            var part = _stream.Current;
+
+            _issueMessagesInStream.AddRange(part.Issues);
+
+            if (part.Status != StatusIds.Types.StatusCode.Success)
+            {
+                ReaderState = State.Closed;
+                while (await _stream.MoveNextAsync())
+                {
+                    _issueMessagesInStream.AddRange(_stream.Current.Issues);
+                }
+
+                throw new YdbException(Status.FromProto(part.Status, _issueMessagesInStream));
+            }
+
+            _currentResultSet = part.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
+
+            if (_ydbTransaction != null)
+            {
+                _ydbTransaction.TxId ??= part.TxMeta.Id;
+            }
+
+            if (part.ResultSetIndex <= _resultSetIndex)
+            {
+                return State.ReadResultState;
+            }
+
+            _resultSetIndex = part.ResultSetIndex;
+
+            return State.NewResultState;
         }
-
-        _currentResultSet = part.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
-
-        if (_ydbTransaction != null)
+        catch (Driver.TransportException e)
         {
-            _ydbTransaction.TxId ??= part.TxMeta.Id;
+            throw new YdbException(e.Status);
         }
-
-        if (part.ResultSetIndex <= _resultSetIndex)
-        {
-            return State.ReadResultState;
-        }
-
-        _resultSetIndex = part.ResultSetIndex;
-
-        return State.NewResultState;
     }
 
     public override async ValueTask DisposeAsync()

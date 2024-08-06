@@ -232,8 +232,8 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where T
                     session = null;
                 }
 
-                if ((retryRule.Idempotency == Idempotency.Idempotent && retrySettings.IsIdempotent) ||
-                    retryRule.Idempotency == Idempotency.NonIdempotent)
+                if ((retryRule.Policy == RetryPolicy.IdempotentOnly && retrySettings.IsIdempotent) ||
+                    retryRule.Policy == RetryPolicy.Unconditional)
                 {
                     Logger.LogTrace(
                         $"Retry: attempt {attempt}, Session ${session?.Id}, " +
