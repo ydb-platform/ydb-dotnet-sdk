@@ -1,6 +1,6 @@
 using Ydb.Sdk.Value;
 
-namespace slo;
+namespace Internal;
 
 public static class DataGenerator
 {
@@ -24,7 +24,7 @@ public static class DataGenerator
             { "$id", YdbValue.MakeUint64((ulong)MaxId) },
             {
                 "$payload_str",
-                YdbValue.MakeUtf8(string.Join("", Enumerable
+                YdbValue.MakeUtf8(string.Join("_", Enumerable
                     .Repeat(0, Random.Next(20, 40))
                     .Select(_ => (char)new Random().Next(127))))
             },

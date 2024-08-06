@@ -2,20 +2,13 @@ using Prometheus;
 using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
-namespace slo;
+namespace Internal;
 
-public class Executor
+public class Executor(TableClient tableClient)
 {
-    private readonly TableClient _tableClient;
-
-    public Executor(TableClient tableClient)
-    {
-        _tableClient = tableClient;
-    }
-
     public async Task ExecuteSchemeQuery(string query, TimeSpan? timeout = null)
     {
-        var response = await _tableClient.SessionExec(
+        var response = await tableClient.SessionExec(
             async session => await session.ExecuteSchemeQuery(query,
                 new ExecuteSchemeQuerySettings { OperationTimeout = timeout, TransportTimeout = timeout * 1.1 }));
         response.Status.EnsureSuccess();
@@ -36,7 +29,7 @@ public class Executor
 
         var attempts = 0;
 
-        var response = await _tableClient.SessionExec(
+        var response = await tableClient.SessionExec(
             async session =>
             {
                 attempts++;
@@ -50,11 +43,12 @@ public class Executor
                         txControl,
                         parameters,
                         querySettings);
-                if (!response.Status.IsSuccess)
+                if (response.Status.IsSuccess)
                 {
-                    errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "retried").Inc();
-                    Console.WriteLine(response.Status);
+                    return response;
                 }
+                errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "retried").Inc();
+                Console.WriteLine(response.Status);
 
                 return response;
             });

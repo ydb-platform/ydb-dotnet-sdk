@@ -53,11 +53,11 @@ jobs:
           timeBetweenPhases: 30
           shutdownTime: 30
 
-          language_id0: 'dotnet'
+          language_id0: 'table-service'
           workload_path0: 'slo/src'
-          language0: '.NET SDK'
+          language0: '.NET SDK over table-service'
           workload_build_context0: ../..
-          workload_build_options0: -f Dockerfile
+          workload_build_options0: -f Dockerfile --build-arg SRC_PATH=TableService
 
       - uses: actions/upload-artifact@v3
         if: always() && env.DOCKER_REPO != null

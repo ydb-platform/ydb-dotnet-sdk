@@ -48,7 +48,7 @@ services:
       - monitor-net
 
   ydb:
-    image: cr.yandex/yc/yandex-docker-local-ydb:23.1
+    image: cr.yandex/yc/yandex-docker-local-ydb:latest
     container_name: ydb
     environment:
       - GRPC_TLS_PORT=2135

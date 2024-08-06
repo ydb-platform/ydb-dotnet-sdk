@@ -1,8 +1,8 @@
 using System.CommandLine;
 
-namespace slo.Cli;
+namespace Internal.Cli;
 
-internal static class Cli
+public static class Cli
 {
     private static readonly Argument<string> EndpointArgument = new(
         "endpoint",
@@ -13,7 +13,7 @@ internal static class Cli
         "YDB database to connect to");
 
     private static readonly Option<string> TableOption = new(
-        new[] { "-t", "--table-name" },
+        ["-t", "--table-name"],
         () => "testingTable",
         "table name to create\n ");
 
@@ -21,7 +21,6 @@ internal static class Cli
         "--write-timeout",
         () => 10000,
         "write timeout milliseconds");
-
 
     private static readonly Option<int> MinPartitionsCountOption = new(
         "--min-partitions-count",
@@ -39,10 +38,9 @@ internal static class Cli
         "partition size in mb");
 
     private static readonly Option<int> InitialDataCountOption = new(
-        new[] { "-c", "--initial-data-count" },
+        ["-c", "--initial-data-count"],
         () => 1000,
         "amount of initially created rows");
-
 
     private static readonly Option<string> PromPgwOption = new(
         "--prom-pgw",
@@ -92,7 +90,6 @@ internal static class Cli
         WriteTimeoutOption
     };
 
-
     private static readonly Command CleanupCommand = new(
         "cleanup",
         "drops table in database")
@@ -126,23 +123,19 @@ internal static class Cli
         CreateCommand, CleanupCommand, RunCommand
     };
 
-    internal static async Task<int> Run(string[] args)
+    public static async Task<int> Run(string[] args)
     {
-        CreateCommand.SetHandler(
-            async createConfig => { await CliCommands.Create(createConfig); },
+        CreateCommand.SetHandler(async createConfig => { await CliCommands.Create(createConfig); },
             new CreateConfigBinder(EndpointArgument, DbArgument, TableOption, MinPartitionsCountOption,
-                MaxPartitionsCountOption, PartitionSizeOption, InitialDataCountOption, WriteTimeoutOption)
-        );
+                MaxPartitionsCountOption, PartitionSizeOption, InitialDataCountOption, WriteTimeoutOption));
 
-        CleanupCommand.SetHandler(
-            async cleanUpConfig => { await CliCommands.CleanUp(cleanUpConfig); },
-            new CleanUpConfigBinder(EndpointArgument, DbArgument, TableOption, WriteTimeoutOption)
-        );
+        CleanupCommand.SetHandler(async cleanUpConfig => { await CliCommands.CleanUp(cleanUpConfig); },
+            new CleanUpConfigBinder(EndpointArgument, DbArgument, TableOption, WriteTimeoutOption));
 
         RunCommand.SetHandler(async runConfig => { await CliCommands.Run(runConfig); },
-            new RunConfigBinder(EndpointArgument, DbArgument, TableOption, InitialDataCountOption, PromPgwOption,
-                ReportPeriodOption, ReadRpsOption, ReadTimeoutOption, WriteRpsOption, WriteTimeoutOption, TimeOption,
-                ShutdownTimeOption));
+            new RunConfigBinder(EndpointArgument, DbArgument, TableOption, PromPgwOption, ReportPeriodOption,
+                ReadRpsOption, ReadTimeoutOption, WriteRpsOption, WriteTimeoutOption, TimeOption, ShutdownTimeOption));
+
         return await RootCommand.InvokeAsync(args);
     }
 }
