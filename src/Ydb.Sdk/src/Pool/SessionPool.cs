@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado;
+using Exception = System.Exception;
 
 namespace Ydb.Sdk.Pool;
 
@@ -69,7 +70,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     internal async Task<T> ExecOnSession<T>(Func<TSession, Task<T>> onSession, RetrySettings? retrySettings = null)
     {
         retrySettings ??= RetrySettings.DefaultInstance;
-        Status status = null!;
         TSession? session = null;
 
         for (uint attempt = 0; attempt < retrySettings.MaxAttempts; attempt++)
@@ -80,13 +80,39 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
                 return await onSession(session);
             }
-            catch (Driver.TransportException e)
+            catch (Exception e)
             {
-                status = e.Status;
-            }
-            catch (StatusUnsuccessfulException e)
-            {
-                status = e.Status;
+                if (attempt == retrySettings.MaxAttempts - 1)
+                {
+                    throw;
+                }
+
+                var statusErr = e switch
+                {
+                    Driver.TransportException transportException => transportException.Status,
+                    StatusUnsuccessfulException unsuccessfulException => unsuccessfulException.Status,
+                    _ => null
+                };
+
+                if (statusErr != null)
+                {
+                    var retryRule = retrySettings.GetRetryRule(statusErr.StatusCode);
+
+                    if (retryRule.Policy == RetryPolicy.None ||
+                        (retryRule.Policy == RetryPolicy.IdempotentOnly && !retrySettings.IsIdempotent))
+                    {
+                        throw;
+                    }
+
+                    _logger.LogTrace(
+                        "Retry: attempt {attempt}, Session ${session?.SessionId}, idempotent error {status} retrying",
+                        attempt, session?.SessionId, statusErr);
+                    await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
+                }
+                else
+                {
+                    throw;
+                }
             }
             finally
             {
@@ -95,16 +121,9 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
                     await session.Release();
                 }
             }
-
-            // TODO Retry policy
-            var retryRule = retrySettings.GetRetryRule(status.StatusCode);
-            // _logger.LogTrace("Retry: attempt {attempt}, Session ${SessionId}, idempotent error {Status} retrying",
-            //     attempt, session?.SessionId ?? "was not created", status);
-
-            await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
         }
 
-        throw new StatusUnsuccessfulException(status);
+        throw new InvalidOperationException("MaxAttempts less then 1, actual value: " + retrySettings.MaxAttempts);
     }
 
     internal async ValueTask ReleaseSession(TSession session)

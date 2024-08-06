@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -8,6 +9,8 @@ namespace Ydb.Sdk.Tests;
 
 public static class Utils
 {
+    internal static string Net => RuntimeInformation.FrameworkDescription.Split(".")[1].Split(" ")[1];
+
     public static async Task<ExecuteDataQueryResponse> ExecuteDataQuery(TableClient tableClient, string query,
         Dictionary<string, YdbValue>? parameters = null)
     {

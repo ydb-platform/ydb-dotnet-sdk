@@ -88,7 +88,12 @@ public sealed class YdbConnection : DbConnection
         }
         catch (Exception e)
         {
-            throw new YdbException(e.Message, e);
+            throw e switch
+            {
+                Driver.TransportException transportException => new YdbException(transportException.Status),
+                StatusUnsuccessfulException unsuccessfulException => new YdbException(unsuccessfulException.Status),
+                _ => throw new YdbException("Cannot get session", e)
+            };
         }
 
         ConnectionState = ConnectionState.Open;
