@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Runtime.Serialization;
 using System.Timers;
 using Timer = System.Timers.Timer;
 
