@@ -23,13 +23,8 @@ public partial class Session : SessionBase
         }
     }
 
-    private void OnResponseTrailers(Grpc.Core.Metadata? trailers)
+    private void OnResponseTrailers(Grpc.Core.Metadata trailers)
     {
-        if (trailers is null)
-        {
-            return;
-        }
-
         foreach (var hint in trailers.GetAll(Metadata.RpcServerHintsHeader))
         {
             if (hint.Value == Metadata.GracefulShutdownHint)
@@ -77,7 +72,7 @@ public partial class Session : SessionBase
         where TResponse : class
     {
         settings.NodeId = NodeId;
-        settings.TrailersHandler = OnResponseTrailers;
+        settings.HeadersHandler = OnResponseTrailers;
 
         return await Driver.UnaryCall(
             method: method,

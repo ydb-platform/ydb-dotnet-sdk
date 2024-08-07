@@ -57,7 +57,7 @@ public abstract class GrpcTransport : IDisposable, IAsyncDisposable
             );
 
             var response = await call.ResponseAsync;
-            settings.TrailersHandler(call.GetTrailers());
+            settings.HeadersHandler(call.GetTrailers());
 
             return response;
         }
