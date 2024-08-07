@@ -27,8 +27,8 @@ internal class WriterReconnector
     private readonly RetrySettings _retrySettings = new();
     private readonly TaskCompletionSource _stopReason;
     private readonly Queue<TaskCompletionSource<WriteResult>> _writeResults = new();
-    private bool _closed;
 
+    private bool _closed;
     private InitInfo? _initInfo;
     private long _lastKnownSequenceNumber;
 

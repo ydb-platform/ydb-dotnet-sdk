@@ -32,7 +32,10 @@ public class TopicClient
 
     public async Task CreateAsync(string path, CreateOptions options)
     {
-        var request = new CreateTopicRequest();
+        var request = new CreateTopicRequest
+        {
+            Path = path
+        };
         options.Options.ForEach(option => option.Apply(request));
 
         await _rawTopicClient.CreateTopic(request);

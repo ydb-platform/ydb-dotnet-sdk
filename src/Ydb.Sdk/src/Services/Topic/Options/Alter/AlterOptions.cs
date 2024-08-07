@@ -23,55 +23,86 @@ public class AlterOptions
         {
         }
 
-        internal Builder(List<AlterOption> options) => this._options = options;
+        internal Builder(List<AlterOption> options) => _options = options;
 
         public AlterOptions Build()
         {
             return new AlterOptions(_options);
         }
 
-        public void SetMinActivePartitions(long minActivePartitions)
-            => _options.Add(new AlterOption(r => r.AlterPartitionSettings.MinActivePartitions = minActivePartitions));
+        public Builder SetMinActivePartitions(long minActivePartitions)
+        {
+            _options.Add(new AlterOption(r => r.AlterPartitionSettings.MinActivePartitions = minActivePartitions));
+            return this;
+        }
 
-        public void SetMeteringMode(MeteringMode meteringMode)
+        public Builder SetMeteringMode(MeteringMode meteringMode)
         {
             _options.Add(new AlterOption(r => r.MeteringMode = EnumConverter.Convert<
                 MeteringMode,
                 GrpcWrappers.Topic.ControlPlane.MeteringMode>(
                 meteringMode)));
+            return this;
         }
 
-        public void SetPartitionCountLimit(long partitionCountLimit)
-            => _options.Add(new AlterOption(r => r.AlterPartitionSettings.PartitionCountLimit = partitionCountLimit));
+        public Builder SetPartitionCountLimit(long partitionCountLimit)
+        {
+            _options.Add(new AlterOption(r => r.AlterPartitionSettings.PartitionCountLimit = partitionCountLimit));
+            return this;
+        }
 
-        public void SetRetentionPeriod(TimeSpan retentionPeriod)
-            => _options.Add(new AlterOption(r => r.RetentionPeriod = retentionPeriod));
+        public Builder SetRetentionPeriod(TimeSpan retentionPeriod)
+        {
+            _options.Add(new AlterOption(r => r.RetentionPeriod = retentionPeriod));
+            return this;
+        }
 
-        public void SetRetentionStorageMb(long retentionStorageMb)
-            => _options.Add(new AlterOption(r => r.RetentionStorageMb = retentionStorageMb));
+        public Builder SetRetentionStorageMb(long retentionStorageMb)
+        {
+            _options.Add(new AlterOption(r => r.RetentionStorageMb = retentionStorageMb));
+            return this;
+        }
 
-        public void SetSupportedCodecs(List<Codec> codecs)
-            => _options.Add(new AlterOption(r => r.SupportedCodecs = SupportedCodecs.FromPublic(codecs)));
+        public Builder SetSupportedCodecs(List<Codec> codecs)
+        {
+            _options.Add(new AlterOption(r => r.SupportedCodecs = SupportedCodecs.FromPublic(codecs)));
+            return this;
+        }
 
-        public void SetPartitionWriteSpeedBytesPerSecond(long bytesPerSecond)
-            => _options.Add(new AlterOption(r => r.PartitionWriteSpeedBytesPerSecond = bytesPerSecond));
+        public Builder SetPartitionWriteSpeedBytesPerSecond(long bytesPerSecond)
+        {
+            _options.Add(new AlterOption(r => r.PartitionWriteSpeedBytesPerSecond = bytesPerSecond));
+            return this;
+        }
 
-        public void SetPartitionWriteBurstBytes(long burstBytes)
-            => _options.Add(new AlterOption(r => r.PartitionWriteBurstBytes = burstBytes));
+        public Builder SetPartitionWriteBurstBytes(long burstBytes)
+        {
+            _options.Add(new AlterOption(r => r.PartitionWriteBurstBytes = burstBytes));
+            return this;
+        }
 
-        public void SetAttributes(Dictionary<string, string> attributes)
-            => _options.Add(new AlterOption(r => r.AlterAttributes = attributes));
+        public Builder SetAttributes(Dictionary<string, string> attributes)
+        {
+            _options.Add(new AlterOption(r => r.AlterAttributes = attributes));
+            return this;
+        }
 
-        public void SetConsumersToAdd(IEnumerable<Consumer> consumers)
-            => _options.Add(new AlterOption(r => r.ConsumersToAdd = consumers.Select(c => c.ToWrapper()).ToList()));
+        public Builder SetConsumersToAdd(IEnumerable<Consumer> consumers)
+        {
+            _options.Add(new AlterOption(r => r.ConsumersToAdd = consumers.Select(c => c.ToWrapper()).ToList()));
+            return this;
+        }
 
-        public void SetConsumersToDrop(List<string> consumers)
-            => _options.Add(new AlterOption(r => r.ConsumersToDrop = consumers));
+        public Builder SetConsumersToDrop(List<string> consumers)
+        {
+            _options.Add(new AlterOption(r => r.ConsumersToDrop = consumers));
+            return this;
+        }
 
-        public void SetAlterConsumerImportance(string name, bool isImportant)
+        public Builder SetAlterConsumerImportance(string name, bool isImportant)
         {
             _options.Add(new AlterOption(Apply));
-            return;
+            return this;
 
             void Apply(AlterTopicRequest request)
             {
@@ -80,10 +111,10 @@ public class AlterOptions
             }
         }
 
-        public void SetAlterConsumerReadFrom(string name, DateTime readFrom)
+        public Builder SetAlterConsumerReadFrom(string name, DateTime readFrom)
         {
             _options.Add(new AlterOption(Apply));
-            return;
+            return this;
 
             void Apply(AlterTopicRequest request)
             {
@@ -92,10 +123,10 @@ public class AlterOptions
             }
         }
 
-        public void SetAlterConsumerCodecs(string name, List<Codec> codecs)
+        public Builder SetAlterConsumerCodecs(string name, List<Codec> codecs)
         {
             _options.Add(new AlterOption(Apply));
-            return;
+            return this;
 
             void Apply(AlterTopicRequest request)
             {
@@ -104,10 +135,10 @@ public class AlterOptions
             }
         }
 
-        public void SetAlterConsumerAttributes(string name, Dictionary<string, string> attributes)
+        public Builder SetAlterConsumerAttributes(string name, Dictionary<string, string> attributes)
         {
             _options.Add(new AlterOption(Apply));
-            return;
+            return this;
 
             void Apply(AlterTopicRequest request)
             {

@@ -33,10 +33,10 @@ public class CreateOptions
             return new CreateOptions(_options);
         }
 
-        public void SetMinActivePartitions(long minActivePartitions)
+        public Builder SetMinActivePartitions(long minActivePartitions)
         {
             _options.Add(new CreateOption(AddPartitionCountLimit));
-            return;
+            return this;
 
             void AddPartitionCountLimit(CreateTopicRequest request)
             {
@@ -45,18 +45,20 @@ public class CreateOptions
             }
         }
 
-        public void SetMeteringMode(MeteringMode meteringMode)
+        public Builder SetMeteringMode(MeteringMode meteringMode)
         {
             _options.Add(new CreateOption(r => r.MeteringMode = EnumConverter.Convert<
                 MeteringMode,
                 GrpcWrappers.Topic.ControlPlane.MeteringMode>(
                 meteringMode)));
+
+            return this;
         }
 
-        public void SetPartitionCountLimit(long partitionCountLimit)
+        public Builder SetPartitionCountLimit(long partitionCountLimit)
         {
             _options.Add(new CreateOption(AddPartitionCountLimit));
-            return;
+            return this;
 
             void AddPartitionCountLimit(CreateTopicRequest request)
             {
@@ -65,25 +67,46 @@ public class CreateOptions
             }
         }
 
-        public void SetRetentionPeriod(TimeSpan retentionPeriod)
-            => _options.Add(new CreateOption(r => r.RetentionPeriod = retentionPeriod));
+        public Builder SetRetentionPeriod(TimeSpan retentionPeriod)
+        {
+            _options.Add(new CreateOption(r => r.RetentionPeriod = retentionPeriod));
+            return this;
+         }
 
-        public void SetRetentionStorageMb(long retentionStorageMb)
-            => _options.Add(new CreateOption(r => r.RetentionStorageMb = retentionStorageMb));
+        public Builder SetRetentionStorageMb(long retentionStorageMb)
+        {
+            _options.Add(new CreateOption(r => r.RetentionStorageMb = retentionStorageMb));
+            return this;
+         }
 
-        public void SetSupportedCodecs(List<Codec> codecs)
-            => _options.Add(new CreateOption(r => r.SupportedCodecs = SupportedCodecs.FromPublic(codecs)));
+        public Builder SetSupportedCodecs(List<Codec> codecs)
+        {
+            _options.Add(new CreateOption(r => r.SupportedCodecs = SupportedCodecs.FromPublic(codecs)));
+            return this;
+         }
 
-        public void SetPartitionWriteSpeedBytesPerSecond(long bytesPerSecond)
-            => _options.Add(new CreateOption(r => r.PartitionWriteSpeedBytesPerSecond = bytesPerSecond));
+        public Builder SetPartitionWriteSpeedBytesPerSecond(long bytesPerSecond)
+        {
+            _options.Add(new CreateOption(r => r.PartitionWriteSpeedBytesPerSecond = bytesPerSecond));
+            return this;
+         }
 
-        public void SetPartitionWriteBurstBytes(long burstBytes)
-            => _options.Add(new CreateOption(r => r.PartitionWriteBurstBytes = burstBytes));
+        public Builder SetPartitionWriteBurstBytes(long burstBytes)
+        {
+            _options.Add(new CreateOption(r => r.PartitionWriteBurstBytes = burstBytes));
+            return this;
+         }
 
-        public void SetAttributes(Dictionary<string, string> attributes)
-            => _options.Add(new CreateOption(r => r.Attributes = attributes));
+        public Builder SetAttributes(Dictionary<string, string> attributes)
+        {
+            _options.Add(new CreateOption(r => r.Attributes = attributes));
+            return this;
+         }
 
-        public void SetConsumers(IEnumerable<Consumer> consumers)
-            => _options.Add(new CreateOption(r => r.Consumers = consumers.Select(c => c.ToWrapper()).ToList()));
+        public Builder SetConsumers(IEnumerable<Consumer> consumers)
+        {
+            _options.Add(new CreateOption(r => r.Consumers = consumers.Select(c => c.ToWrapper()).ToList()));
+            return this;
+         }
     }
 }
