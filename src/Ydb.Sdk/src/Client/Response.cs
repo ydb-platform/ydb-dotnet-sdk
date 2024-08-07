@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics;
+using Google.Protobuf.Collections;
+using Ydb.Issue;
 
 namespace Ydb.Sdk.Client;
 
@@ -9,12 +11,12 @@ public interface IResponse
 
 public class ResponseBase : IResponse
 {
-    public Status Status { get; }
-
     protected ResponseBase(Status status)
     {
         Status = status;
     }
+
+    public Status Status { get; }
 
     public void EnsureSuccess()
     {
@@ -34,7 +36,11 @@ public class ResponseWithResultBase<TResult> : ResponseBase
 {
     private readonly TResult? _result;
 
-    protected ResponseWithResultBase(Status status) : base(status)
+    protected ResponseWithResultBase(
+        StatusIds.Types.StatusCode statusCode,
+        RepeatedField<IssueMessage> issues,
+        TResult? result)
+        : this(Status.FromProto(statusCode, issues), result)
     {
     }
 
@@ -59,15 +65,15 @@ public class ResponseWithResultBase<TResult> : ResponseBase
     }
 }
 
-public abstract class StreamResponse<TProtoResponse, TResponse>
+public abstract class StreamResponse<TProtoResponse, TResponse> : IAsyncDisposable
     where TProtoResponse : class
     where TResponse : class
 {
-    private readonly Driver.StreamIterator<TProtoResponse> _iterator;
+    private readonly IAsyncEnumerator<TProtoResponse> _iterator;
     private TResponse? _response;
     private bool _transportError;
 
-    internal StreamResponse(Driver.StreamIterator<TProtoResponse> iterator)
+    internal StreamResponse(IAsyncEnumerator<TProtoResponse> iterator)
     {
         _iterator = iterator;
     }
@@ -83,6 +89,11 @@ public abstract class StreamResponse<TProtoResponse, TResponse>
 
             return _response;
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _iterator.DisposeAsync();
     }
 
     public async Task<bool> Next()
@@ -126,44 +137,8 @@ public abstract class OperationResponse<TResult, TMetadata> : IClientOperation
     where TResult : class
     where TMetadata : class
 {
-    private readonly TResult? _result;
     private readonly TMetadata? _metadata;
-
-    public string Id { get; }
-
-    public bool IsReady { get; }
-
-    public Status Status { get; }
-
-    public bool HasResult => IsReady && _result != null;
-
-    public TResult Result
-    {
-        get
-        {
-            if (_result is null)
-            {
-                throw new OperationException(Id, "Operation result unavailable.");
-            }
-
-            return _result;
-        }
-    }
-
-    public bool HasMetadata => _metadata != null;
-
-    public TMetadata Metadata
-    {
-        get
-        {
-            if (_metadata is null)
-            {
-                throw new OperationException(Id, "Operation metadata unavailable.");
-            }
-
-            return _metadata;
-        }
-    }
+    private readonly TResult? _result;
 
     protected OperationResponse(ClientOperation operation)
     {
@@ -188,6 +163,42 @@ public abstract class OperationResponse<TResult, TMetadata> : IClientOperation
         : this(new ClientOperation(status))
     {
     }
+
+    public TResult Result
+    {
+        get
+        {
+            if (_result is null)
+            {
+                throw new OperationException(Id, "Operation result unavailable.");
+            }
+
+            return _result;
+        }
+    }
+
+    public TMetadata Metadata
+    {
+        get
+        {
+            if (_metadata is null)
+            {
+                throw new OperationException(Id, "Operation metadata unavailable.");
+            }
+
+            return _metadata;
+        }
+    }
+
+    public string Id { get; }
+
+    public bool IsReady { get; }
+
+    public Status Status { get; }
+
+    public bool HasResult => IsReady && _result != null;
+
+    public bool HasMetadata => _metadata != null;
 
     protected abstract TResult UnpackResult(ClientOperation operation);
     protected abstract TMetadata UnpackMetadata(ClientOperation operation);
