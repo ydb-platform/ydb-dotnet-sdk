@@ -1,7 +1,7 @@
+#if NET7_0_OR_GREATER
 using Xunit;
 using Ydb.Sdk.Ado;
 
-#if NET7_0_OR_GREATER
 namespace Ydb.Sdk.Tests.Ado;
 
 [Trait("Category", "Integration")]
