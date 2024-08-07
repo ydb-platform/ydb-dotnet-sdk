@@ -35,6 +35,7 @@ public class YdbDataSourceTests
         {
             Assert.Equal(1, _dataSource.CreateCommand("SELECT 1;").ExecuteScalar());
         }
+
         _dataSource.Dispose();
         for (var i = 0; i < SelectedCount; i++)
         {
