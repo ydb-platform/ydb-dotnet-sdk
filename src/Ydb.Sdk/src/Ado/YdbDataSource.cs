@@ -64,6 +64,16 @@ public class YdbDataSource : DbDataSource
     }
 
     public override string ConnectionString => _ydbConnectionStringBuilder.ConnectionString;
+
+    protected override async ValueTask DisposeAsyncCore()
+    {
+        await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        DisposeAsyncCore().AsTask().GetAwaiter().GetResult();
+    }
 }
 
 #endif
