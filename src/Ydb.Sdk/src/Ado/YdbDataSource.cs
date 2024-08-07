@@ -43,9 +43,15 @@ public class YdbDataSource : DbDataSource
         }
     }
 
-    public new YdbConnection CreateConnection() => CreateDbConnection();
+    public new YdbConnection CreateConnection()
+    {
+        return CreateDbConnection();
+    }
 
-    public new YdbConnection OpenConnection() => OpenDbConnection();
+    public new YdbConnection OpenConnection()
+    {
+        return OpenDbConnection();
+    }
 
     public new async ValueTask<YdbConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
     {
