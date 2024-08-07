@@ -1,5 +1,4 @@
 #if NET7_0_OR_GREATER
-
 using System.Data.Common;
 
 namespace Ydb.Sdk.Ado;
