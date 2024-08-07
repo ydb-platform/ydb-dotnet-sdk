@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using Google.Protobuf.WellKnownTypes;
-using Grpc.Core;
 using Ydb.Operations;
 
 namespace Ydb.Sdk;
@@ -11,13 +10,10 @@ public class GrpcRequestSettings
 
     public string TraceId { get; set; } = string.Empty;
     public TimeSpan? TransportTimeout { get; set; }
-    public ImmutableArray<string> CustomClientHeaders { get; set; }
+    public ImmutableArray<string> CustomClientHeaders { get; } = new();
 
     internal long NodeId { get; set; }
-
-    internal Action<Grpc.Core.Metadata?> TrailersHandler { get; set; } = _ => { };
-
-    internal Action<RpcException> RpcErrorHandler { get; set; } = _ => { };
+    internal Action<Grpc.Core.Metadata> TrailersHandler { get; set; } = _ => { };
 }
 
 public class OperationSettings : GrpcRequestSettings

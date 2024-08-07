@@ -145,6 +145,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         catch (RpcException e)
         {
             PessimizeEndpoint(endpoint);
+
             throw new TransportException(e);
         }
     }
@@ -167,15 +168,10 @@ public sealed class Driver : IDisposable, IAsyncDisposable
                 options: GetCallOptions(settings, true),
                 request: request);
 
-            return new StreamIterator<TResponse>(call, e =>
-            {
-                settings.RpcErrorHandler(e);
-                PessimizeEndpoint(endpoint);
-            });
+            return new StreamIterator<TResponse>(call, () => { PessimizeEndpoint(endpoint); });
         }
         catch (RpcException e)
         {
-            settings.RpcErrorHandler(e);
             PessimizeEndpoint(endpoint);
 
             throw new TransportException(e);
@@ -326,9 +322,9 @@ public sealed class Driver : IDisposable, IAsyncDisposable
     internal sealed class StreamIterator<TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
     {
         private readonly AsyncServerStreamingCall<TResponse> _responseStream;
-        private readonly Action<RpcException> _rpcErrorAction;
+        private readonly Action _rpcErrorAction;
 
-        internal StreamIterator(AsyncServerStreamingCall<TResponse> responseStream, Action<RpcException> rpcErrorAction)
+        internal StreamIterator(AsyncServerStreamingCall<TResponse> responseStream, Action rpcErrorAction)
         {
             _responseStream = responseStream;
             _rpcErrorAction = rpcErrorAction;
@@ -349,7 +345,8 @@ public sealed class Driver : IDisposable, IAsyncDisposable
             }
             catch (RpcException e)
             {
-                _rpcErrorAction(e);
+                _rpcErrorAction();
+
                 throw new TransportException(e);
             }
         }
@@ -365,10 +362,6 @@ public sealed class Driver : IDisposable, IAsyncDisposable
     public class InitializationFailureException : Exception
     {
         internal InitializationFailureException(string message) : base(message)
-        {
-        }
-
-        internal InitializationFailureException(string message, Exception inner) : base(message, inner)
         {
         }
     }

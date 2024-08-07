@@ -58,14 +58,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                     return;
                 }
 
-                var statusSession = Status.FromProto(stream.Current.Status, stream.Current.Issues);
-
-                if (statusSession.IsNotSuccess)
-                {
-                    completeTask.SetResult(statusSession);
-                }
-
-                completeTask.SetResult(Status.Success);
+                completeTask.SetResult(Status.FromProto(stream.Current.Status, stream.Current.Issues));
 
                 try
                 {
@@ -85,9 +78,9 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                 {
                 }
             }
-            catch (Driver.TransportException e)
+            catch (Exception e)
             {
-                completeTask.SetResult(e.Status);
+                completeTask.SetException(e);
             }
             finally
             {

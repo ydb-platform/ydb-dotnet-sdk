@@ -23,13 +23,8 @@ public partial class Session : SessionBase
         }
     }
 
-    private void OnResponseTrailers(Grpc.Core.Metadata? trailers)
+    private void OnResponseTrailers(Grpc.Core.Metadata trailers)
     {
-        if (trailers is null)
-        {
-            return;
-        }
-
         foreach (var hint in trailers.GetAll(Metadata.RpcServerHintsHeader))
         {
             if (hint.Value == Metadata.GracefulShutdownHint)

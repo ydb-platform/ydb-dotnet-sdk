@@ -92,7 +92,7 @@ public sealed class YdbConnection : DbConnection
             {
                 Driver.TransportException transportException => new YdbException(transportException.Status),
                 StatusUnsuccessfulException unsuccessfulException => new YdbException(unsuccessfulException.Status),
-                _ => throw new YdbException("Cannot get session", e)
+                _ => new YdbException("Cannot get session", e)
             };
         }
 
