@@ -138,7 +138,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
                 request: request);
 
             var data = await call.ResponseAsync;
-            settings.HeadersHandler(await call.ResponseHeadersAsync);
+            settings.TrailersHandler(call.GetTrailers());
 
             return data;
         }

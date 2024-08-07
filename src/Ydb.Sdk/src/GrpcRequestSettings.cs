@@ -13,7 +13,7 @@ public class GrpcRequestSettings
     public ImmutableArray<string> CustomClientHeaders { get; } = new();
 
     internal long NodeId { get; set; }
-    internal Action<Grpc.Core.Metadata> HeadersHandler { get; set; } = _ => { };
+    internal Action<Grpc.Core.Metadata> TrailersHandler { get; set; } = _ => { };
 }
 
 public class OperationSettings : GrpcRequestSettings
