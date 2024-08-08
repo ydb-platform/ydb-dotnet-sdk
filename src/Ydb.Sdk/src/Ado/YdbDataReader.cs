@@ -76,13 +76,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return 0;
         }
 
-        var i = 0;
-        for (; i + dataOffset < bytes.Length && i < length; i++)
-        {
-            buffer[i + bufferOffset] = bytes[i + (int)dataOffset];
-        }
+        var copyCount = Math.Min(bytes.Length - dataOffset, length);
+        Array.Copy(bytes, (int)dataOffset, buffer, bufferOffset, copyCount);
 
-        return i;
+        return copyCount;
     }
 
     public override char GetChar(int ordinal)
@@ -92,7 +89,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
     {
-        var chars = GetString(ordinal);
+        var chars = GetString(ordinal).ToCharArray();
 
         CheckOffsets(dataOffset, buffer, bufferOffset, length);
 
@@ -101,13 +98,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return 0;
         }
 
-        var i = 0;
-        for (; i + dataOffset < chars.Length && i < length; i++)
-        {
-            buffer[i + bufferOffset] = chars[i + (int)dataOffset];
-        }
+        var copyCount = Math.Min(chars.Length - dataOffset, length);
+        Array.Copy(chars, (int)dataOffset, buffer, bufferOffset, copyCount);
 
-        return i;
+        return copyCount;
     }
 
     private static void CheckOffsets<T>(long dataOffset, T[]? buffer, int bufferOffset, int length)

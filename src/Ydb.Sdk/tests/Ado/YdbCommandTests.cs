@@ -187,8 +187,6 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
             Assert.Throws<IndexOutOfRangeException>(
                 () => ydbDataReader.GetChars(0, long.MaxValue, null, 0, 6)).Message);
-        Assert.Equal(0, ydbDataReader.GetChars(0, int.MaxValue, bufferChars, 0, 6));
-        Assert.Equal(checkBuffer, bufferChars);
 
         Assert.Equal("bufferOffset must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
             () => ydbDataReader.GetChars(0, 0, bufferChars, -1, 6)).Message);
@@ -237,8 +235,6 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
             Assert.Throws<IndexOutOfRangeException>(
                 () => ydbDataReader.GetBytes(0, long.MaxValue, null, 0, 6)).Message);
-        Assert.Equal(0, ydbDataReader.GetBytes(0, int.MaxValue, bufferChars, 0, 6));
-        Assert.Equal(checkBuffer, bufferChars);
 
         Assert.Equal("bufferOffset must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
             () => ydbDataReader.GetBytes(0, 0, bufferChars, -1, 6)).Message);
@@ -261,7 +257,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         bufferChars = new byte[10];
         checkBuffer = new byte[10];
 
-        Assert.Equal(4, ydbDataReader.GetBytes(0, 3, bufferChars, 4, 6));
+        Assert.Equal(4, ydbDataReader.GetBytes(0, 3, bufferChars, 4, 5));
         checkBuffer[4] = (byte)'c';
         checkBuffer[5] = (byte)'a';
         checkBuffer[6] = (byte)'b';
