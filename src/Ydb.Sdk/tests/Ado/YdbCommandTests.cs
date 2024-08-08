@@ -1,5 +1,4 @@
 using System.Data;
-using System.Data.Common;
 using System.Text;
 using Xunit;
 using Ydb.Sdk.Ado;
