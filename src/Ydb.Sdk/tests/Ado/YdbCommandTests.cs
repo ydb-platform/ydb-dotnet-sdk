@@ -223,7 +223,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     }
 
     [Fact]
-    public void GetBytes_WhenSelectText_MoveCharsToBuffer()
+    public void GetBytes_WhenSelectBytes_MoveBytesToBuffer()
     {
         using var connection = new YdbConnection();
         connection.Open();
