@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text;
 using Xunit;
 using Ydb.Sdk.Ado;
 
@@ -167,5 +168,143 @@ SELECT Key, Value FROM AS_TABLE($new_data);
             Assert.Throws<YdbOperationInProgressException>(() => dbCommand.ExecuteReader()).Message);
         ydbDataReader.Close();
         Assert.True(ydbDataReader.IsClosed);
+    }
+
+    [Fact]
+    public void GetChars_WhenSelectText_MoveCharsToBuffer()
+    {
+        using var connection = new YdbConnection();
+        connection.Open();
+        var ydbDataReader =
+            new YdbCommand(connection) { CommandText = "SELECT CAST('abacaba' AS Text)" }.ExecuteReader();
+        Assert.True(ydbDataReader.Read());
+        var bufferChars = new char[10];
+        var checkBuffer = new char[10];
+
+        Assert.Equal(0, ydbDataReader.GetChars(0, 4, null, 0, 6));
+        Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
+            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, -1, null, 0, 6)).Message);
+        Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
+            Assert.Throws<IndexOutOfRangeException>(
+                () => ydbDataReader.GetChars(0, long.MaxValue, null, 0, 6)).Message);
+
+        Assert.Equal("bufferOffset must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
+            () => ydbDataReader.GetChars(0, 0, bufferChars, -1, 6)).Message);
+        Assert.Equal("bufferOffset must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
+            () => ydbDataReader.GetChars(0, 0, bufferChars, -1, 6)).Message);
+
+        Assert.Equal("length must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
+            () => ydbDataReader.GetChars(0, 0, bufferChars, 3, -1)).Message);
+        Assert.Equal("bufferOffset must be between 0 and 5", Assert.Throws<IndexOutOfRangeException>(
+            () => ydbDataReader.GetChars(0, 0, bufferChars, 8, 5)).Message);
+
+        Assert.Equal(6, ydbDataReader.GetChars(0, 0, bufferChars, 4, 6));
+        checkBuffer[4] = 'a';
+        checkBuffer[5] = 'b';
+        checkBuffer[6] = 'a';
+        checkBuffer[7] = 'c';
+        checkBuffer[8] = 'a';
+        checkBuffer[9] = 'b';
+        Assert.Equal(checkBuffer, bufferChars);
+        bufferChars = new char[10];
+        checkBuffer = new char[10];
+
+        Assert.Equal(4, ydbDataReader.GetChars(0, 3, bufferChars, 4, 6));
+        checkBuffer[4] = 'c';
+        checkBuffer[5] = 'a';
+        checkBuffer[6] = 'b';
+        checkBuffer[7] = 'a';
+        Assert.Equal(checkBuffer, bufferChars);
+
+        Assert.Equal('a', ydbDataReader.GetChar(0));
+    }
+
+    [Fact]
+    public void GetBytes_WhenSelectBytes_MoveBytesToBuffer()
+    {
+        using var connection = new YdbConnection();
+        connection.Open();
+        var ydbDataReader = new YdbCommand(connection) { CommandText = "SELECT 'abacaba'" }.ExecuteReader();
+        Assert.True(ydbDataReader.Read());
+        var bufferChars = new byte[10];
+        var checkBuffer = new byte[10];
+
+        Assert.Equal(0, ydbDataReader.GetBytes(0, 4, null, 0, 6));
+        Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
+            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetBytes(0, -1, null, 0, 6)).Message);
+        Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
+            Assert.Throws<IndexOutOfRangeException>(
+                () => ydbDataReader.GetBytes(0, long.MaxValue, null, 0, 6)).Message);
+
+        Assert.Equal("bufferOffset must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
+            () => ydbDataReader.GetBytes(0, 0, bufferChars, -1, 6)).Message);
+        Assert.Equal("bufferOffset must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
+            () => ydbDataReader.GetBytes(0, 0, bufferChars, -1, 6)).Message);
+
+        Assert.Equal("length must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
+            () => ydbDataReader.GetBytes(0, 0, bufferChars, 3, -1)).Message);
+        Assert.Equal("bufferOffset must be between 0 and 5", Assert.Throws<IndexOutOfRangeException>(
+            () => ydbDataReader.GetBytes(0, 0, bufferChars, 8, 5)).Message);
+
+        Assert.Equal(6, ydbDataReader.GetBytes(0, 0, bufferChars, 4, 6));
+        checkBuffer[4] = (byte)'a';
+        checkBuffer[5] = (byte)'b';
+        checkBuffer[6] = (byte)'a';
+        checkBuffer[7] = (byte)'c';
+        checkBuffer[8] = (byte)'a';
+        checkBuffer[9] = (byte)'b';
+        Assert.Equal(checkBuffer, bufferChars);
+        bufferChars = new byte[10];
+        checkBuffer = new byte[10];
+
+        Assert.Equal(4, ydbDataReader.GetBytes(0, 3, bufferChars, 4, 5));
+        checkBuffer[4] = (byte)'c';
+        checkBuffer[5] = (byte)'a';
+        checkBuffer[6] = (byte)'b';
+        checkBuffer[7] = (byte)'a';
+        Assert.Equal(checkBuffer, bufferChars);
+    }
+
+    [Fact]
+    public async Task GetEnumerator_WhenReadMultiSelect_ReadFirstResultSet()
+    {
+        await using var ydbConnection = new YdbConnection();
+        ydbConnection.Open();
+        var ydbCommand = new YdbCommand(ydbConnection)
+        {
+            CommandText = @"
+$new_data = AsList(
+    AsStruct(1 AS Key, 'text' AS Value),
+    AsStruct(1 AS Key, 'text' AS Value)
+);
+
+SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
+        };
+        var ydbDataReader = ydbCommand.ExecuteReader();
+
+        foreach (var row in ydbDataReader)
+        {
+            Assert.Equal(1, row.GetInt32(0));
+            Assert.Equal("text", row.GetString(1));
+        }
+
+        Assert.True(ydbDataReader.NextResult());
+        Assert.True(ydbDataReader.Read());
+        Assert.Equal(1, ydbDataReader.GetInt32(0));
+        Assert.Equal(Encoding.ASCII.GetBytes("text"), ydbDataReader.GetBytes(1));
+        Assert.False(ydbDataReader.Read());
+
+        ydbDataReader = ydbCommand.ExecuteReader();
+        await foreach (var row in ydbDataReader)
+        {
+            Assert.Equal(1, row.GetInt32(0));
+            Assert.Equal("text", row.GetString(1));
+        }
+
+        Assert.True(ydbDataReader.NextResult());
+        Assert.True(ydbDataReader.Read());
+        Assert.Equal(1, ydbDataReader.GetInt32(0));
+        Assert.Equal(Encoding.ASCII.GetBytes("text"), ydbDataReader.GetBytes(1));
+        Assert.False(ydbDataReader.Read());
     }
 }

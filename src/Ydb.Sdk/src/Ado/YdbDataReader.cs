@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Data.Common;
 using Google.Protobuf.Collections;
 using Ydb.Issue;
@@ -7,7 +6,7 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
-public sealed class YdbDataReader : DbDataReader
+public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord>
 {
     private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
     private readonly YdbTransaction? _ydbTransaction;
@@ -60,19 +59,72 @@ public sealed class YdbDataReader : DbDataReader
         return GetFieldYdbValue(ordinal).GetInt8();
     }
 
+    // ReSharper disable once MemberCanBePrivate.Global
+    public byte[] GetBytes(int ordinal)
+    {
+        return GetFieldYdbValue(ordinal).GetString();
+    }
+
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
     {
-        throw new NotImplementedException();
+        var bytes = GetBytes(ordinal);
+
+        CheckOffsets(dataOffset, buffer, bufferOffset, length);
+
+        if (buffer == null)
+        {
+            return 0;
+        }
+
+        var copyCount = Math.Min(bytes.Length - dataOffset, length);
+        Array.Copy(bytes, (int)dataOffset, buffer, bufferOffset, copyCount);
+
+        return copyCount;
     }
 
     public override char GetChar(int ordinal)
     {
-        throw new NotImplementedException();
+        return GetString(ordinal)[0];
     }
 
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
     {
-        throw new NotImplementedException();
+        var chars = GetString(ordinal).ToCharArray();
+
+        CheckOffsets(dataOffset, buffer, bufferOffset, length);
+
+        if (buffer == null)
+        {
+            return 0;
+        }
+
+        var copyCount = Math.Min(chars.Length - dataOffset, length);
+        Array.Copy(chars, (int)dataOffset, buffer, bufferOffset, copyCount);
+
+        return copyCount;
+    }
+
+    private static void CheckOffsets<T>(long dataOffset, T[]? buffer, int bufferOffset, int length)
+    {
+        if (dataOffset is < 0 or > int.MaxValue)
+        {
+            throw new IndexOutOfRangeException($"dataOffset must be between 0 and {int.MaxValue}");
+        }
+
+        if (buffer != null && (bufferOffset < 0 || bufferOffset >= buffer.Length))
+        {
+            throw new IndexOutOfRangeException($"bufferOffset must be between 0 and {buffer.Length}");
+        }
+
+        if (buffer != null && length < 0)
+        {
+            throw new IndexOutOfRangeException($"length must be between 0 and {buffer.Length}");
+        }
+
+        if (buffer != null && length > buffer.Length - bufferOffset)
+        {
+            throw new IndexOutOfRangeException($"bufferOffset must be between 0 and {buffer.Length - length}");
+        }
     }
 
     public override string GetDataTypeName(int ordinal)
@@ -124,7 +176,7 @@ public sealed class YdbDataReader : DbDataReader
 
     public override Guid GetGuid(int ordinal)
     {
-        throw new NotImplementedException();
+        throw new YdbException("Ydb does not supported Guid");
     }
 
     public override short GetInt16(int ordinal)
@@ -267,9 +319,12 @@ public sealed class YdbDataReader : DbDataReader
 
     public override int Depth => 0;
 
-    public override IEnumerator GetEnumerator()
+    public override IEnumerator<YdbDataRecord> GetEnumerator()
     {
-        throw new NotImplementedException();
+        while (Read())
+        {
+            yield return new YdbDataRecord(this);
+        }
     }
 
     public override async Task CloseAsync()
@@ -360,9 +415,8 @@ public sealed class YdbDataReader : DbDataReader
 
             if (part.Status != StatusIds.Types.StatusCode.Success)
             {
-                CompleteTransaction();
+                OnFailReadStream();
 
-                ReaderState = State.Closed;
                 while (await _stream.MoveNextAsync())
                 {
                     _issueMessagesInStream.AddRange(_stream.Current.Issues);
@@ -389,14 +443,15 @@ public sealed class YdbDataReader : DbDataReader
         }
         catch (Driver.TransportException e)
         {
-            CompleteTransaction();
+            OnFailReadStream();
 
             throw new YdbException(e.Status);
         }
     }
 
-    private void CompleteTransaction()
+    private void OnFailReadStream()
     {
+        ReaderState = State.Closed;
         if (_ydbTransaction != null)
         {
             _ydbTransaction.Completed = true;
@@ -406,5 +461,13 @@ public sealed class YdbDataReader : DbDataReader
     public override async ValueTask DisposeAsync()
     {
         await CloseAsync();
+    }
+
+    public async IAsyncEnumerator<YdbDataRecord> GetAsyncEnumerator(CancellationToken cancellationToken = new())
+    {
+        while (await ReadAsync(cancellationToken))
+        {
+            yield return new YdbDataRecord(this);
+        }
     }
 }
