@@ -194,12 +194,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     public override System.Type GetFieldType(int ordinal)
     {
         var type = ReaderMetadata.Columns[ordinal].Type;
-        var typeIsOptional = type.TypeCase == Type.TypeOneofCase.OptionalType;
-        var typeId = typeIsOptional ? type.OptionalType.Item.TypeId : type.TypeId;
 
-        var systemType = (YdbTypeId)typeId switch
+        if (type.TypeCase == Type.TypeOneofCase.OptionalType)
         {
-            YdbTypeId.Timestamp or YdbTypeId.Datetime or YdbTypeId.Date => typeof(string),
+            type = type.OptionalType.Item;
+        }
+
+        var systemType = YdbValue.GetYdbTypeId(type) switch
+        {
+            YdbTypeId.Timestamp or YdbTypeId.Datetime or YdbTypeId.Date => typeof(DateTime),
             YdbTypeId.Bool => typeof(bool),
             YdbTypeId.Int8 => typeof(sbyte),
             YdbTypeId.Uint8 => typeof(byte),
@@ -219,7 +222,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             _ => throw new YdbException($"Unsupported ydb type {type}")
         };
 
-        return typeIsOptional ? typeof(Nullable<>).MakeGenericType(systemType) : systemType;
+        return systemType;
     }
 
     public override float GetFloat(int ordinal)

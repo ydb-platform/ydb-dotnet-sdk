@@ -17,7 +17,7 @@ public class YdbCommandTests
 
         var dbCommand = connection.CreateCommand();
 
-        dbCommand.CommandText = "SELECT $var;";
+        dbCommand.CommandText = "SELECT $var as var;";
 
         var dbParameter = new YdbParameter
         {
@@ -30,6 +30,17 @@ public class YdbCommandTests
         dbCommand.Parameters.Add(dbParameter);
 
         Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
+        var ydbDataReader = await dbCommand.ExecuteReaderAsync();
+        Assert.Equal(1, ydbDataReader.FieldCount);
+        Assert.Equal("var", ydbDataReader.GetName(0));
+        if (!data.IsNullable)
+        {
+            Assert.Equal(typeof(T), ydbDataReader.GetFieldType(0));
+        }
+
+        while (ydbDataReader.Read())
+        {
+        }
     }
 
     [Fact]
@@ -55,7 +66,7 @@ public class YdbCommandTests
 
         var ydbCommand = connection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1;";
-        var ydbDataReader = ydbCommand.ExecuteReader();
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
         Assert.True(await ydbDataReader.NextResultAsync());
         await ydbDataReader.CloseAsync();
@@ -71,7 +82,7 @@ public class YdbCommandTests
 
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = @"
-SELECT 1, CAST('text' AS Text);
+SELECT 1 as a, CAST('text' AS Text) as b;
 
 $data = ListReplicate(AsStruct(true AS bool_field, 1.5 AS double_field, 23 AS int_field), 1500);
 
@@ -95,6 +106,16 @@ SELECT Key, Value FROM AS_TABLE($new_data);
             DateTime.Parse("2029-08-03T06:59:44.8578730Z")));
 
         var ydbDataReader = await dbCommand.ExecuteReaderAsync();
+        // Read meta info 
+        Assert.Equal(3, ydbDataReader.FieldCount);
+        Assert.True(ydbDataReader.HasRows);
+        Assert.Equal("Int32", ydbDataReader.GetDataTypeName(0));
+        Assert.Equal(0, ydbDataReader.GetOrdinal("a"));
+        Assert.Equal(1, ydbDataReader.GetOrdinal("b"));
+        Assert.Equal(typeof(int), ydbDataReader.GetFieldType(0));
+        Assert.Equal(typeof(string), ydbDataReader.GetFieldType(1));
+        Assert.Equal("a", ydbDataReader.GetName(0));
+        Assert.Equal("b", ydbDataReader.GetName(1));
 
         // Read 1 result set
         Assert.True(await ydbDataReader.ReadAsync());
@@ -106,10 +127,16 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal("No row is available",
             Assert.Throws<InvalidOperationException>(() => ydbDataReader.GetValue(0)).Message);
 
+        Assert.True(ydbDataReader.HasRows);
         // Read 2 result set
         Assert.True(await ydbDataReader.NextResultAsync());
         for (var i = 0; i < 1500; i++)
         {
+            // Read meta info 
+            Assert.Equal(3, ydbDataReader.FieldCount);
+            Assert.True(ydbDataReader.HasRows);
+            Assert.Equal("int_field", ydbDataReader.GetName(2));
+
             Assert.True(await ydbDataReader.ReadAsync());
 
             Assert.Equal(true, ydbDataReader.GetValue("bool_field"));
@@ -280,7 +307,7 @@ $new_data = AsList(
 
 SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
         };
-        var ydbDataReader = ydbCommand.ExecuteReader();
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
         foreach (var row in ydbDataReader)
         {
@@ -294,7 +321,7 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
         Assert.Equal(Encoding.ASCII.GetBytes("text"), ydbDataReader.GetBytes(1));
         Assert.False(ydbDataReader.Read());
 
-        ydbDataReader = ydbCommand.ExecuteReader();
+        ydbDataReader = await ydbCommand.ExecuteReaderAsync();
         await foreach (var row in ydbDataReader)
         {
             Assert.Equal(1, row.GetInt32(0));
