@@ -13,35 +13,65 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
 
     private int _currentRowIndex = -1;
-    private long _resultSetIndex = -1; // not fetched result set
-    private Value.ResultSet _currentResultSet = null!;
+    private long _resultSetIndex = -1;
+    private Value.ResultSet? _currentResultSet;
 
     private enum State
     {
-        NotStarted,
+        Initialized,
         NewResultState,
         ReadResultState,
         Closed
     }
 
+    private interface IMetadata
+    {
+        IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
+
+        IReadOnlyList<Value.ResultSet.Column> Columns { get; }
+
+        int FieldCount { get; }
+
+        int RowsCount { get; }
+    }
+
     private State ReaderState { get; set; }
+    private IMetadata ReaderMetadata { get; set; } = null!;
 
     private Value.ResultSet CurrentResultSet => this switch
     {
-        { ReaderState: State.ReadResultState, _currentRowIndex: >= 0 } => _currentResultSet,
+        { ReaderState: State.ReadResultState, _currentRowIndex: >= 0 } => _currentResultSet!,
         { ReaderState: State.Closed } => throw new InvalidOperationException("The reader is closed"),
-        _ => throw new InvalidOperationException("Invalid attempt to read when no data is present")
+        _ => throw new InvalidOperationException("No row is available")
     };
 
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
-    private int RowsCount => CurrentResultSet.Rows.Count;
+    private int RowsCount => ReaderMetadata.RowsCount;
 
-    internal YdbDataReader(IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
-        YdbTransaction? ydbTransaction = null)
+    private YdbDataReader(IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream, YdbTransaction? ydbTransaction)
     {
-        ReaderState = State.NotStarted;
         _stream = resultSetStream;
         _ydbTransaction = ydbTransaction;
+    }
+
+    internal static async Task<YdbDataReader> CreateYdbDataReader(
+        IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
+        YdbTransaction? ydbTransaction = null)
+    {
+        var ydbDataReader = new YdbDataReader(resultSetStream, ydbTransaction);
+        await ydbDataReader.Init();
+
+        return ydbDataReader;
+    }
+
+    private async Task Init()
+    {
+        if (State.Closed == await NextExecPart())
+        {
+            throw new YdbException("YDB server closed the stream");
+        }
+
+        ReaderState = State.Initialized;
     }
 
     public override bool GetBoolean(int ordinal)
@@ -129,10 +159,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override string GetDataTypeName(int ordinal)
     {
-        var ydbValue = GetFieldYdbValue(ordinal);
-
-        // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
-        return ydbValue.TypeId.ToString();
+        return ReaderMetadata.Columns[ordinal].Type.TypeId.ToString();
     }
 
     public override DateTime GetDateTime(int ordinal)
@@ -166,7 +193,36 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override System.Type GetFieldType(int ordinal)
     {
-        return GetFieldTypeAndValue(ordinal).Type;
+        var type = ReaderMetadata.Columns[ordinal].Type;
+
+        if (type.TypeCase == Type.TypeOneofCase.OptionalType)
+        {
+            type = type.OptionalType.Item;
+        }
+
+        var systemType = YdbValue.GetYdbTypeId(type) switch
+        {
+            YdbTypeId.Timestamp or YdbTypeId.Datetime or YdbTypeId.Date => typeof(DateTime),
+            YdbTypeId.Bool => typeof(bool),
+            YdbTypeId.Int8 => typeof(sbyte),
+            YdbTypeId.Uint8 => typeof(byte),
+            YdbTypeId.Int16 => typeof(short),
+            YdbTypeId.Uint16 => typeof(ushort),
+            YdbTypeId.Int32 => typeof(int),
+            YdbTypeId.Uint32 => typeof(uint),
+            YdbTypeId.Int64 => typeof(long),
+            YdbTypeId.Uint64 => typeof(ulong),
+            YdbTypeId.Float => typeof(float),
+            YdbTypeId.Double => typeof(double),
+            YdbTypeId.Interval => typeof(TimeSpan),
+            YdbTypeId.Utf8 or YdbTypeId.JsonDocument or YdbTypeId.Json or YdbTypeId.Yson =>
+                typeof(string),
+            YdbTypeId.String => typeof(byte[]),
+            YdbTypeId.DecimalType => typeof(decimal),
+            _ => throw new YdbException($"Unsupported ydb type {type}")
+        };
+
+        return systemType;
     }
 
     public override float GetFloat(int ordinal)
@@ -211,12 +267,17 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override string GetName(int ordinal)
     {
-        return CurrentResultSet.Columns[ordinal].Name;
+        return ReaderMetadata.Columns[ordinal].Name;
     }
 
     public override int GetOrdinal(string name)
     {
-        return CurrentResultSet.GetOrdinal(name);
+        if (ReaderMetadata.ColumnNameToOrdinal.TryGetValue(name, out var ordinal))
+        {
+            return ordinal;
+        }
+
+        throw new IndexOutOfRangeException($"Field not found in row: {name}");
     }
 
     public override string GetString(int ordinal)
@@ -236,7 +297,39 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override object GetValue(int ordinal)
     {
-        return GetFieldTypeAndValue(ordinal).Value;
+        var ydbValue = GetFieldYdbValue(ordinal);
+
+        // ReSharper disable once InvertIf
+        if (ydbValue.TypeId == YdbTypeId.OptionalType)
+        {
+            if (ydbValue.GetOptional() == null)
+            {
+                return (typeof(DBNull), DBNull.Value);
+            }
+
+            ydbValue = ydbValue.GetOptional()!;
+        }
+
+        return ydbValue.TypeId switch
+        {
+            YdbTypeId.Timestamp or YdbTypeId.Datetime or YdbTypeId.Date => GetDateTime(ordinal),
+            YdbTypeId.Bool => ydbValue.GetBool(),
+            YdbTypeId.Int8 => ydbValue.GetInt8(),
+            YdbTypeId.Uint8 => ydbValue.GetUint8(),
+            YdbTypeId.Int16 => ydbValue.GetInt16(),
+            YdbTypeId.Uint16 => ydbValue.GetUint16(),
+            YdbTypeId.Int32 => ydbValue.GetInt32(),
+            YdbTypeId.Uint32 => ydbValue.GetUint32(),
+            YdbTypeId.Int64 => ydbValue.GetInt64(),
+            YdbTypeId.Uint64 => ydbValue.GetUint64(),
+            YdbTypeId.Float => ydbValue.GetFloat(),
+            YdbTypeId.Double => ydbValue.GetDouble(),
+            YdbTypeId.Interval => ydbValue.GetInterval(),
+            YdbTypeId.Utf8 or YdbTypeId.JsonDocument or YdbTypeId.Json or YdbTypeId.Yson => GetString(ordinal),
+            YdbTypeId.String => ydbValue.GetString(),
+            YdbTypeId.DecimalType => ydbValue.GetDecimal(),
+            _ => throw new YdbException($"Unsupported ydb type {ydbValue.TypeId}")
+        };
     }
 
     public override int GetValues(object[] values)
@@ -249,16 +342,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override bool IsDBNull(int ordinal)
     {
-        return CurrentRow[ordinal].TypeId == YdbTypeId.OptionalType && CurrentRow[ordinal].GetOptional() == null;
+        return CurrentRow[ordinal].TypeId == YdbTypeId.Unknown ||
+               (CurrentRow[ordinal].TypeId == YdbTypeId.OptionalType && CurrentRow[ordinal].GetOptional() == null);
     }
 
-    public override int FieldCount => CurrentRow.ColumnCount;
-
+    public override int FieldCount => ReaderMetadata.FieldCount;
     public override object this[int ordinal] => GetValue(ordinal);
     public override object this[string name] => GetValue(GetOrdinal(name));
-
     public override int RecordsAffected => 0;
-    public override bool HasRows => RowsCount > 0;
+    public override bool HasRows => ReaderMetadata.RowsCount > 0;
     public override bool IsClosed => ReaderState == State.Closed;
 
     public override bool NextResult()
@@ -276,8 +368,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         ReaderState = ReaderState switch
         {
             State.Closed => State.Closed,
-            State.NewResultState => State.ReadResultState,
-            State.NotStarted or State.ReadResultState => await new Func<Task<State>>(async () =>
+            State.Initialized or State.NewResultState => State.ReadResultState,
+            State.ReadResultState => await new Func<Task<State>>(async () =>
             {
                 State state;
                 while ((state = await NextExecPart()) == State.ReadResultState)
@@ -294,7 +386,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override async Task<bool> ReadAsync(CancellationToken cancellationToken)
     {
-        var nextResult = ReaderState != State.NotStarted || await NextResultAsync(cancellationToken);
+        var nextResult = ReaderState != State.Initialized || await NextResultAsync(cancellationToken);
 
         if (!nextResult || ReaderState == State.Closed)
         {
@@ -350,46 +442,6 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             : ydbValue;
     }
 
-    private (System.Type Type, object Value) GetFieldTypeAndValue(int ordinal)
-    {
-        EnsureOrdinal(ordinal);
-
-        var ydbValue = CurrentRow[ordinal];
-
-        // ReSharper disable once InvertIf
-        if (ydbValue.TypeId == YdbTypeId.OptionalType)
-        {
-            if (ydbValue.GetOptional() == null)
-            {
-                return (typeof(DBNull), DBNull.Value);
-            }
-
-            ydbValue = ydbValue.GetOptional()!;
-        }
-
-        return ydbValue.TypeId switch
-        {
-            YdbTypeId.Timestamp or YdbTypeId.Datetime or YdbTypeId.Date => (typeof(string), GetDateTime(ordinal)),
-            YdbTypeId.Bool => (typeof(bool), ydbValue.GetBool()),
-            YdbTypeId.Int8 => (typeof(sbyte), ydbValue.GetInt8()),
-            YdbTypeId.Uint8 => (typeof(byte), ydbValue.GetUint8()),
-            YdbTypeId.Int16 => (typeof(short), ydbValue.GetInt16()),
-            YdbTypeId.Uint16 => (typeof(ushort), ydbValue.GetUint16()),
-            YdbTypeId.Int32 => (typeof(int), ydbValue.GetInt32()),
-            YdbTypeId.Uint32 => (typeof(uint), ydbValue.GetUint32()),
-            YdbTypeId.Int64 => (typeof(long), ydbValue.GetInt64()),
-            YdbTypeId.Uint64 => (typeof(ulong), ydbValue.GetUint64()),
-            YdbTypeId.Float => (typeof(float), ydbValue.GetFloat()),
-            YdbTypeId.Double => (typeof(double), ydbValue.GetDouble()),
-            YdbTypeId.Interval => (typeof(TimeSpan), ydbValue.GetInterval()),
-            YdbTypeId.Utf8 or YdbTypeId.JsonDocument or YdbTypeId.Json or YdbTypeId.Yson =>
-                (typeof(string), GetString(ordinal)),
-            YdbTypeId.String => (typeof(byte[]), ydbValue.GetString()),
-            YdbTypeId.DecimalType => (typeof(decimal), ydbValue.GetDecimal()),
-            _ => throw new YdbException($"Unsupported ydb type {ydbValue.TypeId}")
-        };
-    }
-
     private void EnsureOrdinal(int ordinal)
     {
         if (ordinal >= FieldCount || 0 > ordinal) // get FieldCount throw InvalidOperationException if State == Closed
@@ -425,7 +477,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 throw new YdbException(Status.FromProto(part.Status, _issueMessagesInStream));
             }
 
-            _currentResultSet = part.ResultSet?.FromProto() ?? Value.ResultSet.Empty;
+            _currentResultSet = part.ResultSet?.FromProto();
+            ReaderMetadata = _currentResultSet != null ? new Metadata(_currentResultSet) : EmptyMetadata.Instance;
 
             if (_ydbTransaction != null)
             {
@@ -468,6 +521,40 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         while (await ReadAsync(cancellationToken))
         {
             yield return new YdbDataRecord(this);
+        }
+    }
+
+    private class EmptyMetadata : IMetadata
+    {
+        public static readonly IMetadata Instance = new EmptyMetadata();
+
+        private EmptyMetadata()
+        {
+        }
+
+        public IReadOnlyDictionary<string, int> ColumnNameToOrdinal =>
+            throw new InvalidOperationException("No resultset is currently being traversed");
+
+        public IReadOnlyList<Value.ResultSet.Column> Columns =>
+            throw new InvalidOperationException("No resultset is currently being traversed");
+
+        public int FieldCount => 0;
+        public int RowsCount => 0;
+    }
+
+    private class Metadata : IMetadata
+    {
+        public IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
+        public IReadOnlyList<Value.ResultSet.Column> Columns { get; }
+        public int FieldCount { get; }
+        public int RowsCount { get; }
+
+        public Metadata(Value.ResultSet resultSet)
+        {
+            ColumnNameToOrdinal = resultSet.ColumnNameToOrdinal;
+            Columns = resultSet.Columns;
+            RowsCount = resultSet.Rows.Count;
+            FieldCount = resultSet.Columns.Count;
         }
     }
 }

@@ -76,7 +76,7 @@ public sealed partial class YdbValue
         return _protoValue.ToString() ?? "";
     }
 
-    private static YdbTypeId GetYdbTypeId(Type protoType)
+    internal static YdbTypeId GetYdbTypeId(Type protoType)
     {
         return protoType.TypeCase switch
         {

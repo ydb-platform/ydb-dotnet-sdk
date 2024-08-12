@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Immutable;
 using Google.Protobuf.Collections;
 
 namespace Ydb.Sdk.Value;
@@ -14,41 +13,21 @@ public static class ResultSetExtension
 
 public class ResultSet
 {
-    internal static readonly ResultSet Empty = new();
-
+    public IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
     public IReadOnlyList<Column> Columns { get; }
     public IReadOnlyList<Row> Rows { get; }
     public bool Truncated { get; }
-
-    private readonly IReadOnlyDictionary<string, int> _columnNameToOrdinal;
 
     internal ResultSet(Ydb.ResultSet resultSetProto)
     {
         Columns = resultSetProto.Columns.Select(c => new Column(c.Type, c.Name)).ToList();
 
-        _columnNameToOrdinal = Columns
+        ColumnNameToOrdinal = Columns
             .Select((c, idx) => (c.Name, Index: idx))
             .ToDictionary(t => t.Name, t => t.Index);
 
-        Rows = new RowsList(resultSetProto.Rows, Columns, _columnNameToOrdinal);
+        Rows = new RowsList(resultSetProto.Rows, Columns, ColumnNameToOrdinal);
         Truncated = resultSetProto.Truncated;
-    }
-
-    private ResultSet()
-    {
-        Columns = ImmutableList<Column>.Empty;
-        Rows = ImmutableList<Row>.Empty;
-        _columnNameToOrdinal = ImmutableDictionary<string, int>.Empty;
-    }
-
-    public int GetOrdinal(string name)
-    {
-        if (_columnNameToOrdinal.TryGetValue(name, out var ordinal))
-        {
-            return ordinal;
-        }
-
-        throw new IndexOutOfRangeException($"Field not found in row: {name}");
     }
 
     public class Column

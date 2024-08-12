@@ -223,7 +223,7 @@ internal class AppContext
 
         _logger.LogInformation("Selecting data, SQL script: {CommandText}", ydbCommand.CommandText);
 
-        var ydbDataReader = ydbCommand.ExecuteReader();
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
         _logger.LogInformation("Selected rows:");
         while (await ydbDataReader.ReadAsync())
@@ -365,7 +365,7 @@ internal class AppContext
                                   sa.season_id                 -- ORDER BY sorts the values by one column
                               ;
                               """;
-        var ydbDataReader = command.ExecuteReader();
+        var ydbDataReader = await command.ExecuteReaderAsync();
 
         while (await ydbDataReader.ReadAsync())
         {
@@ -384,7 +384,7 @@ internal class AppContext
         var ydbCommand = ydbConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3";
 
-        var ydbDataReader = ydbCommand.ExecuteReader();
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
         while (await ydbDataReader.NextResultAsync())
         {
