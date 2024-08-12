@@ -9,27 +9,28 @@ namespace Ydb.Sdk.Tests.Ado;
 public class YdbDataReaderTests
 {
     [Fact]
-    public void BasedIteration_WhenNotCallMethodRead_ThrowException()
+    public async Task BasedIteration_WhenNotCallMethodRead_ThrowException()
     {
-        var reader = new YdbDataReader(EnumeratorSuccess());
+        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess());
 
-        Assert.Equal("Invalid attempt to read when no data is present",
-            Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
+        // Read first metadata
+        Assert.True(reader.HasRows);
+        Assert.Equal(1, reader.FieldCount);
+        Assert.Equal("Bool", reader.GetDataTypeName(0));
+
+        Assert.Equal("No row is available", Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
 
         Assert.True(reader.NextResult());
 
-        Assert.Equal("Invalid attempt to read when no data is present",
+        Assert.Equal("No row is available",
             Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message); // Need Read()
 
         Assert.True(reader.Read());
         Assert.True(reader.GetBoolean(0));
-        Assert.Equal("Bool", reader.GetDataTypeName(0));
 
         Assert.Equal("Ordinal must be between 0 and 0",
             Assert.Throws<IndexOutOfRangeException>(() => reader.GetBoolean(1)).Message);
 
-        Assert.True(reader.HasRows);
-        Assert.Equal(1, reader.FieldCount);
         Assert.False(reader.Read());
         Assert.True(reader.IsClosed);
 
@@ -38,27 +39,27 @@ public class YdbDataReaderTests
     }
 
     [Fact]
-    public void Read_WhenNextResultThrowException_ThrowException()
+    public async Task Read_WhenNextResultThrowException_ThrowException()
     {
-        var reader = new YdbDataReader(SingleEnumeratorFailed);
+        var reader = await YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed);
 
         Assert.Equal("Status: Aborted",
             Assert.Throws<YdbException>(() => reader.Read()).Message);
     }
 
     [Fact]
-    public void NextResult_WhenNextResultThrowException_ThrowException()
+    public async Task NextResult_WhenNextResultThrowException_ThrowException()
     {
-        var reader = new YdbDataReader(SingleEnumeratorFailed);
+        var reader = await YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed);
 
         Assert.Equal("Status: Aborted",
             Assert.Throws<YdbException>(() => reader.NextResult()).Message);
     }
 
     [Fact]
-    public void NextResult_WhenNextResultSkipResultSet_ReturnNextResultSet()
+    public async Task NextResult_WhenNextResultSkipResultSet_ReturnNextResultSet()
     {
-        var reader = new YdbDataReader(EnumeratorSuccess(2));
+        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2));
 
         Assert.True(reader.NextResult());
         Assert.True(reader.NextResult());
@@ -70,29 +71,10 @@ public class YdbDataReaderTests
     }
 
     [Fact]
-    public void NextResult_WhenFirstRead_ReturnResultSet()
+    public async Task NextResult_WhenFirstRead_ReturnResultSet()
     {
-        var reader = new YdbDataReader(EnumeratorSuccess(2));
+        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2));
 
-        Assert.True(reader.Read());
-        Assert.True((bool)reader.GetValue(0));
-        Assert.False(reader.Read());
-
-        Assert.True(reader.NextResult());
-        Assert.True(reader.Read());
-        Assert.True((bool)reader.GetValue(0));
-
-        Assert.False(reader.NextResult());
-        Assert.False(reader.Read());
-    }
-
-    [Fact]
-    public void NextResult_WhenLongResultSet_ReturnResultSet()
-    {
-        var reader = new YdbDataReader(EnumeratorSuccess(2, true));
-
-        Assert.True(reader.Read());
-        Assert.True((bool)reader.GetValue(0));
         Assert.True(reader.Read());
         Assert.True((bool)reader.GetValue(0));
         Assert.False(reader.Read());
@@ -106,7 +88,26 @@ public class YdbDataReaderTests
     }
 
     [Fact]
-    public void Read_WhenReadAsyncThrowException_AggregateIssuesBeforeErrorAndAfter()
+    public async Task NextResult_WhenLongResultSet_ReturnResultSet()
+    {
+        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2, true));
+
+        Assert.True(reader.Read());
+        Assert.True((bool)reader.GetValue(0));
+        Assert.True(reader.Read());
+        Assert.True((bool)reader.GetValue(0));
+        Assert.False(reader.Read());
+
+        Assert.True(reader.NextResult());
+        Assert.True(reader.Read());
+        Assert.True((bool)reader.GetValue(0));
+
+        Assert.False(reader.NextResult());
+        Assert.False(reader.Read());
+    }
+
+    [Fact]
+    public async Task Read_WhenReadAsyncThrowException_AggregateIssuesBeforeErrorAndAfter()
     {
         var result = ResultSet.Parser.ParseJson(
             "{ \"columns\": [ { \"name\": \"column0\", " +
@@ -125,7 +126,7 @@ public class YdbDataReaderTests
         var nextFailPart = new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Aborted };
         nextFailPart.Issues.Add(new IssueMessage { Message = "Some message 3" });
 
-        var reader = new YdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+        var reader = await YdbDataReader.CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
             new List<ExecuteQueryResponsePart> { successPart, failPart, nextFailPart }));
 
         Assert.True(reader.Read());

@@ -307,4 +307,13 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
         Assert.Equal(Encoding.ASCII.GetBytes("text"), ydbDataReader.GetBytes(1));
         Assert.False(ydbDataReader.Read());
     }
+
+    [Fact]
+    public async Task ExecuteScalar_WhenSelectNull_ReturnNull()
+    {
+        await using var ydbConnection = new YdbConnection();
+        await ydbConnection.OpenAsync();
+
+        Assert.Null(await new YdbCommand(ydbConnection) { CommandText = "SELECT NULL" }.ExecuteScalarAsync());
+    }
 }

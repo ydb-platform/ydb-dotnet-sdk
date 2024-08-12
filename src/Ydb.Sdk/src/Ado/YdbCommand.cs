@@ -27,12 +27,7 @@ public sealed class YdbCommand : DbCommand
 
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {
-        await using var dataReader = ExecuteReader();
-
-        if (!await dataReader.NextResultAsync(cancellationToken))
-        {
-            throw new YdbException("YDB server closed the stream");
-        }
+        await using var dataReader = await ExecuteReaderAsync(cancellationToken);
 
         while (await dataReader.ReadAsync(cancellationToken))
         {
@@ -48,7 +43,7 @@ public sealed class YdbCommand : DbCommand
 
     public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
     {
-        await using var dataReader = ExecuteDbDataReader(CommandBehavior.Default);
+        await using var dataReader = await ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);
 
         var data = await dataReader.ReadAsync(cancellationToken)
             ? dataReader.IsDBNull(0) ? null : dataReader.GetValue(0)
@@ -165,6 +160,12 @@ public sealed class YdbCommand : DbCommand
 
     protected override YdbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
+        return ExecuteReaderAsync(behavior).GetAwaiter().GetResult();
+    }
+
+    protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
+        CancellationToken cancellationToken)
+    {
         if (YdbConnection.LastReader is { IsClosed: false })
         {
             throw new YdbOperationInProgressException(YdbConnection);
@@ -174,7 +175,7 @@ public sealed class YdbCommand : DbCommand
             ? new ExecuteQuerySettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
             : ExecuteQuerySettings.DefaultInstance;
 
-        var ydbDataReader = new YdbDataReader(YdbConnection.Session.ExecuteQuery(_commandText,
+        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(YdbConnection.Session.ExecuteQuery(_commandText,
             DbParameterCollection.YdbParameters, execSettings, Transaction?.TransactionControl), Transaction);
 
         YdbConnection.LastReader = ydbDataReader;
@@ -182,5 +183,28 @@ public sealed class YdbCommand : DbCommand
         YdbConnection.LastTransaction = Transaction;
 
         return ydbDataReader;
+    }
+
+    public new async Task<YdbDataReader> ExecuteReaderAsync()
+    {
+        return (YdbDataReader)await ExecuteDbDataReaderAsync(CommandBehavior.Default, CancellationToken.None);
+    }
+
+    public new Task<YdbDataReader> ExecuteReaderAsync(CancellationToken cancellationToken)
+    {
+        return ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);
+    }
+
+    // ReSharper disable once MemberCanBePrivate.Global
+    public new Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior)
+    {
+        return ExecuteReaderAsync(behavior, CancellationToken.None);
+    }
+
+    // ReSharper disable once MemberCanBePrivate.Global
+    public new async Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior,
+        CancellationToken cancellationToken)
+    {
+        return (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken);
     }
 }
