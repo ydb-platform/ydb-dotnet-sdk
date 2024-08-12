@@ -107,7 +107,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
 
         var ydbDataReader = await dbCommand.ExecuteReaderAsync();
         // Read meta info 
-        Assert.Equal(3, ydbDataReader.FieldCount);
+        Assert.Equal(2, ydbDataReader.FieldCount);
         Assert.True(ydbDataReader.HasRows);
         Assert.Equal("Int32", ydbDataReader.GetDataTypeName(0));
         Assert.Equal(0, ydbDataReader.GetOrdinal("a"));
