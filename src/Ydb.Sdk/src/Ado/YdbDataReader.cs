@@ -340,14 +340,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     public override bool IsDBNull(int ordinal)
     {
         return CurrentRow[ordinal].TypeId == YdbTypeId.Unknown ||
-               CurrentRow[ordinal].TypeId == YdbTypeId.OptionalType && CurrentRow[ordinal].GetOptional() == null;
+               (CurrentRow[ordinal].TypeId == YdbTypeId.OptionalType && CurrentRow[ordinal].GetOptional() == null);
     }
 
     public override int FieldCount => ReaderMetadata.FieldCount;
-
     public override object this[int ordinal] => GetValue(ordinal);
     public override object this[string name] => GetValue(GetOrdinal(name));
-
     public override int RecordsAffected => 0;
     public override bool HasRows => ReaderMetadata.RowsCount > 0;
     public override bool IsClosed => ReaderState == State.Closed;
