@@ -39,21 +39,10 @@ public class YdbDataReaderTests
     }
 
     [Fact]
-    public async Task Read_WhenNextResultThrowException_ThrowException()
+    public void CreateYdbDataReader_WhenAbortedStatus_ThrowException()
     {
-        var reader = await YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed);
-
-        Assert.Equal("Status: Aborted",
-            Assert.Throws<YdbException>(() => reader.Read()).Message);
-    }
-
-    [Fact]
-    public async Task NextResult_WhenNextResultThrowException_ThrowException()
-    {
-        var reader = await YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed);
-
-        Assert.Equal("Status: Aborted",
-            Assert.Throws<YdbException>(() => reader.NextResult()).Message);
+        Assert.Equal("Status: Aborted", Assert.Throws<YdbException>(
+            () => YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed).GetAwaiter().GetResult()).Message);
     }
 
     [Fact]

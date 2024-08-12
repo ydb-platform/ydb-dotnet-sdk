@@ -30,9 +30,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         IReadOnlyList<Value.ResultSet.Column> Columns { get; }
 
-        bool HasRows { get; }
-
         int FieldCount { get; }
+
+        int RowsCount { get; }
     }
 
     private State ReaderState { get; set; }
@@ -46,7 +46,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     };
 
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
-    private int RowsCount => CurrentResultSet.Rows.Count;
+    private int RowsCount => ReaderMetadata.RowsCount;
 
     private YdbDataReader(IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream, YdbTransaction? ydbTransaction)
     {
@@ -269,7 +269,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override int GetOrdinal(string name)
     {
-        return ReaderMetadata.ColumnNameToOrdinal[name];
+        if (ReaderMetadata.ColumnNameToOrdinal.TryGetValue(name, out var ordinal))
+        {
+            return ordinal;
+        }
+
+        throw new IndexOutOfRangeException($"Field not found in row: {name}");
     }
 
     public override string GetString(int ordinal)
@@ -344,7 +349,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     public override object this[string name] => GetValue(GetOrdinal(name));
 
     public override int RecordsAffected => 0;
-    public override bool HasRows => ReaderMetadata.HasRows;
+    public override bool HasRows => ReaderMetadata.RowsCount > 0;
     public override bool IsClosed => ReaderState == State.Closed;
 
     public override bool NextResult()
@@ -532,22 +537,22 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         public IReadOnlyList<Value.ResultSet.Column> Columns =>
             throw new InvalidOperationException("No resultset is currently being traversed");
 
-        public bool HasRows => false;
         public int FieldCount => 0;
+        public int RowsCount => 0;
     }
 
     private class Metadata : IMetadata
     {
         public IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
         public IReadOnlyList<Value.ResultSet.Column> Columns { get; }
-        public bool HasRows { get; }
         public int FieldCount { get; }
+        public int RowsCount { get; }
 
         public Metadata(Value.ResultSet resultSet)
         {
             ColumnNameToOrdinal = resultSet.ColumnNameToOrdinal;
             Columns = resultSet.Columns;
-            HasRows = resultSet.Rows.Count > 0;
+            RowsCount = resultSet.Rows.Count;
             FieldCount = resultSet.Columns.Count;
         }
     }

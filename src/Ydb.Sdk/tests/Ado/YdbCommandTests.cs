@@ -103,7 +103,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal("Ordinal must be between 0 and 1",
             Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetValue(2)).Message);
         Assert.False(await ydbDataReader.ReadAsync());
-        Assert.Equal("Invalid attempt to read when no data is present",
+        Assert.Equal("No row is available",
             Assert.Throws<InvalidOperationException>(() => ydbDataReader.GetValue(0)).Message);
 
         // Read 2 result set
