@@ -30,7 +30,7 @@ public abstract class Job
 
         var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
         {
-            { "jobName", jobName },
+            { "jobName", "workload-" + jobName },
             { "sdk", "dotnet" },
             { "sdkVersion", Environment.Version.ToString() }
         });
