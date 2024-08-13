@@ -1,90 +1,43 @@
-using Microsoft.Extensions.Logging;
-using slo.Cli;
+using Internal.Cli;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Value;
 
-namespace slo.AdoNet;
+namespace AdoNet;
 
-internal class SloContext : slo.SloContext
+public class SloContext : Internal.SloContext<YdbDataSource>
 {
-    private YdbConnectionStringBuilder Builder { get; }
-
-    internal SloContext(Config config, ILoggerFactory factory) : base(factory.CreateLogger<SloContext>())
+    protected override async Task Create(YdbDataSource client, string createTableSql, int operationTimeout)
     {
-        var splitEndpoint = config.Endpoint.Split("://");
-        var useTls = splitEndpoint[0] switch
+        await using var ydbConnection = await client.OpenConnectionAsync();
+
+        await new YdbCommand(ydbConnection)
         {
-            "grpc" => false,
-            "grpcs" => true,
-            _ => throw new ArgumentException("Don't support schema: " + splitEndpoint[0])
-        };
-
-        var host = splitEndpoint[1].Split(":")[0];
-        var port = splitEndpoint[1].Split(":")[1];
-
-        Builder = new YdbConnectionStringBuilder
-        {
-            UseTls = useTls,
-            Host = host,
-            Port = int.Parse(port),
-            LoggerFactory = factory
-        };
-    }
-
-    protected override async Task Create(string createTableSql, int operationTimeout)
-    {
-        await using var ydbConnection = new YdbConnection(Builder);
-        var ydbCommand = ydbConnection.CreateCommand();
-        ydbCommand.CommandText = createTableSql;
-        ydbCommand.CommandTimeout = operationTimeout;
-
-        await ydbCommand.ExecuteNonQueryAsync();
-    }
-
-    protected override async Task Upsert(string upsertSql, Dictionary<string, YdbValue> parameters, int writeTimeout)
-    {
-        await using var ydbConnection = new YdbConnection(Builder);
-        var ydbCommand = new YdbCommand(ydbConnection)
-        {
-            CommandText = upsertSql,
-            CommandTimeout = writeTimeout
-        };
-
-        foreach (var (key, value) in parameters)
-        {
-            ydbCommand.Parameters.AddWithValue(key, value);
-        }
-
-        await ydbCommand.ExecuteNonQueryAsync();
-    }
-
-    protected override async Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters,
-        int readTimeout)
-    {
-        await using var ydbConnection = new YdbConnection(Builder);
-        var ydbCommand = new YdbCommand(ydbConnection)
-        {
-            CommandText = selectSql,
-            CommandTimeout = readTimeout
-        };
-
-        foreach (var (key, value) in parameters)
-        {
-            ydbCommand.Parameters.AddWithValue(key, value);
-        }
-
-        return (string)(await ydbCommand.ExecuteScalarAsync())!;
-    }
-
-    protected override async Task CleanUp(string dropTableSql, int operationTimeout)
-    {
-        await using var ydbConnection = new YdbConnection(Builder);
-        var ydbCommand = new YdbCommand(ydbConnection)
-        {
-            CommandText = dropTableSql,
+            CommandText = createTableSql,
             CommandTimeout = operationTimeout
-        };
+        }.ExecuteNonQueryAsync();
+    }
 
-        await ydbCommand.ExecuteNonQueryAsync();
+    protected override Task Upsert(string upsertSql, Dictionary<string, YdbValue> parameters, int writeTimeout)
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters, int readTimeout)
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override Task CleanUp(string dropTableSql, int operationTimeout)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override Task<YdbDataSource> CreateClient(Config config)
+    {
+        var endpointWithoutSchema = config.Endpoint.Split("://")[1];
+        var hostAndPort = endpointWithoutSchema.Split(":");
+
+        return Task.FromResult(new YdbDataSource(new YdbConnectionStringBuilder
+            { Host = hostAndPort[0], Port = int.Parse(hostAndPort[1]), Database = config.Db }));
     }
 }

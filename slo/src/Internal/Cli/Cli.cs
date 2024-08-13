@@ -19,8 +19,8 @@ public static class Cli
 
     private static readonly Option<int> WriteTimeoutOption = new(
         "--write-timeout",
-        () => 10000,
-        "write timeout milliseconds");
+        () => 100,
+        "write timeout seconds");
 
     private static readonly Option<int> MinPartitionsCountOption = new(
         "--min-partitions-count",
@@ -123,9 +123,9 @@ public static class Cli
         CreateCommand, CleanupCommand, RunCommand
     };
 
-    public static async Task<int> Run(string[] args)
+    public static async Task<int> Run<T>(SloContext<T> sloContext, string[] args) where T : IDisposable
     {
-        CreateCommand.SetHandler(async createConfig => { await CliCommands.Create(createConfig); },
+        CreateCommand.SetHandler(async createConfig => { await sloContext.Create(createConfig); },
             new CreateConfigBinder(EndpointArgument, DbArgument, TableOption, MinPartitionsCountOption,
                 MaxPartitionsCountOption, PartitionSizeOption, InitialDataCountOption, WriteTimeoutOption));
 
