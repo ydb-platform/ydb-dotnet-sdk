@@ -44,7 +44,7 @@ public abstract class SloContext<T> where T : IDisposable
                 await Create(client, createTableSql, config.WriteTimeout);
 
                 Logger.LogInformation("Created table {TableName}!", config.TableName);
-                
+
                 break;
             }
             catch (Exception e)
