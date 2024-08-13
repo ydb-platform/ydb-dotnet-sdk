@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QueryExample", "QueryExampl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdoNet", "AdoNet\AdoNet.csproj", "{5030F1BC-E974-46BB-9381-C4356E120D96}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DapperExample", "DapperExample\DapperExample.csproj", "{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{5030F1BC-E974-46BB-9381-C4356E120D96}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5030F1BC-E974-46BB-9381-C4356E120D96}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5030F1BC-E974-46BB-9381-C4356E120D96}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
