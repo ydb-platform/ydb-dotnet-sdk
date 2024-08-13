@@ -37,7 +37,7 @@ public abstract class SloContext<T> where T : IDisposable
                          AUTO_PARTITIONING_BY_LOAD = ENABLED,
                          AUTO_PARTITIONING_PARTITION_SIZE_MB = ${config.PartitionSize},
                          AUTO_PARTITIONING_MIN_PARTITIONS_COUNT = ${config.MinPartitionsCount},
-                         AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = ${config.MaxPartitionsCount},
+                         AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = ${config.MaxPartitionsCount}
                      );
                      """, config.WriteTimeout);
 
