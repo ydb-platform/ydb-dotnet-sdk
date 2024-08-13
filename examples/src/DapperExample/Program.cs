@@ -25,8 +25,6 @@ Console.WriteLine(user);
 
 await new YdbConnection().ExecuteAsync("DROP TABLE Users");
 
-return;
-
 internal class User
 {
     public int Id { get; set; }
@@ -37,4 +35,4 @@ internal class User
     {
         return $"Id: {Id}, Name: {Name}, Email: {Email}";
     }
-};
+}
