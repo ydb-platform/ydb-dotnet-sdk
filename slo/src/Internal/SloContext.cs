@@ -6,7 +6,7 @@ namespace Internal;
 
 public abstract class SloContext<T> where T : IDisposable
 {
-    private readonly ILogger _logger = LoggerFactory
+    protected readonly ILogger Logger = LoggerFactory
         .Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information))
         .CreateLogger<SloContext<T>>();
 
@@ -19,33 +19,35 @@ public abstract class SloContext<T> where T : IDisposable
         using var client = await CreateClient(config);
         for (var attempt = 0; attempt < maxCreateAttempts; attempt++)
         {
-            _logger.LogInformation("Creating table {TableName}..", config.TableName);
+            Logger.LogInformation("Creating table {TableName}..", config.TableName);
             try
             {
-                await Create(client,
-                    $"""
-                     CREATE TABLE `{config.TableName}` (
-                         hash              Uint64,
-                         id                Uint64,
-                         payload_str       Text,
-                         payload_double    Double,
-                         payload_timestamp Timestamp,
-                         payload_hash      Uint64,
-                         PRIMARY KEY (hash, id)
-                     ) WITH (
-                         AUTO_PARTITIONING_BY_SIZE = ENABLED,
-                         AUTO_PARTITIONING_BY_LOAD = ENABLED,
-                         AUTO_PARTITIONING_PARTITION_SIZE_MB = ${config.PartitionSize},
-                         AUTO_PARTITIONING_MIN_PARTITIONS_COUNT = ${config.MinPartitionsCount},
-                         AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = ${config.MaxPartitionsCount}
-                     );
-                     """, config.WriteTimeout);
+                var createTableSql = $"""
+                                      CREATE TABLE `{config.TableName}` (
+                                          hash              Uint64,
+                                          id                Uint64,
+                                          payload_str       Text,
+                                          payload_double    Double,
+                                          payload_timestamp Timestamp,
+                                          payload_hash      Uint64,
+                                          PRIMARY KEY (hash, id)
+                                      ) WITH (
+                                          AUTO_PARTITIONING_BY_SIZE = ENABLED,
+                                          AUTO_PARTITIONING_BY_LOAD = ENABLED,
+                                          AUTO_PARTITIONING_PARTITION_SIZE_MB = ${config.PartitionSize},
+                                          AUTO_PARTITIONING_MIN_PARTITIONS_COUNT = ${config.MinPartitionsCount},
+                                          AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = ${config.MaxPartitionsCount}
+                                      );
+                                      """;
+                Logger.LogInformation("YQL script: {sql}", createTableSql);
 
-                _logger.LogInformation("Created table {TableName}!", config.TableName);
+                await Create(client, createTableSql, config.WriteTimeout);
+
+                Logger.LogInformation("Created table {TableName}!", config.TableName);
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Fail created table");
+                Logger.LogError(e, "Fail created table");
 
                 if (attempt == maxCreateAttempts - 1)
                 {
@@ -68,11 +70,11 @@ public abstract class SloContext<T> where T : IDisposable
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Init failed when all tasks, continue..");
+            Logger.LogError(e, "Init failed when all tasks, continue..");
         }
         finally
         {
-            _logger.LogInformation("Created task is finished");
+            Logger.LogInformation("Created task is finished");
         }
     }
 
