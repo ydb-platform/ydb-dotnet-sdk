@@ -24,7 +24,7 @@ public abstract class SloContext<T> where T : IDisposable
             {
                 await Create(client,
                     $"""
-                     CREATE TABLE {config.TableName} (
+                     CREATE TABLE `{config.TableName}` (
                          hash              Uint64,
                          id                Uint64,
                          payload_str       Text,

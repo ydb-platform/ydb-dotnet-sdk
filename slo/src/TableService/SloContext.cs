@@ -1,3 +1,4 @@
+using Internal;
 using Internal.Cli;
 using Ydb.Sdk;
 using Ydb.Sdk.Services.Table;
@@ -5,7 +6,7 @@ using Ydb.Sdk.Value;
 
 namespace TableService;
 
-public class SloContext : Internal.SloContext<TableClient>
+public class SloContext : SloContext<TableClient>
 {
     protected override async Task Create(TableClient client, string createTableSql, int operationTimeout)
     {

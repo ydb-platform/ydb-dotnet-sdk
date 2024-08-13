@@ -1,10 +1,11 @@
+using Internal;
 using Internal.Cli;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Value;
 
 namespace AdoNet;
 
-public class SloContext : Internal.SloContext<YdbDataSource>
+public class SloContext : SloContext<YdbDataSource>
 {
     protected override async Task Create(YdbDataSource client, string createTableSql, int operationTimeout)
     {
