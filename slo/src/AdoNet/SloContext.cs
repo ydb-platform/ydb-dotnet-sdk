@@ -34,10 +34,18 @@ public class SloContext : Internal.SloContext<YdbDataSource>
 
     public override Task<YdbDataSource> CreateClient(Config config)
     {
-        var endpointWithoutSchema = config.Endpoint.Split("://")[1];
-        var hostAndPort = endpointWithoutSchema.Split(":");
+        var splitEndpoint = config.Endpoint.Split("://");
+        var useTls = splitEndpoint[0] switch
+        {
+            "grpc" => false,
+            "grpcs" => true,
+            _ => throw new ArgumentException("Don't support schema: " + splitEndpoint[0])
+        };
+
+        var host = splitEndpoint[1].Split(":")[0];
+        var port = splitEndpoint[1].Split(":")[1];
 
         return Task.FromResult(new YdbDataSource(new YdbConnectionStringBuilder
-            { Host = hostAndPort[0], Port = int.Parse(hostAndPort[1]), Database = config.Db }));
+            { UseTls = useTls, Host = host, Port = int.Parse(port), Database = config.Db }));
     }
 }
