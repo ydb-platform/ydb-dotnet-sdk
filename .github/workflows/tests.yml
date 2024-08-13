@@ -106,3 +106,7 @@ jobs:
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd ./examples/src/AdoNet
           dotnet run
+      - name: Run Dapper example
+        run: |
+          cd ./examples/src/DapperExample
+          dotnet run
