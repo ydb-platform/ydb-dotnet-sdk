@@ -43,7 +43,7 @@ public static class CliCommands
     internal static async Task Run(RunConfig config)
     {
         var promPgwEndpoint = $"{config.PromPgw}/metrics";
-        const string job = "table-service";
+        const string job = "workload-table-service";
 
         await using var client = await Client.CreateAsync(config.Endpoint, config.Db, config.TableName);
 
