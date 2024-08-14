@@ -1,5 +1,7 @@
 using Internal;
 using Internal.Cli;
+using Polly;
+using Prometheus;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Value;
 
@@ -7,20 +9,38 @@ namespace AdoNet;
 
 public class SloContext : SloContext<YdbDataSource>
 {
+    private readonly AsyncPolicy _policy = Policy.Handle<YdbException>()
+        .WaitAndRetryAsync(10, attempt => TimeSpan.FromSeconds(attempt),
+            (_, _, retryCount, context) => { context["RetryCount"] = retryCount; });
+
     protected override async Task Create(YdbDataSource client, string createTableSql, int operationTimeout)
     {
         await using var ydbConnection = await client.OpenConnectionAsync();
 
         await new YdbCommand(ydbConnection)
-        {
-            CommandText = createTableSql,
-            CommandTimeout = operationTimeout
-        }.ExecuteNonQueryAsync();
+                { CommandText = createTableSql, CommandTimeout = operationTimeout }
+            .ExecuteNonQueryAsync();
     }
 
-    protected override Task Upsert(string upsertSql, Dictionary<string, YdbValue> parameters, int writeTimeout)
+    protected override async Task<int> Upsert(YdbDataSource dataSource, string upsertSql,
+        Dictionary<string, YdbValue> parameters, int writeTimeout, Gauge? errorsGauge = null)
     {
-        throw new NotImplementedException();
+        var policyResult = await _policy.ExecuteAndCaptureAsync(async () =>
+        {
+            await using var ydbConnection = await dataSource.OpenConnectionAsync();
+
+            var ydbCommand = new YdbCommand(ydbConnection)
+                { CommandText = upsertSql, CommandTimeout = writeTimeout };
+
+            foreach (var (key, value) in parameters)
+            {
+                ydbCommand.Parameters.AddWithValue(key, value);
+            }
+
+            await ydbCommand.ExecuteNonQueryAsync();
+        });
+
+        return (int)policyResult.Context["RetryCount"];
     }
 
     protected override Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters, int readTimeout)

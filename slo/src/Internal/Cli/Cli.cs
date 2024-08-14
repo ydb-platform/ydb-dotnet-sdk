@@ -58,8 +58,8 @@ public static class Cli
 
     private static readonly Option<int> ReadTimeoutOption = new(
         "--read-timeout",
-        () => 10000,
-        "read timeout milliseconds");
+        () => 100,
+        "read timeout seconds");
 
     private static readonly Option<int> WriteRpsOption = new(
         "--write-rps",

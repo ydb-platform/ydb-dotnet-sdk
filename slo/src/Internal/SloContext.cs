@@ -1,12 +1,13 @@
 using Internal.Cli;
 using Microsoft.Extensions.Logging;
+using Prometheus;
 using Ydb.Sdk.Value;
 
 namespace Internal;
 
 public abstract class SloContext<T> where T : IDisposable
 {
-    protected readonly ILogger Logger = LoggerFactory
+    private readonly ILogger _logger = LoggerFactory
         .Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information))
         .CreateLogger<SloContext<T>>();
 
@@ -19,7 +20,7 @@ public abstract class SloContext<T> where T : IDisposable
         using var client = await CreateClient(config);
         for (var attempt = 0; attempt < maxCreateAttempts; attempt++)
         {
-            Logger.LogInformation("Creating table {TableName}..", config.TableName);
+            _logger.LogInformation("Creating table {TableName}..", config.TableName);
             try
             {
                 var createTableSql = $"""
@@ -39,17 +40,17 @@ public abstract class SloContext<T> where T : IDisposable
                                           AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = {config.MaxPartitionsCount}
                                       );
                                       """;
-                Logger.LogInformation("YQL script: {sql}", createTableSql);
+                _logger.LogInformation("YQL script: {sql}", createTableSql);
 
                 await Create(client, createTableSql, config.WriteTimeout);
 
-                Logger.LogInformation("Created table {TableName}!", config.TableName);
+                _logger.LogInformation("Created table {TableName}!", config.TableName);
 
                 break;
             }
             catch (Exception e)
             {
-                Logger.LogError(e, "Fail created table");
+                _logger.LogError(e, "Fail created table");
 
                 if (attempt == maxCreateAttempts - 1)
                 {
@@ -63,7 +64,7 @@ public abstract class SloContext<T> where T : IDisposable
         var tasks = new Task[config.InitialDataCount];
         for (var i = 0; i < config.InitialDataCount; i++)
         {
-            tasks[i] = Upsert(config);
+            tasks[i] = Upsert(client, config);
         }
 
         try
@@ -72,11 +73,11 @@ public abstract class SloContext<T> where T : IDisposable
         }
         catch (Exception e)
         {
-            Logger.LogError(e, "Init failed when all tasks, continue..");
+            _logger.LogError(e, "Init failed when all tasks, continue..");
         }
         finally
         {
-            Logger.LogInformation("Created task is finished");
+            _logger.LogInformation("Created task is finished");
         }
     }
 
@@ -86,7 +87,9 @@ public abstract class SloContext<T> where T : IDisposable
     // {
     // }
 
-    protected abstract Task Upsert(string upsertSql, Dictionary<string, YdbValue> parameters, int writeTimeout);
+    // return attempt count
+    protected abstract Task<int> Upsert(T client, string upsertSql, Dictionary<string, YdbValue> parameters,
+        int writeTimeout, Gauge? errorsGauge = null);
 
     protected abstract Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters, int readTimeout);
 
@@ -97,25 +100,26 @@ public abstract class SloContext<T> where T : IDisposable
 
     protected abstract Task CleanUp(string dropTableSql, int operationTimeout);
 
-    private Task Upsert(Config config)
+    private Task Upsert(T client, Config config)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
 
-        return Upsert($"""
-                       UPSERT INTO `{config.TableName}` (id, hash, payload_str, payload_double, payload_timestamp)
-                       VALUES ($id, Digest::NumericHash($id), $payload_str, $payload_double, $payload_timestamp)
-                       """, new Dictionary<string, YdbValue>
-        {
-            { "$id", YdbValue.MakeUint64((ulong)Interlocked.Increment(ref _maxId)) },
+        return Upsert(client,
+            $"""
+             UPSERT INTO `{config.TableName}` (id, hash, payload_str, payload_double, payload_timestamp)
+             VALUES ($id, Digest::NumericHash($id), $payload_str, $payload_double, $payload_timestamp)
+             """, new Dictionary<string, YdbValue>
             {
-                "$payload_str", YdbValue.MakeUtf8(string.Join(string.Empty, Enumerable
-                    .Repeat(0, Random.Shared.Next(minSizeStr, maxSizeStr))
-                    .Select(_ => (char)Random.Shared.Next(127))))
-            },
-            { "$payload_double", YdbValue.MakeDouble(Random.Shared.NextDouble()) },
-            { "$payload_timestamp", YdbValue.MakeTimestamp(DateTime.Now) }
-        }, config.WriteTimeout);
+                { "$id", YdbValue.MakeUint64((ulong)Interlocked.Increment(ref _maxId)) },
+                {
+                    "$payload_str", YdbValue.MakeUtf8(string.Join(string.Empty, Enumerable
+                        .Repeat(0, Random.Shared.Next(minSizeStr, maxSizeStr))
+                        .Select(_ => (char)Random.Shared.Next(127))))
+                },
+                { "$payload_double", YdbValue.MakeDouble(Random.Shared.NextDouble()) },
+                { "$payload_timestamp", YdbValue.MakeTimestamp(DateTime.Now) }
+            }, config.WriteTimeout);
     }
 
     public abstract Task<T> CreateClient(Config config);
