@@ -105,6 +105,8 @@ public abstract class SloContext<T> where T : IDisposable
             new Dictionary<string, YdbValue>(), runConfig.ReadTimeout);
         _maxId = (int)maxId!;
 
+        _logger.LogInformation("Init row count: {MaxId}", _maxId);
+
         var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
             { { "jobName", JobName }, { "sdk", "dotnet" }, { "sdkVersion", Environment.Version.ToString() } });
 
@@ -149,12 +151,17 @@ public abstract class SloContext<T> where T : IDisposable
             {
                 var tasks = new List<Task>();
 
+                long activeTasks = 0;
+                
                 while (!cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     try
                     {
                         tasks.Add(rateLimitPolicy.Execute(async () =>
                         {
+                            // ReSharper disable once AccessToModifiedClosure
+                            Interlocked.Increment(ref activeTasks);
+                            
                             var sw = Stopwatch.StartNew();
                             var (attempts, statusCode) = await action(client, runConfig, errorsGauge);
                             string label;
@@ -172,13 +179,14 @@ public abstract class SloContext<T> where T : IDisposable
                                 label = "ok";
                             }
 
+                            Interlocked.Decrement(ref activeTasks);
                             attemptsHistogram.WithLabels(label).Observe(attempts);
                             latencySummary.WithLabels(label).Observe(sw.ElapsedMilliseconds);
                         }));
                     }
                     catch (RateLimitRejectedException)
                     {
-                        _logger.LogInformation("Waiting {ShootingName} tasks", shootingName);
+                        _logger.LogInformation("Waiting {ShootingName} task, count active tasks: {}", shootingName, Interlocked.Read(ref activeTasks));
 
                         await Task.Delay(990, cancellationTokenSource.Token);
                     }
