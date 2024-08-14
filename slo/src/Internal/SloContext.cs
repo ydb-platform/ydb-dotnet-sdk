@@ -12,14 +12,14 @@ namespace Internal;
 public abstract class SloContext<T> where T : IDisposable
 {
     protected readonly ILoggerFactory Factory;
-    protected readonly ILogger Logger;
+    private readonly ILogger _logger;
 
     private volatile int _maxId;
 
     protected SloContext()
     {
         Factory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
-        Logger = Factory.CreateLogger<SloContext<T>>();
+        _logger = Factory.CreateLogger<SloContext<T>>();
     }
 
     protected abstract string JobName { get; }
@@ -31,13 +31,13 @@ public abstract class SloContext<T> where T : IDisposable
         using var client = await CreateClient(config);
         for (var attempt = 0; attempt < maxCreateAttempts; attempt++)
         {
-            Logger.LogInformation("Creating table {TableName}..", config.TableName);
+            _logger.LogInformation("Creating table {TableName}..", config.TableName);
             try
             {
                 var createTableSql = $"""
                                       CREATE TABLE `{config.TableName}` (
                                           hash              Uint64,
-                                          id                Uint64,
+                                          id                Int32,
                                           payload_str       Text,
                                           payload_double    Double,
                                           payload_timestamp Timestamp,
@@ -51,17 +51,17 @@ public abstract class SloContext<T> where T : IDisposable
                                           AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = {config.MaxPartitionsCount}
                                       );
                                       """;
-                Logger.LogInformation("YQL script: {sql}", createTableSql);
+                _logger.LogInformation("YQL script: {sql}", createTableSql);
 
                 await Create(client, createTableSql, config.WriteTimeout);
 
-                Logger.LogInformation("Created table {TableName}!", config.TableName);
+                _logger.LogInformation("Created table {TableName}", config.TableName);
 
                 break;
             }
             catch (Exception e)
             {
-                Logger.LogError(e, "Fail created table");
+                _logger.LogError(e, "Fail created table");
 
                 if (attempt == maxCreateAttempts - 1)
                 {
@@ -84,11 +84,11 @@ public abstract class SloContext<T> where T : IDisposable
         }
         catch (Exception e)
         {
-            Logger.LogError(e, "Init failed when all tasks, continue..");
+            _logger.LogError(e, "Init failed when all tasks, continue..");
         }
         finally
         {
-            Logger.LogInformation("Created task is finished");
+            _logger.LogInformation("Created task is finished");
         }
     }
 
@@ -101,7 +101,7 @@ public abstract class SloContext<T> where T : IDisposable
         using var prometheus = new MetricPusher(promPgwEndpoint, JobName, intervalMilliseconds: runConfig.ReportPeriod);
         prometheus.Start();
 
-        var (_, _, maxId) = await Select(client, $"SELECT COUNT(*) FROM `{runConfig.TableName};`",
+        var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.TableName};`",
             new Dictionary<string, YdbValue>(), runConfig.ReadTimeout);
         _maxId = (int)maxId!;
 
@@ -132,11 +132,14 @@ public abstract class SloContext<T> where T : IDisposable
         var writeTask = ShootingTask(writeLimiter, "write", Upsert);
         var readTask = ShootingTask(readLimiter, "read", Select);
 
-        Logger.LogInformation("Started write / read shooting..");
+        _logger.LogInformation("Started write / read shooting..");
 
         await Task.WhenAll(readTask, writeTask);
 
-        Logger.LogInformation("Run task is finished");
+        await prometheus.StopAsync();
+        await MetricReset(promPgwEndpoint);
+        
+        _logger.LogInformation("Run task is finished");
         return;
 
         Task ShootingTask(RateLimitPolicy rateLimitPolicy, string shootingName,
@@ -158,7 +161,7 @@ public abstract class SloContext<T> where T : IDisposable
 
                             if (statusCode != StatusCode.Success)
                             {
-                                Logger.LogError("Failed {ShootingName} operation code: {StatusCode}", shootingName,
+                                _logger.LogError("Failed {ShootingName} operation code: {StatusCode}", shootingName,
                                     statusCode);
                                 notOkGauge.Inc();
                                 label = "err";
@@ -175,7 +178,7 @@ public abstract class SloContext<T> where T : IDisposable
                     }
                     catch (RateLimitRejectedException)
                     {
-                        Logger.LogInformation("Waiting {ShootingName} tasks", shootingName);
+                        _logger.LogInformation("Waiting {ShootingName} tasks", shootingName);
 
                         await Task.Delay(990, cancellationTokenSource.Token);
                     }
@@ -183,7 +186,7 @@ public abstract class SloContext<T> where T : IDisposable
 
                 await Task.WhenAll(tasks);
 
-                Logger.LogInformation("{ShootingName} shooting is stopped", shootingName);
+                _logger.LogInformation("{ShootingName} shooting is stopped", shootingName);
             }, cancellationTokenSource.Token);
         }
     }
@@ -203,7 +206,7 @@ public abstract class SloContext<T> where T : IDisposable
 
         return Upsert(client,
             $"""
-             DECLARE $id AS Uint64;
+             DECLARE $id AS Int32;
              DECLARE $payload_str AS Utf8;
              DECLARE $payload_double AS Double;
              DECLARE $payload_timestamp AS Timestamp;
@@ -211,7 +214,7 @@ public abstract class SloContext<T> where T : IDisposable
              VALUES ($id, Digest::NumericHash($id), $payload_str, $payload_double, $payload_timestamp)
              """, new Dictionary<string, YdbValue>
             {
-                { "$id", YdbValue.MakeUint64((ulong)Interlocked.Increment(ref _maxId)) },
+                { "$id", YdbValue.MakeInt32(Interlocked.Increment(ref _maxId)) },
                 {
                     "$payload_str", YdbValue.MakeUtf8(string.Join(string.Empty, Enumerable
                         .Repeat(0, Random.Shared.Next(minSizeStr, maxSizeStr))
@@ -228,7 +231,7 @@ public abstract class SloContext<T> where T : IDisposable
     {
         var (attempts, code, _) = await Select(client,
             $"""
-             DECLARE $id AS Uint64;
+             DECLARE $id AS Int32;
              SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
              FROM `{config.TableName}` WHERE id = $id AND hash = Digest::NumericHash($id)
              """,
@@ -238,5 +241,12 @@ public abstract class SloContext<T> where T : IDisposable
             }, config.ReadTimeout, errorsGauge);
 
         return (attempts, code);
+    }
+    
+    private async Task MetricReset(string promPgwEndpoint)
+    {
+        var deleteUri = $"{promPgwEndpoint}/job/{JobName}";
+        using var httpClient = new HttpClient();
+        await httpClient.DeleteAsync(deleteUri);
     }
 }

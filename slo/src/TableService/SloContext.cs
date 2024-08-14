@@ -10,6 +10,7 @@ namespace TableService;
 
 public class SloContext : SloContext<TableClient>
 {
+    private readonly TxControl _txControl = TxControl.BeginSerializableRW().Commit();
     protected override string JobName => "workload-table-service";
 
     protected override async Task Create(TableClient client, string createTableSql, int operationTimeout)
@@ -24,8 +25,6 @@ public class SloContext : SloContext<TableClient>
     protected override async Task<(int, StatusCode)> Upsert(TableClient tableClient, string upsertSql,
         Dictionary<string, YdbValue> parameters, int writeTimeout, Gauge? errorsGauge = null)
     {
-        var txControl = TxControl.BeginSerializableRW().Commit();
-
         var querySettings = new ExecuteDataQuerySettings
             { OperationTimeout = TimeSpan.FromSeconds(writeTimeout) };
 
@@ -35,7 +34,7 @@ public class SloContext : SloContext<TableClient>
             async session =>
             {
                 attempts++;
-                var response = await session.ExecuteDataQuery(upsertSql, txControl, parameters, querySettings);
+                var response = await session.ExecuteDataQuery(upsertSql, _txControl, parameters, querySettings);
                 if (response.Status.IsSuccess)
                 {
                     return response;
@@ -49,10 +48,31 @@ public class SloContext : SloContext<TableClient>
         return (attempts, response.Status.StatusCode);
     }
 
-    protected override Task<(int, StatusCode, object)> Select(TableClient client, string selectSql,
+    protected override async Task<(int, StatusCode, object?)> Select(TableClient tableClient, string selectSql,
         Dictionary<string, YdbValue> parameters, int readTimeout, Gauge? errorsGauge = null)
     {
-        throw new NotImplementedException();
+        var querySettings = new ExecuteDataQuerySettings
+            { OperationTimeout = TimeSpan.FromSeconds(readTimeout) };
+
+        var attempts = 0;
+
+        var response = (ExecuteDataQueryResponse)await tableClient.SessionExec(
+            async session =>
+            {
+                attempts++;
+                var response = await session.ExecuteDataQuery(selectSql, _txControl, parameters, querySettings);
+                if (response.Status.IsSuccess)
+                {
+                    return response;
+                }
+
+                errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "retried").Inc();
+
+                return response;
+            });
+
+        return (attempts, response.Status.StatusCode,
+            response.Status.IsSuccess ? response.Result.ResultSets[0].Rows[0][0].GetInt32() : null);
     }
 
     protected override async Task<TableClient> CreateClient(Config config)
