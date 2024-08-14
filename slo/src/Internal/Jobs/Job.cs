@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Prometheus;
-using Ydb.Sdk;
 
 namespace Internal.Jobs;
 

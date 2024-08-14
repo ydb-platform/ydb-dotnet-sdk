@@ -1,6 +1,5 @@
 using Internal;
 using Internal.Cli;
-using Microsoft.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
 using Ydb.Sdk.Services.Table;

@@ -138,7 +138,7 @@ public abstract class SloContext<T> where T : IDisposable
 
         await prometheus.StopAsync();
         await MetricReset(promPgwEndpoint);
-        
+
         _logger.LogInformation("Run task is finished");
         return;
 
@@ -242,7 +242,7 @@ public abstract class SloContext<T> where T : IDisposable
 
         return (attempts, code);
     }
-    
+
     private async Task MetricReset(string promPgwEndpoint)
     {
         var deleteUri = $"{promPgwEndpoint}/job/{JobName}";

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Internal;
 using Internal.Cli;
 using Polly;
@@ -69,7 +68,7 @@ public class SloContext : SloContext<YdbDataSource>
         {
             context["errorsGauge"] = errorsGauge;
         }
-        
+
         var policyResult = await _policy.ExecuteAndCaptureAsync(async _ =>
         {
             await using var ydbConnection = await dataSource.OpenConnectionAsync();
@@ -84,7 +83,7 @@ public class SloContext : SloContext<YdbDataSource>
 
             return await ydbCommand.ExecuteScalarAsync();
         }, context);
-        
+
         return (policyResult.Context.TryGetValue("RetryCount", out var countAttempts) ? (int)countAttempts : 1,
             ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success, policyResult.Result);
     }
