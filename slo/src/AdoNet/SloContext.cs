@@ -1,15 +1,59 @@
-using Microsoft.Extensions.Logging;
-using slo.Cli;
+using Internal;
+using Internal.Cli;
+using Polly;
+using Prometheus;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Value;
 
-namespace slo.AdoNet;
+namespace AdoNet;
 
-internal class SloContext : slo.SloContext
+public class SloContext : SloContext<YdbDataSource>
 {
-    private YdbConnectionStringBuilder Builder { get; }
+    private readonly AsyncPolicy _policy = Policy.Handle<YdbException>()
+        .WaitAndRetryAsync(10, attempt => TimeSpan.FromSeconds(attempt),
+            (_, _, retryCount, context) => { context["RetryCount"] = retryCount; });
 
-    internal SloContext(Config config, ILoggerFactory factory) : base(factory.CreateLogger<SloContext>())
+    protected override async Task Create(YdbDataSource client, string createTableSql, int operationTimeout)
+    {
+        await using var ydbConnection = await client.OpenConnectionAsync();
+
+        await new YdbCommand(ydbConnection)
+                { CommandText = createTableSql, CommandTimeout = operationTimeout }
+            .ExecuteNonQueryAsync();
+    }
+
+    protected override async Task<int> Upsert(YdbDataSource dataSource, string upsertSql,
+        Dictionary<string, YdbValue> parameters, int writeTimeout, Gauge? errorsGauge = null)
+    {
+        var policyResult = await _policy.ExecuteAndCaptureAsync(async () =>
+        {
+            await using var ydbConnection = await dataSource.OpenConnectionAsync();
+
+            var ydbCommand = new YdbCommand(ydbConnection)
+                { CommandText = upsertSql, CommandTimeout = writeTimeout };
+
+            foreach (var (key, value) in parameters)
+            {
+                ydbCommand.Parameters.AddWithValue(key, value);
+            }
+
+            await ydbCommand.ExecuteNonQueryAsync();
+        });
+
+        return (int)policyResult.Context["RetryCount"];
+    }
+
+    protected override Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters, int readTimeout)
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override Task CleanUp(string dropTableSql, int operationTimeout)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override Task<YdbDataSource> CreateClient(Config config)
     {
         var splitEndpoint = config.Endpoint.Split("://");
         var useTls = splitEndpoint[0] switch
@@ -22,69 +66,7 @@ internal class SloContext : slo.SloContext
         var host = splitEndpoint[1].Split(":")[0];
         var port = splitEndpoint[1].Split(":")[1];
 
-        Builder = new YdbConnectionStringBuilder
-        {
-            UseTls = useTls,
-            Host = host,
-            Port = int.Parse(port),
-            LoggerFactory = factory
-        };
-    }
-
-    protected override async Task Create(string createTableSql, int operationTimeout)
-    {
-        await using var ydbConnection = new YdbConnection(Builder);
-        var ydbCommand = ydbConnection.CreateCommand();
-        ydbCommand.CommandText = createTableSql;
-        ydbCommand.CommandTimeout = operationTimeout;
-
-        await ydbCommand.ExecuteNonQueryAsync();
-    }
-
-    protected override async Task Upsert(string upsertSql, Dictionary<string, YdbValue> parameters, int writeTimeout)
-    {
-        await using var ydbConnection = new YdbConnection(Builder);
-        var ydbCommand = new YdbCommand(ydbConnection)
-        {
-            CommandText = upsertSql,
-            CommandTimeout = writeTimeout
-        };
-
-        foreach (var (key, value) in parameters)
-        {
-            ydbCommand.Parameters.AddWithValue(key, value);
-        }
-
-        await ydbCommand.ExecuteNonQueryAsync();
-    }
-
-    protected override async Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters,
-        int readTimeout)
-    {
-        await using var ydbConnection = new YdbConnection(Builder);
-        var ydbCommand = new YdbCommand(ydbConnection)
-        {
-            CommandText = selectSql,
-            CommandTimeout = readTimeout
-        };
-
-        foreach (var (key, value) in parameters)
-        {
-            ydbCommand.Parameters.AddWithValue(key, value);
-        }
-
-        return (string)(await ydbCommand.ExecuteScalarAsync())!;
-    }
-
-    protected override async Task CleanUp(string dropTableSql, int operationTimeout)
-    {
-        await using var ydbConnection = new YdbConnection(Builder);
-        var ydbCommand = new YdbCommand(ydbConnection)
-        {
-            CommandText = dropTableSql,
-            CommandTimeout = operationTimeout
-        };
-
-        await ydbCommand.ExecuteNonQueryAsync();
+        return Task.FromResult(new YdbDataSource(new YdbConnectionStringBuilder
+            { UseTls = useTls, Host = host, Port = int.Parse(port), Database = config.Db }));
     }
 }
