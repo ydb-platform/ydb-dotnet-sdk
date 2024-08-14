@@ -1,4 +1,3 @@
-using System.Diagnostics.Metrics;
 using Internal;
 using Internal.Cli;
 using Prometheus;

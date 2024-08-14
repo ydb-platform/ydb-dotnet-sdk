@@ -100,13 +100,17 @@ public abstract class SloContext<T> where T : IDisposable
 
     protected abstract Task CleanUp(string dropTableSql, int operationTimeout);
 
-    private Task Upsert(T client, Config config)
+    private Task<int> Upsert(T client, Config config)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
 
         return Upsert(client,
             $"""
+             DECLARE $id AS Uint64;
+             DECLARE $payload_str AS Utf8;
+             DECLARE $payload_double AS Double;
+             DECLARE $payload_timestamp AS Timestamp;
              UPSERT INTO `{config.TableName}` (id, hash, payload_str, payload_double, payload_timestamp)
              VALUES ($id, Digest::NumericHash($id), $payload_str, $payload_double, $payload_timestamp)
              """, new Dictionary<string, YdbValue>
