@@ -125,8 +125,8 @@ public abstract class SloContext<T> where T : IDisposable
 
         var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
 
-        var writeLimiter = Policy.RateLimit(runConfig.WriteRps, TimeSpan.FromSeconds(1));
-        var readLimiter = Policy.RateLimit(runConfig.ReadRps, TimeSpan.FromSeconds(1));
+        var writeLimiter = Policy.RateLimit(runConfig.WriteRps, TimeSpan.FromSeconds(1), runConfig.WriteRps);
+        var readLimiter = Policy.RateLimit(runConfig.ReadRps, TimeSpan.FromSeconds(1), runConfig.ReadRps);
 
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(runConfig.ShutdownTime));
@@ -152,7 +152,7 @@ public abstract class SloContext<T> where T : IDisposable
                 var tasks = new List<Task>();
 
                 long activeTasks = 0;
-                
+
                 while (!cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     try
@@ -161,7 +161,7 @@ public abstract class SloContext<T> where T : IDisposable
                         {
                             // ReSharper disable once AccessToModifiedClosure
                             Interlocked.Increment(ref activeTasks);
-                            
+
                             var sw = Stopwatch.StartNew();
                             var (attempts, statusCode) = await action(client, runConfig, errorsGauge);
                             string label;
@@ -184,11 +184,12 @@ public abstract class SloContext<T> where T : IDisposable
                             latencySummary.WithLabels(label).Observe(sw.ElapsedMilliseconds);
                         }));
                     }
-                    catch (RateLimitRejectedException)
+                    catch (RateLimitRejectedException e)
                     {
-                        _logger.LogInformation("Waiting {ShootingName} task, count active tasks: {}", shootingName, Interlocked.Read(ref activeTasks));
+                        _logger.LogInformation(e, "Waiting {ShootingName} task, count active tasks: {}", shootingName,
+                            Interlocked.Read(ref activeTasks));
 
-                        await Task.Delay(990, cancellationTokenSource.Token);
+                        await Task.Delay(e.RetryAfter, cancellationTokenSource.Token);
                     }
                 }
 
