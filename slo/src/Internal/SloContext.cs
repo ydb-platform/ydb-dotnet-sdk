@@ -101,7 +101,7 @@ public abstract class SloContext<T> where T : IDisposable
         using var prometheus = new MetricPusher(promPgwEndpoint, JobName, intervalMilliseconds: runConfig.ReportPeriod);
         prometheus.Start();
 
-        var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.TableName};`",
+        var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.TableName}`;",
             new Dictionary<string, YdbValue>(), runConfig.ReadTimeout);
         _maxId = (int)maxId!;
 
