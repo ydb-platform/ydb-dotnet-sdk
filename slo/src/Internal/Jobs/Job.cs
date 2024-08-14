@@ -55,12 +55,6 @@ public abstract class Job
             new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
 
         ErrorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
-
-        foreach (var statusCode in Enum.GetValues<StatusCode>())
-        {
-            ErrorsGauge.WithLabels(Utils.GetResonseStatusName(statusCode), "retried").IncTo(0);
-            ErrorsGauge.WithLabels(Utils.GetResonseStatusName(statusCode), "finally").IncTo(0);
-        }
     }
 
     public async void Start()

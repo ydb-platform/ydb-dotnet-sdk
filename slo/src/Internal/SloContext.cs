@@ -1,18 +1,28 @@
+using System.Diagnostics;
 using Internal.Cli;
 using Microsoft.Extensions.Logging;
 using Polly;
+using Polly.RateLimit;
 using Prometheus;
+using Ydb.Sdk;
 using Ydb.Sdk.Value;
 
 namespace Internal;
 
 public abstract class SloContext<T> where T : IDisposable
 {
-    private readonly ILogger _logger = LoggerFactory
-        .Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information))
-        .CreateLogger<SloContext<T>>();
+    protected readonly ILoggerFactory Factory;
+    protected readonly ILogger Logger;
 
     private volatile int _maxId;
+
+    protected SloContext()
+    {
+        Factory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+        Logger = Factory.CreateLogger<SloContext<T>>();
+    }
+
+    protected abstract string JobName { get; }
 
     public async Task Create(CreateConfig config)
     {
@@ -21,7 +31,7 @@ public abstract class SloContext<T> where T : IDisposable
         using var client = await CreateClient(config);
         for (var attempt = 0; attempt < maxCreateAttempts; attempt++)
         {
-            _logger.LogInformation("Creating table {TableName}..", config.TableName);
+            Logger.LogInformation("Creating table {TableName}..", config.TableName);
             try
             {
                 var createTableSql = $"""
@@ -41,17 +51,17 @@ public abstract class SloContext<T> where T : IDisposable
                                           AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = {config.MaxPartitionsCount}
                                       );
                                       """;
-                _logger.LogInformation("YQL script: {sql}", createTableSql);
+                Logger.LogInformation("YQL script: {sql}", createTableSql);
 
                 await Create(client, createTableSql, config.WriteTimeout);
 
-                _logger.LogInformation("Created table {TableName}!", config.TableName);
+                Logger.LogInformation("Created table {TableName}!", config.TableName);
 
                 break;
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Fail created table");
+                Logger.LogError(e, "Fail created table");
 
                 if (attempt == maxCreateAttempts - 1)
                 {
@@ -74,11 +84,11 @@ public abstract class SloContext<T> where T : IDisposable
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Init failed when all tasks, continue..");
+            Logger.LogError(e, "Init failed when all tasks, continue..");
         }
         finally
         {
-            _logger.LogInformation("Created task is finished");
+            Logger.LogInformation("Created task is finished");
         }
     }
 
@@ -86,29 +96,107 @@ public abstract class SloContext<T> where T : IDisposable
 
     public async Task Run(RunConfig runConfig)
     {
+        var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
+        var client = await CreateClient(runConfig);
+        using var prometheus = new MetricPusher(promPgwEndpoint, JobName, intervalMilliseconds: runConfig.ReportPeriod);
+        prometheus.Start();
+
+        var (_, _, maxId) = await Select(client, $"SELECT COUNT(*) FROM `{runConfig.TableName};`",
+            new Dictionary<string, YdbValue>(), runConfig.ReadTimeout);
+        _maxId = (int)maxId!;
+
+        var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
+            { { "jobName", JobName }, { "sdk", "dotnet" }, { "sdkVersion", Environment.Version.ToString() } });
+
+        var okGauge = metricFactory.CreateGauge("oks", "Count of OK");
+        var notOkGauge = metricFactory.CreateGauge("not_oks", "Count of not OK");
+        var latencySummary = metricFactory.CreateSummary("latency", "Latencies (OK)", new[] { "status" },
+            new SummaryConfiguration
+            {
+                MaxAge = TimeSpan.FromSeconds(15), Objectives = new QuantileEpsilonPair[]
+                    { new(0.5, 0.05), new(0.99, 0.005), new(0.999, 0.0005) }
+            });
+
+        var attemptsHistogram = metricFactory.CreateHistogram("attempts", "summary of amount for request",
+            new[] { "status" },
+            new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
+
+        var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
+
         var writeLimiter = Policy.RateLimit(runConfig.WriteRps, TimeSpan.FromSeconds(1));
         var readLimiter = Policy.RateLimit(runConfig.ReadRps, TimeSpan.FromSeconds(1));
-        
-        Task.Run(async () =>
+
+        var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(runConfig.ShutdownTime));
+
+        var writeTask = ShootingTask(writeLimiter, "write", Upsert);
+        var readTask = ShootingTask(readLimiter, "read", Select);
+
+        Logger.LogInformation("Started write / read shooting..");
+
+        await Task.WhenAll(readTask, writeTask);
+
+        Logger.LogInformation("Run task is finished");
+        return;
+
+        Task ShootingTask(RateLimitPolicy rateLimitPolicy, string shootingName,
+            Func<T, RunConfig, Gauge?, Task<(int, StatusCode)>> action)
         {
-            
-        })
+            return Task.Run(async () =>
+            {
+                var tasks = new List<Task>();
+
+                while (!cancellationTokenSource.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        tasks.Add(rateLimitPolicy.Execute(async () =>
+                        {
+                            var sw = Stopwatch.StartNew();
+                            var (attempts, statusCode) = await action(client, runConfig, errorsGauge);
+                            string label;
+
+                            if (statusCode != StatusCode.Success)
+                            {
+                                Logger.LogError("Failed {ShootingName} operation code: {StatusCode}", shootingName,
+                                    statusCode);
+                                notOkGauge.Inc();
+                                label = "err";
+                            }
+                            else
+                            {
+                                okGauge.Inc();
+                                label = "ok";
+                            }
+
+                            attemptsHistogram.WithLabels(label).Observe(attempts);
+                            latencySummary.WithLabels(label).Observe(sw.ElapsedMilliseconds);
+                        }));
+                    }
+                    catch (RateLimitRejectedException)
+                    {
+                        Logger.LogInformation("Waiting {ShootingName} tasks", shootingName);
+
+                        await Task.Delay(990, cancellationTokenSource.Token);
+                    }
+                }
+
+                await Task.WhenAll(tasks);
+
+                Logger.LogInformation("{ShootingName} shooting is stopped", shootingName);
+            }, cancellationTokenSource.Token);
+        }
     }
 
-    // return attempt count
-    protected abstract Task<int> Upsert(T client, string upsertSql, Dictionary<string, YdbValue> parameters,
+    // return attempt count & StatusCode operation
+    protected abstract Task<(int, StatusCode)> Upsert(T client, string upsertSql,
+        Dictionary<string, YdbValue> parameters,
         int writeTimeout, Gauge? errorsGauge = null);
 
-    protected abstract Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters, int readTimeout);
+    protected abstract Task<(int, StatusCode, object?)> Select(T client, string selectSql,
+        Dictionary<string, YdbValue> parameters, int readTimeout, Gauge? errorsGauge = null);
 
-    // public async Task CleanUp(CleanUpConfig config)
-    // {
-    //     await CleanUp($"DROP TABLE ${config.TableName}", config.WriteTimeout);
-    // }
-
-    protected abstract Task CleanUp(string dropTableSql, int operationTimeout);
-
-    private Task<int> Upsert(T client, Config config)
+    private Task<(int, StatusCode)> Upsert(T client, Config config, Gauge? errorsGauge = null)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
@@ -131,21 +219,24 @@ public abstract class SloContext<T> where T : IDisposable
                 },
                 { "$payload_double", YdbValue.MakeDouble(Random.Shared.NextDouble()) },
                 { "$payload_timestamp", YdbValue.MakeTimestamp(DateTime.Now) }
-            }, config.WriteTimeout);
+            }, config.WriteTimeout, errorsGauge);
     }
 
     protected abstract Task<T> CreateClient(Config config);
-    
-//     private Task<string> Select(RunConfig config)
-//     {
-//         return Select(
-//             $"""
-//              SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
-//              FROM `{config.TableName}` WHERE id = $id AND hash = Digest::NumericHash($id)
-//              """,
-//             new Dictionary<string, YdbValue>
-//             {
-//                 { "$id", YdbValue.MakeUint64((ulong)Random.Shared.Next(_maxId)) }
-//             }, config.ReadTimeout);
-//     }
+
+    private async Task<(int, StatusCode)> Select(T client, RunConfig config, Gauge? errorsGauge = null)
+    {
+        var (attempts, code, _) = await Select(client,
+            $"""
+             DECLARE $id AS Uint64;
+             SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
+             FROM `{config.TableName}` WHERE id = $id AND hash = Digest::NumericHash($id)
+             """,
+            new Dictionary<string, YdbValue>
+            {
+                { "$id", YdbValue.MakeUint64((ulong)Random.Shared.Next(_maxId)) }
+            }, config.ReadTimeout, errorsGauge);
+
+        return (attempts, code);
+    }
 }

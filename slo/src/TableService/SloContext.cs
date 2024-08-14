@@ -1,5 +1,6 @@
 using Internal;
 using Internal.Cli;
+using Microsoft.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
 using Ydb.Sdk.Services.Table;
@@ -9,6 +10,8 @@ namespace TableService;
 
 public class SloContext : SloContext<TableClient>
 {
+    protected override string JobName => "workload-table-service";
+
     protected override async Task Create(TableClient client, string createTableSql, int operationTimeout)
     {
         var response = await client.SessionExec(
@@ -18,7 +21,7 @@ public class SloContext : SloContext<TableClient>
         response.Status.EnsureSuccess();
     }
 
-    protected override async Task<int> Upsert(TableClient tableClient, string upsertSql,
+    protected override async Task<(int, StatusCode)> Upsert(TableClient tableClient, string upsertSql,
         Dictionary<string, YdbValue> parameters, int writeTimeout, Gauge? errorsGauge = null)
     {
         var txControl = TxControl.BeginSerializableRW().Commit();
@@ -39,28 +42,21 @@ public class SloContext : SloContext<TableClient>
                 }
 
                 errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "retried").Inc();
-                Console.WriteLine(response.Status);
 
                 return response;
             });
 
-        response.Status.EnsureSuccess();
-
-        return attempts;
+        return (attempts, response.Status.StatusCode);
     }
 
-    protected override Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters, int readTimeout)
-    {
-        throw new NotImplementedException();
-    }
-
-    protected override Task CleanUp(string dropTableSql, int operationTimeout)
+    protected override Task<(int, StatusCode, object)> Select(TableClient client, string selectSql,
+        Dictionary<string, YdbValue> parameters, int readTimeout, Gauge? errorsGauge = null)
     {
         throw new NotImplementedException();
     }
 
     protected override async Task<TableClient> CreateClient(Config config)
     {
-        return new TableClient(await Driver.CreateInitialized(new DriverConfig(config.Endpoint, config.Db)));
+        return new TableClient(await Driver.CreateInitialized(new DriverConfig(config.Endpoint, config.Db), Factory));
     }
 }

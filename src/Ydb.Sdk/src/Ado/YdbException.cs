@@ -14,8 +14,9 @@ public class YdbException : DbException
 
     public YdbException(Status status) : base(status.ToString())
     {
+        Code = status.StatusCode;
         var policy = RetrySettings.DefaultInstance.GetRetryRule(status.StatusCode).Policy;
-
+        
         IsTransient = policy == RetryPolicy.Unconditional;
         IsTransientWhenIdempotent = policy != RetryPolicy.None;
         // TODO: Add SQLSTATE message with order with https://en.wikipedia.org/wiki/SQLSTATE
@@ -24,6 +25,8 @@ public class YdbException : DbException
     public override bool IsTransient { get; }
 
     public bool IsTransientWhenIdempotent { get; }
+
+    public StatusCode Code { get; }
 }
 
 public class YdbOperationInProgressException : DbException
