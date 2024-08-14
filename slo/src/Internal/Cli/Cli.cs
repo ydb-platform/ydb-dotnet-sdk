@@ -132,7 +132,7 @@ public static class Cli
         CleanupCommand.SetHandler(async cleanUpConfig => { await CliCommands.CleanUp(cleanUpConfig); },
             new CleanUpConfigBinder(EndpointArgument, DbArgument, TableOption, WriteTimeoutOption));
 
-        RunCommand.SetHandler(async runConfig => { await CliCommands.Run(runConfig); },
+        RunCommand.SetHandler(async runConfig => { await sloContext.Run(runConfig); },
             new RunConfigBinder(EndpointArgument, DbArgument, TableOption, PromPgwOption, ReportPeriodOption,
                 ReadRpsOption, ReadTimeoutOption, WriteRpsOption, WriteTimeoutOption, TimeOption, ShutdownTimeOption));
 

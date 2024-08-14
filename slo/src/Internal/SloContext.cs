@@ -1,5 +1,6 @@
 using Internal.Cli;
 using Microsoft.Extensions.Logging;
+using Polly;
 using Prometheus;
 using Ydb.Sdk.Value;
 
@@ -83,9 +84,16 @@ public abstract class SloContext<T> where T : IDisposable
 
     protected abstract Task Create(T client, string createTableSql, int operationTimeout);
 
-    // public async Task Run(RunConfig runConfig)
-    // {
-    // }
+    public async Task Run(RunConfig runConfig)
+    {
+        var writeLimiter = Policy.RateLimit(runConfig.WriteRps, TimeSpan.FromSeconds(1));
+        var readLimiter = Policy.RateLimit(runConfig.ReadRps, TimeSpan.FromSeconds(1));
+        
+        Task.Run(async () =>
+        {
+            
+        })
+    }
 
     // return attempt count
     protected abstract Task<int> Upsert(T client, string upsertSql, Dictionary<string, YdbValue> parameters,
@@ -126,7 +134,8 @@ public abstract class SloContext<T> where T : IDisposable
             }, config.WriteTimeout);
     }
 
-    public abstract Task<T> CreateClient(Config config);
+    protected abstract Task<T> CreateClient(Config config);
+    
 //     private Task<string> Select(RunConfig config)
 //     {
 //         return Select(

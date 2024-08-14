@@ -59,7 +59,7 @@ public class SloContext : SloContext<TableClient>
         throw new NotImplementedException();
     }
 
-    public override async Task<TableClient> CreateClient(Config config)
+    protected override async Task<TableClient> CreateClient(Config config)
     {
         return new TableClient(await Driver.CreateInitialized(new DriverConfig(config.Endpoint, config.Db)));
     }

@@ -53,7 +53,7 @@ public class SloContext : SloContext<YdbDataSource>
         throw new NotImplementedException();
     }
 
-    public override Task<YdbDataSource> CreateClient(Config config)
+    protected override Task<YdbDataSource> CreateClient(Config config)
     {
         var splitEndpoint = config.Endpoint.Split("://");
         var useTls = splitEndpoint[0] switch
