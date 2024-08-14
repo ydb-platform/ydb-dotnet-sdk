@@ -189,7 +189,7 @@ public abstract class SloContext<T> where T : IDisposable
                         _logger.LogInformation(e, "Waiting {ShootingName} task, count active tasks: {}", shootingName,
                             Interlocked.Read(ref activeTasks));
 
-                        await Task.Delay(e.RetryAfter, cancellationTokenSource.Token);
+                        await Task.Delay(990, cancellationTokenSource.Token);
                     }
                 }
 
