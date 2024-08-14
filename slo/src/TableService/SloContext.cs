@@ -71,7 +71,7 @@ public class SloContext : SloContext<TableClient>
             });
 
         return (attempts, response.Status.StatusCode,
-            response.Status.IsSuccess ? response.Result.ResultSets[0].Rows[0][0].GetInt32() : null);
+            response.Status.IsSuccess ? response.Result.ResultSets[0].Rows[0][0].GetOptionalInt32() : null);
     }
 
     protected override async Task<TableClient> CreateClient(Config config)
