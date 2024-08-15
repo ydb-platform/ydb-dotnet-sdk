@@ -142,7 +142,14 @@ public abstract class SloContext<T> where T : IDisposable
 
         _logger.LogInformation("Started write / read shooting..");
 
-        await Task.WhenAll(readTask, writeTask);
+        try
+        {
+            await Task.WhenAll(readTask, writeTask);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Failed waiting read / write tasks");
+        }
 
         await prometheus.StopAsync();
         await MetricReset(promPgwEndpoint);
@@ -156,12 +163,15 @@ public abstract class SloContext<T> where T : IDisposable
             // ReSharper disable once MethodSupportsCancellation
             return Task.Run(async () =>
             {
-                var tasks = new List<Task>();
-
                 while (!cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     using var lease = await rateLimitPolicy
                         .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
+
+                    if (lease.IsAcquired)
+                    {
+                        continue;
+                    }
 
                     _ = Task.Run(async () =>
                     {
@@ -171,8 +181,6 @@ public abstract class SloContext<T> where T : IDisposable
 
                         if (statusCode != StatusCode.Success)
                         {
-                            _logger.LogError("Failed {ShootingName} operation code: {StatusCode}", shootingName,
-                                statusCode);
                             notOkGauge.Inc();
                             label = "err";
                         }
