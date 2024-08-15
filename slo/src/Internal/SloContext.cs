@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Threading.RateLimiting;
-using Internal.Cli;
 using Microsoft.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
@@ -21,7 +20,7 @@ public abstract class SloContext<T> where T : IDisposable
         _logger = Factory.CreateLogger<SloContext<T>>();
     }
 
-    protected abstract string JobName { get; }
+    protected abstract string Job { get; }
 
     public async Task Create(CreateConfig config)
     {
@@ -97,7 +96,7 @@ public abstract class SloContext<T> where T : IDisposable
     {
         var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
         var client = await CreateClient(runConfig);
-        using var prometheus = new MetricPusher(promPgwEndpoint, JobName, intervalMilliseconds: runConfig.ReportPeriod);
+        using var prometheus = new MetricPusher(promPgwEndpoint, Job, intervalMilliseconds: runConfig.ReportPeriod);
         prometheus.Start();
 
         var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.TableName}`;",
@@ -105,29 +104,6 @@ public abstract class SloContext<T> where T : IDisposable
         _maxId = (int)maxId!;
 
         _logger.LogInformation("Init row count: {MaxId}", _maxId);
-
-        var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
-            { { "jobName", JobName }, { "sdk", "dotnet" }, { "sdkVersion", Environment.Version.ToString() } });
-
-        var okGauge = metricFactory.CreateGauge("oks", "Count of OK");
-        var notOkGauge = metricFactory.CreateGauge("not_oks", "Count of not OK");
-        var latencySummary = metricFactory.CreateSummary("latency", "Latencies (OK)", new[] { "status" },
-            new SummaryConfiguration
-            {
-                MaxAge = TimeSpan.FromSeconds(15), Objectives = new QuantileEpsilonPair[]
-                    { new(0.5, 0.05), new(0.99, 0.005), new(0.999, 0.0005) }
-            });
-
-        var attemptsHistogram = metricFactory.CreateHistogram("attempts", "summary of amount for request",
-            new[] { "status" },
-            new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
-
-        var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
-        foreach (var statusCode in Enum.GetValues<StatusCode>())
-        {
-            errorsGauge.WithLabels(statusCode.ToString(), "retried").IncTo(0);
-            errorsGauge.WithLabels(statusCode.ToString(), "finally").IncTo(0);
-        }
 
         var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
             { Window = TimeSpan.FromSeconds(1), PermitLimit = runConfig.WriteRps, QueueLimit = int.MaxValue });
@@ -157,9 +133,32 @@ public abstract class SloContext<T> where T : IDisposable
         _logger.LogInformation("Run task is finished");
         return;
 
-        Task ShootingTask(RateLimiter rateLimitPolicy, string shootingName,
+        Task ShootingTask(RateLimiter rateLimitPolicy, string jobName,
             Func<T, RunConfig, Gauge?, Task<(int, StatusCode)>> action)
         {
+            var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
+                { { "jobName", jobName }, { "sdk", "dotnet" }, { "sdkVersion", Environment.Version.ToString() } });
+
+            var okGauge = metricFactory.CreateGauge("oks", "Count of OK");
+            var notOkGauge = metricFactory.CreateGauge("not_oks", "Count of not OK");
+            var latencySummary = metricFactory.CreateSummary("latency", "Latencies (OK)", new[] { "status" },
+                new SummaryConfiguration
+                {
+                    MaxAge = TimeSpan.FromSeconds(15), Objectives = new QuantileEpsilonPair[]
+                        { new(0.5, 0.05), new(0.99, 0.005), new(0.999, 0.0005) }
+                });
+
+            var attemptsHistogram = metricFactory.CreateHistogram("attempts", "summary of amount for request",
+                new[] { "status" },
+                new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
+
+            var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
+            foreach (var statusCode in Enum.GetValues<StatusCode>())
+            {
+                errorsGauge.WithLabels(statusCode.ToString(), "retried").IncTo(0);
+                errorsGauge.WithLabels(statusCode.ToString(), "finally").IncTo(0);
+            }
+
             // ReSharper disable once MethodSupportsCancellation
             return Task.Run(async () =>
             {
@@ -198,7 +197,7 @@ public abstract class SloContext<T> where T : IDisposable
                 // ReSharper disable once MethodSupportsCancellation
                 await Task.Delay(TimeSpan.FromSeconds(runConfig.ShutdownTime));
 
-                _logger.LogInformation("{ShootingName} shooting is stopped", shootingName);
+                _logger.LogInformation("{ShootingName} shooting is stopped", jobName);
             });
         }
     }
@@ -257,7 +256,7 @@ public abstract class SloContext<T> where T : IDisposable
 
     private async Task MetricReset(string promPgwEndpoint)
     {
-        var deleteUri = $"{promPgwEndpoint}/job/{JobName}";
+        var deleteUri = $"{promPgwEndpoint}/job/{Job}";
         using var httpClient = new HttpClient();
         await httpClient.DeleteAsync(deleteUri);
     }

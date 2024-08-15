@@ -1,5 +1,4 @@
 using Internal;
-using Internal.Cli;
 using Prometheus;
 using Ydb.Sdk;
 using Ydb.Sdk.Services.Table;
@@ -10,7 +9,7 @@ namespace TableService;
 public class SloContext : SloContext<TableClient>
 {
     private readonly TxControl _txControl = TxControl.BeginSerializableRW().Commit();
-    protected override string JobName => "workload-table-service";
+    protected override string Job => "workload-table-service";
 
     protected override async Task Create(TableClient client, string createTableSql, int operationTimeout)
     {
@@ -39,7 +38,7 @@ public class SloContext : SloContext<TableClient>
                     return response;
                 }
 
-                errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "retried").Inc();
+                errorsGauge?.WithLabels(response.Status.StatusCode.ToString(), "retried").Inc();
 
                 return response;
             });
@@ -65,7 +64,7 @@ public class SloContext : SloContext<TableClient>
                     return response;
                 }
 
-                errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "retried").Inc();
+                errorsGauge?.WithLabels(response.Status.StatusCode.ToString(), "retried").Inc();
 
                 return response;
             });

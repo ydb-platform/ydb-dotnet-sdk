@@ -1,4 +1,4 @@
-namespace Internal.Cli;
+namespace Internal;
 
 public record CreateConfig(
     string Endpoint,

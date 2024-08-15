@@ -1,6 +1,6 @@
 using System.CommandLine;
 
-namespace Internal.Cli;
+namespace Internal;
 
 public static class Cli
 {
@@ -90,16 +90,6 @@ public static class Cli
         WriteTimeoutOption
     };
 
-    private static readonly Command CleanupCommand = new(
-        "cleanup",
-        "drops table in database")
-    {
-        EndpointArgument,
-        DbArgument,
-        TableOption,
-        WriteTimeoutOption
-    };
-
     private static readonly Command RunCommand = new(
         "run",
         "runs workload (read and write to table with sets RPS)")
@@ -120,7 +110,7 @@ public static class Cli
 
     private static readonly RootCommand RootCommand = new("SLO app")
     {
-        CreateCommand, CleanupCommand, RunCommand
+        CreateCommand, RunCommand
     };
 
     public static async Task<int> Run<T>(SloContext<T> sloContext, string[] args) where T : IDisposable
@@ -128,9 +118,6 @@ public static class Cli
         CreateCommand.SetHandler(async createConfig => { await sloContext.Create(createConfig); },
             new CreateConfigBinder(EndpointArgument, DbArgument, TableOption, MinPartitionsCountOption,
                 MaxPartitionsCountOption, PartitionSizeOption, InitialDataCountOption, WriteTimeoutOption));
-
-        CleanupCommand.SetHandler(async cleanUpConfig => { await CliCommands.CleanUp(cleanUpConfig); },
-            new CleanUpConfigBinder(EndpointArgument, DbArgument, TableOption, WriteTimeoutOption));
 
         RunCommand.SetHandler(async runConfig => { await sloContext.Run(runConfig); },
             new RunConfigBinder(EndpointArgument, DbArgument, TableOption, PromPgwOption, ReportPeriodOption,

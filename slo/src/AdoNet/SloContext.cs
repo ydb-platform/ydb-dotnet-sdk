@@ -1,5 +1,4 @@
 using Internal;
-using Internal.Cli;
 using Polly;
 using Prometheus;
 using Ydb.Sdk;
@@ -20,7 +19,7 @@ public class SloContext : SloContext<YdbDataSource>
                 errorsGauge?.WithLabels(((YdbException)e).Code.ToString(), "retried").Inc();
             });
 
-    protected override string JobName => "workload-ado-net";
+    protected override string Job => "workload-ado-net";
 
     protected override async Task Create(YdbDataSource client, string createTableSql, int operationTimeout)
     {

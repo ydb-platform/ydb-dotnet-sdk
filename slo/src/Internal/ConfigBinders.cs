@@ -1,7 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Binding;
 
-namespace Internal.Cli;
+namespace Internal;
 
 public class CreateConfigBinder(
     Argument<string> endpointArgument,
