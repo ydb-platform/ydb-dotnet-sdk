@@ -83,7 +83,7 @@ public class SloContext : SloContext<YdbDataSource>
             return await ydbCommand.ExecuteScalarAsync();
         }, context);
 
-        return (policyResult.Context.TryGetValue("RetryCount", out var countAttempts) ? (int)countAttempts : 0,
+        return (policyResult.Context.TryGetValue("RetryCount", out var countAttempts) ? (int)countAttempts : 1,
             ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success, policyResult.Result);
     }
 
