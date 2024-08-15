@@ -124,7 +124,7 @@ public abstract class SloContext<T> where T : IDisposable
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Failed waiting read / write tasks");
+            _logger.LogInformation(e, "Cancel shooting");
         }
 
         await prometheus.StopAsync();
@@ -167,7 +167,7 @@ public abstract class SloContext<T> where T : IDisposable
                     using var lease = await rateLimitPolicy
                         .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
 
-                    if (lease.IsAcquired)
+                    if (!lease.IsAcquired)
                     {
                         continue;
                     }
