@@ -1,4 +1,5 @@
 using Internal;
+using Microsoft.Extensions.Logging;
 using Polly;
 using Prometheus;
 using Ydb.Sdk;
@@ -15,6 +16,7 @@ public class SloContext : SloContext<YdbDataSource>
             {
                 var errorsGauge = (Gauge)context["errorsGauge"];
 
+                Logger.LogWarning(e, "Failed read / write operation");
                 errorsGauge?.WithLabels(((YdbException)e).Code.StatusName(), "retried").Inc();
             });
 

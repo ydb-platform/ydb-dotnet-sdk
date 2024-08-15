@@ -1,4 +1,5 @@
 using Internal;
+using Microsoft.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
 using Ydb.Sdk.Services.Table;
@@ -38,6 +39,7 @@ public class SloContext : SloContext<TableClient>
                     return response;
                 }
 
+
                 errorsGauge?.WithLabels(response.Status.StatusCode.ToString(), "retried").Inc();
 
                 return response;
@@ -63,6 +65,8 @@ public class SloContext : SloContext<TableClient>
                 {
                     return response;
                 }
+
+                Logger.LogWarning("{}", response.Status.ToString());
 
                 errorsGauge?.WithLabels(response.Status.StatusCode.StatusName(), "retried").Inc();
 
