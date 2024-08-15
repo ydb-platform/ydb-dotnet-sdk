@@ -180,6 +180,7 @@ public abstract class SloContext<T> where T : IDisposable
                     {
                         var sw = Stopwatch.StartNew();
                         var (attempts, statusCode) = await action(client, runConfig, errorsGauge);
+                        sw.Stop();
                         string label;
 
                         if (statusCode != StatusCode.Success)
