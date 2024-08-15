@@ -135,7 +135,7 @@ public abstract class SloContext<T> where T : IDisposable
             { Window = TimeSpan.FromSeconds(1), PermitLimit = runConfig.ReadRps, QueueLimit = int.MaxValue });
 
         var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(runConfig.ShutdownTime));
+        cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(runConfig.Time));
 
         var writeTask = ShootingTask(writeLimiter, "write", Upsert);
         var readTask = ShootingTask(readLimiter, "read", Select);
@@ -153,22 +153,18 @@ public abstract class SloContext<T> where T : IDisposable
         Task ShootingTask(RateLimiter rateLimitPolicy, string shootingName,
             Func<T, RunConfig, Gauge?, Task<(int, StatusCode)>> action)
         {
+            // ReSharper disable once MethodSupportsCancellation
             return Task.Run(async () =>
             {
                 var tasks = new List<Task>();
-
-                long activeTasks = 0;
 
                 while (!cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     using var lease = await rateLimitPolicy
                         .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
 
-                    tasks.Add(Task.Run(async () =>
+                    _ = Task.Run(async () =>
                     {
-                        // ReSharper disable once AccessToModifiedClosure
-                        Interlocked.Increment(ref activeTasks);
-
                         var sw = Stopwatch.StartNew();
                         var (attempts, statusCode) = await action(client, runConfig, errorsGauge);
                         string label;
@@ -186,16 +182,16 @@ public abstract class SloContext<T> where T : IDisposable
                             label = "ok";
                         }
 
-                        Interlocked.Decrement(ref activeTasks);
                         attemptsHistogram.WithLabels(label).Observe(attempts);
                         latencySummary.WithLabels(label).Observe(sw.ElapsedMilliseconds);
-                    }, cancellationTokenSource.Token));
+                    }, cancellationTokenSource.Token);
                 }
 
-                await Task.WhenAll(tasks);
+                // ReSharper disable once MethodSupportsCancellation
+                await Task.Delay(TimeSpan.FromSeconds(runConfig.ShutdownTime));
 
                 _logger.LogInformation("{ShootingName} shooting is stopped", shootingName);
-            }, cancellationTokenSource.Token);
+            });
         }
     }
 
