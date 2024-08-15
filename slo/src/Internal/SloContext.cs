@@ -1,8 +1,7 @@
 using System.Diagnostics;
+using System.Threading.RateLimiting;
 using Internal.Cli;
 using Microsoft.Extensions.Logging;
-using Polly;
-using Polly.RateLimit;
 using Prometheus;
 using Ydb.Sdk;
 using Ydb.Sdk.Value;
@@ -130,8 +129,10 @@ public abstract class SloContext<T> where T : IDisposable
             errorsGauge.WithLabels(statusCode.ToString(), "finally").IncTo(0);
         }
 
-        var writeLimiter = Policy.RateLimit(runConfig.WriteRps, TimeSpan.FromSeconds(1), 10);
-        var readLimiter = Policy.RateLimit(runConfig.ReadRps, TimeSpan.FromSeconds(1), 10);
+        var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+            { Window = TimeSpan.FromSeconds(1), PermitLimit = runConfig.WriteRps, QueueLimit = int.MaxValue });
+        var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+            { Window = TimeSpan.FromSeconds(1), PermitLimit = runConfig.ReadRps, QueueLimit = int.MaxValue });
 
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(runConfig.ShutdownTime));
@@ -149,7 +150,7 @@ public abstract class SloContext<T> where T : IDisposable
         _logger.LogInformation("Run task is finished");
         return;
 
-        Task ShootingTask(RateLimitPolicy rateLimitPolicy, string shootingName,
+        Task ShootingTask(RateLimiter rateLimitPolicy, string shootingName,
             Func<T, RunConfig, Gauge?, Task<(int, StatusCode)>> action)
         {
             return Task.Run(async () =>
@@ -160,42 +161,35 @@ public abstract class SloContext<T> where T : IDisposable
 
                 while (!cancellationTokenSource.Token.IsCancellationRequested)
                 {
-                    try
+                    using var lease = await rateLimitPolicy
+                        .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
+
+                    tasks.Add(Task.Run(async () =>
                     {
-                        tasks.Add(rateLimitPolicy.Execute(async () =>
+                        // ReSharper disable once AccessToModifiedClosure
+                        Interlocked.Increment(ref activeTasks);
+
+                        var sw = Stopwatch.StartNew();
+                        var (attempts, statusCode) = await action(client, runConfig, errorsGauge);
+                        string label;
+
+                        if (statusCode != StatusCode.Success)
                         {
-                            // ReSharper disable once AccessToModifiedClosure
-                            Interlocked.Increment(ref activeTasks);
+                            _logger.LogError("Failed {ShootingName} operation code: {StatusCode}", shootingName,
+                                statusCode);
+                            notOkGauge.Inc();
+                            label = "err";
+                        }
+                        else
+                        {
+                            okGauge.Inc();
+                            label = "ok";
+                        }
 
-                            var sw = Stopwatch.StartNew();
-                            var (attempts, statusCode) = await action(client, runConfig, errorsGauge);
-                            string label;
-
-                            if (statusCode != StatusCode.Success)
-                            {
-                                _logger.LogError("Failed {ShootingName} operation code: {StatusCode}", shootingName,
-                                    statusCode);
-                                notOkGauge.Inc();
-                                label = "err";
-                            }
-                            else
-                            {
-                                okGauge.Inc();
-                                label = "ok";
-                            }
-
-                            Interlocked.Decrement(ref activeTasks);
-                            attemptsHistogram.WithLabels(label).Observe(attempts);
-                            latencySummary.WithLabels(label).Observe(sw.ElapsedMilliseconds);
-                        }));
-                    }
-                    catch (RateLimitRejectedException e)
-                    {
-                        _logger.LogInformation(e, "Waiting {ShootingName} task, count active tasks: {}", shootingName,
-                            Interlocked.Read(ref activeTasks));
-
-                        await Task.Delay(e.RetryAfter, cancellationTokenSource.Token);
-                    }
+                        Interlocked.Decrement(ref activeTasks);
+                        attemptsHistogram.WithLabels(label).Observe(attempts);
+                        latencySummary.WithLabels(label).Observe(sw.ElapsedMilliseconds);
+                    }, cancellationTokenSource.Token));
                 }
 
                 await Task.WhenAll(tasks);
