@@ -106,19 +106,3 @@ services:
     depends_on:
       slo-create:
         condition: service_completed_successfully
-
-  slo-cleanup:
-    build:
-      context: ../..
-      dockerfile: slo/src/Dockerfile
-    command:
-      - 'cleanup'
-      - 'http://ydb:2136'
-      - '/local'
-      - '--table-name'
-      - 'slo-dotnet'
-    networks:
-      - monitor-net
-    depends_on:
-      slo-run:
-        condition: service_completed_successfully

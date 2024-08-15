@@ -1,5 +1,5 @@
 using Internal;
-using Internal.Cli;
+using Microsoft.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
 using Ydb.Sdk.Services.Table;
@@ -9,6 +9,9 @@ namespace TableService;
 
 public class SloContext : SloContext<TableClient>
 {
+    private readonly TxControl _txControl = TxControl.BeginSerializableRW().Commit();
+    protected override string Job => "workload-table-service";
+
     protected override async Task Create(TableClient client, string createTableSql, int operationTimeout)
     {
         var response = await client.SessionExec(
@@ -18,11 +21,9 @@ public class SloContext : SloContext<TableClient>
         response.Status.EnsureSuccess();
     }
 
-    protected override async Task<int> Upsert(TableClient tableClient, string upsertSql,
+    protected override async Task<(int, StatusCode)> Upsert(TableClient tableClient, string upsertSql,
         Dictionary<string, YdbValue> parameters, int writeTimeout, Gauge? errorsGauge = null)
     {
-        var txControl = TxControl.BeginSerializableRW().Commit();
-
         var querySettings = new ExecuteDataQuerySettings
             { OperationTimeout = TimeSpan.FromSeconds(writeTimeout) };
 
@@ -32,35 +33,52 @@ public class SloContext : SloContext<TableClient>
             async session =>
             {
                 attempts++;
-                var response = await session.ExecuteDataQuery(upsertSql, txControl, parameters, querySettings);
+                var response = await session.ExecuteDataQuery(upsertSql, _txControl, parameters, querySettings);
                 if (response.Status.IsSuccess)
                 {
                     return response;
                 }
 
-                errorsGauge?.WithLabels(Utils.GetResonseStatusName(response.Status.StatusCode), "retried").Inc();
-                Console.WriteLine(response.Status);
+
+                errorsGauge?.WithLabels(response.Status.StatusCode.ToString(), "retried").Inc();
 
                 return response;
             });
 
-        response.Status.EnsureSuccess();
-
-        return attempts;
+        return (attempts, response.Status.StatusCode);
     }
 
-    protected override Task<string> Select(string selectSql, Dictionary<string, YdbValue> parameters, int readTimeout)
+    protected override async Task<(int, StatusCode, object?)> Select(TableClient tableClient, string selectSql,
+        Dictionary<string, YdbValue> parameters, int readTimeout, Gauge? errorsGauge = null)
     {
-        throw new NotImplementedException();
+        var querySettings = new ExecuteDataQuerySettings
+            { OperationTimeout = TimeSpan.FromSeconds(readTimeout) };
+
+        var attempts = 0;
+
+        var response = (ExecuteDataQueryResponse)await tableClient.SessionExec(
+            async session =>
+            {
+                attempts++;
+                var response = await session.ExecuteDataQuery(selectSql, _txControl, parameters, querySettings);
+                if (response.Status.IsSuccess)
+                {
+                    return response;
+                }
+
+                Logger.LogWarning("{}", response.Status.ToString());
+
+                errorsGauge?.WithLabels(response.Status.StatusCode.StatusName(), "retried").Inc();
+
+                return response;
+            });
+
+        return (attempts, response.Status.StatusCode,
+            response.Status.IsSuccess ? response.Result.ResultSets[0].Rows[0][0].GetOptionalInt32() : null);
     }
 
-    protected override Task CleanUp(string dropTableSql, int operationTimeout)
+    protected override async Task<TableClient> CreateClient(Config config)
     {
-        throw new NotImplementedException();
-    }
-
-    public override async Task<TableClient> CreateClient(Config config)
-    {
-        return new TableClient(await Driver.CreateInitialized(new DriverConfig(config.Endpoint, config.Db)));
+        return new TableClient(await Driver.CreateInitialized(new DriverConfig(config.Endpoint, config.Db), Factory));
     }
 }
