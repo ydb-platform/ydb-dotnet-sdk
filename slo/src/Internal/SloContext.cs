@@ -125,8 +125,8 @@ public abstract class SloContext<T> where T : IDisposable
 
         var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
 
-        var writeLimiter = Policy.RateLimit(runConfig.WriteRps, TimeSpan.FromSeconds(1), runConfig.WriteRps);
-        var readLimiter = Policy.RateLimit(runConfig.ReadRps, TimeSpan.FromSeconds(1), runConfig.ReadRps);
+        var writeLimiter = Policy.RateLimit(runConfig.WriteRps, TimeSpan.FromSeconds(1), 10);
+        var readLimiter = Policy.RateLimit(runConfig.ReadRps, TimeSpan.FromSeconds(1), 10);
 
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(runConfig.ShutdownTime));
@@ -189,7 +189,7 @@ public abstract class SloContext<T> where T : IDisposable
                         _logger.LogInformation(e, "Waiting {ShootingName} task, count active tasks: {}", shootingName,
                             Interlocked.Read(ref activeTasks));
 
-                        await Task.Delay(990, cancellationTokenSource.Token);
+                        await Task.Delay(e.RetryAfter, cancellationTokenSource.Token);
                     }
                 }
 
