@@ -10,10 +10,9 @@ namespace AdoNet;
 public class SloContext : SloContext<YdbDataSource>
 {
     private readonly AsyncPolicy _policy = Policy.Handle<YdbException>(exception => exception.IsTransient)
-        .WaitAndRetryAsync(10, attempt => TimeSpan.FromSeconds(attempt),
-            (e, _, retryCount, context) =>
+        .WaitAndRetryAsync(10, attempt => TimeSpan.FromMilliseconds(attempt * 10),
+            (e, _, _, context) =>
             {
-                context["RetryCount"] = retryCount;
                 var errorsGauge = (Gauge)context["errorsGauge"];
 
                 errorsGauge?.WithLabels(((YdbException)e).Code.StatusName(), "retried").Inc();
@@ -68,8 +67,10 @@ public class SloContext : SloContext<YdbDataSource>
             context["errorsGauge"] = errorsGauge;
         }
 
+        var attempts = 0;
         var policyResult = await _policy.ExecuteAndCaptureAsync(async _ =>
         {
+            attempts++;
             await using var ydbConnection = await dataSource.OpenConnectionAsync();
 
             var ydbCommand = new YdbCommand(ydbConnection)
@@ -83,8 +84,7 @@ public class SloContext : SloContext<YdbDataSource>
             return await ydbCommand.ExecuteScalarAsync();
         }, context);
 
-        return (policyResult.Context.TryGetValue("RetryCount", out var countAttempts) ? (int)countAttempts : 1,
-            ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success, policyResult.Result);
+        return (attempts, ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success, policyResult.Result);
     }
 
     protected override Task<YdbDataSource> CreateClient(Config config)
