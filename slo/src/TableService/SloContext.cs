@@ -64,7 +64,7 @@ public class SloContext : SloContext<TableClient>
                     return response;
                 }
 
-                errorsGauge?.WithLabels(response.Status.StatusCode.ToString(), "retried").Inc();
+                errorsGauge?.WithLabels(response.Status.StatusCode.StatusName(), "retried").Inc();
 
                 return response;
             });

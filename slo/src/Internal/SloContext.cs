@@ -159,8 +159,8 @@ public abstract class SloContext<T> where T : IDisposable
             var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
             foreach (var statusCode in Enum.GetValues<StatusCode>())
             {
-                errorsGauge.WithLabels(statusCode.ToString(), "retried").IncTo(0);
-                errorsGauge.WithLabels(statusCode.ToString(), "finally").IncTo(0);
+                errorsGauge.WithLabels(statusCode.StatusName(), "retried").IncTo(0);
+                errorsGauge.WithLabels(statusCode.StatusName(), "finally").IncTo(0);
             }
 
             // ReSharper disable once MethodSupportsCancellation
@@ -263,5 +263,14 @@ public abstract class SloContext<T> where T : IDisposable
         var deleteUri = $"{promPgwEndpoint}/job/{Job}";
         using var httpClient = new HttpClient();
         await httpClient.DeleteAsync(deleteUri);
+    }
+}
+
+public static class StatusCodeExtension
+{
+    public static string StatusName(this StatusCode statusCode)
+    {
+        var prefix = statusCode >= StatusCode.ClientTransportResourceExhausted ? "GRPC" : "YDB";
+        return $"{prefix}_{statusCode}";
     }
 }

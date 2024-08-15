@@ -16,7 +16,7 @@ public class SloContext : SloContext<YdbDataSource>
                 context["RetryCount"] = retryCount;
                 var errorsGauge = (Gauge)context["errorsGauge"];
 
-                errorsGauge?.WithLabels(((YdbException)e).Code.ToString(), "retried").Inc();
+                errorsGauge?.WithLabels(((YdbException)e).Code.StatusName(), "retried").Inc();
             });
 
     protected override string Job => "workload-ado-net";
