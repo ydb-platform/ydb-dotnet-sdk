@@ -124,6 +124,11 @@ public abstract class SloContext<T> where T : IDisposable
             new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
 
         var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
+        foreach (var statusCode in Enum.GetValues<StatusCode>())
+        {
+            errorsGauge.WithLabels(statusCode.ToString(), "retried").IncTo(0);
+            errorsGauge.WithLabels(statusCode.ToString(), "finally").IncTo(0);
+        }
 
         var writeLimiter = Policy.RateLimit(runConfig.WriteRps, TimeSpan.FromSeconds(1), 10);
         var readLimiter = Policy.RateLimit(runConfig.ReadRps, TimeSpan.FromSeconds(1), 10);
