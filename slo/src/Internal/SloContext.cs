@@ -187,6 +187,7 @@ public abstract class SloContext<T> where T : IDisposable
                         {
                             notOkGauge.Inc();
                             label = "err";
+                            errorsGauge.WithLabels(statusCode.StatusName(), "finally").Inc();
                         }
                         else
                         {
