@@ -106,9 +106,13 @@ public abstract class SloContext<T> where T : IDisposable
         _logger.LogInformation("Init row count: {MaxId}", _maxId);
 
         var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
-            { Window = TimeSpan.FromSeconds(1), PermitLimit = runConfig.WriteRps, QueueLimit = int.MaxValue });
+        {
+            Window = TimeSpan.FromMilliseconds(100), PermitLimit = runConfig.WriteRps / 10, QueueLimit = int.MaxValue
+        });
         var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
-            { Window = TimeSpan.FromSeconds(1), PermitLimit = runConfig.ReadRps, QueueLimit = int.MaxValue });
+        {
+            Window = TimeSpan.FromMilliseconds(100), PermitLimit = runConfig.ReadRps / 10, QueueLimit = int.MaxValue
+        });
 
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(runConfig.Time));

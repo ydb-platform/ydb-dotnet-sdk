@@ -58,6 +58,12 @@ jobs:
           language0: '.NET SDK over table-service'
           workload_build_context0: ../..
           workload_build_options0: -f Dockerfile --build-arg SRC_PATH=TableService
+          
+          language_id1: 'ado-net'
+          workload_path1: 'slo/src'
+          language1: 'ADO.NET over query-service'
+          workload_build_context1: ../..
+          workload_build_options1: -f Dockerfile --build-arg SRC_PATH=AdoNet
 
       - uses: actions/upload-artifact@v3
         if: always() && env.DOCKER_REPO != null
