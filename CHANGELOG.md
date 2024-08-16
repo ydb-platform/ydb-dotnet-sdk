@@ -1,4 +1,3 @@
-## v0.5.0
 - ADO.NET over query-service
 - Add EndpointPool
 - Add SessionPool 2.0
