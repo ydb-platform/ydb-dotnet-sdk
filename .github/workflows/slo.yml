@@ -33,6 +33,7 @@ jobs:
         if: env.DOCKER_REPO != null
         env:
           DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
+        continue-on-error: true
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KUBECONFIG_B64: ${{ secrets.SLO_KUBE_CONFIG }}
