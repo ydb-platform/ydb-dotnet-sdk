@@ -1,3 +1,7 @@
+- ADO.NET over query-service
+- Add EndpointPool
+- Add SessionPool 2.0
+
 ## v0.4.0
 - Fix bug: rounding down when inserting a Timestamp YDB type
 - ChannelCache has been implemented using ChannelPool and EndpointPool
