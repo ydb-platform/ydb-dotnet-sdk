@@ -233,9 +233,8 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
         var resultProto = response.Operation.Result.Unpack<ListEndpointsResult>();
 
-        _logger.LogInformation($"Successfully discovered endpoints: {resultProto.Endpoints.Count}" +
-                               $", self location: {resultProto.SelfLocation}" +
-                               $", sdk info: {_sdkInfo}");
+        _logger.LogInformation("Successfully discovered endpoints: {}, self location: {}, sdk info: {}",
+            resultProto.Endpoints.Count, resultProto.SelfLocation, _sdkInfo);
 
         _endpointPool.Reset(resultProto.Endpoints
             .Select(endpointSettings => new EndpointSettings(

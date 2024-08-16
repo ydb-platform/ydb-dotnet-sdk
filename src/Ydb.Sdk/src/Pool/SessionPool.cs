@@ -7,17 +7,18 @@ namespace Ydb.Sdk.Pool;
 
 internal abstract class SessionPool<TSession> where TSession : SessionBase<TSession>
 {
-    private readonly ILogger<SessionPool<TSession>> _logger;
     private readonly SemaphoreSlim _semaphore;
     private readonly ConcurrentQueue<TSession> _idleSessions = new();
     private readonly int _size;
+
+    protected readonly ILogger<SessionPool<TSession>> Logger;
 
     private volatile int _waitingCount;
     private volatile bool _disposed;
 
     protected SessionPool(ILogger<SessionPool<TSession>> logger, int? maxSessionPool = null)
     {
-        _logger = logger;
+        Logger = logger;
         _size = maxSessionPool ?? 100;
         _semaphore = new SemaphoreSlim(_size);
     }
@@ -41,6 +42,8 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
         if (session != null) // not active
         {
+            Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
+
             _ = DeleteNotActiveSession(session);
         }
 
@@ -48,16 +51,11 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             return await CreateSession();
         }
-        catch (Driver.TransportException) // Transport exception
+        catch (Exception e)
         {
             Release();
 
-            throw;
-        }
-        catch (StatusUnsuccessfulException)
-        {
-            Release();
-
+            Logger.LogError(e, "Failed to create a session");
             throw;
         }
     }
@@ -104,7 +102,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
                         throw;
                     }
 
-                    _logger.LogTrace(
+                    Logger.LogTrace(
                         "Retry: attempt {attempt}, Session ${session?.SessionId}, idempotent error {status} retrying",
                         attempt, session?.SessionId, statusErr);
                     await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
@@ -162,7 +160,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     {
         return DeleteSession(session).ContinueWith(s =>
         {
-            _logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
+            Logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
         });
     }
 
