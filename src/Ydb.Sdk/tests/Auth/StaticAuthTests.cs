@@ -88,26 +88,26 @@ public class StaticAuthTests : IDisposable
     }
 
 
-    [Fact]
+    [Fact(Timeout = 5_000)]
     public async Task GoodAuth()
     {
         await CheckAuth("test_password", "test_password");
     }
 
-    [Fact]
+    [Fact(Timeout = 5_000)]
     public async Task NoPasswordAuth()
     {
         await CheckAuth(null, null);
     }
 
-    [Fact]
+    [Fact(Timeout = 5_000)]
     public async Task WrongPassword()
     {
         await Assert.ThrowsAsync<InvalidCredentialsException>(
             async () => await CheckAuth("good_password", "wrong_password", maxRetries: 1));
     }
 
-    [Fact]
+    [Fact(Timeout = 5_000)]
     public async Task NotExistAuth()
     {
         var driverConfig = new DriverConfig(
