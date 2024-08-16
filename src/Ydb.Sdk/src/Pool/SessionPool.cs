@@ -43,7 +43,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         if (session != null) // not active
         {
             Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
-            
+
             _ = DeleteNotActiveSession(session);
         }
 
