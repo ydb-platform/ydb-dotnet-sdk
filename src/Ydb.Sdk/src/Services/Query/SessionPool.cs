@@ -48,7 +48,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             try
             {
                 await using var stream = _driver.StreamCall(QueryService.AttachSessionMethod, new AttachSessionRequest
-                    { SessionId = response.SessionId }, AttachSessionSettings);
+                    { SessionId = session.SessionId }, AttachSessionSettings);
 
                 if (!await stream.MoveNextAsync())
                 {
@@ -64,10 +64,18 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                 {
                     await foreach (var sessionState in stream) // watch attach stream session cycle life
                     {
-                        session.OnStatus(Status.FromProto(sessionState.Status, sessionState.Issues));
+                        var sessionStateStatus = Status.FromProto(sessionState.Status, sessionState.Issues);
 
+                        Logger.LogDebug("Session[{SessionId}] was received the status from the attach stream: {Status}",
+                            session.SessionId, sessionStateStatus);
+
+                        session.OnStatus(sessionStateStatus);
+
+                        // ReSharper disable once InvertIf
                         if (!session.IsActive)
                         {
+                            Logger.LogWarning("Session[{SessionId}] is deactivated", session.SessionId);
+
                             return;
                         }
                     }
@@ -85,6 +93,8 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             finally
             {
                 session.IsActive = false;
+
+                Logger.LogTrace("Attached stream is closed");
             }
         });
 
