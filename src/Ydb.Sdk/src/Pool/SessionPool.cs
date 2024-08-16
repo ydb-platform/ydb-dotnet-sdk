@@ -51,7 +51,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             return await CreateSession();
         }
-        catch (Exception e) // Transport exception
+        catch (Exception e)
         {
             Release();
 
