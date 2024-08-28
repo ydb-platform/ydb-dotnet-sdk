@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using Google.Protobuf.WellKnownTypes;
-using Grpc.Core;
 using Ydb.Operations;
 
 namespace Ydb.Sdk;
