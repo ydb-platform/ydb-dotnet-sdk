@@ -11,6 +11,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
     private readonly YdbTransaction? _ydbTransaction;
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
+    private readonly Action<Status> _onStatus;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -48,17 +49,22 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
     private int RowsCount => ReaderMetadata.RowsCount;
 
-    private YdbDataReader(IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream, YdbTransaction? ydbTransaction)
+    private YdbDataReader(
+        IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
+        Action<Status> onStatus,
+        YdbTransaction? ydbTransaction)
     {
         _stream = resultSetStream;
+        _onStatus = onStatus;
         _ydbTransaction = ydbTransaction;
     }
 
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
+        Action<Status> onStatus,
         YdbTransaction? ydbTransaction = null)
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, ydbTransaction);
+        var ydbDataReader = new YdbDataReader(resultSetStream, onStatus, ydbTransaction);
         await ydbDataReader.Init();
 
         return ydbDataReader;
@@ -474,7 +480,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                     _issueMessagesInStream.AddRange(_stream.Current.Issues);
                 }
 
-                throw new YdbException(Status.FromProto(part.Status, _issueMessagesInStream));
+                var status = Status.FromProto(part.Status, _issueMessagesInStream);
+
+                _onStatus(status);
+
+                throw new YdbException(status);
             }
 
             _currentResultSet = part.ResultSet?.FromProto();
@@ -497,6 +507,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         catch (Driver.TransportException e)
         {
             OnFailReadStream();
+
+            _onStatus(e.Status);
 
             throw new YdbException(e.Status);
         }

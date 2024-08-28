@@ -11,7 +11,8 @@ public class YdbDataReaderTests
     [Fact]
     public async Task BasedIteration_WhenNotCallMethodRead_ThrowException()
     {
-        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess());
+        var statuses = new List<Status>();
+        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(), statuses.Add);
 
         // Read first metadata
         Assert.True(reader.HasRows);
@@ -36,19 +37,25 @@ public class YdbDataReaderTests
 
         Assert.Equal("The reader is closed",
             Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
+        Assert.Empty(statuses);
     }
 
     [Fact]
     public void CreateYdbDataReader_WhenAbortedStatus_ThrowException()
     {
+        var statuses = new List<Status>();
         Assert.Equal("Status: Aborted", Assert.Throws<YdbException>(
-            () => YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed).GetAwaiter().GetResult()).Message);
+                () => YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed, statuses.Add).GetAwaiter().GetResult())
+            .Message);
+        Assert.Single(statuses);
+        Assert.Equal(StatusCode.Aborted, statuses[0].StatusCode);
     }
 
     [Fact]
     public async Task NextResult_WhenNextResultSkipResultSet_ReturnNextResultSet()
     {
-        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2));
+        var statuses = new List<Status>();
+        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2), statuses.Add);
 
         Assert.True(reader.NextResult());
         Assert.True(reader.NextResult());
@@ -57,12 +64,14 @@ public class YdbDataReaderTests
 
         Assert.False(reader.Read());
         Assert.False(reader.NextResult());
+        Assert.Empty(statuses);
     }
 
     [Fact]
     public async Task NextResult_WhenFirstRead_ReturnResultSet()
     {
-        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2));
+        var statuses = new List<Status>();
+        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2), statuses.Add);
 
         Assert.True(reader.Read());
         Assert.True((bool)reader.GetValue(0));
@@ -74,12 +83,14 @@ public class YdbDataReaderTests
 
         Assert.False(reader.NextResult());
         Assert.False(reader.Read());
+        Assert.Empty(statuses);
     }
 
     [Fact]
     public async Task NextResult_WhenLongResultSet_ReturnResultSet()
     {
-        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2, true));
+        var statuses = new List<Status>();
+        var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2, true), statuses.Add);
 
         Assert.True(reader.Read());
         Assert.True((bool)reader.GetValue(0));
@@ -93,11 +104,13 @@ public class YdbDataReaderTests
 
         Assert.False(reader.NextResult());
         Assert.False(reader.Read());
+        Assert.Empty(statuses);
     }
 
     [Fact]
     public async Task Read_WhenReadAsyncThrowException_AggregateIssuesBeforeErrorAndAfter()
     {
+        var statuses = new List<Status>();
         var result = ResultSet.Parser.ParseJson(
             "{ \"columns\": [ { \"name\": \"column0\", " +
             "\"type\": { \"typeId\": \"BOOL\" } } ], " +
@@ -116,7 +129,7 @@ public class YdbDataReaderTests
         nextFailPart.Issues.Add(new IssueMessage { Message = "Some message 3" });
 
         var reader = await YdbDataReader.CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
-            new List<ExecuteQueryResponsePart> { successPart, failPart, nextFailPart }));
+            new List<ExecuteQueryResponsePart> { successPart, failPart, nextFailPart }), statuses.Add);
 
         Assert.True(reader.Read());
         Assert.Equal(@"Status: Aborted, Issues:
@@ -125,6 +138,8 @@ public class YdbDataReaderTests
 [0] Fatal: Some message 2
 [0] Fatal: Some message 3
 ", Assert.Throws<YdbException>(() => reader.Read()).Message);
+        Assert.Single(statuses);
+        Assert.Equal(StatusCode.Aborted, statuses[0].StatusCode);
     }
 
     private static MockAsyncEnumerator<ExecuteQueryResponsePart> EnumeratorSuccess(int size = 1,
