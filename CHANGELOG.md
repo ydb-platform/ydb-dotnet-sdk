@@ -1,3 +1,6 @@
+- Check status of the transport or server for an invalidated session
+- Fixed NPE in DescribeTable
+
 ## v0.6.0
 - ADO.NET over query-service
 - Add EndpointPool
