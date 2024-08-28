@@ -86,7 +86,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
                     StatusUnsuccessfulException unsuccessfulException => unsuccessfulException.Status,
                     _ => null
                 };
-                
+
                 if (attempt == retrySettings.MaxAttempts - 1)
                 {
                     if (statusErr != null)

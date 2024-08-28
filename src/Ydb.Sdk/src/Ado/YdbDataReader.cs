@@ -50,7 +50,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private int RowsCount => ReaderMetadata.RowsCount;
 
     private YdbDataReader(
-        IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream, 
+        IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
         Action<Status> onStatus,
         YdbTransaction? ydbTransaction)
     {
@@ -481,9 +481,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 }
 
                 var status = Status.FromProto(part.Status, _issueMessagesInStream);
-                
+
                 _onStatus(status);
-                
+
                 throw new YdbException(status);
             }
 
@@ -507,7 +507,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         catch (Driver.TransportException e)
         {
             OnFailReadStream();
-            
+
             _onStatus(e.Status);
 
             throw new YdbException(e.Status);
