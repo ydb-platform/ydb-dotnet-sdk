@@ -1,7 +1,8 @@
 using Xunit;
+using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Tests.Fixture;
 
-namespace Ydb.Sdk.Tests.Table;
+namespace Ydb.Sdk.Tests;
 
 [Trait("Category", "Integration")]
 public class DescribeTableTests : IClassFixture<TableClientFixture>
@@ -29,7 +30,10 @@ public class DescribeTableTests : IClassFixture<TableClientFixture>
 
         await Utils.CreateSimpleTable(_tableClientFixture.TableClient, tablePath, columnName);
 
-        var describeResponse = await _tableClientFixture.TableClient.DescribeTable(tablePath);
+        var describeResponse = await _tableClientFixture.TableClient.DescribeTable(tablePath, new DescribeTableSettings
+        {
+            OperationTimeout = TimeSpan.FromSeconds(5)
+        }.WithTableStats());
         describeResponse.Status.EnsureSuccess();
         Assert.True(describeResponse.Result.PrimaryKey.SequenceEqual(new[] { columnName }));
 

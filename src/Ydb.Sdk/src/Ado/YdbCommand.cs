@@ -175,8 +175,9 @@ public sealed class YdbCommand : DbCommand
             ? new ExecuteQuerySettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
             : ExecuteQuerySettings.DefaultInstance;
 
-        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(YdbConnection.Session.ExecuteQuery(_commandText,
-            DbParameterCollection.YdbParameters, execSettings, Transaction?.TransactionControl), Transaction);
+        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(YdbConnection.Session.ExecuteQuery(
+                _commandText, DbParameterCollection.YdbParameters, execSettings, Transaction?.TransactionControl),
+            YdbConnection.Session.OnStatus, Transaction);
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;

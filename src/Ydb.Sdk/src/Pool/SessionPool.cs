@@ -80,20 +80,26 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             }
             catch (Exception e)
             {
-                if (attempt == retrySettings.MaxAttempts - 1)
-                {
-                    throw;
-                }
-
                 var statusErr = e switch
                 {
                     Driver.TransportException transportException => transportException.Status,
                     StatusUnsuccessfulException unsuccessfulException => unsuccessfulException.Status,
                     _ => null
                 };
+                
+                if (attempt == retrySettings.MaxAttempts - 1)
+                {
+                    if (statusErr != null)
+                    {
+                        session?.OnStatus(statusErr);
+                    }
+
+                    throw;
+                }
 
                 if (statusErr != null)
                 {
+                    session?.OnStatus(statusErr);
                     var retryRule = retrySettings.GetRetryRule(statusErr.StatusCode);
 
                     if (retryRule.Policy == RetryPolicy.None ||
@@ -103,8 +109,10 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
                     }
 
                     Logger.LogTrace(
-                        "Retry: attempt {attempt}, Session ${session?.SessionId}, idempotent error {status} retrying",
+                        "Retry: attempt {attempt}, Session ${session.SessionId}, idempotent error {status} retrying",
                         attempt, session?.SessionId, statusErr);
+
+
                     await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
                 }
                 else

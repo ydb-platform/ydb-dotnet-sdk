@@ -65,7 +65,7 @@ public class TableStats
     public ulong StoreSize { get; }
     public ulong Partitions { get; }
     public DateTime CreationTime { get; }
-    public DateTime ModificationTime { get; }
+    public DateTime? ModificationTime { get; }
 
     internal TableStats(Ydb.Table.TableStats? proto)
     {
@@ -79,7 +79,7 @@ public class TableStats
         StoreSize = proto.StoreSize;
         Partitions = proto.Partitions;
         CreationTime = proto.CreationTime.ToDateTime();
-        ModificationTime = proto.ModificationTime.ToDateTime();
+        ModificationTime = proto.ModificationTime?.ToDateTime();
     }
 }
 
