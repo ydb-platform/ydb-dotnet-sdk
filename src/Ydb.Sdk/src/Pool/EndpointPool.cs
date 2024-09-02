@@ -129,7 +129,8 @@ internal class EndpointPool
 
             _preferredEndpointCount = preferredEndpointCount;
 
-            _logger.LogWarning("Endpoint {Endpoint} was pessimized. New pessimization ratio: {} / {}",
+            _logger.LogWarning(
+                "Endpoint {Endpoint} was pessimized. New pessimization ratio: {PessimizedCount} / {EndpointsCount}",
                 endpoint, pessimizedCount, _sortedByPriorityEndpoints.Length);
 
             return 100 * pessimizedCount > _sortedByPriorityEndpoints.Length * DiscoveryDegradationLimit;

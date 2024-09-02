@@ -1,3 +1,6 @@
+## v0.6.2
+- Fixed bug: adding correct placeholders to all logging calls with parameters
+
 ## v0.6.1
 - Check status of the transport or server for an invalidated session
 - Fixed NPE in DescribeTable
