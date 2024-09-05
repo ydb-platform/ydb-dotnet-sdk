@@ -71,7 +71,7 @@ public sealed class YdbParameter : DbParameter
         set => _parameterName = value ?? throw new YdbException("ParameterName must not be null!");
     }
 
-    [AllowNull] [DefaultValue("")] public override string SourceColumn { get; set; } = String.Empty;
+    [AllowNull] [DefaultValue("")] public override string SourceColumn { get; set; } = string.Empty;
     public override object? Value { get; set; }
     public override bool SourceColumnNullMapping { get; set; }
     public override int Size { get; set; }
