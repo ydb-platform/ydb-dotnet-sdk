@@ -1,3 +1,4 @@
+## v0.6.3
 - Fixed bug: parameter type mismatch, when setting optional with null
 
 ## v0.6.2
