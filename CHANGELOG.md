@@ -1,3 +1,5 @@
+- Fixed bug: parameter type mismatch, when setting optional with null
+
 ## v0.6.2
 - Fixed bug: adding correct placeholders to all logging calls with parameters
 

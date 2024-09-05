@@ -13,9 +13,10 @@ public class YdbParameterTests
     [Fact]
     public void YdbValue_WhenValueIsNullAndDbTypeIsObject_ThrowException()
     {
-        Assert.Equal(YdbValue.Null, new YdbParameter().YdbValue);
-        Assert.Equal("Error converting System.Object to YdbValue", Assert.Throws<YdbException>(() =>
-            new YdbParameter("$param", new object()).YdbValue).Message);
+        Assert.Equal("Writing value of 'null' is not supported for parameters having DbType 'Object'",
+            Assert.Throws<InvalidCastException>(() => new YdbParameter().YdbValue).Message);
+        Assert.Equal("Writing value of 'System.Object' is not supported for parameters having DbType 'Object'",
+            Assert.Throws<InvalidCastException>(() => new YdbParameter("$param", new object()).YdbValue).Message);
     }
 
     [Theory]
@@ -25,7 +26,7 @@ public class YdbParameterTests
         Assert.Equal(data.Expected, data.FetchFun(new YdbParameter("$parameter", data.DbType, data.Expected)
             { IsNullable = data.IsNullable }.YdbValue));
 
-        if (!data.IsNullable && data.DbType != DbType.DateTime2 && data.DbType != DbType.Date && data.Expected != null)
+        if (!data.IsNullable && data.DbType != DbType.DateTime && data.DbType != DbType.Date && data.Expected != null)
         {
             Assert.Equal(data.Expected, data.FetchFun(new YdbParameter("$parameter", data.Expected).YdbValue));
         }
@@ -57,14 +58,14 @@ public class YdbParameterTests
     [Fact]
     public void YdbValue_WhenUnCastTypes_ThrowInvalidCastException()
     {
-        Assert.Equal("Writing values of 'System.Int32' is not supported for parameters having DbType 'Boolean'",
+        Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'Boolean'",
             Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.Boolean, 1).YdbValue).Message);
-        Assert.Equal("Writing values of 'System.Int32' is not supported for parameters having DbType 'SByte'",
+        Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'SByte'",
             Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.SByte, 1).YdbValue).Message);
-        Assert.Equal("Writing values of 'System.String' is not supported for parameters having DbType 'Boolean'",
+        Assert.Equal("Writing value of 'System.String' is not supported for parameters having DbType 'Boolean'",
             Assert.Throws<InvalidCastException>(() => new YdbParameter("$parameter", DbType.Boolean)
                 { Value = "true" }.YdbValue).Message);
-        Assert.Equal("Writing values of 'System.Double' is not supported for parameters having DbType 'Single'",
+        Assert.Equal("Writing value of 'System.Double' is not supported for parameters having DbType 'Single'",
             Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.Single, 1.1).YdbValue).Message);
     }
 
@@ -72,6 +73,7 @@ public class YdbParameterTests
     [InlineData(DbType.VarNumeric, "VarNumeric")]
     [InlineData(DbType.Xml, "Xml")]
     [InlineData(DbType.Guid, "Guid")]
+    [InlineData(DbType.Time, "Time")]
     public void YdbValue_WhenNoSupportedDbType_ThrowException(DbType dbType, string name)
     {
         Assert.Equal("Ydb don't supported this DbType: " + name,
@@ -190,17 +192,6 @@ public class YdbParameterTests
                     value => value.GetDatetime(), true)
             },
             new object[] { new Data<DateTime?>(DbType.DateTime, null, value => value.GetOptionalDatetime()) },
-            new object[]
-            {
-                new Data<DateTime>(DbType.Time, new DateTime(2021, 08, 21, 23, 30, 47),
-                    value => value.GetDatetime())
-            },
-            new object[]
-            {
-                new Data<DateTime?>(DbType.Time, new DateTime(2021, 08, 21, 23, 30, 47),
-                    value => value.GetDatetime(), true)
-            },
-            new object[] { new Data<DateTime?>(DbType.Time, null, value => value.GetOptionalDatetime()) },
             new object[]
             {
                 new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-03T06:59:44.8578730Z"),
