@@ -1,6 +1,7 @@
 using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Ado;
 
@@ -174,17 +175,39 @@ INSERT INTO {tableName}
      uint8_column, uint16_column, uint32_column, uint64_column, text_column, binary_column, json_column,
      jsondocument_column, date_column, datetime_column, timestamp_column, interval_column) VALUES
 ($name1, $name2, $name3, $name4, $name5, $name6, $name7, $name8, $name9, $name10, $name11, $name12, $name13, $name14,
- $name14, $name15, $name16, $name17, $name18, $name19); 
+ $name15, $name16, $name17, $name18, $name19, $name20); 
 ";
-        for (var i = 1; i < 20; i++)
-        {
-            ydbCommand.Parameters.AddWithValue("$name" + i, DBNull.Value);    
-        }
 
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name1", DbType = DbType.Int32, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name2", DbType = DbType.Boolean, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name3", DbType = DbType.Int64, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name4", DbType = DbType.Int16, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name5", DbType = DbType.SByte, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name6", DbType = DbType.Single, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name7", DbType = DbType.Double, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name8", DbType = DbType.Decimal, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name9", DbType = DbType.Byte, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name10", DbType = DbType.UInt16, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name11", DbType = DbType.UInt32, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name12", DbType = DbType.UInt64, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name13", DbType = DbType.String, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name14", DbType = DbType.Binary, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name15", Value = YdbValue.MakeOptionalJson() });
+        ydbCommand.Parameters.Add(new YdbParameter
+            { ParameterName = "$name16", Value = YdbValue.MakeOptionalJsonDocument() });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name17", DbType = DbType.Date, Value = null });
+        ydbCommand.Parameters.Add(
+            new YdbParameter { ParameterName = "$name18", DbType = DbType.DateTime, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter
+            { ParameterName = "$name19", DbType = DbType.DateTime2, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter
+            { ParameterName = "$name20", Value = YdbValue.MakeOptionalInterval() });
+
+        await ydbCommand.ExecuteNonQueryAsync();
+        ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
         var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
-        await ydbDataReader.ReadAsync();
-        
-        for (var i = 0; i < 20; i++)
+        Assert.True(await ydbDataReader.ReadAsync());
+        for (var i = 0; i < 21; i++)
         {
             Assert.True(ydbDataReader.IsDBNull(i));
         }

@@ -2,8 +2,8 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Google.Protobuf.WellKnownTypes;
 using Ydb.Sdk.Value;
-using static System.String;
 
 namespace Ydb.Sdk.Ado;
 
@@ -35,7 +35,7 @@ public sealed class YdbParameter : DbParameter
         { DbType.Currency, YdbValue.MakeOptionalDecimal() }
     };
 
-    private string _parameterName = Empty;
+    private string _parameterName = string.Empty;
 
     public YdbParameter()
     {
@@ -72,7 +72,7 @@ public sealed class YdbParameter : DbParameter
         set => _parameterName = value ?? throw new YdbException("ParameterName must not be null!");
     }
 
-    [AllowNull] [DefaultValue("")] public override string SourceColumn { get; set; } = Empty;
+    [AllowNull] [DefaultValue("")] public override string SourceColumn { get; set; } = String.Empty;
     public override object? Value { get; set; }
     public override bool SourceColumnNullMapping { get; set; }
     public override int Size { get; set; }
