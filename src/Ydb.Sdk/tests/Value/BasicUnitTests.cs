@@ -183,26 +183,26 @@ public class BasicUnitTests
         var valueJsonDocument = "{\"type\": \"jsondoc\"}";
         Assert.Equal(valueJsonDocument, YdbValue.MakeOptionalJsonDocument(valueJsonDocument).GetOptionalJsonDocument());
 
-        Assert.Null(YdbValue.MakeOptionalBool(null).GetOptionalBool());
-        Assert.Null(YdbValue.MakeOptionalInt8(null).GetOptionalInt8());
-        Assert.Null(YdbValue.MakeOptionalUint8(null).GetOptionalUint8());
-        Assert.Null(YdbValue.MakeOptionalInt16(null).GetOptionalInt16());
-        Assert.Null(YdbValue.MakeOptionalUint16(null).GetOptionalUint16());
-        Assert.Null(YdbValue.MakeOptionalInt32(null).GetOptionalInt32());
-        Assert.Null(YdbValue.MakeOptionalUint32(null).GetOptionalUint32());
-        Assert.Null(YdbValue.MakeOptionalInt64(null).GetOptionalInt64());
-        Assert.Null(YdbValue.MakeOptionalUint64(null).GetOptionalUint64());
-        Assert.Null(YdbValue.MakeOptionalFloat(null).GetOptionalFloat());
-        Assert.Null(YdbValue.MakeOptionalDouble(null).GetOptionalDouble());
-        Assert.Null(YdbValue.MakeOptionalDate(null).GetOptionalDate());
-        Assert.Null(YdbValue.MakeOptionalDatetime(null).GetOptionalDatetime());
-        Assert.Null(YdbValue.MakeOptionalTimestamp(null).GetOptionalTimestamp());
-        Assert.Null(YdbValue.MakeOptionalInterval(null).GetOptionalInterval());
-        Assert.Null(YdbValue.MakeOptionalString(null).GetOptionalString());
-        Assert.Null(YdbValue.MakeOptionalUtf8(null).GetOptionalUtf8());
-        Assert.Null(YdbValue.MakeOptionalYson(null).GetOptionalYson());
-        Assert.Null(YdbValue.MakeOptionalJson(null).GetOptionalJson());
-        Assert.Null(YdbValue.MakeOptionalJsonDocument(null).GetOptionalJsonDocument());
+        Assert.Null(YdbValue.MakeOptionalBool().GetOptionalBool());
+        Assert.Null(YdbValue.MakeOptionalInt8().GetOptionalInt8());
+        Assert.Null(YdbValue.MakeOptionalUint8().GetOptionalUint8());
+        Assert.Null(YdbValue.MakeOptionalInt16().GetOptionalInt16());
+        Assert.Null(YdbValue.MakeOptionalUint16().GetOptionalUint16());
+        Assert.Null(YdbValue.MakeOptionalInt32().GetOptionalInt32());
+        Assert.Null(YdbValue.MakeOptionalUint32().GetOptionalUint32());
+        Assert.Null(YdbValue.MakeOptionalInt64().GetOptionalInt64());
+        Assert.Null(YdbValue.MakeOptionalUint64().GetOptionalUint64());
+        Assert.Null(YdbValue.MakeOptionalFloat().GetOptionalFloat());
+        Assert.Null(YdbValue.MakeOptionalDouble().GetOptionalDouble());
+        Assert.Null(YdbValue.MakeOptionalDate().GetOptionalDate());
+        Assert.Null(YdbValue.MakeOptionalDatetime().GetOptionalDatetime());
+        Assert.Null(YdbValue.MakeOptionalTimestamp().GetOptionalTimestamp());
+        Assert.Null(YdbValue.MakeOptionalInterval().GetOptionalInterval());
+        Assert.Null(YdbValue.MakeOptionalString().GetOptionalString());
+        Assert.Null(YdbValue.MakeOptionalUtf8().GetOptionalUtf8());
+        Assert.Null(YdbValue.MakeOptionalYson().GetOptionalYson());
+        Assert.Null(YdbValue.MakeOptionalJson().GetOptionalJson());
+        Assert.Null(YdbValue.MakeOptionalJsonDocument().GetOptionalJsonDocument());
     }
 
     [Fact]
@@ -283,7 +283,7 @@ public class BasicUnitTests
             Assert.Equal(excepted, (decimal?)(YdbValue)(decimal?)value);
         }
 
-        Assert.Null(YdbValue.MakeOptionalDecimal(null).GetOptionalDecimal());
+        Assert.Null(YdbValue.MakeOptionalDecimal().GetOptionalDecimal());
         Assert.Null((decimal?)(YdbValue)(decimal?)null);
 
         Assert.Equal("Decimal with precision (30, 0) can't fit into (22, 9)",

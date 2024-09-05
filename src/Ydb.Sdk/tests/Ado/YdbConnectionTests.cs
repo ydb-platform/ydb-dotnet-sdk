@@ -211,6 +211,7 @@ INSERT INTO {tableName}
         {
             Assert.True(ydbDataReader.IsDBNull(i));
         }
+
         Assert.False(await ydbDataReader.ReadAsync());
 
         ydbCommand.CommandText = $"DROP TABLE {tableName}";
