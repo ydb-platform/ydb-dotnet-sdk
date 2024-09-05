@@ -1,3 +1,4 @@
+using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado;
 
@@ -131,6 +132,66 @@ public class YdbConnectionTests
         Assert.Equal(1, reader.GetInt32(0));
         await ydbConnection.CloseAsync();
         Assert.False(await reader.ReadAsync());
+    }
+
+    [Fact]
+    public async Task SetNulls_WhenTableAllTypes_SussesSet()
+    {
+        var ydbConnection = new YdbConnection();
+        await ydbConnection.OpenAsync();
+        var ydbCommand = ydbConnection.CreateCommand();
+        var tableName = "AllTypes_" + Random.Shared.Next();
+
+        ydbCommand.CommandText = @$"
+CREATE TABLE {tableName} (
+    id INT32,
+    bool_column BOOL,
+    bigint_column INT64,
+    smallint_column INT16,
+    tinyint_column INT8,
+    float_column FLOAT,
+    double_column DOUBLE,
+    decimal_column DECIMAL(22,9),
+    uint8_column UINT8,
+    uint16_column UINT16,
+    uint32_column UINT32,
+    uint64_column UINT64,
+    text_column TEXT,
+    binary_column BYTES,
+    json_column JSON,
+    jsondocument_column JSONDOCUMENT,
+    date_column DATE,
+    datetime_column DATETIME,
+    timestamp_column TIMESTAMP,
+    interval_column INTERVAL,
+    PRIMARY KEY (id)
+)
+";
+        await ydbCommand.ExecuteNonQueryAsync();
+        ydbCommand.CommandText = @$"
+INSERT INTO {tableName} 
+    (id, bool_column, bigint_column, smallint_column, tinyint_column, float_column, double_column, decimal_column, 
+     uint8_column, uint16_column, uint32_column, uint64_column, text_column, binary_column, json_column,
+     jsondocument_column, date_column, datetime_column, timestamp_column, interval_column) VALUES
+($name1, $name2, $name3, $name4, $name5, $name6, $name7, $name8, $name9, $name10, $name11, $name12, $name13, $name14,
+ $name14, $name15, $name16, $name17, $name18, $name19); 
+";
+        for (var i = 1; i < 20; i++)
+        {
+            ydbCommand.Parameters.AddWithValue("$name" + i, DBNull.Value);    
+        }
+
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
+        await ydbDataReader.ReadAsync();
+        
+        for (var i = 0; i < 20; i++)
+        {
+            Assert.True(ydbDataReader.IsDBNull(i));
+        }
+        Assert.False(await ydbDataReader.ReadAsync());
+
+        ydbCommand.CommandText = $"DROP TABLE {tableName}";
+        await ydbCommand.ExecuteNonQueryAsync();
     }
 
     private List<Task> GenerateTasks()
