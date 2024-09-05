@@ -13,9 +13,10 @@ public class YdbParameterTests
     [Fact]
     public void YdbValue_WhenValueIsNullAndDbTypeIsObject_ThrowException()
     {
-        // Assert.Equal(YdbValue.Null, new YdbParameter().YdbValue);
-        Assert.Equal("Error converting System.Object to YdbValue", Assert.Throws<YdbException>(() =>
-            new YdbParameter("$param", new object()).YdbValue).Message);
+        Assert.Equal("Writing value of 'null' is not supported for parameters having DbType 'Object'",
+            Assert.Throws<InvalidCastException>(() => new YdbParameter().YdbValue).Message);
+        Assert.Equal("Writing value of 'System.Object' is not supported for parameters having DbType 'Object'",
+            Assert.Throws<InvalidCastException>(() => new YdbParameter("$param", new object()).YdbValue).Message);
     }
 
     [Theory]
@@ -57,14 +58,14 @@ public class YdbParameterTests
     [Fact]
     public void YdbValue_WhenUnCastTypes_ThrowInvalidCastException()
     {
-        Assert.Equal("Writing values of 'System.Int32' is not supported for parameters having DbType 'Boolean'",
+        Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'Boolean'",
             Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.Boolean, 1).YdbValue).Message);
-        Assert.Equal("Writing values of 'System.Int32' is not supported for parameters having DbType 'SByte'",
+        Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'SByte'",
             Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.SByte, 1).YdbValue).Message);
-        Assert.Equal("Writing values of 'System.String' is not supported for parameters having DbType 'Boolean'",
+        Assert.Equal("Writing value of 'System.String' is not supported for parameters having DbType 'Boolean'",
             Assert.Throws<InvalidCastException>(() => new YdbParameter("$parameter", DbType.Boolean)
                 { Value = "true" }.YdbValue).Message);
-        Assert.Equal("Writing values of 'System.Double' is not supported for parameters having DbType 'Single'",
+        Assert.Equal("Writing value of 'System.Double' is not supported for parameters having DbType 'Single'",
             Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.Single, 1.1).YdbValue).Message);
     }
 

@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
-using Google.Protobuf.WellKnownTypes;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
@@ -167,6 +166,6 @@ public sealed class YdbParameter : DbParameter
     private YdbValue ThrowInvalidCast()
     {
         throw new InvalidCastException(
-            $"Writing values of '{Value!.GetType()}' is not supported for parameters having DbType '{DbType}'");
+            $"Writing value of '{Value?.GetType().ToString() ?? "null"}' is not supported for parameters having DbType '{DbType}'");
     }
 }
