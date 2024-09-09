@@ -68,7 +68,16 @@ public sealed class YdbParameter : DbParameter
     public override string ParameterName
     {
         get => _parameterName;
-        set => _parameterName = value ?? throw new YdbException("ParameterName must not be null!");
+        set
+        {
+            _parameterName = value switch
+            {
+                null => throw new YdbException("ParameterName must not be null!"),
+                _ when value.StartsWith("$") => value,
+                _ when value.StartsWith("@") && value.Length > 1 => $"${value[1..]}",
+                _ => $"${value}"
+            };
+        }
     }
 
     [AllowNull] [DefaultValue("")] public override string SourceColumn { get; set; } = string.Empty;

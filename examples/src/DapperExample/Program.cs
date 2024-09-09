@@ -18,10 +18,11 @@ await new YdbConnection().ExecuteAsync("""
 await new YdbConnection().ExecuteAsync("INSERT INTO Users(Id, Name, Email) VALUES ($Id, $Name, $Email)",
     new Dictionary<string, object> { { "$Id", 1 }, { "$Name", "Name" }, { "$Email", "Email" } });
 
-var user = await new YdbConnection().QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = $Id",
-    new Dictionary<string, object> { { "$Id", 1 } });
+Console.WriteLine(await new YdbConnection().QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = $Id",
+    new Dictionary<string, object> { { "$Id", 1 } }));
 
-Console.WriteLine(user);
+Console.WriteLine(await new YdbConnection().QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = $Id",
+    new { Id = 1 }));
 
 await new YdbConnection().ExecuteAsync("DROP TABLE Users");
 

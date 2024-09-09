@@ -19,6 +19,14 @@ public class YdbParameterTests
             Assert.Throws<InvalidCastException>(() => new YdbParameter("$param", new object()).YdbValue).Message);
     }
 
+    [Fact]
+    public void ParameterName_WhenSetWithoutAnyFormat_ReturnCorrectName()
+    {
+        Assert.Equal("$name", new YdbParameter { ParameterName = "name" }.ParameterName);
+        Assert.Equal("$name", new YdbParameter { ParameterName = "@name" }.ParameterName);
+        Assert.Equal("$name", new YdbParameter { ParameterName = "$name" }.ParameterName);
+    }
+
     [Theory]
     [ClassData(typeof(TestDataGenerator))]
     public void YdbValue_WhenSetDbValue_ReturnYdbValue<T>(Data<T> data)
