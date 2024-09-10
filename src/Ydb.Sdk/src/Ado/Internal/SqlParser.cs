@@ -1,7 +1,5 @@
 using System.Collections.Concurrent;
-using System.Collections.Immutable;
 using System.Text;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Internal;
 
@@ -88,17 +86,10 @@ internal static class SqlParser
                     newYql.Append(sql[prevToken .. curToken]);
                     prevToken = ++curToken;
 
-                    if (curToken < sql.Length && sql[curToken] == '`')
+                    for (;
+                         curToken < sql.Length && (char.IsLetterOrDigit(sql[curToken]) || sql[curToken] == '_');
+                         curToken++)
                     {
-                        curToken = SkipTerminals(sql, '\'', curToken);
-                    }
-                    else
-                    {
-                        for (;
-                             curToken < sql.Length && (char.IsLetterOrDigit(sql[curToken]) || sql[curToken] == '_');
-                             curToken++)
-                        {
-                        }
                     }
 
                     if (curToken - prevToken == 0)
