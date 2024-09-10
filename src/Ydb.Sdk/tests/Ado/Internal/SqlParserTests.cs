@@ -223,4 +223,23 @@ COMMIT;
 SELECT * FROM episodes WHERE series_id = '123 @ \' @ @' AND season_id = $param;", sql);
         Assert.Equal(new[] { "$air_date", "$param" }, paramNames);
     }
+
+    [Fact]
+    public void Parse_WhenMultilineStringLiterals_ReturnSql()
+    {
+        var (sql, paramNames) = SqlParser.Parse(@"$text = @@some
+multiline with double at: @@@@
+text@@;
+SELECT $text;
+-- Comment with params @param, @p2, @p_3
+SELECT @param; SELECT @p2; SELECT @p_3;");
+
+        Assert.Equal(@"$text = @@some
+multiline with double at: @@@@
+text@@;
+SELECT $text;
+-- Comment with params @param, @p2, @p_3
+SELECT $param; SELECT $p2; SELECT $p_3;", sql);
+        Assert.Equal(new[] { "$param", "$p2", "$p_3" }, paramNames);
+    }
 }

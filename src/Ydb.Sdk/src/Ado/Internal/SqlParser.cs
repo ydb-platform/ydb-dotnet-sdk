@@ -83,9 +83,24 @@ internal static class SqlParser
 
                     break;
                 case '@':
+                    if (curToken + 1 < sql.Length && sql[curToken + 1] == '@') // $text = @@ a b c @ @@ 
+                    {
+                        for (curToken+=2; curToken + 1 < sql.Length; curToken++)
+                        {
+                            if (sql[curToken] == '@' && sql[curToken + 1] == '@')
+                            {
+                                curToken++;
+                                break;
+                            }
+                        }
+                        
+                        break;
+                    }
+
+                    // Parse params
                     newYql.Append(sql[prevToken .. curToken]);
                     prevToken = ++curToken;
-
+                    
                     for (;
                          curToken < sql.Length && (char.IsLetterOrDigit(sql[curToken]) || sql[curToken] == '_');
                          curToken++)
