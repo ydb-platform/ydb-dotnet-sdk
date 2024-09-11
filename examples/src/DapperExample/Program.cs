@@ -27,9 +27,9 @@ await new YdbConnection().ExecuteAsync("DROP TABLE Users");
 
 internal class User
 {
-    [Column("id")]public int Id { get; init; }
-    [Column("name")]public string Name { get; init; } = null!;
-    [Column("email")]public string Email { get; init; } = null!;
+    [Column("id")] public int Id { get; init; }
+    [Column("name")] public string Name { get; init; } = null!;
+    [Column("email")] public string Email { get; init; } = null!;
 
     public override string ToString()
     {
