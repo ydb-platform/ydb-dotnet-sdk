@@ -1,6 +1,5 @@
 // See https://aka.ms/new-console-template for more information
 
-using System.ComponentModel.DataAnnotations.Schema;
 using Dapper;
 using Ydb.Sdk.Ado;
 
@@ -27,9 +26,9 @@ await connection.ExecuteAsync("DROP TABLE Users");
 
 internal class User
 {
-    [Column("id")] public int Id { get; init; }
-    [Column("name")] public string Name { get; init; } = null!;
-    [Column("email")] public string Email { get; init; } = null!;
+    public int Id { get; init; }
+    public string Name { get; init; } = null!;
+    public string Email { get; init; } = null!;
 
     public override string ToString()
     {
