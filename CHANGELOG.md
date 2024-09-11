@@ -1,3 +1,6 @@
+- Parsed @param then prepared for use with $ prefix (@p -> $p)
+- Fully integrated with Dapper
+
 ## v0.6.3
 - Fixed bug: parameter type mismatch, when setting optional with null
 
