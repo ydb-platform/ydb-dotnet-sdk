@@ -168,10 +168,12 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
-        if (YdbConnection.LastReader is { IsClosed: false })
+        if (YdbConnection.IsBusy)
         {
             throw new YdbOperationInProgressException(YdbConnection);
         }
+
+        YdbConnection.EnsureConnectionOpen();
 
         var ydbParameters = DbParameterCollection.YdbParameters;
         var (sql, paramNames) = SqlParser.Parse(CommandText);
