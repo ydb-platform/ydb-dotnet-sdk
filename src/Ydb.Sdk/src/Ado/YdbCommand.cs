@@ -1,5 +1,7 @@
 using System.Data;
 using System.Data.Common;
+using System.Text;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Services.Query;
 
 namespace Ydb.Sdk.Ado;
@@ -171,12 +173,30 @@ public sealed class YdbCommand : DbCommand
             throw new YdbOperationInProgressException(YdbConnection);
         }
 
+        var ydbParameters = DbParameterCollection.YdbParameters;
+        var (sql, paramNames) = SqlParser.Parse(CommandText);
+        var preparedSql = new StringBuilder();
+
+        foreach (var paramName in paramNames)
+        {
+            if (ydbParameters.TryGetValue(paramName, out var ydbValue))
+            {
+                preparedSql.Append($"DECLARE {paramName} AS {ydbValue.ToYql()};\n");
+            }
+            else
+            {
+                throw new YdbException($"Not found YDB parameter [name: {paramName}]");
+            }
+        }
+
+        preparedSql.Append(sql);
+
         var execSettings = CommandTimeout > 0
             ? new ExecuteQuerySettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
             : ExecuteQuerySettings.DefaultInstance;
 
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(YdbConnection.Session.ExecuteQuery(
-                _commandText, DbParameterCollection.YdbParameters, execSettings, Transaction?.TransactionControl),
+                preparedSql.ToString(), ydbParameters, execSettings, Transaction?.TransactionControl),
             YdbConnection.Session.OnStatus, Transaction);
 
         YdbConnection.LastReader = ydbDataReader;
