@@ -164,7 +164,7 @@ public sealed class YdbConnection : DbConnection
         return CreateDbCommand();
     }
 
-    private void EnsureConnectionOpen()
+    internal void EnsureConnectionOpen()
     {
         if (ConnectionState == ConnectionState.Closed)
         {

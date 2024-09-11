@@ -16,6 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.35" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0-rc.1.23419.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
     <PackageReference Include="Moq" Version="4.20.70" />

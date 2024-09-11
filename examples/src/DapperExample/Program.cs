@@ -1,36 +1,35 @@
 // See https://aka.ms/new-console-template for more information
 
+using System.ComponentModel.DataAnnotations.Schema;
 using Dapper;
 using Ydb.Sdk.Ado;
 
-// TODO SQL Parser @Id -> $Id 
-
 // Init Users table
-await new YdbConnection().ExecuteAsync("""
-                                       CREATE TABLE Users(
-                                           Id Int32,
-                                           Name Text,
-                                           Email Text,
-                                           PRIMARY KEY (Id)   
-                                       );
-                                       """);
+await using var connection = await new YdbDataSource().OpenConnectionAsync();
+await connection.OpenAsync();
 
-await new YdbConnection().ExecuteAsync("INSERT INTO Users(Id, Name, Email) VALUES ($Id, $Name, $Email)",
-    new Dictionary<string, object> { { "$Id", 1 }, { "$Name", "Name" }, { "$Email", "Email" } });
+connection.ExecuteAsync("""
+                        CREATE TABLE Users(
+                            Id Int32,
+                            Name Text,
+                            Email Text,
+                            PRIMARY KEY (Id)   
+                        );
+                        """);
 
-Console.WriteLine(await new YdbConnection().QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = $Id",
-    new Dictionary<string, object> { { "$Id", 1 } }));
+connection.ExecuteAsync("INSERT INTO Users(Id, Name, Email) VALUES ($Id, $Name, $Email)",
+    new User { Id = 1, Name = "Name", Email = "Email" });
 
-Console.WriteLine(await new YdbConnection().QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = $Id",
+Console.WriteLine(connection.QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = $Id",
     new { Id = 1 }));
 
 await new YdbConnection().ExecuteAsync("DROP TABLE Users");
 
 internal class User
 {
-    public int Id { get; init; }
-    public string Name { get; init; } = null!;
-    public string Email { get; init; } = null!;
+    [Column("id")]public int Id { get; init; }
+    [Column("name")]public string Name { get; init; } = null!;
+    [Column("email")]public string Email { get; init; } = null!;
 
     public override string ToString()
     {
