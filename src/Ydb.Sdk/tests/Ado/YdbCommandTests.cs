@@ -43,6 +43,30 @@ public class YdbCommandTests
         }
     }
 
+    [Theory]
+    [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
+    public async Task ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue<T>(
+        YdbParameterTests.Data<T> data)
+    {
+        await using var connection = new YdbConnection();
+        await connection.OpenAsync();
+
+        var dbCommand = connection.CreateCommand();
+
+        dbCommand.CommandText = "SELECT @var;";
+
+        var dbParameter = new YdbParameter
+        {
+            ParameterName = "@var",
+            DbType = data.DbType,
+            Value = data.Expected,
+            IsNullable = data.IsNullable
+        };
+        dbCommand.Parameters.Add(dbParameter);
+
+        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
+    }
+
     [Fact]
     public async Task ExecuteNonQueryAsync_WhenCreateUser_ReturnEmptyResultSet()
     {
