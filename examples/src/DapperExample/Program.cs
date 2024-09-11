@@ -23,7 +23,7 @@ connection.ExecuteAsync("INSERT INTO Users(Id, Name, Email) VALUES ($Id, $Name, 
 Console.WriteLine(connection.QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = $Id",
     new { Id = 1 }));
 
-await new YdbConnection().ExecuteAsync("DROP TABLE Users");
+await connection.ExecuteAsync("DROP TABLE Users");
 
 internal class User
 {
