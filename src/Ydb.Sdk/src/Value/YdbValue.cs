@@ -84,7 +84,7 @@ public sealed partial class YdbValue
         return type.TypeCase switch
         {
             Type.TypeOneofCase.TypeId => type.TypeId.ToString(),
-            Type.TypeOneofCase.DecimalType => $"Decimal({type.DecimalType.Precision}, {type.DecimalType.Scale})",
+            Type.TypeOneofCase.DecimalType => "Decimal(22, 9)",
             Type.TypeOneofCase.OptionalType => $"{ToYql(type.OptionalType.Item)}?",
             Type.TypeOneofCase.ListType => $"List<{ToYql(type.ListType.Item)}>",
             Type.TypeOneofCase.VoidType => "Void",
