@@ -2,7 +2,6 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Auth;
 
 namespace Ydb.Sdk.Ado;
@@ -138,7 +137,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private string? _rootCertificate;
 
-    public ILoggerFactory LoggerFactory { get; set; } = new NullLoggerFactory();
+    public ILoggerFactory LoggerFactory { get; set; }
 
     public ICredentialsProvider? CredentialsProvider { get; set; }
 
