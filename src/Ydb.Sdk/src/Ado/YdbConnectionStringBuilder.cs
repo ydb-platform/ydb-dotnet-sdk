@@ -137,7 +137,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private string? _rootCertificate;
 
-    public ILoggerFactory LoggerFactory { get; set; }
+    public ILoggerFactory? LoggerFactory { get; set; }
 
     public ICredentialsProvider? CredentialsProvider { get; set; }
 
