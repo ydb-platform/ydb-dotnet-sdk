@@ -15,10 +15,10 @@ await connection.ExecuteAsync("""
                               );
                               """);
 
-await connection.ExecuteAsync("INSERT INTO Users(Id, Name, Email) VALUES ($Id, $Name, $Email)",
+await connection.ExecuteAsync("INSERT INTO Users(Id, Name, Email) VALUES (@Id, @Name, @Email)",
     new User { Id = 1, Name = "Name", Email = "Email" });
 
-Console.WriteLine(await connection.QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = $Id",
+Console.WriteLine(await connection.QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = @Id",
     new { Id = 1 }));
 
 await connection.ExecuteAsync("DROP TABLE Users");
