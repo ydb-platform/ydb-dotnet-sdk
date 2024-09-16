@@ -199,6 +199,10 @@ internal class AppContext
 
         var ydbCommand = connection.CreateCommand();
         ydbCommand.CommandText = """
+                                 DECLARE $series_id AS Uint64;
+                                 DECLARE $season_id AS Uint64;
+                                 DECLARE $limit_size AS Uint64;
+
                                  SELECT
                                     series_id,
                                     season_id,

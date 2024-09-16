@@ -5,6 +5,10 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+  # For detect flaky tests
+  schedule:
+    - cron: "45 * * * *"
+
 jobs:
   unit-tests:
     strategy:
@@ -35,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ydb-version: [trunk]
+        ydb-version: [ 'trunk' ]
         dotnet-version: [6.0.x, 7.0.x]
         include:
           - dotnet-version: 6.0.x
@@ -52,6 +56,7 @@ jobs:
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
           YDB_USE_IN_MEMORY_PDISKS: true
+          YDB_TABLE_ENABLE_PREPARED_DDL: true
         options: '--name ydb-local -h localhost'
     env:
       OS: ubuntu-22.04
@@ -76,7 +81,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ydb-version: [ trunk ]
+        ydb-version: [ 'latest', '24.1' ]
         dotnet-version: [ 6.0.x, 7.0.x ]
         include:
           - dotnet-version: 6.0.x
