@@ -11,6 +11,7 @@ public sealed class YdbTransaction : DbTransaction
 
     internal string? TxId { get; set; }
     internal bool Completed { get; set; }
+    internal bool Failed { get; set; }
 
     internal TransactionControl TransactionControl => TxId == null
         ? new TransactionControl { BeginTx = _txMode.TransactionSettings() }
@@ -41,6 +42,14 @@ public sealed class YdbTransaction : DbTransaction
     // TODO propagate cancellation token
     public override async Task RollbackAsync(CancellationToken cancellationToken = new())
     {
+        if (Failed)
+        {
+            Failed = false;
+            Completed = true; // make completed
+
+            return;
+        }
+
         await FinishTransaction(txId => DbConnection.Session.RollbackTransaction(txId));
     }
 
@@ -52,7 +61,7 @@ public sealed class YdbTransaction : DbTransaction
 
     private async Task FinishTransaction(Func<string, Task<Status>> finishMethod)
     {
-        if (Completed || DbConnection.State == ConnectionState.Closed)
+        if (Failed || Completed || DbConnection.State == ConnectionState.Closed)
         {
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
         }

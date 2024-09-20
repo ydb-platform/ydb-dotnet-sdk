@@ -519,7 +519,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         ReaderState = State.Closed;
         if (_ydbTransaction != null)
         {
-            _ydbTransaction.Completed = true;
+            _ydbTransaction.Failed = true;
         }
     }
 
