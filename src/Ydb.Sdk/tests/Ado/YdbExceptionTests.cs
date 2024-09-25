@@ -57,7 +57,8 @@ public class YdbExceptionTests
         {
             CommandText = $"DROP TABLE {bankTable}"
         }.ExecuteNonQueryAsync();
-        Assert.Equal("Status: NotFound", Assert.Throws<YdbException>(() => ydbCommand.Transaction.Commit()).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Commit()).Message);
 
         await ydbCommand.Transaction!.RollbackAsync();
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",

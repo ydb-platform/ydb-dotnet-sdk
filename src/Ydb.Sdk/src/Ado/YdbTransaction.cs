@@ -13,9 +13,11 @@ public sealed class YdbTransaction : DbTransaction
     internal bool Completed { get; set; }
     internal bool Failed { get; set; }
 
-    internal TransactionControl TransactionControl => TxId == null
-        ? new TransactionControl { BeginTx = _txMode.TransactionSettings() }
-        : new TransactionControl { TxId = TxId };
+    internal TransactionControl? TransactionControl => Completed || Failed
+        ? null
+        : TxId == null
+            ? new TransactionControl { BeginTx = _txMode.TransactionSettings() }
+            : new TransactionControl { TxId = TxId };
 
     internal YdbTransaction(YdbConnection ydbConnection, TxMode txMode)
     {
