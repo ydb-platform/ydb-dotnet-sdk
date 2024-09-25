@@ -9,11 +9,22 @@ public sealed class YdbTransaction : DbTransaction
 {
     private readonly TxMode _txMode;
 
-    internal string? TxId { get; set; }
-    internal bool Completed { get; set; }
-    internal bool Failed { get; set; }
+    private bool _failed;
 
-    internal TransactionControl? TransactionControl => Completed || Failed
+    internal string? TxId { get; set; }
+    internal bool Completed { get; private set; }
+
+    internal bool Failed
+    {
+        private get => _failed;
+        set
+        {
+            _failed = value;
+            Completed = true;
+        }
+    }
+
+    internal TransactionControl? TransactionControl => Completed
         ? null
         : TxId == null
             ? new TransactionControl { BeginTx = _txMode.TransactionSettings() }
@@ -47,7 +58,6 @@ public sealed class YdbTransaction : DbTransaction
         if (Failed)
         {
             Failed = false;
-            Completed = true; // make completed
 
             return;
         }
@@ -63,7 +73,7 @@ public sealed class YdbTransaction : DbTransaction
 
     private async Task FinishTransaction(Func<string, Task<Status>> finishMethod)
     {
-        if (Failed || Completed || DbConnection.State == ConnectionState.Closed)
+        if (Completed || DbConnection.State == ConnectionState.Closed)
         {
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
         }
