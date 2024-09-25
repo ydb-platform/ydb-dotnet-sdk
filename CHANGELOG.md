@@ -1,3 +1,5 @@
+- If an error happened in the transaction, allow one empty rollback
+
 ## v0.7.0
 - Parsed @param then prepared for use with $ prefix (@p -> $p)
 - Fully integrated with Dapper

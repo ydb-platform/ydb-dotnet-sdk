@@ -97,7 +97,7 @@ public class YdbTransactionTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Commit_WhenDoubleCommit_ThrowException()
+    public void CommitAndRollback_WhenDoubleCommit_ThrowException()
     {
         using var connection = new YdbConnection();
         connection.Open();
@@ -165,7 +165,7 @@ public class YdbTransactionTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Commit_WhenConnectionIsClosedAndTxDoesNotStarted_ThrowException()
+    public void CommitAndRollback_WhenConnectionIsClosedAndTxDoesNotStarted_ThrowException()
     {
         using var connection = new YdbConnection();
         connection.Open();
@@ -177,6 +177,27 @@ public class YdbTransactionTests : IAsyncLifetime
             Assert.Throws<InvalidOperationException>(() => ydbTransaction.Commit()).Message);
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             Assert.Throws<InvalidOperationException>(() => ydbTransaction.Rollback()).Message);
+    }
+
+    [Fact]
+    public void CommitAndRollback_WhenTransactionIsFailed_ThrowException()
+    {
+        using var connection = new YdbConnection();
+        connection.Open();
+
+        var ydbCommand = connection.CreateCommand();
+        ydbCommand.Transaction = connection.BeginTransaction();
+        ydbCommand.Transaction.Failed = true;
+        ydbCommand.Transaction.TxId = "no_tx";
+
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Commit()).Message);
+
+        ydbCommand.Transaction.Rollback(); // Make completed
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Commit()).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Rollback()).Message);
     }
 
     public async Task InitializeAsync()

@@ -21,7 +21,7 @@ public class YdbExceptionTests
     }
 
     [Fact]
-    public async Task IsTransient_WhenAborted_ReturnTrue()
+    public async Task IsTransient_WhenAborted_ReturnTrueAndMakeEmptyRollback()
     {
         var bankTable = $"Bank_{Utils.Net}";
         await using var ydbConnection = new YdbConnection();
@@ -57,5 +57,13 @@ public class YdbExceptionTests
         {
             CommandText = $"DROP TABLE {bankTable}"
         }.ExecuteNonQueryAsync();
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Commit()).Message);
+
+        await ydbCommand.Transaction!.RollbackAsync();
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction!.Commit()).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction!.Rollback()).Message);
     }
 }

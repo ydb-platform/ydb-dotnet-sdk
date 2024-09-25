@@ -122,7 +122,7 @@ public sealed class YdbCommand : DbCommand
         {
             if (value is null or YdbTransaction)
             {
-                _ydbTransaction = (YdbTransaction?)value;
+                Transaction = (YdbTransaction?)value;
             }
             else
             {
@@ -132,21 +132,7 @@ public sealed class YdbCommand : DbCommand
         }
     }
 
-    public new YdbTransaction? Transaction
-    {
-        get
-        {
-            if (_ydbTransaction?.Completed ?? false)
-            {
-                _ydbTransaction = null;
-            }
-
-            return _ydbTransaction;
-        }
-        set => _ydbTransaction = value;
-    }
-
-    private YdbTransaction? _ydbTransaction;
+    public new YdbTransaction? Transaction { get; set; }
 
     public override bool DesignTimeVisible { get; set; }
 

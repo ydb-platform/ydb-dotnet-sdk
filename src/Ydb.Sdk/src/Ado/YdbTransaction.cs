@@ -9,12 +9,26 @@ public sealed class YdbTransaction : DbTransaction
 {
     private readonly TxMode _txMode;
 
-    internal string? TxId { get; set; }
-    internal bool Completed { get; set; }
+    private bool _failed;
 
-    internal TransactionControl TransactionControl => TxId == null
-        ? new TransactionControl { BeginTx = _txMode.TransactionSettings() }
-        : new TransactionControl { TxId = TxId };
+    internal string? TxId { get; set; }
+    internal bool Completed { get; private set; }
+
+    internal bool Failed
+    {
+        private get => _failed;
+        set
+        {
+            _failed = value;
+            Completed = true;
+        }
+    }
+
+    internal TransactionControl? TransactionControl => Completed
+        ? null
+        : TxId == null
+            ? new TransactionControl { BeginTx = _txMode.TransactionSettings() }
+            : new TransactionControl { TxId = TxId };
 
     internal YdbTransaction(YdbConnection ydbConnection, TxMode txMode)
     {
@@ -41,6 +55,13 @@ public sealed class YdbTransaction : DbTransaction
     // TODO propagate cancellation token
     public override async Task RollbackAsync(CancellationToken cancellationToken = new())
     {
+        if (Failed)
+        {
+            Failed = false;
+
+            return;
+        }
+
         await FinishTransaction(txId => DbConnection.Session.RollbackTransaction(txId));
     }
 
