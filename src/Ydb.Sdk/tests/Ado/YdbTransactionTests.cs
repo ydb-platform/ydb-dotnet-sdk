@@ -184,15 +184,15 @@ public class YdbTransactionTests : IAsyncLifetime
     {
         using var connection = new YdbConnection();
         connection.Open();
-        
+
         var ydbCommand = connection.CreateCommand();
         ydbCommand.Transaction = connection.BeginTransaction();
         ydbCommand.Transaction.Failed = true;
         ydbCommand.Transaction.TxId = "no_tx";
-        
+
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Commit()).Message);
-        
+
         ydbCommand.Transaction.Rollback(); // Make completed
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Commit()).Message);
