@@ -29,7 +29,7 @@ public class YdbException : DbException
     public StatusCode Code { get; }
 }
 
-public class YdbOperationInProgressException : DbException
+public class YdbOperationInProgressException : YdbException
 {
     public YdbOperationInProgressException(YdbConnection ydbConnection)
         : base("A command is already in progress: " + ydbConnection.LastCommand)

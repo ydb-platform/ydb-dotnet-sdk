@@ -1,3 +1,5 @@
+- YdbOperationInProgressException extends YdbException
+
 ## v0.7.1
 - If an error happened in the transaction, allow one empty rollback
 
