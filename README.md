@@ -37,7 +37,7 @@ var ydbConnectionBuilder = new YdbConnectionStringBuilder
     CredentialsProvider = credentialsProvider // Credentials provider, see "Credentials" section
 };
 
-await using var connection = new YdbConnection();
+await using var connection = new YdbConnection(ydbConnectionBuilder);
 await connection.OpenAsync();
 
 var ydbCommand = connection.CreateCommand();
