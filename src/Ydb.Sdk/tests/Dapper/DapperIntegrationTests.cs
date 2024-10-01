@@ -201,12 +201,73 @@ VALUES
         await connection.ExecuteAsync(Tables.DeleteTables);
     }
 
+    [Fact]
+    public async Task NullableFieldSupported()
+    {
+        var tableName = "DapperNullableTypes_" + Random.Shared.Next();
+
+        await using var connection = new YdbConnection();
+        await connection.ExecuteAsync(@$"
+CREATE TABLE {tableName} (
+    Id INT32,
+    BoolColumn BOOL,
+    LongColumn INT64,
+    ShortColumn INT16,
+    SbyteColumn INT8,
+    FloatColumn FLOAT,
+    DoubleColumn DOUBLE,
+    DecimalColumn DECIMAL(22,9),
+    ByteColumn UINT8,
+    UshortColumn UINT16,
+    UintColumn UINT32,
+    UlongColumn UINT64,
+    TextColumn TEXT,
+    BytesColumn BYTES,
+    TimestampColumn TIMESTAMP,
+    PRIMARY KEY (Id)
+)
+");
+
+        var entity = new NullableFields();
+        SqlMapper.AddTypeMap(typeof(DateTime), DbType.DateTime2);
+
+        await connection.ExecuteAsync($@"
+INSERT INTO {tableName} (Id, BoolColumn, LongColumn, ShortColumn, SbyteColumn, FloatColumn, DoubleColumn, DecimalColumn, 
+        ByteColumn, UshortColumn, UintColumn, UlongColumn, TextColumn, BytesColumn, TimestampColumn)
+VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn, 
+        @FloatColumn, @DoubleColumn, @DecimalColumn,
+        @ByteColumn, @UshortColumn, @UintColumn,
+        @UlongColumn, @TextColumn, @BytesColumn, @TimestampColumn)", entity);
+
+        Assert.Equal(entity,
+            await connection.QuerySingleAsync<NullableFields>($"SELECT * FROM {tableName} WHERE Id IS NULL"));
+    }
+
+    private record NullableFields
+    {
+        public int? Id { get; init; }
+        public bool? BoolColumn { get; init; }
+        public long? LongColumn { get; init; }
+        public short? ShortColumn { get; init; }
+        public sbyte? SbyteColumn { get; init; }
+        public float? FloatColumn { get; init; }
+        public double? DoubleColumn { get; init; }
+        public decimal? DecimalColumn { get; init; }
+        public byte? ByteColumn { get; init; }
+        public ushort? UshortColumn { get; init; }
+        public uint? UintColumn { get; init; }
+        public ulong? UlongColumn { get; init; }
+        public string? TextColumn { get; init; }
+        public byte[]? BytesColumn { get; init; }
+        public DateTime? TimestampColumn { get; init; }
+    }
+
     private record Episode
     {
-        [Column("series_id")] public uint SeriesId { get; set; }
-        [Column("season_id")] public uint SeasonId { get; set; }
-        [Column("episode_id")] public uint EpisodeId { get; set; }
-        [Column("title")] public string Title { get; set; } = null!;
-        [Column("air_date")] public DateTime AirDate { get; set; }
+        [Column("series_id")] public uint SeriesId { get; init; }
+        [Column("season_id")] public uint SeasonId { get; init; }
+        [Column("episode_id")] public uint EpisodeId { get; init; }
+        [Column("title")] public string Title { get; init; } = null!;
+        [Column("air_date")] public DateTime AirDate { get; init; }
     }
 }

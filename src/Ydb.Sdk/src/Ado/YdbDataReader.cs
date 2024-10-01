@@ -303,14 +303,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override object GetValue(int ordinal)
     {
-        var ydbValue = GetFieldYdbValue(ordinal);
+        EnsureOrdinal(ordinal);
+        
+        var ydbValue = CurrentRow[ordinal];
 
         // ReSharper disable once InvertIf
         if (ydbValue.TypeId == YdbTypeId.OptionalType)
         {
             if (ydbValue.GetOptional() == null)
             {
-                return (typeof(DBNull), DBNull.Value);
+                return DBNull.Value;
             }
 
             ydbValue = ydbValue.GetOptional()!;
