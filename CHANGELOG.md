@@ -1,3 +1,4 @@
+## v0.7.2
 - Fixed YdbDataReader: `GetValue()` returns `DbNull.Value` if field is null
 - YdbOperationInProgressException extends YdbException
 
