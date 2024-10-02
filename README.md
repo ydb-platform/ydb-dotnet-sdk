@@ -48,9 +48,9 @@ ydbCommand.CommandText = """
                          ORDER BY series_id, season_id, episode_id
                          LIMIT @limit_size;
                          """;
-ydbCommand.Parameters.Add(new YdbParameter("$series_id", DbType.UInt64, 1U));
-ydbCommand.Parameters.Add(new YdbParameter("$season_id", DbType.UInt64, 1U));
-ydbCommand.Parameters.Add(new YdbParameter("$limit_size", DbType.UInt64, 3U));
+ydbCommand.Parameters.Add(new YdbParameter("series_id", DbType.UInt64, 1U));
+ydbCommand.Parameters.Add(new YdbParameter("season_id", DbType.UInt64, 1U));
+ydbCommand.Parameters.Add(new YdbParameter("limit_size", DbType.UInt64, 3U));
 
 var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
