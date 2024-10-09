@@ -34,7 +34,7 @@ public class ExecuteScanQueryPart : ResponseWithResultBase<ExecuteScanQueryPart.
 
 public class ExecuteScanQueryStream : StreamResponse<ExecuteScanQueryPartialResponse, ExecuteScanQueryPart>
 {
-    internal ExecuteScanQueryStream(Driver.StreamIterator<ExecuteScanQueryPartialResponse> iterator)
+    internal ExecuteScanQueryStream(Driver.ServerStream<ExecuteScanQueryPartialResponse> iterator)
         : base(iterator)
     {
     }
@@ -75,7 +75,7 @@ public partial class TableClient
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        var streamIterator = _driver.StreamCall(
+        var streamIterator = _driver.ServerStreamCall(
             method: TableService.StreamExecuteScanQueryMethod,
             request: request,
             settings: settings
