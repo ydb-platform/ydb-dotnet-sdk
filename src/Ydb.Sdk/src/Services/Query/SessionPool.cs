@@ -47,7 +47,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         {
             try
             {
-                await using var stream = _driver.StreamCall(QueryService.AttachSessionMethod, new AttachSessionRequest
+                await using var stream = _driver.ServerStreamCall(QueryService.AttachSessionMethod, new AttachSessionRequest
                     { SessionId = session.SessionId }, AttachSessionSettings);
 
                 if (!await stream.MoveNextAsync())
@@ -140,7 +140,7 @@ internal class Session : SessionBase<Session>
         _driver = driver;
     }
 
-    internal Driver.StreamIterator<ExecuteQueryResponsePart> ExecuteQuery(
+    internal Driver.ServerStream<ExecuteQueryResponsePart> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue>? parameters,
         ExecuteQuerySettings? settings,
@@ -161,7 +161,7 @@ internal class Session : SessionBase<Session>
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        return _driver.StreamCall(QueryService.ExecuteQueryMethod, request, settings);
+        return _driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
     internal async Task<Status> CommitTransaction(string txId, GrpcRequestSettings? settings = null)

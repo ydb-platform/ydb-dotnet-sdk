@@ -39,7 +39,7 @@ public class ReadTablePart : ResponseWithResultBase<ReadTablePart.ResultData>
 
 public class ReadTableStream : StreamResponse<ReadTableResponse, ReadTablePart>
 {
-    internal ReadTableStream(Driver.StreamIterator<ReadTableResponse> iterator)
+    internal ReadTableStream(Driver.ServerStream<ReadTableResponse> iterator)
         : base(iterator)
     {
     }
@@ -74,7 +74,7 @@ public partial class TableClient
             Ordered = settings.Ordered
         };
 
-        var streamIterator = _driver.StreamCall(
+        var streamIterator = _driver.ServerStreamCall(
             method: TableService.StreamReadTableMethod,
             request: request,
             settings: settings
