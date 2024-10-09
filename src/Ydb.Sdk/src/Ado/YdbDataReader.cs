@@ -333,7 +333,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             YdbTypeId.Float => ydbValue.GetFloat(),
             YdbTypeId.Double => ydbValue.GetDouble(),
             YdbTypeId.Interval => ydbValue.GetInterval(),
-            YdbTypeId.Utf8 or YdbTypeId.JsonDocument or YdbTypeId.Json or YdbTypeId.Yson => GetString(ordinal),
+            YdbTypeId.Utf8 => ydbValue.GetUtf8(),
+            YdbTypeId.Json => ydbValue.GetJson(),
+            YdbTypeId.JsonDocument => ydbValue.GetJsonDocument(),
+            YdbTypeId.Yson => ydbValue.GetYson(),
             YdbTypeId.String => ydbValue.GetString(),
             YdbTypeId.DecimalType => ydbValue.GetDecimal(),
             _ => throw new YdbException($"Unsupported ydb type {ydbValue.TypeId}")
