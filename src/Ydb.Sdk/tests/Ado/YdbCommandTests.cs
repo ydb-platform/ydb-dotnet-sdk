@@ -1,6 +1,5 @@
 using System.Data;
 using System.Text;
-using Dapper;
 using Xunit;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Value;
