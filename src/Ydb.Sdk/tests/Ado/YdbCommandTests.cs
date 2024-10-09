@@ -2,6 +2,7 @@ using System.Data;
 using System.Text;
 using Xunit;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Ado;
 
@@ -65,6 +66,42 @@ public class YdbCommandTests
         dbCommand.Parameters.Add(dbParameter);
 
         Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task ExecuteScalarAsync_WhenNoDbTypeParameter_ReturnThisValue()
+    {
+        const string simpleJson = @"{""a"":""b""}";
+
+        var args = new List<(YdbValue YdbValue, object Expected)>
+        {
+            (YdbValue.MakeJson(simpleJson), simpleJson),
+            (YdbValue.MakeJsonDocument(simpleJson), simpleJson),
+            (YdbValue.MakeInterval(TimeSpan.FromSeconds(5)), TimeSpan.FromSeconds(5)),
+            (YdbValue.MakeYson(Encoding.ASCII.GetBytes("{type=\"yson\"}")), Encoding.ASCII.GetBytes("{type=\"yson\"}")),
+            (YdbValue.MakeOptionalJson(simpleJson), simpleJson),
+            (YdbValue.MakeOptionalJsonDocument(simpleJson), simpleJson),
+            (YdbValue.MakeOptionalInterval(TimeSpan.FromSeconds(5)), TimeSpan.FromSeconds(5)),
+            (YdbValue.MakeOptionalYson(Encoding.ASCII.GetBytes("{type=\"yson\"}")),
+                Encoding.ASCII.GetBytes("{type=\"yson\"}"))
+        };
+
+        await using var connection = new YdbConnection();
+        await connection.OpenAsync();
+
+        var dbCommand = connection.CreateCommand();
+        dbCommand.CommandText = "SELECT @var;";
+
+        foreach (var arg in args)
+        {
+            dbCommand.Parameters.Clear();
+            dbCommand.Parameters.Add(new YdbParameter
+            {
+                ParameterName = "@var",
+                Value = arg.YdbValue
+            });
+            Assert.Equal(arg.Expected, await dbCommand.ExecuteScalarAsync());
+        }
     }
 
     [Fact]
