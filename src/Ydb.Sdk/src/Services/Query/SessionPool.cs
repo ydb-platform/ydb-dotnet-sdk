@@ -47,8 +47,8 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         {
             try
             {
-                await using var stream = _driver.ServerStreamCall(QueryService.AttachSessionMethod, new AttachSessionRequest
-                    { SessionId = session.SessionId }, AttachSessionSettings);
+                await using var stream = _driver.ServerStreamCall(QueryService.AttachSessionMethod,
+                    new AttachSessionRequest { SessionId = session.SessionId }, AttachSessionSettings);
 
                 if (!await stream.MoveNextAsync())
                 {
