@@ -1,3 +1,4 @@
+## v0.7.3
 - Fixed YdbDataReader: extract Json / Yson types
 
 ## v0.7.2
