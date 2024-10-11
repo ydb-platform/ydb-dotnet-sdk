@@ -6,7 +6,7 @@ using Ydb.Sdk.Services.Table;
 
 namespace Ydb.Sdk.Tests.Auth;
 
-[Trait("Category", "Integration")]
+// [Trait("Category", "Integration")]
 [Collection("Auth tests")]
 public class StaticAuthTests : IDisposable
 {
