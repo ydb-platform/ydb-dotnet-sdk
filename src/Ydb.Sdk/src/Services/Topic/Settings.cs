@@ -102,8 +102,6 @@ public class AlterTopicSettings : OperationSettings
     /// Topic path.
     /// </summary>
     public string Path { get; set; } = string.Empty;
-    
-    
 }
 
 public enum Codec
