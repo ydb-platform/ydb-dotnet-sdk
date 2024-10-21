@@ -51,9 +51,14 @@ internal class Producer<TValue> : IProducer<TValue>
 
 public class Message<TValue>
 {
+    public Message(TValue data)
+    {
+        Data = data;
+    }
+
     public DateTime Timestamp { get; set; }
 
-    public TValue Data { get; set; }
+    public TValue Data { get; }
 
     public List<Metadata> Metadata { get; } = new();
 }

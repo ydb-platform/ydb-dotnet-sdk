@@ -47,13 +47,14 @@ public class ProducerBuilder<TValue>
             throw new YdbProducerException($"Topic is not supported codec: {_config.Codec}");
         }
 
-        return new Producer<TValue>(
-            _config, initResponse, stream,
-            Serializer ?? (ISerializer<TValue>)(
-                Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
-                    ? serializer
-                    : throw new YdbProducerException("The serializer is not set")
-            )
-        );
+        throw new NotImplementedException();
+        // return new Producer<TValue>(
+        //     _config, initResponse, stream,
+        //     Serializer ?? (ISerializer<TValue>)(
+        //         Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
+        //             ? serializer
+        //             : throw new YdbProducerException("The serializer is not set")
+        //     )
+        // );
     }
 }
