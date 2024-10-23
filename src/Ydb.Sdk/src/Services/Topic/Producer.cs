@@ -37,8 +37,12 @@ internal class Producer<TValue> : IProducer<TValue>
 
     internal async Task Initialize()
     {
-        var stream = _config.Driver.BidirectionalStreamCall(TopicService.StreamWriteMethod,
-            GrpcRequestSettings.DefaultInstance);
+        _logger.LogInformation("Producer session initialization started. ProducerConfig: {ProducerConfig}", _config);
+
+        var stream = _config.Driver.BidirectionalStreamCall(
+            TopicService.StreamWriteMethod,
+            GrpcRequestSettings.DefaultInstance
+        );
 
         var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
         if (_config.ProducerId != null)
@@ -54,7 +58,8 @@ internal class Producer<TValue> : IProducer<TValue>
         await stream.Write(new MessageFromClient { InitRequest = initRequest });
         if (!await stream.MoveNextAsync())
         {
-            throw new YdbProducerException("Write stream is closed by YDB server");
+            throw new YdbProducerException(
+                $"Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}");
         }
 
         var receivedInitMessage = stream.Current;
@@ -139,25 +144,40 @@ internal class ProducerSession : TopicSession
 
     internal async Task RunProcessingWriteAck(ConcurrentQueue<MessageSending> inFlightMessages)
     {
-        await foreach (var messageFromServer in _stream)
+        try
         {
-            var status = Status.FromProto(messageFromServer.Status, messageFromServer.Issues);
-
-            if (status.IsNotSuccess)
+            Logger.LogInformation("ProducerSession[{SessionId}] is running processing writeAck", SessionId);
+            
+            await foreach (var messageFromServer in _stream)
             {
-                Logger.LogWarning("");
-                return;
-            }
+                var status = Status.FromProto(messageFromServer.Status, messageFromServer.Issues);
 
-            foreach (var ack in messageFromServer.WriteResponse.Acks)
-            {
-                if (!inFlightMessages.TryDequeue(out var messageFromClient))
+                if (status.IsNotSuccess)
                 {
-                    break;
+                    Logger.LogWarning(
+                        "ProducerSession[{SessionId}] received unsuccessful status while processing writeAck: {Status}",
+                        SessionId, status);
+                    return;
                 }
 
-                messageFromClient.TaskCompletionSource.SetResult(new SendResult(ack));
+                foreach (var ack in messageFromServer.WriteResponse.Acks)
+                {
+                    if (!inFlightMessages.TryDequeue(out var messageFromClient))
+                    {
+                        break;
+                    }
+
+                    messageFromClient.TaskCompletionSource.SetResult(new SendResult(ack));
+                }
             }
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "ProducerSession[{SessionId}] have error on processing writeAck", SessionId);
+        }
+        finally
+        {
+            ReconnectSession();
         }
     }
 

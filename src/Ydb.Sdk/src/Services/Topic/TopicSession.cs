@@ -5,26 +5,29 @@ namespace Ydb.Sdk.Services.Topic;
 internal abstract class TopicSession : IDisposable
 {
     private readonly Func<Task> _initialize;
- 
+
     protected readonly ILogger Logger;
     protected readonly string SessionId;
-    
+
     private int _isActive = 1;
 
     protected TopicSession(ILogger logger, string sessionId, Func<Task> initialize)
     {
         Logger = logger;
-        _initialize = initialize;
         SessionId = sessionId;
+        _initialize = initialize;
     }
 
     protected async void ReconnectSession()
     {
         if (Interlocked.CompareExchange(ref _isActive, 0, 1) == 0)
         {
-            return;    
+            Logger.LogWarning("The reconnect has already been launched");
+
+            return;
         }
         
+
         while (true)
         {
             try
@@ -38,9 +41,8 @@ internal abstract class TopicSession : IDisposable
             }
         }
     }
-    
+
     public void Dispose()
     {
-        
     }
 }
