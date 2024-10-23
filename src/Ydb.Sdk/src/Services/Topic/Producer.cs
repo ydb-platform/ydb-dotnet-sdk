@@ -1,88 +1,203 @@
-// using System.Collections.Concurrent;
-// using Microsoft.Extensions.Logging;
-// using Ydb.Topic;
+using System.Collections.Concurrent;
+using System.Transactions;
+using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
+using Microsoft.Extensions.Logging;
+using Ydb.Topic;
+using Ydb.Topic.V1;
 
 namespace Ydb.Sdk.Services.Topic;
 
-// using ProducerStream = Driver.BidirectionalStream<
-//     StreamWriteMessage.Types.FromClient,
-//     StreamWriteMessage.Types.FromServer
-// >;
+using InitResponse = StreamWriteMessage.Types.InitResponse;
+using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
+using MessageFromClient = StreamWriteMessage.Types.FromClient;
+using ProducerStream = Driver.BidirectionalStream<
+    StreamWriteMessage.Types.FromClient,
+    StreamWriteMessage.Types.FromServer
+>;
 
 internal class Producer<TValue> : IProducer<TValue>
 {
-    // private readonly Driver _driver;
-    // private readonly ILogger<Producer<TValue>> _logger;
-    // private readonly long _partitionId;
-    // private readonly string _sessionId;
-    // private readonly ISerializer<TValue> _serializer;
-    //
-    // private long _seqNum;
-    //
-    // private readonly ConcurrentQueue<StreamWriteMessage.Types.FromClient> _inFlightMessages;
-    // private volatile ProducerStream _stream;
-    //
-    // internal Producer(
-    //     ProducerConfig producerConfig,
-    //     StreamWriteMessage.Types.InitResponse initResponse,
-    //     ProducerStream stream,
-    //     ISerializer<TValue> serializer)
-    // {
-    //     _driver = producerConfig.Driver;
-    //     _stream = stream;
-    //     _serializer = serializer;
-    //     _logger = producerConfig.Driver.LoggerFactory.CreateLogger<Producer<TValue>>();
-    //     _partitionId = initResponse.PartitionId;
-    //     _sessionId = initResponse.SessionId;
-    //     _seqNum = initResponse.LastSeqNo;
-    //     _inFlightMessages = new ConcurrentQueue<StreamWriteMessage.Types.FromClient>();
-    // }
+    private readonly ProducerConfig _config;
+    private readonly ILogger<Producer<TValue>> _logger;
+    private readonly ISerializer<TValue> _serializer;
+
+    private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
+    private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
+    private readonly SemaphoreSlim _writeSemaphoreSlim = new(1);
+
+    private volatile ProducerSession _session = null!;
+
+    internal Producer(ProducerConfig producerConfig, ISerializer<TValue> serializer)
+    {
+        _config = producerConfig;
+        _serializer = serializer;
+        _logger = producerConfig.Driver.LoggerFactory.CreateLogger<Producer<TValue>>();
+    }
+
+    internal async Task Initialize()
+    {
+        var stream = _config.Driver.BidirectionalStreamCall(TopicService.StreamWriteMethod,
+            GrpcRequestSettings.DefaultInstance);
+
+        var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
+        if (_config.ProducerId != null)
+        {
+            initRequest.ProducerId = _config.ProducerId;
+        }
+
+        if (_config.MessageGroupId != null)
+        {
+            initRequest.MessageGroupId = _config.MessageGroupId;
+        }
+
+        await stream.Write(new MessageFromClient { InitRequest = initRequest });
+        if (!await stream.MoveNextAsync())
+        {
+            throw new YdbProducerException("Write stream is closed by YDB server");
+        }
+
+        var receivedInitMessage = stream.Current;
+
+        Status.FromProto(receivedInitMessage.Status, receivedInitMessage.Issues).EnsureSuccess();
+
+        var initResponse = receivedInitMessage.InitResponse;
+
+        if (!initResponse.SupportedCodecs.Codecs.Contains((int)_config.Codec))
+        {
+            throw new YdbProducerException($"Topic is not supported codec: {_config.Codec}");
+        }
+
+        _session = new ProducerSession(_config, stream, initResponse, Initialize, _logger);
+        _ = _session.RunProcessingWriteAck(_inFlightMessages);
+    }
 
     public Task<SendResult> SendAsync(TValue data)
     {
-        throw new NotImplementedException();
+        return SendAsync(new Message<TValue>(data));
     }
 
-    public Task<SendResult> SendAsync(Message<TValue> message)
+    public async Task<SendResult> SendAsync(Message<TValue> message)
     {
-        throw new NotImplementedException();
+        TaskCompletionSource<SendResult> completeTask = new();
+
+        var data = _serializer.Serialize(message.Data);
+        var messageData = new MessageData
+        {
+            Data = ByteString.CopyFrom(data),
+            CreatedAt = Timestamp.FromDateTime(message.Timestamp),
+            UncompressedSize = data.Length
+        };
+
+        foreach (var metadata in message.Metadata)
+        {
+            messageData.MetadataItems.Add(
+                new MetadataItem { Key = metadata.Key, Value = ByteString.CopyFrom(metadata.Value) }
+            );
+        }
+
+        _toSendBuffer.Enqueue(new MessageSending(messageData, completeTask));
+
+        if (_toSendBuffer.IsEmpty) // concurrent sending
+        {
+            return await completeTask.Task;
+        }
+
+        await _writeSemaphoreSlim.WaitAsync();
+        try
+        {
+            await _session.Write(_toSendBuffer, _inFlightMessages);
+        }
+        finally
+        {
+            _writeSemaphoreSlim.Release();
+        }
+
+        return await completeTask.Task;
     }
 }
 
-public class Message<TValue>
+// No thread safe
+internal class ProducerSession : TopicSession
 {
-    public Message(TValue data)
+    private readonly ProducerConfig _config;
+    private readonly ProducerStream _stream;
+
+    private long _seqNum;
+
+    public ProducerSession(
+        ProducerConfig config,
+        ProducerStream stream,
+        InitResponse initResponse,
+        Func<Task> initialize,
+        ILogger logger) : base(logger, initResponse.SessionId, initialize)
     {
-        Data = data;
+        _config = config;
+        _stream = stream;
+        _seqNum = initResponse.LastSeqNo;
     }
 
-    public DateTime Timestamp { get; set; }
-
-    public TValue Data { get; }
-
-    public List<Metadata> Metadata { get; } = new();
-}
-
-public record Metadata(string Key, byte[] Value);
-
-public class SendResult
-{
-    public SendResult(State status)
+    internal async Task RunProcessingWriteAck(ConcurrentQueue<MessageSending> inFlightMessages)
     {
-        State = status;
+        await foreach (var messageFromServer in _stream)
+        {
+            var status = Status.FromProto(messageFromServer.Status, messageFromServer.Issues);
+
+            if (status.IsNotSuccess)
+            {
+                Logger.LogWarning("");
+                return;
+            }
+
+            foreach (var ack in messageFromServer.WriteResponse.Acks)
+            {
+                if (!inFlightMessages.TryDequeue(out var messageFromClient))
+                {
+                    break;
+                }
+
+                messageFromClient.TaskCompletionSource.SetResult(new SendResult(ack));
+            }
+        }
     }
 
-    public State State { get; }
+    internal async Task Write(ConcurrentQueue<MessageSending> toSendBuffer,
+        ConcurrentQueue<MessageSending> inFlightMessages)
+    {
+        try
+        {
+            var writeMessage = new StreamWriteMessage.Types.WriteRequest
+            {
+                Codec = (int)_config.Codec
+            };
+
+            var currentSeqNum = Volatile.Read(ref _seqNum);
+
+            while (toSendBuffer.TryDequeue(out var sendData))
+            {
+                var messageData = sendData.MessageData;
+
+                messageData.SeqNo = ++currentSeqNum;
+                writeMessage.Messages.Add(messageData);
+                inFlightMessages.Enqueue(sendData);
+            }
+
+            Volatile.Write(ref _seqNum, currentSeqNum);
+            await _stream.Write(new MessageFromClient { WriteRequest = writeMessage });
+        }
+        catch (TransactionException e)
+        {
+            ReconnectSession();
+
+            Console.WriteLine(e);
+            throw;
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        return _stream.DisposeAsync();
+    }
 }
 
-public enum State
-{
-    Written,
-    AlreadyWritten
-}
-
-internal enum ProducerState
-{
-    Ready
-    // Broken 
-}
+internal record MessageSending(MessageData MessageData, TaskCompletionSource<SendResult> TaskCompletionSource);
