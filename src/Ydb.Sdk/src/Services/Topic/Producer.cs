@@ -147,7 +147,7 @@ internal class ProducerSession : TopicSession
         try
         {
             Logger.LogInformation("ProducerSession[{SessionId}] is running processing writeAck", SessionId);
-            
+
             await foreach (var messageFromServer in _stream)
             {
                 var status = Status.FromProto(messageFromServer.Status, messageFromServer.Issues);
