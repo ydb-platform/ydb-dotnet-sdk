@@ -11,6 +11,7 @@ namespace Ydb.Sdk.Services.Topic;
 using InitResponse = StreamWriteMessage.Types.InitResponse;
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
 using MessageFromClient = StreamWriteMessage.Types.FromClient;
+using MessageFromServer = StreamWriteMessage.Types.FromServer;
 using WriterStream = Driver.BidirectionalStream<
     StreamWriteMessage.Types.FromClient,
     StreamWriteMessage.Types.FromServer
@@ -143,10 +144,9 @@ internal class Writer<TValue> : IWriter<TValue>
 }
 
 // No thread safe
-internal class WriterSession : TopicSession
+internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>
 {
     private readonly WriterConfig _config;
-    private readonly WriterStream _stream;
 
     private long _seqNum;
 
@@ -155,11 +155,10 @@ internal class WriterSession : TopicSession
         WriterStream stream,
         InitResponse initResponse,
         Func<Task> initialize,
-        ILogger logger) : base(logger, initResponse.SessionId, initialize)
+        ILogger logger) : base(stream, logger, initResponse.SessionId, initialize)
     {
         _config = config;
-        _stream = stream;
-        _seqNum = initResponse.LastSeqNo;
+        Volatile.Write(ref _seqNum, initResponse.LastSeqNo); // happens-before for Volatile.Read
     }
 
     internal async Task RunProcessingWriteAck(ConcurrentQueue<MessageSending> inFlightMessages)
@@ -168,8 +167,9 @@ internal class WriterSession : TopicSession
         {
             Logger.LogInformation("WriterSession[{SessionId}] is running processing writeAck", SessionId);
 
-            await foreach (var messageFromServer in _stream)
+            while (await Stream.MoveNextAsync())
             {
+                var messageFromServer = Stream.Current;
                 var status = Status.FromProto(messageFromServer.Status, messageFromServer.Issues);
 
                 if (status.IsNotSuccess)
@@ -253,7 +253,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
             }
 
             Volatile.Write(ref _seqNum, currentSeqNum);
-            await _stream.Write(new MessageFromClient { WriteRequest = writeMessage });
+            await Stream.Write(new MessageFromClient { WriteRequest = writeMessage });
         }
         catch (TransactionException e)
         {
@@ -262,11 +262,6 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
 
             ReconnectSession();
         }
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        return _stream.DisposeAsync();
     }
 }
 

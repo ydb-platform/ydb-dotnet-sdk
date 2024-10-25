@@ -2,18 +2,21 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Services.Topic;
 
-internal abstract class TopicSession : IDisposable
+internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
 {
     private readonly Func<Task> _initialize;
 
+    protected readonly Driver.BidirectionalStream<TFromClient, TFromServer> Stream;
     protected readonly ILogger Logger;
     protected readonly string SessionId;
 
     private int _isActive = 1;
     private bool _disposed;
 
-    protected TopicSession(ILogger logger, string sessionId, Func<Task> initialize)
+    protected TopicSession(Driver.BidirectionalStream<TFromClient, TFromServer> stream, ILogger logger,
+        string sessionId, Func<Task> initialize)
     {
+        Stream = stream;
         Logger = logger;
         SessionId = sessionId;
         _initialize = initialize;
@@ -50,5 +53,7 @@ internal abstract class TopicSession : IDisposable
         {
             _disposed = true;
         }
+
+        Stream.Dispose();
     }
 }
