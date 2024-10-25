@@ -4,13 +4,11 @@ namespace Ydb.Sdk.Services.Topic;
 
 public class WriterConfig
 {
-    public WriterConfig(Driver driver, string topicPath)
+    public WriterConfig(string topicPath)
     {
-        Driver = driver;
         TopicPath = topicPath;
     }
 
-    public Driver Driver { get; }
     public string TopicPath { get; }
     public string? ProducerId { get; set; }
     public string? MessageGroupId { get; set; }

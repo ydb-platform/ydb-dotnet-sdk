@@ -18,6 +18,7 @@ using WriterStream = Driver.BidirectionalStream<
 
 internal class Writer<TValue> : IWriter<TValue>
 {
+    private readonly Driver _driver;
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
@@ -28,18 +29,19 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private volatile WriterSession _session = null!;
 
-    internal Writer(WriterConfig config, ISerializer<TValue> serializer)
+    internal Writer(Driver driver, WriterConfig config, ISerializer<TValue> serializer)
     {
+        _driver = driver;
         _config = config;
         _serializer = serializer;
-        _logger = config.Driver.LoggerFactory.CreateLogger<Writer<TValue>>();
+        _logger = driver.LoggerFactory.CreateLogger<Writer<TValue>>();
     }
 
     internal async Task Initialize()
     {
         _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
 
-        var stream = _config.Driver.BidirectionalStreamCall(
+        var stream = _driver.BidirectionalStreamCall(
             TopicService.StreamWriteMethod,
             GrpcRequestSettings.DefaultInstance
         );
