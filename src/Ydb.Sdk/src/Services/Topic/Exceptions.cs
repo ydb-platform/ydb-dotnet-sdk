@@ -7,9 +7,9 @@ public class YdbTopicException : Exception
     }
 }
 
-public class YdbProducerException : YdbTopicException
+public class YdbWriterException : YdbTopicException
 {
-    public YdbProducerException(string message) : base(message)
+    public YdbWriterException(string message) : base(message)
     {
     }
 }

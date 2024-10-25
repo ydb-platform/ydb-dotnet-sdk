@@ -367,8 +367,7 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         }
     }
 
-    internal sealed class BidirectionalStream<TRequest, TResponse> : IAsyncEnumerator<TResponse>,
-        IAsyncEnumerable<TResponse>
+    internal sealed class BidirectionalStream<TRequest, TResponse> : IDisposable
     {
         private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _bidirectionalStream;
         private readonly Action _rpcErrorAction;
@@ -394,13 +393,6 @@ public sealed class Driver : IDisposable, IAsyncDisposable
             }
         }
 
-        public ValueTask DisposeAsync()
-        {
-            _bidirectionalStream.Dispose();
-
-            return default;
-        }
-
         public async ValueTask<bool> MoveNextAsync()
         {
             try
@@ -417,9 +409,9 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
         public TResponse Current => _bidirectionalStream.ResponseStream.Current;
 
-        public IAsyncEnumerator<TResponse> GetAsyncEnumerator(CancellationToken cancellationToken = new())
+        public void Dispose()
         {
-            return this;
+            _bidirectionalStream.Dispose();
         }
     }
 
