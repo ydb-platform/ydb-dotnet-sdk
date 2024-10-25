@@ -2,11 +2,11 @@ using Ydb.Topic;
 
 namespace Ydb.Sdk.Services.Topic;
 
-public class SendResult
+public class WriteResult
 {
     private readonly long _offset;
 
-    internal SendResult(StreamWriteMessage.Types.WriteResponse.Types.WriteAck ack)
+    internal WriteResult(StreamWriteMessage.Types.WriteResponse.Types.WriteAck ack)
     {
         switch (ack.MessageWriteStatusCase)
         {
@@ -19,7 +19,7 @@ public class SendResult
                 break;
             case StreamWriteMessage.Types.WriteResponse.Types.WriteAck.MessageWriteStatusOneofCase.None:
             default:
-                throw new YdbProducerException($"Unexpected WriteAck status: {ack.MessageWriteStatusCase}");
+                throw new YdbWriterException($"Unexpected WriteAck status: {ack.MessageWriteStatusCase}");
         }
     }
 

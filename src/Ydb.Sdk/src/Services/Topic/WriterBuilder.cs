@@ -1,29 +1,29 @@
 namespace Ydb.Sdk.Services.Topic;
 
-public class ProducerBuilder<TValue>
+public class WriterBuilder<TValue>
 {
-    private readonly ProducerConfig _config;
+    private readonly WriterConfig _config;
 
-    public ProducerBuilder(ProducerConfig config)
+    public WriterBuilder(WriterConfig config)
     {
         _config = config;
     }
 
     public ISerializer<TValue>? Serializer { get; set; }
 
-    public async Task<IProducer<TValue>> Build()
+    public async Task<IWriter<TValue>> Build()
     {
-        var producer = new Producer<TValue>(
+        var writer = new Writer<TValue>(
             _config,
             Serializer ?? (ISerializer<TValue>)(
                 Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
                     ? serializer
-                    : throw new YdbProducerException("The serializer is not set")
+                    : throw new YdbWriterException("The serializer is not set")
             )
         );
 
-        await producer.Initialize();
+        await writer.Initialize();
 
-        return producer;
+        return writer;
     }
 }

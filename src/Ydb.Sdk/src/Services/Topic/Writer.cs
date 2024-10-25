@@ -11,33 +11,33 @@ namespace Ydb.Sdk.Services.Topic;
 using InitResponse = StreamWriteMessage.Types.InitResponse;
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
 using MessageFromClient = StreamWriteMessage.Types.FromClient;
-using ProducerStream = Driver.BidirectionalStream<
+using WriterStream = Driver.BidirectionalStream<
     StreamWriteMessage.Types.FromClient,
     StreamWriteMessage.Types.FromServer
 >;
 
-internal class Producer<TValue> : IProducer<TValue>
+internal class Writer<TValue> : IWriter<TValue>
 {
-    private readonly ProducerConfig _config;
-    private readonly ILogger<Producer<TValue>> _logger;
+    private readonly WriterConfig _config;
+    private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
 
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
     private readonly SemaphoreSlim _writeSemaphoreSlim = new(1);
 
-    private volatile ProducerSession _session = null!;
+    private volatile WriterSession _session = null!;
 
-    internal Producer(ProducerConfig producerConfig, ISerializer<TValue> serializer)
+    internal Writer(WriterConfig config, ISerializer<TValue> serializer)
     {
-        _config = producerConfig;
+        _config = config;
         _serializer = serializer;
-        _logger = producerConfig.Driver.LoggerFactory.CreateLogger<Producer<TValue>>();
+        _logger = config.Driver.LoggerFactory.CreateLogger<Writer<TValue>>();
     }
 
     internal async Task Initialize()
     {
-        _logger.LogInformation("Producer session initialization started. ProducerConfig: {ProducerConfig}", _config);
+        _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
 
         var stream = _config.Driver.BidirectionalStreamCall(
             TopicService.StreamWriteMethod,
@@ -55,10 +55,12 @@ internal class Producer<TValue> : IProducer<TValue>
             initRequest.MessageGroupId = _config.MessageGroupId;
         }
 
+        _logger.LogDebug("Sending initialization request for the write stream: {InitRequest}", initRequest);
+
         await stream.Write(new MessageFromClient { InitRequest = initRequest });
         if (!await stream.MoveNextAsync())
         {
-            throw new YdbProducerException(
+            throw new YdbWriterException(
                 $"Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}");
         }
 
@@ -68,23 +70,39 @@ internal class Producer<TValue> : IProducer<TValue>
 
         var initResponse = receivedInitMessage.InitResponse;
 
+        _logger.LogDebug("Received a response for the initialization request on the write stream: {InitResponse}",
+            initResponse);
+
         if (!initResponse.SupportedCodecs.Codecs.Contains((int)_config.Codec))
         {
-            throw new YdbProducerException($"Topic is not supported codec: {_config.Codec}");
+            throw new YdbWriterException($"Topic[{_config.TopicPath}] is not supported codec: {_config.Codec}");
         }
 
-        _session = new ProducerSession(_config, stream, initResponse, Initialize, _logger);
+        _session = new WriterSession(_config, stream, initResponse, Initialize, _logger);
+
+        await _writeSemaphoreSlim.WaitAsync();
+        try
+        {
+            _logger.LogDebug("Retrying to send pending in-flight messages after stream restart");
+
+            await _session.Write(_inFlightMessages, _inFlightMessages);
+        }
+        finally
+        {
+            _writeSemaphoreSlim.Release();
+        }
+
         _ = _session.RunProcessingWriteAck(_inFlightMessages);
     }
 
-    public Task<SendResult> SendAsync(TValue data)
+    public Task<WriteResult> WriteAsync(TValue data)
     {
-        return SendAsync(new Message<TValue>(data));
+        return WriteAsync(new Message<TValue>(data));
     }
 
-    public async Task<SendResult> SendAsync(Message<TValue> message)
+    public async Task<WriteResult> WriteAsync(Message<TValue> message)
     {
-        TaskCompletionSource<SendResult> completeTask = new();
+        TaskCompletionSource<WriteResult> completeTask = new();
 
         var data = _serializer.Serialize(message.Data);
         var messageData = new MessageData
@@ -123,16 +141,16 @@ internal class Producer<TValue> : IProducer<TValue>
 }
 
 // No thread safe
-internal class ProducerSession : TopicSession
+internal class WriterSession : TopicSession
 {
-    private readonly ProducerConfig _config;
-    private readonly ProducerStream _stream;
+    private readonly WriterConfig _config;
+    private readonly WriterStream _stream;
 
     private long _seqNum;
 
-    public ProducerSession(
-        ProducerConfig config,
-        ProducerStream stream,
+    public WriterSession(
+        WriterConfig config,
+        WriterStream stream,
         InitResponse initResponse,
         Func<Task> initialize,
         ILogger logger) : base(logger, initResponse.SessionId, initialize)
@@ -146,7 +164,7 @@ internal class ProducerSession : TopicSession
     {
         try
         {
-            Logger.LogInformation("ProducerSession[{SessionId}] is running processing writeAck", SessionId);
+            Logger.LogInformation("WriterSession[{SessionId}] is running processing writeAck", SessionId);
 
             await foreach (var messageFromServer in _stream)
             {
@@ -155,25 +173,55 @@ internal class ProducerSession : TopicSession
                 if (status.IsNotSuccess)
                 {
                     Logger.LogWarning(
-                        "ProducerSession[{SessionId}] received unsuccessful status while processing writeAck: {Status}",
+                        "WriterSession[{SessionId}] received unsuccessful status while processing writeAck: {Status}",
                         SessionId, status);
                     return;
                 }
 
                 foreach (var ack in messageFromServer.WriteResponse.Acks)
                 {
-                    if (!inFlightMessages.TryDequeue(out var messageFromClient))
+                    if (!inFlightMessages.TryPeek(out var messageFromClient))
                     {
+                        Logger.LogCritical("No client message was found upon receipt of an acknowledgement: {WriteAck}",
+                            ack);
+
                         break;
                     }
 
-                    messageFromClient.TaskCompletionSource.SetResult(new SendResult(ack));
+                    if (messageFromClient.MessageData.SeqNo > ack.SeqNo)
+                    {
+                        Logger.LogCritical(
+                            @"The sequence number of the client's message in the queue is greater than the server's write acknowledgment number. 
+Skipping the WriteAck... 
+Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
+                            messageFromClient.MessageData.SeqNo, ack);
+
+                        continue;
+                    }
+
+                    if (messageFromClient.MessageData.SeqNo < ack.SeqNo)
+                    {
+                        Logger.LogCritical(
+                            @"The sequence number of the client's message in the queue is less than the server's write acknowledgment number. 
+Completing task on exception...
+Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
+                            messageFromClient.MessageData.SeqNo, ack);
+
+                        messageFromClient.TaskCompletionSource.SetException(new YdbWriterException(
+                            $"Client SeqNo[{messageFromClient.MessageData.SeqNo}] is less then server's WriteAck[{ack}]"));
+                    }
+                    else
+                    {
+                        messageFromClient.TaskCompletionSource.SetResult(new WriteResult(ack));
+                    }
+
+                    inFlightMessages.TryDequeue(out _); // Dequeue 
                 }
             }
         }
         catch (Exception e)
         {
-            Logger.LogError(e, "ProducerSession[{SessionId}] have error on processing writeAck", SessionId);
+            Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
         }
         finally
         {
@@ -207,10 +255,10 @@ internal class ProducerSession : TopicSession
         }
         catch (TransactionException e)
         {
-            ReconnectSession();
+            Logger.LogError(e, "WriterSession[{SessionId}] have error on Write, last SeqNo={SeqNo}",
+                SessionId, Volatile.Read(ref _seqNum));
 
-            Console.WriteLine(e);
-            throw;
+            ReconnectSession();
         }
     }
 
@@ -220,4 +268,4 @@ internal class ProducerSession : TopicSession
     }
 }
 
-internal record MessageSending(MessageData MessageData, TaskCompletionSource<SendResult> TaskCompletionSource);
+internal record MessageSending(MessageData MessageData, TaskCompletionSource<WriteResult> TaskCompletionSource);

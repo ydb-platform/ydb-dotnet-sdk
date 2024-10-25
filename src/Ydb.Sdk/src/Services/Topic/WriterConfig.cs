@@ -2,9 +2,9 @@ using System.Text;
 
 namespace Ydb.Sdk.Services.Topic;
 
-public class ProducerConfig
+public class WriterConfig
 {
-    public ProducerConfig(Driver driver, string topicPath)
+    public WriterConfig(Driver driver, string topicPath)
     {
         Driver = driver;
         TopicPath = topicPath;
