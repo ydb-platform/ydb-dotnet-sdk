@@ -1,4 +1,4 @@
-using Ydb.Sdk.Services.Topic.Writer;
+using Ydb.Sdk.Services.Topic.Reader;
 
 namespace Ydb.Sdk.Services.Topic;
 

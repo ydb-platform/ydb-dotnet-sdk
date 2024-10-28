@@ -16,7 +16,7 @@ internal class Reader<TValue> : IReader<TValue>
         throw new NotImplementedException();
     }
 
-    public Task<Writer.Message<TValue>> ReadMessageAsync()
+    public Task<Message<TValue>> ReadMessageAsync()
     {
         throw new NotImplementedException();
     }
