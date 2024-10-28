@@ -4,7 +4,7 @@ namespace Ydb.Sdk.Services.Topic;
 
 public interface IReader<TValue>
 {
-    public Task<TValue> Read();
+    public Task<TValue> ReadAsync();
 
-    public Task<Message<TValue>> ReadMessage();
+    public Task<Message<TValue>> ReadMessageAsync();
 }
