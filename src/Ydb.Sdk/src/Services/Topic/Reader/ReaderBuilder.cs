@@ -13,7 +13,7 @@ public class ReaderBuilder<TValue>
 
     public IDeserializer<TValue>? Deserializer { get; set; }
 
-    public async Task<IReader<TValue>> Build()
+    public Task<IReader<TValue>> Build()
     {
         throw new NotImplementedException();
         // var reader = new Reader<TValue>(
