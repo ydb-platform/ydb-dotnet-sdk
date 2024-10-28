@@ -15,18 +15,19 @@ public class ReaderBuilder<TValue>
 
     public async Task<IReader<TValue>> Build()
     {
-        var reader = new Reader<TValue>(
-            _driver,
-            _config,
-            Deserializer ?? (IDeserializer<TValue>)(
-                Deserializers.DefaultDeserializers.TryGetValue(typeof(TValue), out var deserializer)
-                    ? deserializer
-                    : throw new YdbWriterException("The serializer is not set")
-            )
-        );
-
-        await reader.Initialize();
-
-        return reader;
+        throw new NotImplementedException();
+        // var reader = new Reader<TValue>(
+        //     _driver,
+        //     _config,
+        //     Deserializer ?? (IDeserializer<TValue>)(
+        //         Deserializers.DefaultDeserializers.TryGetValue(typeof(TValue), out var deserializer)
+        //             ? deserializer
+        //             : throw new YdbWriterException("The serializer is not set")
+        //     )
+        // );
+        //
+        // await reader.Initialize();
+        //
+        // return reader;
     }
 }

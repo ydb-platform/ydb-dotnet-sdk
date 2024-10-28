@@ -2,10 +2,9 @@ namespace Ydb.Sdk.Services.Topic.Reader;
 
 internal class Reader<TValue> : IReader<TValue>
 {
-    internal Reader(Driver driver, ReaderConfig config, IDeserializer<TValue> deserializer)
-    {
-        throw new NotImplementedException();
-    }
+    // internal Reader(Driver driver, ReaderConfig config, IDeserializer<TValue> deserializer)
+    // {
+    // }
 
     internal Task Initialize()
     {
