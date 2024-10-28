@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Services.Topic.Writer;
 
 using InitResponse = StreamWriteMessage.Types.InitResponse;
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;

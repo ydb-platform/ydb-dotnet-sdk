@@ -13,3 +13,10 @@ public class YdbWriterException : YdbTopicException
     {
     }
 }
+
+public class YdbReaderException : YdbTopicException
+{
+    protected YdbReaderException(string message) : base(message)
+    {
+    }
+}

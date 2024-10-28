@@ -1,3 +1,5 @@
+using Ydb.Sdk.Services.Topic.Writer;
+
 namespace Ydb.Sdk.Services.Topic;
 
 public interface IWriter<TValue>

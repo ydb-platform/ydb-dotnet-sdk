@@ -23,8 +23,10 @@ public static class Serializers
     public static readonly ISerializer<int> Int32 = new Int32Serializer();
 
     /// <summary>
-    /// System.Byte[] (nullable) serializer.</summary>
-    /// <remarks>Byte order is original order.</remarks>
+    /// System.Byte[] serializer.</summary>
+    /// <remarks>
+    /// Byte order is original order.
+    /// </remarks>
     public static readonly ISerializer<byte[]> ByteArray = new ByteArraySerializer();
 
     internal static readonly Dictionary<System.Type, object> DefaultSerializers = new()
