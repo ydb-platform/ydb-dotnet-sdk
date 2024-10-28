@@ -28,7 +28,7 @@ public static class Deserializers
     public static IDeserializer<int> Int32 = new Int32Deserializer();
 
     /// <summary>
-    /// System.Byte[] (nullable) deserializer.
+    /// System.Byte[] deserializer.
     /// </summary>
     /// <remarks>
     /// Byte ordering is original order.
