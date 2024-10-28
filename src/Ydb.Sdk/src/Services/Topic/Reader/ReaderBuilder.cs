@@ -12,4 +12,21 @@ public class ReaderBuilder<TValue>
     }
     
     public IDeserializer<TValue>? Deserializer { get; set; }
+    
+    public async Task<IReader<TValue>> Build()
+    {
+        var reader = new Reader<TValue>(
+            _driver,
+            _config,
+            Deserializer ?? (IDeserializer<TValue>)(
+                Deserializers.DefaultSerializers.TryGetValue(typeof(TValue), out var deserializer)
+                    ? deserializer
+                    : throw new YdbWriterException("The serializer is not set")
+            )
+        );
+
+        await reader.Initialize();
+
+        return reader;
+    }
 }
