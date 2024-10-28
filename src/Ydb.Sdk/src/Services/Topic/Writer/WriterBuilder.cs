@@ -1,4 +1,4 @@
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Services.Topic.Writer;
 
 public class WriterBuilder<TValue>
 {
