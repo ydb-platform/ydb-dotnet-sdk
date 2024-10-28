@@ -19,7 +19,7 @@ public class ReaderBuilder<TValue>
             _driver,
             _config,
             Deserializer ?? (IDeserializer<TValue>)(
-                Deserializers.DefaultSerializers.TryGetValue(typeof(TValue), out var deserializer)
+                Deserializers.DefaultDeserializers.TryGetValue(typeof(TValue), out var deserializer)
                     ? deserializer
                     : throw new YdbWriterException("The serializer is not set")
             )

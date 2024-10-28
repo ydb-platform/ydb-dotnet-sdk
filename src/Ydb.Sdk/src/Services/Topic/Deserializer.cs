@@ -35,7 +35,7 @@ public static class Deserializers
     /// </remarks>
     public static IDeserializer<byte[]> ByteArray = new ByteArrayDeserializer();
 
-    internal static readonly Dictionary<System.Type, object> DefaultSerializers = new()
+    internal static readonly Dictionary<System.Type, object> DefaultDeserializers = new()
     {
         { typeof(int), Int32 },
         { typeof(long), Int64 },
