@@ -10,9 +10,9 @@ public class ReaderBuilder<TValue>
         _driver = driver;
         _config = config;
     }
-    
+
     public IDeserializer<TValue>? Deserializer { get; set; }
-    
+
     public async Task<IReader<TValue>> Build()
     {
         var reader = new Reader<TValue>(

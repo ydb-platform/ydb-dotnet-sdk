@@ -7,17 +7,17 @@ public class ReaderConfig
     /// Topics that will be read by this reader.
     /// </summary>
     public List<SubscribeSettings> SubscribeSettings { get; } = new();
-    
+
     /// <summary>
     /// Path of consumer that is used for reading by this session.
     /// </summary>
     public string? ConsumerName { get; set; }
-    
+
     /// <summary>
     /// Optional name. Will be shown in debug stat.
     /// </summary>
     public string? ReaderName { get; set; }
-    
+
     /// <summary>
     /// Direct reading from a partition node.
     /// </summary>

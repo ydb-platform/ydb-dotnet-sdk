@@ -61,8 +61,8 @@ public static class Deserializers
                     $"Deserializer<Long> encountered data of length ${data.Length}. Expecting data length to be 8");
             }
 
-            return (long)data[0] << 56 | (long)data[1] << 48 | (long)data[2] << 40 | (long)data[3] << 32 |
-                   (long)data[4] << 24 | (long)data[5] << 16 | (long)data[6] << 8 | data[7];
+            return ((long)data[0] << 56) | ((long)data[1] << 48) | ((long)data[2] << 40) | ((long)data[3] << 32) |
+                   ((long)data[4] << 24) | ((long)data[5] << 16) | ((long)data[6] << 8) | data[7];
         }
     }
 
@@ -76,7 +76,7 @@ public static class Deserializers
                     $"Deserializer<Int32> encountered data of length ${data.Length}. Expecting data length to be 4");
             }
 
-            return data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
+            return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
         }
     }
 
