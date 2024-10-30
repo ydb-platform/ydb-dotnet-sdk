@@ -80,7 +80,6 @@ public class YdbParameterTests
     [Theory]
     [InlineData(DbType.VarNumeric, "VarNumeric")]
     [InlineData(DbType.Xml, "Xml")]
-    [InlineData(DbType.Guid, "Guid")]
     [InlineData(DbType.Time, "Time")]
     public void YdbValue_WhenNoSupportedDbType_ThrowException(DbType dbType, string name)
     {
