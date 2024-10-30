@@ -94,7 +94,7 @@ public class YdbValueTests : IClassFixture<TableClientFixture>
             new object[]
             {
                 new Data<Guid?>(new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"), YdbValue.MakeOptionalUuid,
-                    value => value.GetUuid())
+                    value => value.GetOptionalUuid())
             },
             new object[] { new Data<Guid?>(null, YdbValue.MakeOptionalUuid, value => value.GetOptionalUuid()) },
             new object[]

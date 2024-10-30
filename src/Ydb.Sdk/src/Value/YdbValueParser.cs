@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-
-namespace Ydb.Sdk.Value;
+﻿namespace Ydb.Sdk.Value;
 
 public partial class YdbValue
 {
