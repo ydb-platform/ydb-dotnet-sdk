@@ -70,8 +70,7 @@ public class YdbCommandTests
 
     [Theory]
     [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
-    public async Task ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue<T>(
-        YdbParameterTests.Data<T> data)
+    public async Task ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
     {
         if (data.IsNullable)
         {
