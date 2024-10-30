@@ -68,6 +68,33 @@ public class YdbCommandTests
         Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
     }
 
+    [Theory]
+    [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
+    public async Task ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
+    {
+        if (data.IsNullable)
+        {
+            return;
+        }
+
+        await using var connection = new YdbConnection();
+        await connection.OpenAsync();
+
+        var dbCommand = connection.CreateCommand();
+
+        dbCommand.CommandText = "SELECT @var;";
+
+        var dbParameter = new YdbParameter
+        {
+            ParameterName = "@var",
+            Value = data.Expected,
+            IsNullable = data.IsNullable
+        };
+        dbCommand.Parameters.Add(dbParameter);
+
+        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
+    }
+
     [Fact]
     public async Task ExecuteScalarAsync_WhenNoDbTypeParameter_ReturnThisValue()
     {
@@ -403,5 +430,42 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
         await ydbConnection.OpenAsync();
 
         Assert.Null(await new YdbCommand(ydbConnection) { CommandText = "SELECT NULL" }.ExecuteScalarAsync());
+    }
+
+    [Theory]
+    [InlineData("123e4567-e89b-12d3-a456-426614174000")]
+    [InlineData("2d9e498b-b746-9cfb-084d-de4e1cb4736e")]
+    [InlineData("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")]
+    public async Task Guid_WhenSelectUuid_ReturnThisUuid(string guid)
+    {
+        await using var ydbConnection = new YdbConnection();
+        await ydbConnection.OpenAsync();
+
+        var actualGuid = await new YdbCommand(ydbConnection)
+                { CommandText = $"SELECT CAST('{guid}' AS UUID);" }
+            .ExecuteScalarAsync();
+
+        Assert.Equal(new Guid(guid), actualGuid);
+        Assert.Equal(guid.ToLower(), actualGuid?.ToString()); // Guid.ToString() method represents lowercase
+    }
+
+    [Theory]
+    [InlineData("123e4567-e89b-12d3-a456-426614174000")]
+    [InlineData("2d9e498b-b746-9cfb-084d-de4e1cb4736e")]
+    [InlineData("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")]
+    public async Task Guid_WhenSetUuid_ReturnThisUtf8Uuid(string guid)
+    {
+        await using var ydbConnection = new YdbConnection();
+        await ydbConnection.OpenAsync();
+
+        var ydbCommand = new YdbCommand(ydbConnection)
+        {
+            CommandText = "SELECT CAST(@guid AS Text);"
+        };
+        ydbCommand.Parameters.Add(new YdbParameter("guid", DbType.Guid, new Guid(guid)));
+
+        var actualGuidText = await ydbCommand.ExecuteScalarAsync();
+
+        Assert.Equal(guid.ToLower(), actualGuidText); // Guid.ToString() method represents lowercase
     }
 }

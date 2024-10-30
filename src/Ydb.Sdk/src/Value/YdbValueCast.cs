@@ -152,6 +152,10 @@ public partial class YdbValue
         return GetOptionalPrimitive<decimal>(value);
     }
 
+    public static explicit operator Guid?(YdbValue value)
+    {
+        return GetOptionalPrimitive<Guid>(value);
+    }
 
     private static T? GetOptionalPrimitive<T>(YdbValue value) where T : struct
     {
@@ -192,6 +196,7 @@ public partial class YdbValue
             YdbTypeId.Json => value.GetJson(),
             YdbTypeId.JsonDocument => value.GetJsonDocument(),
             YdbTypeId.DecimalType => value.GetDecimal(),
+            YdbTypeId.Uuid => value.GetUuid(),
             _ => throw new InvalidCastException($"Cannot cast YDB type {value.TypeId} to {typeof(T).Name}.")
         });
     }
