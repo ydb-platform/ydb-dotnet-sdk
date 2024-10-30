@@ -122,6 +122,17 @@ public partial class YdbValue
             new Ydb.Value { TextValue = value });
     }
 
+    public static YdbValue MakeUuid(Guid guid)
+    {
+        var bytes = guid.ToByteArray();
+
+        var low = BitConverter.ToUInt64(bytes, 0);
+        var high = BitConverter.ToUInt64(bytes, 8);
+
+        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uuid),
+            new Ydb.Value { Low128 = low, High128 = high });
+    }
+
     private static byte GetDecimalScale(decimal value)
     {
         var bits = decimal.GetBits(value);
@@ -237,9 +248,7 @@ public partial class YdbValue
         var value = new Ydb.Value();
         value.Items.Add(values.Select(v => v._protoValue));
 
-        return new YdbValue(
-            new Type { ListType = new ListType { Item = values[0]._protoType } },
-            value);
+        return new YdbValue(new Type { ListType = new ListType { Item = values[0]._protoType } }, value);
     }
 
     public static YdbValue MakeTuple(IReadOnlyList<YdbValue> values)
@@ -254,9 +263,7 @@ public partial class YdbValue
         var value = new Ydb.Value();
         value.Items.Add(values.Select(v => v._protoValue));
 
-        return new YdbValue(
-            type,
-            value);
+        return new YdbValue(type, value);
     }
 
     public static YdbValue MakeStruct(IReadOnlyDictionary<string, YdbValue> members)
@@ -397,6 +404,11 @@ public partial class YdbValue
     public static YdbValue MakeOptionalJsonDocument(string? value = null)
     {
         return MakeOptionalOf(value, YdbTypeId.JsonDocument, MakeJsonDocument);
+    }
+
+    public static YdbValue MakeOptionalUuid(Guid? value = null)
+    {
+        return MakeOptionalOf(value, YdbTypeId.Uuid, MakeUuid);
     }
 
     public static YdbValue MakeOptionalDecimal(decimal? value = null)

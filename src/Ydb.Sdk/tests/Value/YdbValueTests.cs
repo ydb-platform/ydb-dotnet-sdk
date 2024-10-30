@@ -87,6 +87,17 @@ public class YdbValueTests : IClassFixture<TableClientFixture>
             new object[] { new Data<double?>(123.45, YdbValue.MakeOptionalDouble, value => value.GetOptionalDouble()) },
             new object[] { new Data<double?>(null, YdbValue.MakeOptionalDouble, value => value.GetOptionalDouble()) },
             new object[]
+            {
+                new Data<Guid>(new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"), YdbValue.MakeUuid,
+                    value => value.GetUuid())
+            },
+            new object[]
+            {
+                new Data<Guid?>(new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"), YdbValue.MakeOptionalUuid,
+                    value => value.GetUuid())
+            },
+            new object[] { new Data<Guid?>(null, YdbValue.MakeOptionalUuid, value => value.GetOptionalUuid()) },
+            new object[]
                 { new Data<DateTime>(new DateTime(2021, 08, 21), YdbValue.MakeDate, value => value.GetDate()) },
             new object[]
             {

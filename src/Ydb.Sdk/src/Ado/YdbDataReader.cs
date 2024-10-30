@@ -225,6 +225,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 typeof(string),
             YdbTypeId.String => typeof(byte[]),
             YdbTypeId.DecimalType => typeof(decimal),
+            YdbTypeId.Uuid => typeof(Guid),
             _ => throw new YdbException($"Unsupported ydb type {type}")
         };
 
@@ -339,6 +340,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             YdbTypeId.Yson => ydbValue.GetYson(),
             YdbTypeId.String => ydbValue.GetString(),
             YdbTypeId.DecimalType => ydbValue.GetDecimal(),
+            YdbTypeId.Uuid => ydbValue.GetUuid(),
             _ => throw new YdbException($"Unsupported ydb type {ydbValue.TypeId}")
         };
     }

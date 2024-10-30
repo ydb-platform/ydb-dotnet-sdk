@@ -31,7 +31,8 @@ public sealed class YdbParameter : DbParameter
         { DbType.DateTime2, YdbValue.MakeOptionalTimestamp() },
         { DbType.DateTimeOffset, YdbValue.MakeOptionalTimestamp() },
         { DbType.Decimal, YdbValue.MakeOptionalDecimal() },
-        { DbType.Currency, YdbValue.MakeOptionalDecimal() }
+        { DbType.Currency, YdbValue.MakeOptionalDecimal() },
+        { DbType.Guid, YdbValue.MakeOptionalUuid() }
     };
 
     private string _parameterName = string.Empty;
@@ -165,7 +166,8 @@ public sealed class YdbParameter : DbParameter
                     _ => ThrowInvalidCast()
                 },
                 byte[] bytesValue when DbType is DbType.Binary or DbType.Object => YdbValue.MakeString(bytesValue),
-                _ when DbType is DbType.VarNumeric or DbType.Xml or DbType.Guid or DbType.Time =>
+                Guid guidValue when DbType is DbType.Guid or DbType.Object => YdbValue.MakeUuid(guidValue),
+                _ when DbType is DbType.VarNumeric or DbType.Xml or DbType.Time =>
                     throw new YdbException($"Ydb don't supported this DbType: {DbType}"),
                 _ => ThrowInvalidCast()
             };

@@ -1,4 +1,6 @@
-﻿namespace Ydb.Sdk.Value;
+﻿using System.ComponentModel;
+
+namespace Ydb.Sdk.Value;
 
 public partial class YdbValue
 {
@@ -125,6 +127,23 @@ public partial class YdbValue
     {
         EnsurePrimitiveTypeId(Type.Types.PrimitiveTypeId.JsonDocument);
         return _protoValue.TextValue;
+    }
+
+    public Guid GetUuid()
+    {
+        EnsurePrimitiveTypeId(Type.Types.PrimitiveTypeId.Uuid);
+
+        var high = _protoValue.High128;
+        var low = _protoValue.Low128;
+
+        var lowBytes = BitConverter.GetBytes(low);
+        var highBytes = BitConverter.GetBytes(high);
+
+        var guidBytes = new byte[16];
+        Array.Copy(lowBytes, 0, guidBytes, 0, 8);
+        Array.Copy(highBytes, 0, guidBytes, 8, 8);
+
+        return new Guid(guidBytes);
     }
 
     public decimal GetDecimal()
@@ -256,6 +275,11 @@ public partial class YdbValue
     public string? GetOptionalJsonDocument()
     {
         return GetOptional()?.GetJsonDocument();
+    }
+
+    public Guid? GetOptionalUuid()
+    {
+        return GetOptional()?.GetUuid();
     }
 
     public decimal? GetOptionalDecimal()

@@ -183,6 +183,17 @@ public class YdbParameterTests
             new object[] { new Data<double>(DbType.Double, 123.45, value => value.GetDouble()) },
             new object[] { new Data<double?>(DbType.Double, 123.45, value => value.GetDouble(), true) },
             new object[] { new Data<double?>(DbType.Double, null, value => value.GetOptionalDouble()) },
+            new object[]
+            {
+                new Data<Guid>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"),
+                    value => value.GetUuid())
+            },
+            new object[]
+            {
+                new Data<Guid?>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"),
+                    value => value.GetUuid(), true)
+            },
+            new object[] { new Data<Guid?>(DbType.Guid, null, value => value.GetOptionalUuid()) },
             new object[] { new Data<DateTime>(DbType.Date, new DateTime(2021, 08, 21), value => value.GetDate()) },
             new object[]
             {
