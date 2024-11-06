@@ -4,7 +4,6 @@ using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Trait("Category", "Integration")]
 public class YdbDataSourceTests
 {
     private const int SelectedCount = 100;

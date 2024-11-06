@@ -6,7 +6,6 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Trait("Category", "Integration")]
 public class YdbCommandTests
 {
     [Theory]

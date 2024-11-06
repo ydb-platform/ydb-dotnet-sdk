@@ -5,7 +5,6 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Trait("Category", "Integration")]
 [Collection("YdbConnectionTests")]
 public class YdbConnectionTests
 {
