@@ -3,7 +3,6 @@ using Ydb.Sdk.Ado.Internal;
 
 namespace Ydb.Sdk.Tests.Ado.Internal;
 
-[Trait("Category", "Unit")]
 public class SqlParserTests
 {
     [Fact]

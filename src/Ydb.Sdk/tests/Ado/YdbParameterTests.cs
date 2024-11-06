@@ -7,7 +7,6 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Trait("Category", "Unit")]
 public class YdbParameterTests
 {
     [Fact]

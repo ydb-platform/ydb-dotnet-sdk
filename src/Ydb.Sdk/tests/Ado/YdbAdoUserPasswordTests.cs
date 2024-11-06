@@ -3,7 +3,6 @@ using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Trait("Category", "Integration")]
 public class YdbAdoUserPasswordTests
 {
     [Fact]

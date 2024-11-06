@@ -5,7 +5,6 @@ using Ydb.Sdk.Services.Query;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Trait("Category", "Integration")]
 public class YdbTransactionTests : IAsyncLifetime
 {
     private static readonly TemporaryTables<YdbTransactionTests> Tables = new();
