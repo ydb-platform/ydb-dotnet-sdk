@@ -69,13 +69,13 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
-      - name: Integration test
+      - name: Run ADO.NET tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src
           dotnet test --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)" -l "console;verbosity=normal"
   
-  integration-tests-query-and-table-client:
+  core-integration-tests:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
