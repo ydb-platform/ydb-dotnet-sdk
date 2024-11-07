@@ -34,7 +34,7 @@ public class ExecuteScanQueryPart : ResponseWithResultBase<ExecuteScanQueryPart.
 
 public class ExecuteScanQueryStream : StreamResponse<ExecuteScanQueryPartialResponse, ExecuteScanQueryPart>
 {
-    internal ExecuteScanQueryStream(Driver.ServerStream<ExecuteScanQueryPartialResponse> iterator)
+    internal ExecuteScanQueryStream(ServerStream<ExecuteScanQueryPartialResponse> iterator)
         : base(iterator)
     {
     }

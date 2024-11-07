@@ -12,7 +12,7 @@ using InitResponse = StreamWriteMessage.Types.InitResponse;
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
 using MessageFromClient = StreamWriteMessage.Types.FromClient;
 using MessageFromServer = StreamWriteMessage.Types.FromServer;
-using WriterStream = Driver.BidirectionalStream<
+using WriterStream = BidirectionalStream<
     StreamWriteMessage.Types.FromClient,
     StreamWriteMessage.Types.FromServer
 >;
