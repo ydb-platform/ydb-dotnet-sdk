@@ -25,7 +25,7 @@ public interface IDriver : IAsyncDisposable, IDisposable
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
-    
+
     ILoggerFactory LoggerFactory { get; }
 }
 
