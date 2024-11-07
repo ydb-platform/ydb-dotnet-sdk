@@ -140,7 +140,7 @@ internal class Session : SessionBase<Session>
         _driver = driver;
     }
 
-    internal Driver.ServerStream<ExecuteQueryResponsePart> ExecuteQuery(
+    internal ServerStream<ExecuteQueryResponsePart> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue>? parameters,
         ExecuteQuerySettings? settings,

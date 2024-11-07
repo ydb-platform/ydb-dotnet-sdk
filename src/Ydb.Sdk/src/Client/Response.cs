@@ -63,11 +63,11 @@ public abstract class StreamResponse<TProtoResponse, TResponse>
     where TProtoResponse : class
     where TResponse : class
 {
-    private readonly Driver.ServerStream<TProtoResponse> _iterator;
+    private readonly ServerStream<TProtoResponse> _iterator;
     private TResponse? _response;
     private bool _transportError;
 
-    internal StreamResponse(Driver.ServerStream<TProtoResponse> iterator)
+    internal StreamResponse(ServerStream<TProtoResponse> iterator)
     {
         _iterator = iterator;
     }

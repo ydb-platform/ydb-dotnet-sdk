@@ -12,14 +12,14 @@ using InitResponse = StreamWriteMessage.Types.InitResponse;
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
 using MessageFromClient = StreamWriteMessage.Types.FromClient;
 using MessageFromServer = StreamWriteMessage.Types.FromServer;
-using WriterStream = Driver.BidirectionalStream<
+using WriterStream = BidirectionalStream<
     StreamWriteMessage.Types.FromClient,
     StreamWriteMessage.Types.FromServer
 >;
 
 internal class Writer<TValue> : IWriter<TValue>
 {
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
@@ -30,7 +30,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private volatile WriterSession _session = null!;
 
-    internal Writer(Driver driver, WriterConfig config, ISerializer<TValue> serializer)
+    internal Writer(IDriver driver, WriterConfig config, ISerializer<TValue> serializer)
     {
         _driver = driver;
         _config = config;

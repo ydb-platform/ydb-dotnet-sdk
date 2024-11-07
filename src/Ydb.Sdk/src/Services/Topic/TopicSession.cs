@@ -6,14 +6,14 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
 {
     private readonly Func<Task> _initialize;
 
-    protected readonly Driver.BidirectionalStream<TFromClient, TFromServer> Stream;
+    protected readonly BidirectionalStream<TFromClient, TFromServer> Stream;
     protected readonly ILogger Logger;
     protected readonly string SessionId;
 
     private int _isActive = 1;
     private bool _disposed;
 
-    protected TopicSession(Driver.BidirectionalStream<TFromClient, TFromServer> stream, ILogger logger,
+    protected TopicSession(BidirectionalStream<TFromClient, TFromServer> stream, ILogger logger,
         string sessionId, Func<Task> initialize)
     {
         Stream = stream;

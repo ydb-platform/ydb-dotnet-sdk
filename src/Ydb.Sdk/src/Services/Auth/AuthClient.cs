@@ -37,7 +37,7 @@ public class AuthClient
 
         try
         {
-            await using var transport = new AuthGrpcChannelTransport(_config, _grpcChannelFactory, _loggerFactory);
+            await using var transport = new AuthGrpcChannelDriver(_config, _grpcChannelFactory, _loggerFactory);
 
             var response = await transport.UnaryCall(
                 method: AuthService.LoginMethod,

@@ -39,7 +39,7 @@ public class ReadTablePart : ResponseWithResultBase<ReadTablePart.ResultData>
 
 public class ReadTableStream : StreamResponse<ReadTableResponse, ReadTablePart>
 {
-    internal ReadTableStream(Driver.ServerStream<ReadTableResponse> iterator)
+    internal ReadTableStream(ServerStream<ReadTableResponse> iterator)
         : base(iterator)
     {
     }

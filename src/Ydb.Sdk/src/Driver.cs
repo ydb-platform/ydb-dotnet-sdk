@@ -11,27 +11,22 @@ using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk;
 
-public sealed class Driver : IDisposable, IAsyncDisposable
+public sealed class Driver : BaseDriver
 {
     private const int AttemptDiscovery = 10;
 
-    private readonly DriverConfig _config;
-    private readonly ILogger<Driver> _logger;
     private readonly string _sdkInfo;
     private readonly GrpcChannelFactory _grpcChannelFactory;
     private readonly EndpointPool _endpointPool;
     private readonly ChannelPool<GrpcChannel> _channelPool;
 
-    private volatile bool _disposed;
+    internal string Database => Config.Database;
 
-    internal ILoggerFactory LoggerFactory { get; }
-    internal string Database => _config.Database;
-
-    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null)
+    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null) : base(
+        config, loggerFactory ?? NullLoggerFactory.Instance,
+        (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>()
+    )
     {
-        LoggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
-        _logger = LoggerFactory.CreateLogger<Driver>();
-        _config = config;
         _grpcChannelFactory = new GrpcChannelFactory(LoggerFactory, config);
         _endpointPool = new EndpointPool(LoggerFactory.CreateLogger<EndpointPool>());
         _channelPool = new ChannelPool<GrpcChannel>(
@@ -51,39 +46,16 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         return driver;
     }
 
-    ~Driver()
+    protected override ValueTask InternalDispose()
     {
-        Dispose(_disposed);
-    }
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    private void Dispose(bool disposing)
-    {
-        _disposed = true;
-
-        if (disposing)
-        {
-            _channelPool.DisposeAsync().AsTask().Wait();
-        }
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-        return default;
+        return _channelPool.DisposeAsync();
     }
 
     public async Task Initialize()
     {
-        await _config.Credentials.ProvideAuthClient(new AuthClient(_config, _grpcChannelFactory, LoggerFactory));
+        await Config.Credentials.ProvideAuthClient(new AuthClient(Config, _grpcChannelFactory, LoggerFactory));
 
-        _logger.LogInformation("Started initial endpoint discovery");
+        Logger.LogInformation("Started initial endpoint discovery");
 
         for (var i = 0; i < AttemptDiscovery; i++)
         {
@@ -97,11 +69,11 @@ public sealed class Driver : IDisposable, IAsyncDisposable
                     return;
                 }
 
-                _logger.LogCritical("Error during initial endpoint discovery: {status}", status);
+                Logger.LogCritical("Error during initial endpoint discovery: {status}", status);
             }
             catch (RpcException e)
             {
-                _logger.LogCritical("RPC error during initial endpoint discovery: {e.Status}", e.Status);
+                Logger.LogCritical("RPC error during initial endpoint discovery: {e.Status}", e.Status);
 
                 if (i == AttemptDiscovery - 1)
                 {
@@ -115,98 +87,40 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         throw new InitializationFailureException("Error during initial endpoint discovery");
     }
 
-    internal async Task<TResponse> UnaryCall<TRequest, TResponse>(
-        Method<TRequest, TResponse> method,
-        TRequest request,
-        GrpcRequestSettings settings)
-        where TRequest : class
-        where TResponse : class
-    {
-        var (endpoint, channel) = GetChannel(settings.NodeId);
-        var callInvoker = channel.CreateCallInvoker();
-
-        _logger.LogTrace($"Unary call" +
-                         $", method: {method.Name}" +
-                         $", endpoint: {endpoint}");
-
-        try
-        {
-            using var call = callInvoker.AsyncUnaryCall(
-                method: method,
-                host: null,
-                options: GetCallOptions(settings, false),
-                request: request);
-
-            var data = await call.ResponseAsync;
-            settings.TrailersHandler(call.GetTrailers());
-
-            return data;
-        }
-        catch (RpcException e)
-        {
-            PessimizeEndpoint(endpoint);
-
-            throw new TransportException(e);
-        }
-    }
-
-    internal ServerStream<TResponse> ServerStreamCall<TRequest, TResponse>(
-        Method<TRequest, TResponse> method,
-        TRequest request,
-        GrpcRequestSettings settings)
-        where TRequest : class
-        where TResponse : class
-    {
-        var (endpoint, channel) = GetChannel(settings.NodeId);
-        var callInvoker = channel.CreateCallInvoker();
-
-        var call = callInvoker.AsyncServerStreamingCall(
-            method: method,
-            host: null,
-            options: GetCallOptions(settings, true),
-            request: request);
-
-        return new ServerStream<TResponse>(call, () => { PessimizeEndpoint(endpoint); });
-    }
-
-    internal BidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
-        Method<TRequest, TResponse> method,
-        GrpcRequestSettings settings)
-        where TRequest : class
-        where TResponse : class
-    {
-        var (endpoint, channel) = GetChannel(settings.NodeId);
-        var callInvoker = channel.CreateCallInvoker();
-
-        var call = callInvoker.AsyncDuplexStreamingCall(
-            method: method,
-            host: null,
-            options: GetCallOptions(settings, true));
-
-        return new BidirectionalStream<TRequest, TResponse>(call, () => { PessimizeEndpoint(endpoint); });
-    }
-
-    private (string, GrpcChannel) GetChannel(long nodeId)
+    protected override (string, GrpcChannel) GetChannel(long nodeId)
     {
         var endpoint = _endpointPool.GetEndpoint(nodeId);
 
         return (endpoint, _channelPool.GetChannel(endpoint));
     }
 
+    protected override void OnRpcError(string endpoint, RpcException e)
+    {
+        Logger.LogWarning("gRPC error [{Status}] on channel {Endpoint}", e.Status, endpoint);
+        if (!_endpointPool.PessimizeEndpoint(endpoint))
+        {
+            return;
+        }
+
+        Logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
+
+        _ = Task.Run(DiscoverEndpoints);
+    }
+
     private async Task<Status> DiscoverEndpoints()
     {
-        using var channel = _grpcChannelFactory.CreateChannel(_config.Endpoint);
+        using var channel = _grpcChannelFactory.CreateChannel(Config.Endpoint);
 
         var client = new DiscoveryService.DiscoveryServiceClient(channel);
 
         var request = new ListEndpointsRequest
         {
-            Database = _config.Database
+            Database = Config.Database
         };
 
         var requestSettings = new GrpcRequestSettings
         {
-            TransportTimeout = _config.EndpointDiscoveryTimeout
+            TransportTimeout = Config.EndpointDiscoveryTimeout
         };
 
         var options = GetCallOptions(requestSettings, false);
@@ -218,8 +132,8 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
         if (!response.Operation.Ready)
         {
-            var error = "Unexpected non-ready endpoint discovery operation.";
-            _logger.LogError($"Endpoint discovery internal error: {error}");
+            const string error = "Unexpected non-ready endpoint discovery operation.";
+            Logger.LogError($"Endpoint discovery internal error: {error}");
 
             return new Status(StatusCode.ClientInternalError, error);
         }
@@ -227,21 +141,21 @@ public sealed class Driver : IDisposable, IAsyncDisposable
         var status = Status.FromProto(response.Operation.Status, response.Operation.Issues);
         if (status.IsNotSuccess)
         {
-            _logger.LogWarning($"Unsuccessful endpoint discovery: {status}");
+            Logger.LogWarning("Unsuccessful endpoint discovery: {Status}", status);
             return status;
         }
 
         if (response.Operation.Result is null)
         {
-            var error = "Unexpected empty endpoint discovery result.";
-            _logger.LogError($"Endpoint discovery internal error: {error}");
+            const string error = "Unexpected empty endpoint discovery result.";
+            Logger.LogError($"Endpoint discovery internal error: {error}");
 
             return new Status(StatusCode.ClientInternalError, error);
         }
 
         var resultProto = response.Operation.Result.Unpack<ListEndpointsResult>();
 
-        _logger.LogInformation(
+        Logger.LogInformation(
             "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, sdk info: {SdkInfo}",
             resultProto.Endpoints.Count, resultProto.SelfLocation, _sdkInfo);
 
@@ -259,159 +173,21 @@ public sealed class Driver : IDisposable, IAsyncDisposable
 
     private async Task PeriodicDiscovery()
     {
-        while (!_disposed)
+        while (Disposed == 0)
         {
             try
             {
-                await Task.Delay(_config.EndpointDiscoveryInterval);
+                await Task.Delay(Config.EndpointDiscoveryInterval);
                 _ = await DiscoverEndpoints();
             }
             catch (RpcException e)
             {
-                _logger.LogWarning($"RPC error during endpoint discovery: {e.Status}");
+                Logger.LogWarning($"RPC error during endpoint discovery: {e.Status}");
             }
             catch (Exception e)
             {
-                _logger.LogError($"Unexpected exception during session pool periodic check: {e}");
+                Logger.LogError($"Unexpected exception during session pool periodic check: {e}");
             }
-        }
-    }
-
-    private void PessimizeEndpoint(string endpoint)
-    {
-        if (!_endpointPool.PessimizeEndpoint(endpoint))
-        {
-            return;
-        }
-
-        _logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
-        _ = Task.Run(DiscoverEndpoints);
-    }
-
-    private CallOptions GetCallOptions(GrpcRequestSettings settings, bool streaming)
-    {
-        var meta = new Grpc.Core.Metadata
-        {
-            { Metadata.RpcDatabaseHeader, _config.Database }
-        };
-
-        var authInfo = _config.Credentials.GetAuthInfo();
-        if (authInfo != null)
-        {
-            meta.Add(Metadata.RpcAuthHeader, authInfo);
-        }
-
-        if (settings.TraceId.Length > 0)
-        {
-            meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
-        }
-
-        var transportTimeout = streaming
-            ? _config.DefaultStreamingTransportTimeout
-            : _config.DefaultTransportTimeout;
-
-        if (settings.TransportTimeout != null)
-        {
-            transportTimeout = settings.TransportTimeout.Value;
-        }
-
-        var options = new CallOptions(
-            headers: meta
-        );
-
-        if (transportTimeout != TimeSpan.Zero)
-        {
-            options = options.WithDeadline(DateTime.UtcNow + transportTimeout);
-        }
-
-        return options;
-    }
-
-    internal sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
-    {
-        private readonly AsyncServerStreamingCall<TResponse> _responseStream;
-        private readonly Action _rpcErrorAction;
-
-        internal ServerStream(AsyncServerStreamingCall<TResponse> responseStream, Action rpcErrorAction)
-        {
-            _responseStream = responseStream;
-            _rpcErrorAction = rpcErrorAction;
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            _responseStream.Dispose();
-
-            return default;
-        }
-
-        public async ValueTask<bool> MoveNextAsync()
-        {
-            try
-            {
-                return await _responseStream.ResponseStream.MoveNext(CancellationToken.None);
-            }
-            catch (RpcException e)
-            {
-                _rpcErrorAction();
-
-                throw new TransportException(e);
-            }
-        }
-
-        public TResponse Current => _responseStream.ResponseStream.Current;
-
-        public IAsyncEnumerator<TResponse> GetAsyncEnumerator(CancellationToken cancellationToken = new())
-        {
-            return this;
-        }
-    }
-
-    internal sealed class BidirectionalStream<TRequest, TResponse> : IDisposable
-    {
-        private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _bidirectionalStream;
-        private readonly Action _rpcErrorAction;
-
-        public BidirectionalStream(AsyncDuplexStreamingCall<TRequest, TResponse> bidirectionalStream,
-            Action rpcErrorAction)
-        {
-            _bidirectionalStream = bidirectionalStream;
-            _rpcErrorAction = rpcErrorAction;
-        }
-
-        public async Task Write(TRequest request)
-        {
-            try
-            {
-                await _bidirectionalStream.RequestStream.WriteAsync(request);
-            }
-            catch (RpcException e)
-            {
-                _rpcErrorAction();
-
-                throw new TransportException(e);
-            }
-        }
-
-        public async ValueTask<bool> MoveNextAsync()
-        {
-            try
-            {
-                return await _bidirectionalStream.ResponseStream.MoveNext(CancellationToken.None);
-            }
-            catch (RpcException e)
-            {
-                _rpcErrorAction();
-
-                throw new TransportException(e);
-            }
-        }
-
-        public TResponse Current => _bidirectionalStream.ResponseStream.Current;
-
-        public void Dispose()
-        {
-            _bidirectionalStream.Dispose();
         }
     }
 

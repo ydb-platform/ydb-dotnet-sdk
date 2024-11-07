@@ -5,11 +5,11 @@ using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Transport;
 
-internal class AuthGrpcChannelTransport : GrpcTransport
+internal class AuthGrpcChannelDriver : BaseDriver
 {
     private readonly GrpcChannel _channel;
 
-    public AuthGrpcChannelTransport(
+    public AuthGrpcChannelDriver(
         DriverConfig driverConfig,
         GrpcChannelFactory grpcChannelFactory,
         ILoggerFactory loggerFactory
@@ -18,18 +18,9 @@ internal class AuthGrpcChannelTransport : GrpcTransport
             endpoint: driverConfig.Endpoint,
             database: driverConfig.Database,
             customServerCertificate: driverConfig.CustomServerCertificate
-        ), loggerFactory.CreateLogger<AuthGrpcChannelTransport>()
-    )
+        ), loggerFactory, loggerFactory.CreateLogger<AuthGrpcChannelDriver>())
     {
         _channel = grpcChannelFactory.CreateChannel(Config.Endpoint);
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            _channel.Dispose();
-        }
     }
 
     protected override (string, GrpcChannel) GetChannel(long nodeId)
@@ -45,5 +36,12 @@ internal class AuthGrpcChannelTransport : GrpcTransport
             Logger.LogWarning("gRPC error {StatusCode}[{Detail}] on fixed channel {Endpoint}",
                 status.StatusCode, status.Detail, endpoint);
         }
+    }
+
+    protected override async ValueTask InternalDispose()
+    {
+        await _channel.ShutdownAsync();
+
+        _channel.Dispose();
     }
 }
