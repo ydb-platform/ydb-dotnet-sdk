@@ -2,9 +2,14 @@
 
 public partial class OperationsClient
 {
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
 
     public OperationsClient(Driver driver)
+    {
+        _driver = driver;
+    }
+
+    internal OperationsClient(IDriver driver)
     {
         _driver = driver;
     }

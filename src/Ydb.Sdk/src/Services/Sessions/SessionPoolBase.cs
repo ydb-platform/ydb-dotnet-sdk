@@ -55,11 +55,11 @@ internal class NoPool<TSession> : ISessionPool<TSession> where TSession : Sessio
     }
 }
 
-public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where TSession : SessionBase
+internal abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where TSession : SessionBase
 {
     private const int MaxAttempts = 100;
 
-    private protected readonly Driver Driver;
+    private protected readonly IDriver Driver;
     private protected readonly ILogger Logger;
     private protected readonly SessionPoolConfig Config;
 
@@ -70,7 +70,7 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where T
     private protected readonly Stack<string> IdleSessions = new();
     protected uint PendingSessions;
 
-    protected SessionPoolBase(Driver driver, SessionPoolConfig config, ILogger logger)
+    protected SessionPoolBase(IDriver driver, SessionPoolConfig config, ILogger logger)
     {
         Driver = driver;
         Config = config;

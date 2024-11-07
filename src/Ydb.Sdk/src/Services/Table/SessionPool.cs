@@ -10,11 +10,8 @@ internal sealed class SessionPool : SessionPoolBase<Session>
 {
     private readonly TableClient _tableClient;
 
-    public SessionPool(Driver driver, SessionPoolConfig config) :
-        base(
-            driver: driver,
-            config: config,
-            logger: driver.LoggerFactory.CreateLogger<SessionPool>())
+    public SessionPool(IDriver driver, SessionPoolConfig config) :
+        base(driver: driver, config: config, logger: driver.LoggerFactory.CreateLogger<SessionPool>())
     {
         _tableClient = new TableClient(driver, new NoPool());
 

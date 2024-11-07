@@ -6,7 +6,7 @@ namespace Ydb.Sdk.Services.Topic;
 
 public class TopicClient
 {
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
 
     public TopicClient(Driver driver)
     {

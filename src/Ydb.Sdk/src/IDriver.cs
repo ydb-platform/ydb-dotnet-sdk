@@ -4,23 +4,23 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk;
 
-public interface IDriver : IAsyncDisposable, IDisposable
+internal interface IDriver : IAsyncDisposable, IDisposable
 {
-    internal Task<TResponse> UnaryCall<TRequest, TResponse>(
+    Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
-    internal ServerStream<TResponse> ServerStreamCall<TRequest, TResponse>(
+    ServerStream<TResponse> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
-    internal BidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
+    BidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         GrpcRequestSettings settings)
         where TRequest : class
@@ -33,6 +33,7 @@ public abstract class BaseDriver : IDriver
 {
     protected readonly DriverConfig Config;
     protected readonly ILogger Logger;
+    protected readonly ILoggerFactory LoggerFactory;
 
     protected int Disposed;
 
@@ -43,7 +44,7 @@ public abstract class BaseDriver : IDriver
         LoggerFactory = loggerFactory;
     }
 
-    public async Task<TResponse> UnaryCall<TRequest, TResponse>(
+    async Task<TResponse> IDriver.UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
@@ -155,7 +156,7 @@ public abstract class BaseDriver : IDriver
         return options;
     }
 
-    public ILoggerFactory LoggerFactory { get; }
+    ILoggerFactory IDriver.LoggerFactory => LoggerFactory;
 
     public void Dispose()
     {
@@ -166,6 +167,8 @@ public abstract class BaseDriver : IDriver
     {
         if (Interlocked.CompareExchange(ref Disposed, 1, 0) == 0)
         {
+            GC.SuppressFinalize(this);
+            
             await InternalDispose();
         }
     }

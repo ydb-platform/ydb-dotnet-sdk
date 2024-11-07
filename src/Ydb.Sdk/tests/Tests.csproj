@@ -15,6 +15,10 @@
   <PropertyGroup Condition="$(TargetFramework.Equals('net7.0'))">
   </PropertyGroup>
 
+  <PropertyGroup>
+    <DefineConstants>TEST</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.35" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0-rc.1.23419.4" />
@@ -40,5 +44,4 @@
   <ItemGroup>
     <ProjectReference Include="..\src\Ydb.Sdk.csproj" />
   </ItemGroup>
-
 </Project>

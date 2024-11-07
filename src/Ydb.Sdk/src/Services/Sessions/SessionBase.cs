@@ -4,7 +4,6 @@ namespace Ydb.Sdk.Services.Sessions;
 
 public abstract class SessionBase : IDisposable
 {
-    protected readonly Driver Driver;
     internal static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(1);
 
     public string Id { get; }
@@ -13,9 +12,8 @@ public abstract class SessionBase : IDisposable
     private protected bool Disposed;
     protected readonly ILogger Logger;
 
-    protected SessionBase(Driver driver, string id, long nodeId, ILogger logger)
+    protected SessionBase(string id, long nodeId, ILogger logger)
     {
-        Driver = driver;
         Id = id;
         NodeId = nodeId;
         Logger = logger;

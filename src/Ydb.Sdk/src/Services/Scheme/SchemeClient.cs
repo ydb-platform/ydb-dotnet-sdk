@@ -42,7 +42,7 @@ public class Permissions
 
 public class SchemeEntry
 {
-    internal SchemeEntry(
+    private SchemeEntry(
         string name,
         string owner,
         SchemeEntryType type,
@@ -69,11 +69,11 @@ public class SchemeEntry
             : SchemeEntryType.Unspecified;
 
         var effectivePermissions = entryProto.EffectivePermissions
-            .Select(p => Scheme.Permissions.FromProto(p))
+            .Select(Scheme.Permissions.FromProto)
             .ToList();
 
         var permissions = entryProto.Permissions
-            .Select(p => Scheme.Permissions.FromProto(p))
+            .Select(Scheme.Permissions.FromProto)
             .ToList();
 
         return new SchemeEntry(
@@ -120,7 +120,7 @@ public class ListDirectoryResponse : ResponseWithResultBase<ListDirectoryRespons
 
 public class SchemeClient
 {
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
 
     public SchemeClient(Driver driver)
     {

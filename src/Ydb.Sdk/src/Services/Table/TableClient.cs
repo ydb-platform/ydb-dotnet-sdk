@@ -16,7 +16,8 @@ public class TableClientConfig
 public partial class TableClient : IDisposable
 {
     private readonly ISessionPool<Session> _sessionPool;
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
+    private readonly string _database;
 
     private bool _disposed;
 
@@ -25,13 +26,15 @@ public partial class TableClient : IDisposable
         config ??= new TableClientConfig();
 
         _driver = driver;
+        _database = driver.Database;
         _sessionPool = new SessionPool(driver, config.SessionPoolConfig);
     }
 
-    internal TableClient(Driver driver, ISessionPool<Session> sessionPool)
+    internal TableClient(IDriver driver, ISessionPool<Session> sessionPool)
     {
         _driver = driver;
         _sessionPool = sessionPool;
+        _database = ""; // stub legacy client
     }
 
     public void Dispose()
@@ -57,6 +60,6 @@ public partial class TableClient : IDisposable
 
     internal string MakeTablePath(string path)
     {
-        return path.StartsWith('/') ? path : $"{_driver.Database}/{path}";
+        return path.StartsWith('/') ? path : $"{_database}/{path}";
     }
 }

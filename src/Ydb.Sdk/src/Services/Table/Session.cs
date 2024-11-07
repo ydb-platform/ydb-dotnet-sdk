@@ -7,10 +7,12 @@ namespace Ydb.Sdk.Services.Table;
 public partial class Session : SessionBase
 {
     private readonly SessionPool? _sessionPool;
+    private readonly IDriver _driver;
 
-    internal Session(Driver driver, SessionPool? sessionPool, string id, long nodeId)
-        : base(driver, id, nodeId, driver.LoggerFactory.CreateLogger<Session>())
+    internal Session(IDriver driver, SessionPool? sessionPool, string id, long nodeId)
+        : base(id, nodeId, driver.LoggerFactory.CreateLogger<Session>())
     {
+        _driver = driver;
         _sessionPool = sessionPool;
     }
 
@@ -48,7 +50,7 @@ public partial class Session : SessionBase
             {
                 Logger.LogTrace($"Closing detached session on dispose: {Id}");
 
-                var client = new TableClient(Driver, new NoPool<Session>());
+                var client = new TableClient(_driver, new NoPool<Session>());
                 var task = client.DeleteSession(Id, new DeleteSessionSettings
                 {
                     TransportTimeout = DeleteSessionTimeout
@@ -74,7 +76,7 @@ public partial class Session : SessionBase
         settings.NodeId = NodeId;
         settings.TrailersHandler = OnResponseTrailers;
 
-        return await Driver.UnaryCall(
+        return await _driver.UnaryCall(
             method: method,
             request: request,
             settings: settings

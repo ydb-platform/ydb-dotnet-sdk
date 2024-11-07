@@ -20,10 +20,10 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         TransportTimeout = TimeSpan.FromMinutes(1)
     };
 
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
     private readonly bool _disposingDriver;
 
-    internal SessionPool(Driver driver, int? maxSessionPool = null, bool disposingDriver = false)
+    internal SessionPool(IDriver driver, int? maxSessionPool = null, bool disposingDriver = false)
         : base(driver.LoggerFactory.CreateLogger<SessionPool>(), maxSessionPool)
     {
         _driver = driver;
@@ -132,9 +132,9 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
 internal class Session : SessionBase<Session>
 {
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
 
-    internal Session(Driver driver, SessionPool<Session> sessionPool, string sessionId, long nodeId)
+    internal Session(IDriver driver, SessionPool<Session> sessionPool, string sessionId, long nodeId)
         : base(sessionPool, sessionId, nodeId)
     {
         _driver = driver;
