@@ -37,9 +37,9 @@ public class AuthClient
 
         try
         {
-            await using var transport = new AuthGrpcChannelDriver(_config, _grpcChannelFactory, _loggerFactory);
+            await using var driver = Driver;
 
-            var response = await transport.UnaryCall(
+            var response = await driver.UnaryCall(
                 method: AuthService.LoginMethod,
                 request: request,
                 settings: settings
@@ -61,6 +61,8 @@ public class AuthClient
             return new LoginResponse(e.Status);
         }
     }
+
+    private IDriver Driver => new AuthGrpcChannelDriver(_config, _grpcChannelFactory, _loggerFactory);
 }
 
 public class LoginSettings : OperationSettings

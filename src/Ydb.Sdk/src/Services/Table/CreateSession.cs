@@ -26,7 +26,7 @@ public class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespons
 
         public Session Session { get; }
 
-        internal static ResultData FromProto(CreateSessionResult resultProto, Driver driver)
+        internal static ResultData FromProto(CreateSessionResult resultProto, IDriver driver)
         {
             var session = new Session(
                 driver: driver,

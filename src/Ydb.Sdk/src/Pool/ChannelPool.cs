@@ -7,6 +7,10 @@ using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Security;
 
+#if TEST
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
+#endif
+
 namespace Ydb.Sdk.Pool;
 
 internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposable
