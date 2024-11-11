@@ -1,5 +1,3 @@
-## v0.8.0
-
 - Fixed bug on commit with fail, no set failed flag for rollback invocation 
 - Supported UUID (Guid)
 
