@@ -59,7 +59,7 @@ public class YdbExceptionTests
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Commit()).Message);
 
-        await ydbCommand.Transaction!.RollbackAsync();
+        await ydbCommand.Transaction.RollbackAsync();
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction!.Commit()).Message);
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",

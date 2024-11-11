@@ -96,11 +96,15 @@ public sealed class YdbTransaction : DbTransaction
 
             if (status.IsNotSuccess)
             {
+                Failed = true;
+
                 throw new YdbException(status);
             }
         }
         catch (Driver.TransportException e)
         {
+            Failed = true;
+
             throw new YdbException(e.Status);
         }
     }

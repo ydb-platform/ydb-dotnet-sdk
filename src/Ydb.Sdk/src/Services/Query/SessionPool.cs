@@ -94,7 +94,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             {
                 session.IsActive = false;
 
-                Logger.LogTrace("Attached stream is closed");
+                Logger.LogTrace("Session[{SessionId}]: Attached stream is closed", session.SessionId);
             }
         });
 
