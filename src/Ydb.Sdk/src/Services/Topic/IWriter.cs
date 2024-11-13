@@ -2,7 +2,7 @@ using Ydb.Sdk.Services.Topic.Writer;
 
 namespace Ydb.Sdk.Services.Topic;
 
-public interface IWriter<TValue>
+public interface IWriter<TValue> : IDisposable
 {
     public Task<WriteResult> WriteAsync(TValue data);
 

@@ -23,79 +23,23 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
-
-    private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
-    private readonly SemaphoreSlim _writeSemaphoreSlim = new(1);
 
-    private volatile WriterSession _session = null!;
+    private volatile TaskCompletionSource _taskWakeUpCompletionSource = new();
+    private volatile IWriteSession _session = null!;
+    private volatile bool _disposed;
+
+    private int _limitBufferMaxSize;
 
     internal Writer(IDriver driver, WriterConfig config, ISerializer<TValue> serializer)
     {
         _driver = driver;
         _config = config;
-        _serializer = serializer;
         _logger = driver.LoggerFactory.CreateLogger<Writer<TValue>>();
-    }
+        _serializer = serializer;
+        _limitBufferMaxSize = config.BufferMaxSize;
 
-    internal async Task Initialize()
-    {
-        _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
-
-        var stream = _driver.BidirectionalStreamCall(
-            TopicService.StreamWriteMethod,
-            GrpcRequestSettings.DefaultInstance
-        );
-
-        var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
-        if (_config.ProducerId != null)
-        {
-            initRequest.ProducerId = _config.ProducerId;
-        }
-
-        if (_config.MessageGroupId != null)
-        {
-            initRequest.MessageGroupId = _config.MessageGroupId;
-        }
-
-        _logger.LogDebug("Sending initialization request for the write stream: {InitRequest}", initRequest);
-
-        await stream.Write(new MessageFromClient { InitRequest = initRequest });
-        if (!await stream.MoveNextAsync())
-        {
-            throw new YdbWriterException(
-                $"Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}");
-        }
-
-        var receivedInitMessage = stream.Current;
-
-        Status.FromProto(receivedInitMessage.Status, receivedInitMessage.Issues).EnsureSuccess();
-
-        var initResponse = receivedInitMessage.InitResponse;
-
-        _logger.LogDebug("Received a response for the initialization request on the write stream: {InitResponse}",
-            initResponse);
-
-        if (!initResponse.SupportedCodecs.Codecs.Contains((int)_config.Codec))
-        {
-            throw new YdbWriterException($"Topic[{_config.TopicPath}] is not supported codec: {_config.Codec}");
-        }
-
-        _session = new WriterSession(_config, stream, initResponse, Initialize, _logger);
-
-        await _writeSemaphoreSlim.WaitAsync();
-        try
-        {
-            _logger.LogDebug("Retrying to send pending in-flight messages after stream restart");
-
-            await _session.Write(_inFlightMessages, _inFlightMessages);
-        }
-        finally
-        {
-            _writeSemaphoreSlim.Release();
-        }
-
-        _ = _session.RunProcessingWriteAck(_inFlightMessages);
+        StartWriteWorker();
     }
 
     public Task<WriteResult> WriteAsync(TValue data)
@@ -122,31 +66,166 @@ internal class Writer<TValue> : IWriter<TValue>
             );
         }
 
-        _toSendBuffer.Enqueue(new MessageSending(messageData, completeTask));
-
-        if (_toSendBuffer.IsEmpty) // concurrent sending
+        while (true)
         {
-            return await completeTask.Task;
+            var curLimitBufferSize = Volatile.Read(ref _limitBufferMaxSize);
+
+            if ( // sending one biggest message anyway
+                curLimitBufferSize == _config.BufferMaxSize && data.Length > curLimitBufferSize
+                || curLimitBufferSize >= data.Length)
+            {
+                if (Interlocked.CompareExchange(ref _limitBufferMaxSize, curLimitBufferSize,
+                        curLimitBufferSize - data.Length) == curLimitBufferSize)
+                {
+                    _toSendBuffer.Enqueue(new MessageSending(messageData, completeTask));
+
+                    WakeUpWorker();
+
+                    break;
+                }
+
+                // Next try on race condition
+                continue;
+            }
+
+            _logger.LogWarning(
+                "Buffer overflow: the data size [{DataLength}] exceeds the current buffer limit ({CurLimitBufferSize}) [BufferMaxSize = {BufferMaxSize}]",
+                data.Length, curLimitBufferSize, _config.BufferMaxSize);
+
+            throw new YdbWriterException("Buffer overflow");
         }
 
-        await _writeSemaphoreSlim.WaitAsync();
         try
         {
-            await _session.Write(_toSendBuffer, _inFlightMessages);
+            var writeResult = await completeTask.Task;
+
+            return writeResult;
         }
         finally
         {
-            _writeSemaphoreSlim.Release();
+            Interlocked.Add(ref _limitBufferMaxSize, data.Length);
+        }
+    }
+
+    private async void StartWriteWorker()
+    {
+        await Initialize();
+
+        while (!_disposed)
+        {
+            await _taskWakeUpCompletionSource.Task;
+            _taskWakeUpCompletionSource = new TaskCompletionSource();
+
+            await _session.Write(_toSendBuffer);
+        }
+    }
+
+    private void WakeUpWorker()
+    {
+        _taskWakeUpCompletionSource.TrySetResult();
+    }
+
+    private async Task Initialize()
+    {
+        _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
+
+        var stream = _driver.BidirectionalStreamCall(
+            TopicService.StreamWriteMethod,
+            GrpcRequestSettings.DefaultInstance
+        );
+
+        var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
+        if (_config.ProducerId != null)
+        {
+            initRequest.ProducerId = _config.ProducerId;
         }
 
-        return await completeTask.Task;
+        if (_config.MessageGroupId != null)
+        {
+            initRequest.MessageGroupId = _config.MessageGroupId;
+        }
+
+        _logger.LogDebug("Sending initialization request for the write stream: {InitRequest}", initRequest);
+
+        await stream.Write(new MessageFromClient { InitRequest = initRequest });
+        if (!await stream.MoveNextAsync())
+        {
+            _session = new NotStartedWriterSession(
+                $"Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}");
+
+            _ = Task.Run(Initialize);
+
+            return;
+        }
+
+        var receivedInitMessage = stream.Current;
+
+        var status = Status.FromProto(receivedInitMessage.Status, receivedInitMessage.Issues);
+
+        if (status.IsNotSuccess)
+        {
+            _session = new NotStartedWriterSession(status.ToString());
+
+            _ = Task.Run(Initialize);
+
+            return;
+        }
+
+        var initResponse = receivedInitMessage.InitResponse;
+
+        _logger.LogDebug("Received a response for the initialization request on the write stream: {InitResponse}",
+            initResponse);
+
+        if (!initResponse.SupportedCodecs.Codecs.Contains((int)_config.Codec))
+        {
+            _logger.LogCritical("Topic[{TopicPath}] is not supported codec: {Codec}", _config.TopicPath, _config.Codec);
+
+            _session = new NotStartedWriterSession(
+                $"Topic[{_config.TopicPath}] is not supported codec: {_config.Codec}");
+            return;
+        }
+
+        _session = new WriterSession(_config, stream, initResponse, Initialize, _logger);
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+    }
+}
+
+internal record MessageSending(MessageData MessageData, TaskCompletionSource<WriteResult> TaskCompletionSource);
+
+internal interface IWriteSession
+{
+    Task Write(ConcurrentQueue<MessageSending> toSendBuffer);
+}
+
+internal class NotStartedWriterSession : IWriteSession
+{
+    private readonly YdbWriterException _reasonException;
+
+    public NotStartedWriterSession(string reasonExceptionMessage)
+    {
+        _reasonException = new YdbWriterException(reasonExceptionMessage);
+    }
+
+    public Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
+    {
+        foreach (var messageSending in toSendBuffer)
+        {
+            messageSending.TaskCompletionSource.SetException(_reasonException);
+        }
+
+        return Task.CompletedTask;
     }
 }
 
 // No thread safe
-internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>
+internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>, IWriteSession
 {
     private readonly WriterConfig _config;
+    private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
 
     private long _seqNum;
 
@@ -159,9 +238,48 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
     {
         _config = config;
         Volatile.Write(ref _seqNum, initResponse.LastSeqNo); // happens-before for Volatile.Read
+
+        RunProcessingWriteAck();
     }
 
-    internal async Task RunProcessingWriteAck(ConcurrentQueue<MessageSending> inFlightMessages)
+    public async Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
+    {
+        try
+        {
+            var writeMessage = new StreamWriteMessage.Types.WriteRequest
+            {
+                Codec = (int)_config.Codec
+            };
+
+            var currentSeqNum = Volatile.Read(ref _seqNum);
+
+            while (toSendBuffer.TryDequeue(out var sendData))
+            {
+                var messageData = sendData.MessageData;
+
+                messageData.SeqNo = ++currentSeqNum;
+                writeMessage.Messages.Add(messageData);
+                _inFlightMessages.Enqueue(sendData);
+            }
+
+            Volatile.Write(ref _seqNum, currentSeqNum);
+            await Stream.Write(new MessageFromClient { WriteRequest = writeMessage });
+        }
+        catch (TransactionException e)
+        {
+            Logger.LogError(e, "WriterSession[{SessionId}] have error on Write, last SeqNo={SeqNo}",
+                SessionId, Volatile.Read(ref _seqNum));
+
+            ReconnectSession();
+
+            while (_inFlightMessages.TryDequeue(out var sendData))
+            {
+                sendData.TaskCompletionSource.SetException(e);
+            }
+        }
+    }
+
+    private async void RunProcessingWriteAck()
     {
         try
         {
@@ -182,7 +300,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
                 foreach (var ack in messageFromServer.WriteResponse.Acks)
                 {
-                    if (!inFlightMessages.TryPeek(out var messageFromClient))
+                    if (!_inFlightMessages.TryPeek(out var messageFromClient))
                     {
                         Logger.LogCritical("No client message was found upon receipt of an acknowledgement: {WriteAck}",
                             ack);
@@ -217,7 +335,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                         messageFromClient.TaskCompletionSource.SetResult(new WriteResult(ack));
                     }
 
-                    inFlightMessages.TryDequeue(out _); // Dequeue 
+                    _inFlightMessages.TryDequeue(out _); // Dequeue 
                 }
             }
         }
@@ -230,39 +348,4 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
             ReconnectSession();
         }
     }
-
-    internal async Task Write(ConcurrentQueue<MessageSending> toSendBuffer,
-        ConcurrentQueue<MessageSending> inFlightMessages)
-    {
-        try
-        {
-            var writeMessage = new StreamWriteMessage.Types.WriteRequest
-            {
-                Codec = (int)_config.Codec
-            };
-
-            var currentSeqNum = Volatile.Read(ref _seqNum);
-
-            while (toSendBuffer.TryDequeue(out var sendData))
-            {
-                var messageData = sendData.MessageData;
-
-                messageData.SeqNo = ++currentSeqNum;
-                writeMessage.Messages.Add(messageData);
-                inFlightMessages.Enqueue(sendData);
-            }
-
-            Volatile.Write(ref _seqNum, currentSeqNum);
-            await Stream.Write(new MessageFromClient { WriteRequest = writeMessage });
-        }
-        catch (TransactionException e)
-        {
-            Logger.LogError(e, "WriterSession[{SessionId}] have error on Write, last SeqNo={SeqNo}",
-                SessionId, Volatile.Read(ref _seqNum));
-
-            ReconnectSession();
-        }
-    }
 }
-
-internal record MessageSending(MessageData MessageData, TaskCompletionSource<WriteResult> TaskCompletionSource);

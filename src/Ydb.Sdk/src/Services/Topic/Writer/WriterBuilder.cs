@@ -13,9 +13,9 @@ public class WriterBuilder<TValue>
 
     public ISerializer<TValue>? Serializer { get; set; }
 
-    public async Task<IWriter<TValue>> Build()
+    public IWriter<TValue> Build()
     {
-        var writer = new Writer<TValue>(
+        return new Writer<TValue>(
             _driver,
             _config,
             Serializer ?? (ISerializer<TValue>)(
@@ -24,9 +24,5 @@ public class WriterBuilder<TValue>
                     : throw new YdbWriterException("The serializer is not set")
             )
         );
-
-        await writer.Initialize();
-
-        return writer;
     }
 }

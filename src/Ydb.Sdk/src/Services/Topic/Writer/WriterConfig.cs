@@ -32,6 +32,13 @@ public class WriterConfig
     /// </summary>
     public Codec Codec { get; set; } = Codec.Raw; // TODO Supported only Raw
 
+    /// <summary>
+    /// Maximum size (in bytes) of all messages batched in one Message Set, excluding protocol framing overhead.
+    /// This limit is applied after the first message has been added to the batch,
+    /// regardless of the first message's size, this is to ensure that messages that exceed buffer size are produced. 
+    /// </summary>
+    public int BufferMaxSize { get; set; } = 1024 * 1024; // 1 Mb 
+
     public override string ToString()
     {
         var toString = new StringBuilder().Append("[TopicPath: ").Append(TopicPath);
