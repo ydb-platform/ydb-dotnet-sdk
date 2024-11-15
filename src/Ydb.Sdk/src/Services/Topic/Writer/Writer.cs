@@ -24,10 +24,10 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
+    private readonly CancellationTokenSource _disposeTokenSource = new();
 
     private volatile TaskCompletionSource _taskWakeUpCompletionSource = new();
-    private volatile IWriteSession _session = null!;
-    private volatile bool _disposed;
+    private volatile IWriteSession _session = new NotStartedWriterSession("Session not started!");
 
     private int _limitBufferMaxSize;
 
@@ -55,7 +55,7 @@ internal class Writer<TValue> : IWriter<TValue>
         var messageData = new MessageData
         {
             Data = ByteString.CopyFrom(data),
-            CreatedAt = Timestamp.FromDateTime(message.Timestamp),
+            CreatedAt = Timestamp.FromDateTime(message.Timestamp.ToUniversalTime()),
             UncompressedSize = data.Length
         };
 
@@ -111,7 +111,7 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         await Initialize();
 
-        while (!_disposed)
+        while (!_disposeTokenSource.Token.IsCancellationRequested)
         {
             await _taskWakeUpCompletionSource.Task;
             _taskWakeUpCompletionSource = new TaskCompletionSource();
@@ -127,76 +127,100 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private async Task Initialize()
     {
-        _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
-
-        var stream = _driver.BidirectionalStreamCall(
-            TopicService.StreamWriteMethod,
-            GrpcRequestSettings.DefaultInstance
-        );
-
-        var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
-        if (_config.ProducerId != null)
+        try
         {
-            initRequest.ProducerId = _config.ProducerId;
+            _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
+
+            var stream = _driver.BidirectionalStreamCall(
+                TopicService.StreamWriteMethod,
+                GrpcRequestSettings.DefaultInstance
+            );
+
+            var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
+            if (_config.ProducerId != null)
+            {
+                initRequest.ProducerId = _config.ProducerId;
+            }
+
+            if (_config.MessageGroupId != null)
+            {
+                initRequest.MessageGroupId = _config.MessageGroupId;
+            }
+
+            _logger.LogDebug("Sending initialization request for the write stream: {InitRequest}", initRequest);
+
+            await stream.Write(new MessageFromClient { InitRequest = initRequest });
+            if (!await stream.MoveNextAsync())
+            {
+                _session = new NotStartedWriterSession(
+                    $"Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}");
+
+                _ = Task.Run(Initialize, _disposeTokenSource.Token);
+
+                return;
+            }
+
+            var receivedInitMessage = stream.Current;
+
+            var status = Status.FromProto(receivedInitMessage.Status, receivedInitMessage.Issues);
+
+            if (status.IsNotSuccess)
+            {
+                _session = new NotStartedWriterSession("Initialization failed", status);
+
+                if (status.StatusCode != StatusCode.SchemeError)
+                {
+                    _ = Task.Run(Initialize, _disposeTokenSource.Token);
+                }
+
+                return;
+            }
+
+            var initResponse = receivedInitMessage.InitResponse;
+
+            _logger.LogDebug("Received a response for the initialization request on the writer stream: {InitResponse}",
+                initResponse);
+
+            if (initResponse.SupportedCodecs != null &&
+                !initResponse.SupportedCodecs.Codecs.Contains((int)_config.Codec))
+            {
+                _logger.LogCritical("Topic[{TopicPath}] is not supported codec: {Codec}", _config.TopicPath,
+                    _config.Codec);
+
+                _session = new NotStartedWriterSession(
+                    $"Topic[{_config.TopicPath}] is not supported codec: {_config.Codec}");
+                return;
+            }
+
+            _session = new WriterSession(_config, stream, initResponse, Initialize, _logger);
         }
-
-        if (_config.MessageGroupId != null)
+        catch (Driver.TransportException e)
         {
-            initRequest.MessageGroupId = _config.MessageGroupId;
-        }
+            _logger.LogError(e, "Unable to connect the session");
 
-        _logger.LogDebug("Sending initialization request for the write stream: {InitRequest}", initRequest);
-
-        await stream.Write(new MessageFromClient { InitRequest = initRequest });
-        if (!await stream.MoveNextAsync())
-        {
             _session = new NotStartedWriterSession(
-                $"Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}");
-
-            _ = Task.Run(Initialize);
-
-            return;
+                new YdbWriterException("Transport error on creating write session", e));
         }
-
-        var receivedInitMessage = stream.Current;
-
-        var status = Status.FromProto(receivedInitMessage.Status, receivedInitMessage.Issues);
-
-        if (status.IsNotSuccess)
-        {
-            _session = new NotStartedWriterSession(status.ToString());
-
-            _ = Task.Run(Initialize);
-
-            return;
-        }
-
-        var initResponse = receivedInitMessage.InitResponse;
-
-        _logger.LogDebug("Received a response for the initialization request on the write stream: {InitResponse}",
-            initResponse);
-
-        if (!initResponse.SupportedCodecs.Codecs.Contains((int)_config.Codec))
-        {
-            _logger.LogCritical("Topic[{TopicPath}] is not supported codec: {Codec}", _config.TopicPath, _config.Codec);
-
-            _session = new NotStartedWriterSession(
-                $"Topic[{_config.TopicPath}] is not supported codec: {_config.Codec}");
-            return;
-        }
-
-        _session = new WriterSession(_config, stream, initResponse, Initialize, _logger);
     }
 
     public void Dispose()
     {
-        _disposed = true;
+        try
+        {
+            _disposeTokenSource.Cancel();
+
+            _session.Dispose();
+        }
+        finally
+        {
+            _disposeTokenSource.Dispose();
+        }
     }
 }
 
 internal record MessageSending(MessageData MessageData, TaskCompletionSource<WriteResult> TaskCompletionSource);
 
-internal interface IWriteSession
+internal interface IWriteSession : IDisposable
 {
     Task Write(ConcurrentQueue<MessageSending> toSendBuffer);
 }
@@ -210,6 +234,16 @@ internal class NotStartedWriterSession : IWriteSession
         _reasonException = new YdbWriterException(reasonExceptionMessage);
     }
 
+    public NotStartedWriterSession(string reasonExceptionMessage, Status status)
+    {
+        _reasonException = new YdbWriterException(reasonExceptionMessage, status);
+    }
+
+    public NotStartedWriterSession(YdbWriterException reasonException)
+    {
+        _reasonException = reasonException;
+    }
+
     public Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
     {
         foreach (var messageSending in toSendBuffer)
@@ -218,6 +252,10 @@ internal class NotStartedWriterSession : IWriteSession
         }
 
         return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
     }
 }
 

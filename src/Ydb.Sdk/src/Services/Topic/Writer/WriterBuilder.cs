@@ -3,9 +3,9 @@ namespace Ydb.Sdk.Services.Topic.Writer;
 public class WriterBuilder<TValue>
 {
     private readonly WriterConfig _config;
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
 
-    public WriterBuilder(Driver driver, WriterConfig config)
+    public WriterBuilder(IDriver driver, WriterConfig config)
     {
         _driver = driver;
         _config = config;

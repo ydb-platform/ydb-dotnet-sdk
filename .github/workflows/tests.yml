@@ -33,7 +33,6 @@ jobs:
         run: |
           cd src
           dotnet test --filter "Category=Unit" -f ${{ matrix.dotnet-target-framework }}
-
   ado-net-tests:
     runs-on: ubuntu-22.04
     strategy:
@@ -74,7 +73,46 @@ jobs:
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src
           dotnet test --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)" -l "console;verbosity=normal"
-  
+  topic-tests:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ydb-version: [ 'trunk' ]
+        dotnet-version: [ 6.0.x, 7.0.x ]
+        include:
+          - dotnet-version: 6.0.x
+            dotnet-target-framework: net6.0
+          - dotnet-version: 7.0.x
+            dotnet-target-framework: net7.0
+    services:
+      ydb:
+        image: cr.yandex/yc/yandex-docker-local-ydb:${{ matrix.ydb-version }}
+        ports:
+          - 2135:2135
+          - 2136:2136
+          - 8765:8765
+        env:
+          YDB_LOCAL_SURVIVE_RESTART: true
+          YDB_USE_IN_MEMORY_PDISKS: true
+        options: '--name ydb-local -h localhost'
+    env:
+      OS: ubuntu-22.04
+      YDB_VERSION: ${{ matrix.ydb-version }}
+      YDB_CONNECTION_STRING: grpc://localhost:2136/local
+      YDB_CONNECTION_STRING_SECURE: grpcs://localhost:2135/local
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+      - name: Run ADO.NET tests
+        run: |
+          docker cp ydb-local:/ydb_certs/ca.pem ~/
+          cd src
+          dotnet test --filter "FullyQualifiedName~Topic" -l "console;verbosity=normal"  
   core-integration-tests:
     runs-on: ubuntu-22.04
     strategy:

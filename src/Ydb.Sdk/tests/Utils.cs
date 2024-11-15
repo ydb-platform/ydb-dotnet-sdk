@@ -47,7 +47,7 @@ public static class Utils
     internal static ILoggerFactory GetLoggerFactory()
     {
         return new ServiceCollection()
-            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
+            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Debug))
             .BuildServiceProvider()
             .GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
     }
