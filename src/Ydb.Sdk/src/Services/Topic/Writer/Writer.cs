@@ -71,7 +71,7 @@ internal class Writer<TValue> : IWriter<TValue>
             var curLimitBufferSize = Volatile.Read(ref _limitBufferMaxSize);
 
             if ( // sending one biggest message anyway
-                curLimitBufferSize == _config.BufferMaxSize && data.Length > curLimitBufferSize
+                (curLimitBufferSize == _config.BufferMaxSize && data.Length > curLimitBufferSize)
                 || curLimitBufferSize >= data.Length)
             {
                 if (Interlocked.CompareExchange(ref _limitBufferMaxSize,

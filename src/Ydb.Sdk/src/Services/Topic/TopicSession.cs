@@ -31,7 +31,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
         }
 
         Logger.LogInformation("WriterSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
-        
+
         await _initialize();
     }
 
