@@ -21,7 +21,7 @@ public class WriterBuilder<TValue>
             Serializer ?? (ISerializer<TValue>)(
                 Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
                     ? serializer
-                    : throw new YdbWriterException("The serializer is not set")
+                    : throw new WriterException("The serializer is not set")
             )
         );
     }

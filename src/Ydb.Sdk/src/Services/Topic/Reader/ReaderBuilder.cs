@@ -22,7 +22,7 @@ public class ReaderBuilder<TValue>
         //     Deserializer ?? (IDeserializer<TValue>)(
         //         Deserializers.DefaultDeserializers.TryGetValue(typeof(TValue), out var deserializer)
         //             ? deserializer
-        //             : throw new YdbWriterException("The serializer is not set")
+        //             : throw new WriterException("The serializer is not set")
         //     )
         // );
         //

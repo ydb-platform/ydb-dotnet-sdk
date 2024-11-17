@@ -74,8 +74,8 @@ internal class Writer<TValue> : IWriter<TValue>
                 curLimitBufferSize == _config.BufferMaxSize && data.Length > curLimitBufferSize
                 || curLimitBufferSize >= data.Length)
             {
-                if (Interlocked.CompareExchange(ref _limitBufferMaxSize, curLimitBufferSize,
-                        curLimitBufferSize - data.Length) == curLimitBufferSize)
+                if (Interlocked.CompareExchange(ref _limitBufferMaxSize,
+                        curLimitBufferSize - data.Length, curLimitBufferSize) == curLimitBufferSize)
                 {
                     _toSendBuffer.Enqueue(new MessageSending(messageData, completeTask));
 
@@ -92,7 +92,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 "Buffer overflow: the data size [{DataLength}] exceeds the current buffer limit ({CurLimitBufferSize}) [BufferMaxSize = {BufferMaxSize}]",
                 data.Length, curLimitBufferSize, _config.BufferMaxSize);
 
-            throw new YdbWriterException("Buffer overflow");
+            throw new WriterException("Buffer overflow");
         }
 
         try
@@ -199,7 +199,7 @@ internal class Writer<TValue> : IWriter<TValue>
             _logger.LogError(e, "Unable to connect the session");
 
             _session = new NotStartedWriterSession(
-                new YdbWriterException("Transport error on creating write session", e));
+                new WriterException("Transport error on creating write session", e));
         }
     }
 
@@ -227,19 +227,19 @@ internal interface IWriteSession : IDisposable
 
 internal class NotStartedWriterSession : IWriteSession
 {
-    private readonly YdbWriterException _reasonException;
+    private readonly WriterException _reasonException;
 
     public NotStartedWriterSession(string reasonExceptionMessage)
     {
-        _reasonException = new YdbWriterException(reasonExceptionMessage);
+        _reasonException = new WriterException(reasonExceptionMessage);
     }
 
     public NotStartedWriterSession(string reasonExceptionMessage, Status status)
     {
-        _reasonException = new YdbWriterException(reasonExceptionMessage, status);
+        _reasonException = new WriterException(reasonExceptionMessage, status);
     }
 
-    public NotStartedWriterSession(YdbWriterException reasonException)
+    public NotStartedWriterSession(WriterException reasonException)
     {
         _reasonException = reasonException;
     }
@@ -365,7 +365,7 @@ Completing task on exception...
 Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                             messageFromClient.MessageData.SeqNo, ack);
 
-                        messageFromClient.TaskCompletionSource.SetException(new YdbWriterException(
+                        messageFromClient.TaskCompletionSource.SetException(new WriterException(
                             $"Client SeqNo[{messageFromClient.MessageData.SeqNo}] is less then server's WriteAck[{ack}]"));
                     }
                     else

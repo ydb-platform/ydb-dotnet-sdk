@@ -44,7 +44,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
                 new WriterConfig(_topicName + "_not_found") { ProducerId = "producerId" })
             .Build();
 
-        Assert.Equal(StatusCode.SchemeError, (await Assert.ThrowsAsync<YdbWriterException>(
-                () => writer.WriteAsync("hello world"))).Status.StatusCode);
+        Assert.Equal(StatusCode.SchemeError, (await Assert.ThrowsAsync<WriterException>(
+            () => writer.WriteAsync("hello world"))).Status.StatusCode);
     }
 }

@@ -108,7 +108,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
-      - name: Run ADO.NET tests
+      - name: Run Topic tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src
