@@ -40,8 +40,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
     [Fact]
     public async Task WriteAsync_WhenTopicNotFound_ReturnNotFoundException()
     {
-        using var writer = new WriterBuilder<string>(_driver,
-                new WriterConfig(_topicName + "_not_found") { ProducerId = "producerId" })
+        using var writer = new WriterBuilder<string>(_driver, new WriterConfig(_topicName + "_not_found") { ProducerId = "producerId" })
             .Build();
 
         Assert.Equal(StatusCode.SchemeError, (await Assert.ThrowsAsync<WriterException>(

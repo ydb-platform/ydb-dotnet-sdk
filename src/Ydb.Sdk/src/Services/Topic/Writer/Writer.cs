@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Transactions;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -303,17 +302,14 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
             Volatile.Write(ref _seqNum, currentSeqNum);
             await Stream.Write(new MessageFromClient { WriteRequest = writeMessage });
         }
-        catch (TransactionException e)
+        catch (Driver.TransportException e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on Write, last SeqNo={SeqNo}",
                 SessionId, Volatile.Read(ref _seqNum));
 
-            ReconnectSession();
+            ClearInFlightMessages(e);
 
-            while (_inFlightMessages.TryDequeue(out var sendData))
-            {
-                sendData.TaskCompletionSource.SetException(e);
-            }
+            ReconnectSession();
         }
     }
 
@@ -377,13 +373,23 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                 }
             }
         }
-        catch (Exception e)
+        catch (Driver.TransportException e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
+
+            ClearInFlightMessages(e);
         }
         finally
         {
             ReconnectSession();
+        }
+    }
+
+    private void ClearInFlightMessages(Driver.TransportException e)
+    {
+        while (_inFlightMessages.TryDequeue(out var sendData))
+        {
+            sendData.TaskCompletionSource.SetException(e);
         }
     }
 }

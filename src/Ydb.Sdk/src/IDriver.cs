@@ -6,21 +6,21 @@ namespace Ydb.Sdk;
 
 public interface IDriver : IAsyncDisposable, IDisposable
 {
-    internal Task<TResponse> UnaryCall<TRequest, TResponse>(
+    public Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
-    internal ServerStream<TResponse> ServerStreamCall<TRequest, TResponse>(
+    public ServerStream<TResponse> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
-    internal BidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
+    public BidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         GrpcRequestSettings settings)
         where TRequest : class
@@ -213,11 +213,16 @@ public sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyn
     }
 }
 
-public sealed class BidirectionalStream<TRequest, TResponse> : IDisposable
+public class BidirectionalStream<TRequest, TResponse> : IDisposable
 {
     private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;
 
+    public BidirectionalStream()
+    {
+        
+    }
+    
     internal BidirectionalStream(
         AsyncDuplexStreamingCall<TRequest, TResponse> stream,
         Action<RpcException> rpcErrorAction)
