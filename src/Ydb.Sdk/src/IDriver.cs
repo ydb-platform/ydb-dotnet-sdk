@@ -20,13 +20,20 @@ public interface IDriver : IAsyncDisposable, IDisposable
         where TRequest : class
         where TResponse : class;
 
-    public BidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
+    public IBidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
     ILoggerFactory LoggerFactory { get; }
+}
+
+public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
+{
+    public Task Write(TRequest request);
+    public ValueTask<bool> MoveNextAsync();
+    public TResponse Current { get; }
 }
 
 public abstract class BaseDriver : IDriver
@@ -95,7 +102,7 @@ public abstract class BaseDriver : IDriver
         return new ServerStream<TResponse>(call, e => { OnRpcError(endpoint, e); });
     }
 
-    public BidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
+    public IBidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         GrpcRequestSettings settings)
         where TRequest : class
@@ -213,16 +220,11 @@ public sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyn
     }
 }
 
-public class BidirectionalStream<TRequest, TResponse> : IDisposable
+public class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<TRequest, TResponse>
 {
     private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;
 
-    public BidirectionalStream()
-    {
-        
-    }
-    
     internal BidirectionalStream(
         AsyncDuplexStreamingCall<TRequest, TResponse> stream,
         Action<RpcException> rpcErrorAction)

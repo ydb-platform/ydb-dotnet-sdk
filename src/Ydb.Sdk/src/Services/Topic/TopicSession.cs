@@ -6,13 +6,13 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
 {
     private readonly Func<Task> _initialize;
 
-    protected readonly BidirectionalStream<TFromClient, TFromServer> Stream;
+    protected readonly IBidirectionalStream<TFromClient, TFromServer> Stream;
     protected readonly ILogger Logger;
     protected readonly string SessionId;
 
     private int _isActive = 1;
 
-    protected TopicSession(BidirectionalStream<TFromClient, TFromServer> stream, ILogger logger,
+    protected TopicSession(IBidirectionalStream<TFromClient, TFromServer> stream, ILogger logger,
         string sessionId, Func<Task> initialize)
     {
         Stream = stream;

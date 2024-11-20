@@ -11,7 +11,7 @@ using InitResponse = StreamWriteMessage.Types.InitResponse;
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
 using MessageFromClient = StreamWriteMessage.Types.FromClient;
 using MessageFromServer = StreamWriteMessage.Types.FromServer;
-using WriterStream = BidirectionalStream<
+using WriterStream = IBidirectionalStream<
     StreamWriteMessage.Types.FromClient,
     StreamWriteMessage.Types.FromServer
 >;
@@ -172,6 +172,8 @@ internal class Writer<TValue> : IWriter<TValue>
                     _ = Task.Run(Initialize, _disposeTokenSource.Token);
                 }
 
+                _logger.LogCritical("Writer initialization failed to start. Reason: {Status}", status);
+
                 return;
             }
 
@@ -183,11 +185,12 @@ internal class Writer<TValue> : IWriter<TValue>
             if (initResponse.SupportedCodecs != null &&
                 !initResponse.SupportedCodecs.Codecs.Contains((int)_config.Codec))
             {
-                _logger.LogCritical("Topic[{TopicPath}] is not supported codec: {Codec}", _config.TopicPath,
-                    _config.Codec);
+                _logger.LogCritical(
+                    "Writer initialization failed to start. Reason: topic[Path=\"{TopicPath}\"] is not supported codec {Codec}",
+                    _config.TopicPath, _config.Codec);
 
                 _session = new NotStartedWriterSession(
-                    $"Topic[{_config.TopicPath}] is not supported codec: {_config.Codec}");
+                    $"Topic[Path=\"{_config.TopicPath}\"] is not supported codec: {_config.Codec}");
                 return;
             }
 
@@ -199,6 +202,8 @@ internal class Writer<TValue> : IWriter<TValue>
 
             _session = new NotStartedWriterSession(
                 new WriterException("Transport error on creating write session", e));
+
+            _ = Task.Run(Initialize, _disposeTokenSource.Token);
         }
     }
 
@@ -245,7 +250,7 @@ internal class NotStartedWriterSession : IWriteSession
 
     public Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
     {
-        foreach (var messageSending in toSendBuffer)
+        while (toSendBuffer.TryDequeue(out var messageSending))
         {
             messageSending.TaskCompletionSource.SetException(_reasonException);
         }
