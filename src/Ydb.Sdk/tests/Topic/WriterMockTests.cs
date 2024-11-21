@@ -56,7 +56,7 @@ public class WriterMockTests
 
         await taskNextComplete.Task;
         // check attempt repeated!!!
-        _mockStream.Verify(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(2));
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(2));
     }
 
@@ -197,7 +197,7 @@ public class WriterMockTests
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123L))).Message);
 
         // check not attempt repeated!!!
-        _mockStream.Verify(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()), Times.Once);
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Once);
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Once);
     }
 
