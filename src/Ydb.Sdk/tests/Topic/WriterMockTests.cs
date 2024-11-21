@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Grpc.Core;
 using Moq;
 using Xunit;
@@ -278,5 +277,74 @@ public class WriterMockTests
             Assert.Equal(bufferSize / messageSize, countSuccess);
             Assert.Equal(batchTasksSize - bufferSize / messageSize, countErrors);
         }
+    }
+
+    [Fact]
+    public async Task WriteAsync_WhenTransportExceptionOnWriteInWriterSessionThenReconnectSession_ReturnWriteResult()
+    {
+        var moveFirstNextSource = new TaskCompletionSource<bool>();
+        var moveSecondNextSource = new TaskCompletionSource<bool>();
+        var moveThirdNextSource = new TaskCompletionSource<bool>();
+        var nextCompleted = new TaskCompletionSource();
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Throws(() =>
+            {
+                moveFirstNextSource.SetResult(false);
+                return new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+            })
+            .Returns(() =>
+            {
+                moveSecondNextSource.SetResult(true);
+                return Task.CompletedTask;
+            })
+            .Returns(() =>
+            {
+                nextCompleted.SetResult();
+                return Task.CompletedTask;
+            });
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .Returns(new ValueTask<bool>(true))
+            .Returns(new ValueTask<bool>(moveFirstNextSource.Task))
+            .Returns(new ValueTask<bool>(moveSecondNextSource.Task))
+            .Returns(new ValueTask<bool>(moveThirdNextSource.Task));
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    PartitionId = 1,
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 1,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                                { Offset = 0 }
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, new WriterConfig("/topic")
+            { ProducerId = "producerId" }).Build();
+
+        var runTask = writer.WriteAsync(100L);
+        await nextCompleted.Task;
+        moveThirdNextSource.SetResult(true);
+
+        Assert.Equal(PersistenceStatus.Written, (await runTask).Status);
     }
 }

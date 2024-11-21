@@ -25,7 +25,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
     {
         if (Interlocked.CompareExchange(ref _isActive, 0, 1) == 0)
         {
-            Logger.LogWarning("Skipping reconnect. A reconnect session has already been initiated");
+            Logger.LogDebug("Skipping reconnect. A reconnect session has already been initiated");
 
             return;
         }

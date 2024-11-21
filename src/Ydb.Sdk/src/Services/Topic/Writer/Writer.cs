@@ -23,10 +23,11 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
+    private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeTokenSource = new();
 
     private volatile TaskCompletionSource _taskWakeUpCompletionSource = new();
-    private volatile IWriteSession _session = new NotStartedWriterSession("Session not started!");
+    private volatile IWriteSession _session = null!;
 
     private int _limitBufferMaxSize;
 
@@ -60,9 +61,8 @@ internal class Writer<TValue> : IWriter<TValue>
 
         foreach (var metadata in message.Metadata)
         {
-            messageData.MetadataItems.Add(
-                new MetadataItem { Key = metadata.Key, Value = ByteString.CopyFrom(metadata.Value) }
-            );
+            messageData.MetadataItems.Add(new MetadataItem
+                { Key = metadata.Key, Value = ByteString.CopyFrom(metadata.Value) });
         }
 
         while (true)
@@ -77,7 +77,6 @@ internal class Writer<TValue> : IWriter<TValue>
                         curLimitBufferSize - data.Length, curLimitBufferSize) == curLimitBufferSize)
                 {
                     _toSendBuffer.Enqueue(new MessageSending(messageData, completeTask));
-
                     WakeUpWorker();
 
                     break;
@@ -129,6 +128,8 @@ internal class Writer<TValue> : IWriter<TValue>
         try
         {
             _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
+
+            _session = new NotStartedWriterSession("Session not started!");
 
             var stream = _driver.BidirectionalStreamCall(
                 TopicService.StreamWriteMethod,
@@ -194,7 +195,18 @@ internal class Writer<TValue> : IWriter<TValue>
                 return;
             }
 
-            _session = new WriterSession(_config, stream, initResponse, Initialize, _logger);
+            var newSession = new WriterSession(_config, stream, initResponse, Initialize, _logger, _inFlightMessages);
+            if (!_inFlightMessages.IsEmpty)
+            {
+                while (_inFlightMessages.TryDequeue(out var sendData))
+                {
+                    _toSendBuffer.Enqueue(sendData);
+                }
+
+                await newSession.Write(_toSendBuffer); // retry prev in flight messages
+            }
+
+            _session = newSession;
         }
         catch (Driver.TransportException e)
         {
@@ -252,7 +264,7 @@ internal class NotStartedWriterSession : IWriteSession
     {
         while (toSendBuffer.TryDequeue(out var messageSending))
         {
-            messageSending.TaskCompletionSource.SetException(_reasonException);
+            messageSending.TaskCompletionSource.TrySetException(_reasonException);
         }
 
         return Task.CompletedTask;
@@ -267,7 +279,7 @@ internal class NotStartedWriterSession : IWriteSession
 internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>, IWriteSession
 {
     private readonly WriterConfig _config;
-    private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
+    private readonly ConcurrentQueue<MessageSending> _inFlightMessages;
 
     private long _seqNum;
 
@@ -276,9 +288,11 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         WriterStream stream,
         InitResponse initResponse,
         Func<Task> initialize,
-        ILogger logger) : base(stream, logger, initResponse.SessionId, initialize)
+        ILogger logger,
+        ConcurrentQueue<MessageSending> inFlightMessages) : base(stream, logger, initResponse.SessionId, initialize)
     {
         _config = config;
+        _inFlightMessages = inFlightMessages;
         Volatile.Write(ref _seqNum, initResponse.LastSeqNo); // happens-before for Volatile.Read
 
         RunProcessingWriteAck();
@@ -311,8 +325,6 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on Write, last SeqNo={SeqNo}",
                 SessionId, Volatile.Read(ref _seqNum));
-
-            ClearInFlightMessages(e);
 
             ReconnectSession();
         }
@@ -366,12 +378,12 @@ Completing task on exception...
 Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                             messageFromClient.MessageData.SeqNo, ack);
 
-                        messageFromClient.TaskCompletionSource.SetException(new WriterException(
+                        messageFromClient.TaskCompletionSource.TrySetException(new WriterException(
                             $"Client SeqNo[{messageFromClient.MessageData.SeqNo}] is less then server's WriteAck[{ack}]"));
                     }
                     else
                     {
-                        messageFromClient.TaskCompletionSource.SetResult(new WriteResult(ack));
+                        messageFromClient.TaskCompletionSource.TrySetResult(new WriteResult(ack));
                     }
 
                     _inFlightMessages.TryDequeue(out _); // Dequeue 
@@ -381,20 +393,10 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
         catch (Driver.TransportException e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
-
-            ClearInFlightMessages(e);
         }
         finally
         {
             ReconnectSession();
-        }
-    }
-
-    private void ClearInFlightMessages(Driver.TransportException e)
-    {
-        while (_inFlightMessages.TryDequeue(out var sendData))
-        {
-            sendData.TaskCompletionSource.SetException(e);
         }
     }
 }

@@ -32,7 +32,9 @@ public interface IDriver : IAsyncDisposable, IDisposable
 public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 {
     public Task Write(TRequest request);
+
     public ValueTask<bool> MoveNextAsync();
+
     public TResponse Current { get; }
 }
 
