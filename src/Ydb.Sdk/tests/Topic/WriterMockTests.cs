@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using Grpc.Core;
 using Moq;
 using Xunit;
+using Xunit.Abstractions;
 using Ydb.Issue;
 using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Writer;
@@ -10,16 +12,19 @@ using Codec = Ydb.Sdk.Services.Topic.Codec;
 namespace Ydb.Sdk.Tests.Topic;
 
 using WriterStream = IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>;
+using FromClient = StreamWriteMessage.Types.FromClient;
 
 public class WriterMockTests
 {
+    private readonly ITestOutputHelper _testOutputHelper;
     private readonly Mock<IDriver> _mockIDriver = new();
     private readonly Mock<WriterStream> _mockStream = new();
 
-    public WriterMockTests()
+    public WriterMockTests(ITestOutputHelper testOutputHelper)
     {
+        _testOutputHelper = testOutputHelper;
         _mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
-            It.IsAny<Method<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>>(),
+            It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
             It.IsAny<GrpcRequestSettings>())
         ).Returns(_mockStream.Object);
 
@@ -32,7 +37,7 @@ public class WriterMockTests
         var moveNextTry = new TaskCompletionSource<bool>();
         var taskNextComplete = new TaskCompletionSource();
 
-        _mockStream.Setup(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()))
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(false)
@@ -60,7 +65,7 @@ public class WriterMockTests
     {
         var taskSource = new TaskCompletionSource();
         var taskNextComplete = new TaskCompletionSource();
-        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()))
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
             .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .Returns(() =>
             {
@@ -77,7 +82,7 @@ public class WriterMockTests
 
         await taskNextComplete.Task;
         // check attempt repeated!!!
-        _mockStream.Verify(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -85,7 +90,7 @@ public class WriterMockTests
     {
         var taskSource = new TaskCompletionSource<bool>();
         var taskNextComplete = new TaskCompletionSource();
-        _mockStream.Setup(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()))
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ThrowsAsync(new Driver.TransportException(
@@ -105,7 +110,7 @@ public class WriterMockTests
 
         await taskNextComplete.Task;
         // check attempt repeated!!!
-        _mockStream.Verify(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(2));
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(2));
     }
 
@@ -114,7 +119,7 @@ public class WriterMockTests
     {
         var taskSource = new TaskCompletionSource<bool>();
         var taskNextComplete = new TaskCompletionSource();
-        _mockStream.Setup(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()))
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .Returns(new ValueTask<bool>(true))
@@ -138,14 +143,14 @@ public class WriterMockTests
 
         await taskNextComplete.Task;
         // check attempt repeated!!!
-        _mockStream.Verify(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(2));
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(2));
     }
 
     [Fact]
     public async Task Initialize_WhenInitResponseIsSchemaError_ThrowWriterExceptionOnWriteAsyncAndStopInitializing()
     {
-        _mockStream.Setup(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()))
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
         _mockStream.Setup(stream => stream.MoveNextAsync())
             .Returns(new ValueTask<bool>(true));
@@ -163,14 +168,14 @@ public class WriterMockTests
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123L))).Message);
 
         // check not attempt repeated!!!
-        _mockStream.Verify(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()), Times.Once);
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Once);
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Once);
     }
 
     [Fact]
     public async Task Initialize_WhenNotSupportedCodec_ThrowWriterExceptionOnWriteAsyncAndStopInitializing()
     {
-        _mockStream.Setup(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()))
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
         _mockStream.Setup(stream => stream.MoveNextAsync())
             .Returns(new ValueTask<bool>(true));
@@ -182,7 +187,7 @@ public class WriterMockTests
                     LastSeqNo = 1, PartitionId = 1, SessionId = "SessionId",
                     SupportedCodecs = new SupportedCodecs { Codecs = { 2 /* Gzip */, 3 /* Lzop */ } }
                 },
-                Status = StatusIds.Types.StatusCode.Success,
+                Status = StatusIds.Types.StatusCode.Success
             });
 
         using var writer = new WriterBuilder<long>(_mockIDriver.Object, new WriterConfig("/topic")
@@ -195,46 +200,83 @@ public class WriterMockTests
         _mockStream.Verify(stream => stream.Write(It.IsAny<StreamWriteMessage.Types.FromClient>()), Times.Once);
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Once);
     }
-    
-    
 
-    /*
-     *         _mockStream.Setup(stream => stream.Current)
-           .Returns(new StreamWriteMessage.Types.FromServer
-           {
-               InitResponse = new StreamWriteMessage.Types.InitResponse
-                   { LastSeqNo = 1, PartitionId = 1, SessionId = "SessionId" },
-               Status = StatusIds.Types.StatusCode.Success,
-           });
-       moveNextTry.SetResult(true);
-       await Task.Yield();
+    [Fact]
+    public async Task WriteAsyncStress_WhenBufferIsOverflow_ThrowWriterExceptionOnBufferOverflow()
+    {
+        const int countBatchSendingSize = 1000;
+        const int batchTasksSize = 100;
+        const int bufferSize = 100;
+        const int messageSize = sizeof(int);
 
-       var writeTask = writer.WriteAsync(100);
-       moveNextTryWriteAck.SetResult(true);
+        Assert.True(batchTasksSize > bufferSize / 4);
+        Assert.True(bufferSize % 4 == 0);
 
-       _mockStream.Setup(stream => stream.Current).Returns(
-           new StreamWriteMessage.Types.FromServer
-           {
-               WriteResponse = new StreamWriteMessage.Types.WriteResponse
-               {
-                   Acks =
-                   {
-                       new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
-                       {
-                           SeqNo = 1, Written =
-                               new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
-                                   { Offset = 2 }
-                       }
-                   }
-               },
-               Status = StatusIds.Types.StatusCode.Success
-           });
-       _mockStream.Setup(stream => stream.MoveNextAsync()).ReturnsAsync(true);
+        var taskSource = new TaskCompletionSource<bool>();
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask);
+        var mockNextAsync = _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .Returns(new ValueTask<bool>(true))
+            .Returns(new ValueTask<bool>(taskSource.Task));
+        var sequentialResult = _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+        using var writer = new WriterBuilder<int>(_mockIDriver.Object, new WriterConfig("/topic")
+            { ProducerId = "producerId", BufferMaxSize = bufferSize /* bytes */ }).Build();
 
-       var writeResult = await writeTask;
-       Assert.Equal(PersistenceStatus.Written, writeResult.Status);
-       Assert.True(writeResult.TryGetOffset(out var offset));
-       Assert.Equal(2, offset);
-       _mockStream.Setup(stream => stream.MoveNextAsync()).ReturnsAsync(false);
-     */
+        for (var attempt = 0; attempt < countBatchSendingSize; attempt++)
+        {
+            _testOutputHelper.WriteLine($"Processing attempt {attempt}");
+
+            var tasks = new List<Task<WriteResult>>();
+            var serverAck = new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse { PartitionId = 1 },
+                Status = StatusIds.Types.StatusCode.Success
+            };
+            for (var i = 0; i < batchTasksSize; i++)
+            {
+                tasks.Add(writer.WriteAsync(100));
+                serverAck.WriteResponse.Acks.Add(new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                {
+                    SeqNo = bufferSize / messageSize * attempt + i + 1,
+                    Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                        { Offset = i * messageSize + bufferSize * attempt }
+                });
+            }
+
+            sequentialResult.Returns(() =>
+            {
+                // ReSharper disable once AccessToModifiedClosure
+                Volatile.Write(ref taskSource, new TaskCompletionSource<bool>());
+                mockNextAsync.Returns(new ValueTask<bool>(Volatile.Read(ref taskSource).Task));
+                return serverAck;
+            });
+            taskSource.SetResult(true);
+
+            var countSuccess = 0;
+            var countErrors = 0;
+            foreach (var task in tasks)
+            {
+                try
+                {
+                    var res = await task;
+                    countSuccess++;
+                    Assert.Equal(PersistenceStatus.Written, res.Status);
+                }
+                catch (WriterException e)
+                {
+                    countErrors++;
+                    Assert.Equal("Buffer overflow", e.Message);
+                }
+            }
+
+            Assert.Equal(bufferSize / messageSize, countSuccess);
+            Assert.Equal(batchTasksSize - bufferSize / messageSize, countErrors);
+        }
+    }
 }
