@@ -42,14 +42,14 @@ internal class Writer<TValue> : IWriter<TValue>
         StartWriteWorker();
     }
 
-    public Task<WriteResult> WriteAsync(TValue data)
+    public Task<WriteResult> WriteAsync(TValue data, CancellationToken cancellationToken)
     {
-        return WriteAsync(new Message<TValue>(data));
+        return WriteAsync(new Message<TValue>(data), cancellationToken);
     }
 
-    public async Task<WriteResult> WriteAsync(Message<TValue> message)
+    public async Task<WriteResult> WriteAsync(Message<TValue> message, CancellationToken cancellationToken)
     {
-        TaskCompletionSource<WriteResult> completeTask = new();
+        TaskCompletionSource<WriteResult> completeTask = new(cancellationToken);
 
         var data = _serializer.Serialize(message.Data);
         var messageData = new MessageData
@@ -207,7 +207,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 _logger,
                 _inFlightMessages
             );
-            
+
             if (!_inFlightMessages.IsEmpty)
             {
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
