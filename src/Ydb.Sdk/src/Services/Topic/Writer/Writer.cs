@@ -27,7 +27,7 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly CancellationTokenSource _disposeTokenSource = new();
 
     private volatile TaskCompletionSource _taskWakeUpCompletionSource = new();
-    private volatile IWriteSession _session = null!;
+    private volatile IWriteSession _session = new NotStartedWriterSession("Session not started!");
 
     private int _limitBufferMaxSize;
 
@@ -127,9 +127,12 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         try
         {
-            _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
+            if (_disposeTokenSource.IsCancellationRequested)
+            {
+                return;
+            }
 
-            _session = new NotStartedWriterSession("Session not started!");
+            _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
 
             var stream = _driver.BidirectionalStreamCall(
                 TopicService.StreamWriteMethod,
@@ -195,15 +198,24 @@ internal class Writer<TValue> : IWriter<TValue>
                 return;
             }
 
-            var newSession = new WriterSession(_config, stream, initResponse, Initialize, _logger, _inFlightMessages);
+            var newSession = new WriterSession(
+                _config,
+                stream,
+                initResponse,
+                Initialize,
+                e => _session = new NotStartedWriterSession(e),
+                _logger,
+                _inFlightMessages
+            );
             if (!_inFlightMessages.IsEmpty)
             {
+                var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
                 while (_inFlightMessages.TryDequeue(out var sendData))
                 {
-                    _toSendBuffer.Enqueue(sendData);
+                    copyInFlightMessages.Enqueue(sendData);
                 }
 
-                await newSession.Write(_toSendBuffer); // retry prev in flight messages
+                await newSession.Write(copyInFlightMessages); // retry prev in flight messages
             }
 
             _session = newSession;
@@ -213,7 +225,7 @@ internal class Writer<TValue> : IWriter<TValue>
             _logger.LogError(e, "Unable to connect the session");
 
             _session = new NotStartedWriterSession(
-                new WriterException("Transport error on creating write session", e));
+                new WriterException("Transport error on creating WriterSession", e));
 
             _ = Task.Run(Initialize, _disposeTokenSource.Token);
         }
@@ -288,8 +300,16 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         WriterStream stream,
         InitResponse initResponse,
         Func<Task> initialize,
+        Action<WriterException> resetSessionOnTransportError,
         ILogger logger,
-        ConcurrentQueue<MessageSending> inFlightMessages) : base(stream, logger, initResponse.SessionId, initialize)
+        ConcurrentQueue<MessageSending> inFlightMessages
+    ) : base(
+        stream,
+        logger,
+        initResponse.SessionId,
+        initialize,
+        resetSessionOnTransportError
+    )
     {
         _config = config;
         _inFlightMessages = inFlightMessages;
@@ -326,7 +346,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
             Logger.LogError(e, "WriterSession[{SessionId}] have error on Write, last SeqNo={SeqNo}",
                 SessionId, Volatile.Read(ref _seqNum));
 
-            ReconnectSession();
+            ReconnectSession(new WriterException("Transport error in the WriterSession on write messages", e));
         }
     }
 
@@ -393,10 +413,14 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
         catch (Driver.TransportException e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
+
+            ReconnectSession(new WriterException("Transport error in the WriterSession on processing writeAck", e));
+
+            return;
         }
-        finally
-        {
-            ReconnectSession();
-        }
+
+        Logger.LogWarning("WriterSession[{SessionId}]: stream is closed", SessionId);
+
+        ReconnectSession(new WriterException("WriterStream is closed"));
     }
 }

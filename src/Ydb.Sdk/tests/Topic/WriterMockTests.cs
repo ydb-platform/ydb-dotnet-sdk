@@ -76,7 +76,7 @@ public class WriterMockTests
             { ProducerId = "producerId" }).Build();
 
         var writerException = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"));
-        Assert.Equal("Transport error on creating write session", writerException.Message);
+        Assert.Equal("Transport error on creating WriterSession", writerException.Message);
         Assert.Equal(StatusCode.Cancelled, writerException.Status.StatusCode);
 
         await taskNextComplete.Task;
@@ -104,7 +104,7 @@ public class WriterMockTests
             { ProducerId = "producerId" }).Build();
 
         var writerException = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"));
-        Assert.Equal("Transport error on creating write session", writerException.Message);
+        Assert.Equal("Transport error on creating WriterSession", writerException.Message);
         Assert.Equal(StatusCode.ClientTransportTimeout, writerException.Status.StatusCode);
 
         await taskNextComplete.Task;
@@ -279,6 +279,24 @@ public class WriterMockTests
         }
     }
 
+    /*
+     * Performed invocations:
+
+       Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
+
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "1", "createdAt": "2024-11-22T10:08:58.732882Z", "data": "AAAAAAAAAGQ=", "uncompressedSize": "8" } ], "codec": 1 } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "1", "createdAt": "2024-11-22T10:08:58.732882Z", "data": "AAAAAAAAAGQ=", "uncompressedSize": "8" } ], "codec": 1 } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+     */
     [Fact]
     public async Task WriteAsync_WhenTransportExceptionOnWriteInWriterSessionThenReconnectSession_ReturnWriteResult()
     {
@@ -288,14 +306,10 @@ public class WriterMockTests
         var nextCompleted = new TaskCompletionSource();
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask)
-            .Throws(() =>
-            {
-                moveFirstNextSource.SetResult(false);
-                return new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled));
-            })
+            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .Returns(() =>
             {
-                moveSecondNextSource.SetResult(true);
+                moveFirstNextSource.SetResult(false);
                 return Task.CompletedTask;
             })
             .Returns(() =>
@@ -307,7 +321,8 @@ public class WriterMockTests
             .Returns(new ValueTask<bool>(true))
             .Returns(new ValueTask<bool>(moveFirstNextSource.Task))
             .Returns(new ValueTask<bool>(moveSecondNextSource.Task))
-            .Returns(new ValueTask<bool>(moveThirdNextSource.Task));
+            .Returns(new ValueTask<bool>(moveThirdNextSource.Task))
+            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
@@ -342,9 +357,19 @@ public class WriterMockTests
             { ProducerId = "producerId" }).Build();
 
         var runTask = writer.WriteAsync(100L);
+
+        var writerExceptionAfterResetSession = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100));
+        Assert.Equal("Transport error in the WriterSession on write messages",
+            writerExceptionAfterResetSession.Message);
+        Assert.Equal(StatusCode.Cancelled, writerExceptionAfterResetSession.Status.StatusCode);
+
+        moveSecondNextSource.SetResult(true);
         await nextCompleted.Task;
         moveThirdNextSource.SetResult(true);
 
         Assert.Equal(PersistenceStatus.Written, (await runTask).Status);
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(4));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(5));
+        _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
 }
