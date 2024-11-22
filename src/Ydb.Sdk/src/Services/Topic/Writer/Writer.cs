@@ -203,10 +203,11 @@ internal class Writer<TValue> : IWriter<TValue>
                 stream,
                 initResponse,
                 Initialize,
-                e => _session = new NotStartedWriterSession(e),
+                e => { _session = new NotStartedWriterSession(e); },
                 _logger,
                 _inFlightMessages
             );
+            
             if (!_inFlightMessages.IsEmpty)
             {
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
@@ -219,6 +220,7 @@ internal class Writer<TValue> : IWriter<TValue>
             }
 
             _session = newSession;
+            newSession.RunProcessingWriteAck();
         }
         catch (Driver.TransportException e)
         {
@@ -314,8 +316,6 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         _config = config;
         _inFlightMessages = inFlightMessages;
         Volatile.Write(ref _seqNum, initResponse.LastSeqNo); // happens-before for Volatile.Read
-
-        RunProcessingWriteAck();
     }
 
     public async Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
@@ -350,7 +350,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         }
     }
 
-    private async void RunProcessingWriteAck()
+    internal async void RunProcessingWriteAck()
     {
         try
         {

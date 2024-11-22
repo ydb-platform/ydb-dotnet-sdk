@@ -372,4 +372,57 @@ public class WriterMockTests
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(5));
         _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
+
+    /*
+     * Performed invocations:
+
+       Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
+
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+     */
+    [Fact]
+    public async Task WriteAsync_WhenTransportExceptionOnProcessingWriteAckThenReconnectSession_ReturnWriterException()
+    {
+        var nextCompleted = new TaskCompletionSource();
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .Returns(new ValueTask<bool>(true))
+            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .Returns(() =>
+            {
+                nextCompleted.SetResult();
+                return new ValueTask<bool>(new TaskCompletionSource<bool>().Task);
+            }); // retry init writer session
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, new WriterConfig("/topic")
+            { ProducerId = "producerId" }).Build();
+
+        await nextCompleted.Task;
+        var writerExceptionAfterResetSession = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100));
+        Assert.Equal("Transport error in the WriterSession on processing writeAck",
+            writerExceptionAfterResetSession.Message);
+        Assert.Equal(StatusCode.Cancelled, writerExceptionAfterResetSession.Status.StatusCode);
+
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(3));
+        _mockStream.Verify(stream => stream.Current, Times.Once);
+    }
 }
