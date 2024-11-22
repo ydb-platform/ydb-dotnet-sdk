@@ -46,8 +46,8 @@ public class WriterMockTests
                 return new ValueTask<bool>(moveNextTry.Task);
             });
 
-        using var writer = new WriterBuilder<int>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId" }).Build();
+        using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
 
         Assert.Equal("Stream unexpectedly closed by YDB server. " +
                      "Current InitRequest: { \"path\": \"/topic\", \"producerId\": \"producerId\" }",
@@ -72,8 +72,8 @@ public class WriterMockTests
                 return taskSource.Task;
             });
 
-        using var writer = new WriterBuilder<string>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId" }).Build();
+        using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
 
         var writerException = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"));
         Assert.Equal("Transport error on creating WriterSession", writerException.Message);
@@ -100,8 +100,8 @@ public class WriterMockTests
                 return new ValueTask<bool>(taskSource.Task);
             });
 
-        using var writer = new WriterBuilder<string>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId" }).Build();
+        using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
 
         var writerException = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"));
         Assert.Equal("Transport error on creating WriterSession", writerException.Message);
@@ -134,8 +134,8 @@ public class WriterMockTests
                 Issues = { new IssueMessage { Message = "Some message" } }
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId" }).Build();
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
 
         Assert.Equal("Initialization failed: Status: BadSession, Issues:\n[0] Fatal: Some message\n",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123L))).Message);
@@ -160,8 +160,8 @@ public class WriterMockTests
                 Issues = { new IssueMessage { Message = "Topic not found" } }
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId" }).Build();
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
 
         Assert.Equal("Initialization failed: Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123L))).Message);
@@ -189,8 +189,8 @@ public class WriterMockTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId", Codec = Codec.Raw }).Build();
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId", Codec = Codec.Raw }.Build();
 
         Assert.Equal("Topic[Path=\"/topic\"] is not supported codec: Raw",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123L))).Message);
@@ -224,8 +224,8 @@ public class WriterMockTests
                     { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<int>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId", BufferMaxSize = bufferSize /* bytes */ }).Build();
+        using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId", BufferMaxSize = bufferSize /* bytes */ }.Build();
 
         for (var attempt = 0; attempt < countBatchSendingSize; attempt++)
         {
@@ -353,8 +353,8 @@ public class WriterMockTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId" }).Build();
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
 
         var runTask = writer.WriteAsync(100L);
 
@@ -412,8 +412,8 @@ public class WriterMockTests
                     { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId" }).Build();
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
 
         await nextCompleted.Task;
         var writerExceptionAfterResetSession = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100));
@@ -465,8 +465,8 @@ public class WriterMockTests
                     { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, new WriterConfig("/topic")
-            { ProducerId = "producerId" }).Build();
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
 
         await nextCompleted.Task;
         var writerExceptionAfterResetSession = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100));

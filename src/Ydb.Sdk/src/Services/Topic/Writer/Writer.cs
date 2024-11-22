@@ -145,9 +145,9 @@ internal class Writer<TValue> : IWriter<TValue>
                 initRequest.ProducerId = _config.ProducerId;
             }
 
-            if (_config.MessageGroupId != null)
+            if (_config.PartitionId != null)
             {
-                initRequest.MessageGroupId = _config.MessageGroupId;
+                initRequest.PartitionId = _config.PartitionId.Value;
             }
 
             _logger.LogDebug("Sending initialization request for the write stream: {InitRequest}", initRequest);
@@ -289,7 +289,6 @@ internal class NotStartedWriterSession : IWriteSession
     }
 }
 
-// No thread safe
 internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>, IWriteSession
 {
     private readonly WriterConfig _config;

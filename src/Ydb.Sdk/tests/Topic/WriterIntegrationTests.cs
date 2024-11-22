@@ -1,3 +1,4 @@
+using System.Text;
 using Xunit;
 using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Writer;
@@ -26,9 +27,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
         };
         await topicClient.CreateTopic(topicSettings);
 
-        using var writer = new WriterBuilder<string>(_driver,
-                new WriterConfig(_topicName) { ProducerId = "producerId" })
-            .Build();
+        using var writer = new WriterBuilder<string>(_driver, _topicName) { ProducerId = "producerId" }.Build();
 
         var result = await writer.WriteAsync("abacaba");
 
@@ -40,8 +39,8 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
     [Fact]
     public async Task WriteAsync_WhenTopicNotFound_ReturnNotFoundException()
     {
-        using var writer = new WriterBuilder<string>(_driver, new WriterConfig(_topicName + "_not_found")
-            { ProducerId = "producerId" }).Build();
+        using var writer = new WriterBuilder<string>(_driver, _topicName + "_not_found")
+            { ProducerId = "producerId" }.Build();
 
         Assert.Equal(StatusCode.SchemeError, (await Assert.ThrowsAsync<WriterException>(
             () => writer.WriteAsync("hello world"))).Status.StatusCode);

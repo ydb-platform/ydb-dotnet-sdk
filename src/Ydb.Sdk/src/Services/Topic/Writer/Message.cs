@@ -12,6 +12,8 @@ public class Message<TValue>
     public TValue Data { get; }
 
     public List<Metadata> Metadata { get; } = new();
+
+    // long SeqNo = 0 spec
 }
 
 public record Metadata(string Key, byte[] Value);
