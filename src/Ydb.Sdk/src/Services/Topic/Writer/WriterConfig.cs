@@ -2,7 +2,7 @@ using System.Text;
 
 namespace Ydb.Sdk.Services.Topic.Writer;
 
-public class WriterConfig
+internal class WriterConfig
 {
     internal WriterConfig(
         string topicPath,
