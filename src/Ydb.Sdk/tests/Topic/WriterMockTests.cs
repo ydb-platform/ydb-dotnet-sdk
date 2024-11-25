@@ -561,7 +561,7 @@ public class WriterMockTests
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
         nextCompleted.SetResult(true);
-        await Assert.ThrowsAsync<TaskCanceledException>(() => task);
+        Assert.Equal(PersistenceStatus.Written, (await task).Status);
         cancellationTokenSource.Cancel();
     }
 }
