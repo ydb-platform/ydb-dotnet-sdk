@@ -477,4 +477,91 @@ public class WriterMockTests
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(3));
         _mockStream.Verify(stream => stream.Current, Times.Once);
     }
+
+    [Fact]
+    public async Task WriteAsync_WhenCancellationTokenIsClosed_ThrowCancellationException()
+    {
+        var cancellationTokenSource = new CancellationTokenSource();
+        var nextCompleted = new TaskCompletionSource<bool>();
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(nextCompleted.Task));
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    PartitionId = 1,
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 1,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                                { Offset = 0 }
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
+
+        var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
+        cancellationTokenSource.Cancel();
+        nextCompleted.SetResult(true);
+
+        await Assert.ThrowsAsync<TaskCanceledException>(() => task);
+    }
+
+    [Fact]
+    public async Task WriteAsync_WhenTaskIsAcceptedBeforeCancel_ThrowCancellationException()
+    {
+        var cancellationTokenSource = new CancellationTokenSource();
+        var nextCompleted = new TaskCompletionSource<bool>();
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(nextCompleted.Task));
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    PartitionId = 1,
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 1,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                                { Offset = 0 }
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
+
+        var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
+        nextCompleted.SetResult(true);
+        await Assert.ThrowsAsync<TaskCanceledException>(() => task);
+        cancellationTokenSource.Cancel();
+    }
 }

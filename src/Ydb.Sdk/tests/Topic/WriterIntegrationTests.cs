@@ -1,4 +1,3 @@
-using System.Text;
 using Xunit;
 using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Writer;

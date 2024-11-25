@@ -49,7 +49,11 @@ internal class Writer<TValue> : IWriter<TValue>
 
     public async Task<WriteResult> WriteAsync(Message<TValue> message, CancellationToken cancellationToken)
     {
-        TaskCompletionSource<WriteResult> completeTask = new(cancellationToken);
+        TaskCompletionSource<WriteResult> completeTask = new();
+        cancellationToken.Register(
+            () => completeTask.TrySetCanceled(cancellationToken),
+            useSynchronizationContext: false
+        );
 
         var data = _serializer.Serialize(message.Data);
         var messageData = new MessageData
