@@ -113,7 +113,7 @@ jobs:
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src
           dotnet test --filter "FullyQualifiedName~Topic" -l "console;verbosity=normal"  
-  core-integration-tests:
+  integration-tests:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
