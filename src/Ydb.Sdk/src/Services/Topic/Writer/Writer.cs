@@ -26,7 +26,7 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeTokenSource = new();
 
-    private volatile TaskCompletionSource _taskWakeUpCompletionSource = new();
+    private volatile TaskCompletionSource _tcsWakeUp = new();
     private volatile IWriteSession _session = new NotStartedWriterSession("Session not started!");
 
     private int _limitBufferMaxSize;
@@ -49,9 +49,9 @@ internal class Writer<TValue> : IWriter<TValue>
 
     public async Task<WriteResult> WriteAsync(Message<TValue> message, CancellationToken cancellationToken)
     {
-        TaskCompletionSource<WriteResult> completeTask = new();
+        TaskCompletionSource<WriteResult> tcs = new();
         cancellationToken.Register(
-            () => completeTask.TrySetCanceled(cancellationToken),
+            () => tcs.TrySetCanceled(cancellationToken),
             useSynchronizationContext: false
         );
 
@@ -80,7 +80,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 if (Interlocked.CompareExchange(ref _limitBufferMaxSize,
                         curLimitBufferSize - data.Length, curLimitBufferSize) == curLimitBufferSize)
                 {
-                    _toSendBuffer.Enqueue(new MessageSending(messageData, completeTask));
+                    _toSendBuffer.Enqueue(new MessageSending(messageData, tcs));
                     WakeUpWorker();
 
                     break;
@@ -99,7 +99,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
         try
         {
-            var writeResult = await completeTask.Task;
+            var writeResult = await tcs.Task;
 
             return writeResult;
         }
@@ -115,8 +115,8 @@ internal class Writer<TValue> : IWriter<TValue>
 
         while (!_disposeTokenSource.Token.IsCancellationRequested)
         {
-            await _taskWakeUpCompletionSource.Task;
-            _taskWakeUpCompletionSource = new TaskCompletionSource();
+            await _tcsWakeUp.Task;
+            _tcsWakeUp = new TaskCompletionSource();
 
             await _session.Write(_toSendBuffer);
         }
@@ -124,7 +124,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private void WakeUpWorker()
     {
-        _taskWakeUpCompletionSource.TrySetResult();
+        _tcsWakeUp.TrySetResult();
     }
 
     private async Task Initialize()
@@ -252,7 +252,7 @@ internal class Writer<TValue> : IWriter<TValue>
     }
 }
 
-internal record MessageSending(MessageData MessageData, TaskCompletionSource<WriteResult> TaskCompletionSource);
+internal record MessageSending(MessageData MessageData, TaskCompletionSource<WriteResult> Tcs);
 
 internal interface IWriteSession : IDisposable
 {
@@ -282,7 +282,7 @@ internal class NotStartedWriterSession : IWriteSession
     {
         while (toSendBuffer.TryDequeue(out var messageSending))
         {
-            messageSending.TaskCompletionSource.TrySetException(_reasonException);
+            messageSending.Tcs.TrySetException(_reasonException);
         }
 
         return Task.CompletedTask;
@@ -401,12 +401,12 @@ Completing task on exception...
 Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                             messageFromClient.MessageData.SeqNo, ack);
 
-                        messageFromClient.TaskCompletionSource.TrySetException(new WriterException(
+                        messageFromClient.Tcs.TrySetException(new WriterException(
                             $"Client SeqNo[{messageFromClient.MessageData.SeqNo}] is less then server's WriteAck[{ack}]"));
                     }
                     else
                     {
-                        messageFromClient.TaskCompletionSource.TrySetResult(new WriteResult(ack));
+                        messageFromClient.Tcs.TrySetResult(new WriteResult(ack));
                     }
 
                     _inFlightMessages.TryDequeue(out _); // Dequeue 
