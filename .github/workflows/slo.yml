@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        sdk:
+        workload:
           - AdoNet
     
     concurrency:
@@ -50,17 +50,17 @@ jobs:
         with:
           github_pull_request_number: ${{ github.event.inputs.github_pull_request_number }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          sdk_name: ${{ matrix.sdk }}
+          workload_name: ${{ matrix.workload }}
           ydb_database_node_count: 5
 
       - name: Prepare SLO Database
         run: |
-          cd slo/src/${{ matrix.sdk }}
+          cd slo/src/${{ matrix.workload }}
           dotnet run create grpc://localhost:2135 /Root/testdb
 
       - name: Run SLO Tests
         run: |
-          cd slo/src/${{ matrix.sdk }}
+          cd slo/src/${{ matrix.workload }}
           dotnet run run grpc://localhost:2135 /Root/testdb \
             --prom-pgw localhost:9091 \
             --report-period 250 \
