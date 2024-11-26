@@ -1,75 +1,80 @@
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
+    inputs:
+      github_pull_request_number:
+        required: true
+      slo_workload_duration_seconds:
+        default: '600'
+        required: false
+      slo_workload_read_max_rps:
+        default: '1000'
+        required: false
+      slo_workload_write_max_rps:
+        default: '1000'
+        required: false
 
-name: SLO
+name: slo
 
 jobs:
-  test-slo:
-    concurrency:
-      group: slo-${{ github.ref }}
+  ydb-slo-action:
     if: (!contains(github.event.pull_request.labels.*.name, 'no slo'))
 
-    runs-on: ubuntu-latest
     name: SLO test
-    permissions:
-      checks: write
-      pull-requests: write
-      contents: read
-      issues: write
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        sdk:
+          - TableService
+          - AdoNet
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        if: env.DOCKER_REPO != null
-        env:
-          DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
 
-      - name: Run SLO
-        uses: ydb-platform/slo-tests@main
-        if: env.DOCKER_REPO != null
-        env:
-          DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
-        continue-on-error: true
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KUBECONFIG_B64: ${{ secrets.SLO_KUBE_CONFIG }}
-          AWS_CREDENTIALS_B64: ${{ secrets.SLO_AWS_CREDENTIALS }}
-          AWS_CONFIG_B64: ${{ secrets.SLO_AWS_CONFIG }}
-          DOCKER_USERNAME: ${{ secrets.SLO_DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.SLO_DOCKER_PASSWORD }}
-          DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
-          DOCKER_FOLDER: ${{ secrets.SLO_DOCKER_FOLDER }}
-          s3_endpoint: ${{ secrets.SLO_S3_ENDPOINT }}
-          s3_images_folder: ${{ vars.SLO_S3_IMAGES_FOLDER }}
-          grafana_domain: ${{ vars.SLO_GRAFANA_DOMAIN }}
-          # grafana_dashboard: ${{ vars.SLO_GRAFANA_DASHBOARD }}
-          grafana_dashboard: dca60386-0d3d-43f5-a2af-5f3fd3e3b295
-          grafana_dashboard_width: 2000
-          grafana_dashboard_height: 2300
-          ydb_version: 'newest'
-          timeBetweenPhases: 30
-          shutdownTime: 30
+          dotnet-version: 8.0.x
 
-          language_id0: 'table-service'
-          workload_path0: 'slo/src'
-          language0: '.NET SDK over table-service'
-          workload_build_context0: ../..
-          workload_build_options0: -f Dockerfile --build-arg SRC_PATH=TableService
-          
-          language_id1: 'ado-net'
-          workload_path1: 'slo/src'
-          language1: 'ADO.NET over query-service'
-          workload_build_context1: ../..
-          workload_build_options1: -f Dockerfile --build-arg SRC_PATH=AdoNet
-
-      - uses: actions/upload-artifact@v3
-        if: always() && env.DOCKER_REPO != null
-        env:
-          DOCKER_REPO: ${{ secrets.SLO_DOCKER_REPO }}
+      - name: Initialize YDB SLO
+        uses: ydb-platform/ydb-slo-action/init@main
         with:
-          name: slo-logs
-          path: logs/
+          github_pull_request_number: ${{ github.event.inputs.github_pull_request_number }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          sdk_name: ${{ matrix.sdk }}
+          ydb_database_node_count: 5
+
+      - name: Prepare SLO Database
+        run: |
+          cd slo/src/${{ matrix.sdk }}
+          dotnet run create grpc://localhost:2135 /Root/testdb
+
+      - name: Run SLO Tests
+        run: |
+          cd slo/src/${{ matrix.sdk }}
+          dotnet run run grpc://localhost:2135 /Root/testdb \
+            --prom-pgw localhost:9091 \
+            --report-period 250 \
+            --time ${{inputs.slo_workload_duration_seconds || 600 }} \
+            --read-rps ${{inputs.slo_workload_read_max_rps || 1000 }} \
+            --write-rps ${{inputs.slo_workload_write_max_rps || 1000 }} \
+            --read-timeout 1000 \
+            --write-timeout 1000
+
+      - if: always()
+        name: Store ydb chaos testing logs
+        run: |
+          docker logs ydb-chaos > chaos-ydb.log
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.workload }}-chaos-ydb.log
+          path: ./chaos-ydb.log
+          retention-days: 1

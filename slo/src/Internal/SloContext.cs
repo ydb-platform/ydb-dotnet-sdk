@@ -26,11 +26,11 @@ public abstract class SloContext<T> where T : IDisposable
         using var client = await CreateClient(config);
         for (var attempt = 0; attempt < maxCreateAttempts; attempt++)
         {
-            Logger.LogInformation("Creating table {TableName}..", config.TableName);
+            Logger.LogInformation("Creating table {ResourcePathYdb}..", config.ResourcePathYdb);
             try
             {
                 var createTableSql = $"""
-                                      CREATE TABLE `{config.TableName}` (
+                                      CREATE TABLE `{config.ResourcePathYdb}` (
                                           hash              Uint64,
                                           id                Int32,
                                           payload_str       Text,
@@ -41,7 +41,6 @@ public abstract class SloContext<T> where T : IDisposable
                                       ) WITH (
                                           AUTO_PARTITIONING_BY_SIZE = ENABLED,
                                           AUTO_PARTITIONING_BY_LOAD = ENABLED,
-                                          AUTO_PARTITIONING_PARTITION_SIZE_MB = {config.PartitionSize},
                                           AUTO_PARTITIONING_MIN_PARTITIONS_COUNT = {config.MinPartitionsCount},
                                           AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = {config.MaxPartitionsCount}
                                       );
@@ -50,7 +49,7 @@ public abstract class SloContext<T> where T : IDisposable
 
                 await Create(client, createTableSql, config.WriteTimeout);
 
-                Logger.LogInformation("Created table {TableName}", config.TableName);
+                Logger.LogInformation("Created table {ResourcePathYdb}", config.ResourcePathYdb);
 
                 break;
             }
@@ -96,7 +95,7 @@ public abstract class SloContext<T> where T : IDisposable
         using var prometheus = new MetricPusher(promPgwEndpoint, Job, intervalMilliseconds: runConfig.ReportPeriod);
         prometheus.Start();
 
-        var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.TableName}`;",
+        var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.ResourcePathYdb}`;",
             new Dictionary<string, YdbValue>(), runConfig.ReadTimeout);
         _maxId = (int)maxId!;
 
@@ -140,20 +139,31 @@ public abstract class SloContext<T> where T : IDisposable
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
                 { { "jobName", jobName }, { "sdk", "dotnet" }, { "sdkVersion", Environment.Version.ToString() } });
 
-            var okGauge = metricFactory.CreateGauge("oks", "Count of OK");
-            var notOkGauge = metricFactory.CreateGauge("not_oks", "Count of not OK");
-            var latencySummary = metricFactory.CreateSummary("latency", "Latencies (OK)", new[] { "status" },
+            var okGauge = metricFactory.CreateGauge(
+                "sdk_operations_success_total",
+                "Total number of successful operations, categorized by type."
+            );
+            var notOkGauge = metricFactory.CreateGauge(
+                "sdk_operations_failure_total",
+                "Total number of failed operations, categorized by type."
+            );
+            var latencySummary = metricFactory.CreateSummary(
+                "sdk_operation_latency_seconds",
+                "Latency of operations performed by the SDK in seconds, categorized by type and status.",
+                new[] { "status" },
                 new SummaryConfiguration
                 {
                     MaxAge = TimeSpan.FromSeconds(15), Objectives = new QuantileEpsilonPair[]
                         { new(0.5, 0.05), new(0.99, 0.005), new(0.999, 0.0005) }
                 });
-
-            var attemptsHistogram = metricFactory.CreateHistogram("attempts", "summary of amount for request",
+            var attemptsHistogram = metricFactory.CreateHistogram(
+                "sdk_retry_attempts",
+                "Current retry attempts, categorized by operation type.",
                 new[] { "status" },
-                new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
-
+                new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) }
+            );
             var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
+
             foreach (var statusCode in Enum.GetValues<StatusCode>())
             {
                 errorsGauge.WithLabels(statusCode.StatusName(), "retried").IncTo(0);
@@ -197,9 +207,6 @@ public abstract class SloContext<T> where T : IDisposable
                     }, cancellationTokenSource.Token);
                 }
 
-                // ReSharper disable once MethodSupportsCancellation
-                await Task.Delay(TimeSpan.FromSeconds(runConfig.ShutdownTime));
-
                 Logger.LogInformation("{ShootingName} shooting is stopped", jobName);
             });
         }
@@ -224,7 +231,7 @@ public abstract class SloContext<T> where T : IDisposable
              DECLARE $payload_str AS Utf8;
              DECLARE $payload_double AS Double;
              DECLARE $payload_timestamp AS Timestamp;
-             UPSERT INTO `{config.TableName}` (id, hash, payload_str, payload_double, payload_timestamp)
+             UPSERT INTO `{config.ResourcePathYdb}` (id, hash, payload_str, payload_double, payload_timestamp)
              VALUES ($id, Digest::NumericHash($id), $payload_str, $payload_double, $payload_timestamp)
              """, new Dictionary<string, YdbValue>
             {
@@ -247,7 +254,7 @@ public abstract class SloContext<T> where T : IDisposable
             $"""
              DECLARE $id AS Int32;
              SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
-             FROM `{config.TableName}` WHERE id = $id AND hash = Digest::NumericHash($id)
+             FROM `{config.ResourcePathYdb}` WHERE id = $id AND hash = Digest::NumericHash($id)
              """,
             new Dictionary<string, YdbValue>
             {
