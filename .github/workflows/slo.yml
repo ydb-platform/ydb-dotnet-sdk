@@ -1,4 +1,4 @@
-name: slo
+name: SLO
 
 on:
   push:
