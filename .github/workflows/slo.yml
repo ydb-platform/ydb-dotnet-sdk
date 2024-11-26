@@ -30,7 +30,6 @@ jobs:
     strategy:
       matrix:
         sdk:
-          - TableService
           - AdoNet
 
     steps:

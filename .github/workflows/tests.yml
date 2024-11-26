@@ -75,7 +75,7 @@ jobs:
           cd src
           dotnet test --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)" -l "console;verbosity=normal"
   
-  core-integration-tests:
+  integration-tests:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
