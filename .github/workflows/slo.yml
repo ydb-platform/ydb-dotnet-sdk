@@ -1,3 +1,5 @@
+name: slo
+
 on:
   push:
     branches:
@@ -19,8 +21,6 @@ on:
         default: '1000'
         required: false
 
-name: slo
-
 jobs:
   ydb-slo-action:
     if: (!contains(github.event.pull_request.labels.*.name, 'no slo'))
@@ -31,7 +31,11 @@ jobs:
       matrix:
         sdk:
           - AdoNet
-
+    
+    concurrency:
+      group: slo-${{ github.ref }}-${{ matrix.workload }}
+      cancel-in-progress: true
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
