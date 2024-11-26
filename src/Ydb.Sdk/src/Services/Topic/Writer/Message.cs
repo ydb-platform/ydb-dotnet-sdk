@@ -12,8 +12,6 @@ public class Message<TValue>
     public TValue Data { get; }
 
     public List<Metadata> Metadata { get; } = new();
-
-    internal long SeqNo { get; set; } = 0;
 }
 
 public record Metadata(string Key, byte[] Value);
