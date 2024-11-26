@@ -9,7 +9,7 @@ on:
 jobs:
   ydb-slo-action-report:
     runs-on: ubuntu-latest
-    name: Publish YDB SLO Report≈
+    name: Publish YDB SLO Report
     permissions:
       contents: read
       pull-requests: write
