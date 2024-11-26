@@ -343,7 +343,11 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
             {
                 var messageData = sendData.MessageData;
 
-                messageData.SeqNo = messageData.SeqNo > 0 ? messageData.SeqNo : ++currentSeqNum;
+                if (messageData.SeqNo == default)
+                {
+                    messageData.SeqNo = ++currentSeqNum;
+                }
+
                 writeMessage.Messages.Add(messageData);
                 _inFlightMessages.Enqueue(sendData);
             }
