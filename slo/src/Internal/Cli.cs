@@ -17,9 +17,9 @@ public static class Cli
         "minimum amount of partitions in table") { IsRequired = true };
 
     private static readonly Option<string> ResourceYdbPath = new(
-        new[] { "-t", "--table-name" },
-        () => "testingTable",
-        "table name to create\n ");
+        new[] { "-t", "--resource-ydb-path" },
+        () => "test-resource",
+        "resource ydb path to create\n ");
 
     private static readonly Option<int> WriteTimeoutOption = new(
         "--write-timeout",
@@ -85,6 +85,7 @@ public static class Cli
     {
         EndpointArgument,
         DbArgument,
+        ResourceYdbPath,
         InitialDataCountOption,
         PromPgwOption,
         ReportPeriodOption,
