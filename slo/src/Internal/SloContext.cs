@@ -133,11 +133,15 @@ public abstract class SloContext<T> where T : IDisposable
         Logger.LogInformation("Run task is finished");
         return;
 
-        Task ShootingTask(RateLimiter rateLimitPolicy, string jobName,
+        Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
             Func<T, RunConfig, Gauge?, Task<(int, StatusCode)>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
-                { { "jobName", jobName }, { "sdk", "dotnet" }, { "sdkVersion", Environment.Version.ToString() } });
+            {
+                { "operation_type", operationType },
+                { "sdk", "dotnet" },
+                { "sdkVersion", Environment.Version.ToString() }
+            });
 
             var okGauge = metricFactory.CreateGauge(
                 "sdk_operations_success_total",
@@ -207,7 +211,7 @@ public abstract class SloContext<T> where T : IDisposable
                     }, cancellationTokenSource.Token);
                 }
 
-                Logger.LogInformation("{ShootingName} shooting is stopped", jobName);
+                Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
             });
         }
     }
