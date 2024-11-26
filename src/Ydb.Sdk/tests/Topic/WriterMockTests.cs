@@ -654,7 +654,7 @@ public class WriterMockTests
         Assert.Equal("Transport error in the WriterSession on write messages",
             writerExceptionAfterResetSession.Message);
         Assert.Equal(StatusCode.Cancelled, writerExceptionAfterResetSession.Status.StatusCode);
-        
+
         ctx.Cancel(); // reconnect write invoke cancel on cancellation token
         moveSecondNextSource.SetResult(true);
         await nextCompleted.Task;
