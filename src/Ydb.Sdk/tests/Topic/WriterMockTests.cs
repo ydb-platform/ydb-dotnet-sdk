@@ -564,4 +564,107 @@ public class WriterMockTests
         Assert.Equal(PersistenceStatus.Written, (await task).Status);
         cancellationTokenSource.Cancel();
     }
+
+    /*
+     * Performed invocations:
+
+       Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
+
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "1", "createdAt": "2024-11-26T14:03:57.473289Z", "data": "AAAAAAAAAGQ=", "uncompressedSize": "8" } ], "codec": 1 } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "2", "createdAt": "2024-11-26T14:03:57.475008Z", "data": "AAAAAAAAAGQ=", "uncompressedSize": "8" } ], "codec": 1 } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "2", "createdAt": "2024-11-26T14:03:57.475008Z", "data": "AAAAAAAAAGQ=", "uncompressedSize": "8" } ], "codec": 1 } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+     */
+    [Fact]
+    public async Task WriteAsync_WhenCancelTaskInOnOfTwoMessagesInFlightBuffer_ReturnCancelExceptionAndWriteResult()
+    {
+        var moveFirstNextSource = new TaskCompletionSource<bool>();
+        var moveSecondNextSource = new TaskCompletionSource<bool>();
+        var moveThirdNextSource = new TaskCompletionSource<bool>();
+        var nextCompleted = new TaskCompletionSource();
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask)
+            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .Returns(() =>
+            {
+                moveFirstNextSource.SetResult(false);
+                return Task.CompletedTask;
+            })
+            .Returns(() =>
+            {
+                nextCompleted.SetResult(); // for seqNo
+                return Task.CompletedTask;
+            });
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(moveFirstNextSource.Task))
+            .Returns(new ValueTask<bool>(moveSecondNextSource.Task))
+            .Returns(new ValueTask<bool>(moveThirdNextSource.Task))
+            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    PartitionId = 1,
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 2,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                                { Offset = 0 }
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
+
+        var ctx = new CancellationTokenSource();
+        var runTaskWithCancel = writer.WriteAsync(100L, ctx.Token);
+        // ReSharper disable once MethodSupportsCancellation
+        var runTask = writer.WriteAsync(100L);
+
+        // ReSharper disable once MethodSupportsCancellation
+        var writerExceptionAfterResetSession = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100));
+        Assert.Equal("Transport error in the WriterSession on write messages",
+            writerExceptionAfterResetSession.Message);
+        Assert.Equal(StatusCode.Cancelled, writerExceptionAfterResetSession.Status.StatusCode);
+        
+        ctx.Cancel(); // reconnect write invoke cancel on cancellation token
+        moveSecondNextSource.SetResult(true);
+        await nextCompleted.Task;
+        moveThirdNextSource.SetResult(true);
+
+        Assert.Equal(PersistenceStatus.Written, (await runTask).Status);
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(5));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(5));
+        _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
+
+        await Assert.ThrowsAsync<TaskCanceledException>(() => runTaskWithCancel);
+    }
 }

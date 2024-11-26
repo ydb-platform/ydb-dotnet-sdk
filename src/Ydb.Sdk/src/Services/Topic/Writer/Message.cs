@@ -13,7 +13,7 @@ public class Message<TValue>
 
     public List<Metadata> Metadata { get; } = new();
 
-    // long SeqNo = 0 spec
+    internal long SeqNo { get; set; } = 0;
 }
 
 public record Metadata(string Key, byte[] Value);

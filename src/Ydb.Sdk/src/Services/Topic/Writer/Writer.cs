@@ -217,6 +217,13 @@ internal class Writer<TValue> : IWriter<TValue>
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
                 while (_inFlightMessages.TryDequeue(out var sendData))
                 {
+                    if (sendData.Tcs.Task.IsCanceled)
+                    {
+                        _logger.LogWarning("Message[SeqNo={SeqNo}] is cancelled", sendData.MessageData.SeqNo);
+
+                        continue;
+                    }
+
                     copyInFlightMessages.Enqueue(sendData);
                 }
 
@@ -336,7 +343,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
             {
                 var messageData = sendData.MessageData;
 
-                messageData.SeqNo = ++currentSeqNum;
+                messageData.SeqNo = messageData.SeqNo > 0 ? messageData.SeqNo : ++currentSeqNum;
                 writeMessage.Messages.Add(messageData);
                 _inFlightMessages.Enqueue(sendData);
             }
