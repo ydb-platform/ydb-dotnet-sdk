@@ -128,7 +128,7 @@ public abstract class SloContext<T> where T : IDisposable
         }
 
         await prometheus.StopAsync();
-        await MetricReset(promPgwEndpoint);
+        // await MetricReset(promPgwEndpoint);
 
         Logger.LogInformation("Run task is finished");
         return;
@@ -137,11 +137,14 @@ public abstract class SloContext<T> where T : IDisposable
             Func<T, RunConfig, Gauge?, Task<(int, StatusCode)>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
-            {
-                { "operation_type", operationType },
-                { "sdk", "dotnet" },
-                { "sdkVersion", Environment.Version.ToString() }
-            });
+                {
+                    { "operation_type", operationType },
+                    { "sdk", "dotnet" },
+                    { "sdk_version", Environment.Version.ToString() },
+                    { "workload", Job },
+                    { "workload_version", "0.0.0" }
+                }
+            );
 
             var okGauge = metricFactory.CreateGauge(
                 "sdk_operations_success_total",
