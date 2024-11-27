@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Prometheus;
@@ -93,7 +92,8 @@ public abstract class SloContext<T> where T : IDisposable
     {
         var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
         var client = await CreateClient(runConfig);
-        using var prometheus = new MetricPusher(promPgwEndpoint, Job, intervalMilliseconds: runConfig.ReportPeriod);
+        using var prometheus = new MetricPusher(promPgwEndpoint, "workload-" + Job,
+            intervalMilliseconds: runConfig.ReportPeriod);
         prometheus.Start();
 
         var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.ResourcePathYdb}`;",
@@ -141,7 +141,7 @@ public abstract class SloContext<T> where T : IDisposable
                     { "operation_type", operationType },
                     { "sdk", "dotnet" },
                     { "sdk_version", Environment.Version.ToString() },
-                    { "workload", "workload-" + Job },
+                    { "workload", Job },
                     { "workload_version", "0.0.0" }
                 }
             );
