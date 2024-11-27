@@ -13,13 +13,13 @@ namespace Ydb.Sdk.Tests.Topic;
 using WriterStream = IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>;
 using FromClient = StreamWriteMessage.Types.FromClient;
 
-public class WriterMockTests
+public class WriterUnitTests
 {
     private readonly ITestOutputHelper _testOutputHelper;
     private readonly Mock<IDriver> _mockIDriver = new();
     private readonly Mock<WriterStream> _mockStream = new();
 
-    public WriterMockTests(ITestOutputHelper testOutputHelper)
+    public WriterUnitTests(ITestOutputHelper testOutputHelper)
     {
         _testOutputHelper = testOutputHelper;
         _mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
