@@ -90,6 +90,8 @@ public abstract class SloContext<T> where T : IDisposable
 
     public async Task Run(RunConfig runConfig)
     {
+        // Trace.Listeners.Add(new ConsoleTraceListener()); debug meterPusher
+
         var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
         var client = await CreateClient(runConfig);
         using var prometheus = new MetricPusher(promPgwEndpoint, "workload-" + Job,
@@ -129,6 +131,7 @@ public abstract class SloContext<T> where T : IDisposable
         }
 
         await prometheus.StopAsync();
+        // await MetricReset(promPgwEndpoint);
 
         Logger.LogInformation("Run task is finished");
         return;
@@ -146,7 +149,7 @@ public abstract class SloContext<T> where T : IDisposable
                 }
             );
 
-            var okGauge = metricFactory.CreateGauge(
+            var okGauge = metricFactory.CreateGauge( // Counter
                 "sdk_operations_success_total",
                 "Total number of successful operations, categorized by type."
             );
@@ -158,10 +161,15 @@ public abstract class SloContext<T> where T : IDisposable
                 "sdk_operation_latency_seconds",
                 "Latency of operations performed by the SDK in seconds, categorized by type and status.",
                 new[] { "status" },
-                new SummaryConfiguration
+                new SummaryConfiguration // Гистограмма 
                 {
-                    MaxAge = TimeSpan.FromSeconds(15), Objectives = new QuantileEpsilonPair[]
-                        { new(0.5, 0.05), new(0.99, 0.005), new(0.999, 0.0005) }
+                    MaxAge = TimeSpan.FromSeconds(15),
+                    Objectives = new QuantileEpsilonPair[]
+                    {
+                        new(0.5, 0.05),
+                        new(0.99, 0.005),
+                        new(0.999, 0.0005)
+                    }
                 });
             var attemptsHistogram = metricFactory.CreateHistogram(
                 "sdk_retry_attempts",
@@ -218,6 +226,13 @@ public abstract class SloContext<T> where T : IDisposable
             });
         }
     }
+
+    // private async Task MetricReset(string promPgwEndpoint)
+    // {
+    //     var deleteUri = $"{promPgwEndpoint}/job/workload-{Job}";
+    //     using var httpClient = new HttpClient();
+    //     await httpClient.DeleteAsync(deleteUri);
+    // }
 
     // return attempt count & StatusCode operation
     protected abstract Task<(int, StatusCode)> Upsert(T client, string upsertSql,
