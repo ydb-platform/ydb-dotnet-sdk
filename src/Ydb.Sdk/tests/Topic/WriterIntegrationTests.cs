@@ -4,6 +4,7 @@ using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Writer;
 using Ydb.Sdk.Tests.Fixture;
 using Ydb.Topic;
+using Ydb.Topic.V1;
 using Consumer = Ydb.Sdk.Services.Topic.Consumer;
 
 namespace Ydb.Sdk.Tests.Topic;
@@ -75,8 +76,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
 
         await Task.WhenAll(tasks);
 
-        var initStream =
-            _driver.BidirectionalStreamCall(Ydb.Topic.V1.TopicService.StreamReadMethod, new GrpcRequestSettings());
+        var initStream = _driver.BidirectionalStreamCall(TopicService.StreamReadMethod, new GrpcRequestSettings());
         await initStream.Write(new StreamReadMessage.Types.FromClient
         {
             InitRequest = new StreamReadMessage.Types.InitRequest
@@ -106,7 +106,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
             StartPartitionSessionResponse = new StreamReadMessage.Types.StartPartitionSessionResponse
             {
                 CommitOffset = startRequest.CommittedOffset,
-                PartitionSessionId = startRequest.PartitionSession.PartitionSessionId,
+                PartitionSessionId = startRequest.PartitionSession.PartitionSessionId
             }
         });
         var receivedMessageCount = 0;
