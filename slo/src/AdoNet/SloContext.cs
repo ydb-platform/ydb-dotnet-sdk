@@ -20,7 +20,7 @@ public class SloContext : SloContext<YdbDataSource>
                 errorsGauge?.WithLabels(((YdbException)e).Code.StatusName(), "retried").Inc();
             });
 
-    protected override string Job => "workload-ado-net";
+    protected override string Job => "AdoNet";
 
     protected override async Task Create(YdbDataSource client, string createTableSql, int operationTimeout)
     {

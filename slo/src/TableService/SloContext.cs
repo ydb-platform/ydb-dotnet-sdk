@@ -10,7 +10,7 @@ namespace TableService;
 public class SloContext : SloContext<TableClient>
 {
     private readonly TxControl _txControl = TxControl.BeginSerializableRW().Commit();
-    protected override string Job => "workload-table-service";
+    protected override string Job => "TableService";
 
     protected override async Task Create(TableClient client, string createTableSql, int operationTimeout)
     {

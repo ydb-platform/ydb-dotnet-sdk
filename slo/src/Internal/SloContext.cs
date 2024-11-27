@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Prometheus;
@@ -128,7 +129,6 @@ public abstract class SloContext<T> where T : IDisposable
         }
 
         await prometheus.StopAsync();
-        // await MetricReset(promPgwEndpoint);
 
         Logger.LogInformation("Run task is finished");
         return;
@@ -141,7 +141,7 @@ public abstract class SloContext<T> where T : IDisposable
                     { "operation_type", operationType },
                     { "sdk", "dotnet" },
                     { "sdk_version", Environment.Version.ToString() },
-                    { "workload", Job },
+                    { "workload", "workload-" + Job },
                     { "workload_version", "0.0.0" }
                 }
             );
@@ -269,13 +269,6 @@ public abstract class SloContext<T> where T : IDisposable
             }, config.ReadTimeout, errorsGauge);
 
         return (attempts, code);
-    }
-
-    private async Task MetricReset(string promPgwEndpoint)
-    {
-        var deleteUri = $"{promPgwEndpoint}/job/{Job}";
-        using var httpClient = new HttpClient();
-        await httpClient.DeleteAsync(deleteUri);
     }
 }
 
