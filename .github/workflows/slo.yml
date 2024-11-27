@@ -62,7 +62,7 @@ jobs:
         run: |
           cd slo/src/${{ matrix.workload }}
           dotnet run run grpc://localhost:2135 /Root/testdb \
-            --prom-pgw localhost:9091 \
+            --prom-pgw http://localhost:9091  \
             --report-period 250 \
             --time ${{inputs.slo_workload_duration_seconds || 600 }} \
             --read-rps ${{inputs.slo_workload_read_max_rps || 1000 }} \
