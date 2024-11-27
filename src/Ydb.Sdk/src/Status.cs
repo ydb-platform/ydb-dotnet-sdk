@@ -248,6 +248,7 @@ internal static class StatusExtensions
                 Grpc.Core.StatusCode.DeadlineExceeded => StatusCode.ClientTransportTimeout,
                 Grpc.Core.StatusCode.ResourceExhausted => StatusCode.ClientTransportResourceExhausted,
                 Grpc.Core.StatusCode.Unimplemented => StatusCode.ClientTransportUnimplemented,
+                Grpc.Core.StatusCode.Cancelled => StatusCode.Cancelled,
                 _ => StatusCode.ClientTransportUnknown
             },
             new List<Issue> { new(rpcStatus.Detail) }

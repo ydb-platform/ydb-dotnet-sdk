@@ -19,7 +19,7 @@ public class WriteResult
                 break;
             case StreamWriteMessage.Types.WriteResponse.Types.WriteAck.MessageWriteStatusOneofCase.None:
             default:
-                throw new YdbWriterException($"Unexpected WriteAck status: {ack.MessageWriteStatusCase}");
+                throw new WriterException($"Unexpected WriteAck status: {ack.MessageWriteStatusCase}");
         }
     }
 

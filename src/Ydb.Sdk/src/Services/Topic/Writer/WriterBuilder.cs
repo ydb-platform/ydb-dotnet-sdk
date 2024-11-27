@@ -2,31 +2,63 @@ namespace Ydb.Sdk.Services.Topic.Writer;
 
 public class WriterBuilder<TValue>
 {
-    private readonly WriterConfig _config;
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
 
-    public WriterBuilder(Driver driver, WriterConfig config)
+    public WriterBuilder(IDriver driver, string topicPath)
     {
         _driver = driver;
-        _config = config;
+        TopicPath = topicPath;
     }
+
+    /// <summary>
+    /// Full path of topic to write to.
+    /// </summary>
+    public string TopicPath { get; }
+
+    /// <summary>
+    /// Producer identifier of client data stream.
+    /// Used for message deduplication by sequence numbers.
+    /// </summary>
+    public string? ProducerId { get; set; }
+
+    /// <summary>
+    /// Codec that is used for data compression.
+    /// See enum Codec above for values.
+    /// </summary>
+    public Codec Codec { get; set; } = Codec.Raw; // TODO Supported only Raw
+
+    /// <summary>
+    /// Maximum size (in bytes) of all messages batched in one Message Set, excluding protocol framing overhead.
+    /// This limit is applied after the first message has been added to the batch,
+    /// regardless of the first message's size, this is to ensure that messages that exceed buffer size are produced. 
+    /// </summary>
+    public int BufferMaxSize { get; set; } = 1024 * 1024; // 1 Mb 
+
+    /// <summary>
+    /// Explicit partition id to write to.
+    /// </summary>    
+    public long? PartitionId { get; set; }
 
     public ISerializer<TValue>? Serializer { get; set; }
 
-    public async Task<IWriter<TValue>> Build()
+    public IWriter<TValue> Build()
     {
-        var writer = new Writer<TValue>(
+        var config = new WriterConfig(
+            topicPath: TopicPath,
+            producerId: ProducerId,
+            codec: Codec,
+            bufferMaxSize: BufferMaxSize,
+            partitionId: PartitionId
+        );
+
+        return new Writer<TValue>(
             _driver,
-            _config,
+            config,
             Serializer ?? (ISerializer<TValue>)(
                 Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
                     ? serializer
-                    : throw new YdbWriterException("The serializer is not set")
+                    : throw new WriterException("The serializer is not set")
             )
         );
-
-        await writer.Initialize();
-
-        return writer;
     }
 }
