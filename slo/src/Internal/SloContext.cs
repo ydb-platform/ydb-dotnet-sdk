@@ -149,11 +149,11 @@ public abstract class SloContext<T> where T : IDisposable
                 }
             );
 
-            var okGauge = metricFactory.CreateGauge( // Counter
+            var okGauge = metricFactory.CreateCounter( // Counter
                 "sdk_operations_success_total",
                 "Total number of successful operations, categorized by type."
             );
-            var notOkGauge = metricFactory.CreateGauge(
+            var notOkGauge = metricFactory.CreateCounter(
                 "sdk_operations_failure_total",
                 "Total number of failed operations, categorized by type."
             );
