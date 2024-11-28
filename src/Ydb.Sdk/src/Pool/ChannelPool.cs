@@ -103,38 +103,37 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
             return GrpcChannel.ForAddress(endpoint, channelOptions);
         }
 
+        var httpHandler = new SocketsHttpHandler();
+
         var customCertificate = DotNetUtilities.FromX509Certificate(_x509Certificate);
 
-        var httpHandler = new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback =
-                (_, certificate, _, sslPolicyErrors) =>
+        httpHandler.SslOptions.RemoteCertificateValidationCallback =
+            (_, certificate, _, sslPolicyErrors) =>
+            {
+                if (sslPolicyErrors == SslPolicyErrors.None)
                 {
-                    if (sslPolicyErrors == SslPolicyErrors.None)
-                    {
-                        return true;
-                    }
-
-                    if (certificate is null)
-                    {
-                        return false;
-                    }
-
-                    try
-                    {
-                        var cert = DotNetUtilities.FromX509Certificate(certificate);
-                        cert.Verify(customCertificate.GetPublicKey());
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.LogError(e, "Failed to verify remote certificate!");
-
-                        return false;
-                    }
-
                     return true;
                 }
-        };
+
+                if (certificate is null)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    var cert = DotNetUtilities.FromX509Certificate(certificate);
+                    cert.Verify(customCertificate.GetPublicKey());
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "Failed to verify remote certificate!");
+
+                    return false;
+                }
+
+                return true;
+            };
         httpHandler.Properties["__GrpcLoadBalancingDisabled"] = true;
 
         channelOptions.HttpHandler = httpHandler;
