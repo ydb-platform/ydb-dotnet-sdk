@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Net;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using Grpc.Core;
@@ -103,37 +104,39 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
             return GrpcChannel.ForAddress(endpoint, channelOptions);
         }
 
-        var httpHandler = new SocketsHttpHandler();
-
         var customCertificate = DotNetUtilities.FromX509Certificate(_x509Certificate);
 
-        httpHandler.SslOptions.RemoteCertificateValidationCallback =
-            (_, certificate, _, sslPolicyErrors) =>
-            {
-                if (sslPolicyErrors == SslPolicyErrors.None)
+        var httpHandler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback =
+                (_, certificate, _, sslPolicyErrors) =>
                 {
+                    if (sslPolicyErrors == SslPolicyErrors.None)
+                    {
+                        return true;
+                    }
+
+                    if (certificate is null)
+                    {
+                        return false;
+                    }
+
+                    try
+                    {
+                        var cert = DotNetUtilities.FromX509Certificate(certificate);
+                        cert.Verify(customCertificate.GetPublicKey());
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogError(e, "Failed to verify remote certificate!");
+
+                        return false;
+                    }
+
                     return true;
                 }
-
-                if (certificate is null)
-                {
-                    return false;
-                }
-
-                try
-                {
-                    var cert = DotNetUtilities.FromX509Certificate(certificate);
-                    cert.Verify(customCertificate.GetPublicKey());
-                }
-                catch (Exception e)
-                {
-                    _logger.LogError(e, "Failed to verify remote certificate!");
-
-                    return false;
-                }
-
-                return true;
-            };
+        };
+        httpHandler.Properties["__GrpcLoadBalancingDisabled"] = true;
 
         channelOptions.HttpHandler = httpHandler;
         channelOptions.DisposeHttpClient = true;
