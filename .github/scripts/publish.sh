@@ -46,13 +46,9 @@ git push --tags && git push
 CHANGELOG="$CHANGELOG
 
 Full Changelog: [$LAST_TAG...$TAG](https://github.com/ydb-platform/ydb-dotnet-sdk/compare/$LAST_TAG...$TAG)"
-if [ "$RELEASE_CANDIDATE" = true ]
-then
-  gh release create -d $TAG -t "$TAG" --notes "$CHANGELOG"
-else
-  VERSION=$MAJOR.$MINOR.$PATCH
-  cd src
-  dotnet pack -c Release -o out /p:Version=$VERSION
-  gh release create $TAG -t "$TAG" --notes "$CHANGELOG"
-  dotnet nuget push out/Ydb.Sdk.$VERSION.nupkg  --skip-duplicate --api-key $NUGET_TOKEN --source https://api.nuget.org/v3/index.json
-fi;
+
+VERSION=$TAG
+cd src
+dotnet pack -c Release -o out /p:Version=$VERSION
+gh release create $TAG -t "$TAG" --notes "$CHANGELOG"
+dotnet nuget push out/Ydb.Sdk.$VERSION.nupkg  --skip-duplicate --api-key $NUGET_TOKEN --source https://api.nuget.org/v3/index.json

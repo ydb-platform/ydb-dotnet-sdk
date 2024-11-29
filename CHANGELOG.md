@@ -1,3 +1,6 @@
+- Topic Writer release candidate
+- Fixed: grpc requests go via proxy on Grpc.NET.Client >= 2.44 
+
 ## v0.8.0
 - Fixed bug on commit with fail, no set failed flag for rollback invocation 
 - Supported UUID (Guid)
