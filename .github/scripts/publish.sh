@@ -32,15 +32,15 @@ else
   sed -e "s/Minor = [0-9]*/Minor = $MINOR/g" -i $VERSION_FILE
   sed -e "s/Patch = [0-9]*/Patch = $PATCH/g" -i $VERSION_FILE
   git add $VERSION_FILE;
-  echo "## v$MAJOR.$MINOR.$PATCH" >> $CHANGELOG_FILE.tmp
-  cat $CHANGELOG_FILE >> $CHANGELOG_FILE.tmp
-  mv $CHANGELOG_FILE.tmp $CHANGELOG_FILE;
-  git add $CHANGELOG_FILE;
-  git config --global user.email "robot@umbrella";
-  git config --global user.name "robot";
-  git commit -m "Release v$MAJOR.$MINOR.$PATCH";
   TAG="v$MAJOR.$MINOR.$PATCH";
 fi;
+echo "## v$TAG" >> $CHANGELOG_FILE.tmp
+cat $CHANGELOG_FILE >> $CHANGELOG_FILE.tmp
+mv $CHANGELOG_FILE.tmp $CHANGELOG_FILE;
+git add $CHANGELOG_FILE;
+git config --global user.email "robot@umbrella";
+git config --global user.name "robot";
+git commit -m "Release v$TAG";
 git tag $TAG
 git push --tags && git push
 CHANGELOG="$CHANGELOG
