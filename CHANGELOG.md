@@ -1,4 +1,3 @@
-## vv0.9.0-rc0
 - Topic Writer release candidate
 - Fixed: grpc requests go via proxy on Grpc.NET.Client >= 2.44 
 
