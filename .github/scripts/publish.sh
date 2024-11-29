@@ -26,7 +26,7 @@ then
 fi;
 if [ "$RELEASE_CANDIDATE" = true ]
 then
-  RC=$(git tag | grep "v$MAJOR.$MINOR.$PATCH-rc" | wc -l);
+  RC=$(git tag | grep "v$MAJOR.$MINOR.$PATCH-rc" | wc -l || true);
   TAG="v$MAJOR.$MINOR.$PATCH-rc$RC";
 else
   sed -e "s/Minor = [0-9]*/Minor = $MINOR/g" -i $VERSION_FILE
