@@ -249,7 +249,6 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        ;
 
         using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
             { ProducerId = "producerId" }.Build();
