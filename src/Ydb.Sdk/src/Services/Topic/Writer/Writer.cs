@@ -24,10 +24,10 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly ISerializer<TValue> _serializer;
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
-    private readonly CancellationTokenSource _disposeTokenSource = new();
+    private readonly CancellationTokenSource _disposeCts = new();
 
     private volatile TaskCompletionSource _tcsWakeUp = new();
-    private volatile IWriteSession _session = new NotStartedWriterSession("Session not started!");
+    private volatile IWriteSession _session = null!;
 
     private int _limitBufferMaxSize;
 
@@ -51,18 +51,27 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         TaskCompletionSource<WriteResult> tcs = new();
         cancellationToken.Register(
-            () => tcs.TrySetCanceled(cancellationToken),
-            useSynchronizationContext: false
+            () => tcs.TrySetException(
+                new WriterException("The write operation was canceled before it could be completed")
+            ), useSynchronizationContext: false
         );
 
-        var data = _serializer.Serialize(message.Data);
+        byte[] data;
+        try
+        {
+            data = _serializer.Serialize(message.Data);
+        }
+        catch (Exception e)
+        {
+            throw new WriterException("Error when serializing message data", e);
+        }
+
         var messageData = new MessageData
         {
             Data = ByteString.CopyFrom(data),
             CreatedAt = Timestamp.FromDateTime(message.Timestamp.ToUniversalTime()),
             UncompressedSize = data.Length
         };
-
         foreach (var metadata in message.Metadata)
         {
             messageData.MetadataItems.Add(new MetadataItem
@@ -94,7 +103,14 @@ internal class Writer<TValue> : IWriter<TValue>
                 "Buffer overflow: the data size [{DataLength}] exceeds the current buffer limit ({CurLimitBufferSize}) [BufferMaxSize = {BufferMaxSize}]",
                 data.Length, curLimitBufferSize, _config.BufferMaxSize);
 
-            throw new WriterException("Buffer overflow");
+            try
+            {
+                await Task.Delay(_config.BufferOverflowRetryTimeoutMs, cancellationToken);
+            }
+            catch (TaskCanceledException)
+            {
+                throw new WriterException("Buffer overflow");
+            }
         }
 
         try
@@ -113,7 +129,7 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         await Initialize();
 
-        while (!_disposeTokenSource.Token.IsCancellationRequested)
+        while (!_disposeCts.Token.IsCancellationRequested)
         {
             await _tcsWakeUp.Task;
             _tcsWakeUp = new TaskCompletionSource();
@@ -129,10 +145,14 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private async Task Initialize()
     {
+        _session = DummyWriteSession.Instance;
+
         try
         {
-            if (_disposeTokenSource.IsCancellationRequested)
+            if (_disposeCts.IsCancellationRequested)
             {
+                _logger.LogWarning("Initialize writer is canceled because it has been disposed");
+
                 return;
             }
 
@@ -162,7 +182,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 _session = new NotStartedWriterSession(
                     $"Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}");
 
-                _ = Task.Run(Initialize, _disposeTokenSource.Token);
+                _ = Task.Run(Initialize, _disposeCts.Token);
 
                 return;
             }
@@ -177,7 +197,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
                 if (status.StatusCode != StatusCode.SchemeError)
                 {
-                    _ = Task.Run(Initialize, _disposeTokenSource.Token);
+                    _ = Task.Run(Initialize, _disposeCts.Token);
                 }
 
                 _logger.LogCritical("Writer initialization failed to start. Reason: {Status}", status);
@@ -207,9 +227,8 @@ internal class Writer<TValue> : IWriter<TValue>
                 stream,
                 initResponse,
                 Initialize,
-                e => { _session = new NotStartedWriterSession(e); },
                 _logger,
-                _inFlightMessages
+                _toSendBuffer
             );
 
             if (!_inFlightMessages.IsEmpty)
@@ -217,7 +236,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
                 while (_inFlightMessages.TryDequeue(out var sendData))
                 {
-                    if (sendData.Tcs.Task.IsCanceled)
+                    if (sendData.Tcs.Task.IsFaulted)
                     {
                         _logger.LogWarning("Message[SeqNo={SeqNo}] is cancelled", sendData.MessageData.SeqNo);
 
@@ -232,15 +251,17 @@ internal class Writer<TValue> : IWriter<TValue>
 
             _session = newSession;
             newSession.RunProcessingWriteAck();
+            if (!_toSendBuffer.IsEmpty)
+            {
+                WakeUpWorker(); // send buffer    
+            }
         }
         catch (Driver.TransportException e)
         {
-            _logger.LogError(e, "Unable to connect the session");
+            _logger.LogError(e, "Transport error on creating WriterSession");
 
-            _session = new NotStartedWriterSession(
-                new WriterException("Transport error on creating WriterSession", e));
-
-            _ = Task.Run(Initialize, _disposeTokenSource.Token);
+            _session = DummyWriteSession.Instance;
+            _ = Task.Run(Initialize, _disposeCts.Token);
         }
     }
 
@@ -248,13 +269,13 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         try
         {
-            _disposeTokenSource.Cancel();
+            _disposeCts.Cancel();
 
             _session.Dispose();
         }
         finally
         {
-            _disposeTokenSource.Dispose();
+            _disposeCts.Dispose();
         }
     }
 }
@@ -280,11 +301,6 @@ internal class NotStartedWriterSession : IWriteSession
         _reasonException = new WriterException(reasonExceptionMessage, status);
     }
 
-    public NotStartedWriterSession(WriterException reasonException)
-    {
-        _reasonException = reasonException;
-    }
-
     public Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
     {
         while (toSendBuffer.TryDequeue(out var messageSending))
@@ -297,6 +313,21 @@ internal class NotStartedWriterSession : IWriteSession
 
     public void Dispose()
     {
+        // Do nothing 
+    }
+}
+
+internal class DummyWriteSession : IWriteSession
+{
+    internal static readonly DummyWriteSession Instance = new();
+
+    public void Dispose()
+    {
+    }
+
+    public Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
+    {
+        return Task.CompletedTask;
     }
 }
 
@@ -312,15 +343,13 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         WriterStream stream,
         InitResponse initResponse,
         Func<Task> initialize,
-        Action<WriterException> resetSessionOnTransportError,
         ILogger logger,
         ConcurrentQueue<MessageSending> inFlightMessages
     ) : base(
         stream,
         logger,
         initResponse.SessionId,
-        initialize,
-        resetSessionOnTransportError
+        initialize
     )
     {
         _config = config;
@@ -357,10 +386,10 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         }
         catch (Driver.TransportException e)
         {
-            Logger.LogError(e, "WriterSession[{SessionId}] have error on Write, last SeqNo={SeqNo}",
+            Logger.LogError(e, "WriterSession[{SessionId}] have transport error on Write, last SeqNo={SeqNo}",
                 SessionId, Volatile.Read(ref _seqNum));
 
-            ReconnectSession(new WriterException("Transport error in the WriterSession on write messages", e));
+            ReconnectSession();
         }
     }
 
@@ -428,13 +457,13 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
 
-            ReconnectSession(new WriterException("Transport error in the WriterSession on processing writeAck", e));
+            ReconnectSession();
 
             return;
         }
 
         Logger.LogWarning("WriterSession[{SessionId}]: stream is closed", SessionId);
 
-        ReconnectSession(new WriterException("WriterStream is closed"));
+        ReconnectSession();
     }
 }

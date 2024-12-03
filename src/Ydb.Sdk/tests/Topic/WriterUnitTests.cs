@@ -77,7 +77,6 @@ public class WriterUnitTests
 
         var writerException = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"));
         Assert.Equal("Transport error on creating WriterSession", writerException.Message);
-        Assert.Equal(StatusCode.Cancelled, writerException.Status.StatusCode);
 
         await taskNextComplete.Task;
         // check attempt repeated!!!
@@ -105,7 +104,6 @@ public class WriterUnitTests
 
         var writerException = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"));
         Assert.Equal("Transport error on creating WriterSession", writerException.Message);
-        Assert.Equal(StatusCode.ClientTransportTimeout, writerException.Status.StatusCode);
 
         await taskNextComplete.Task;
         // check attempt repeated!!!
@@ -361,7 +359,6 @@ public class WriterUnitTests
         var writerExceptionAfterResetSession = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100));
         Assert.Equal("Transport error in the WriterSession on write messages",
             writerExceptionAfterResetSession.Message);
-        Assert.Equal(StatusCode.Cancelled, writerExceptionAfterResetSession.Status.StatusCode);
 
         moveSecondNextSource.SetResult(true);
         await nextCompleted.Task;
@@ -419,7 +416,6 @@ public class WriterUnitTests
         var writerExceptionAfterResetSession = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100));
         Assert.Equal("Transport error in the WriterSession on processing writeAck",
             writerExceptionAfterResetSession.Message);
-        Assert.Equal(StatusCode.Cancelled, writerExceptionAfterResetSession.Status.StatusCode);
 
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(2));
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(3));
@@ -471,7 +467,6 @@ public class WriterUnitTests
         await nextCompleted.Task;
         var writerExceptionAfterResetSession = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100));
         Assert.Equal("WriterStream is closed", writerExceptionAfterResetSession.Message);
-        Assert.Equal(StatusCode.Unspecified, writerExceptionAfterResetSession.Status.StatusCode);
 
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(2));
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(3));
@@ -653,7 +648,6 @@ public class WriterUnitTests
         var writerExceptionAfterResetSession = await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100));
         Assert.Equal("Transport error in the WriterSession on write messages",
             writerExceptionAfterResetSession.Message);
-        Assert.Equal(StatusCode.Cancelled, writerExceptionAfterResetSession.Status.StatusCode);
 
         ctx.Cancel(); // reconnect write invoke cancel on cancellation token
         moveSecondNextSource.SetResult(true);

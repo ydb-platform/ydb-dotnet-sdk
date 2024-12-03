@@ -9,14 +9,15 @@ internal class WriterConfig
         string? producerId,
         Codec codec,
         int bufferMaxSize,
-        long? partitionId
-    )
+        long? partitionId, 
+        int bufferOverflowRetryTimeoutMs)
     {
         TopicPath = topicPath;
         ProducerId = producerId;
         Codec = codec;
         BufferMaxSize = bufferMaxSize;
         PartitionId = partitionId;
+        BufferOverflowRetryTimeoutMs = bufferOverflowRetryTimeoutMs;
     }
 
     public string TopicPath { get; }
@@ -28,6 +29,8 @@ internal class WriterConfig
     public int BufferMaxSize { get; }
 
     public long? PartitionId { get; }
+    
+    public int BufferOverflowRetryTimeoutMs { get; }
 
     public override string ToString()
     {
