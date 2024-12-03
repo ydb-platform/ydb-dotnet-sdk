@@ -149,7 +149,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private async Task Initialize()
     {
-        _session = DummyWriteSession.Instance;
+        _session = DummyWriterSession.Instance;
 
         try
         {
@@ -332,11 +332,11 @@ internal class NotStartedWriterSession : IWriteSession
     }
 }
 
-internal class DummyWriteSession : IWriteSession
+internal class DummyWriterSession : IWriteSession
 {
-    internal static readonly DummyWriteSession Instance = new();
+    internal static readonly DummyWriterSession Instance = new();
 
-    private DummyWriteSession()
+    private DummyWriterSession()
     {
     }
 
