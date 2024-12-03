@@ -7,7 +7,6 @@ using Ydb.Topic.V1;
 
 namespace Ydb.Sdk.Services.Topic.Writer;
 
-using InitResponse = StreamWriteMessage.Types.InitResponse;
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
 using MessageFromClient = StreamWriteMessage.Types.FromClient;
 using MessageFromServer = StreamWriteMessage.Types.FromServer;
@@ -134,6 +133,11 @@ internal class Writer<TValue> : IWriter<TValue>
             await _tcsWakeUp.Task;
             _tcsWakeUp = new TaskCompletionSource();
 
+            if (_toSendBuffer.IsEmpty)
+            {
+                continue;
+            }
+
             await _session.Write(_toSendBuffer);
         }
     }
@@ -179,8 +183,8 @@ internal class Writer<TValue> : IWriter<TValue>
             await stream.Write(new MessageFromClient { InitRequest = initRequest });
             if (!await stream.MoveNextAsync())
             {
-                _session = new NotStartedWriterSession(
-                    $"Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}");
+                _logger.LogError("Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}",
+                    initRequest);
 
                 _ = Task.Run(Initialize, _disposeCts.Token);
 
@@ -193,14 +197,18 @@ internal class Writer<TValue> : IWriter<TValue>
 
             if (status.IsNotSuccess)
             {
-                _session = new NotStartedWriterSession("Initialization failed", status);
-
-                if (status.StatusCode != StatusCode.SchemeError)
+                if (RetrySettings.DefaultInstance.GetRetryRule(status.StatusCode).Policy != RetryPolicy.None)
                 {
+                    _logger.LogError("Writer initialization failed to start. Reason: {Status}", status);
+
                     _ = Task.Run(Initialize, _disposeCts.Token);
                 }
+                else
+                {
+                    _logger.LogCritical("Writer initialization failed to start. Reason: {Status}", status);
 
-                _logger.LogCritical("Writer initialization failed to start. Reason: {Status}", status);
+                    _session = new NotStartedWriterSession("Initialization failed", status);
+                }
 
                 return;
             }
@@ -222,45 +230,59 @@ internal class Writer<TValue> : IWriter<TValue>
                 return;
             }
 
-            var newSession = new WriterSession(
-                _config,
-                stream,
-                initResponse,
-                Initialize,
-                _logger,
-                _toSendBuffer
-            );
-
-            if (!_inFlightMessages.IsEmpty)
+            var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
+            var lastSeqNo = initResponse.LastSeqNo;
+            while (_inFlightMessages.TryDequeue(out var sendData))
             {
-                var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
-                while (_inFlightMessages.TryDequeue(out var sendData))
+                if (sendData.Tcs.Task.IsFaulted)
                 {
-                    if (sendData.Tcs.Task.IsFaulted)
-                    {
-                        _logger.LogWarning("Message[SeqNo={SeqNo}] is cancelled", sendData.MessageData.SeqNo);
+                    _logger.LogWarning("Message[SeqNo={SeqNo}] is cancelled", sendData.MessageData.SeqNo);
 
-                        continue;
-                    }
-
-                    copyInFlightMessages.Enqueue(sendData);
+                    continue;
                 }
 
-                await newSession.Write(copyInFlightMessages); // retry prev in flight messages
+                if (lastSeqNo >= sendData.MessageData.SeqNo)
+                {
+                    _logger.LogWarning(
+                        "Message[SeqNo={SeqNo}] has been skipped because its sequence number " +
+                        "is less than or equal to the last processed server's SeqNo[{LastSeqNo}]",
+                        sendData.MessageData.SeqNo, lastSeqNo);
+
+                    sendData.Tcs.TrySetResult(WriteResult.Skipped);
+
+                    continue;
+                }
+
+
+                // Calculate the next sequence number from the calculated previous messages.
+                lastSeqNo = Math.Max(lastSeqNo, sendData.MessageData.SeqNo);
+
+                copyInFlightMessages.Enqueue(sendData);
+            }
+
+            var newSession = new WriterSession(
+                config: _config,
+                stream: stream,
+                lastSeqNo: lastSeqNo,
+                sessionId: initResponse.SessionId,
+                initialize: Initialize,
+                logger: _logger,
+                inFlightMessages: _inFlightMessages
+            );
+
+            if (!copyInFlightMessages.IsEmpty)
+            {
+                await newSession.Write(copyInFlightMessages); // retry prev in flight messages    
             }
 
             _session = newSession;
             newSession.RunProcessingWriteAck();
-            if (!_toSendBuffer.IsEmpty)
-            {
-                WakeUpWorker(); // send buffer    
-            }
+            WakeUpWorker(); // attempt send buffer        
         }
         catch (Driver.TransportException e)
         {
             _logger.LogError(e, "Transport error on creating WriterSession");
 
-            _session = DummyWriteSession.Instance;
             _ = Task.Run(Initialize, _disposeCts.Token);
         }
     }
@@ -321,6 +343,10 @@ internal class DummyWriteSession : IWriteSession
 {
     internal static readonly DummyWriteSession Instance = new();
 
+    private DummyWriteSession()
+    {
+    }
+
     public void Dispose()
     {
     }
@@ -341,20 +367,21 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
     public WriterSession(
         WriterConfig config,
         WriterStream stream,
-        InitResponse initResponse,
+        long lastSeqNo,
+        string sessionId,
         Func<Task> initialize,
         ILogger logger,
         ConcurrentQueue<MessageSending> inFlightMessages
     ) : base(
         stream,
         logger,
-        initResponse.SessionId,
+        sessionId,
         initialize
     )
     {
         _config = config;
         _inFlightMessages = inFlightMessages;
-        Volatile.Write(ref _seqNum, initResponse.LastSeqNo); // happens-before for Volatile.Read
+        Volatile.Write(ref _seqNum, lastSeqNo); // happens-before for Volatile.Read
     }
 
     public async Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
@@ -406,7 +433,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
                 if (status.IsNotSuccess)
                 {
-                    Logger.LogWarning(
+                    Logger.LogError(
                         "WriterSession[{SessionId}] received unsuccessful status while processing writeAck: {Status}",
                         SessionId, status);
                     return;
