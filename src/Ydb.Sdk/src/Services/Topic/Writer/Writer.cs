@@ -234,13 +234,6 @@ internal class Writer<TValue> : IWriter<TValue>
             var lastSeqNo = initResponse.LastSeqNo;
             while (_inFlightMessages.TryDequeue(out var sendData))
             {
-                if (sendData.Tcs.Task.IsFaulted)
-                {
-                    _logger.LogWarning("Message[SeqNo={SeqNo}] is cancelled", sendData.MessageData.SeqNo);
-
-                    continue;
-                }
-
                 if (lastSeqNo >= sendData.MessageData.SeqNo)
                 {
                     _logger.LogWarning(
@@ -397,6 +390,13 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
             while (toSendBuffer.TryDequeue(out var sendData))
             {
+                if (sendData.Tcs.Task.IsFaulted)
+                {
+                    Logger.LogWarning("Message[SeqNo={SeqNo}] is cancelled", sendData.MessageData.SeqNo);
+
+                    continue;
+                }
+
                 var messageData = sendData.MessageData;
 
                 if (messageData.SeqNo == default)
