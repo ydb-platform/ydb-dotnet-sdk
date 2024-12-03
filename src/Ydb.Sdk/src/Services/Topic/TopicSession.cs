@@ -24,7 +24,8 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
         _initialize = initialize;
     }
 
-    protected async void ReconnectSession() {
+    protected async void ReconnectSession()
+    {
         if (Interlocked.CompareExchange(ref _isActive, 0, 1) == 0)
         {
             Logger.LogDebug("Skipping reconnect. A reconnect session has already been initiated");
