@@ -5,7 +5,6 @@ namespace Ydb.Sdk.Services.Topic;
 internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
 {
     private readonly Func<Task> _initialize;
-    private readonly Action<WriterException> _resetSessionOnTransportError;
 
     protected readonly IBidirectionalStream<TFromClient, TFromServer> Stream;
     protected readonly ILogger Logger;
@@ -17,17 +16,15 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
         IBidirectionalStream<TFromClient, TFromServer> stream,
         ILogger logger,
         string sessionId,
-        Func<Task> initialize,
-        Action<WriterException> resetSessionOnTransportError)
+        Func<Task> initialize)
     {
         Stream = stream;
         Logger = logger;
         SessionId = sessionId;
         _initialize = initialize;
-        _resetSessionOnTransportError = resetSessionOnTransportError;
     }
 
-    protected async void ReconnectSession(WriterException exception)
+    protected async void ReconnectSession()
     {
         if (Interlocked.CompareExchange(ref _isActive, 0, 1) == 0)
         {
@@ -36,9 +33,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
             return;
         }
 
-        _resetSessionOnTransportError(exception);
-
-        Logger.LogInformation("WriterSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
+        Logger.LogInformation("TopicSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
 
         await _initialize();
     }

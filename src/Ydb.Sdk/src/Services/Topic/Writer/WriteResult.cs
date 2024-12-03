@@ -4,6 +4,8 @@ namespace Ydb.Sdk.Services.Topic.Writer;
 
 public class WriteResult
 {
+    internal static readonly WriteResult Skipped = new();
+
     private readonly long _offset;
 
     internal WriteResult(StreamWriteMessage.Types.WriteResponse.Types.WriteAck ack)
@@ -21,6 +23,11 @@ public class WriteResult
             default:
                 throw new WriterException($"Unexpected WriteAck status: {ack.MessageWriteStatusCase}");
         }
+    }
+
+    private WriteResult()
+    {
+        Status = PersistenceStatus.AlreadyWritten;
     }
 
     public PersistenceStatus Status { get; }

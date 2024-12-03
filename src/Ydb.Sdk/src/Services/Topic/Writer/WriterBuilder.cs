@@ -39,7 +39,26 @@ public class WriterBuilder<TValue>
     /// </summary>    
     public long? PartitionId { get; set; }
 
+    /// <summary>
+    /// The serializer to use to serialize values.
+    /// </summary>
+    /// <remarks>
+    ///     If your value serializer throws an exception, this will be
+    ///     wrapped in a WriterException with unspecified status.
+    /// </remarks>
     public ISerializer<TValue>? Serializer { get; set; }
+
+
+    /// <summary>
+    /// Represents the timeout duration, in milliseconds, used when a buffer overflow is detected.
+    /// This timeout specifies how long the system should wait before attempting to retry the operation.
+    /// </summary>
+    /// <remarks>
+    /// This timeout is important for managing system performance and stability. 
+    /// Too short a timeout could lead to rapid retry attempts, potentially causing further resource contention
+    /// and degrading system performance. Conversely, too long a timeout might delay processing significantly.
+    /// </remarks>
+    public int BufferOverflowRetryTimeoutMs { get; set; } = 10;
 
     public IWriter<TValue> Build()
     {
@@ -48,7 +67,8 @@ public class WriterBuilder<TValue>
             producerId: ProducerId,
             codec: Codec,
             bufferMaxSize: BufferMaxSize,
-            partitionId: PartitionId
+            partitionId: PartitionId,
+            bufferOverflowRetryTimeoutMs: BufferOverflowRetryTimeoutMs
         );
 
         return new Writer<TValue>(
