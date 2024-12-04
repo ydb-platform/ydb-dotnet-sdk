@@ -8,12 +8,12 @@ then
   exit 1;
 fi;
 
-MAJOR=$(cat $VERSION_FILE | grep Major | grep -Eo '[0-9]*');
-MINOR=$(cat $VERSION_FILE | grep Minor | grep -Eo '[0-9]*');
-PATCH=$(cat $VERSION_FILE | grep Patch | grep -Eo '[0-9]*');
-
 LAST_TAG=$(git tag | tail -n 1);
+MAJOR=$(echo $LAST_TAG | sed -E 's/v([0-9]+)\..*/\1/');
+MINOR=$(echo $LAST_TAG | sed -E 's/v[0-9]+\.([0-9]+)\..*/\1/');
+PATCH=$(echo $LAST_TAG | sed -E 's/v[0-9]+\.[0-9]+\.([0-9]+)-rc/\1/');
 RC=0;
+
 if [ "$RELEASE_CANDIDATE" = true ]
 then
   RC=$(git tag | grep "v$MAJOR.$MINOR.$PATCH-rc" | wc -l | xargs || true); 
