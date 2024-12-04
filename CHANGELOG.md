@@ -1,7 +1,22 @@
-- Topic Writer updated release candidate
+- Topic Writer updated release candidate:
+  * Do not send messages that have a timeout by cancelToken.
+  * If your value serializer throws an exception, this will be wrapped in a WriterException with unspecified status.
+  * Added BufferOverflowRetryTimeoutMs to the next try write.
+  * Rename _disposeTokenSource -> _disposeCts.
+  * Optimize write worker: if (_toSendBuffer.IsEmpty) continue.
+  * On RPC errors create DummyWriterSession.
+  * Message has been skipped because its sequence number is less than or equal to the last processed server's SeqNo.
+  * Calculate the next sequence number from the calculated previous messages.
 
 ## v0.9.0-rc0
-- Topic Writer release candidate
+- Topic Writer release candidate:
+  * Updated CAS semantics for enqueuing in the buffer.
+  * Processed buffer overflow on WriteAsync.
+  * Setting NotStartedWriterSession with a fail reason on RPC and more errors.
+  * New initialization strategy for WriterSession (background task).
+  * Supported cancellation token for sending tasks.
+  * Fixed setting the SeqNo field in the message (in-flight buffer already has a seqNo) and added a check on canceled TCS.
+  * Using BitConverter for Serializer / Deserializer.
 - Fixed: grpc requests go via proxy on Grpc.NET.Client >= 2.44 
 
 ## v0.8.0
