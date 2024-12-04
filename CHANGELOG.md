@@ -1,3 +1,4 @@
+## v0.9.1-rc0
 - Topic Writer updated release candidate:
   * Do not send messages that have a timeout by cancelToken.
   * If your value serializer throws an exception, this will be wrapped in a WriterException with unspecified status.
