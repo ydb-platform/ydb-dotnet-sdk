@@ -18,12 +18,12 @@ if [ "$RELEASE_CANDIDATE" = true ]
 then
   RC=$(git tag | grep "v$MAJOR.$MINOR.$PATCH-rc" | wc -l || true); 
 fi  
-if [ "$VERSION_CHANGE" = "MINOR" && "$RC" = 0 ]
+if [ "$VERSION_CHANGE" = "MINOR" && $RC = 0 ]
 then
   MINOR=$((MINOR+1));
   PATCH=0;
 fi;
-if [ "$VERSION_CHANGE" = "PATCH" && "$RC" = 0 ]
+if [ "$VERSION_CHANGE" = "PATCH" && $RC = 0 ]
 then
   PATCH=$((PATCH+1));
 fi;
