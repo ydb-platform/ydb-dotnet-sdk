@@ -12,19 +12,23 @@ MAJOR=$(cat $VERSION_FILE | grep Major | grep -Eo '[0-9]*');
 MINOR=$(cat $VERSION_FILE | grep Minor | grep -Eo '[0-9]*');
 PATCH=$(cat $VERSION_FILE | grep Patch | grep -Eo '[0-9]*');
 
-LAST_TAG="v$MAJOR.$MINOR.$PATCH";
-if [ "$VERSION_CHANGE" = "MINOR" ]
+LAST_TAG=$(git tag | tail -n 1);
+RC=0;
+if [ "$RELEASE_CANDIDATE" = true ]
+then
+  RC=$(git tag | grep "v$MAJOR.$MINOR.$PATCH-rc" | wc -l | xargs || true); 
+fi  
+if [ "$VERSION_CHANGE" = "MINOR" ] && [ $RC = 0 ]
 then
   MINOR=$((MINOR+1));
   PATCH=0;
 fi;
-if [ "$VERSION_CHANGE" = "PATCH" ]
+if [ "$VERSION_CHANGE" = "PATCH" ] && [ $RC = 0 ]
 then
   PATCH=$((PATCH+1));
 fi;
 if [ "$RELEASE_CANDIDATE" = true ]
 then
-  RC=$(git tag | grep "v$MAJOR.$MINOR.$PATCH-rc" | wc -l || true);
   VERSION="$MAJOR.$MINOR.$PATCH-rc$RC";
 else
   sed -e "s/Minor = [0-9]*/Minor = $MINOR/g" -i $VERSION_FILE
