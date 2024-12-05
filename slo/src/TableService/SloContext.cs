@@ -22,7 +22,7 @@ public class SloContext : SloContext<TableClient>
     }
 
     protected override async Task<(int, StatusCode)> Upsert(TableClient tableClient, string upsertSql,
-        Dictionary<string, YdbValue> parameters, int writeTimeout, Gauge? errorsGauge = null)
+        Dictionary<string, YdbValue> parameters, int writeTimeout, Counter? errorsGauge = null)
     {
         var querySettings = new ExecuteDataQuerySettings
             { OperationTimeout = TimeSpan.FromSeconds(writeTimeout) };
@@ -49,7 +49,7 @@ public class SloContext : SloContext<TableClient>
     }
 
     protected override async Task<(int, StatusCode, object?)> Select(TableClient tableClient, string selectSql,
-        Dictionary<string, YdbValue> parameters, int readTimeout, Gauge? errorsGauge = null)
+        Dictionary<string, YdbValue> parameters, int readTimeout, Counter? errorsGauge = null)
     {
         var querySettings = new ExecuteDataQuerySettings
             { OperationTimeout = TimeSpan.FromSeconds(readTimeout) };

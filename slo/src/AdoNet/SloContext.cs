@@ -14,10 +14,10 @@ public class SloContext : SloContext<YdbDataSource>
         .WaitAndRetryAsync(10, attempt => TimeSpan.FromMilliseconds(attempt * 10),
             (e, _, _, context) =>
             {
-                var errorsGauge = (Gauge)context["errorsGauge"];
+                var errorsTotal = (Counter)context["errorsTotal"];
 
                 Logger.LogWarning(e, "Failed read / write operation");
-                errorsGauge?.WithLabels(((YdbException)e).Code.StatusName(), "retried").Inc();
+                errorsTotal?.WithLabels(((YdbException)e).Code.StatusName(), "retried").Inc();
             });
 
     protected override string Job => "AdoNet";
@@ -32,12 +32,12 @@ public class SloContext : SloContext<YdbDataSource>
     }
 
     protected override async Task<(int, StatusCode)> Upsert(YdbDataSource dataSource, string upsertSql,
-        Dictionary<string, YdbValue> parameters, int writeTimeout, Gauge? errorsGauge = null)
+        Dictionary<string, YdbValue> parameters, int writeTimeout, Counter? errorsTotal = null)
     {
         var context = new Context();
-        if (errorsGauge != null)
+        if (errorsTotal != null)
         {
-            context["errorsGauge"] = errorsGauge;
+            context["errorsTotal"] = errorsTotal;
         }
 
         var policyResult = await _policy.ExecuteAndCaptureAsync(async _ =>
@@ -61,12 +61,12 @@ public class SloContext : SloContext<YdbDataSource>
     }
 
     protected override async Task<(int, StatusCode, object?)> Select(YdbDataSource dataSource, string selectSql,
-        Dictionary<string, YdbValue> parameters, int readTimeout, Gauge? errorsGauge = null)
+        Dictionary<string, YdbValue> parameters, int readTimeout, Counter? errorsTotal = null)
     {
         var context = new Context();
-        if (errorsGauge != null)
+        if (errorsTotal != null)
         {
-            context["errorsGauge"] = errorsGauge;
+            context["errorsTotal"] = errorsTotal;
         }
 
         var attempts = 0;

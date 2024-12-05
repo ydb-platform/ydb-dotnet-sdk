@@ -137,7 +137,7 @@ public abstract class SloContext<T> where T : IDisposable
         return;
 
         Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
-            Func<T, RunConfig, Gauge?, Task<(int, StatusCode)>> action)
+            Func<T, RunConfig, Counter?, Task<(int, StatusCode)>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
                 {
@@ -149,41 +149,61 @@ public abstract class SloContext<T> where T : IDisposable
                 }
             );
 
-            var okGauge = metricFactory.CreateCounter( // Counter
+            var operationsTotal = metricFactory.CreateCounter(
+                "sdk_operations_total",
+                "Total number of operations performed by the SDK, categorized by type."
+            );
+
+            var operationsSuccessTotal = metricFactory.CreateCounter(
                 "sdk_operations_success_total",
                 "Total number of successful operations, categorized by type."
             );
-            var notOkGauge = metricFactory.CreateCounter(
+
+            var operationsFailureTotal = metricFactory.CreateCounter(
                 "sdk_operations_failure_total",
                 "Total number of failed operations, categorized by type."
             );
-            var latencySummary = metricFactory.CreateSummary(
+
+            var operationLatencySeconds = metricFactory.CreateHistogram(
                 "sdk_operation_latency_seconds",
                 "Latency of operations performed by the SDK in seconds, categorized by type and status.",
-                new[] { "status" },
-                new SummaryConfiguration // Гистограмма 
+                ["operation_status"],
+                new HistogramConfiguration
                 {
-                    MaxAge = TimeSpan.FromSeconds(15),
-                    Objectives = new QuantileEpsilonPair[]
-                    {
-                        new(0.5, 0.05),
-                        new(0.99, 0.005),
-                        new(0.999, 0.0005)
-                    }
-                });
-            var attemptsHistogram = metricFactory.CreateHistogram(
-                "sdk_retry_attempts",
-                "Current retry attempts, categorized by operation type.",
-                new[] { "status" },
-                new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) }
+                    Buckets =
+                    [
+                        0.001,  // 1 ms
+                        0.002,  // 2 ms
+                        0.003,  // 3 ms
+                        0.004,  // 4 ms
+                        0.005,  // 5 ms
+                        0.0075, // 7.5 ms
+                        0.010,  // 10 ms
+                        0.020,  // 20 ms
+                        0.050,  // 50 ms
+                        0.100,  // 100 ms
+                        0.200,  // 200 ms
+                        0.500,  // 500 ms
+                        1.000   // 1 s
+                    ]
+                }
             );
-            var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
 
-            foreach (var statusCode in Enum.GetValues<StatusCode>())
-            {
-                errorsGauge.WithLabels(statusCode.StatusName(), "retried").IncTo(0);
-                errorsGauge.WithLabels(statusCode.StatusName(), "finally").IncTo(0);
-            }
+            var retryAttempts = metricFactory.CreateGauge(
+                "sdk_retry_attempts",
+                "Current retry attempts, categorized by operation type."
+            );
+
+            var pendingOperations = metricFactory.CreateGauge(
+                "sdk_pending_operations",
+                "Current number of pending operations, categorized by type."
+            );
+
+            var errorsTotal = metricFactory.CreateCounter(
+                "sdk_errors_total",
+                "Total number of errors encountered, categorized by error type.",
+                ["error_type"]
+            );
 
             // ReSharper disable once MethodSupportsCancellation
             return Task.Run(async () =>
@@ -200,25 +220,26 @@ public abstract class SloContext<T> where T : IDisposable
 
                     _ = Task.Run(async () =>
                     {
+                        pendingOperations.Inc();
                         var sw = Stopwatch.StartNew();
-                        var (attempts, statusCode) = await action(client, runConfig, errorsGauge);
+                        var (attempts, statusCode) = await action(client, runConfig, errorsTotal);
                         sw.Stop();
-                        string label;
+
+                        retryAttempts.Set(attempts);
+                        operationsTotal.Inc();
+                        pendingOperations.Dec();
 
                         if (statusCode != StatusCode.Success)
                         {
-                            notOkGauge.Inc();
-                            label = "err";
-                            errorsGauge.WithLabels(statusCode.StatusName(), "finally").Inc();
+                            errorsTotal.WithLabels(statusCode.StatusName()).Inc();
+                            operationsFailureTotal.Inc();
+                            operationLatencySeconds.WithLabels("err").Observe(sw.ElapsedMilliseconds / 1000);
                         }
                         else
                         {
-                            okGauge.Inc();
-                            label = "ok";
+                            operationsSuccessTotal.Inc();
+                            operationLatencySeconds.WithLabels("success").Observe(sw.ElapsedMilliseconds / 1000);
                         }
-
-                        attemptsHistogram.WithLabels(label).Observe(attempts);
-                        latencySummary.WithLabels(label).Observe(sw.ElapsedMilliseconds);
                     }, cancellationTokenSource.Token);
                 }
 
@@ -237,12 +258,12 @@ public abstract class SloContext<T> where T : IDisposable
     // return attempt count & StatusCode operation
     protected abstract Task<(int, StatusCode)> Upsert(T client, string upsertSql,
         Dictionary<string, YdbValue> parameters,
-        int writeTimeout, Gauge? errorsGauge = null);
+        int writeTimeout, Counter? errorsTotal = null);
 
     protected abstract Task<(int, StatusCode, object?)> Select(T client, string selectSql,
-        Dictionary<string, YdbValue> parameters, int readTimeout, Gauge? errorsGauge = null);
+        Dictionary<string, YdbValue> parameters, int readTimeout, Counter? errorsTotal = null);
 
-    private Task<(int, StatusCode)> Upsert(T client, Config config, Gauge? errorsGauge = null)
+    private Task<(int, StatusCode)> Upsert(T client, Config config, Counter? errorsTotal = null)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
@@ -265,12 +286,12 @@ public abstract class SloContext<T> where T : IDisposable
                 },
                 { "$payload_double", YdbValue.MakeDouble(Random.Shared.NextDouble()) },
                 { "$payload_timestamp", YdbValue.MakeTimestamp(DateTime.Now) }
-            }, config.WriteTimeout, errorsGauge);
+            }, config.WriteTimeout, errorsTotal);
     }
 
     protected abstract Task<T> CreateClient(Config config);
 
-    private async Task<(int, StatusCode)> Select(T client, RunConfig config, Gauge? errorsGauge = null)
+    private async Task<(int, StatusCode)> Select(T client, RunConfig config, Counter? errorsTotal = null)
     {
         var (attempts, code, _) = await Select(client,
             $"""
@@ -281,7 +302,7 @@ public abstract class SloContext<T> where T : IDisposable
             new Dictionary<string, YdbValue>
             {
                 { "$id", YdbValue.MakeInt32(Random.Shared.Next(_maxId)) }
-            }, config.ReadTimeout, errorsGauge);
+            }, config.ReadTimeout, errorsTotal);
 
         return (attempts, code);
     }
