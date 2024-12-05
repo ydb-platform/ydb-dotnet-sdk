@@ -14,7 +14,7 @@ public static class Cli
 
     private static readonly Option<string> PromPgwOption = new(
         "--prom-pgw",
-        "minimum amount of partitions in table") { IsRequired = true };
+        "prometheus push gateway") { IsRequired = true };
 
     private static readonly Option<string> ResourceYdbPath = new(
         new[] { "-t", "--resource-ydb-path" },
