@@ -233,12 +233,12 @@ public abstract class SloContext<T> where T : IDisposable
                         {
                             errorsTotal.WithLabels(statusCode.StatusName()).Inc();
                             operationsFailureTotal.Inc();
-                            operationLatencySeconds.WithLabels("err").Observe(sw.ElapsedMilliseconds / 1000);
+                            operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
                         }
                         else
                         {
                             operationsSuccessTotal.Inc();
-                            operationLatencySeconds.WithLabels("success").Observe(sw.ElapsedMilliseconds / 1000);
+                            operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
                         }
                     }, cancellationTokenSource.Token);
                 }
