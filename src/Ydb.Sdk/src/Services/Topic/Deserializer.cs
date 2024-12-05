@@ -55,14 +55,7 @@ public static class Deserializers
     {
         public long Deserialize(byte[] data)
         {
-            if (data.Length != 8)
-            {
-                throw new ArgumentException(
-                    $"Deserializer<Long> encountered data of length ${data.Length}. Expecting data length to be 8");
-            }
-
-            return ((long)data[0] << 56) | ((long)data[1] << 48) | ((long)data[2] << 40) | ((long)data[3] << 32) |
-                   ((long)data[4] << 24) | ((long)data[5] << 16) | ((long)data[6] << 8) | data[7];
+            return BitConverter.ToInt64(data);
         }
     }
 
@@ -70,13 +63,7 @@ public static class Deserializers
     {
         public int Deserialize(byte[] data)
         {
-            if (data.Length != 4)
-            {
-                throw new ArgumentException(
-                    $"Deserializer<Int32> encountered data of length ${data.Length}. Expecting data length to be 4");
-            }
-
-            return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+            return BitConverter.ToInt32(data);
         }
     }
 

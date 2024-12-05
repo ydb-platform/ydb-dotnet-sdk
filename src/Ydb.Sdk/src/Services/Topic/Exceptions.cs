@@ -1,22 +1,23 @@
 namespace Ydb.Sdk.Services.Topic;
 
-public class YdbTopicException : Exception
+public class WriterException : Exception
 {
-    protected YdbTopicException(string message) : base(message)
+    public WriterException(string message) : base(message)
+    {
+    }
+
+    public WriterException(string message, Status status) : base(message + ": " + status)
+    {
+    }
+
+    public WriterException(string message, Exception inner) : base(message, inner)
     {
     }
 }
 
-public class YdbWriterException : YdbTopicException
+public class ReaderException : Exception
 {
-    public YdbWriterException(string message) : base(message)
-    {
-    }
-}
-
-public class YdbReaderException : YdbTopicException
-{
-    protected YdbReaderException(string message) : base(message)
+    protected ReaderException(string message) : base(message)
     {
     }
 }

@@ -6,27 +6,36 @@ namespace Ydb.Sdk;
 
 public interface IDriver : IAsyncDisposable, IDisposable
 {
-    internal Task<TResponse> UnaryCall<TRequest, TResponse>(
+    public Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
-    internal ServerStream<TResponse> ServerStreamCall<TRequest, TResponse>(
+    public ServerStream<TResponse> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
-    internal BidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
+    public IBidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
     ILoggerFactory LoggerFactory { get; }
+}
+
+public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
+{
+    public Task Write(TRequest request);
+
+    public ValueTask<bool> MoveNextAsync();
+
+    public TResponse Current { get; }
 }
 
 public abstract class BaseDriver : IDriver
@@ -95,7 +104,7 @@ public abstract class BaseDriver : IDriver
         return new ServerStream<TResponse>(call, e => { OnRpcError(endpoint, e); });
     }
 
-    public BidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
+    public IBidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         GrpcRequestSettings settings)
         where TRequest : class
@@ -213,7 +222,7 @@ public sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyn
     }
 }
 
-public sealed class BidirectionalStream<TRequest, TResponse> : IDisposable
+public class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<TRequest, TResponse>
 {
     private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;

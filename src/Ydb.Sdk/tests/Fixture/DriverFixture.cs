@@ -2,13 +2,13 @@ using Xunit;
 
 namespace Ydb.Sdk.Tests.Fixture;
 
-public abstract class DriverFixture : IAsyncLifetime
+public class DriverFixture : IAsyncLifetime
 {
-    protected readonly Driver Driver;
+    public Driver Driver { get; }
 
-    protected DriverFixture(DriverConfig? driverConfig = null)
+    public DriverFixture()
     {
-        driverConfig ??= new DriverConfig(
+        var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
             database: "/local"
         );
@@ -16,7 +16,9 @@ public abstract class DriverFixture : IAsyncLifetime
         Driver = new Driver(driverConfig, Utils.GetLoggerFactory());
     }
 
-    protected abstract void ClientDispose();
+    protected virtual void ClientDispose()
+    {
+    }
 
     public Task InitializeAsync()
     {

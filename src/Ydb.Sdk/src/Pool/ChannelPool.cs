@@ -134,6 +134,8 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 
                 return true;
             };
+        // https://github.com/grpc/grpc-dotnet/issues/2312#issuecomment-1790661801
+        httpHandler.Properties["__GrpcLoadBalancingDisabled"] = true;
 
         channelOptions.HttpHandler = httpHandler;
         channelOptions.DisposeHttpClient = true;
