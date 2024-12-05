@@ -10,7 +10,7 @@ namespace TableService;
 public class SloContext : SloContext<TableClient>
 {
     private readonly TxControl _txControl = TxControl.BeginSerializableRW().Commit();
-    protected override string Job => "workload-table-service";
+    protected override string Job => "TableService";
 
     protected override async Task Create(TableClient client, string createTableSql, int operationTimeout)
     {
@@ -22,7 +22,7 @@ public class SloContext : SloContext<TableClient>
     }
 
     protected override async Task<(int, StatusCode)> Upsert(TableClient tableClient, string upsertSql,
-        Dictionary<string, YdbValue> parameters, int writeTimeout, Gauge? errorsGauge = null)
+        Dictionary<string, YdbValue> parameters, int writeTimeout, Counter? errorsGauge = null)
     {
         var querySettings = new ExecuteDataQuerySettings
             { OperationTimeout = TimeSpan.FromSeconds(writeTimeout) };
@@ -49,7 +49,7 @@ public class SloContext : SloContext<TableClient>
     }
 
     protected override async Task<(int, StatusCode, object?)> Select(TableClient tableClient, string selectSql,
-        Dictionary<string, YdbValue> parameters, int readTimeout, Gauge? errorsGauge = null)
+        Dictionary<string, YdbValue> parameters, int readTimeout, Counter? errorsGauge = null)
     {
         var querySettings = new ExecuteDataQuerySettings
             { OperationTimeout = TimeSpan.FromSeconds(readTimeout) };

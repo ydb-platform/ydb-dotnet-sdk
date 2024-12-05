@@ -11,7 +11,7 @@ public abstract class SloContext<T> where T : IDisposable
 {
     // ReSharper disable once StaticMemberInGenericType
     protected static readonly ILoggerFactory Factory =
-        LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
+        LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
 
     protected static readonly ILogger Logger = Factory.CreateLogger<SloContext<T>>();
 
@@ -26,11 +26,11 @@ public abstract class SloContext<T> where T : IDisposable
         using var client = await CreateClient(config);
         for (var attempt = 0; attempt < maxCreateAttempts; attempt++)
         {
-            Logger.LogInformation("Creating table {TableName}..", config.TableName);
+            Logger.LogInformation("Creating table {ResourcePathYdb}..", config.ResourcePathYdb);
             try
             {
                 var createTableSql = $"""
-                                      CREATE TABLE `{config.TableName}` (
+                                      CREATE TABLE `{config.ResourcePathYdb}` (
                                           hash              Uint64,
                                           id                Int32,
                                           payload_str       Text,
@@ -41,7 +41,6 @@ public abstract class SloContext<T> where T : IDisposable
                                       ) WITH (
                                           AUTO_PARTITIONING_BY_SIZE = ENABLED,
                                           AUTO_PARTITIONING_BY_LOAD = ENABLED,
-                                          AUTO_PARTITIONING_PARTITION_SIZE_MB = {config.PartitionSize},
                                           AUTO_PARTITIONING_MIN_PARTITIONS_COUNT = {config.MinPartitionsCount},
                                           AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = {config.MaxPartitionsCount}
                                       );
@@ -50,7 +49,7 @@ public abstract class SloContext<T> where T : IDisposable
 
                 await Create(client, createTableSql, config.WriteTimeout);
 
-                Logger.LogInformation("Created table {TableName}", config.TableName);
+                Logger.LogInformation("Created table {ResourcePathYdb}", config.ResourcePathYdb);
 
                 break;
             }
@@ -91,12 +90,15 @@ public abstract class SloContext<T> where T : IDisposable
 
     public async Task Run(RunConfig runConfig)
     {
+        // Trace.Listeners.Add(new ConsoleTraceListener()); debug meterPusher
+
         var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
         var client = await CreateClient(runConfig);
-        using var prometheus = new MetricPusher(promPgwEndpoint, Job, intervalMilliseconds: runConfig.ReportPeriod);
+        using var prometheus = new MetricPusher(promPgwEndpoint, "workload-" + Job,
+            intervalMilliseconds: runConfig.ReportPeriod);
         prometheus.Start();
 
-        var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.TableName}`;",
+        var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.ResourcePathYdb}`;",
             new Dictionary<string, YdbValue>(), runConfig.ReadTimeout);
         _maxId = (int)maxId!;
 
@@ -129,36 +131,79 @@ public abstract class SloContext<T> where T : IDisposable
         }
 
         await prometheus.StopAsync();
-        await MetricReset(promPgwEndpoint);
+        // await MetricReset(promPgwEndpoint);
 
         Logger.LogInformation("Run task is finished");
         return;
 
-        Task ShootingTask(RateLimiter rateLimitPolicy, string jobName,
-            Func<T, RunConfig, Gauge?, Task<(int, StatusCode)>> action)
+        Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
+            Func<T, RunConfig, Counter?, Task<(int, StatusCode)>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
-                { { "jobName", jobName }, { "sdk", "dotnet" }, { "sdkVersion", Environment.Version.ToString() } });
-
-            var okGauge = metricFactory.CreateGauge("oks", "Count of OK");
-            var notOkGauge = metricFactory.CreateGauge("not_oks", "Count of not OK");
-            var latencySummary = metricFactory.CreateSummary("latency", "Latencies (OK)", new[] { "status" },
-                new SummaryConfiguration
                 {
-                    MaxAge = TimeSpan.FromSeconds(15), Objectives = new QuantileEpsilonPair[]
-                        { new(0.5, 0.05), new(0.99, 0.005), new(0.999, 0.0005) }
-                });
+                    { "operation_type", operationType },
+                    { "sdk", "dotnet" },
+                    { "sdk_version", Environment.Version.ToString() },
+                    { "workload", Job },
+                    { "workload_version", "0.0.0" }
+                }
+            );
 
-            var attemptsHistogram = metricFactory.CreateHistogram("attempts", "summary of amount for request",
-                new[] { "status" },
-                new HistogramConfiguration { Buckets = Histogram.LinearBuckets(1, 1, 10) });
+            var operationsTotal = metricFactory.CreateCounter(
+                "sdk_operations_total",
+                "Total number of operations performed by the SDK, categorized by type."
+            );
 
-            var errorsGauge = metricFactory.CreateGauge("errors", "amount of errors", new[] { "class", "in" });
-            foreach (var statusCode in Enum.GetValues<StatusCode>())
-            {
-                errorsGauge.WithLabels(statusCode.StatusName(), "retried").IncTo(0);
-                errorsGauge.WithLabels(statusCode.StatusName(), "finally").IncTo(0);
-            }
+            var operationsSuccessTotal = metricFactory.CreateCounter(
+                "sdk_operations_success_total",
+                "Total number of successful operations, categorized by type."
+            );
+
+            var operationsFailureTotal = metricFactory.CreateCounter(
+                "sdk_operations_failure_total",
+                "Total number of failed operations, categorized by type."
+            );
+
+            var operationLatencySeconds = metricFactory.CreateHistogram(
+                "sdk_operation_latency_seconds",
+                "Latency of operations performed by the SDK in seconds, categorized by type and status.",
+                ["operation_status"],
+                new HistogramConfiguration
+                {
+                    Buckets =
+                    [
+                        0.001,  // 1 ms
+                        0.002,  // 2 ms
+                        0.003,  // 3 ms
+                        0.004,  // 4 ms
+                        0.005,  // 5 ms
+                        0.0075, // 7.5 ms
+                        0.010,  // 10 ms
+                        0.020,  // 20 ms
+                        0.050,  // 50 ms
+                        0.100,  // 100 ms
+                        0.200,  // 200 ms
+                        0.500,  // 500 ms
+                        1.000   // 1 s
+                    ]
+                }
+            );
+
+            var retryAttempts = metricFactory.CreateGauge(
+                "sdk_retry_attempts",
+                "Current retry attempts, categorized by operation type."
+            );
+
+            var pendingOperations = metricFactory.CreateGauge(
+                "sdk_pending_operations",
+                "Current number of pending operations, categorized by type."
+            );
+
+            var errorsTotal = metricFactory.CreateCounter(
+                "sdk_errors_total",
+                "Total number of errors encountered, categorized by error type.",
+                ["error_type"]
+            );
 
             // ReSharper disable once MethodSupportsCancellation
             return Task.Run(async () =>
@@ -175,45 +220,50 @@ public abstract class SloContext<T> where T : IDisposable
 
                     _ = Task.Run(async () =>
                     {
+                        pendingOperations.Inc();
                         var sw = Stopwatch.StartNew();
-                        var (attempts, statusCode) = await action(client, runConfig, errorsGauge);
+                        var (attempts, statusCode) = await action(client, runConfig, errorsTotal);
                         sw.Stop();
-                        string label;
+
+                        retryAttempts.Set(attempts);
+                        operationsTotal.Inc();
+                        pendingOperations.Dec();
 
                         if (statusCode != StatusCode.Success)
                         {
-                            notOkGauge.Inc();
-                            label = "err";
-                            errorsGauge.WithLabels(statusCode.StatusName(), "finally").Inc();
+                            errorsTotal.WithLabels(statusCode.StatusName()).Inc();
+                            operationsFailureTotal.Inc();
+                            operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
                         }
                         else
                         {
-                            okGauge.Inc();
-                            label = "ok";
+                            operationsSuccessTotal.Inc();
+                            operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
                         }
-
-                        attemptsHistogram.WithLabels(label).Observe(attempts);
-                        latencySummary.WithLabels(label).Observe(sw.ElapsedMilliseconds);
                     }, cancellationTokenSource.Token);
                 }
 
-                // ReSharper disable once MethodSupportsCancellation
-                await Task.Delay(TimeSpan.FromSeconds(runConfig.ShutdownTime));
-
-                Logger.LogInformation("{ShootingName} shooting is stopped", jobName);
+                Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
             });
         }
     }
 
+    // private async Task MetricReset(string promPgwEndpoint)
+    // {
+    //     var deleteUri = $"{promPgwEndpoint}/job/workload-{Job}";
+    //     using var httpClient = new HttpClient();
+    //     await httpClient.DeleteAsync(deleteUri);
+    // }
+
     // return attempt count & StatusCode operation
     protected abstract Task<(int, StatusCode)> Upsert(T client, string upsertSql,
         Dictionary<string, YdbValue> parameters,
-        int writeTimeout, Gauge? errorsGauge = null);
+        int writeTimeout, Counter? errorsTotal = null);
 
     protected abstract Task<(int, StatusCode, object?)> Select(T client, string selectSql,
-        Dictionary<string, YdbValue> parameters, int readTimeout, Gauge? errorsGauge = null);
+        Dictionary<string, YdbValue> parameters, int readTimeout, Counter? errorsTotal = null);
 
-    private Task<(int, StatusCode)> Upsert(T client, Config config, Gauge? errorsGauge = null)
+    private Task<(int, StatusCode)> Upsert(T client, Config config, Counter? errorsTotal = null)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
@@ -224,7 +274,7 @@ public abstract class SloContext<T> where T : IDisposable
              DECLARE $payload_str AS Utf8;
              DECLARE $payload_double AS Double;
              DECLARE $payload_timestamp AS Timestamp;
-             UPSERT INTO `{config.TableName}` (id, hash, payload_str, payload_double, payload_timestamp)
+             UPSERT INTO `{config.ResourcePathYdb}` (id, hash, payload_str, payload_double, payload_timestamp)
              VALUES ($id, Digest::NumericHash($id), $payload_str, $payload_double, $payload_timestamp)
              """, new Dictionary<string, YdbValue>
             {
@@ -236,32 +286,25 @@ public abstract class SloContext<T> where T : IDisposable
                 },
                 { "$payload_double", YdbValue.MakeDouble(Random.Shared.NextDouble()) },
                 { "$payload_timestamp", YdbValue.MakeTimestamp(DateTime.Now) }
-            }, config.WriteTimeout, errorsGauge);
+            }, config.WriteTimeout, errorsTotal);
     }
 
     protected abstract Task<T> CreateClient(Config config);
 
-    private async Task<(int, StatusCode)> Select(T client, RunConfig config, Gauge? errorsGauge = null)
+    private async Task<(int, StatusCode)> Select(T client, RunConfig config, Counter? errorsTotal = null)
     {
         var (attempts, code, _) = await Select(client,
             $"""
              DECLARE $id AS Int32;
              SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
-             FROM `{config.TableName}` WHERE id = $id AND hash = Digest::NumericHash($id)
+             FROM `{config.ResourcePathYdb}` WHERE id = $id AND hash = Digest::NumericHash($id)
              """,
             new Dictionary<string, YdbValue>
             {
                 { "$id", YdbValue.MakeInt32(Random.Shared.Next(_maxId)) }
-            }, config.ReadTimeout, errorsGauge);
+            }, config.ReadTimeout, errorsTotal);
 
         return (attempts, code);
-    }
-
-    private async Task MetricReset(string promPgwEndpoint)
-    {
-        var deleteUri = $"{promPgwEndpoint}/job/{Job}";
-        using var httpClient = new HttpClient();
-        await httpClient.DeleteAsync(deleteUri);
     }
 }
 
