@@ -131,7 +131,6 @@ public abstract class SloContext<T> where T : IDisposable
         }
 
         await prometheus.StopAsync();
-        // await MetricReset(promPgwEndpoint);
 
         Logger.LogInformation("Run task is finished");
         return;
@@ -247,13 +246,6 @@ public abstract class SloContext<T> where T : IDisposable
             });
         }
     }
-
-    // private async Task MetricReset(string promPgwEndpoint)
-    // {
-    //     var deleteUri = $"{promPgwEndpoint}/job/workload-{Job}";
-    //     using var httpClient = new HttpClient();
-    //     await httpClient.DeleteAsync(deleteUri);
-    // }
 
     // return attempt count & StatusCode operation
     protected abstract Task<(int, StatusCode)> Upsert(T client, string upsertSql,
