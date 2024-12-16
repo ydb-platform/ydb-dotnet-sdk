@@ -9,8 +9,6 @@ public class DriverConfig
     public string Database { get; }
     public ICredentialsProvider Credentials { get; }
     public X509Certificate? CustomServerCertificate { get; }
-    public TimeSpan DefaultTransportTimeout { get; }
-    public TimeSpan DefaultStreamingTransportTimeout { get; }
 
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
@@ -19,15 +17,11 @@ public class DriverConfig
         string endpoint,
         string database,
         ICredentialsProvider? credentials = null,
-        TimeSpan? defaultTransportTimeout = null,
-        TimeSpan? defaultStreamingTransportTimeout = null,
         X509Certificate? customServerCertificate = null)
     {
         Endpoint = FormatEndpoint(endpoint);
         Database = database;
         Credentials = credentials ?? new AnonymousProvider();
-        DefaultTransportTimeout = defaultTransportTimeout ?? TimeSpan.FromMinutes(1);
-        DefaultStreamingTransportTimeout = defaultStreamingTransportTimeout ?? TimeSpan.FromMinutes(10);
         CustomServerCertificate = customServerCertificate;
     }
 
