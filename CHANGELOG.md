@@ -1,3 +1,6 @@
+- Writer client for YDB topics
+- Fix: delete default timeout grpc.deadline 
+
 ## v0.9.0-rc1
 - Topic Writer updated release candidate:
   * Do not send messages that have a timeout by cancelToken.

@@ -69,7 +69,7 @@ public abstract class BaseDriver : IDriver
             using var call = callInvoker.AsyncUnaryCall(
                 method: method,
                 host: null,
-                options: GetCallOptions(settings, false),
+                options: GetCallOptions(settings),
                 request: request
             );
 
@@ -98,7 +98,7 @@ public abstract class BaseDriver : IDriver
         var call = callInvoker.AsyncServerStreamingCall(
             method: method,
             host: null,
-            options: GetCallOptions(settings, true),
+            options: GetCallOptions(settings),
             request: request);
 
         return new ServerStream<TResponse>(call, e => { OnRpcError(endpoint, e); });
@@ -116,7 +116,7 @@ public abstract class BaseDriver : IDriver
         var call = callInvoker.AsyncDuplexStreamingCall(
             method: method,
             host: null,
-            options: GetCallOptions(settings, true));
+            options: GetCallOptions(settings));
 
         return new BidirectionalStream<TRequest, TResponse>(call, e => { OnRpcError(endpoint, e); });
     }
@@ -125,7 +125,7 @@ public abstract class BaseDriver : IDriver
 
     protected abstract void OnRpcError(string endpoint, RpcException e);
 
-    protected CallOptions GetCallOptions(GrpcRequestSettings settings, bool streaming)
+    protected CallOptions GetCallOptions(GrpcRequestSettings settings)
     {
         var meta = new Grpc.Core.Metadata
         {
@@ -143,22 +143,13 @@ public abstract class BaseDriver : IDriver
             meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
         }
 
-        var transportTimeout = streaming
-            ? Config.DefaultStreamingTransportTimeout
-            : Config.DefaultTransportTimeout;
-
-        if (settings.TransportTimeout != null)
-        {
-            transportTimeout = settings.TransportTimeout.Value;
-        }
-
         var options = new CallOptions(
             headers: meta
         );
 
-        if (transportTimeout != TimeSpan.Zero)
+        if (settings.TransportTimeout != TimeSpan.Zero)
         {
-            options = options.WithDeadline(DateTime.UtcNow + transportTimeout);
+            options = options.WithDeadline(DateTime.UtcNow + settings.TransportTimeout);
         }
 
         return options;

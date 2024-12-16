@@ -12,12 +12,8 @@ LAST_TAG=$(git tag | tail -n 1);
 MAJOR=$(echo $LAST_TAG | sed -E 's/v([0-9]+)\..*/\1/');
 MINOR=$(echo $LAST_TAG | sed -E 's/v[0-9]+\.([0-9]+)\..*/\1/');
 PATCH=$(echo $LAST_TAG | sed -E 's/v[0-9]+\.[0-9]+\.([0-9]+)-rc[0-9]+/\1/');
-RC=0;
+RC=$(git tag | grep "v$MAJOR.$MINOR.$PATCH-rc" | wc -l | xargs || true);
 
-if [ "$RELEASE_CANDIDATE" = true ]
-then
-  RC=$(git tag | grep "v$MAJOR.$MINOR.$PATCH-rc" | wc -l | xargs || true); 
-fi  
 if [ "$VERSION_CHANGE" = "MINOR" ] && [ $RC = 0 ]
 then
   MINOR=$((MINOR+1));
