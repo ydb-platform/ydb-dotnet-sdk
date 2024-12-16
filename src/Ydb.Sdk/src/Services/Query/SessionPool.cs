@@ -74,27 +74,31 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                         // ReSharper disable once InvertIf
                         if (!session.IsActive)
                         {
-                            Logger.LogWarning("Session[{SessionId}] is deactivated", session.SessionId);
+                            Logger.LogWarning("Session[{SessionId}] is deactivated. Reason: {Status}",
+                                session.SessionId, sessionStateStatus);
 
                             return;
                         }
                     }
 
+                    Logger.LogDebug("Session[{SessionId}]: Attached stream is closed", session.SessionId);
+
                     // attach stream is closed
                 }
-                catch (Driver.TransportException)
+                catch (Driver.TransportException e)
                 {
+                    Logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", session.SessionId);
                 }
             }
-            catch (Exception e)
+            catch (Driver.TransportException e)
             {
+                Logger.LogError(e, "Transport error on attach session");
+
                 completeTask.SetException(e);
             }
             finally
             {
                 session.IsActive = false;
-
-                Logger.LogTrace("Session[{SessionId}]: Attached stream is closed", session.SessionId);
             }
         });
 
