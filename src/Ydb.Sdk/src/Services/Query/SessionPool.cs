@@ -92,8 +92,6 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             }
             catch (Driver.TransportException e)
             {
-                Logger.LogError(e, "Transport error on attach session");
-
                 completeTask.SetException(e);
             }
             finally
