@@ -75,13 +75,6 @@ public sealed class YdbCommand : DbCommand
         }
     }
 
-    /// <summary>
-    /// The time to wait (in seconds) while trying to execute a command before terminating the attempt and generating an error.
-    /// Set to zero for infinity.
-    /// </summary>
-    /// <value>
-    /// The time (in seconds) to wait for the command to execute. The default value is 30 seconds.
-    /// </value>
     public override int CommandTimeout
     {
         get => _timeout;
@@ -96,7 +89,7 @@ public sealed class YdbCommand : DbCommand
         }
     }
 
-    private int _timeout = 30;
+    private int _timeout;
 
     public override CommandType CommandType { get; set; } = CommandType.Text;
     public override UpdateRowSource UpdatedRowSource { get; set; }
