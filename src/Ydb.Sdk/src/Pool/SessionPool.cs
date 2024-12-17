@@ -208,6 +208,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 public abstract class SessionBase<T> where T : SessionBase<T>
 {
     private readonly SessionPool<T> _sessionPool;
+    private readonly ILogger _logger;
 
     public string SessionId { get; }
 
@@ -215,18 +216,27 @@ public abstract class SessionBase<T> where T : SessionBase<T>
 
     internal volatile bool IsActive = true;
 
-    internal SessionBase(SessionPool<T> sessionPool, string sessionId, long nodeId)
+    internal SessionBase(SessionPool<T> sessionPool, string sessionId, long nodeId, ILogger logger)
     {
         _sessionPool = sessionPool;
         SessionId = sessionId;
         NodeId = nodeId;
+        _logger = logger;
     }
 
     internal void OnStatus(Status status)
     {
-        if (status.StatusCode is StatusCode.BadSession or StatusCode.SessionBusy or StatusCode.InternalError
-            or StatusCode.ClientTransportTimeout or StatusCode.Unavailable or StatusCode.ClientTransportUnavailable)
+        // ReSharper disable once InvertIf
+        if (status.StatusCode is
+            StatusCode.BadSession or
+            StatusCode.SessionBusy or
+            StatusCode.InternalError or
+            StatusCode.ClientTransportTimeout or
+            StatusCode.Unavailable or
+            StatusCode.ClientTransportUnavailable)
         {
+            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason: {Status}", SessionId, status);
+
             IsActive = false;
         }
     }

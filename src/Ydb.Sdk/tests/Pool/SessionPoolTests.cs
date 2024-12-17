@@ -1,4 +1,5 @@
 using Google.Protobuf.Collections;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Ydb.Issue;
@@ -106,7 +107,8 @@ internal class TestSessionPool : SessionPool<TestSession>
 
 public class TestSession : SessionBase<TestSession>
 {
-    internal TestSession(SessionPool<TestSession> sessionPool) : base(sessionPool, "0", 0)
+    internal TestSession(SessionPool<TestSession> sessionPool)
+        : base(sessionPool, "0", 0, Utils.GetLoggerFactory().CreateLogger<TestSession>())
     {
     }
 }
