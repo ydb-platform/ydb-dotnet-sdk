@@ -1,3 +1,4 @@
+## v0.9.2
 - Fixed bug: delete deadline grpc timeout on AttachStream
 
 ## v0.9.1
