@@ -14,6 +14,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
     {
         TransportTimeout = TimeSpan.FromMinutes(2)
     };
+
     private static readonly GrpcRequestSettings AttachSessionSettings = new();
 
     private readonly Driver _driver;
