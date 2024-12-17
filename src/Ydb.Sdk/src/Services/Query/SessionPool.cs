@@ -22,12 +22,14 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
     private readonly Driver _driver;
     private readonly bool _disposingDriver;
+    private readonly ILogger<Session> _loggerSession;
 
     internal SessionPool(Driver driver, int? maxSessionPool = null, bool disposingDriver = false)
         : base(driver.LoggerFactory.CreateLogger<SessionPool>(), maxSessionPool)
     {
         _driver = driver;
         _disposingDriver = disposingDriver;
+        _loggerSession = driver.LoggerFactory.CreateLogger<Session>();
     }
 
     protected override async Task<Session> CreateSession()
@@ -35,13 +37,11 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         var response = await _driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest,
             CreateSessionSettings);
 
-        var status = Status.FromProto(response.Status, response.Issues);
-
-        status.EnsureSuccess();
+        Status.FromProto(response.Status, response.Issues).EnsureSuccess();
 
         TaskCompletionSource<Status> completeTask = new();
 
-        var session = new Session(_driver, this, response.SessionId, response.NodeId);
+        var session = new Session(_driver, this, response.SessionId, response.NodeId, _loggerSession);
 
         _ = Task.Run(async () =>
         {
@@ -74,27 +74,26 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                         // ReSharper disable once InvertIf
                         if (!session.IsActive)
                         {
-                            Logger.LogWarning("Session[{SessionId}] is deactivated", session.SessionId);
-
                             return;
                         }
                     }
 
+                    Logger.LogDebug("Session[{SessionId}]: Attached stream is closed", session.SessionId);
+
                     // attach stream is closed
                 }
-                catch (Driver.TransportException)
+                catch (Driver.TransportException e)
                 {
+                    Logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", session.SessionId);
                 }
             }
-            catch (Exception e)
+            catch (Driver.TransportException e)
             {
                 completeTask.SetException(e);
             }
             finally
             {
                 session.IsActive = false;
-
-                Logger.LogTrace("Session[{SessionId}]: Attached stream is closed", session.SessionId);
             }
         });
 
@@ -134,8 +133,13 @@ internal class Session : SessionBase<Session>
 {
     private readonly Driver _driver;
 
-    internal Session(Driver driver, SessionPool<Session> sessionPool, string sessionId, long nodeId)
-        : base(sessionPool, sessionId, nodeId)
+    internal Session(
+        Driver driver,
+        SessionPool<Session> sessionPool,
+        string sessionId,
+        long nodeId,
+        ILogger<Session> logger
+    ) : base(sessionPool, sessionId, nodeId, logger)
     {
         _driver = driver;
     }

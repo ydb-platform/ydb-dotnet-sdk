@@ -47,7 +47,13 @@ public static class Utils
     internal static ILoggerFactory GetLoggerFactory()
     {
         return new ServiceCollection()
-            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Debug))
+            .AddLogging(configure =>
+            {
+                configure.AddConsole().SetMinimumLevel(LogLevel.Information);
+                configure.AddFilter("Ydb.Sdk.Ado", LogLevel.Debug);
+                configure.AddFilter("Ydb.Sdk.Services.Query", LogLevel.Debug);
+                configure.AddFilter("Ydb.Sdk.Services.Topic", LogLevel.Debug);
+            })
             .BuildServiceProvider()
             .GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
     }
