@@ -11,7 +11,7 @@ fi;
 LAST_TAG=$(git tag | tail -n 1);
 MAJOR=$(echo $LAST_TAG | sed -E 's/v([0-9]+)\..*/\1/');
 MINOR=$(echo $LAST_TAG | sed -E 's/v[0-9]+\.([0-9]+)\..*/\1/');
-PATCH=$(echo $LAST_TAG | sed -E 's/v[0-9]+\.[0-9]+\.([0-9]+)-rc[0-9]+/\1/');
+PATCH=$(echo $LAST_TAG | sed -E 's/v[0-9]+\.[0-9]+\.([0-9]+)($|-rc[0-9]+)/\1/');
 RC=0;
 
 if [ "$RELEASE_CANDIDATE" = true ]
