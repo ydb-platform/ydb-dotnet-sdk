@@ -1,9 +1,11 @@
+- Fixed bug: delete deadline grpc timeout on AttachStream
+
 ## v0.9.1
 - Update log level on AttachStream
 
 ## v0.9.0
 - Writer client for YDB topics
-- Fix: delete default timeout grpc.deadline 
+- Fixed bug: delete default timeout grpc.deadline 
 
 ## v0.9.0-rc1
 - Topic Writer updated release candidate:
