@@ -1,3 +1,4 @@
+## v0.9.1
 - Update log level on AttachStream
 
 ## v0.9.0
