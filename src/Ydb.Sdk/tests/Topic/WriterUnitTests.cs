@@ -1,7 +1,6 @@
 using Grpc.Core;
 using Moq;
 using Xunit;
-using Xunit.Abstractions;
 using Ydb.Issue;
 using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Writer;
@@ -15,13 +14,11 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 
 public class WriterUnitTests
 {
-    private readonly ITestOutputHelper _testOutputHelper;
     private readonly Mock<IDriver> _mockIDriver = new();
     private readonly Mock<WriterStream> _mockStream = new();
 
-    public WriterUnitTests(ITestOutputHelper testOutputHelper)
+    public WriterUnitTests()
     {
-        _testOutputHelper = testOutputHelper;
         _mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
             It.IsAny<GrpcRequestSettings>())
@@ -316,68 +313,6 @@ public class WriterUnitTests
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Once);
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Once);
     }
-
-    // [Fact]
-    // public async Task WriteAsyncStress_WhenBufferIsOverflow_ThrowException()
-    // {
-    //     const int countBatchSendingSize = 1000;
-    //     const int batchTasksSize = 100;
-    //     const int bufferSize = 100;
-    //     const int messageSize = sizeof(int);
-    //
-    //     Assert.True(batchTasksSize > bufferSize / 4);
-    //     Assert.True(bufferSize % 4 == 0);
-    //
-    //     var taskSource = new TaskCompletionSource<bool>();
-    //     _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
-    //         .Returns(Task.CompletedTask);
-    //     _mockStream.SetupSequence(stream => stream.MoveNextAsync())
-    //         .Returns(new ValueTask<bool>(true))
-    //         .Returns(new ValueTask<bool>(taskSource.Task));
-    //     using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic")
-    //     {
-    //         ProducerId = "producerId",
-    //         BufferMaxSize = bufferSize /* bytes */
-    //     }.Build();
-    //
-    //     for (var attempt = 0; attempt < countBatchSendingSize; attempt++)
-    //     {
-    //         _testOutputHelper.WriteLine($"Processing attempt {attempt}");
-    //         var cts = new CancellationTokenSource();
-    //         cts.CancelAfter(10);
-    //
-    //         var tasks = new List<Task<WriteResult>>();
-    //
-    //         for (var i = 0; i < batchTasksSize; i++)
-    //         {
-    //             tasks.Add(writer.WriteAsync(100, cts.Token));
-    //         }
-    //
-    //         var countErrorCancel = 0;
-    //         var countErrorBuffer = 0;
-    //         foreach (var task in tasks)
-    //         {
-    //             try
-    //             {
-    //                 await task;
-    //             }
-    //             catch (WriterException e)
-    //             {
-    //                 if ("Buffer overflow" == e.Message)
-    //                 {
-    //                     countErrorBuffer++;
-    //                 }
-    //                 else
-    //                 {
-    //                     countErrorCancel++;
-    //                 }
-    //             }
-    //         }
-    //
-    //         Assert.Equal(bufferSize / messageSize, countErrorCancel);
-    //         Assert.Equal(batchTasksSize - bufferSize / messageSize, countErrorBuffer);
-    //     }
-    // }
 
     /*
      * Performed invocations:
