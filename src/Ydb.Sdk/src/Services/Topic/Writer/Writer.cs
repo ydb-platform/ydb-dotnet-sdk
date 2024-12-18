@@ -26,9 +26,9 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly CancellationTokenSource _disposeCts = new();
 
     private volatile TaskCompletionSource _tcsWakeUp = new();
+    private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
     private volatile IWriteSession _session = null!;
-
-    private int _limitBufferMaxSize;
+    private volatile int _limitBufferMaxSize;
 
     internal Writer(IDriver driver, WriterConfig config, ISerializer<TValue> serializer)
     {
@@ -79,7 +79,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
         while (true)
         {
-            var curLimitBufferSize = Volatile.Read(ref _limitBufferMaxSize);
+            var curLimitBufferSize = _limitBufferMaxSize;
 
             if ( // sending one biggest message anyway
                 (curLimitBufferSize == _config.BufferMaxSize && data.Length > curLimitBufferSize)
@@ -98,15 +98,15 @@ internal class Writer<TValue> : IWriter<TValue>
                 continue;
             }
 
-            _logger.LogWarning(
-                "Buffer overflow: the data size [{DataLength}] exceeds the current buffer limit ({CurLimitBufferSize}) [BufferMaxSize = {BufferMaxSize}]",
-                data.Length, curLimitBufferSize, _config.BufferMaxSize);
+            // _logger.LogWarning(
+            //     "Buffer overflow: the data size [{DataLength}] exceeds the current buffer limit ({CurLimitBufferSize}) [BufferMaxSize = {BufferMaxSize}]",
+            //     data.Length, curLimitBufferSize, _config.BufferMaxSize);
 
             try
             {
-                await Task.Delay(_config.BufferOverflowRetryTimeoutMs, cancellationToken);
+                await WaitBufferAvailable(cancellationToken);
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException)
             {
                 throw new WriterException("Buffer overflow");
             }
@@ -121,24 +121,46 @@ internal class Writer<TValue> : IWriter<TValue>
         finally
         {
             Interlocked.Add(ref _limitBufferMaxSize, data.Length);
+
+            _tcsBufferAvailableEvent.TrySetResult();
         }
+    }
+
+    private async Task WaitBufferAvailable(CancellationToken cancellationToken)
+    {
+        var tcsBufferAvailableEvent = _tcsBufferAvailableEvent;
+
+        await tcsBufferAvailableEvent.Task.WaitAsync(cancellationToken);
+
+        Interlocked.CompareExchange(
+            ref _tcsBufferAvailableEvent,
+            new TaskCompletionSource(),
+            tcsBufferAvailableEvent
+        );
     }
 
     private async void StartWriteWorker()
     {
         await Initialize();
 
-        while (!_disposeCts.Token.IsCancellationRequested)
+        try
         {
-            await _tcsWakeUp.Task;
-            _tcsWakeUp = new TaskCompletionSource();
-
-            if (_toSendBuffer.IsEmpty)
+            while (!_disposeCts.Token.IsCancellationRequested)
             {
-                continue;
-            }
+                await _tcsWakeUp.Task.WaitAsync(_disposeCts.Token);
+                _tcsWakeUp = new TaskCompletionSource();
 
-            await _session.Write(_toSendBuffer);
+                if (_toSendBuffer.IsEmpty)
+                {
+                    continue;
+                }
+
+                await _session.Write(_toSendBuffer);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("WriteWorker[{WriterConfig}] is disposed", _config);
         }
     }
 

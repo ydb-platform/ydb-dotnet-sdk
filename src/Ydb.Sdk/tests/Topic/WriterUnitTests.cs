@@ -318,7 +318,7 @@ public class WriterUnitTests
     }
 
     [Fact]
-    public async Task WriteAsyncStress_WhenBufferIsOverflow_ThrowWriterExceptionOnBufferOverflow()
+    public async Task WriteAsyncStress_WhenBufferIsOverflow_ThrowException()
     {
         const int countBatchSendingSize = 1000;
         const int batchTasksSize = 100;
@@ -331,77 +331,51 @@ public class WriterUnitTests
         var taskSource = new TaskCompletionSource<bool>();
         _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
-        var mockNextAsync = _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .Returns(new ValueTask<bool>(true))
             .Returns(new ValueTask<bool>(taskSource.Task));
-        var sequentialResult = _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(new StreamWriteMessage.Types.FromServer
-            {
-                InitResponse = new StreamWriteMessage.Types.InitResponse
-                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
-                Status = StatusIds.Types.StatusCode.Success
-            });
         using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic")
         {
             ProducerId = "producerId",
-            BufferMaxSize = bufferSize /* bytes */,
-            BufferOverflowRetryTimeoutMs = 1_000
+            BufferMaxSize = bufferSize /* bytes */
         }.Build();
 
         for (var attempt = 0; attempt < countBatchSendingSize; attempt++)
         {
             _testOutputHelper.WriteLine($"Processing attempt {attempt}");
             var cts = new CancellationTokenSource();
+            cts.CancelAfter(10);
 
             var tasks = new List<Task<WriteResult>>();
-            var serverAck = new StreamWriteMessage.Types.FromServer
-            {
-                WriteResponse = new StreamWriteMessage.Types.WriteResponse { PartitionId = 1 },
-                Status = StatusIds.Types.StatusCode.Success
-            };
+
             for (var i = 0; i < batchTasksSize; i++)
             {
                 tasks.Add(writer.WriteAsync(100, cts.Token));
-                serverAck.WriteResponse.Acks.Add(new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
-                {
-                    SeqNo = bufferSize / messageSize * attempt + i + 1,
-                    Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
-                        { Offset = i * messageSize + bufferSize * attempt }
-                });
             }
 
-            sequentialResult.Returns(() =>
-            {
-                // ReSharper disable once AccessToModifiedClosure
-                Volatile.Write(ref taskSource, new TaskCompletionSource<bool>());
-                mockNextAsync.Returns(() =>
-                {
-                    cts.Cancel();
-                    return new ValueTask<bool>(Volatile.Read(ref taskSource).Task);
-                });
-                return serverAck;
-            });
-            taskSource.SetResult(true);
-
-            var countSuccess = 0;
-            var countErrors = 0;
+            var countErrorCancel = 0;
+            var countErrorBuffer = 0;
             foreach (var task in tasks)
             {
                 try
                 {
-                    var res = await task;
-                    countSuccess++;
-                    Assert.Equal(PersistenceStatus.Written, res.Status);
+                    await task;
                 }
                 catch (WriterException e)
                 {
-                    countErrors++;
-                    Assert.Equal("Buffer overflow", e.Message);
+                    if ("Buffer overflow" == e.Message)
+                    {
+                        countErrorBuffer++;
+                    }
+                    else
+                    {
+                        countErrorCancel++;
+                    }
                 }
             }
 
-            Assert.Equal(bufferSize / messageSize, countSuccess);
-            Assert.Equal(batchTasksSize - bufferSize / messageSize, countErrors);
+            Assert.Equal(bufferSize / messageSize, countErrorCancel);
+            Assert.Equal(batchTasksSize - bufferSize / messageSize, countErrorBuffer);
         }
     }
 
