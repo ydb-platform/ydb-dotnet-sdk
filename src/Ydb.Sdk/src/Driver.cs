@@ -155,7 +155,7 @@ public sealed class Driver : BaseDriver
 
         var resultProto = response.Operation.Result.Unpack<ListEndpointsResult>();
 
-        Logger.LogInformation(
+        Logger.LogDebug(
             "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, sdk info: {SdkInfo}",
             resultProto.Endpoints.Count, resultProto.SelfLocation, _sdkInfo);
 
