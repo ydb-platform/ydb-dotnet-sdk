@@ -17,6 +17,7 @@ internal static class SqlParser
 
         var newYql = new StringBuilder();
         var paramNames = new List<string>();
+        var foundParamNames = new HashSet<string>();
 
         var prevToken = 0;
 
@@ -114,7 +115,12 @@ internal static class SqlParser
 
                     var originalParamName = $"${sql[prevToken .. curToken]}";
 
-                    paramNames.Add(originalParamName);
+                    if (!foundParamNames.Contains(originalParamName))
+                    {
+                        paramNames.Add(originalParamName);
+                    }
+
+                    foundParamNames.Add(originalParamName);
                     newYql.Append(originalParamName);
                     prevToken = curToken;
 

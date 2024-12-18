@@ -241,4 +241,13 @@ SELECT $text;
 SELECT $param; SELECT $p2; SELECT $p_3;", sql);
         Assert.Equal(new[] { "$param", "$p2", "$p_3" }, paramNames);
     }
+
+    [Fact]
+    public void Parse_WhenRepeatedOneParam_ReturnThisParamInParamNames()
+    {
+        var (sql, paramNames) = SqlParser.Parse("SELECT @a, @a, @a;");
+
+        Assert.Equal("SELECT $a, $a, $a;", sql);
+        Assert.Equal(new[] { "$a" }, paramNames);
+    }
 }
