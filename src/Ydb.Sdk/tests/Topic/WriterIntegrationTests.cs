@@ -62,7 +62,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
         await topicClient.CreateTopic(topicSettings);
 
         using var writer = new WriterBuilder<int>(_driver, topicName)
-            { ProducerId = "producerId", BufferMaxSize = 2000 }.Build();
+            { ProducerId = "producerId" }.Build();
 
         var tasks = new List<Task>();
         for (var i = 0; i < messageCount; i++)
