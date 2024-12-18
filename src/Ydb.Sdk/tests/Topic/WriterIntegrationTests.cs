@@ -61,7 +61,8 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
         topicSettings.Consumers.Add(new Consumer("Consumer"));
         await topicClient.CreateTopic(topicSettings);
 
-        using var writer = new WriterBuilder<int>(_driver, topicName) { ProducerId = "producerId" }.Build();
+        using var writer = new WriterBuilder<int>(_driver, topicName)
+            { ProducerId = "producerId", BufferMaxSize = 2000 }.Build();
 
         var tasks = new List<Task>();
         for (var i = 0; i < messageCount; i++)

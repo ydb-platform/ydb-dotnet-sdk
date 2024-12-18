@@ -98,9 +98,9 @@ internal class Writer<TValue> : IWriter<TValue>
                 continue;
             }
 
-            // _logger.LogWarning(
-            //     "Buffer overflow: the data size [{DataLength}] exceeds the current buffer limit ({CurLimitBufferSize}) [BufferMaxSize = {BufferMaxSize}]",
-            //     data.Length, curLimitBufferSize, _config.BufferMaxSize);
+            _logger.LogWarning(
+                "Buffer overflow: the data size [{DataLength}] exceeds the current buffer limit ({CurLimitBufferSize}) [BufferMaxSize = {BufferMaxSize}]",
+                data.Length, curLimitBufferSize, _config.BufferMaxSize);
 
             try
             {
