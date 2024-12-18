@@ -11,7 +11,13 @@ public abstract class SloContext<T> where T : IDisposable
 {
     // ReSharper disable once StaticMemberInGenericType
     protected static readonly ILoggerFactory Factory =
-        LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+        LoggerFactory.Create(builder =>
+        {
+            builder.AddConsole().SetMinimumLevel(LogLevel.Information);
+            builder.AddFilter("Ydb.Sdk.Ado", LogLevel.Debug);
+            builder.AddFilter("Ydb.Sdk.Services.Query", LogLevel.Debug);
+            builder.AddFilter("Ydb.Sdk.Services.Topic", LogLevel.Debug);
+        });
 
     protected static readonly ILogger Logger = Factory.CreateLogger<SloContext<T>>();
 

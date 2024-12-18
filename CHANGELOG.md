@@ -1,3 +1,7 @@
+- Fixed bug in Topic Writer: worker is stopped by disposeCts
+- Fixed bug in sql parser ADO.NET: deduplication declare param in YQL query 
+- Deleted property BufferOverflowRetryTimeoutMs
+
 ## v0.9.2
 - Fixed bug: delete deadline grpc timeout on AttachStream
 
