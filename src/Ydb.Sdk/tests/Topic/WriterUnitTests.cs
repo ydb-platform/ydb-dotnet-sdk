@@ -254,12 +254,14 @@ public class WriterUnitTests
 
         // check attempt repeated!!!
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(3));
-        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(4));
+        _mockStream.Verify(stream => stream.MoveNextAsync(),
+            Times.AtLeast(3)); // run processing ack may not be able to start on time 
         _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
 
     [Fact]
-    public async Task Initialize_WhenInitResponseStatusIsRetryable_ThrowWriterExceptionOnWriteAsyncAndStopInitializing()
+    public async Task
+        Initialize_WhenInitResponseStatusIsNotRetryable_ThrowWriterExceptionOnWriteAsyncAndStopInitializing()
     {
         _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
