@@ -31,7 +31,7 @@ public sealed class YdbCommand : DbCommand
     {
         await using var dataReader = await ExecuteReaderAsync(cancellationToken);
 
-        while (await dataReader.ReadAsync(cancellationToken))
+        while (await dataReader.NextResultAsync(cancellationToken))
         {
         }
 
@@ -51,7 +51,7 @@ public sealed class YdbCommand : DbCommand
             ? dataReader.IsDBNull(0) ? null : dataReader.GetValue(0)
             : null;
 
-        while (await dataReader.ReadAsync(cancellationToken))
+        while (await dataReader.NextResultAsync(cancellationToken))
         {
         }
 
