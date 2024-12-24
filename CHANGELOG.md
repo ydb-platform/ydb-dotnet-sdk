@@ -1,3 +1,10 @@
+- Do not pessimize the node on Grpc.Core.StatusCode.Cancelled.
+- Dispose of WriterSession using dispose CancellationToken.
+- BidirectionalStream is internal class.
+- Move Metadata class to Ydb.Sdk.Services.Topic.
+- Fixed memory leak CancellationTokenRegistration.
+- Cancel writing tasks after disposing of Writer.
+
 ## v0.9.3
 - Fixed bug in Topic Writer: worker is stopped by disposeCts
 - Fixed bug in sql parser ADO.NET: deduplication declare param in YQL query 
