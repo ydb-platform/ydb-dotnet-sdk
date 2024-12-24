@@ -97,6 +97,12 @@ public sealed class Driver : BaseDriver
     protected override void OnRpcError(string endpoint, RpcException e)
     {
         Logger.LogWarning("gRPC error [{Status}] on channel {Endpoint}", e.Status, endpoint);
+
+        if (e.StatusCode == Grpc.Core.StatusCode.Cancelled)
+        {
+            return;
+        }
+        
         if (!_endpointPool.PessimizeEndpoint(endpoint))
         {
             return;

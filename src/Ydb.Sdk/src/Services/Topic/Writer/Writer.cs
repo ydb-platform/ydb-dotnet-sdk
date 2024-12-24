@@ -21,6 +21,7 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
+    private readonly GrpcRequestSettings _writerGrpcRequestSettings;
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeCts = new();
@@ -37,6 +38,7 @@ internal class Writer<TValue> : IWriter<TValue>
         _logger = driver.LoggerFactory.CreateLogger<Writer<TValue>>();
         _serializer = serializer;
         _limitBufferMaxSize = config.BufferMaxSize;
+        _writerGrpcRequestSettings = new GrpcRequestSettings { CancellationToken = _disposeCts.Token };
 
         StartWriteWorker();
     }
@@ -49,10 +51,14 @@ internal class Writer<TValue> : IWriter<TValue>
     public async Task<WriteResult> WriteAsync(Message<TValue> message, CancellationToken cancellationToken)
     {
         TaskCompletionSource<WriteResult> tcs = new();
-        cancellationToken.Register(
+        await using var registrationUserCancellationTokenRegistration = cancellationToken.Register(
             () => tcs.TrySetException(
                 new WriterException("The write operation was canceled before it could be completed")
             ), useSynchronizationContext: false
+        );
+        await using var writerDisposedCancellationTokenRegistration = _disposeCts.Token.Register(
+            () => tcs.TrySetException(new WriterException($"Writer[{_config}] is disposed")),
+            useSynchronizationContext: false
         );
 
         byte[] data;
@@ -184,10 +190,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
             _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
 
-            var stream = _driver.BidirectionalStreamCall(
-                TopicService.StreamWriteMethod,
-                GrpcRequestSettings.DefaultInstance
-            );
+            var stream = _driver.BidirectionalStreamCall(TopicService.StreamWriteMethod, _writerGrpcRequestSettings);
 
             var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
             if (_config.ProducerId != null)
@@ -304,22 +307,15 @@ internal class Writer<TValue> : IWriter<TValue>
 
     public void Dispose()
     {
-        try
-        {
-            _disposeCts.Cancel();
+        _disposeCts.Cancel();
 
-            _session.Dispose();
-        }
-        finally
-        {
-            _disposeCts.Dispose();
-        }
+        _session = new NotStartedWriterSession("Writer is disposed");
     }
 }
 
 internal record MessageSending(MessageData MessageData, TaskCompletionSource<WriteResult> Tcs);
 
-internal interface IWriteSession : IDisposable
+internal interface IWriteSession
 {
     Task Write(ConcurrentQueue<MessageSending> toSendBuffer);
 }
@@ -347,11 +343,6 @@ internal class NotStartedWriterSession : IWriteSession
 
         return Task.CompletedTask;
     }
-
-    public void Dispose()
-    {
-        // Do nothing 
-    }
 }
 
 internal class DummyWriterSession : IWriteSession
@@ -359,10 +350,6 @@ internal class DummyWriterSession : IWriteSession
     internal static readonly DummyWriterSession Instance = new();
 
     private DummyWriterSession()
-    {
-    }
-
-    public void Dispose()
     {
     }
 
@@ -505,14 +492,14 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
         catch (Driver.TransportException e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
-
-            ReconnectSession();
-
-            return;
         }
-
-        Logger.LogWarning("WriterSession[{SessionId}]: stream is closed", SessionId);
-
-        ReconnectSession();
+        catch (ObjectDisposedException)
+        {
+            Logger.LogWarning("WriterSession[{SessionId}]: stream is closed", SessionId);
+        }
+        finally
+        {
+            ReconnectSession();
+        }
     }
 }

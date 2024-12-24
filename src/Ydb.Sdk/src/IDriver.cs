@@ -144,7 +144,8 @@ public abstract class BaseDriver : IDriver
         }
 
         var options = new CallOptions(
-            headers: meta
+            headers: meta,
+            cancellationToken: settings.CancellationToken
         );
 
         if (settings.TransportTimeout != TimeSpan.Zero)
@@ -213,7 +214,7 @@ public sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyn
     }
 }
 
-public class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<TRequest, TResponse>
+internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<TRequest, TResponse>
 {
     private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;
