@@ -1,17 +1,32 @@
-using Google.Protobuf;
-using Google.Protobuf.Collections;
-using Google.Protobuf.WellKnownTypes;
+using System.Collections.Immutable;
 using Ydb.Topic;
 
 namespace Ydb.Sdk.Services.Topic.Reader;
 
 public class Message<TValue>
 {
-    internal Message(TValue data, string topic, string producerId)
+    private readonly OffsetsRange _offsetsRange;
+    private readonly ReaderSession _readerSession;
+
+    internal Message(
+        TValue data,
+        string topic,
+        long partitionId,
+        string producerId,
+        DateTime createdAt,
+        ImmutableArray<Metadata> metadata,
+        OffsetsRange offsetsRange,
+        ReaderSession readerSession)
     {
         Data = data;
         Topic = topic;
+        PartitionId = partitionId;
         ProducerId = producerId;
+        CreatedAt = createdAt;
+        Metadata = metadata;
+
+        _offsetsRange = offsetsRange;
+        _readerSession = readerSession;
     }
 
     public TValue Data { get; }
@@ -21,25 +36,46 @@ public class Message<TValue>
     /// </summary>
     public string Topic { get; }
 
+    public long PartitionId { get; }
+
     public string ProducerId { get; }
 
-    public Task Commit()
+    public DateTime CreatedAt { get; }
+
+    public ImmutableArray<Metadata> Metadata { get; }
+
+    internal long Start => _offsetsRange.Start;
+    internal long End => _offsetsRange.End;
+
+    public Task CommitAsync()
     {
-        throw new NotImplementedException();
+        return _readerSession.CommitOffsetRange(_offsetsRange);
     }
 }
 
 public class BatchMessage<TValue>
 {
-    public BatchMessage(IReadOnlyCollection<Message<TValue>> batch)
+    private readonly ReaderSession _readerSession;
+
+    public ImmutableArray<Message<TValue>> Batch { get; }
+
+    internal BatchMessage(
+        ImmutableArray<Message<TValue>> batch,
+        ReaderSession readerSession)
     {
         Batch = batch;
+        _readerSession = readerSession;
     }
 
-    public IReadOnlyCollection<Message<TValue>> Batch { get; }
-
-    public Task Commit()
+    public Task CommitBatchAsync()
     {
-        throw new NotImplementedException();
+        if (Batch.Length == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var offsetsRange = new OffsetsRange { Start = Batch.First().Start, End = Batch.Last().End };
+
+        return _readerSession.CommitOffsetRange(offsetsRange);
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Net.Sockets;
 using System.Threading.Channels;
 using Google.Protobuf;
@@ -42,14 +43,54 @@ internal class Reader<TValue> : IReader<TValue>
         _ = Initialize();
     }
 
-    public ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
+    public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken))
+        {
+            if (_receivedMessagesChannel.Reader.TryPeek(out var batchInternalMessage))
+            {
+                if (batchInternalMessage.InternalMessages.TryDequeue(out var message))
+                {
+                    return message.ToPublicMessage(_deserializer, batchInternalMessage.ReaderSession);
+                }
+
+                if (!_receivedMessagesChannel.Reader.TryRead(out _))
+                {
+                    throw new ReaderException("Detect race condition on ReadAsync operation");
+                }
+            }
+            else
+            {
+                throw new ReaderException("Detect race condition on ReadAsync operation");
+            }
+        }
+
+        throw new ReaderException("Reader is disposed");
     }
 
-    public ValueTask<IReadOnlyList<Message<TValue>>> ReadBatchAsync(CancellationToken cancellationToken = default)
+    public async ValueTask<BatchMessage<TValue>> ReadBatchAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken))
+        {
+            if (!_receivedMessagesChannel.Reader.TryRead(out var batchInternalMessage))
+            {
+                throw new ReaderException("Detect race condition on ReadBatchAsync operation");
+            }
+
+            if (batchInternalMessage.InternalMessages.Count == 0)
+            {
+                continue;
+            }
+
+            return new BatchMessage<TValue>(
+                batchInternalMessage.InternalMessages
+                    .Select(message => message.ToPublicMessage(_deserializer, batchInternalMessage.ReaderSession))
+                    .ToImmutableArray(),
+                batchInternalMessage.ReaderSession
+            );
+        }
+
+        throw new ReaderException("Reader is disposed");
     }
 
     private async Task Initialize()
@@ -177,7 +218,7 @@ internal class Reader<TValue> : IReader<TValue>
         try
         {
             _disposeCts.Cancel();
-            
+
             _readerSession?.Dispose();
         }
         finally
@@ -212,6 +253,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
 {
     private readonly ChannelWriter<InternalBatchMessage> _channelWriter;
     private readonly ConcurrentDictionary<long, PartitionSession> _partitionSessions = new();
+    private readonly ConcurrentQueue<TaskCompletionSource> _tcsOnCommitedMessages = new();
 
     private long _memoryUsageMaxBytes;
 
@@ -258,6 +300,11 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
         }
     }
 
+    public async Task CommitOffsetRange(OffsetsRange offsetsRange)
+    {
+        throw new NotImplementedException();
+    }
+
     private async Task HandleReadResponse()
     {
         var readResponse = Stream.Current.ReadResponse;
@@ -277,20 +324,25 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                 {
                     foreach (var messageData in batch.MessageData)
                     {
-                        internalBatchMessages.Enqueue(
-                            new InternalMessage(
-                                messageData.Data,
-                                new OffsetsRange { Start = partitionSession.CommitedOffset, End = messageData.Offset },
-                                messageData.CreatedAt,
-                                messageData.MetadataItems
-                            ));
+                        internalBatchMessages.Enqueue(new InternalMessage(
+                            data: messageData.Data,
+                            topic: partitionSession.TopicPath,
+                            partitionId: partitionSession.PartitionId,
+                            producerId: batch.ProducerId,
+                            offsetsRange: new OffsetsRange
+                                { Start = partitionSession.CommitedOffset, End = messageData.Offset },
+                            createdAt: messageData.CreatedAt,
+                            metadataItems: messageData.MetadataItems
+                        ));
 
                         partitionSession.CommitedOffset = endOffsetBatch = messageData.Offset + 1;
                     }
                 }
 
                 await _channelWriter.WriteAsync(new InternalBatchMessage(
-                    new OffsetsRange { Start = startOffsetBatch, End = endOffsetBatch }, internalBatchMessages)
+                    new OffsetsRange { Start = startOffsetBatch, End = endOffsetBatch },
+                    internalBatchMessages,
+                    this)
                 );
             }
             else
@@ -348,34 +400,66 @@ internal class InternalMessage
 {
     public InternalMessage(
         ByteString data,
+        string topic,
+        long partitionId,
+        string producerId,
         OffsetsRange offsetsRange,
-        Timestamp createAt,
+        Timestamp createdAt,
         RepeatedField<MetadataItem> metadataItems)
     {
         Data = data;
+        Topic = topic;
+        PartitionId = partitionId;
+        ProducerId = producerId;
         OffsetsRange = offsetsRange;
-        CreateAt = createAt;
+        CreatedAt = createdAt;
         MetadataItems = metadataItems;
     }
 
-    public ByteString Data { get; }
+    private ByteString Data { get; }
 
-    public OffsetsRange OffsetsRange { get; }
+    private string Topic { get; }
 
-    public Timestamp CreateAt { get; }
+    private long PartitionId { get; }
 
-    public RepeatedField<MetadataItem> MetadataItems { get; }
+    private string ProducerId { get; }
+
+    private OffsetsRange OffsetsRange { get; }
+
+    private Timestamp CreatedAt { get; }
+
+    private RepeatedField<MetadataItem> MetadataItems { get; }
+
+    internal Message<TValue> ToPublicMessage<TValue>(IDeserializer<TValue> deserializer, ReaderSession readerSession)
+    {
+        return new Message<TValue>(
+            data: deserializer.Deserialize(Data.ToByteArray()),
+            topic: Topic,
+            partitionId: PartitionId,
+            producerId: ProducerId,
+            createdAt: CreatedAt.ToDateTime(),
+            metadata: MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray())).ToImmutableArray(),
+            offsetsRange: OffsetsRange,
+            readerSession: readerSession
+        );
+    }
 }
 
 internal class InternalBatchMessage
 {
-    public InternalBatchMessage(OffsetsRange batchOffsetsRange, Queue<InternalMessage> internalMessages)
+    public InternalBatchMessage(
+        OffsetsRange batchOffsetsRange,
+        Queue<InternalMessage> internalMessages,
+        ReaderSession readerSession)
     {
         BatchOffsetsRange = batchOffsetsRange;
         InternalMessages = internalMessages;
+        ReaderSession = readerSession;
     }
 
-    public OffsetsRange BatchOffsetsRange { get; }
+    internal OffsetsRange BatchOffsetsRange { get; }
 
-    public Queue<InternalMessage> InternalMessages { get; }
+    internal Queue<InternalMessage> InternalMessages { get; }
+
+    internal ReaderSession ReaderSession { get; }
 }
