@@ -102,7 +102,7 @@ public sealed class Driver : BaseDriver
         {
             return;
         }
-        
+
         if (!_endpointPool.PessimizeEndpoint(endpoint))
         {
             return;
