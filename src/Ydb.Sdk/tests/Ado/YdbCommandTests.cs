@@ -283,7 +283,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.True(ydbDataReader.NextResult());
         Assert.True(ydbDataReader.NextResult());
         Assert.False(ydbDataReader.NextResult());
-        
+
         ydbDataReader.Close();
         Assert.True(ydbDataReader.IsClosed);
     }
