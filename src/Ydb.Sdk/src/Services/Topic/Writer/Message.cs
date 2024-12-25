@@ -13,5 +13,3 @@ public class Message<TValue>
 
     public List<Metadata> Metadata { get; } = new();
 }
-
-public record Metadata(string Key, byte[] Value);

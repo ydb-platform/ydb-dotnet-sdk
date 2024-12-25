@@ -704,6 +704,23 @@ public class WriterUnitTests
         _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
 
+    [Fact]
+    public async Task WriteAsync_WhenWriterIsDisposed_ThrowWriterException()
+    {
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true);
+        SetupReadOneWriteAckMessage();
+
+        var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic")
+            { ProducerId = "producerId" }.Build();
+        writer.Dispose();
+
+        Assert.Equal("Writer[TopicPath: /topic, ProducerId: producerId, Codec: Raw] is disposed",
+            (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"))).Message);
+    }
+
     private void SetupReadOneWriteAckMessage()
     {
         _mockStream.SetupSequence(stream => stream.Current)
