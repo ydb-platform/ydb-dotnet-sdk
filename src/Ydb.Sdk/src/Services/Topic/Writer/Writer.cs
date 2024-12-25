@@ -488,14 +488,12 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                     _inFlightMessages.TryDequeue(out _); // Dequeue 
                 }
             }
+
+            Logger.LogWarning("WriterSession[{SessionId}]: stream is closed", SessionId);
         }
         catch (Driver.TransportException e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
-        }
-        catch (ObjectDisposedException)
-        {
-            Logger.LogWarning("WriterSession[{SessionId}]: stream is closed", SessionId);
         }
         finally
         {
