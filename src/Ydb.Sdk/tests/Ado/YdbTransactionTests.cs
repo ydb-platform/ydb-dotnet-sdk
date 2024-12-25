@@ -137,6 +137,11 @@ public class YdbTransactionTests : IAsyncLifetime
         Assert.Equal("A command is already in progress: SELECT 1; SELECT 2; SELECT 3",
             Assert.Throws<YdbOperationInProgressException>(() => ydbTransaction.Rollback()).Message);
 
+        Assert.True(dbDataReader.NextResult());
+        Assert.True(dbDataReader.NextResult());
+        Assert.True(dbDataReader.NextResult());
+        Assert.False(dbDataReader.NextResult());
+
         dbDataReader.Close(); // Close stream
         ydbTransaction.Commit();
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",

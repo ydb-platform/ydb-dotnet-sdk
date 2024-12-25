@@ -280,6 +280,10 @@ SELECT Key, Value FROM AS_TABLE($new_data);
 
         Assert.Equal("A command is already in progress: SELECT 1; SELECT 1;",
             Assert.Throws<YdbOperationInProgressException>(() => dbCommand.ExecuteReader()).Message);
+        Assert.True(ydbDataReader.NextResult());
+        Assert.True(ydbDataReader.NextResult());
+        Assert.False(ydbDataReader.NextResult());
+
         ydbDataReader.Close();
         Assert.True(ydbDataReader.IsClosed);
     }
@@ -331,6 +335,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal(checkBuffer, bufferChars);
 
         Assert.Equal('a', ydbDataReader.GetChar(0));
+        Assert.False(ydbDataReader.Read());
     }
 
     [Fact]
@@ -377,6 +382,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         checkBuffer[6] = (byte)'b';
         checkBuffer[7] = (byte)'a';
         Assert.Equal(checkBuffer, bufferChars);
+        Assert.False(ydbDataReader.Read());
     }
 
     [Fact]
