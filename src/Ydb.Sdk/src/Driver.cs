@@ -98,7 +98,7 @@ public sealed class Driver : BaseDriver
     {
         Logger.LogWarning("gRPC error [{Status}] on channel {Endpoint}", e.Status, endpoint);
 
-        if (e.StatusCode == Grpc.Core.StatusCode.Cancelled)
+        if (e.StatusCode is Grpc.Core.StatusCode.Cancelled or Grpc.Core.StatusCode.DeadlineExceeded)
         {
             return;
         }

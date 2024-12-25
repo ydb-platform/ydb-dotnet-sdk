@@ -1,4 +1,4 @@
-- Do not pessimize the node on Grpc.Core.StatusCode.Cancelled.
+- Do not pessimize the node on Grpc.Core.StatusCode.Cancelled and Grpc.Core.StatusCode.DeadlineExceeded.
 - Dispose of WriterSession using dispose CancellationToken.
 - BidirectionalStream is internal class.
 - Move Metadata class to Ydb.Sdk.Services.Topic.
