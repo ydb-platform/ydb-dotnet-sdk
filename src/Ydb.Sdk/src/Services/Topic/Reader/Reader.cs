@@ -21,17 +21,25 @@ using ReaderStream = IBidirectionalStream<
 
 internal class Reader<TValue> : IReader<TValue>
 {
+    private const double FreeBufferCoefficient = 0.2;
+
     private readonly IDriver _driver;
     private readonly ReaderConfig _config;
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ILogger _logger;
+    private readonly GrpcRequestSettings _readerGrpcRequestSettings;
 
     private readonly Channel<InternalBatchMessage> _receivedMessagesChannel =
-        Channel.CreateUnbounded<InternalBatchMessage>();
+        Channel.CreateUnbounded<InternalBatchMessage>(
+            new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = true,
+                AllowSynchronousContinuations = false
+            }
+        );
 
     private readonly CancellationTokenSource _disposeCts = new();
-
-    private volatile ReaderSession? _readerSession;
 
     internal Reader(IDriver driver, ReaderConfig config, IDeserializer<TValue> deserializer)
     {
@@ -39,6 +47,7 @@ internal class Reader<TValue> : IReader<TValue>
         _config = config;
         _deserializer = deserializer;
         _logger = driver.LoggerFactory.CreateLogger<Reader<TValue>>();
+        _readerGrpcRequestSettings = new GrpcRequestSettings { CancellationToken = _disposeCts.Token };
 
         _ = Initialize();
     }
@@ -49,6 +58,11 @@ internal class Reader<TValue> : IReader<TValue>
         {
             if (_receivedMessagesChannel.Reader.TryPeek(out var batchInternalMessage))
             {
+                if (!batchInternalMessage.ReaderSession.IsActive)
+                {
+                    continue;
+                }
+
                 if (batchInternalMessage.InternalMessages.TryDequeue(out var message))
                 {
                     return message.ToPublicMessage(_deserializer, batchInternalMessage.ReaderSession);
@@ -77,7 +91,7 @@ internal class Reader<TValue> : IReader<TValue>
                 throw new ReaderException("Detect race condition on ReadBatchAsync operation");
             }
 
-            if (batchInternalMessage.InternalMessages.Count == 0)
+            if (batchInternalMessage.InternalMessages.Count == 0 || !batchInternalMessage.ReaderSession.IsActive)
             {
                 continue;
             }
@@ -106,10 +120,7 @@ internal class Reader<TValue> : IReader<TValue>
 
             _logger.LogInformation("Reader session initialization started. ReaderConfig: {ReaderConfig}", _config);
 
-            var stream = _driver.BidirectionalStreamCall(
-                TopicService.StreamReadMethod,
-                GrpcRequestSettings.DefaultInstance
-            );
+            var stream = _driver.BidirectionalStreamCall(TopicService.StreamReadMethod, _readerGrpcRequestSettings);
 
             var initRequest = new StreamReadMessage.Types.InitRequest();
             if (_config.ConsumerName != null)
@@ -187,15 +198,14 @@ internal class Reader<TValue> : IReader<TValue>
                 ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = _config.MemoryUsageMaxBytes }
             });
 
-            _readerSession = new ReaderSession(
+            new ReaderSession(
                 _config,
                 stream,
                 initResponse.SessionId,
                 Initialize,
                 _logger,
                 _receivedMessagesChannel.Writer
-            );
-            _readerSession.RunProcessingTopic();
+            ).RunProcessingTopic();
         }
         catch (Driver.TransportException e)
         {
@@ -205,21 +215,11 @@ internal class Reader<TValue> : IReader<TValue>
         }
     }
 
-    private void ClearChannelAsync()
-    {
-        while (_receivedMessagesChannel.Reader.TryRead(out _))
-        {
-            /* Do nothing, simple read */
-        }
-    }
-
     public void Dispose()
     {
         try
         {
             _disposeCts.Cancel();
-
-            _readerSession?.Dispose();
         }
         finally
         {
@@ -252,8 +252,17 @@ internal class Reader<TValue> : IReader<TValue>
 internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer>
 {
     private readonly ChannelWriter<InternalBatchMessage> _channelWriter;
+
+    private readonly Channel<CommitSending> _channelCommitSending = Channel.CreateUnbounded<CommitSending>(
+        new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = true,
+            AllowSynchronousContinuations = false
+        }
+    );
+
     private readonly ConcurrentDictionary<long, PartitionSession> _partitionSessions = new();
-    private readonly ConcurrentQueue<TaskCompletionSource> _tcsOnCommitedMessages = new();
 
     private long _memoryUsageMaxBytes;
 
@@ -277,6 +286,27 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
 
     public async void RunProcessingTopic()
     {
+        _ = Task.Run(async () =>
+        {
+            await foreach (var commitSending in _channelCommitSending.Reader.ReadAllAsync())
+            {
+                await Stream.Write(new MessageFromClient
+                {
+                    CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
+                    {
+                        CommitOffsets =
+                        {
+                            new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
+                            {
+                                Offsets = { commitSending.OffsetsRange },
+                                PartitionSessionId = commitSending.PartitionSessionId
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
         while (await Stream.MoveNextAsync())
         {
             switch (Stream.Current.ServerMessageCase)
@@ -285,9 +315,24 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                     await HandleReadResponse();
                     break;
                 case ServerMessageOneofCase.StartPartitionSessionRequest:
-                    HandleStartPartitionSessionRequest();
+                    var startPartitionSessionRequest = Stream.Current.StartPartitionSessionRequest;
+                    var partitionSession = startPartitionSessionRequest.PartitionSession;
+
+                    _partitionSessions[partitionSession.PartitionSessionId] = new PartitionSession(
+                        partitionSession.PartitionSessionId,
+                        partitionSession.Path,
+                        partitionSession.PartitionId,
+                        startPartitionSessionRequest.CommittedOffset
+                    );
                     break;
                 case ServerMessageOneofCase.CommitOffsetResponse:
+                    // foreach (var offset in Stream.Current.CommitOffsetResponse.PartitionsCommittedOffsets)
+                    // {
+                    //     offset.CommittedOffset;
+                    //     offset.PartitionSessionId;
+                    // }
+
+                    break;
                 case ServerMessageOneofCase.PartitionSessionStatusResponse:
                 case ServerMessageOneofCase.UpdateTokenResponse:
                 case ServerMessageOneofCase.StopPartitionSessionRequest:
@@ -300,9 +345,13 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
         }
     }
 
-    public async Task CommitOffsetRange(OffsetsRange offsetsRange)
+    public async Task<TopicPartitionOffset> CommitOffsetRange(OffsetsRange offsetsRange, long partitionId)
     {
-        throw new NotImplementedException();
+        var tcsCommit = new TaskCompletionSource<TopicPartitionOffset>();
+
+        await _channelCommitSending.Writer.WriteAsync(new CommitSending(offsetsRange, partitionId, tcsCommit));
+
+        return await tcsCommit.Task;
     }
 
     private async Task HandleReadResponse()
@@ -310,40 +359,50 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
         var readResponse = Stream.Current.ReadResponse;
 
         Interlocked.Add(ref _memoryUsageMaxBytes, -readResponse.BytesSize);
-
+        var readResponsesInBatch = 0;
+        
         foreach (var partition in readResponse.PartitionData)
         {
             var partitionSessionId = partition.PartitionSessionId;
 
             if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession))
             {
-                var internalBatchMessages = new Queue<InternalMessage>();
                 var startOffsetBatch = partitionSession.CommitedOffset;
                 var endOffsetBatch = partitionSession.CommitedOffset;
-                foreach (var batch in partition.Batches)
+                
+                var batch = partition.Batches;
+                for (var i = 0; i < partition.Batches.Count; i++)
                 {
-                    foreach (var messageData in batch.MessageData)
+                    var internalBatchMessages = new Queue<InternalMessage>();
+                    var actuallySummaryBatchPayload = 0;
+
+                    foreach (var messageData in batch[i].MessageData)
                     {
+                        actuallySummaryBatchPayload += messageData.Data.Length;
+                        
                         internalBatchMessages.Enqueue(new InternalMessage(
                             data: messageData.Data,
                             topic: partitionSession.TopicPath,
                             partitionId: partitionSession.PartitionId,
-                            producerId: batch.ProducerId,
+                            producerId: batch[i].ProducerId,
                             offsetsRange: new OffsetsRange
                                 { Start = partitionSession.CommitedOffset, End = messageData.Offset },
                             createdAt: messageData.CreatedAt,
-                            metadataItems: messageData.MetadataItems
+                            metadataItems: messageData.MetadataItems,
+                            0
                         ));
 
                         partitionSession.CommitedOffset = endOffsetBatch = messageData.Offset + 1;
                     }
-                }
 
-                await _channelWriter.WriteAsync(new InternalBatchMessage(
-                    new OffsetsRange { Start = startOffsetBatch, End = endOffsetBatch },
-                    internalBatchMessages,
-                    this)
-                );
+                    readResponsesInBatch -= actuallySummaryBatchPayload;
+
+                    await _channelWriter.WriteAsync(new InternalBatchMessage(
+                        new OffsetsRange { Start = startOffsetBatch, End = endOffsetBatch },
+                        internalBatchMessages,
+                        this)
+                    );
+                }
             }
             else
             {
@@ -353,19 +412,6 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                     SessionId, partitionSessionId);
             }
         }
-    }
-
-    private void HandleStartPartitionSessionRequest()
-    {
-        var startPartitionSessionRequest = Stream.Current.StartPartitionSessionRequest;
-        var partitionSession = startPartitionSessionRequest.PartitionSession;
-
-        _partitionSessions[partitionSession.PartitionSessionId] = new PartitionSession(
-            partitionSession.PartitionSessionId,
-            partitionSession.Path,
-            partitionSession.PartitionId,
-            startPartitionSessionRequest.CommittedOffset
-        );
     }
 
     private class PartitionSession
@@ -394,72 +440,4 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
         // Each offset up to and including (committed_offset - 1) was fully processed.
         internal long CommitedOffset { get; set; }
     }
-}
-
-internal class InternalMessage
-{
-    public InternalMessage(
-        ByteString data,
-        string topic,
-        long partitionId,
-        string producerId,
-        OffsetsRange offsetsRange,
-        Timestamp createdAt,
-        RepeatedField<MetadataItem> metadataItems)
-    {
-        Data = data;
-        Topic = topic;
-        PartitionId = partitionId;
-        ProducerId = producerId;
-        OffsetsRange = offsetsRange;
-        CreatedAt = createdAt;
-        MetadataItems = metadataItems;
-    }
-
-    private ByteString Data { get; }
-
-    private string Topic { get; }
-
-    private long PartitionId { get; }
-
-    private string ProducerId { get; }
-
-    private OffsetsRange OffsetsRange { get; }
-
-    private Timestamp CreatedAt { get; }
-
-    private RepeatedField<MetadataItem> MetadataItems { get; }
-
-    internal Message<TValue> ToPublicMessage<TValue>(IDeserializer<TValue> deserializer, ReaderSession readerSession)
-    {
-        return new Message<TValue>(
-            data: deserializer.Deserialize(Data.ToByteArray()),
-            topic: Topic,
-            partitionId: PartitionId,
-            producerId: ProducerId,
-            createdAt: CreatedAt.ToDateTime(),
-            metadata: MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray())).ToImmutableArray(),
-            offsetsRange: OffsetsRange,
-            readerSession: readerSession
-        );
-    }
-}
-
-internal class InternalBatchMessage
-{
-    public InternalBatchMessage(
-        OffsetsRange batchOffsetsRange,
-        Queue<InternalMessage> internalMessages,
-        ReaderSession readerSession)
-    {
-        BatchOffsetsRange = batchOffsetsRange;
-        InternalMessages = internalMessages;
-        ReaderSession = readerSession;
-    }
-
-    internal OffsetsRange BatchOffsetsRange { get; }
-
-    internal Queue<InternalMessage> InternalMessages { get; }
-
-    internal ReaderSession ReaderSession { get; }
 }

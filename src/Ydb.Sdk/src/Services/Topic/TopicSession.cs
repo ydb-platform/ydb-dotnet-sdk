@@ -26,6 +26,8 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
         _initialize = initialize;
     }
 
+    internal bool IsActive => Volatile.Read(ref _isActive) == 1;
+
     protected async void ReconnectSession()
     {
         if (Interlocked.CompareExchange(ref _isActive, 0, 1) == 0)
