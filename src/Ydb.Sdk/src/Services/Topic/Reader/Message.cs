@@ -49,7 +49,7 @@ public class Message<TValue>
 
     public Task CommitAsync()
     {
-        return _readerSession.CommitOffsetRange(_offsetsRange);
+        return _readerSession.CommitOffsetRange(_offsetsRange, PartitionId);
     }
 }
 
@@ -76,6 +76,19 @@ public class BatchMessage<TValue>
 
         var offsetsRange = new OffsetsRange { Start = Batch.First().Start, End = Batch.Last().End };
 
-        return _readerSession.CommitOffsetRange(offsetsRange);
+        return _readerSession.CommitOffsetRange(offsetsRange, Batch.First().PartitionId);
     }
+}
+
+public class TopicPartitionOffset
+{
+    public TopicPartitionOffset(long offset, long partitionId)
+    {
+        Offset = offset;
+        PartitionId = partitionId;
+    }
+
+    public long Offset { get; }
+
+    public long PartitionId { get; }
 }
