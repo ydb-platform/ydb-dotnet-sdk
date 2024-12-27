@@ -288,22 +288,29 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
     {
         _ = Task.Run(async () =>
         {
-            await foreach (var commitSending in _channelCommitSending.Reader.ReadAllAsync())
+            try
             {
-                await Stream.Write(new MessageFromClient
+                await foreach (var commitSending in _channelCommitSending.Reader.ReadAllAsync())
                 {
-                    CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
+                    await Stream.Write(new MessageFromClient
                     {
-                        CommitOffsets =
+                        CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
                         {
-                            new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
+                            CommitOffsets =
                             {
-                                Offsets = { commitSending.OffsetsRange },
-                                PartitionSessionId = commitSending.PartitionSessionId
+                                new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
+                                {
+                                    Offsets = { commitSending.OffsetsRange },
+                                    PartitionSessionId = commitSending.PartitionSessionId
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                }
+            }
+            catch (Driver.TransportException e)
+            {
+                ReconnectSession();
             }
         });
 
