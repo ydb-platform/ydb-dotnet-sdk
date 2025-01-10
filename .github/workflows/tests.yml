@@ -47,7 +47,7 @@ jobs:
             dotnet-target-framework: net7.0
     services:
       ydb:
-        image: cr.yandex/yc/yandex-docker-local-ydb:${{ matrix.ydb-version }}
+        image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
         ports:
           - 2135:2135
           - 2136:2136
@@ -87,7 +87,7 @@ jobs:
             dotnet-target-framework: net7.0
     services:
       ydb:
-        image: cr.yandex/yc/yandex-docker-local-ydb:${{ matrix.ydb-version }}
+        image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
         ports:
           - 2135:2135
           - 2136:2136
@@ -127,7 +127,7 @@ jobs:
             dotnet-target-framework: net7.0
     services:
       ydb:
-        image: cr.yandex/yc/yandex-docker-local-ydb:${{ matrix.ydb-version }}
+        image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
         ports:
           - 2135:2135
           - 2136:2136
@@ -168,7 +168,7 @@ jobs:
             dotnet-target-framework: net7.0
     services:
       ydb:
-        image: cr.yandex/yc/yandex-docker-local-ydb:${{ matrix.ydb-version }}
+        image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
         ports:
           - 2135:2135
           - 2136:2136
