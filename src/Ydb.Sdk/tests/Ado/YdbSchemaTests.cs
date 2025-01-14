@@ -1,3 +1,4 @@
+using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado;
 
@@ -31,7 +32,7 @@ CREATE TABLE `{table3}` (a Int32, b Int32, PRIMARY KEY(a));
         var table = await ydbConnection.GetSchemaAsync("Tables", new[] { null, "TABLE" });
         Assert.Equal(3, table.Rows.Count);
 
-        foreach (System.Data.DataRow row in table.Rows)
+        foreach (DataRow row in table.Rows)
         {
             tableNames.Remove(row["table_name"].ToString()!);
         }
@@ -85,7 +86,7 @@ CREATE TABLE `{table3}` (a Int32, b Int32, PRIMARY KEY(a));
         var table = await ydbConnection.GetSchemaAsync("TablesWithStats", new[] { null, "TABLE" });
         Assert.Equal(3, table.Rows.Count);
 
-        foreach (System.Data.DataRow row in table.Rows)
+        foreach (DataRow row in table.Rows)
         {
             tableNames.Remove(row["table_name"].ToString()!);
 
