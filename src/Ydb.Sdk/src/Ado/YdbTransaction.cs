@@ -98,12 +98,16 @@ public sealed class YdbTransaction : DbTransaction
             {
                 Failed = true;
 
+                DbConnection.Session.OnStatus(status);
+
                 throw new YdbException(status);
             }
         }
         catch (Driver.TransportException e)
         {
             Failed = true;
+
+            DbConnection.Session.OnStatus(e.Status);
 
             throw new YdbException(e.Status);
         }

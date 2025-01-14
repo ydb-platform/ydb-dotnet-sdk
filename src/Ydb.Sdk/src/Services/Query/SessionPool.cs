@@ -2,7 +2,16 @@ using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Pool;
+using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
+using Ydb.Table;
+using Ydb.Table.V1;
+using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
+using CreateSessionRequest = Ydb.Query.CreateSessionRequest;
+using DeleteSessionRequest = Ydb.Query.DeleteSessionRequest;
+using DescribeTableResponse = Ydb.Table.DescribeTableResponse;
+using RollbackTransactionRequest = Ydb.Query.RollbackTransactionRequest;
+using TransactionControl = Ydb.Query.TransactionControl;
 
 namespace Ydb.Sdk.Services.Query;
 
@@ -14,8 +23,6 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
     {
         TransportTimeout = TimeSpan.FromMinutes(2)
     };
-
-    private static readonly GrpcRequestSettings AttachSessionSettings = new();
 
     private readonly Driver _driver;
     private readonly bool _disposingDriver;
@@ -31,21 +38,30 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
     protected override async Task<Session> CreateSession()
     {
-        var response = await _driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest,
-            CreateSessionSettings);
+        var response = await _driver.UnaryCall(
+            QueryService.CreateSessionMethod,
+            CreateSessionRequest,
+            CreateSessionSettings
+        );
 
         Status.FromProto(response.Status, response.Issues).EnsureSuccess();
 
         TaskCompletionSource<Status> completeTask = new();
 
-        var session = new Session(_driver, this, response.SessionId, response.NodeId, _loggerSession);
+        var sessionId = response.SessionId;
+        var nodeId = response.NodeId;
+
+        var session = new Session(_driver, this, sessionId, nodeId, _loggerSession);
 
         _ = Task.Run(async () =>
         {
             try
             {
-                await using var stream = _driver.ServerStreamCall(QueryService.AttachSessionMethod,
-                    new AttachSessionRequest { SessionId = session.SessionId }, AttachSessionSettings);
+                await using var stream = _driver.ServerStreamCall(
+                    QueryService.AttachSessionMethod,
+                    new AttachSessionRequest { SessionId = sessionId },
+                    new GrpcRequestSettings { NodeId = nodeId }
+                );
 
                 if (!await stream.MoveNextAsync())
                 {
@@ -64,7 +80,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                         var sessionStateStatus = Status.FromProto(sessionState.Status, sessionState.Issues);
 
                         Logger.LogDebug("Session[{SessionId}] was received the status from the attach stream: {Status}",
-                            session.SessionId, sessionStateStatus);
+                            sessionId, sessionStateStatus);
 
                         session.OnStatus(sessionStateStatus);
 
@@ -75,13 +91,13 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                         }
                     }
 
-                    Logger.LogDebug("Session[{SessionId}]: Attached stream is closed", session.SessionId);
+                    Logger.LogDebug("Session[{SessionId}]: Attached stream is closed", sessionId);
 
                     // attach stream is closed
                 }
                 catch (Driver.TransportException e)
                 {
-                    Logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", session.SessionId);
+                    Logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", sessionId);
                 }
             }
             catch (Driver.TransportException e)
@@ -99,27 +115,6 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         return session;
     }
 
-    protected override async Task<Status> DeleteSession(Session session)
-    {
-        try
-        {
-            var settings = new GrpcRequestSettings
-            {
-                TransportTimeout = TimeSpan.FromSeconds(5),
-                NodeId = session.NodeId
-            };
-
-            var deleteSessionResponse = await _driver.UnaryCall(QueryService.DeleteSessionMethod,
-                new DeleteSessionRequest { SessionId = session.SessionId }, settings);
-
-            return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
-        }
-        catch (Driver.TransportException e)
-        {
-            return e.Status;
-        }
-    }
-
     protected override ValueTask DisposeDriver()
     {
         return _disposingDriver ? _driver.DisposeAsync() : default;
@@ -128,7 +123,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
 internal class Session : SessionBase<Session>
 {
-    private readonly Driver _driver;
+    internal Driver Driver { get; }
 
     internal Session(
         Driver driver,
@@ -138,7 +133,7 @@ internal class Session : SessionBase<Session>
         ILogger<Session> logger
     ) : base(sessionPool, sessionId, nodeId, logger)
     {
-        _driver = driver;
+        Driver = driver;
     }
 
     internal ServerStream<ExecuteQueryResponsePart> ExecuteQuery(
@@ -148,8 +143,7 @@ internal class Session : SessionBase<Session>
         TransactionControl? txControl)
     {
         parameters ??= new Dictionary<string, YdbValue>();
-        settings ??= ExecuteQuerySettings.DefaultInstance;
-        settings.NodeId = NodeId;
+        settings = MakeGrpcRequestSettings(settings ?? new ExecuteQuerySettings());
 
         var request = new ExecuteQueryRequest
         {
@@ -162,36 +156,66 @@ internal class Session : SessionBase<Session>
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        return _driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
+        return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
     internal async Task<Status> CommitTransaction(string txId, GrpcRequestSettings? settings = null)
     {
-        settings ??= GrpcRequestSettings.DefaultInstance;
-        settings.NodeId = NodeId;
+        settings = MakeGrpcRequestSettings(settings ?? new GrpcRequestSettings());
 
-        var response = await _driver.UnaryCall(QueryService.CommitTransactionMethod, new CommitTransactionRequest
-            { SessionId = SessionId, TxId = txId }, settings);
+        var response = await Driver.UnaryCall(QueryService.CommitTransactionMethod,
+            new CommitTransactionRequest { SessionId = SessionId, TxId = txId }, settings);
 
-        var status = Status.FromProto(response.Status, response.Issues);
-
-        OnStatus(status);
-
-        return status;
+        return Status.FromProto(response.Status, response.Issues);
     }
 
     internal async Task<Status> RollbackTransaction(string txId, GrpcRequestSettings? settings = null)
     {
-        settings ??= GrpcRequestSettings.DefaultInstance;
-        settings.NodeId = NodeId;
+        settings = MakeGrpcRequestSettings(settings ?? new GrpcRequestSettings());
 
-        var response = await _driver.UnaryCall(QueryService.RollbackTransactionMethod, new RollbackTransactionRequest
-            { SessionId = SessionId, TxId = txId }, settings);
+        var response = await Driver.UnaryCall(QueryService.RollbackTransactionMethod,
+            new RollbackTransactionRequest { SessionId = SessionId, TxId = txId }, settings);
 
-        var status = Status.FromProto(response.Status, response.Issues);
+        return Status.FromProto(response.Status, response.Issues);
+    }
 
-        OnStatus(status);
+    internal async Task<DescribeTableResponse> DescribeTable(string path, DescribeTableSettings? settings = null)
+    {
+        settings = MakeGrpcRequestSettings(settings ?? new DescribeTableSettings());
 
-        return status;
+        return await Driver.UnaryCall(
+            TableService.DescribeTableMethod,
+            new DescribeTableRequest
+            {
+                Path = path,
+                IncludeTableStats = settings.IncludeTableStats,
+                IncludePartitionStats = settings.IncludePartitionStats,
+                IncludeShardKeyBounds = settings.IncludeShardKeyBounds
+            },
+            settings
+        );
+    }
+
+    internal override async Task<Status> DeleteSession()
+    {
+        try
+        {
+            IsActive = false;
+
+            var settings = MakeGrpcRequestSettings(new GrpcRequestSettings
+                { TransportTimeout = TimeSpan.FromSeconds(5) });
+
+            var deleteSessionResponse = await Driver.UnaryCall(
+                QueryService.DeleteSessionMethod,
+                new DeleteSessionRequest { SessionId = SessionId },
+                settings
+            );
+
+            return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
+        }
+        catch (Driver.TransportException e)
+        {
+            return e.Status;
+        }
     }
 }

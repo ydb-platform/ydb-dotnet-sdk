@@ -11,7 +11,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
     private readonly YdbTransaction? _ydbTransaction;
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
-    private readonly Action<Status> _onStatus;
+    private readonly Action<Status> _onNotSuccessStatus;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -51,11 +51,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private YdbDataReader(
         IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
-        Action<Status> onStatus,
+        Action<Status> onNotSuccessStatus,
         YdbTransaction? ydbTransaction)
     {
         _stream = resultSetStream;
-        _onStatus = onStatus;
+        _onNotSuccessStatus = onNotSuccessStatus;
         _ydbTransaction = ydbTransaction;
     }
 
@@ -489,7 +489,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
                 var status = Status.FromProto(part.Status, _issueMessagesInStream);
 
-                _onStatus(status);
+                _onNotSuccessStatus(status);
 
                 throw new YdbException(status);
             }
@@ -515,7 +515,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         {
             OnFailReadStream();
 
-            _onStatus(e.Status);
+            _onNotSuccessStatus(e.Status);
 
             throw new YdbException(e.Status);
         }

@@ -43,8 +43,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         if (session != null) // not active
         {
             Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
-
-            _ = DeleteNotActiveSession(session);
         }
 
         try
@@ -61,8 +59,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     }
 
     protected abstract Task<TSession> CreateSession();
-
-    protected abstract Task<Status> DeleteSession(TSession session);
 
     // TODO Retry policy and may be move to SessionPool method
     internal async Task<T> ExecOnSession<T>(Func<TSession, Task<T>> onSession, RetrySettings? retrySettings = null)
@@ -138,7 +134,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             if (_disposed)
             {
-                await DeleteNotActiveSession(session);
+                await DeleteSession(session);
                 await TryDriverDispose(_size - 1);
 
                 return;
@@ -150,7 +146,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             }
             else
             {
-                _ = DeleteNotActiveSession(session);
+                _ = DeleteSession(session);
             }
         }
         finally
@@ -164,9 +160,9 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         _semaphore.Release();
     }
 
-    private Task DeleteNotActiveSession(TSession session)
+    private Task DeleteSession(TSession session)
     {
-        return DeleteSession(session).ContinueWith(s =>
+        return session.DeleteSession().ContinueWith(s =>
         {
             Logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
         });
@@ -184,7 +180,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         var tasks = new List<Task>();
         while (_idleSessions.TryDequeue(out var session)) // thread safe iteration
         {
-            tasks.Add(DeleteNotActiveSession(session));
+            tasks.Add(DeleteSession(session));
         }
 
         await Task.WhenAll(tasks);
@@ -209,10 +205,9 @@ public abstract class SessionBase<T> where T : SessionBase<T>
 {
     private readonly SessionPool<T> _sessionPool;
     private readonly ILogger _logger;
+    private readonly long _nodeId;
 
     public string SessionId { get; }
-
-    internal long NodeId { get; }
 
     internal volatile bool IsActive = true;
 
@@ -220,7 +215,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
     {
         _sessionPool = sessionPool;
         SessionId = sessionId;
-        NodeId = nodeId;
+        _nodeId = nodeId;
         _logger = logger;
     }
 
@@ -245,4 +240,12 @@ public abstract class SessionBase<T> where T : SessionBase<T>
     {
         return _sessionPool.ReleaseSession((T)this);
     }
+
+    internal TS MakeGrpcRequestSettings<TS>(TS settings) where TS : GrpcRequestSettings
+    {
+        settings.NodeId = _nodeId;
+        return settings;
+    }
+
+    internal abstract Task<Status> DeleteSession();
 }

@@ -98,11 +98,6 @@ internal class TestSessionPool : SessionPool<TestSession>
             return new TestSession(this);
         }))());
     }
-
-    protected override Task<Status> DeleteSession(TestSession session)
-    {
-        return Task.FromResult(Status.Success);
-    }
 }
 
 public class TestSession : SessionBase<TestSession>
@@ -110,5 +105,10 @@ public class TestSession : SessionBase<TestSession>
     internal TestSession(SessionPool<TestSession> sessionPool)
         : base(sessionPool, "0", 0, Utils.GetLoggerFactory().CreateLogger<TestSession>())
     {
+    }
+
+    internal override Task<Status> DeleteSession()
+    {
+        return Task.FromResult(new Status(StatusCode.Success));
     }
 }

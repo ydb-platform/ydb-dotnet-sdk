@@ -164,6 +164,39 @@ public sealed class YdbConnection : DbConnection
         return CreateDbCommand();
     }
 
+    public override DataTable GetSchema()
+    {
+        return GetSchemaAsync().GetAwaiter().GetResult();
+    }
+
+    public override DataTable GetSchema(string collectionName)
+    {
+        return GetSchemaAsync(collectionName).GetAwaiter().GetResult();
+    }
+
+    public override DataTable GetSchema(string collectionName, string?[] restrictionValues)
+    {
+        return GetSchemaAsync(collectionName, restrictionValues).GetAwaiter().GetResult();
+    }
+
+    public override Task<DataTable> GetSchemaAsync(CancellationToken cancellationToken = default)
+    {
+        return GetSchemaAsync("MetaDataCollections", cancellationToken);
+    }
+
+    public override Task<DataTable> GetSchemaAsync(string collectionName, CancellationToken cancellationToken = default)
+    {
+        return GetSchemaAsync(collectionName, new string[4], cancellationToken);
+    }
+
+    public override Task<DataTable> GetSchemaAsync(
+        string collectionName,
+        string?[] restrictionValues,
+        CancellationToken cancellationToken = default)
+    {
+        return YdbSchema.GetSchemaAsync(this, collectionName, restrictionValues, cancellationToken);
+    }
+
     internal void EnsureConnectionOpen()
     {
         if (ConnectionState == ConnectionState.Closed)
