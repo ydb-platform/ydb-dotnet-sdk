@@ -20,8 +20,6 @@ public enum Syntax
 
 public class ExecuteQuerySettings : GrpcRequestSettings
 {
-    internal new static readonly ExecuteQuerySettings DefaultInstance = new();
-
     public Syntax Syntax { get; set; } = Syntax.YqlV1;
     public bool ConcurrentResultSets { get; set; }
 }

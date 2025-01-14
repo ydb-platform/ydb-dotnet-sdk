@@ -1,3 +1,16 @@
+- Supported in ADO.NET GetSchema(Async). CollectionNames: 
+   * Tables
+   * TablesWithCollections
+   * DataSourceInformation
+   * MetaDataCollections
+   * Restrictions
+- Rename field _onStatus -> _onNotSuccessStatus in YdbDataReader
+- If session is not active, do not invoke DeleteNotActiveSession(session)
+- AttachStream: connect stream using NodeId
+- PoolManager: change pool properties on field
+- Delete *Settings.DefaultInstance because it's a singleton object that's changed by tasks when NodeId is set
+- DbConnection.Session.OnStatus(status) in YdbTransaction
+
 ## v0.9.4
 - Do not pessimize the node on Grpc.Core.StatusCode.Cancelled and Grpc.Core.StatusCode.DeadlineExceeded.
 - Dispose of WriterSession using dispose CancellationToken.
