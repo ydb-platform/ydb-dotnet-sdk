@@ -4,7 +4,6 @@ using Ydb.Scheme;
 using Ydb.Scheme.V1;
 using Ydb.Sdk.Services.Table;
 using Ydb.Table;
-using DeleteSessionRequest = Ydb.Query.DeleteSessionRequest;
 
 namespace Ydb.Sdk.Ado;
 
