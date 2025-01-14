@@ -162,7 +162,7 @@ internal static class YdbSchema
             {
                 ydbConnection.Session.OnStatus(status);
 
-                throw new YdbException("Error on DescribeTable", status);
+                throw new YdbException(status);
             }
 
             var describeRes = describeResponse.Operation.Result.Unpack<DescribeTableResult>();
