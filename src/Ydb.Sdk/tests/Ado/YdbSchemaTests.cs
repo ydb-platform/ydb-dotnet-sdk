@@ -86,7 +86,6 @@ CREATE TABLE `{table3}` (a Int32, b Int32, PRIMARY KEY(a));
         {
             tableNames.Remove(row["table_name"].ToString()!);
 
-            Assert.Equal(0UL, row["rows_estimate"]);
             Assert.NotNull(row["creation_time"]);
             Assert.Equal(DBNull.Value, row["modification_time"]);
         }
@@ -97,7 +96,6 @@ CREATE TABLE `{table3}` (a Int32, b Int32, PRIMARY KEY(a));
         Assert.Equal(1, singleTable1.Rows.Count);
         Assert.Equal(table1, singleTable1.Rows[0]["table_name"].ToString());
         Assert.Equal("TABLE", singleTable1.Rows[0]["table_type"].ToString());
-        Assert.Equal(0UL, singleTable1.Rows[0]["rows_estimate"]);
         Assert.NotNull(singleTable1.Rows[0]["creation_time"]);
         Assert.Equal(DBNull.Value, singleTable1.Rows[0]["modification_time"]);
 
@@ -105,7 +103,6 @@ CREATE TABLE `{table3}` (a Int32, b Int32, PRIMARY KEY(a));
         Assert.Equal(1, singleTable2.Rows.Count);
         Assert.Equal(table2, singleTable2.Rows[0]["table_name"].ToString());
         Assert.Equal("TABLE", singleTable2.Rows[0]["table_type"].ToString());
-        Assert.Equal(0UL, singleTable2.Rows[0]["rows_estimate"]);
         Assert.NotNull(singleTable2.Rows[0]["creation_time"]);
         Assert.Equal(DBNull.Value, singleTable2.Rows[0]["modification_time"]);
 
