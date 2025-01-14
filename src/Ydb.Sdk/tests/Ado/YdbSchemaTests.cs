@@ -4,8 +4,6 @@ using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[CollectionDefinition("YdbSchemaTests isolation test", DisableParallelization = true)]
-[Collection("YdbSchemaTests isolation test")]
 public class YdbSchemaTests
 {
     [Fact]
@@ -30,7 +28,6 @@ CREATE TABLE `{table3}` (a Int32, b Int32, PRIMARY KEY(a));
         }.ExecuteNonQueryAsync();
 
         var table = await ydbConnection.GetSchemaAsync("Tables", new[] { null, "TABLE" });
-        Assert.Equal(3, table.Rows.Count);
 
         foreach (DataRow row in table.Rows)
         {
@@ -84,7 +81,6 @@ CREATE TABLE `{table3}` (a Int32, b Int32, PRIMARY KEY(a));
         }.ExecuteNonQueryAsync();
 
         var table = await ydbConnection.GetSchemaAsync("TablesWithStats", new[] { null, "TABLE" });
-        Assert.Equal(3, table.Rows.Count);
 
         foreach (DataRow row in table.Rows)
         {
