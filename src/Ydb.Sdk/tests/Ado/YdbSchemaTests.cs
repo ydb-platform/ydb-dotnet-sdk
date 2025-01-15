@@ -86,8 +86,9 @@ CREATE TABLE `{table3}` (a Int32, b Int32, PRIMARY KEY(a));
         {
             tableNames.Remove(row["table_name"].ToString()!);
 
+            Assert.NotNull(row["rows_estimate"]);
             Assert.NotNull(row["creation_time"]);
-            Assert.Equal(DBNull.Value, row["modification_time"]);
+            Assert.NotNull(row["modification_time"]);
         }
 
         Assert.Empty(tableNames);
@@ -96,15 +97,17 @@ CREATE TABLE `{table3}` (a Int32, b Int32, PRIMARY KEY(a));
         Assert.Equal(1, singleTable1.Rows.Count);
         Assert.Equal(table1, singleTable1.Rows[0]["table_name"].ToString());
         Assert.Equal("TABLE", singleTable1.Rows[0]["table_type"].ToString());
+        Assert.NotNull(singleTable1.Rows[0]["rows_estimate"]);
         Assert.NotNull(singleTable1.Rows[0]["creation_time"]);
-        Assert.Equal(DBNull.Value, singleTable1.Rows[0]["modification_time"]);
+        Assert.NotNull(singleTable1.Rows[0]["modification_time"]);
 
         var singleTable2 = await ydbConnection.GetSchemaAsync("TablesWithStats", new[] { table2, null });
         Assert.Equal(1, singleTable2.Rows.Count);
         Assert.Equal(table2, singleTable2.Rows[0]["table_name"].ToString());
         Assert.Equal("TABLE", singleTable2.Rows[0]["table_type"].ToString());
+        Assert.NotNull(singleTable2.Rows[0]["rows_estimate"]);
         Assert.NotNull(singleTable2.Rows[0]["creation_time"]);
-        Assert.Equal(DBNull.Value, singleTable2.Rows[0]["modification_time"]);
+        Assert.NotNull(singleTable2.Rows[0]["modification_time"]);
 
         // not found case
         var notFound = await ydbConnection.GetSchemaAsync("Tables", new[] { "not_found", null });
