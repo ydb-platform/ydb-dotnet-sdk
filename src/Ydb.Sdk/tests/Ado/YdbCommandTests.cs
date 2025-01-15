@@ -156,6 +156,7 @@ public class YdbCommandTests
         var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
         Assert.True(await ydbDataReader.NextResultAsync());
+        Assert.False(await ydbDataReader.NextResultAsync());
         await ydbDataReader.CloseAsync();
         await ydbDataReader.CloseAsync();
         Assert.False(await ydbDataReader.NextResultAsync());
