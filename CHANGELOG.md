@@ -1,3 +1,4 @@
+- Fixed bug in Topic Writer: race condition when session fails, then write operation starts on previous session and new session is created. Messages may be lost. 
 - Supported in ADO.NET GetSchema(Async). CollectionNames: 
    * Tables
    * TablesWithCollections
