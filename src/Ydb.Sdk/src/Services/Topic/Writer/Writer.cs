@@ -25,6 +25,7 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeCts = new();
+    private readonly SemaphoreSlim _clearInFlightMessagesSemaphoreSlim = new(1);
 
     private volatile TaskCompletionSource _tcsWakeUp = new();
     private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
@@ -161,7 +162,18 @@ internal class Writer<TValue> : IWriter<TValue>
                     continue;
                 }
 
-                await _session.Write(_toSendBuffer);
+                await _clearInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
+                try
+                {
+                    if (_session.IsActive)
+                    {
+                        await _session.Write(_toSendBuffer);
+                    }
+                }
+                finally
+                {
+                    _clearInFlightMessagesSemaphoreSlim.Release();
+                }
             }
         }
         catch (OperationCanceledException)
@@ -255,53 +267,65 @@ internal class Writer<TValue> : IWriter<TValue>
                 return;
             }
 
-            var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
-            var lastSeqNo = initResponse.LastSeqNo;
-            while (_inFlightMessages.TryDequeue(out var sendData))
+            await _clearInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
+            try
             {
-                if (lastSeqNo >= sendData.MessageData.SeqNo)
+                var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
+                var lastSeqNo = initResponse.LastSeqNo;
+                while (_inFlightMessages.TryDequeue(out var sendData))
                 {
-                    _logger.LogWarning(
-                        "Message[SeqNo={SeqNo}] has been skipped because its sequence number " +
-                        "is less than or equal to the last processed server's SeqNo[{LastSeqNo}]",
-                        sendData.MessageData.SeqNo, lastSeqNo);
+                    if (lastSeqNo >= sendData.MessageData.SeqNo)
+                    {
+                        _logger.LogWarning(
+                            "Message[SeqNo={SeqNo}] has been skipped because its sequence number " +
+                            "is less than or equal to the last processed server's SeqNo[{LastSeqNo}]",
+                            sendData.MessageData.SeqNo, lastSeqNo);
 
-                    sendData.Tcs.TrySetResult(WriteResult.Skipped);
+                        sendData.Tcs.TrySetResult(WriteResult.Skipped);
 
-                    continue;
+                        continue;
+                    }
+
+
+                    // Calculate the next sequence number from the calculated previous messages.
+                    lastSeqNo = Math.Max(lastSeqNo, sendData.MessageData.SeqNo);
+
+                    copyInFlightMessages.Enqueue(sendData);
                 }
 
+                var newSession = new WriterSession(
+                    config: _config,
+                    stream: stream,
+                    lastSeqNo: lastSeqNo,
+                    sessionId: initResponse.SessionId,
+                    initialize: Initialize,
+                    logger: _logger,
+                    inFlightMessages: _inFlightMessages
+                );
 
-                // Calculate the next sequence number from the calculated previous messages.
-                lastSeqNo = Math.Max(lastSeqNo, sendData.MessageData.SeqNo);
+                if (!copyInFlightMessages.IsEmpty)
+                {
+                    await newSession.Write(copyInFlightMessages); // retry prev in flight messages    
+                }
 
-                copyInFlightMessages.Enqueue(sendData);
+                _session = newSession;
+                newSession.RunProcessingWriteAck();
+                WakeUpWorker(); // attempt send buffer     
             }
-
-            var newSession = new WriterSession(
-                config: _config,
-                stream: stream,
-                lastSeqNo: lastSeqNo,
-                sessionId: initResponse.SessionId,
-                initialize: Initialize,
-                logger: _logger,
-                inFlightMessages: _inFlightMessages
-            );
-
-            if (!copyInFlightMessages.IsEmpty)
+            finally
             {
-                await newSession.Write(copyInFlightMessages); // retry prev in flight messages    
+                _clearInFlightMessagesSemaphoreSlim.Release();
             }
-
-            _session = newSession;
-            newSession.RunProcessingWriteAck();
-            WakeUpWorker(); // attempt send buffer        
         }
         catch (Driver.TransportException e)
         {
             _logger.LogError(e, "Transport error on creating WriterSession");
 
             _ = Task.Run(Initialize, _disposeCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Initialize writer is canceled because it has been disposed");
         }
     }
 
@@ -318,6 +342,8 @@ internal record MessageSending(MessageData MessageData, TaskCompletionSource<Wri
 internal interface IWriteSession
 {
     Task Write(ConcurrentQueue<MessageSending> toSendBuffer);
+
+    bool IsActive { get; }
 }
 
 internal class NotStartedWriterSession : IWriteSession
@@ -343,6 +369,8 @@ internal class NotStartedWriterSession : IWriteSession
 
         return Task.CompletedTask;
     }
+
+    public bool IsActive => true;
 }
 
 internal class DummyWriterSession : IWriteSession
@@ -357,6 +385,8 @@ internal class DummyWriterSession : IWriteSession
     {
         return Task.CompletedTask;
     }
+
+    public bool IsActive => false;
 }
 
 internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>, IWriteSession
