@@ -13,15 +13,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ydb.Sdk", "Ydb.Sdk\src\Ydb.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Ydb.Sdk\tests\Tests.csproj", "{A27FD249-6ACB-4392-B00F-CD08FB727C98}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ef.Ydb", "Ef.Ydb", "{5E7B167B-5FC7-41BD-8819-16B02ED9B961}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "EfCore.Ydb", "EfCore.Ydb", "{5E7B167B-5FC7-41BD-8819-16B02ED9B961}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4A4EE5F3-CC9C-4166-A8F5-3ACFDD2A75F3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ef.Ydb", "Ef.Ydb\src\Ef.Ydb.csproj", "{1C97E429-3499-4EC0-AA28-76BFADB73A65}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EfCore.Ydb", "EfCore.Ydb\src\EfCore.Ydb.csproj", "{1C97E429-3499-4EC0-AA28-76BFADB73A65}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{39DE35EE-621B-4DEC-BFA2-5337ACBAEEF4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ef.Ydb.Tests", "Ef.Ydb\test\Ef.Ydb.Tests.csproj", "{C340085B-AB9E-484A-B4A5-32131AE5029F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EfCore.Ydb.Tests", "EfCore.Ydb\test\EfCore.Ydb.Tests.csproj", "{C340085B-AB9E-484A-B4A5-32131AE5029F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
