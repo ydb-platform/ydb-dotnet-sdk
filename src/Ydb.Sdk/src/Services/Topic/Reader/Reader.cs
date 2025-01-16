@@ -1,9 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.Net.Sockets;
 using System.Threading.Channels;
-using Google.Protobuf;
-using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
 using Ydb.Topic;
@@ -310,45 +307,61 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
             }
             catch (Driver.TransportException e)
             {
+                Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Commit", SessionId);
+
                 ReconnectSession();
             }
         });
 
-        while (await Stream.MoveNextAsync())
+        try
         {
-            switch (Stream.Current.ServerMessageCase)
+            while (await Stream.MoveNextAsync())
             {
-                case ServerMessageOneofCase.ReadResponse:
-                    await HandleReadResponse();
-                    break;
-                case ServerMessageOneofCase.StartPartitionSessionRequest:
-                    var startPartitionSessionRequest = Stream.Current.StartPartitionSessionRequest;
-                    var partitionSession = startPartitionSessionRequest.PartitionSession;
+                switch (Stream.Current.ServerMessageCase)
+                {
+                    case ServerMessageOneofCase.ReadResponse:
+                        await HandleReadResponse();
+                        break;
+                    case ServerMessageOneofCase.StartPartitionSessionRequest:
+                        var startPartitionSessionRequest = Stream.Current.StartPartitionSessionRequest;
+                        var partitionSession = startPartitionSessionRequest.PartitionSession;
+                        
+                        _partitionSessions[partitionSession.PartitionSessionId] = new PartitionSession(
+                            partitionSession.PartitionSessionId,
+                            partitionSession.Path,
+                            partitionSession.PartitionId,
+                            startPartitionSessionRequest.CommittedOffset
+                        );
+                        
+                        Logger.LogInformation("ReaderSession[{SessionId}] started PartitionSession[]", SessionId);
+                        break;
+                    case ServerMessageOneofCase.CommitOffsetResponse:
+                        // foreach (var offset in Stream.Current.CommitOffsetResponse.PartitionsCommittedOffsets)
+                        // {
+                        //     offset.CommittedOffset;
+                        //     offset.PartitionSessionId;
+                        // }
 
-                    _partitionSessions[partitionSession.PartitionSessionId] = new PartitionSession(
-                        partitionSession.PartitionSessionId,
-                        partitionSession.Path,
-                        partitionSession.PartitionId,
-                        startPartitionSessionRequest.CommittedOffset
-                    );
-                    break;
-                case ServerMessageOneofCase.CommitOffsetResponse:
-                    // foreach (var offset in Stream.Current.CommitOffsetResponse.PartitionsCommittedOffsets)
-                    // {
-                    //     offset.CommittedOffset;
-                    //     offset.PartitionSessionId;
-                    // }
-
-                    break;
-                case ServerMessageOneofCase.PartitionSessionStatusResponse:
-                case ServerMessageOneofCase.UpdateTokenResponse:
-                case ServerMessageOneofCase.StopPartitionSessionRequest:
-                case ServerMessageOneofCase.InitResponse:
-                case ServerMessageOneofCase.None:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
+                        break;
+                    case ServerMessageOneofCase.PartitionSessionStatusResponse:
+                    case ServerMessageOneofCase.UpdateTokenResponse:
+                    case ServerMessageOneofCase.StopPartitionSessionRequest:
+                    case ServerMessageOneofCase.InitResponse:
+                    case ServerMessageOneofCase.None:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
             }
+        }
+        catch (Driver.TransportException e)
+        {
+            Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on processing server messages",
+                SessionId);
+        }
+        finally
+        {
+            ReconnectSession();
         }
     }
 
@@ -367,7 +380,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
 
         Interlocked.Add(ref _memoryUsageMaxBytes, -readResponse.BytesSize);
         var readResponsesInBatch = 0;
-        
+
         foreach (var partition in readResponse.PartitionData)
         {
             var partitionSessionId = partition.PartitionSessionId;
@@ -376,7 +389,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
             {
                 var startOffsetBatch = partitionSession.CommitedOffset;
                 var endOffsetBatch = partitionSession.CommitedOffset;
-                
+
                 var batch = partition.Batches;
                 for (var i = 0; i < partition.Batches.Count; i++)
                 {
@@ -386,7 +399,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                     foreach (var messageData in batch[i].MessageData)
                     {
                         actuallySummaryBatchPayload += messageData.Data.Length;
-                        
+
                         internalBatchMessages.Enqueue(new InternalMessage(
                             data: messageData.Data,
                             topic: partitionSession.TopicPath,

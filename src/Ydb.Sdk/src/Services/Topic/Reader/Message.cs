@@ -59,9 +59,7 @@ public class BatchMessage<TValue>
 
     public ImmutableArray<Message<TValue>> Batch { get; }
 
-    internal BatchMessage(
-        ImmutableArray<Message<TValue>> batch,
-        ReaderSession readerSession)
+    internal BatchMessage(ImmutableArray<Message<TValue>> batch, ReaderSession readerSession)
     {
         Batch = batch;
         _readerSession = readerSession;
