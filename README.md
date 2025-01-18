@@ -98,7 +98,7 @@ Example of using a query client to execute a simple query:
 
 ```c#
 // Create QueryClient using Driver instance.
-using var queryClient = new QueryService(driver);
+using var queryClient = new QueryClient(driver);
 
 var row = await queryClient.ReadRow(@"
         DECLARE $id AS Uint64;
