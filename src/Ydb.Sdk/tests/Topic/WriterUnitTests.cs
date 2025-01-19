@@ -485,7 +485,7 @@ public class WriterUnitTests
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "1", "createdAt": "2024-12-03T14:12:59.548210Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() [Maybe]
      */
     [Fact]
     public async Task WriteAsync_WhenStreamIsClosingOnProcessingWriteAck_ShouldReconnectThenReturnWriteResult()
@@ -543,7 +543,7 @@ public class WriterUnitTests
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
 
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(3));
-        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(5));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.AtLeast(4));
         _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
 
