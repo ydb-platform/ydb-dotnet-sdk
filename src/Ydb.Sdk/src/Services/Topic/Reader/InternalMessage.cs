@@ -15,8 +15,8 @@ internal class InternalMessage
         string producerId,
         OffsetsRange offsetsRange,
         Timestamp createdAt,
-        RepeatedField<MetadataItem> metadataItems, 
-        int dataSize)
+        RepeatedField<MetadataItem> metadataItems,
+        long dataSize)
     {
         Data = data;
         Topic = topic;
@@ -41,8 +41,8 @@ internal class InternalMessage
     private Timestamp CreatedAt { get; }
 
     private RepeatedField<MetadataItem> MetadataItems { get; }
-    
-    private int DataSize { get; }
+
+    private long DataSize { get; }
 
     internal Message<TValue> ToPublicMessage<TValue>(IDeserializer<TValue> deserializer, ReaderSession readerSession)
     {
@@ -64,11 +64,13 @@ internal class InternalBatchMessage
     public InternalBatchMessage(
         OffsetsRange batchOffsetsRange,
         Queue<InternalMessage> internalMessages,
-        ReaderSession readerSession)
+        ReaderSession readerSession, 
+        long approximatelyBatchSize)
     {
         BatchOffsetsRange = batchOffsetsRange;
         InternalMessages = internalMessages;
         ReaderSession = readerSession;
+        ApproximatelyBatchSize = approximatelyBatchSize;
     }
 
     internal OffsetsRange BatchOffsetsRange { get; }
@@ -76,10 +78,12 @@ internal class InternalBatchMessage
     internal Queue<InternalMessage> InternalMessages { get; }
 
     internal ReaderSession ReaderSession { get; }
+
+    internal long ApproximatelyBatchSize { get; }
 }
 
 internal record CommitSending(
     OffsetsRange OffsetsRange,
     long PartitionSessionId,
-    TaskCompletionSource<TopicPartitionOffset> TcsTopicPartitionOffset
+    TaskCompletionSource TcsCommit
 );

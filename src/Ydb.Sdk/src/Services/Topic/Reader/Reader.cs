@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Ado;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 using static Ydb.Topic.StreamReadMessage.Types.FromServer;
@@ -249,6 +250,7 @@ internal class Reader<TValue> : IReader<TValue>
 internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer>
 {
     private readonly ChannelWriter<InternalBatchMessage> _channelWriter;
+    private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
 
     private readonly Channel<CommitSending> _channelCommitSending = Channel.CreateUnbounded<CommitSending>(
         new UnboundedChannelOptions
@@ -289,6 +291,18 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
             {
                 await foreach (var commitSending in _channelCommitSending.Reader.ReadAllAsync())
                 {
+                    if (_partitionSessions.TryGetValue(commitSending.PartitionSessionId, out var partitionSession))
+                    {
+                        partitionSession.RegisterCommitRequest(commitSending);
+                    }
+                    else
+                    {
+                        Logger.LogWarning(
+                            "Offset range [{OffsetRange}] is requested to be committed, " +
+                            "but PartitionSession[PartitionSessionId={PartitionSessionId}] is already closed",
+                            commitSending.OffsetsRange, commitSending.PartitionSessionId);
+                    }
+
                     await Stream.Write(new MessageFromClient
                     {
                         CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
@@ -309,6 +323,8 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
             {
                 Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Commit", SessionId);
 
+                _lifecycleReaderSessionCts.Cancel();
+
                 ReconnectSession();
             }
         });
@@ -323,25 +339,10 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                         await HandleReadResponse();
                         break;
                     case ServerMessageOneofCase.StartPartitionSessionRequest:
-                        var startPartitionSessionRequest = Stream.Current.StartPartitionSessionRequest;
-                        var partitionSession = startPartitionSessionRequest.PartitionSession;
-                        
-                        _partitionSessions[partitionSession.PartitionSessionId] = new PartitionSession(
-                            partitionSession.PartitionSessionId,
-                            partitionSession.Path,
-                            partitionSession.PartitionId,
-                            startPartitionSessionRequest.CommittedOffset
-                        );
-                        
-                        Logger.LogInformation("ReaderSession[{SessionId}] started PartitionSession[]", SessionId);
+                        await HandleStartPartitionSessionRequest();
                         break;
                     case ServerMessageOneofCase.CommitOffsetResponse:
-                        // foreach (var offset in Stream.Current.CommitOffsetResponse.PartitionsCommittedOffsets)
-                        // {
-                        //     offset.CommittedOffset;
-                        //     offset.PartitionSessionId;
-                        // }
-
+                        HandleCommitOffsetResponse();
                         break;
                     case ServerMessageOneofCase.PartitionSessionStatusResponse:
                     case ServerMessageOneofCase.UpdateTokenResponse:
@@ -361,17 +362,69 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
         }
         finally
         {
+            _lifecycleReaderSessionCts.Cancel();
+
             ReconnectSession();
         }
     }
 
-    public async Task<TopicPartitionOffset> CommitOffsetRange(OffsetsRange offsetsRange, long partitionId)
+    private async Task HandleStartPartitionSessionRequest()
     {
-        var tcsCommit = new TaskCompletionSource<TopicPartitionOffset>();
+        var startPartitionSessionRequest = Stream.Current.StartPartitionSessionRequest;
+        var partitionSession = startPartitionSessionRequest.PartitionSession;
+        _partitionSessions[partitionSession.PartitionSessionId] = new PartitionSession(
+            Logger,
+            partitionSession.PartitionSessionId,
+            partitionSession.Path,
+            partitionSession.PartitionId,
+            startPartitionSessionRequest.CommittedOffset
+        );
+
+        Logger.LogInformation(
+            "ReaderSession[{SessionId}] started PartitionSession[PartitionSessionId={PartitionSessionId}, " +
+            "Path={Path}, PartitionId={PartitionId}, CommittedOffset={CommittedOffset}]",
+            SessionId, partitionSession.PartitionSessionId, partitionSession.Path,
+            partitionSession.PartitionId, startPartitionSessionRequest.CommittedOffset);
+
+        await Stream.Write(new MessageFromClient
+        {
+            StartPartitionSessionResponse = new StreamReadMessage.Types.StartPartitionSessionResponse
+            {
+                PartitionSessionId = partitionSession.PartitionSessionId
+                /* Simple client doesn't have read_offset or commit_offset settings */
+            }
+        });
+    }
+
+    private void HandleCommitOffsetResponse()
+    {
+        foreach (var partitionsCommittedOffset in Stream.Current.CommitOffsetResponse.PartitionsCommittedOffsets)
+        {
+            if (_partitionSessions.TryGetValue(partitionsCommittedOffset.PartitionSessionId,
+                    out var partitionSession))
+            {
+                partitionSession.HandleCommitedOffset(partitionSession.CommitedOffset);
+            }
+            else
+            {
+                Logger.LogError(
+                    "Received CommitOffsetResponse[CommittedOffset={CommittedOffset}] " +
+                    "for unknown PartitionSession[PartitionSessionId={PartitionSessionId}]",
+                    partitionsCommittedOffset.CommittedOffset, partitionsCommittedOffset.PartitionSessionId);
+            }
+        }
+    }
+
+    public async Task CommitOffsetRange(OffsetsRange offsetsRange, long partitionId)
+    {
+        var tcsCommit = new TaskCompletionSource();
+
+        await using var register = _lifecycleReaderSessionCts.Token.Register(() => tcsCommit
+            .TrySetException(new YdbException($"ReaderSession[{SessionId}] was deactivated")));
 
         await _channelCommitSending.Writer.WriteAsync(new CommitSending(offsetsRange, partitionId, tcsCommit));
 
-        return await tcsCommit.Task;
+        await tcsCommit.Task;
     }
 
     private async Task HandleReadResponse()
@@ -379,73 +432,109 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
         var readResponse = Stream.Current.ReadResponse;
 
         Interlocked.Add(ref _memoryUsageMaxBytes, -readResponse.BytesSize);
-        var readResponsesInBatch = 0;
 
-        foreach (var partition in readResponse.PartitionData)
+        var bytesSize = readResponse.BytesSize;
+        var partitionCount = readResponse.PartitionData.Count;
+
+        for (var partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++)
         {
+            var partition = readResponse.PartitionData[partitionIndex];
             var partitionSessionId = partition.PartitionSessionId;
+            var approximatelyPartitionBytesSize = CalculateApproximatelyBytesSize(
+                bytesSize: bytesSize,
+                countParts: partitionCount,
+                currentIndex: partitionIndex
+            );
 
             if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession))
             {
                 var startOffsetBatch = partitionSession.CommitedOffset;
                 var endOffsetBatch = partitionSession.CommitedOffset;
 
+                var batchCount = partition.Batches.Count;
                 var batch = partition.Batches;
-                for (var i = 0; i < partition.Batches.Count; i++)
+
+                for (var batchIndex = 0; batchIndex < batchCount; batchIndex++)
                 {
+                    var approximatelyBatchBytesSize = CalculateApproximatelyBytesSize(
+                        bytesSize: approximatelyPartitionBytesSize,
+                        countParts: batchCount,
+                        currentIndex: batchIndex
+                    );
+
                     var internalBatchMessages = new Queue<InternalMessage>();
-                    var actuallySummaryBatchPayload = 0;
+                    var messagesCount = batch[batchIndex].MessageData.Count;
 
-                    foreach (var messageData in batch[i].MessageData)
+                    for (var messageIndex = 0; messageIndex < messagesCount; messageIndex++)
                     {
-                        actuallySummaryBatchPayload += messageData.Data.Length;
+                        var messageData = batch[batchIndex].MessageData[messageIndex];
 
-                        internalBatchMessages.Enqueue(new InternalMessage(
-                            data: messageData.Data,
-                            topic: partitionSession.TopicPath,
-                            partitionId: partitionSession.PartitionId,
-                            producerId: batch[i].ProducerId,
-                            offsetsRange: new OffsetsRange
-                                { Start = partitionSession.CommitedOffset, End = messageData.Offset },
-                            createdAt: messageData.CreatedAt,
-                            metadataItems: messageData.MetadataItems,
-                            0
-                        ));
+                        internalBatchMessages.Enqueue(
+                            new InternalMessage(
+                                data: messageData.Data,
+                                topic: partitionSession.TopicPath,
+                                partitionId: partitionSession.PartitionId,
+                                producerId: batch[batchIndex].ProducerId,
+                                offsetsRange: new OffsetsRange
+                                    { Start = partitionSession.PrevEndOffsetMessage, End = messageData.Offset },
+                                createdAt: messageData.CreatedAt,
+                                metadataItems: messageData.MetadataItems,
+                                CalculateApproximatelyBytesSize(
+                                    bytesSize: approximatelyBatchBytesSize,
+                                    countParts: messagesCount,
+                                    currentIndex: messageIndex
+                                )
+                            )
+                        );
 
-                        partitionSession.CommitedOffset = endOffsetBatch = messageData.Offset + 1;
+                        partitionSession.PrevEndOffsetMessage = endOffsetBatch = messageData.Offset + 1;
                     }
 
-                    readResponsesInBatch -= actuallySummaryBatchPayload;
-
-                    await _channelWriter.WriteAsync(new InternalBatchMessage(
-                        new OffsetsRange { Start = startOffsetBatch, End = endOffsetBatch },
-                        internalBatchMessages,
-                        this)
+                    await _channelWriter.WriteAsync(
+                        new InternalBatchMessage(
+                            new OffsetsRange { Start = startOffsetBatch, End = endOffsetBatch },
+                            internalBatchMessages,
+                            this,
+                            approximatelyBatchBytesSize
+                        )
                     );
                 }
             }
             else
             {
-                Logger.LogCritical(
+                Logger.LogError(
                     "ReaderSession[{SessionId}]: received PartitionData for unknown(closed?) " +
                     "PartitionSession[{PartitionSessionId}], all messages were skipped!",
                     SessionId, partitionSessionId);
+
+                Interlocked.Add(ref _memoryUsageMaxBytes, approximatelyPartitionBytesSize);
             }
         }
     }
 
+    private static long CalculateApproximatelyBytesSize(long bytesSize, int countParts, int currentIndex)
+    {
+        return bytesSize / countParts + currentIndex == countParts - 1 ? bytesSize % countParts : 0;
+    }
+
     private class PartitionSession
     {
+        private readonly ILogger _logger;
+        private readonly ConcurrentQueue<(long EndOffset, TaskCompletionSource TcsCommit)> _waitCommitMessages = new();
+
         public PartitionSession(
+            ILogger logger,
             long partitionSessionId,
             string topicPath,
             long partitionId,
             long commitedOffset)
         {
+            _logger = logger;
             PartitionSessionId = partitionSessionId;
             TopicPath = topicPath;
             PartitionId = partitionId;
             CommitedOffset = commitedOffset;
+            PrevEndOffsetMessage = commitedOffset;
         }
 
         // Identifier of partition session. Unique inside one RPC call.
@@ -459,5 +548,40 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
 
         // Each offset up to and including (committed_offset - 1) was fully processed.
         internal long CommitedOffset { get; set; }
+
+        internal long PrevEndOffsetMessage { get; set; }
+
+        internal void RegisterCommitRequest(CommitSending commitSending)
+        {
+            var endOffset = commitSending.OffsetsRange.End;
+
+            if (endOffset <= CommitedOffset)
+            {
+                commitSending.TcsCommit.SetResult();
+            }
+            else
+            {
+                _waitCommitMessages.Enqueue((endOffset, commitSending.TcsCommit));
+            }
+        }
+
+        internal void HandleCommitedOffset(long commitedOffset)
+        {
+            if (CommitedOffset >= commitedOffset)
+            {
+                _logger.LogError(
+                    "Received CommitOffsetResponse[CommitedOffset={CommitedOffset}] " +
+                    "which is not greater than previous committed offset: {PrevCommitedOffset}",
+                    commitedOffset, CommitedOffset);
+            }
+
+            CommitedOffset = commitedOffset;
+
+            while (_waitCommitMessages.TryPeek(out var waitCommitTcs) && waitCommitTcs.EndOffset <= commitedOffset)
+            {
+                _waitCommitMessages.TryDequeue(out _);
+                waitCommitTcs.TcsCommit.SetResult();
+            }
+        }
     }
 }
