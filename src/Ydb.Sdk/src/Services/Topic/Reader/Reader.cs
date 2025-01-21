@@ -250,6 +250,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
 {
     private const double FreeBufferCoefficient = 0.2;
 
+    private readonly ReaderConfig _readerConfig;
     private readonly ChannelWriter<InternalBatchMessage> _channelWriter;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
 
@@ -280,6 +281,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
         initialize
     )
     {
+        _readerConfig = config;
         _channelWriter = channelWriter;
         _memoryUsageMaxBytes = config.MemoryUsageMaxBytes;
     }
@@ -302,6 +304,10 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                             "Offset range [{OffsetRange}] is requested to be committed, " +
                             "but PartitionSession[PartitionSessionId={PartitionSessionId}] is already closed",
                             commitSending.OffsetsRange, commitSending.PartitionSessionId);
+
+                        commitSending.TcsCommit.TrySetException(new ReaderException("AD"));
+                        
+                        continue;
                     }
 
                     await Stream.Write(new MessageFromClient
@@ -351,13 +357,20 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                     case ServerMessageOneofCase.PartitionSessionStatusResponse:
                     case ServerMessageOneofCase.UpdateTokenResponse:
                     case ServerMessageOneofCase.StopPartitionSessionRequest:
-                        // TODO
+                        freeBytesSize += StopPartitionSessionRequest();
                         break;
                     case ServerMessageOneofCase.InitResponse:
                     case ServerMessageOneofCase.None:
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
+                }
+
+                if (freeBytesSize >= FreeBufferCoefficient * _readerConfig.MemoryUsageMaxBytes)
+                {
+                    // await Stream.Write();
+
+                    Interlocked.Add(ref _memoryUsageMaxBytes, freeBytesSize);
                 }
             }
         }
@@ -420,6 +433,11 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
             }
         }
         
+        throw new NotImplementedException();
+    }
+
+    private int StopPartitionSessionRequest()
+    {
         throw new NotImplementedException();
     }
 

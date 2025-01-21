@@ -4,9 +4,9 @@ namespace Ydb.Sdk.Services.Topic.Reader;
 
 public class ReaderBuilder<TValue>
 {
-    private readonly Driver _driver;
+    private readonly IDriver _driver;
 
-    public ReaderBuilder(Driver driver)
+    public ReaderBuilder(IDriver driver)
     {
         _driver = driver;
     }
