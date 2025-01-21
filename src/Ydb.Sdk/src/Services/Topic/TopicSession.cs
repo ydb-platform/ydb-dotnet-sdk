@@ -12,8 +12,6 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
 
     private int _isActive = 1;
 
-    public bool IsActive => Volatile.Read(ref _isActive) == 1;
-
     protected TopicSession(
         IBidirectionalStream<TFromClient, TFromServer> stream,
         ILogger logger,
@@ -25,6 +23,8 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
         SessionId = sessionId;
         _initialize = initialize;
     }
+
+    public bool IsActive => Volatile.Read(ref _isActive) == 1;
 
     protected async void ReconnectSession()
     {
