@@ -306,7 +306,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                             commitSending.OffsetsRange, commitSending.PartitionSessionId);
 
                         commitSending.TcsCommit.TrySetException(new ReaderException("AD"));
-                        
+
                         continue;
                     }
 
@@ -432,7 +432,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                     partitionsCommittedOffset.CommittedOffset, partitionsCommittedOffset.PartitionSessionId);
             }
         }
-        
+
         throw new NotImplementedException();
     }
 
