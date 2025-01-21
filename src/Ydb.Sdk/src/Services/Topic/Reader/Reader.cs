@@ -598,16 +598,14 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
             }
         }
 
-        internal int HandleCommitedOffset(long commitedOffset)
+        internal void HandleCommitedOffset(long commitedOffset)
         {
             if (CommitedOffset >= commitedOffset)
             {
                 _logger.LogError(
-                    "Received CommitOffsetResponse[CommitedOffset={CommitedOffset}] " +
+                    "PartitionSession[{PartitionSessionId}] received CommitOffsetResponse[CommitedOffset={CommitedOffset}] " +
                     "which is not greater than previous committed offset: {PrevCommitedOffset}",
-                    commitedOffset, CommitedOffset);
-
-                return 0;
+                    PartitionSessionId, commitedOffset, CommitedOffset);
             }
 
             CommitedOffset = commitedOffset;
