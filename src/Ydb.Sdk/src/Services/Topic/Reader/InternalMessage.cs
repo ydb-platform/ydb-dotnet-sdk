@@ -16,7 +16,7 @@ internal class InternalMessage
         OffsetsRange offsetsRange,
         Timestamp createdAt,
         RepeatedField<MetadataItem> metadataItems,
-        long dataSize)
+        long approximatelyBytesSize)
     {
         Data = data;
         Topic = topic;
@@ -25,7 +25,7 @@ internal class InternalMessage
         OffsetsRange = offsetsRange;
         CreatedAt = createdAt;
         MetadataItems = metadataItems;
-        DataSize = dataSize;
+        ApproximatelyBytesSize = approximatelyBytesSize;
     }
 
     private ByteString Data { get; }
@@ -42,7 +42,7 @@ internal class InternalMessage
 
     private RepeatedField<MetadataItem> MetadataItems { get; }
 
-    private long DataSize { get; }
+    private long ApproximatelyBytesSize { get; }
 
     internal Message<TValue> ToPublicMessage<TValue>(IDeserializer<TValue> deserializer, ReaderSession readerSession)
     {
@@ -54,7 +54,8 @@ internal class InternalMessage
             createdAt: CreatedAt.ToDateTime(),
             metadata: MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray())).ToImmutableArray(),
             offsetsRange: OffsetsRange,
-            readerSession: readerSession
+            readerSession: readerSession,
+            approximatelyBytesSize: ApproximatelyBytesSize
         );
     }
 }
@@ -64,7 +65,7 @@ internal class InternalBatchMessage
     public InternalBatchMessage(
         OffsetsRange batchOffsetsRange,
         Queue<InternalMessage> internalMessages,
-        ReaderSession readerSession, 
+        ReaderSession readerSession,
         long approximatelyBatchSize)
     {
         BatchOffsetsRange = batchOffsetsRange;
@@ -85,5 +86,6 @@ internal class InternalBatchMessage
 internal record CommitSending(
     OffsetsRange OffsetsRange,
     long PartitionSessionId,
-    TaskCompletionSource TcsCommit
+    TaskCompletionSource TcsCommit,
+    long ApproximatelyBytesSize
 );

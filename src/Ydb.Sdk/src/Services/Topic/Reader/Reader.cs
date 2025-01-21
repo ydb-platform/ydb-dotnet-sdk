@@ -19,8 +19,6 @@ using ReaderStream = IBidirectionalStream<
 
 internal class Reader<TValue> : IReader<TValue>
 {
-    private const double FreeBufferCoefficient = 0.2;
-
     private readonly IDriver _driver;
     private readonly ReaderConfig _config;
     private readonly IDeserializer<TValue> _deserializer;
@@ -98,7 +96,8 @@ internal class Reader<TValue> : IReader<TValue>
                 batchInternalMessage.InternalMessages
                     .Select(message => message.ToPublicMessage(_deserializer, batchInternalMessage.ReaderSession))
                     .ToImmutableArray(),
-                batchInternalMessage.ReaderSession
+                batchInternalMessage.ReaderSession,
+                batchInternalMessage.ApproximatelyBatchSize
             );
         }
 
@@ -249,6 +248,8 @@ internal class Reader<TValue> : IReader<TValue>
 /// </summary>
 internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer>
 {
+    private const double FreeBufferCoefficient = 0.2;
+
     private readonly ChannelWriter<InternalBatchMessage> _channelWriter;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
 
@@ -333,6 +334,9 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
         {
             while (await Stream.MoveNextAsync())
             {
+                var freeBytesSize = 0;
+
+
                 switch (Stream.Current.ServerMessageCase)
                 {
                     case ServerMessageOneofCase.ReadResponse:
@@ -342,11 +346,13 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                         await HandleStartPartitionSessionRequest();
                         break;
                     case ServerMessageOneofCase.CommitOffsetResponse:
-                        HandleCommitOffsetResponse();
+                        freeBytesSize += HandleCommitOffsetResponse();
                         break;
                     case ServerMessageOneofCase.PartitionSessionStatusResponse:
                     case ServerMessageOneofCase.UpdateTokenResponse:
                     case ServerMessageOneofCase.StopPartitionSessionRequest:
+                        // TODO
+                        break;
                     case ServerMessageOneofCase.InitResponse:
                     case ServerMessageOneofCase.None:
                         break;
@@ -396,7 +402,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
         });
     }
 
-    private void HandleCommitOffsetResponse()
+    private int HandleCommitOffsetResponse()
     {
         foreach (var partitionsCommittedOffset in Stream.Current.CommitOffsetResponse.PartitionsCommittedOffsets)
         {
@@ -413,16 +419,25 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                     partitionsCommittedOffset.CommittedOffset, partitionsCommittedOffset.PartitionSessionId);
             }
         }
+        
+        throw new NotImplementedException();
     }
 
-    public async Task CommitOffsetRange(OffsetsRange offsetsRange, long partitionId)
+    public async Task CommitOffsetRange(OffsetsRange offsetsRange, long partitionId, long approximatelyBytesSize)
     {
         var tcsCommit = new TaskCompletionSource();
 
         await using var register = _lifecycleReaderSessionCts.Token.Register(() => tcsCommit
             .TrySetException(new YdbException($"ReaderSession[{SessionId}] was deactivated")));
 
-        await _channelCommitSending.Writer.WriteAsync(new CommitSending(offsetsRange, partitionId, tcsCommit));
+        await _channelCommitSending.Writer.WriteAsync(
+            new CommitSending(
+                offsetsRange,
+                partitionId,
+                tcsCommit,
+                approximatelyBytesSize
+            )
+        );
 
         await tcsCommit.Task;
     }
@@ -479,7 +494,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                                     { Start = partitionSession.PrevEndOffsetMessage, End = messageData.Offset },
                                 createdAt: messageData.CreatedAt,
                                 metadataItems: messageData.MetadataItems,
-                                CalculateApproximatelyBytesSize(
+                                approximatelyBytesSize: CalculateApproximatelyBytesSize(
                                     bytesSize: approximatelyBatchBytesSize,
                                     countParts: messagesCount,
                                     currentIndex: messageIndex
@@ -565,7 +580,7 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
             }
         }
 
-        internal void HandleCommitedOffset(long commitedOffset)
+        internal int HandleCommitedOffset(long commitedOffset)
         {
             if (CommitedOffset >= commitedOffset)
             {
@@ -573,6 +588,8 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                     "Received CommitOffsetResponse[CommitedOffset={CommitedOffset}] " +
                     "which is not greater than previous committed offset: {PrevCommitedOffset}",
                     commitedOffset, CommitedOffset);
+
+                return 0;
             }
 
             CommitedOffset = commitedOffset;
@@ -582,6 +599,8 @@ internal class ReaderSession : TopicSession<MessageFromClient, MessageFromServer
                 _waitCommitMessages.TryDequeue(out _);
                 waitCommitTcs.TcsCommit.SetResult();
             }
+
+            throw new NotImplementedException();
         }
     }
 }
