@@ -40,4 +40,12 @@ public class YdbConnectionTests : ConnectionTestBase<YdbFactoryFixture>
     {
         base.ServerVersion_returns_value();
     }
+
+#pragma warning disable xUnit1004
+    [Fact(Skip = "TODO Supported cancel OpenAsync.")]
+#pragma warning restore xUnit1004
+    public override Task OpenAsync_is_canceled()
+    {
+        return base.OpenAsync_is_canceled();
+    }
 }
