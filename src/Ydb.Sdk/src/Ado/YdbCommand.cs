@@ -4,7 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Services.Query;
-using InvalidOperationException = System.InvalidOperationException;
 
 namespace Ydb.Sdk.Ado;
 
