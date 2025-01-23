@@ -54,7 +54,6 @@ jobs:
           - 8765:8765
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
-          YDB_USE_IN_MEMORY_PDISKS: true
         options: '--name ydb-local -h localhost'
     env:
       OS: ubuntu-22.04
@@ -72,7 +71,7 @@ jobs:
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src
-          dotnet test --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)" -l "console;verbosity=normal"
+          dotnet test --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=normal"
   topic-tests:
     runs-on: ubuntu-22.04
     strategy:
@@ -94,7 +93,6 @@ jobs:
           - 8765:8765
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
-          YDB_USE_IN_MEMORY_PDISKS: true
         options: '--name ydb-local -h localhost'
     env:
       OS: ubuntu-22.04
@@ -112,7 +110,7 @@ jobs:
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src
-          dotnet test --filter "FullyQualifiedName~Topic" -l "console;verbosity=normal"  
+          dotnet test --filter "FullyQualifiedName~Topic" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=normal"  
   integration-tests:
     runs-on: ubuntu-22.04
     strategy:
@@ -134,7 +132,6 @@ jobs:
           - 8765:8765
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
-          YDB_USE_IN_MEMORY_PDISKS: true
         options: '--name ydb-local -h localhost'
     env:
       OS: ubuntu-22.04

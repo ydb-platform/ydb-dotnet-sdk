@@ -8,7 +8,10 @@ internal static class PoolManager
     private static readonly SemaphoreSlim SemaphoreSlim = new(1); // async mutex
     private static readonly ConcurrentDictionary<string, SessionPool> Pools = new();
 
-    internal static async Task<Session> GetSession(YdbConnectionStringBuilder connectionString)
+    internal static async Task<Session> GetSession(
+        YdbConnectionStringBuilder connectionString,
+        CancellationToken cancellationToken
+    )
     {
         if (Pools.TryGetValue(connectionString.ConnectionString, out var sessionPool))
         {
@@ -17,7 +20,7 @@ internal static class PoolManager
 
         try
         {
-            await SemaphoreSlim.WaitAsync();
+            await SemaphoreSlim.WaitAsync(cancellationToken);
 
             if (Pools.TryGetValue(connectionString.ConnectionString, out var pool))
             {

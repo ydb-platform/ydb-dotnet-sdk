@@ -9,6 +9,12 @@ public sealed class YdbConnection : DbConnection
 {
     private static readonly YdbConnectionStringBuilder DefaultSettings = new();
 
+    private static readonly StateChangeEventArgs ClosedToOpenEventArgs =
+        new(ConnectionState.Closed, ConnectionState.Open);
+
+    private static readonly StateChangeEventArgs OpenToClosedEventArgs =
+        new(ConnectionState.Open, ConnectionState.Closed);
+
     private bool _disposed;
 
     private YdbConnectionStringBuilder ConnectionStringBuilder { get; set; }
@@ -84,7 +90,7 @@ public sealed class YdbConnection : DbConnection
 
         try
         {
-            Session = await PoolManager.GetSession(ConnectionStringBuilder);
+            Session = await PoolManager.GetSession(ConnectionStringBuilder, cancellationToken);
         }
         catch (Exception e)
         {
@@ -92,9 +98,11 @@ public sealed class YdbConnection : DbConnection
             {
                 Driver.TransportException transportException => new YdbException(transportException.Status),
                 StatusUnsuccessfulException unsuccessfulException => new YdbException(unsuccessfulException.Status),
-                _ => new YdbException("Cannot get session", e)
+                _ => e
             };
         }
+
+        OnStateChange(ClosedToOpenEventArgs);
 
         ConnectionState = ConnectionState.Open;
     }
@@ -118,6 +126,8 @@ public sealed class YdbConnection : DbConnection
                 await LastTransaction.RollbackAsync();
             }
 
+            OnStateChange(OpenToClosedEventArgs);
+
             ConnectionState = ConnectionState.Closed;
         }
         finally
@@ -140,7 +150,9 @@ public sealed class YdbConnection : DbConnection
         }
     }
 
-    public override string Database => ConnectionStringBuilder.Database;
+    public override string Database => State == ConnectionState.Closed
+        ? string.Empty
+        : ConnectionStringBuilder.Database;
 
     public override ConnectionState State => ConnectionState;
 
@@ -152,7 +164,16 @@ public sealed class YdbConnection : DbConnection
     internal bool IsBusy => LastReader is { IsClosed: false };
 
     public override string DataSource => string.Empty; // TODO
-    public override string ServerVersion => string.Empty; // TODO
+
+    public override string ServerVersion
+    {
+        get
+        {
+            EnsureConnectionOpen();
+
+            return string.Empty; // TODO ServerVersion
+        }
+    }
 
     protected override YdbCommand CreateDbCommand()
     {
@@ -238,6 +259,11 @@ public sealed class YdbConnection : DbConnection
         await CloseAsync();
         _disposed = true;
     }
+
+    /// <summary>
+    /// DB provider factory.
+    /// </summary>
+    protected override DbProviderFactory DbProviderFactory => YdbProviderFactory.Instance;
 
     /// <summary>
     /// Clears the connection pool. All idle physical connections in the pool of the given connection are
