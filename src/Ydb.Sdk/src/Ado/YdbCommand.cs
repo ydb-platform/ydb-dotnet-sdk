@@ -107,7 +107,7 @@ public sealed class YdbCommand : DbCommand
             else
             {
                 throw new ArgumentException(
-                    $"Unsupported DbTransaction type: {value?.GetType()}, expected: {typeof(YdbConnection)}");
+                    $"Unsupported DbTransaction type: {value.GetType()}, expected: {typeof(YdbConnection)}");
             }
         }
     }
