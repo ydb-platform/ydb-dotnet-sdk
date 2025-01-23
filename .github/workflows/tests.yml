@@ -54,7 +54,6 @@ jobs:
           - 8765:8765
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
-          YDB_USE_IN_MEMORY_PDISKS: true
         options: '--name ydb-local -h localhost'
     env:
       OS: ubuntu-22.04
@@ -94,7 +93,6 @@ jobs:
           - 8765:8765
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
-          YDB_USE_IN_MEMORY_PDISKS: true
         options: '--name ydb-local -h localhost'
     env:
       OS: ubuntu-22.04
@@ -134,7 +132,6 @@ jobs:
           - 8765:8765
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
-          YDB_USE_IN_MEMORY_PDISKS: true
         options: '--name ydb-local -h localhost'
     env:
       OS: ubuntu-22.04
