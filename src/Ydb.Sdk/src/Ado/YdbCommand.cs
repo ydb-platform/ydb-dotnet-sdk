@@ -100,9 +100,9 @@ public sealed class YdbCommand : DbCommand
         get => YdbConnection;
         set
         {
-            if (value is YdbConnection ydbConnection)
+            if (value is null or Ado.YdbConnection)
             {
-                YdbConnection = ydbConnection;
+                YdbConnection = (YdbConnection?)value;
             }
             else
             {
