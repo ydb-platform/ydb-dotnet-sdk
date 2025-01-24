@@ -67,7 +67,16 @@ public sealed class YdbConnection : DbConnection
     {
         EnsureConnectionOpen();
 
-        return new YdbTransaction(this, txMode);
+        if (CurrentTransaction is { Completed: false })
+        {
+            throw new InvalidOperationException(
+                "A transaction is already in progress; nested/concurrent transactions aren't supported."
+            );
+        }
+
+        CurrentTransaction = new YdbTransaction(this, txMode);
+
+        return CurrentTransaction;
     }
 
     public override void ChangeDatabase(string databaseName)
@@ -121,9 +130,9 @@ public sealed class YdbConnection : DbConnection
                 await LastReader.CloseAsync();
             }
 
-            if (LastTransaction is { Completed: false })
+            if (CurrentTransaction is { Completed: false })
             {
-                await LastTransaction.RollbackAsync();
+                await CurrentTransaction.RollbackAsync();
             }
 
             OnStateChange(OpenToClosedEventArgs);
@@ -160,8 +169,8 @@ public sealed class YdbConnection : DbConnection
 
     internal YdbDataReader? LastReader { get; set; }
     internal string LastCommand { get; set; } = string.Empty;
-    internal YdbTransaction? LastTransaction { get; set; }
     internal bool IsBusy => LastReader is { IsClosed: false };
+    internal YdbTransaction? CurrentTransaction { get; private set; }
 
     public override string DataSource => string.Empty; // TODO
 

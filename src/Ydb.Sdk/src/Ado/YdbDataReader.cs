@@ -497,7 +497,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             _currentResultSet = part.ResultSet?.FromProto();
             ReaderMetadata = _currentResultSet != null ? new Metadata(_currentResultSet) : EmptyMetadata.Instance;
 
-            if (_ydbTransaction != null)
+            if (_ydbTransaction != null && part.TxMeta != null)
             {
                 _ydbTransaction.TxId ??= part.TxMeta.Id;
             }
