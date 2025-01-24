@@ -121,6 +121,47 @@ public class YdbTransactionTests : IAsyncLifetime
     }
 
     [Fact]
+    public void BeginTransaction_WhenYdbDataReaderIsClosed_ThrowExceptionTransactionIsBroken()
+    {
+        using var connection = new YdbConnection();
+        connection.Open();
+
+        using var ydbTransaction = connection.BeginTransaction();
+        var ydbCommand = connection.CreateCommand();
+        ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3";
+        var dbDataReader = ydbCommand.ExecuteReader();
+        dbDataReader.Read();
+        Assert.Equal("YdbDataReader was closed before receiving the transaction id. Transaction is broken!",
+            Assert.Throws<YdbException>(() => dbDataReader.Close()).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbTransaction.Commit()).Message);
+        ydbTransaction.Rollback();
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbTransaction.Commit()).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbTransaction.Rollback()).Message);
+    }
+    
+    [Fact]
+    public void BeginTransaction_WhenTxIdIsReceivedThenYdbDataReaderIsClosed_SuccessCommit()
+    {
+        using var connection = new YdbConnection();
+        connection.Open();
+        
+        var tx = connection.BeginTransaction();
+        var ydbCommand1 = connection.CreateCommand();
+        ydbCommand1.CommandText = "SELECT 1";
+        Assert.Equal(1, ydbCommand1.ExecuteScalar());
+        var ydbCommand2 = connection.CreateCommand();
+        ydbCommand2.CommandText = "SELECT 1; SELECT 2; SELECT 3";
+        var dbDataReader = ydbCommand2.ExecuteReader();
+        dbDataReader.Read();
+        dbDataReader.Read();
+        dbDataReader.Close();
+        tx.Commit();
+    }
+
+    [Fact]
     public void CommitAndRollback_WhenStreamIsOpened_ThrowException()
     {
         using var connection = new YdbConnection();

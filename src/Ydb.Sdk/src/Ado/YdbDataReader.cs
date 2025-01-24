@@ -437,6 +437,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         ReaderState = State.Closed;
 
         await _stream.DisposeAsync();
+
+        if (_ydbTransaction is { TxId: null })
+        {
+            _ydbTransaction.Failed = true;
+
+            throw new YdbException(
+                "YdbDataReader was closed before receiving the transaction id. Transaction is broken!"
+            );
+        }
     }
 
     public override void Close()
