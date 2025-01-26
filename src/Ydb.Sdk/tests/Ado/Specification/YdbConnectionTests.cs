@@ -26,14 +26,6 @@ public class YdbConnectionTests : ConnectionTestBase<YdbFactoryFixture>
     }
 
 #pragma warning disable xUnit1004
-    [Fact(Skip = "Connect to default settings 'grpc://localhost:2136/local'.")]
-#pragma warning restore xUnit1004
-    public override void Open_throws_when_no_connection_string()
-    {
-        base.Open_throws_when_no_connection_string();
-    }
-
-#pragma warning disable xUnit1004
     [Fact(Skip = "TODO Supported this field.")]
 #pragma warning restore xUnit1004
     public override void ServerVersion_returns_value()

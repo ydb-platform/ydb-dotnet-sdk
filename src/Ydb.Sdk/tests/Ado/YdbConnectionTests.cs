@@ -1,33 +1,34 @@
 using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Tests.Ado.Specification;
+using Ydb.Sdk.Tests.Fixture;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Ado;
 
 [Collection("YdbConnectionTests")]
-public class YdbConnectionTests
+public class YdbConnectionTests : YdbAdoNetFixture
 {
     private static readonly TemporaryTables<YdbConnectionTests> Tables = new();
 
     private volatile int _counter;
 
+    public YdbConnectionTests(YdbFactoryFixture fixture) : base(fixture)
+    {
+    }
+
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
         var tasks = GenerateTasks();
-
-        tasks.Add(YdbConnection.ClearPool(new YdbConnection("MaxSessionPool=10")));
-
+        tasks.Add(YdbConnection.ClearPool(new YdbConnection($"{ConnectionString};MaxSessionPool=10")));
         tasks.AddRange(GenerateTasks());
-
         await Task.WhenAll(tasks);
         Assert.Equal(9900, _counter);
 
         tasks = GenerateTasks();
-
-        tasks.Add(YdbConnection.ClearPool(new YdbConnection("MaxSessionPool=10")));
-
+        tasks.Add(YdbConnection.ClearPool(new YdbConnection($"{ConnectionString};MaxSessionPool=10")));
         await Task.WhenAll(tasks);
         Assert.Equal(14850, _counter);
     }
@@ -36,18 +37,13 @@ public class YdbConnectionTests
     public async Task ClearPoolAllPools_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
         var tasks = GenerateTasks();
-
         tasks.Add(YdbConnection.ClearAllPools());
-
         tasks.AddRange(GenerateTasks());
-
         await Task.WhenAll(tasks);
         Assert.Equal(9900, _counter);
 
         tasks = GenerateTasks();
-
         tasks.Add(YdbConnection.ClearAllPools());
-
         await Task.WhenAll(tasks);
         Assert.Equal(14850, _counter);
     }
@@ -56,19 +52,21 @@ public class YdbConnectionTests
     [Fact]
     public async Task TlsSettings_WhenUseGrpcs_ReturnValidConnection()
     {
-        await using var ydbConnection = new YdbConnection(
-            "Host=localhost;Port=2135;MaxSessionPool=10;RootCertificate=" +
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem"));
+        var connectionStringBuilder = new YdbConnectionStringBuilder(
+            $"{ConnectionString};MaxSessionPool=10;RootCertificate=" +
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem"))
+        {
+            Port = 2135
+        };
 
+        await using var ydbConnection = new YdbConnection(connectionStringBuilder);
         await ydbConnection.OpenAsync();
 
         var command = ydbConnection.CreateCommand();
         command.CommandText = Tables.CreateTables;
         await command.ExecuteNonQueryAsync();
-
         command.CommandText = Tables.UpsertData;
         await command.ExecuteNonQueryAsync();
-
         command.CommandText = Tables.DeleteTables;
         await command.ExecuteNonQueryAsync();
     }
@@ -76,9 +74,7 @@ public class YdbConnectionTests
     [Fact]
     public async Task Open_WhenConnectionIsOpen_ThrowException()
     {
-        await using var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
-
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         Assert.Equal("Connection already open",
             Assert.Throws<InvalidOperationException>(() => ydbConnection.Open()).Message);
     }
@@ -86,9 +82,7 @@ public class YdbConnectionTests
     [Fact]
     public async Task SetConnectionString_WhenConnectionIsOpen_ThrowException()
     {
-        await using var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
-
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         Assert.Equal("Connection already open",
             Assert.Throws<InvalidOperationException>(() => ydbConnection.ConnectionString = "UseTls=false").Message);
     }
@@ -96,10 +90,8 @@ public class YdbConnectionTests
     [Fact]
     public async Task BeginTransaction_WhenConnectionIsClosed_ThrowException()
     {
-        var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
+        var ydbConnection = await CreateOpenConnectionAsync();
         await ydbConnection.CloseAsync();
-
         Assert.Equal("Connection is closed",
             Assert.Throws<InvalidOperationException>(() => ydbConnection.BeginTransaction()).Message);
     }
@@ -107,8 +99,7 @@ public class YdbConnectionTests
     [Fact]
     public async Task ExecuteScalar_WhenConnectionIsClosed_ThrowException()
     {
-        var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
+        var ydbConnection = await CreateOpenConnectionAsync();
         await ydbConnection.CloseAsync();
 
         var ydbCommand = ydbConnection.CreateCommand();
@@ -121,8 +112,7 @@ public class YdbConnectionTests
     [Fact]
     public async Task ClosedYdbDataReader_WhenConnectionIsClosed_ThrowException()
     {
-        var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
+        var ydbConnection = await CreateOpenConnectionAsync();
 
         var ydbCommand = ydbConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3;";
@@ -137,8 +127,7 @@ public class YdbConnectionTests
     [Fact]
     public async Task SetNulls_WhenTableAllTypes_SussesSet()
     {
-        var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
+        var ydbConnection = await CreateOpenConnectionAsync();
         var ydbCommand = ydbConnection.CreateCommand();
         var tableName = "AllTypes_" + Random.Shared.Next();
 
@@ -173,34 +162,34 @@ INSERT INTO {tableName}
     (id, bool_column, bigint_column, smallint_column, tinyint_column, float_column, double_column, decimal_column, 
      uint8_column, uint16_column, uint32_column, uint64_column, text_column, binary_column, json_column,
      jsondocument_column, date_column, datetime_column, timestamp_column, interval_column) VALUES
-($name1, $name2, $name3, $name4, $name5, $name6, $name7, $name8, $name9, $name10, $name11, $name12, $name13, $name14,
- $name15, $name16, $name17, $name18, $name19, $name20); 
+(@name1, @name2, @name3, @name4, @name5, @name6, @name7, @name8, @name9, @name10, @name11, @name12, @name13, @name14,
+ @name15, @name16, @name17, @name18, @name19, @name20); 
 ";
 
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name1", DbType = DbType.Int32, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name2", DbType = DbType.Boolean, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name3", DbType = DbType.Int64, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name4", DbType = DbType.Int16, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name5", DbType = DbType.SByte, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name6", DbType = DbType.Single, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name7", DbType = DbType.Double, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name8", DbType = DbType.Decimal, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name9", DbType = DbType.Byte, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name10", DbType = DbType.UInt16, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name11", DbType = DbType.UInt32, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name12", DbType = DbType.UInt64, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name13", DbType = DbType.String, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name14", DbType = DbType.Binary, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name15", Value = YdbValue.MakeOptionalJson() });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name1", DbType = DbType.Int32, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name2", DbType = DbType.Boolean, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name3", DbType = DbType.Int64, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name4", DbType = DbType.Int16, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name5", DbType = DbType.SByte, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name6", DbType = DbType.Single, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name7", DbType = DbType.Double, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name8", DbType = DbType.Decimal, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name9", DbType = DbType.Byte, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name10", DbType = DbType.UInt16, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name11", DbType = DbType.UInt32, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name12", DbType = DbType.UInt64, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name13", DbType = DbType.String, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name14", DbType = DbType.Binary, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name15", Value = YdbValue.MakeOptionalJson() });
         ydbCommand.Parameters.Add(new YdbParameter
-            { ParameterName = "$name16", Value = YdbValue.MakeOptionalJsonDocument() });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "$name17", DbType = DbType.Date, Value = null });
+            { ParameterName = "name16", Value = YdbValue.MakeOptionalJsonDocument() });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name17", DbType = DbType.Date, Value = null });
         ydbCommand.Parameters.Add(
-            new YdbParameter { ParameterName = "$name18", DbType = DbType.DateTime, Value = null });
+            new YdbParameter { ParameterName = "name18", DbType = DbType.DateTime, Value = null });
         ydbCommand.Parameters.Add(new YdbParameter
-            { ParameterName = "$name19", DbType = DbType.DateTime2, Value = null });
+            { ParameterName = "name19", DbType = DbType.DateTime2, Value = null });
         ydbCommand.Parameters.Add(new YdbParameter
-            { ParameterName = "$name20", Value = YdbValue.MakeOptionalInterval() });
+            { ParameterName = "name20", Value = YdbValue.MakeOptionalInterval() });
 
         await ydbCommand.ExecuteNonQueryAsync();
         ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
@@ -221,7 +210,7 @@ INSERT INTO {tableName}
     {
         return Enumerable.Range(0, 100).Select(async i =>
         {
-            await using var connection = new YdbConnection("MaxSessionPool=10");
+            await using var connection = new YdbConnection($"{ConnectionString};MaxSessionPool=10");
             await connection.OpenAsync();
 
             var command = connection.CreateCommand();

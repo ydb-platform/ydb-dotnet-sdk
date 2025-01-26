@@ -27,7 +27,7 @@ channel_profile_config:
       profile_id: 0
 domains_config:
   domain:
-    - name: local
+    - name: Root
       storage_pool_types:
         - kind: ssd
           pool_config:

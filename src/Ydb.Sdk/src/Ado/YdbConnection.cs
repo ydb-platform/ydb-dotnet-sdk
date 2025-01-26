@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using Ydb.Sdk.Services.Query;
 using static System.Data.IsolationLevel;
 
@@ -7,8 +8,6 @@ namespace Ydb.Sdk.Ado;
 
 public sealed class YdbConnection : DbConnection
 {
-    private static readonly YdbConnectionStringBuilder DefaultSettings = new();
-
     private static readonly StateChangeEventArgs ClosedToOpenEventArgs =
         new(ConnectionState.Closed, ConnectionState.Open);
 
@@ -16,8 +15,14 @@ public sealed class YdbConnection : DbConnection
         new(ConnectionState.Open, ConnectionState.Closed);
 
     private bool _disposed;
+    private YdbConnectionStringBuilder? _connectionStringBuilder;
 
-    private YdbConnectionStringBuilder ConnectionStringBuilder { get; set; }
+    private YdbConnectionStringBuilder ConnectionStringBuilder
+    {
+        get => _connectionStringBuilder ??
+               throw new InvalidOperationException("The ConnectionString property has not been initialized.");
+        [param: AllowNull] init => _connectionStringBuilder = value;
+    }
 
     internal Session Session
     {
@@ -34,7 +39,6 @@ public sealed class YdbConnection : DbConnection
 
     public YdbConnection()
     {
-        ConnectionStringBuilder = DefaultSettings;
     }
 
     public YdbConnection(string connectionString)
@@ -147,7 +151,7 @@ public sealed class YdbConnection : DbConnection
 
     public override string ConnectionString
     {
-        get => ConnectionStringBuilder.ConnectionString;
+        get => _connectionStringBuilder?.ConnectionString ?? "";
 #pragma warning disable CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
         set
 #pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
@@ -155,7 +159,7 @@ public sealed class YdbConnection : DbConnection
             EnsureConnectionClosed();
 
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-            ConnectionStringBuilder = value != null ? new YdbConnectionStringBuilder(value) : DefaultSettings;
+            _connectionStringBuilder = value != null ? new YdbConnectionStringBuilder(value) : null;
         }
     }
 
