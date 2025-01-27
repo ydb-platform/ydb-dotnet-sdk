@@ -72,8 +72,9 @@ jobs:
         with:
           compose-file: "./.github/ydb-slice-compose.yaml"
       - name: Run ADO.NET tests
+        env:
+          ConnectionString: "Host=localhost;Port=3135;Database=/Root/testdb"
         run: |
-          ConnectionString="Host=localhost;Port=3135;Database=/Root/testdb"
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src
           dotnet test --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=normal"
