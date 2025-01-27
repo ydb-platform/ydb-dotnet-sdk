@@ -264,7 +264,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     [Fact]
     public void GetChars_WhenSelectText_MoveCharsToBuffer()
     {
-        using var connection = (YdbConnection)CreateOpenConnection();
+        using var connection = CreateOpenConnection();
         var ydbDataReader =
             new YdbCommand(connection) { CommandText = "SELECT CAST('abacaba' AS Text)" }.ExecuteReader();
         Assert.True(ydbDataReader.Read());
@@ -313,7 +313,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     [Fact]
     public void GetBytes_WhenSelectBytes_MoveBytesToBuffer()
     {
-        using var connection = (YdbConnection)CreateOpenConnection();
+        using var connection = CreateOpenConnection();
         var ydbDataReader = new YdbCommand(connection) { CommandText = "SELECT 'abacaba'" }.ExecuteReader();
         Assert.True(ydbDataReader.Read());
         var bufferChars = new byte[10];

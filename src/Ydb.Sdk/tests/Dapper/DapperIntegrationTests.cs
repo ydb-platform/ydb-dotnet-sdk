@@ -12,6 +12,10 @@ public class DapperIntegrationTests : YdbAdoNetFixture
 {
     private static readonly TemporaryTables<DapperIntegrationTests> Tables = new();
 
+    public DapperIntegrationTests(YdbFactoryFixture fixture) : base(fixture)
+    {
+    }
+
     [Fact]
     public async Task DapperYqlTutorialTests()
     {
@@ -130,10 +134,8 @@ VALUES
     @air_date
 );
 ;", parameters1, transaction);
-        await using (var otherConn = new YdbConnection())
+        await using (var otherConn = await CreateOpenConnectionAsync())
         {
-            await otherConn.OpenAsync();
-
             Assert.Null(await otherConn.QuerySingleOrDefaultAsync(
                 $"SELECT * FROM {Tables.Episodes} WHERE series_id = @p1 AND season_id = @p2 AND episode_id = @p3",
                 new { p1 = episode1.SeriesId, p2 = episode1.SeasonId, p3 = episode1.EpisodeId }));
@@ -268,9 +270,5 @@ VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn,
         [Column("episode_id")] public uint EpisodeId { get; init; }
         [Column("title")] public string Title { get; init; } = null!;
         [Column("air_date")] public DateTime AirDate { get; init; }
-    }
-
-    protected DapperIntegrationTests(YdbFactoryFixture fixture) : base(fixture)
-    {
     }
 }
