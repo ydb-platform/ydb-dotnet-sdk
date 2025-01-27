@@ -20,7 +20,7 @@ public class YdbDataSourceTests : YdbAdoNetFixture
     }
 
     [Fact]
-    public async Task OpenConnectionAsync_WhenMaxSessionPool10_ReturnOpenConnection()
+    public void OpenConnectionAsync_WhenMaxSessionPool10_ReturnOpenConnection()
     {
         var tasks = new Task[SelectedCount];
         for (var i = 0; i < SelectedCount; i++)
@@ -33,7 +33,9 @@ public class YdbDataSourceTests : YdbAdoNetFixture
             });
         }
 
-        await Task.WhenAll(tasks);
+#pragma warning disable xUnit1031
+        Task.WaitAll(tasks);
+#pragma warning restore xUnit1031
     }
 
     [Fact]
