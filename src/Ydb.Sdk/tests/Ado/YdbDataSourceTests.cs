@@ -43,13 +43,15 @@ public class YdbDataSourceTests : YdbAdoNetFixture
     {
         for (var i = 0; i < SelectedCount; i++)
         {
-            Assert.Equal(1, _dataSource.CreateCommand("SELECT 1;").ExecuteScalar());
+            using var command = _dataSource.CreateCommand("SELECT 1;");
+            Assert.Equal(1, command.ExecuteScalar());
         }
 
         _dataSource.Dispose();
         for (var i = 0; i < SelectedCount; i++)
         {
-            Assert.Equal(1, _dataSource.CreateCommand("SELECT 1;").ExecuteScalar());
+            using var command = _dataSource.CreateCommand("SELECT 1;");
+            Assert.Equal(1, command.ExecuteScalar());
         }
     }
 

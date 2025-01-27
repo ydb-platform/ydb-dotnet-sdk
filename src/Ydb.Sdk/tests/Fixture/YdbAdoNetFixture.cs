@@ -22,8 +22,8 @@ public class YdbAdoNetFixture : DbFactoryTestBase<YdbFactoryFixture>
 
     protected async Task<YdbConnection> CreateOpenConnectionAsync()
     {
-        var connection = CreateConnection();
-        connection.ConnectionString = ConnectionString;
+        var connection = new YdbConnection(new YdbConnectionStringBuilder(ConnectionString)
+            { LoggerFactory = Utils.GetLoggerFactory() });
         await connection.OpenAsync();
         return connection;
     }

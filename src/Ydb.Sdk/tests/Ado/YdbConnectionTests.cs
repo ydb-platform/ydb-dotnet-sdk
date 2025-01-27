@@ -7,8 +7,6 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Collection("YdbConnectionTests")]
-[CollectionDefinition("YdbConnectionTests isolation test", DisableParallelization = true)]
 public sealed class YdbConnectionTests : YdbAdoNetFixture
 {
     private static readonly TemporaryTables<YdbConnectionTests> Tables = new();
@@ -207,15 +205,11 @@ INSERT INTO {tableName}
     {
         return Enumerable.Range(0, 100).Select(async i =>
         {
-            await using var connection = new YdbConnection(ConnectionString);
-            await connection.OpenAsync();
-
+            await using var connection = await CreateOpenConnectionAsync();
             var command = connection.CreateCommand();
             command.CommandText = "SELECT " + i;
-
             var scalar = (int)(await command.ExecuteScalarAsync())!;
             Assert.Equal(i, scalar);
-
             Interlocked.Add(ref _counter, scalar);
         }).ToList();
     }

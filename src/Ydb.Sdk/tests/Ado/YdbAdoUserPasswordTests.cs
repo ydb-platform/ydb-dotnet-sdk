@@ -14,8 +14,7 @@ public class YdbAdoUserPasswordTests : YdbAdoNetFixture
     [Fact]
     public async Task Authentication_WhenUserAndPassword_ReturnValidConnection()
     {
-        await using var connection = new YdbConnection(Fixture.ConnectionString);
-        await connection.OpenAsync();
+        await using var connection = await CreateOpenConnectionAsync();
         var ydbCommand = connection.CreateCommand();
         var kurdyukovkirya = "kurdyukovkirya" + Random.Shared.Next();
         ydbCommand.CommandText = $"CREATE USER {kurdyukovkirya} PASSWORD 'password'";
@@ -29,8 +28,7 @@ public class YdbAdoUserPasswordTests : YdbAdoNetFixture
         ydbCommand.CommandText = "SELECT 1 + 2";
         Assert.Equal(3, await ydbCommand.ExecuteScalarAsync());
 
-        await using var newConnection = new YdbConnection(Fixture.ConnectionString);
-        await newConnection.OpenAsync();
+        await using var newConnection = await CreateOpenConnectionAsync();
         ydbCommand = newConnection.CreateCommand();
         ydbCommand.CommandText = $"DROP USER {kurdyukovkirya};";
         await ydbCommand.ExecuteNonQueryAsync();
@@ -39,8 +37,7 @@ public class YdbAdoUserPasswordTests : YdbAdoNetFixture
     [Fact]
     public async Task ExecuteNonQueryAsync_WhenCreateUser_ReturnEmptyResultSet()
     {
-        await using var connection = new YdbConnection(Fixture.ConnectionString);
-        await connection.OpenAsync();
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         var user = "user" + Random.Shared.Next();
         dbCommand.CommandText = $"CREATE USER {user} PASSWORD '123qweqwe'";
