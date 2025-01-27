@@ -6,8 +6,6 @@ using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Collection("YdbDataSourceTests")]
-[CollectionDefinition("YdbDataSourceTests isolation test", DisableParallelization = true)]
 public class YdbDataSourceTests : YdbAdoNetFixture
 {
     private const int SelectedCount = 100;
@@ -16,11 +14,11 @@ public class YdbDataSourceTests : YdbAdoNetFixture
 
     public YdbDataSourceTests(YdbFactoryFixture fixture) : base(fixture)
     {
-        _dataSource = new YdbDataSource($"{Fixture.ConnectionString};MaxSessionPool=10");
+        _dataSource = new YdbDataSource(Fixture.ConnectionString);
     }
 
     [Fact]
-    public void OpenConnectionAsync_WhenMaxSessionPool10_ReturnOpenConnection()
+    public async Task OpenConnectionAsync_WhenMaxSessionPool10_ReturnOpenConnection()
     {
         var tasks = new Task[SelectedCount];
         for (var i = 0; i < SelectedCount; i++)
@@ -33,9 +31,7 @@ public class YdbDataSourceTests : YdbAdoNetFixture
             });
         }
 
-#pragma warning disable xUnit1031
-        Task.WaitAll(tasks);
-#pragma warning restore xUnit1031
+        await Task.WhenAll(tasks);
     }
 
     [Fact]

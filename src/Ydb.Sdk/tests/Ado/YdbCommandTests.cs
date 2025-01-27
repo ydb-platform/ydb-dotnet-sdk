@@ -8,8 +8,6 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[Collection("YdbCommandTests")]
-[CollectionDefinition("YdbCommandTests isolation test", DisableParallelization = true)]
 public class YdbCommandTests : YdbAdoNetFixture
 {
     public YdbCommandTests(YdbFactoryFixture fixture) : base(fixture)
@@ -18,9 +16,9 @@ public class YdbCommandTests : YdbAdoNetFixture
 
     [Theory]
     [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
-    public void ExecuteScalarAsync_WhenSetYdbParameter_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
+    public async Task ExecuteScalarAsync_WhenSetYdbParameter_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
     {
-        using var connection = CreateOpenConnection();
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = "SELECT @var as var;";
 
@@ -34,7 +32,7 @@ public class YdbCommandTests : YdbAdoNetFixture
 
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected, dbCommand.ExecuteScalar());
+        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
         var ydbDataReader = dbCommand.ExecuteReader();
         Assert.Equal(1, ydbDataReader.FieldCount);
         Assert.Equal("var", ydbDataReader.GetName(0));
@@ -43,7 +41,7 @@ public class YdbCommandTests : YdbAdoNetFixture
             Assert.Equal(typeof(T), ydbDataReader.GetFieldType(0));
         }
 
-        while (ydbDataReader.Read())
+        while (await ydbDataReader.NextResultAsync())
         {
         }
     }
@@ -70,14 +68,14 @@ public class YdbCommandTests : YdbAdoNetFixture
 
     [Theory]
     [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
-    public void ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
+    public async Task ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
     {
         if (data.IsNullable)
         {
             return;
         }
 
-        using var connection = CreateOpenConnection();
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = "SELECT @var;";
 
@@ -89,11 +87,11 @@ public class YdbCommandTests : YdbAdoNetFixture
         };
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected, dbCommand.ExecuteScalar());
+        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
     }
 
     [Fact]
-    public void ExecuteScalarAsync_WhenNoDbTypeParameter_ReturnThisValue()
+    public async Task ExecuteScalarAsync_WhenNoDbTypeParameter_ReturnThisValue()
     {
         const string simpleJson = @"{""a"":""b""}";
 
@@ -110,7 +108,7 @@ public class YdbCommandTests : YdbAdoNetFixture
                 Encoding.ASCII.GetBytes("{type=\"yson\"}"))
         };
 
-        using var connection = CreateOpenConnection();
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = "SELECT @var;";
 
@@ -122,7 +120,7 @@ public class YdbCommandTests : YdbAdoNetFixture
                 ParameterName = "@var",
                 Value = arg.YdbValue
             });
-            Assert.Equal(arg.Expected, dbCommand.ExecuteScalar());
+            Assert.Equal(arg.Expected, await dbCommand.ExecuteScalarAsync());
         }
     }
 
