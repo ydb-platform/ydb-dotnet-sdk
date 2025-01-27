@@ -151,7 +151,7 @@ public sealed class YdbConnection : DbConnection
 
     public override string ConnectionString
     {
-        get => _connectionStringBuilder?.ConnectionString ?? "";
+        get => _connectionStringBuilder?.ConnectionString ?? string.Empty;
 #pragma warning disable CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
         set
 #pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
