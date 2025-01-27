@@ -50,8 +50,7 @@ public class YdbCommandTests : YdbAdoNetFixture
 
     [Theory]
     [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
-    public void ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue<T>(
-        YdbParameterTests.Data<T> data)
+    public void ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
     {
         using var connection = CreateOpenConnection();
         var dbCommand = connection.CreateCommand();

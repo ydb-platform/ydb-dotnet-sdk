@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using Dapper;
 using Xunit;
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.Tests.Ado.Specification;
 using Ydb.Sdk.Tests.Fixture;
 
