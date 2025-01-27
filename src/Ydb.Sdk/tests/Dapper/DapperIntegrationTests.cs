@@ -3,10 +3,12 @@ using System.Data;
 using Dapper;
 using Xunit;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Tests.Ado.Specification;
+using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Dapper;
 
-public class DapperIntegrationTests
+public class DapperIntegrationTests : YdbAdoNetFixture
 {
     private static readonly TemporaryTables<DapperIntegrationTests> Tables = new();
 
@@ -23,12 +25,9 @@ public class DapperIntegrationTests
                             .OfType<ColumnAttribute>()
                             .Any(attr => attr.Name == columnName)) ?? throw new InvalidOperationException()));
 
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
+        await using var connection = await CreateOpenConnectionAsync();
         await connection.ExecuteAsync(Tables.CreateTables); // create tables
         await connection.ExecuteAsync(Tables.UpsertData); // adding data to table
-
         var selectedEpisodes = (await connection.QueryAsync<Episode>($@"
 SELECT
    series_id,
@@ -206,7 +205,7 @@ VALUES
     {
         var tableName = "DapperNullableTypes_" + Random.Shared.Next();
 
-        await using var connection = new YdbConnection();
+        await using var connection = await CreateOpenConnectionAsync();
         await connection.ExecuteAsync(@$"
 CREATE TABLE {tableName} (
     Id INT32,
@@ -269,5 +268,9 @@ VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn,
         [Column("episode_id")] public uint EpisodeId { get; init; }
         [Column("title")] public string Title { get; init; } = null!;
         [Column("air_date")] public DateTime AirDate { get; init; }
+    }
+
+    protected DapperIntegrationTests(YdbFactoryFixture fixture) : base(fixture)
+    {
     }
 }
