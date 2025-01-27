@@ -53,7 +53,7 @@ public class YdbConnectionTests : YdbAdoNetFixture
     public async Task TlsSettings_WhenUseGrpcs_ReturnValidConnection()
     {
         var connectionStringBuilder = new YdbConnectionStringBuilder(
-            $"{ConnectionString};MaxSessionPool=10;RootCertificate=" +
+            $"{Fixture.ConnectionString};MaxSessionPool=10;RootCertificate=" +
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem"))
         {
             Port = 2135

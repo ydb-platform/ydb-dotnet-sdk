@@ -14,7 +14,8 @@ public class YdbAdoUserPasswordTests : YdbAdoNetFixture
     [Fact]
     public async Task Authentication_WhenUserAndPassword_ReturnValidConnection()
     {
-        await using var connection = await CreateOpenConnectionAsync();
+        await using var connection = new YdbConnection(Fixture.ConnectionString);
+        await connection.OpenAsync();
         var ydbCommand = connection.CreateCommand();
         var kurdyukovkirya = "kurdyukovkirya" + Random.Shared.Next();
         ydbCommand.CommandText = $"CREATE USER {kurdyukovkirya} PASSWORD 'password'";
@@ -22,16 +23,29 @@ public class YdbAdoUserPasswordTests : YdbAdoNetFixture
         await connection.CloseAsync();
 
         await using var userPasswordConnection =
-            new YdbConnection($"{ConnectionString};User={kurdyukovkirya};Password=password;");
+            new YdbConnection($"{Fixture.ConnectionString};User={kurdyukovkirya};Password=password;");
         await userPasswordConnection.OpenAsync();
         ydbCommand = userPasswordConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1 + 2";
         Assert.Equal(3, await ydbCommand.ExecuteScalarAsync());
 
-        await using var newConnection = new YdbConnection();
-        await newConnection.OpenAsync();
+        await using var newConnection = new YdbConnection(Fixture.ConnectionString);
+        await connection.OpenAsync();
         ydbCommand = newConnection.CreateCommand();
         ydbCommand.CommandText = $"DROP USER {kurdyukovkirya};";
         await ydbCommand.ExecuteNonQueryAsync();
+    }
+    
+    [Fact]
+    public async Task ExecuteNonQueryAsync_WhenCreateUser_ReturnEmptyResultSet()
+    {
+        await using var connection = new YdbConnection(Fixture.ConnectionString);
+        await connection.OpenAsync();
+        var dbCommand = connection.CreateCommand();
+        var user = "user" + Random.Shared.Next();
+        dbCommand.CommandText = $"CREATE USER {user} PASSWORD '123qweqwe'";
+        await dbCommand.ExecuteNonQueryAsync();
+        dbCommand.CommandText = $"DROP USER {user};";
+        await dbCommand.ExecuteNonQueryAsync();
     }
 }

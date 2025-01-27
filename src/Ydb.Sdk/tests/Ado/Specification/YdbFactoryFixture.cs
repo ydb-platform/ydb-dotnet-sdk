@@ -8,5 +8,5 @@ public class YdbFactoryFixture : IDbFactoryFixture
 {
     public DbProviderFactory Factory => YdbProviderFactory.Instance;
 
-    public string ConnectionString => "Host=localhost;Port=2136;Database=/Root/testdb";
+    public string ConnectionString => "Host=localhost;Port=2136;Database=/local";
 }

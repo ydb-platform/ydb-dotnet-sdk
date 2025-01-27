@@ -126,17 +126,6 @@ public class YdbCommandTests : YdbAdoNetFixture
     }
 
     [Fact]
-    public async Task ExecuteNonQueryAsync_WhenCreateUser_ReturnEmptyResultSet()
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        var dbCommand = connection.CreateCommand();
-        dbCommand.CommandText = "CREATE USER user PASSWORD '123qweqwe'";
-        await dbCommand.ExecuteNonQueryAsync();
-        dbCommand.CommandText = "DROP USER user;";
-        await dbCommand.ExecuteNonQueryAsync();
-    }
-
-    [Fact]
     public async Task CloseAsync_WhenDoubleInvoke_Idempotent()
     {
         await using var connection = await CreateOpenConnectionAsync();

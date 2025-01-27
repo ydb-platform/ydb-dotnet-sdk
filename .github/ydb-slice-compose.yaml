@@ -21,7 +21,7 @@ services:
       - /opt/ydb/bin/ydbd
       - server
       - --grpc-port
-      - "2135"
+      - "3135"
       - --mon-port
       - "8765"
       - --ic-port
@@ -33,11 +33,11 @@ services:
       - --label
       - deployment=docker
     ports:
-      - 2135:2135
+      - 3135:3135
       - 8765:8765
       - 19001:19001
     healthcheck:
-      test: bash -c "exec 6<> /dev/tcp/localhost/2135"
+      test: bash -c "exec 6<> /dev/tcp/localhost/3135"
       interval: 10s
       timeout: 1s
       retries: 3
@@ -50,7 +50,7 @@ services:
     command:
       - /opt/ydb/bin/ydbd
       - -s
-      - grpc://localhost:2135
+      - grpc://localhost:3135
       - admin
       - blobstorage
       - config
@@ -68,7 +68,7 @@ services:
     command:
       - /opt/ydb/bin/ydbd
       - -s
-      - grpc://localhost:2135
+      - grpc://localhost:3135
       - admin
       - database
       - /Root/testdb
@@ -85,7 +85,7 @@ services:
       - /opt/ydb/bin/ydbd
       - server
       - --grpc-port
-      - "2136"
+      - "3136"
       - --mon-port
       - "8766"
       - --ic-port
@@ -95,15 +95,15 @@ services:
       - --tenant
       - /Root/testdb
       - --node-broker
-      - grpc://localhost:2135
+      - grpc://localhost:3135
       - --label
       - deployment=docker
     ports:
-      - 2136:2136
+      - 3136:3136
       - 8766:8766
       - 19002:19002
     healthcheck:
-      test: bash -c "exec 6<> /dev/tcp/localhost/2136"
+      test: bash -c "exec 6<> /dev/tcp/localhost/3136"
       interval: 10s
       timeout: 1s
       retries: 3
@@ -123,7 +123,7 @@ services:
       - /opt/ydb/bin/ydbd
       - server
       - --grpc-port
-      - "2137"
+      - "3137"
       - --mon-port
       - "8767"
       - --ic-port
@@ -133,15 +133,15 @@ services:
       - --tenant
       - /Root/testdb
       - --node-broker
-      - grpc://localhost:2135
+      - grpc://localhost:3135
       - --label
       - deployment=docker
     ports:
-      - 2137:2137
+      - 3137:3137
       - 8767:8767
       - 19003:19003
     healthcheck:
-      test: bash -c "exec 6<> /dev/tcp/localhost/2137"
+      test: bash -c "exec 6<> /dev/tcp/localhost/3137"
       interval: 10s
       timeout: 1s
       retries: 3
@@ -161,7 +161,7 @@ services:
       - /opt/ydb/bin/ydbd
       - server
       - --grpc-port
-      - "2138"
+      - "3138"
       - --mon-port
       - "8768"
       - --ic-port
@@ -171,15 +171,15 @@ services:
       - --tenant
       - /Root/testdb
       - --node-broker
-      - grpc://localhost:2135
+      - grpc://localhost:3135
       - --label
       - deployment=docker
     ports:
-      - 2138:2138
+      - 3138:3138
       - 8768:8768
       - 19004:19004
     healthcheck:
-      test: bash -c "exec 6<> /dev/tcp/localhost/2138"
+      test: bash -c "exec 6<> /dev/tcp/localhost/3138"
       interval: 10s
       timeout: 1s
       retries: 3
@@ -199,7 +199,7 @@ services:
       - /opt/ydb/bin/ydbd
       - server
       - --grpc-port
-      - "2139"
+      - "3139"
       - --mon-port
       - "8769"
       - --ic-port
@@ -209,15 +209,15 @@ services:
       - --tenant
       - /Root/testdb
       - --node-broker
-      - grpc://localhost:2135
+      - grpc://localhost:3135
       - --label
       - deployment=docker
     ports:
-      - 2139:2139
+      - 3139:3139
       - 8769:8769
       - 19005:19005
     healthcheck:
-      test: bash -c "exec 6<> /dev/tcp/localhost/2139"
+      test: bash -c "exec 6<> /dev/tcp/localhost/3139"
       interval: 10s
       timeout: 1s
       retries: 3
@@ -237,7 +237,7 @@ services:
       - /opt/ydb/bin/ydbd
       - server
       - --grpc-port
-      - "2140"
+      - "3140"
       - --mon-port
       - "8770"
       - --ic-port
@@ -247,15 +247,15 @@ services:
       - --tenant
       - /Root/testdb
       - --node-broker
-      - grpc://localhost:2135
+      - grpc://localhost:3135
       - --label
       - deployment=docker
     ports:
-      - 2140:2140
+      - 3140:3140
       - 8770:8770
       - 19006:19006
     healthcheck:
-      test: bash -c "exec 6<> /dev/tcp/localhost/2140"
+      test: bash -c "exec 6<> /dev/tcp/localhost/3140"
       interval: 10s
       timeout: 1s
       retries: 3
