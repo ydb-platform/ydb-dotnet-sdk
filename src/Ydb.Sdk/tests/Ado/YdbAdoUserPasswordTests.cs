@@ -30,7 +30,7 @@ public class YdbAdoUserPasswordTests : YdbAdoNetFixture
         Assert.Equal(3, await ydbCommand.ExecuteScalarAsync());
 
         await using var newConnection = new YdbConnection(Fixture.ConnectionString);
-        await connection.OpenAsync();
+        await newConnection.OpenAsync();
         ydbCommand = newConnection.CreateCommand();
         ydbCommand.CommandText = $"DROP USER {kurdyukovkirya};";
         await ydbCommand.ExecuteNonQueryAsync();
