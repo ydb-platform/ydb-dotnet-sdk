@@ -7,7 +7,7 @@ using Ydb.Sdk.Tests.Fixture;
 namespace Ydb.Sdk.Tests.Ado;
 
 [Collection("YdbDataSourceTests")]
-[CollectionDefinition("YdbDataSourceTests isolation test")]
+[CollectionDefinition("YdbDataSourceTests isolation test", DisableParallelization = true)]
 public class YdbDataSourceTests : YdbAdoNetFixture
 {
     private const int SelectedCount = 100;

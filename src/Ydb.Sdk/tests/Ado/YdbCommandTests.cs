@@ -9,7 +9,7 @@ using Ydb.Sdk.Value;
 namespace Ydb.Sdk.Tests.Ado;
 
 [Collection("YdbCommandTests")]
-[CollectionDefinition("YdbCommandTests isolation test")]
+[CollectionDefinition("YdbCommandTests isolation test", DisableParallelization = true)]
 public class YdbCommandTests : YdbAdoNetFixture
 {
     public YdbCommandTests(YdbFactoryFixture fixture) : base(fixture)

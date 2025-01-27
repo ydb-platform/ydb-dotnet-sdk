@@ -8,7 +8,7 @@ using Ydb.Sdk.Value;
 namespace Ydb.Sdk.Tests.Ado;
 
 [Collection("YdbConnectionTests")]
-[CollectionDefinition("YdbConnectionTests isolation test")]
+[CollectionDefinition("YdbConnectionTests isolation test", DisableParallelization = true)]
 public sealed class YdbConnectionTests : YdbAdoNetFixture
 {
     private static readonly TemporaryTables<YdbConnectionTests> Tables = new();
