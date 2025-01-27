@@ -35,7 +35,7 @@ public class YdbAdoUserPasswordTests : YdbAdoNetFixture
         ydbCommand.CommandText = $"DROP USER {kurdyukovkirya};";
         await ydbCommand.ExecuteNonQueryAsync();
     }
-    
+
     [Fact]
     public async Task ExecuteNonQueryAsync_WhenCreateUser_ReturnEmptyResultSet()
     {

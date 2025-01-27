@@ -8,27 +8,32 @@ using Ydb.Sdk.Value;
 namespace Ydb.Sdk.Tests.Ado;
 
 [Collection("YdbConnectionTests")]
-public class YdbConnectionTests : YdbAdoNetFixture
+[CollectionDefinition("YdbConnectionTests isolation test")]
+public sealed class YdbConnectionTests : YdbAdoNetFixture
 {
     private static readonly TemporaryTables<YdbConnectionTests> Tables = new();
+
+    private readonly string _connectionString;
 
     private volatile int _counter;
 
     public YdbConnectionTests(YdbFactoryFixture fixture) : base(fixture)
     {
+        _connectionString = "Host=localhost;Port=2135;Database=/local;MaxSessionPool=10;RootCertificate=" +
+                            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem");
     }
 
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
         var tasks = GenerateTasks();
-        tasks.Add(YdbConnection.ClearPool(new YdbConnection($"{ConnectionString};MaxSessionPool=10")));
+        tasks.Add(YdbConnection.ClearPool(new YdbConnection(ConnectionString)));
         tasks.AddRange(GenerateTasks());
         await Task.WhenAll(tasks);
         Assert.Equal(9900, _counter);
 
         tasks = GenerateTasks();
-        tasks.Add(YdbConnection.ClearPool(new YdbConnection($"{ConnectionString};MaxSessionPool=10")));
+        tasks.Add(YdbConnection.ClearPool(new YdbConnection(ConnectionString)));
         await Task.WhenAll(tasks);
         Assert.Equal(14850, _counter);
     }
@@ -52,16 +57,8 @@ public class YdbConnectionTests : YdbAdoNetFixture
     [Fact]
     public async Task TlsSettings_WhenUseGrpcs_ReturnValidConnection()
     {
-        var connectionStringBuilder = new YdbConnectionStringBuilder(
-            $"{Fixture.ConnectionString};MaxSessionPool=10;RootCertificate=" +
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem"))
-        {
-            Port = 2135
-        };
-
-        await using var ydbConnection = new YdbConnection(connectionStringBuilder);
+        await using var ydbConnection = new YdbConnection(_connectionString);
         await ydbConnection.OpenAsync();
-
         var command = ydbConnection.CreateCommand();
         command.CommandText = Tables.CreateTables;
         await command.ExecuteNonQueryAsync();
@@ -210,7 +207,7 @@ INSERT INTO {tableName}
     {
         return Enumerable.Range(0, 100).Select(async i =>
         {
-            await using var connection = new YdbConnection($"{ConnectionString};MaxSessionPool=10");
+            await using var connection = new YdbConnection(ConnectionString);
             await connection.OpenAsync();
 
             var command = connection.CreateCommand();
@@ -221,5 +218,10 @@ INSERT INTO {tableName}
 
             Interlocked.Add(ref _counter, scalar);
         }).ToList();
+    }
+
+    protected override async Task OnDisposeAsync()
+    {
+        await YdbConnection.ClearPool(new YdbConnection(_connectionString));
     }
 }

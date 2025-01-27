@@ -6,6 +6,8 @@ using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Ado;
 
+[Collection("YdbDataSourceTests")]
+[CollectionDefinition("YdbDataSourceTests isolation test")]
 public class YdbDataSourceTests : YdbAdoNetFixture
 {
     private const int SelectedCount = 100;
@@ -14,7 +16,7 @@ public class YdbDataSourceTests : YdbAdoNetFixture
 
     public YdbDataSourceTests(YdbFactoryFixture fixture) : base(fixture)
     {
-        _dataSource = new YdbDataSource($"{ConnectionString};MaxSessionPool=10");
+        _dataSource = new YdbDataSource($"{Fixture.ConnectionString};MaxSessionPool=10");
     }
 
     [Fact]
