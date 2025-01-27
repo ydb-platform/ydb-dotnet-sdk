@@ -67,10 +67,10 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Build YDB Slice
-        run: docker-compose -f ./.github/ydb-slice-compose.yaml up -d
+      - name: Set up Docker Compose
+        uses: hoverkraft-tech/compose-action@v2.1.0
+        with:
+          compose-file: "./github/ydb-slice-compose.yaml"
       - name: Run ADO.NET tests
         run: |
           ConnectionString="Host=localhost;Port=3135;Database=/Root/testdb"
