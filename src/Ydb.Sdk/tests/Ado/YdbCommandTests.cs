@@ -33,7 +33,7 @@ public class YdbCommandTests : YdbAdoNetFixture
         dbCommand.Parameters.Add(dbParameter);
 
         Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
-        var ydbDataReader = dbCommand.ExecuteReader();
+        var ydbDataReader = await dbCommand.ExecuteReaderAsync();
         Assert.Equal(1, ydbDataReader.FieldCount);
         Assert.Equal("var", ydbDataReader.GetName(0));
         if (!data.IsNullable)
@@ -48,9 +48,9 @@ public class YdbCommandTests : YdbAdoNetFixture
 
     [Theory]
     [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
-    public void ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
+    public async Task ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
     {
-        using var connection = CreateOpenConnection();
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = "SELECT @var;";
 
@@ -63,7 +63,7 @@ public class YdbCommandTests : YdbAdoNetFixture
         };
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected, dbCommand.ExecuteScalar());
+        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
     }
 
     [Theory]

@@ -22,7 +22,7 @@ public class YdbAdoUserPasswordTests : YdbAdoNetFixture
         await connection.CloseAsync();
 
         await using var userPasswordConnection =
-            new YdbConnection($"{Fixture.ConnectionString};User={kurdyukovkirya};Password=password;");
+            new YdbConnection($"{ConnectionString};User={kurdyukovkirya};Password=password;");
         await userPasswordConnection.OpenAsync();
         ydbCommand = userPasswordConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1 + 2";
