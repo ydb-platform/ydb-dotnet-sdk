@@ -434,9 +434,22 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override async Task CloseAsync()
     {
+        if (ReaderState == State.Closed)
+        {
+            return;
+        }
+
         ReaderState = State.Closed;
+        _onNotSuccessStatus(new Status(StatusCode.SessionBusy));
 
         await _stream.DisposeAsync();
+
+        if (_ydbTransaction != null)
+        {
+            _ydbTransaction.Failed = true;
+
+            throw new YdbException("YdbDataReader was closed during transaction execution. Transaction is broken!");
+        }
     }
 
     public override void Close()
@@ -497,7 +510,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             _currentResultSet = part.ResultSet?.FromProto();
             ReaderMetadata = _currentResultSet != null ? new Metadata(_currentResultSet) : EmptyMetadata.Instance;
 
-            if (_ydbTransaction != null)
+            if (_ydbTransaction != null && part.TxMeta != null)
             {
                 _ydbTransaction.TxId ??= part.TxMeta.Id;
             }

@@ -2,13 +2,18 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using Dapper;
 using Xunit;
-using Ydb.Sdk.Ado;
+using Ydb.Sdk.Tests.Ado.Specification;
+using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Dapper;
 
-public class DapperIntegrationTests
+public class DapperIntegrationTests : YdbAdoNetFixture
 {
     private static readonly TemporaryTables<DapperIntegrationTests> Tables = new();
+
+    public DapperIntegrationTests(YdbFactoryFixture fixture) : base(fixture)
+    {
+    }
 
     [Fact]
     public async Task DapperYqlTutorialTests()
@@ -23,12 +28,9 @@ public class DapperIntegrationTests
                             .OfType<ColumnAttribute>()
                             .Any(attr => attr.Name == columnName)) ?? throw new InvalidOperationException()));
 
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
+        await using var connection = await CreateOpenConnectionAsync();
         await connection.ExecuteAsync(Tables.CreateTables); // create tables
         await connection.ExecuteAsync(Tables.UpsertData); // adding data to table
-
         var selectedEpisodes = (await connection.QueryAsync<Episode>($@"
 SELECT
    series_id,
@@ -131,10 +133,8 @@ VALUES
     @air_date
 );
 ;", parameters1, transaction);
-        await using (var otherConn = new YdbConnection())
+        await using (var otherConn = await CreateOpenConnectionAsync())
         {
-            await otherConn.OpenAsync();
-
             Assert.Null(await otherConn.QuerySingleOrDefaultAsync(
                 $"SELECT * FROM {Tables.Episodes} WHERE series_id = @p1 AND season_id = @p2 AND episode_id = @p3",
                 new { p1 = episode1.SeriesId, p2 = episode1.SeasonId, p3 = episode1.EpisodeId }));
@@ -206,7 +206,7 @@ VALUES
     {
         var tableName = "DapperNullableTypes_" + Random.Shared.Next();
 
-        await using var connection = new YdbConnection();
+        await using var connection = await CreateOpenConnectionAsync();
         await connection.ExecuteAsync(@$"
 CREATE TABLE {tableName} (
     Id INT32,

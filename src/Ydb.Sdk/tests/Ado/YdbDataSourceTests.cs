@@ -1,14 +1,21 @@
 #if NET7_0_OR_GREATER
 using Xunit;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Tests.Ado.Specification;
+using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-public class YdbDataSourceTests
+public class YdbDataSourceTests : YdbAdoNetFixture
 {
     private const int SelectedCount = 100;
 
-    private readonly YdbDataSource _dataSource = new("MaxSessionPool=10");
+    private readonly YdbDataSource _dataSource;
+
+    public YdbDataSourceTests(YdbFactoryFixture fixture) : base(fixture)
+    {
+        _dataSource = new YdbDataSource(Fixture.ConnectionString);
+    }
 
     [Fact]
     public async Task OpenConnectionAsync_WhenMaxSessionPool10_ReturnOpenConnection()
@@ -32,13 +39,15 @@ public class YdbDataSourceTests
     {
         for (var i = 0; i < SelectedCount; i++)
         {
-            Assert.Equal(1, _dataSource.CreateCommand("SELECT 1;").ExecuteScalar());
+            using var command = _dataSource.CreateCommand("SELECT 1;");
+            Assert.Equal(1, command.ExecuteScalar());
         }
 
         _dataSource.Dispose();
         for (var i = 0; i < SelectedCount; i++)
         {
-            Assert.Equal(1, _dataSource.CreateCommand("SELECT 1;").ExecuteScalar());
+            using var command = _dataSource.CreateCommand("SELECT 1;");
+            Assert.Equal(1, command.ExecuteScalar());
         }
     }
 

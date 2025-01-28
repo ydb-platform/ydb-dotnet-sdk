@@ -2,18 +2,23 @@ using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Services.Query;
+using Ydb.Sdk.Tests.Ado.Specification;
+using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-public class YdbTransactionTests : IAsyncLifetime
+public class YdbTransactionTests : YdbAdoNetFixture
 {
     private static readonly TemporaryTables<YdbTransactionTests> Tables = new();
+
+    public YdbTransactionTests(YdbFactoryFixture fixture) : base(fixture)
+    {
+    }
 
     [Fact]
     public void Rollback_WhenUpsertThenRollback_ReturnPrevRow()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
 
         var ydbTransaction = connection.BeginTransaction();
         var ydbCommand = connection.CreateCommand();
@@ -21,7 +26,7 @@ public class YdbTransactionTests : IAsyncLifetime
 
         ydbCommand.CommandText = $@"
                                 UPSERT INTO {Tables.Seasons} (series_id, season_id, first_aired) 
-                                VALUES ($series_id, $season_id, $air_date);
+                                VALUES (@series_id, @season_id, @air_date);
                                 ";
         ydbCommand.Parameters.Add(new YdbParameter
             { ParameterName = "$series_id", DbType = DbType.UInt64, Value = 1U });
@@ -40,8 +45,7 @@ public class YdbTransactionTests : IAsyncLifetime
     [Fact]
     public void Commit_WhenMakeTwoUpsertOperation_ReturnUpdatedTables()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
 
         var ydbTransaction = connection.BeginTransaction(IsolationLevel.Serializable);
         var ydbCommand = connection.CreateCommand();
@@ -81,13 +85,11 @@ public class YdbTransactionTests : IAsyncLifetime
     [Fact]
     public void Commit_WhenEmptyYdbCommand_DoNothing()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
 
         var ydbTransaction = connection.BeginTransaction();
         var ydbCommand = connection.CreateCommand();
         ydbCommand.Transaction = ydbTransaction;
-
         ydbTransaction.Commit(); // Do nothing
 
         // Out transaction executing
@@ -98,8 +100,7 @@ public class YdbTransactionTests : IAsyncLifetime
     [Fact]
     public void CommitAndRollback_WhenDoubleCommit_ThrowException()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
 
         var ydbTransaction = connection.BeginTransaction();
 
@@ -121,10 +122,54 @@ public class YdbTransactionTests : IAsyncLifetime
     }
 
     [Fact]
+    public void BeginTransaction_WhenYdbDataReaderIsClosed_ThrowExceptionTransactionIsBroken()
+    {
+        using var connection = CreateOpenConnection();
+
+        using var ydbTransaction = connection.BeginTransaction();
+        var ydbCommand = connection.CreateCommand();
+        ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3";
+        var dbDataReader = ydbCommand.ExecuteReader();
+        dbDataReader.Read();
+        Assert.Equal("YdbDataReader was closed during transaction execution. Transaction is broken!",
+            Assert.Throws<YdbException>(() => dbDataReader.Close()).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbTransaction.Commit()).Message);
+        ydbTransaction.Rollback();
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbTransaction.Commit()).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            Assert.Throws<InvalidOperationException>(() => ydbTransaction.Rollback()).Message);
+    }
+
+    [Fact]
+    public async Task BeginTransaction_WhenTxIdIsReceivedThenYdbDataReaderIsClosed_SuccessCommit()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+
+        var tx = connection.BeginTransaction();
+        var ydbCommand1 = connection.CreateCommand();
+        ydbCommand1.CommandText = "SELECT 1";
+        Assert.Equal(1, await ydbCommand1.ExecuteScalarAsync());
+        var ydbCommand2 = connection.CreateCommand();
+        ydbCommand2.CommandText = "SELECT 1; SELECT 2; SELECT 3";
+        var dbDataReader = await ydbCommand2.ExecuteReaderAsync();
+        await dbDataReader.NextResultAsync();
+        Assert.Equal("YdbDataReader was closed during transaction execution. Transaction is broken!",
+            (await Assert.ThrowsAsync<YdbException>(() => dbDataReader.CloseAsync())).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => tx.CommitAsync())).Message);
+        await tx.RollbackAsync(); // do nothing transaction
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => tx.CommitAsync())).Message);
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => tx.RollbackAsync())).Message);
+    }
+
+    [Fact]
     public void CommitAndRollback_WhenStreamIsOpened_ThrowException()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
 
         var ydbTransaction = connection.BeginTransaction();
         var ydbCommand = connection.CreateCommand();
@@ -151,8 +196,7 @@ public class YdbTransactionTests : IAsyncLifetime
     [Fact]
     public void CommitAndRollback_WhenConnectionIsClosed_ThrowException()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
 
         var ydbTransaction = connection.BeginTransaction();
         var ydbCommand = connection.CreateCommand();
@@ -171,8 +215,7 @@ public class YdbTransactionTests : IAsyncLifetime
     [Fact]
     public void CommitAndRollback_WhenConnectionIsClosedAndTxDoesNotStarted_ThrowException()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
 
         var ydbTransaction = connection.BeginTransaction();
         connection.Close();
@@ -186,8 +229,7 @@ public class YdbTransactionTests : IAsyncLifetime
     [Fact]
     public void CommitAndRollback_WhenTransactionIsFailed_ThrowException()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
 
         var ydbCommand = connection.CreateCommand();
         ydbCommand.Transaction = connection.BeginTransaction();
@@ -204,10 +246,9 @@ public class YdbTransactionTests : IAsyncLifetime
             Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Rollback()).Message);
     }
 
-    public async Task InitializeAsync()
+    protected override async Task OnInitializeAsync()
     {
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
+        await using var connection = await CreateOpenConnectionAsync();
         var ydbCommand = connection.CreateCommand();
         ydbCommand.CommandText = Tables.CreateTables;
         await ydbCommand.ExecuteNonQueryAsync();
@@ -215,10 +256,9 @@ public class YdbTransactionTests : IAsyncLifetime
         await ydbCommand.ExecuteNonQueryAsync();
     }
 
-    public async Task DisposeAsync()
+    protected override async Task OnDisposeAsync()
     {
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
+        await using var connection = await CreateOpenConnectionAsync();
         var ydbCommand = connection.CreateCommand();
         ydbCommand.CommandText = Tables.DeleteTables;
         await ydbCommand.ExecuteNonQueryAsync();

@@ -1,16 +1,21 @@
 using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Tests.Ado.Specification;
+using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-public class YdbSchemaTests
+public class YdbSchemaTests : YdbAdoNetFixture
 {
+    public YdbSchemaTests(YdbFactoryFixture fixture) : base(fixture)
+    {
+    }
+
     [Fact]
     public async Task GetSchema_WhenTablesCollection_ReturnAllTables()
     {
-        await using var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
 
         var table1 = $"a/b/{Utils.Net}";
         var table2 = $"a/{Utils.Net}";
@@ -62,8 +67,7 @@ DROP TABLE `{table3}`;"
     [Fact]
     public async Task GetSchema_WhenTablesWithStatsCollection_ReturnAllTables()
     {
-        await using var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
 
         var table1 = $"a/b/{Utils.Net}_for_stats";
         var table2 = $"a/{Utils.Net}_for_stats";
