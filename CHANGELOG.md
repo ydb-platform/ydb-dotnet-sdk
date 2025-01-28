@@ -1,3 +1,11 @@
+* InvalidOperationException on ConnectionString property has not been initialized.
+* One YdbTransaction per YdbConnection. Otherwise, throw an exception: InvalidOperationException("A transaction is already in progress; nested/concurrent transactions aren't supported.").
+* ConnectionString returns an empty.String when it is not set.
+* When a YdbDataReader is closed, if stream is not empty, a YdbTransaction fails if it is not null. A session also fails due to a possible error SessionBusy race condition with the server.
+* Fixed bug: Fetch txId from the last result set.
+* YdbTransaction CheckDisposed() (invoke rollback if transaction hasn't been committed).
+* Dev: Added specification tests for YdbTransaction.
+
 ## v0.10.0
 - Fixed bug in Topic Writer: race condition when session fails, then write operation starts on previous session and new session is created. Messages may be lost. 
 - Supported in ADO.NET GetSchema(Async). CollectionNames: 
