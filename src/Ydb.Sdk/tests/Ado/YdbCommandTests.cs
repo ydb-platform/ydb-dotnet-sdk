@@ -133,7 +133,6 @@ public class YdbCommandTests : YdbAdoNetFixture
         ydbCommand.CommandText = "SELECT 1;";
         var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
-        Assert.True(await ydbDataReader.NextResultAsync());
         Assert.False(await ydbDataReader.NextResultAsync());
         await ydbDataReader.CloseAsync();
         await ydbDataReader.CloseAsync();
@@ -254,7 +253,6 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal("A command is already in progress: SELECT 1; SELECT 1;",
             Assert.Throws<YdbOperationInProgressException>(() => dbCommand.ExecuteReader()).Message);
         Assert.True(ydbDataReader.NextResult());
-        Assert.True(ydbDataReader.NextResult());
         Assert.False(ydbDataReader.NextResult());
 
         ydbDataReader.Close();
@@ -271,7 +269,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         var bufferChars = new char[10];
         var checkBuffer = new char[10];
 
-        Assert.Equal(0, ydbDataReader.GetChars(0, 4, null, 0, 6));
+        Assert.Equal(7, ydbDataReader.GetChars(0, 4, null, 0, 6));
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
             Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, -1, null, 0, 6)).Message);
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
@@ -319,7 +317,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         var bufferChars = new byte[10];
         var checkBuffer = new byte[10];
 
-        Assert.Equal(0, ydbDataReader.GetBytes(0, 4, null, 0, 6));
+        Assert.Equal(7, ydbDataReader.GetBytes(0, 4, null, 0, 6));
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
             Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetBytes(0, -1, null, 0, 6)).Message);
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",

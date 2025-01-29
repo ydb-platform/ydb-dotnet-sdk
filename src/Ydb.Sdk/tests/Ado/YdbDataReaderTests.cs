@@ -20,8 +20,6 @@ public class YdbDataReaderTests
 
         Assert.Equal("No row is available", Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
 
-        Assert.True(reader.NextResult());
-
         Assert.Equal("No row is available",
             Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message); // Need Read()
 
@@ -56,7 +54,6 @@ public class YdbDataReaderTests
         var statuses = new List<Status>();
         var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2), statuses.Add);
 
-        Assert.True(reader.NextResult());
         Assert.True(reader.NextResult());
         Assert.True(reader.Read());
         Assert.True((bool)reader.GetValue(0));
