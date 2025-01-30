@@ -1,3 +1,4 @@
+## v0.11.0
 * Fix bug: GetValue(int ordinal) return DBNull.Value if fetched NULL value.
 * Fix: NextResult() moves to the next result and skip the first ResultSet.
 * Added specification DbDataReaderTests.
