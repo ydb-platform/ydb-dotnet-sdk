@@ -35,7 +35,7 @@ public class YdbSelectValueFixture : YdbFactoryFixture, ISelectValueFixture, IDe
         DbType.DateTime2,
         DbType.UInt16,
         DbType.UInt32,
-        DbType.UInt64,
+        DbType.UInt64
     });
 
 
