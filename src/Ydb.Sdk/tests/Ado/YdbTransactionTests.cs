@@ -184,7 +184,6 @@ public class YdbTransactionTests : YdbAdoNetFixture
 
         Assert.True(dbDataReader.NextResult());
         Assert.True(dbDataReader.NextResult());
-        Assert.True(dbDataReader.NextResult());
         Assert.False(dbDataReader.NextResult());
 
         dbDataReader.Close(); // Close stream

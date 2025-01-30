@@ -17,37 +17,40 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private long _resultSetIndex = -1;
     private Value.ResultSet? _currentResultSet;
 
-    private enum State
-    {
-        Initialized,
-        NewResultState,
-        ReadResultState,
-        Closed
-    }
-
     private interface IMetadata
     {
         IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
 
-        IReadOnlyList<Value.ResultSet.Column> Columns { get; }
-
         int FieldCount { get; }
 
         int RowsCount { get; }
+
+        Value.ResultSet.Column GetColumn(int ordinal);
     }
 
-    private State ReaderState { get; set; }
     private IMetadata ReaderMetadata { get; set; } = null!;
 
     private Value.ResultSet CurrentResultSet => this switch
     {
-        { ReaderState: State.ReadResultState, _currentRowIndex: >= 0 } => _currentResultSet!,
-        { ReaderState: State.Closed } => throw new InvalidOperationException("The reader is closed"),
+        { ReaderState: State.ReadResultSet, _currentRowIndex: >= 0 } => _currentResultSet!,
+        { ReaderState: State.Close } => throw new InvalidOperationException("The reader is closed"),
         _ => throw new InvalidOperationException("No row is available")
     };
 
     private Value.ResultSet.Row CurrentRow => CurrentResultSet.Rows[_currentRowIndex];
     private int RowsCount => ReaderMetadata.RowsCount;
+
+    private enum State
+    {
+        NewResultSet,
+        ReadResultSet,
+        IsConsumed,
+        Close
+    }
+
+    private State ReaderState { get; set; }
+
+    internal bool IsOpen => ReaderState is State.NewResultSet or State.ReadResultSet;
 
     private YdbDataReader(
         IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
@@ -72,12 +75,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private async Task Init()
     {
-        if (State.Closed == await NextExecPart())
+        if (State.IsConsumed == await NextExecPart())
         {
             throw new YdbException("YDB server closed the stream");
         }
 
-        ReaderState = State.Initialized;
+        ReaderState = State.ReadResultSet;
     }
 
     public override bool GetBoolean(int ordinal)
@@ -109,10 +112,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         if (buffer == null)
         {
-            return 0;
+            return bytes.Length;
         }
 
         var copyCount = Math.Min(bytes.Length - dataOffset, length);
+
+        if (copyCount < 0)
+        {
+            return 0;
+        }
+
         Array.Copy(bytes, (int)dataOffset, buffer, bufferOffset, copyCount);
 
         return copyCount;
@@ -131,10 +140,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         if (buffer == null)
         {
-            return 0;
+            return chars.Length;
         }
 
         var copyCount = Math.Min(chars.Length - dataOffset, length);
+
+        if (copyCount < 0)
+        {
+            return 0;
+        }
+
         Array.Copy(chars, (int)dataOffset, buffer, bufferOffset, copyCount);
 
         return copyCount;
@@ -147,7 +162,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             throw new IndexOutOfRangeException($"dataOffset must be between 0 and {int.MaxValue}");
         }
 
-        if (buffer != null && (bufferOffset < 0 || bufferOffset >= buffer.Length))
+        if (buffer != null && (bufferOffset < 0 || bufferOffset > buffer.Length))
         {
             throw new IndexOutOfRangeException($"bufferOffset must be between 0 and {buffer.Length}");
         }
@@ -165,20 +180,19 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override string GetDataTypeName(int ordinal)
     {
-        return ReaderMetadata.Columns[ordinal].Type.TypeId.ToString();
+        return ReaderMetadata.GetColumn(ordinal).Type.TypeId.ToString();
     }
 
     public override DateTime GetDateTime(int ordinal)
     {
         var ydbValue = GetFieldYdbValue(ordinal);
 
-        // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
         return ydbValue.TypeId switch
         {
             YdbTypeId.Timestamp => ydbValue.GetTimestamp(),
             YdbTypeId.Datetime => ydbValue.GetDatetime(),
             YdbTypeId.Date => ydbValue.GetDate(),
-            _ => throw new InvalidCastException($"Field type {ydbValue.TypeId} can't be cast to DateTime type")
+            _ => ThrowHelper.ThrowInvalidCast<DateTime>(ydbValue)
         };
     }
 
@@ -197,9 +211,24 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return GetFieldYdbValue(ordinal).GetDouble();
     }
 
+    public override T GetFieldValue<T>(int ordinal)
+    {
+        if (typeof(T) == typeof(TextReader))
+        {
+            return (T)(object)GetTextReader(ordinal);
+        }
+
+        if (typeof(T) == typeof(Stream))
+        {
+            return (T)(object)GetStream(ordinal);
+        }
+
+        return base.GetFieldValue<T>(ordinal);
+    }
+
     public override System.Type GetFieldType(int ordinal)
     {
-        var type = ReaderMetadata.Columns[ordinal].Type;
+        var type = ReaderMetadata.GetColumn(ordinal).Type;
 
         if (type.TypeCase == Type.TypeOneofCase.OptionalType)
         {
@@ -239,7 +268,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override Guid GetGuid(int ordinal)
     {
-        throw new YdbException("Ydb does not supported Guid");
+        return GetFieldYdbValue(ordinal).GetUuid();
     }
 
     public override short GetInt16(int ordinal)
@@ -264,7 +293,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override long GetInt64(int ordinal)
     {
-        return GetFieldYdbValue(ordinal).GetInt64();
+        var ydbValue = GetFieldYdbValue(ordinal);
+
+        return ydbValue.TypeId switch
+        {
+            YdbTypeId.Int64 => ydbValue.GetInt64(),
+            YdbTypeId.Int32 => ydbValue.GetInt32(),
+            YdbTypeId.Int8 => ydbValue.GetInt8(),
+            YdbTypeId.Int16 => ydbValue.GetInt16(),
+            _ => ThrowHelper.ThrowInvalidCast<long>(ydbValue)
+        };
     }
 
     public ulong GetUint64(int ordinal)
@@ -274,7 +312,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override string GetName(int ordinal)
     {
-        return ReaderMetadata.Columns[ordinal].Name;
+        return ReaderMetadata.GetColumn(ordinal).Name;
     }
 
     public override int GetOrdinal(string name)
@@ -292,6 +330,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return GetFieldYdbValue(ordinal).GetUtf8();
     }
 
+    public override TextReader GetTextReader(int ordinal)
+    {
+        return new StringReader(GetString(ordinal));
+    }
+
     public string GetJson(int ordinal)
     {
         return GetFieldYdbValue(ordinal).GetJson();
@@ -304,9 +347,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override object GetValue(int ordinal)
     {
-        EnsureOrdinal(ordinal);
-
         var ydbValue = CurrentRow[ordinal];
+
+        // ReSharper disable once ConvertIfStatementToSwitchStatement
+        if (ydbValue.TypeId == YdbTypeId.Null)
+        {
+            return DBNull.Value;
+        }
 
         // ReSharper disable once InvertIf
         if (ydbValue.TypeId == YdbTypeId.OptionalType)
@@ -347,6 +394,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override int GetValues(object[] values)
     {
+        ArgumentNullException.ThrowIfNull(values);
+        if (FieldCount == 0)
+        {
+            throw new InvalidOperationException(" No resultset is currently being traversed");
+        }
+
         var count = Math.Min(FieldCount, values.Length);
         for (var i = 0; i < count; i++)
             values[i] = GetValue(i);
@@ -355,16 +408,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override bool IsDBNull(int ordinal)
     {
-        return CurrentRow[ordinal].TypeId == YdbTypeId.Unknown ||
+        return CurrentRow[ordinal].TypeId == YdbTypeId.Null ||
                (CurrentRow[ordinal].TypeId == YdbTypeId.OptionalType && CurrentRow[ordinal].GetOptional() == null);
     }
 
     public override int FieldCount => ReaderMetadata.FieldCount;
     public override object this[int ordinal] => GetValue(ordinal);
     public override object this[string name] => GetValue(GetOrdinal(name));
-    public override int RecordsAffected => 0;
+    public override int RecordsAffected => -1;
     public override bool HasRows => ReaderMetadata.RowsCount > 0;
-    public override bool IsClosed => ReaderState == State.Closed;
+    public override bool IsClosed => ReaderState == State.Close;
 
     public override bool NextResult()
     {
@@ -378,30 +431,33 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override async Task<bool> NextResultAsync(CancellationToken cancellationToken)
     {
+        ThrowIfClosed();
+
         ReaderState = ReaderState switch
         {
-            State.Closed => State.Closed,
-            State.Initialized or State.NewResultState => State.ReadResultState,
-            State.ReadResultState => await new Func<Task<State>>(async () =>
+            State.IsConsumed => State.IsConsumed,
+            State.NewResultSet => State.ReadResultSet,
+            State.ReadResultSet => await new Func<Task<State>>(async () =>
             {
                 State state;
-                while ((state = await NextExecPart()) == State.ReadResultState)
+                while ((state = await NextExecPart()) == State.ReadResultSet)
                 {
                 }
 
-                return state == State.NewResultState ? State.ReadResultState : state;
+                return state == State.NewResultSet ? State.ReadResultSet : state;
             })(),
+            State.Close => State.Close, // not invoke
             _ => throw new ArgumentOutOfRangeException(ReaderState.ToString())
         };
 
-        return ReaderState != State.Closed;
+        return ReaderState != State.IsConsumed;
     }
 
     public override async Task<bool> ReadAsync(CancellationToken cancellationToken)
     {
-        var nextResult = ReaderState != State.Initialized || await NextResultAsync(cancellationToken);
+        ThrowIfClosed();
 
-        if (!nextResult || ReaderState == State.Closed)
+        if (ReaderState == State.IsConsumed)
         {
             return false;
         }
@@ -411,7 +467,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return true;
         }
 
-        while ((ReaderState = await NextExecPart()) == State.ReadResultState) // reset _currentRowIndex
+        while ((ReaderState = await NextExecPart()) == State.ReadResultSet) // reset _currentRowIndex
         {
             if (++_currentRowIndex < RowsCount)
             {
@@ -420,6 +476,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
 
         return false;
+    }
+
+    private void ThrowIfClosed()
+    {
+        if (ReaderState == State.Close)
+        {
+            throw new InvalidOperationException("The reader is closed");
+        }
     }
 
     public override int Depth => 0;
@@ -434,14 +498,21 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override async Task CloseAsync()
     {
-        if (ReaderState == State.Closed)
+        if (ReaderState == State.Close)
         {
             return;
         }
 
-        ReaderState = State.Closed;
-        _onNotSuccessStatus(new Status(StatusCode.SessionBusy));
+        ReaderMetadata = CloseMetadata.Instance;
+        var isConsumed = ReaderState == State.IsConsumed;
+        ReaderState = State.Close;
 
+        if (isConsumed)
+        {
+            return;
+        }
+
+        _onNotSuccessStatus(new Status(StatusCode.SessionBusy));
         await _stream.DisposeAsync();
 
         if (_ydbTransaction != null)
@@ -459,21 +530,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private YdbValue GetFieldYdbValue(int ordinal)
     {
-        EnsureOrdinal(ordinal);
-
         var ydbValue = CurrentRow[ordinal];
 
         return ydbValue.TypeId == YdbTypeId.OptionalType
             ? ydbValue.GetOptional() ?? throw new InvalidCastException("Field is null.")
             : ydbValue;
-    }
-
-    private void EnsureOrdinal(int ordinal)
-    {
-        if (ordinal >= FieldCount || 0 > ordinal) // get FieldCount throw InvalidOperationException if State == Closed
-        {
-            throw new IndexOutOfRangeException("Ordinal must be between 0 and " + (FieldCount - 1));
-        }
     }
 
     private async Task<State> NextExecPart()
@@ -484,7 +545,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             if (!await _stream.MoveNextAsync())
             {
-                return State.Closed;
+                return State.IsConsumed;
             }
 
             var part = _stream.Current;
@@ -517,12 +578,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             if (part.ResultSetIndex <= _resultSetIndex)
             {
-                return State.ReadResultState;
+                return State.ReadResultSet;
             }
 
             _resultSetIndex = part.ResultSetIndex;
 
-            return State.NewResultState;
+            return State.NewResultSet;
         }
         catch (Driver.TransportException e)
         {
@@ -536,7 +597,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private void OnFailReadStream()
     {
-        ReaderState = State.Closed;
+        ReaderState = State.IsConsumed;
         if (_ydbTransaction != null)
         {
             _ydbTransaction.Failed = true;
@@ -567,17 +628,40 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         public IReadOnlyDictionary<string, int> ColumnNameToOrdinal =>
             throw new InvalidOperationException("No resultset is currently being traversed");
 
-        public IReadOnlyList<Value.ResultSet.Column> Columns =>
-            throw new InvalidOperationException("No resultset is currently being traversed");
-
         public int FieldCount => 0;
         public int RowsCount => 0;
+
+        public Value.ResultSet.Column GetColumn(int ordinal)
+        {
+            throw new InvalidOperationException("No resultset is currently being traversed");
+        }
+    }
+
+    private class CloseMetadata : IMetadata
+    {
+        public static readonly IMetadata Instance = new CloseMetadata();
+
+        private CloseMetadata()
+        {
+        }
+
+        public IReadOnlyDictionary<string, int> ColumnNameToOrdinal =>
+            throw new InvalidOperationException("The reader is closed");
+
+        public int FieldCount => throw new InvalidOperationException("The reader is closed");
+        public int RowsCount => 0;
+
+        public Value.ResultSet.Column GetColumn(int ordinal)
+        {
+            throw new InvalidOperationException("The reader is closed");
+        }
     }
 
     private class Metadata : IMetadata
     {
+        private IReadOnlyList<Value.ResultSet.Column> Columns { get; }
+
         public IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
-        public IReadOnlyList<Value.ResultSet.Column> Columns { get; }
         public int FieldCount { get; }
         public int RowsCount { get; }
 
@@ -587,6 +671,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Columns = resultSet.Columns;
             RowsCount = resultSet.Rows.Count;
             FieldCount = resultSet.Columns.Count;
+        }
+
+        public Value.ResultSet.Column GetColumn(int ordinal)
+        {
+            if (ordinal < 0 || ordinal >= FieldCount)
+            {
+                ThrowHelper.ThrowIndexOutOfRangeException(FieldCount);
+            }
+
+            return Columns[ordinal];
         }
     }
 }

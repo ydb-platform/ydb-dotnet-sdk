@@ -1,3 +1,8 @@
+* Fix bug: GetValue(int ordinal) return DBNull.Value if fetched NULL value.
+* Fix: NextResult() moves to the next result and skip the first ResultSet.
+* Added specification DbDataReaderTests.
+* If dataOffset is larger than the length of data, GetChars and GetBytes methods will return 0.
+* If YdbDataReader is closed: `throw new InvalidOperationException("The reader is closed")`.
 * InvalidOperationException on ConnectionString property has not been initialized.
 * One YdbTransaction per YdbConnection. Otherwise, throw an exception: InvalidOperationException("A transaction is already in progress; nested/concurrent transactions aren't supported.").
 * ConnectionString returns an empty.String when it is not set.

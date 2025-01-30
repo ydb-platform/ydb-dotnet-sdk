@@ -39,7 +39,8 @@ public enum YdbTypeId : uint
     DictType = YdbTypeIdRanges.ComplexTypesFirst + 105,
     VariantType = YdbTypeIdRanges.ComplexTypesFirst + 106,
 
-    VoidType = YdbTypeIdRanges.ComplexTypesFirst + 201
+    VoidType = YdbTypeIdRanges.ComplexTypesFirst + 201,
+    Null = YdbTypeIdRanges.ComplexTypesFirst + 202
 }
 
 internal static class YdbTypeIdRanges
@@ -107,6 +108,7 @@ public sealed partial class YdbValue
             Type.TypeOneofCase.DictType => YdbTypeId.DictType,
             Type.TypeOneofCase.VariantType => YdbTypeId.VariantType,
             Type.TypeOneofCase.VoidType => YdbTypeId.VoidType,
+            Type.TypeOneofCase.NullType => YdbTypeId.Null,
             _ => YdbTypeId.Unknown
         };
     }

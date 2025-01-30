@@ -173,7 +173,7 @@ public sealed class YdbConnection : DbConnection
 
     internal YdbDataReader? LastReader { get; set; }
     internal string LastCommand { get; set; } = string.Empty;
-    internal bool IsBusy => LastReader is { IsClosed: false };
+    internal bool IsBusy => LastReader is { IsOpen: true };
     internal YdbTransaction? CurrentTransaction { get; private set; }
 
     public override string DataSource => string.Empty; // TODO
