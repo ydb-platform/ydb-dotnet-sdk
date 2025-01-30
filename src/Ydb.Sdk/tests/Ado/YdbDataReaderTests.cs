@@ -35,6 +35,13 @@ public class YdbDataReaderTests
         Assert.Equal("No row is available",
             Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
         Assert.Empty(statuses);
+
+        await reader.CloseAsync();
+        Assert.True(reader.IsClosed);
+        Assert.Equal("The reader is closed",
+            Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
+        Assert.Equal("The reader is closed",
+            Assert.Throws<InvalidOperationException>(() => reader.Read()).Message);
     }
 
     [Fact]
