@@ -32,7 +32,7 @@ public class YdbCommandTests : YdbAdoNetFixture
 
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
+        Assert.Equal(data.Expected == null ? DBNull.Value : data.Expected, await dbCommand.ExecuteScalarAsync());
         var ydbDataReader = await dbCommand.ExecuteReaderAsync();
         Assert.Equal(1, ydbDataReader.FieldCount);
         Assert.Equal("var", ydbDataReader.GetName(0));
@@ -64,7 +64,7 @@ public class YdbCommandTests : YdbAdoNetFixture
         };
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
+        Assert.Equal(data.Expected == null ? DBNull.Value : data.Expected, await dbCommand.ExecuteScalarAsync());
     }
 
     [Theory]
@@ -136,7 +136,7 @@ public class YdbCommandTests : YdbAdoNetFixture
         Assert.False(await ydbDataReader.NextResultAsync());
         await ydbDataReader.CloseAsync();
         await ydbDataReader.CloseAsync();
-        Assert.False(await ydbDataReader.NextResultAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ydbDataReader.NextResultAsync());
     }
 
     [Fact]
@@ -230,7 +230,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal(timestamp, ydbDataReader.GetDateTime(1));
         Assert.False(await ydbDataReader.ReadAsync());
         Assert.False(await ydbDataReader.NextResultAsync());
-        Assert.True(ydbDataReader.IsClosed);
+        Assert.False(ydbDataReader.IsClosed); // For IsClosed, invoke Close on YdbConnection or YdbDataReader.
     }
 
     [Fact]
@@ -397,10 +397,29 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
     }
 
     [Fact]
-    public async Task ExecuteScalar_WhenSelectNull_ReturnNull()
+    public async Task ExecuteScalar_WhenSelectNull_ReturnDbNull()
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
-        Assert.Null(await new YdbCommand(ydbConnection) { CommandText = "SELECT NULL" }.ExecuteScalarAsync());
+        Assert.Equal(DBNull.Value,
+            await new YdbCommand(ydbConnection) { CommandText = "SELECT NULL" }.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task GetValue_WhenSelectNull_ReturnDbNull()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var reader = await new YdbCommand(ydbConnection) { CommandText = "SELECT NULL" }.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.True(reader.IsDBNull(0));
+        Assert.Equal(DBNull.Value, reader.GetValue(0));
+    }
+
+    [Fact]
+    public async Task ExecuteScalar_WhenSelectNoRows_ReturnNull()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        Assert.Null(await new YdbCommand(ydbConnection) { CommandText = "SELECT * FROM (select 1) AS T WHERE FALSE" }
+            .ExecuteScalarAsync());
     }
 
     [Theory]

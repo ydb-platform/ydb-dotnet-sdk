@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using Google.Protobuf.Collections;
+using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Value;
 
@@ -20,7 +21,7 @@ public class ResultSet
 
     internal ResultSet(Ydb.ResultSet resultSetProto)
     {
-        Columns = resultSetProto.Columns.Select(c => new Column(c.Type, c.Name)).ToList();
+        Columns = resultSetProto.Columns.Select(c => new Column(c.Type, c.Name)).ToArray();
 
         ColumnNameToOrdinal = Columns
             .Select((c, idx) => (c.Name, Index: idx))
@@ -130,10 +131,21 @@ public class ResultSet
             _columnsMap = columnsMap;
         }
 
-        public YdbValue this[int columnIndex] => new(_columns[columnIndex].Type, _row.Items[columnIndex]);
+        public YdbValue this[int columnIndex]
+        {
+            get
+            {
+                if (columnIndex < 0 || columnIndex >= ColumnCount)
+                {
+                    ThrowHelper.ThrowIndexOutOfRangeException(ColumnCount);
+                }
+
+                return new YdbValue(_columns[columnIndex].Type, _row.Items[columnIndex]);
+            }
+        }
 
         public YdbValue this[string columnName] => this[_columnsMap[columnName]];
 
-        internal int ColumnCount => _columns.Count;
+        private int ColumnCount => _columns.Count;
     }
 }

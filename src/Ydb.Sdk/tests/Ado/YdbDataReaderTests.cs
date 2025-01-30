@@ -30,9 +30,9 @@ public class YdbDataReaderTests
             Assert.Throws<IndexOutOfRangeException>(() => reader.GetBoolean(1)).Message);
 
         Assert.False(reader.Read());
-        Assert.True(reader.IsClosed);
+        Assert.False(reader.IsClosed);
 
-        Assert.Equal("The reader is closed",
+        Assert.Equal("No row is available",
             Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
         Assert.Empty(statuses);
     }

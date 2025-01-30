@@ -116,7 +116,8 @@ public sealed class YdbConnectionTests : YdbAdoNetFixture
 
         Assert.Equal(1, reader.GetInt32(0));
         await ydbConnection.CloseAsync();
-        Assert.False(await reader.ReadAsync());
+        Assert.Equal("The reader is closed",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => reader.ReadAsync())).Message);
     }
 
     [Fact]
