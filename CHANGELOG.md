@@ -1,3 +1,12 @@
+* GetUint64(int ordinal) returns a ulong for Uint8, Uint16, Uint32, Uint64 YDB types.
+* GetInt64(int ordinal) returns a int for Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32 YDB types.
+* GetUint32(int ordinal) returns a uint for Uint8, Uint16, Uint32 YDB types.
+* GetInt32(int ordinal) returns a int for Int8, Int16, Int32, Uint8, Uint16 YDB types.
+* GetUint16(int ordinal) returns a ushort for Uint8, Uint16 YDB types.
+* GetInt16(int ordinal) returns a short for Int8, Int16, Uint8 YDB types.
+* GetDouble(int ordinal) returns a double for Float and Double YDB types.
+* Throw InvalidCastException on string.Empty in `GetChar(int ordinal)`.
+* Changed Ydb.Sdk.Value.InvalidTypeException to InvalidCastException in YdbValueParser.
 * Changed InvalidCastException to InvalidOperationException in YdbParameter.
 * Added specification tests: YdbCommandTests and YdbParameterTests.
 * YdbConnection.Database returns string.Empty if ConnectionStringBuilder is null.
