@@ -129,7 +129,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override char GetChar(int ordinal)
     {
-        return GetString(ordinal)[0];
+        var str = GetString(ordinal);
+        return str.Length == 0 ? throw new InvalidCastException("Could not read char - string was empty") : str[0];
     }
 
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
@@ -208,7 +209,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override double GetDouble(int ordinal)
     {
-        return GetFieldYdbValue(ordinal).GetDouble();
+        var ydbValue = GetFieldYdbValue(ordinal);
+
+        return ydbValue.TypeId switch
+        {
+            YdbTypeId.Float => ydbValue.GetFloat(),
+            YdbTypeId.Double => ydbValue.GetDouble(),
+            _ => ThrowHelper.ThrowInvalidCast<double>(ydbValue)
+        };
     }
 
     public override T GetFieldValue<T>(int ordinal)
@@ -223,6 +231,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return (T)(object)GetStream(ordinal);
         }
 
+        if (typeof(T) == typeof(char))
+        {
+            return (T)(object)GetChar(ordinal);
+        }
+        
         return base.GetFieldValue<T>(ordinal);
     }
 
@@ -273,22 +286,55 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override short GetInt16(int ordinal)
     {
-        return GetFieldYdbValue(ordinal).GetInt16();
+        var ydbValue = GetFieldYdbValue(ordinal);
+
+        return ydbValue.TypeId switch
+        {
+            YdbTypeId.Int8 => ydbValue.GetInt8(),
+            YdbTypeId.Int16 => ydbValue.GetInt16(),
+            YdbTypeId.Uint8 => ydbValue.GetUint8(),
+            _ => ThrowHelper.ThrowInvalidCast<short>(ydbValue)
+        };
     }
 
     public ushort GetUint16(int ordinal)
     {
-        return GetFieldYdbValue(ordinal).GetUint16();
+        var ydbValue = GetFieldYdbValue(ordinal);
+
+        return ydbValue.TypeId switch
+        {
+            YdbTypeId.Uint8 => ydbValue.GetUint8(),
+            YdbTypeId.Uint16 => ydbValue.GetUint16(),
+            _ => ThrowHelper.ThrowInvalidCast<ushort>(ydbValue)
+        };
     }
 
     public override int GetInt32(int ordinal)
     {
-        return GetFieldYdbValue(ordinal).GetInt32();
+        var ydbValue = GetFieldYdbValue(ordinal);
+
+        return ydbValue.TypeId switch
+        {
+            YdbTypeId.Int32 => ydbValue.GetInt32(),
+            YdbTypeId.Int8 => ydbValue.GetInt8(),
+            YdbTypeId.Int16 => ydbValue.GetInt16(),
+            YdbTypeId.Uint8 => ydbValue.GetUint8(),
+            YdbTypeId.Uint16 => ydbValue.GetUint16(),
+            _ => ThrowHelper.ThrowInvalidCast<int>(ydbValue)
+        };
     }
 
     public uint GetUint32(int ordinal)
     {
-        return GetFieldYdbValue(ordinal).GetUint32();
+        var ydbValue = GetFieldYdbValue(ordinal);
+
+        return ydbValue.TypeId switch
+        {
+            YdbTypeId.Uint8 => ydbValue.GetUint8(),
+            YdbTypeId.Uint16 => ydbValue.GetUint16(),
+            YdbTypeId.Uint32 => ydbValue.GetUint32(),
+            _ => ThrowHelper.ThrowInvalidCast<uint>(ydbValue)
+        };
     }
 
     public override long GetInt64(int ordinal)
@@ -301,13 +347,25 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             YdbTypeId.Int32 => ydbValue.GetInt32(),
             YdbTypeId.Int8 => ydbValue.GetInt8(),
             YdbTypeId.Int16 => ydbValue.GetInt16(),
+            YdbTypeId.Uint8 => ydbValue.GetUint8(),
+            YdbTypeId.Uint16 => ydbValue.GetUint16(),
+            YdbTypeId.Uint32 => ydbValue.GetUint32(),
             _ => ThrowHelper.ThrowInvalidCast<long>(ydbValue)
         };
     }
 
     public ulong GetUint64(int ordinal)
     {
-        return GetFieldYdbValue(ordinal).GetUint64();
+        var ydbValue = GetFieldYdbValue(ordinal);
+
+        return ydbValue.TypeId switch
+        {
+            YdbTypeId.Uint64 => ydbValue.GetUint64(),
+            YdbTypeId.Uint8 => ydbValue.GetUint8(),
+            YdbTypeId.Uint16 => ydbValue.GetUint16(),
+            YdbTypeId.Uint32 => ydbValue.GetUint32(),
+            _ => ThrowHelper.ThrowInvalidCast<ulong>(ydbValue)
+        };
     }
 
     public override string GetName(int ordinal)

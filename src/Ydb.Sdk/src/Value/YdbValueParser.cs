@@ -1,4 +1,6 @@
-﻿namespace Ydb.Sdk.Value;
+﻿using Ydb.Sdk.Ado;
+
+namespace Ydb.Sdk.Value;
 
 public partial class YdbValue
 {
@@ -324,7 +326,7 @@ public partial class YdbValue
     {
         if (_protoType.TypeCase != expectedType)
         {
-            throw new InvalidTypeException(expectedType.ToString(), TypeId.ToString());
+            ThrowHelper.ThrowInvalidCastException(expectedType.ToString(), TypeId.ToString());
         }
     }
 
@@ -332,15 +334,7 @@ public partial class YdbValue
     {
         if (_protoType.TypeCase != Type.TypeOneofCase.TypeId || _protoType.TypeId != primitiveTypeId)
         {
-            throw new InvalidTypeException(primitiveTypeId.ToString(), TypeId.ToString());
-        }
-    }
-
-    public class InvalidTypeException : InvalidCastException
-    {
-        internal InvalidTypeException(string expectedType, string actualType)
-            : base($"Invalid type of YDB value, expected: {expectedType}, actual: {actualType}.")
-        {
+            ThrowHelper.ThrowInvalidCastException(primitiveTypeId.ToString(), TypeId.ToString());
         }
     }
 }
