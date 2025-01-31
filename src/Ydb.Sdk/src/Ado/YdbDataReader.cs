@@ -597,7 +597,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private void OnFailReadStream()
     {
-        ReaderState = State.IsConsumed;
+        ReaderState = State.Close;
+
         if (_ydbTransaction != null)
         {
             _ydbTransaction.Failed = true;

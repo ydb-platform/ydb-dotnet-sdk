@@ -13,9 +13,9 @@ public class YdbParameterTests
     public void YdbValue_WhenValueIsNullAndDbTypeIsObject_ThrowException()
     {
         Assert.Equal("Writing value of 'null' is not supported for parameters having DbType 'Object'",
-            Assert.Throws<InvalidCastException>(() => new YdbParameter().YdbValue).Message);
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter().YdbValue).Message);
         Assert.Equal("Writing value of 'System.Object' is not supported for parameters having DbType 'Object'",
-            Assert.Throws<InvalidCastException>(() => new YdbParameter("$param", new object()).YdbValue).Message);
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$param", new object()).YdbValue).Message);
     }
 
     [Fact]
@@ -66,14 +66,14 @@ public class YdbParameterTests
     public void YdbValue_WhenUnCastTypes_ThrowInvalidCastException()
     {
         Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'Boolean'",
-            Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.Boolean, 1).YdbValue).Message);
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Boolean, 1).YdbValue).Message);
         Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'SByte'",
-            Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.SByte, 1).YdbValue).Message);
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.SByte, 1).YdbValue).Message);
         Assert.Equal("Writing value of 'System.String' is not supported for parameters having DbType 'Boolean'",
-            Assert.Throws<InvalidCastException>(() => new YdbParameter("$parameter", DbType.Boolean)
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$parameter", DbType.Boolean)
                 { Value = "true" }.YdbValue).Message);
         Assert.Equal("Writing value of 'System.Double' is not supported for parameters having DbType 'Single'",
-            Assert.Throws<InvalidCastException>(() => new YdbParameter("$var", DbType.Single, 1.1).YdbValue).Message);
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Single, 1.1).YdbValue).Message);
     }
 
     [Theory]
@@ -91,8 +91,7 @@ public class YdbParameterTests
     public void Parameter_WhenSetAndNoSet_ReturnValueOrException()
     {
         Assert.Equal("$parameter", new YdbParameter { ParameterName = "$parameter" }.ParameterName);
-        Assert.Equal("ParameterName must not be null!",
-            Assert.Throws<YdbException>(() => new YdbParameter { ParameterName = null }).Message);
+        Assert.Equal(string.Empty, new YdbParameter { ParameterName = null }.ParameterName);
     }
 
     [Fact]

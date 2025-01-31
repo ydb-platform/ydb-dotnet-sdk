@@ -9,9 +9,11 @@ namespace Ydb.Sdk.Ado;
 
 public sealed class YdbCommand : DbCommand
 {
-    private YdbConnection? YdbConnection { get; set; }
+    private YdbConnection? _ydbConnection;
+    private string _commandText = string.Empty;
 
-    private string? _commandText = string.Empty;
+    private YdbConnection YdbConnection =>
+        _ydbConnection ?? throw new InvalidOperationException("Connection property has not been initialized");
 
     public YdbCommand()
     {
@@ -19,12 +21,11 @@ public sealed class YdbCommand : DbCommand
 
     public YdbCommand(YdbConnection ydbConnection)
     {
-        YdbConnection = ydbConnection;
+        _ydbConnection = ydbConnection;
     }
 
     public override void Cancel()
     {
-        throw new NotImplementedException("Currently not supported");
     }
 
     public override int ExecuteNonQuery()
@@ -63,14 +64,37 @@ public sealed class YdbCommand : DbCommand
 
     public override void Prepare()
     {
-        // Do nothing
+        if (YdbConnection.State == ConnectionState.Closed)
+        {
+            throw new InvalidOperationException("Connection is not open");
+        }
+
+        if (CommandText.Length == 0)
+        {
+            throw new InvalidOperationException("CommandText property has not been initialized");
+        }
+
+        if (YdbConnection.IsBusy)
+        {
+            throw new YdbOperationInProgressException(YdbConnection);
+        }
     }
 
     public override string CommandText
     {
-        get => _commandText ?? throw new InvalidOperationException("CommandText property has not been initialized");
+        get => _commandText;
 #pragma warning disable CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
-        [param: AllowNull] set => _commandText = value;
+        [param: AllowNull]
+        set
+        {
+            if (_ydbConnection?.LastReader?.IsOpen ?? false)
+            {
+                throw new InvalidOperationException("An open data reader exists for this command");
+            }
+
+            // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
+            _commandText = value ?? string.Empty;
+        }
 #pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
     }
 
@@ -95,17 +119,22 @@ public sealed class YdbCommand : DbCommand
 
     protected override DbConnection? DbConnection
     {
-        get => YdbConnection;
+        get => _ydbConnection;
         set
         {
+            if (_ydbConnection?.IsBusy ?? false)
+            {
+                throw new InvalidOperationException("An open data reader exists for this command.");
+            }
+
             if (value is null or Ado.YdbConnection)
             {
-                YdbConnection = (YdbConnection?)value;
+                _ydbConnection = (YdbConnection?)value;
             }
             else
             {
                 throw new ArgumentException(
-                    $"Unsupported DbTransaction type: {value.GetType()}, expected: {typeof(YdbConnection)}");
+                    $"Unsupported DbConnection type: {value.GetType()}, expected: {typeof(YdbConnection)}");
             }
         }
     }
@@ -153,8 +182,7 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
-        if (YdbConnection?.IsBusy
-            ?? throw new InvalidOperationException("Connection property has not been initialized."))
+        if (YdbConnection.IsBusy)
         {
             throw new YdbOperationInProgressException(YdbConnection);
         }
@@ -162,7 +190,11 @@ public sealed class YdbCommand : DbCommand
         YdbConnection.EnsureConnectionOpen();
 
         var ydbParameters = DbParameterCollection.YdbParameters;
-        var (sql, paramNames) = SqlParser.Parse(CommandText);
+        var (sql, paramNames) = SqlParser.Parse(
+            CommandText.Length > 0
+                ? CommandText
+                : throw new InvalidOperationException("CommandText property has not been initialized")
+        );
         var preparedSql = new StringBuilder();
 
         foreach (var paramName in paramNames)
@@ -182,8 +214,14 @@ public sealed class YdbCommand : DbCommand
         var execSettings = CommandTimeout > 0
             ? new ExecuteQuerySettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
             : new ExecuteQuerySettings();
+        execSettings.CancellationToken = cancellationToken;
 
         var transaction = YdbConnection.CurrentTransaction;
+
+        if (Transaction != null && Transaction != transaction) // assert on legacy DbTransaction property
+        {
+            throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
+        }
 
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(YdbConnection.Session.ExecuteQuery(
                 preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl),

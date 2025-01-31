@@ -163,9 +163,7 @@ public sealed class YdbConnection : DbConnection
         }
     }
 
-    public override string Database => State == ConnectionState.Closed
-        ? string.Empty
-        : ConnectionStringBuilder.Database;
+    public override string Database => _connectionStringBuilder?.Database ?? string.Empty;
 
     public override ConnectionState State => ConnectionState;
 
