@@ -66,14 +66,16 @@ public class YdbParameterTests
     public void YdbValue_WhenUnCastTypes_ThrowInvalidCastException()
     {
         Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'Boolean'",
-            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Boolean, 1).YdbValue).Message);
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Boolean, 1).YdbValue)
+                .Message);
         Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'SByte'",
             Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.SByte, 1).YdbValue).Message);
         Assert.Equal("Writing value of 'System.String' is not supported for parameters having DbType 'Boolean'",
             Assert.Throws<InvalidOperationException>(() => new YdbParameter("$parameter", DbType.Boolean)
                 { Value = "true" }.YdbValue).Message);
         Assert.Equal("Writing value of 'System.Double' is not supported for parameters having DbType 'Single'",
-            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Single, 1.1).YdbValue).Message);
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Single, 1.1).YdbValue)
+                .Message);
     }
 
     [Theory]

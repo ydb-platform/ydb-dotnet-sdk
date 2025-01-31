@@ -58,7 +58,7 @@ public class YdbCommandTests : CommandTestBase<YdbFactoryFixture>
             });
         }
     }
-    
+
     public override async Task ExecuteReaderAsync_is_canceled()
     {
         await using var connection = CreateOpenConnection();
