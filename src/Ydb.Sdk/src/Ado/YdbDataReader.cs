@@ -235,7 +235,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         {
             return (T)(object)GetChar(ordinal);
         }
-        
+
         return base.GetFieldValue<T>(ordinal);
     }
 
