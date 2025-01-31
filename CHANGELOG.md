@@ -1,3 +1,11 @@
+* Changed InvalidCastException to InvalidOperationException in YdbParameter.
+* Added specification tests: YdbCommandTests and YdbParameterTests.
+* YdbConnection.Database returns string.Empty if ConnectionStringBuilder is null.
+* Propagated cancellationToken in Execute[.*]Async methods.
+* When YdbCommand has an open data reader, it throws InvalidOperationException on the setters: CommandText, DbConnection.
+* Added checkers to YdbCommand.Prepare().
+* CommandText getter doesn't throw an exception if the CommandText property has not been initialized.
+
 ## v0.11.0
 * Fix bug: GetValue(int ordinal) return DBNull.Value if fetched NULL value.
 * Fix: NextResult() moves to the next result and skip the first ResultSet.

@@ -87,7 +87,7 @@ public sealed class YdbCommand : DbCommand
         [param: AllowNull]
         set
         {
-            if (_ydbConnection?.LastReader?.IsOpen ?? false)
+            if (_ydbConnection?.IsBusy ?? false)
             {
                 throw new InvalidOperationException("An open data reader exists for this command");
             }
