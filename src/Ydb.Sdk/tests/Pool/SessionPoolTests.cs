@@ -80,7 +80,7 @@ public class SessionPoolTests
 
 internal class TestSessionPool : SessionPool<TestSession>
 {
-    public int InvokedCreateSession;
+    public volatile int InvokedCreateSession;
 
     public Status CreatedStatus { get; set; } = Status.Success;
 
