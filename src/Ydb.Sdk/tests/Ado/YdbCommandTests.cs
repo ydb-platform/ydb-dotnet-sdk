@@ -196,6 +196,9 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.True(ydbDataReader.HasRows);
         // Read 2 result set
         Assert.True(await ydbDataReader.NextResultAsync());
+        Assert.Equal("Bool", ydbDataReader.GetDataTypeName(0));
+        Assert.Equal("Double", ydbDataReader.GetDataTypeName(1));
+        Assert.Equal("Int32", ydbDataReader.GetDataTypeName(2));
         for (var i = 0; i < 1500; i++)
         {
             // Read meta info 
@@ -214,12 +217,19 @@ SELECT Key, Value FROM AS_TABLE($new_data);
 
         // Read 3 result set
         Assert.True(await ydbDataReader.NextResultAsync());
+        Assert.Equal("Int8", ydbDataReader.GetDataTypeName(0));
+        Assert.Equal("null_field", ydbDataReader.GetName(0));
         Assert.True(await ydbDataReader.ReadAsync());
         Assert.True(ydbDataReader.IsDBNull(0));
+        Assert.Equal(DBNull.Value, ydbDataReader.GetValue(0));
         Assert.False(await ydbDataReader.ReadAsync());
 
         // Read 4 result set
         Assert.True(await ydbDataReader.NextResultAsync());
+        Assert.Equal("Datetime", ydbDataReader.GetDataTypeName(0));
+        Assert.Equal("Key", ydbDataReader.GetName(0));
+        Assert.Equal("Timestamp", ydbDataReader.GetDataTypeName(1));
+        Assert.Equal("Value", ydbDataReader.GetName(1));
         Assert.True(await ydbDataReader.ReadAsync());
         Assert.Equal(dateTime, ydbDataReader.GetDateTime(0));
         Assert.Equal(timestamp, ydbDataReader.GetDateTime(1));

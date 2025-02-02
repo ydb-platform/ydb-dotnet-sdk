@@ -181,7 +181,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override string GetDataTypeName(int ordinal)
     {
-        return ReaderMetadata.GetColumn(ordinal).Type.TypeId.ToString();
+        return ReaderMetadata.GetColumn(ordinal).Type.YqlTableType();
     }
 
     public override DateTime GetDateTime(int ordinal)
