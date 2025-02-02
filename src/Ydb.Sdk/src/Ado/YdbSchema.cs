@@ -1,5 +1,7 @@
+using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using Ydb.Scheme;
 using Ydb.Scheme.V1;
 using Ydb.Sdk.Services.Table;
@@ -28,6 +30,7 @@ internal static class YdbSchema
 
             // Ydb specific Schema Collections
             "TABLES" => GetTables(ydbConnection, restrictions, cancellationToken),
+            "COLUMNS" => GetColumns(ydbConnection, restrictions, cancellationToken),
             "TABLESWITHSTATS" => GetTablesWithStats(ydbConnection, restrictions, cancellationToken),
 
             _ => throw new ArgumentOutOfRangeException(nameof(collectionName), collectionName,
@@ -40,9 +43,15 @@ internal static class YdbSchema
         string?[] restrictions,
         CancellationToken cancellationToken)
     {
-        var table = new DataTable("Tables");
-        table.Columns.Add("table_name", typeof(string));
-        table.Columns.Add("table_type", typeof(string));
+        var table = new DataTable("Tables")
+        {
+            Locale = CultureInfo.InvariantCulture,
+            Columns =
+            {
+                new DataColumn("table_name"),
+                new DataColumn("table_type")
+            }
+        };
 
         var tableName = restrictions[0];
         var tableType = restrictions[1];
@@ -50,8 +59,8 @@ internal static class YdbSchema
 
         if (tableName == null) // tableName isn't set
         {
-            foreach (var tupleTable in await ListTables(ydbConnection.Session.Driver,
-                         WithSuffix(database), database, tableType, cancellationToken))
+            foreach (var tupleTable in
+                     await ListTables(ydbConnection, WithSuffix(database), database, tableType, cancellationToken))
             {
                 table.Rows.Add(tupleTable.TableName, tupleTable.TableType);
             }
@@ -61,7 +70,6 @@ internal static class YdbSchema
             await AppendDescribeTable(
                 ydbConnection: ydbConnection,
                 describeTableSettings: new DescribeTableSettings { CancellationToken = cancellationToken },
-                database: database,
                 tableName: tableName,
                 tableType: tableType,
                 (_, type) => { table.Rows.Add(tableName, type); });
@@ -75,12 +83,18 @@ internal static class YdbSchema
         string?[] restrictions,
         CancellationToken cancellationToken)
     {
-        var table = new DataTable("TablesWithStats");
-        table.Columns.Add("table_name", typeof(string));
-        table.Columns.Add("table_type", typeof(string));
-        table.Columns.Add("rows_estimate", typeof(ulong));
-        table.Columns.Add("creation_time", typeof(DateTime));
-        table.Columns.Add("modification_time", typeof(DateTime));
+        var table = new DataTable("TablesWithStats")
+        {
+            Locale = CultureInfo.InvariantCulture,
+            Columns =
+            {
+                new DataColumn("table_name"),
+                new DataColumn("table_type"),
+                new DataColumn("rows_estimate", typeof(ulong)),
+                new DataColumn("creation_time", typeof(DateTime)),
+                new DataColumn("modification_time", typeof(DateTime))
+            }
+        };
 
         var tableName = restrictions[0];
         var tableType = restrictions[1];
@@ -88,14 +102,13 @@ internal static class YdbSchema
 
         if (tableName == null) // tableName isn't set
         {
-            foreach (var tupleTable in await ListTables(ydbConnection.Session.Driver,
-                         WithSuffix(database), database, tableType, cancellationToken))
+            foreach (var tupleTable in
+                     await ListTables(ydbConnection, WithSuffix(database), database, tableType, cancellationToken))
             {
                 await AppendDescribeTable(
                     ydbConnection: ydbConnection,
                     describeTableSettings: new DescribeTableSettings { CancellationToken = cancellationToken }
                         .WithTableStats(),
-                    database: database,
                     tableName: tupleTable.TableName,
                     tableType: tableType,
                     (describeTableResult, type) =>
@@ -117,7 +130,6 @@ internal static class YdbSchema
                 ydbConnection: ydbConnection,
                 describeTableSettings: new DescribeTableSettings { CancellationToken = cancellationToken }
                     .WithTableStats(),
-                database: database,
                 tableName: tableName,
                 tableType: tableType,
                 (describeTableResult, type) =>
@@ -136,10 +148,66 @@ internal static class YdbSchema
         return table;
     }
 
+    private static async Task<DataTable> GetColumns(
+        YdbConnection ydbConnection,
+        string?[] restrictions,
+        CancellationToken cancellationToken)
+    {
+        var table = new DataTable("Columns")
+        {
+            Locale = CultureInfo.InvariantCulture,
+            Columns =
+            {
+                new DataColumn("table_name"),
+                new DataColumn("column_name"),
+                new DataColumn("ordinal_position", typeof(int)),
+                new DataColumn("is_nullable"),
+                new DataColumn("data_type"),
+                new DataColumn("family_name")
+            }
+        };
+        var tableNameRestriction = restrictions[0];
+        var columnName = restrictions[1];
+
+        var tableNames = await ListTableNames(ydbConnection, tableNameRestriction, cancellationToken);
+        foreach (var tableName in tableNames)
+        {
+            await AppendDescribeTable(
+                ydbConnection,
+                new DescribeTableSettings { CancellationToken = cancellationToken },
+                tableName,
+                null,
+                (result, _) =>
+                {
+                    for (var ordinal = 0; ordinal < result.Columns.Count; ordinal++)
+                    {
+                        var column = result.Columns[ordinal];
+
+                        if (!column.Name.IsPattern(columnName))
+                        {
+                            continue;
+                        }
+
+                        var row = table.Rows.Add();
+                        var type = column.Type;
+
+                        row["table_name"] = tableName;
+                        row["column_name"] = column.Name;
+                        row["ordinal_position"] = ordinal;
+                        row["is_nullable"] = type.TypeCase == Type.TypeOneofCase.OptionalType ? "YES" : "NO";
+                        row["data_type"] = type.YqlTableType();
+                        row["family_name"] = column.Family;
+                    }
+                }
+            );
+        }
+
+        return table;
+    }
+
     private static async Task AppendDescribeTable(
         YdbConnection ydbConnection,
         DescribeTableSettings describeTableSettings,
-        string database,
         string tableName,
         string? tableType,
         Action<DescribeTableResult, string> appendInTable)
@@ -147,7 +215,7 @@ internal static class YdbSchema
         try
         {
             var describeResponse = await ydbConnection.Session
-                .DescribeTable(WithSuffix(database) + tableName, describeTableSettings);
+                .DescribeTable(WithSuffix(ydbConnection.Database) + tableName, describeTableSettings);
 
             if (describeResponse.Operation.Status == StatusIds.Types.StatusCode.SchemeError)
             {
@@ -174,7 +242,7 @@ internal static class YdbSchema
                 _ => throw new YdbException($"Unexpected entry type for Table: {describeRes.Self.Type}")
             };
 
-            if (type.IsTableType(tableType))
+            if (type.IsPattern(tableType))
             {
                 appendInTable(describeRes, type);
             }
@@ -187,8 +255,26 @@ internal static class YdbSchema
         }
     }
 
-    private static async Task<List<(string TableName, string TableType)>> ListTables(
-        Driver driver,
+    private static async Task<IReadOnlyCollection<string>> ListTableNames(
+        YdbConnection ydbConnection,
+        string? tableName,
+        CancellationToken cancellationToken)
+    {
+        var database = ydbConnection.Database;
+
+        return tableName != null
+            ? new List<string> { tableName }
+            : (await ListTables(
+                ydbConnection,
+                WithSuffix(database),
+                database,
+                null,
+                cancellationToken
+            )).Select(tuple => tuple.TableName).ToImmutableList();
+    }
+
+    private static async Task<IReadOnlyCollection<(string TableName, string TableType)>> ListTables(
+        YdbConnection ydbConnection,
         string databasePath,
         string path,
         string? tableType,
@@ -198,7 +284,7 @@ internal static class YdbSchema
         {
             var fullPath = WithSuffix(path);
             var tables = new List<(string, string)>();
-            var response = await driver.UnaryCall(
+            var response = await ydbConnection.Session.Driver.UnaryCall(
                 SchemeService.ListDirectoryMethod,
                 new ListDirectoryRequest { Path = fullPath },
                 new GrpcRequestSettings { CancellationToken = cancellationToken }
@@ -220,14 +306,14 @@ internal static class YdbSchema
                 {
                     case Entry.Types.Type.Table:
                         var type = tablePath.IsSystem() ? "SYSTEM_TABLE" : "TABLE";
-                        if (type.IsTableType(tableType))
+                        if (type.IsPattern(tableType))
                         {
                             tables.Add((tablePath, type));
                         }
 
                         break;
                     case Entry.Types.Type.ColumnTable:
-                        if ("COLUMN_TABLE".IsTableType(tableType))
+                        if ("COLUMN_TABLE".IsPattern(tableType))
                         {
                             tables.Add((tablePath, "COLUMN_TABLE"));
                         }
@@ -235,7 +321,8 @@ internal static class YdbSchema
                         break;
                     case Entry.Types.Type.Directory:
                         tables.AddRange(
-                            await ListTables(driver, databasePath, fullPath + entry.Name, tableType, cancellationToken)
+                            await ListTables(ydbConnection, databasePath, fullPath + entry.Name, tableType,
+                                cancellationToken)
                         );
                         break;
                     case Entry.Types.Type.Unspecified:
@@ -333,6 +420,7 @@ internal static class YdbSchema
         // Ydb Specific Schema Collections
         table.Rows.Add("Tables", 2, 1);
         table.Rows.Add("TablesWithStats", 2, 1);
+        table.Rows.Add("Columns", 2, 2);
 
         return table;
     }
@@ -350,6 +438,8 @@ internal static class YdbSchema
         table.Rows.Add("Tables", "TableType", "TABLE_TYPE", 2);
         table.Rows.Add("TablesWithStats", "Table", "TABLE_NAME", 1);
         table.Rows.Add("TablesWithStats", "TableType", "TABLE_TYPE", 2);
+        table.Rows.Add("Columns", "Table", "TABLE_NAME", 1);
+        table.Rows.Add("Columns", "Column", "COLUMN_NAME", 2);
 
         return table;
     }
@@ -366,8 +456,15 @@ internal static class YdbSchema
                || tablePath.StartsWith(".sys_health_dev/");
     }
 
-    private static bool IsTableType(this string tableType, string? expectedTableType)
+    private static bool IsPattern(this string tableType, string? expectedTableType)
     {
         return expectedTableType == null || expectedTableType.Equals(tableType, StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static string YqlTableType(this Type type)
+    {
+        return type.TypeCase == Type.TypeOneofCase.OptionalType
+            ? type.OptionalType.Item.TypeId.ToString()
+            : type.TypeId.ToString();
     }
 }
