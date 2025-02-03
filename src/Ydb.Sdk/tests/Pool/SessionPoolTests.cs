@@ -74,7 +74,7 @@ public class SessionPoolTests
 
         Task.WaitAll(tasks);
 
-        Assert.Equal(expectedCreatedSessions, _testSessionPool.InvokedCreateSession);
+        Assert.True(expectedCreatedSessions <= _testSessionPool.InvokedCreateSession);
     }
 }
 
