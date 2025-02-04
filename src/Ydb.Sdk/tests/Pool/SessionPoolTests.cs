@@ -21,12 +21,12 @@ public class SessionPoolTests
     }
 
     [Fact]
-    public async Task GetSession_WhenCreateSessionReturnUnavailable_ExpectedStatusAndReleaseSessionInPool()
+    public void GetSession_WhenCreateSessionReturnUnavailable_ExpectedStatusAndReleaseSessionInPool()
     {
         _testSessionPool.CreatedStatus = Status
             .FromProto(StatusIds.Types.StatusCode.Unavailable, new RepeatedField<IssueMessage>());
 
-        var e = await Assert.ThrowsAsync<StatusUnsuccessfulException>(async () => await _testSessionPool.GetSession());
+        var e = Assert.Throws<StatusUnsuccessfulException>(() => _testSessionPool.GetSession().Result);
 
         Assert.Equal(StatusCode.Unavailable, e.Status.StatusCode);
 
