@@ -6,7 +6,7 @@ namespace Ydb.Sdk.Services.Topic.Reader;
 public class Message<TValue>
 {
     private readonly OffsetsRange _offsetsRange;
-    private readonly ReaderSession _readerSession;
+    private readonly ReaderSession<TValue> _readerSession;
     private readonly long _approximatelyBytesSize;
 
     internal Message(
@@ -17,7 +17,7 @@ public class Message<TValue>
         DateTime createdAt,
         ImmutableArray<Metadata> metadata,
         OffsetsRange offsetsRange,
-        ReaderSession readerSession,
+        ReaderSession<TValue> readerSession,
         long approximatelyBytesSize)
     {
         Data = data;
@@ -45,10 +45,7 @@ public class Message<TValue>
 
     public DateTime CreatedAt { get; }
 
-    public ImmutableArray<Metadata> Metadata { get; }
-
-    internal long Start => _offsetsRange.Start;
-    internal long End => _offsetsRange.End;
+    public IReadOnlyCollection<Metadata> Metadata { get; }
 
     public Task CommitAsync()
     {
@@ -56,45 +53,30 @@ public class Message<TValue>
     }
 }
 
-public class BatchMessage<TValue>
+public class BatchMessages<TValue>
 {
-    private readonly ReaderSession _readerSession;
+    private readonly ReaderSession<TValue> _readerSession;
+    private readonly OffsetsRange _offsetsRange;
     private readonly long _approximatelyBatchSize;
 
-    public ImmutableArray<Message<TValue>> Batch { get; }
+    public IReadOnlyCollection<Message<TValue>> Batch { get; }
 
-    internal BatchMessage(
-        ImmutableArray<Message<TValue>> batch,
-        ReaderSession readerSession,
-        long approximatelyBatchSize)
+    internal BatchMessages(
+        IReadOnlyCollection<Message<TValue>> batch,
+        ReaderSession<TValue> readerSession,
+        long approximatelyBatchSize,
+        OffsetsRange offsetsRange)
     {
         Batch = batch;
         _readerSession = readerSession;
         _approximatelyBatchSize = approximatelyBatchSize;
+        _offsetsRange = offsetsRange;
     }
 
     public Task CommitBatchAsync()
     {
-        if (Batch.Length == 0)
-        {
-            return Task.CompletedTask;
-        }
-
-        var offsetsRange = new OffsetsRange { Start = Batch.First().Start, End = Batch.Last().End };
-
-        return _readerSession.CommitOffsetRange(offsetsRange, Batch.First().PartitionId, _approximatelyBatchSize);
+        return Batch.Count == 0
+            ? Task.CompletedTask
+            : _readerSession.CommitOffsetRange(_offsetsRange, Batch.First().PartitionId, _approximatelyBatchSize);
     }
-}
-
-public class TopicPartitionOffset
-{
-    public TopicPartitionOffset(long offset, long partitionId)
-    {
-        Offset = offset;
-        PartitionId = partitionId;
-    }
-
-    public long Offset { get; }
-
-    public long PartitionId { get; }
 }
