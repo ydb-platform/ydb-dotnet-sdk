@@ -14,7 +14,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
     public ReaderIntegrationTests(DriverFixture driverFixture)
     {
         _driver = driverFixture.Driver;
-        _topicName = "topic_" + Utils.Net;
+        _topicName = "reader_topic_" + Utils.Net;
     }
 
     [Fact]
