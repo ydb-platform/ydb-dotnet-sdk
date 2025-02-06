@@ -1,4 +1,3 @@
-* Fixed TopicSession.ReconnectSession(): CompareExchange returns the original value in location1.
 * Fixed: YdbDataReader.GetDataTypeName for optional values.
 * Added support for "Columns" collectionName in YdbConnection.GetSchema(Async).
 
