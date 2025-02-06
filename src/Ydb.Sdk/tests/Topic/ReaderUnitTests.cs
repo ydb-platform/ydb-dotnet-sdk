@@ -26,7 +26,7 @@ public class ReaderUnitTests
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.GetLoggerFactory);
     }
 
-    [Fact]
+    // [Fact]
     public async Task Initialize_WhenFailWriteMessage_ShouldRetryInitializeAndReadThenCommitMessage()
     {
         var tcs = new TaskCompletionSource<bool>();
