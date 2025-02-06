@@ -96,8 +96,7 @@ public class ChannelPoolTests
                 .Select(endpoint => Task.Run(() => _channelPool.GetChannel(endpoint)))
                 .ToArray();
 
-        // ReSharper disable once CoVariantArrayConversion
-        Task.WaitAll(tasks);
+        await Task.WhenAll(tasks);
 
         _mockChannelFactory.Verify(
             channelPool => channelPool.CreateChannel(It.IsAny<string>()), Times.Exactly(endpointCount)

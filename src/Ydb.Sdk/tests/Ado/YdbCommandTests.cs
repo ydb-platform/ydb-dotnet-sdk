@@ -2,26 +2,29 @@ using System.Data;
 using System.Text;
 using Xunit;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Tests.Ado.Specification;
+using Ydb.Sdk.Tests.Fixture;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-public class YdbCommandTests
+public class YdbCommandTests : YdbAdoNetFixture
 {
+    public YdbCommandTests(YdbFactoryFixture fixture) : base(fixture)
+    {
+    }
+
     [Theory]
     [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
     public async Task ExecuteScalarAsync_WhenSetYdbParameter_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
     {
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
-
-        dbCommand.CommandText = "SELECT $var as var;";
+        dbCommand.CommandText = "SELECT @var as var;";
 
         var dbParameter = new YdbParameter
         {
-            ParameterName = "$var",
+            ParameterName = "var",
             DbType = data.DbType,
             Value = data.Expected,
             IsNullable = data.IsNullable
@@ -29,7 +32,7 @@ public class YdbCommandTests
 
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
+        Assert.Equal(data.Expected == null ? DBNull.Value : data.Expected, await dbCommand.ExecuteScalarAsync());
         var ydbDataReader = await dbCommand.ExecuteReaderAsync();
         Assert.Equal(1, ydbDataReader.FieldCount);
         Assert.Equal("var", ydbDataReader.GetName(0));
@@ -38,7 +41,7 @@ public class YdbCommandTests
             Assert.Equal(typeof(T), ydbDataReader.GetFieldType(0));
         }
 
-        while (ydbDataReader.Read())
+        while (await ydbDataReader.NextResultAsync())
         {
         }
     }
@@ -48,11 +51,8 @@ public class YdbCommandTests
     public async Task ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue<T>(
         YdbParameterTests.Data<T> data)
     {
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
-
         dbCommand.CommandText = "SELECT @var;";
 
         var dbParameter = new YdbParameter
@@ -64,7 +64,7 @@ public class YdbCommandTests
         };
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
+        Assert.Equal(data.Expected == null ? DBNull.Value : data.Expected, await dbCommand.ExecuteScalarAsync());
     }
 
     [Theory]
@@ -76,11 +76,8 @@ public class YdbCommandTests
             return;
         }
 
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
-
         dbCommand.CommandText = "SELECT @var;";
 
         var dbParameter = new YdbParameter
@@ -112,9 +109,7 @@ public class YdbCommandTests
                 Encoding.ASCII.GetBytes("{type=\"yson\"}"))
         };
 
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = "SELECT @var;";
 
@@ -131,52 +126,36 @@ public class YdbCommandTests
     }
 
     [Fact]
-    public async Task ExecuteNonQueryAsync_WhenCreateUser_ReturnEmptyResultSet()
-    {
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
-        var dbCommand = connection.CreateCommand();
-        dbCommand.CommandText = "CREATE USER user PASSWORD '123qweqwe'";
-
-        await dbCommand.ExecuteNonQueryAsync();
-
-        dbCommand.CommandText = "DROP USER user;";
-        await dbCommand.ExecuteNonQueryAsync();
-    }
-
-    [Fact]
     public async Task CloseAsync_WhenDoubleInvoke_Idempotent()
     {
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
+        await using var connection = await CreateOpenConnectionAsync();
         var ydbCommand = connection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1;";
         var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
-        Assert.True(await ydbDataReader.NextResultAsync());
-        await ydbDataReader.CloseAsync();
-        await ydbDataReader.CloseAsync();
         Assert.False(await ydbDataReader.NextResultAsync());
+        await ydbDataReader.CloseAsync();
+        await ydbDataReader.CloseAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ydbDataReader.NextResultAsync());
     }
 
     [Fact]
     public async Task ExecuteDbDataReader_WhenSelectManyResultSet_ReturnYdbDataReader()
     {
-        await using var connection = new YdbConnection();
-        await connection.OpenAsync();
-
+        await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = @"
+DECLARE $var1 AS Datetime;
+DECLARE $var2 AS Timestamp;  
+        
 SELECT 1 as a, CAST('text' AS Text) as b;
 
 $data = ListReplicate(AsStruct(true AS bool_field, 1.5 AS double_field, 23 AS int_field), 1500);
 
 SELECT bool_field, double_field, int_field  FROM AS_TABLE($data);
 
-SELECT CAST(NULL AS Int8) AS null_field;
-
+SELECT CAST(NULL AS Int8) AS null_field;      
+        
 $new_data = AsList(
     AsStruct($var1 AS Key, $var2 AS Value),
     AsStruct($var1 AS Key, $var2 AS Value)
@@ -217,6 +196,9 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.True(ydbDataReader.HasRows);
         // Read 2 result set
         Assert.True(await ydbDataReader.NextResultAsync());
+        Assert.Equal("Bool", ydbDataReader.GetDataTypeName(0));
+        Assert.Equal("Double", ydbDataReader.GetDataTypeName(1));
+        Assert.Equal("Int32", ydbDataReader.GetDataTypeName(2));
         for (var i = 0; i < 1500; i++)
         {
             // Read meta info 
@@ -235,12 +217,19 @@ SELECT Key, Value FROM AS_TABLE($new_data);
 
         // Read 3 result set
         Assert.True(await ydbDataReader.NextResultAsync());
+        Assert.Equal("Int8", ydbDataReader.GetDataTypeName(0));
+        Assert.Equal("null_field", ydbDataReader.GetName(0));
         Assert.True(await ydbDataReader.ReadAsync());
         Assert.True(ydbDataReader.IsDBNull(0));
+        Assert.Equal(DBNull.Value, ydbDataReader.GetValue(0));
         Assert.False(await ydbDataReader.ReadAsync());
 
         // Read 4 result set
         Assert.True(await ydbDataReader.NextResultAsync());
+        Assert.Equal("Datetime", ydbDataReader.GetDataTypeName(0));
+        Assert.Equal("Key", ydbDataReader.GetName(0));
+        Assert.Equal("Timestamp", ydbDataReader.GetDataTypeName(1));
+        Assert.Equal("Value", ydbDataReader.GetName(1));
         Assert.True(await ydbDataReader.ReadAsync());
         Assert.Equal(dateTime, ydbDataReader.GetDateTime(0));
         Assert.Equal(timestamp, ydbDataReader.GetDateTime(1));
@@ -251,17 +240,14 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal(timestamp, ydbDataReader.GetDateTime(1));
         Assert.False(await ydbDataReader.ReadAsync());
         Assert.False(await ydbDataReader.NextResultAsync());
-        Assert.True(ydbDataReader.IsClosed);
+        Assert.False(ydbDataReader.IsClosed); // For IsClosed, invoke Close on YdbConnection or YdbDataReader.
     }
 
     [Fact]
     public void CommandTimeout_WhenCommandTimeoutLessZero_ThrowException()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
-
+        using var connection = CreateOpenConnection();
         var dbCommand = connection.CreateCommand();
-
         Assert.Equal("CommandTimeout can't be less than zero. (Parameter 'value')\nActual value was -1.",
             Assert.Throws<ArgumentOutOfRangeException>(() => dbCommand.CommandTimeout = -1).Message);
     }
@@ -269,18 +255,13 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     [Fact]
     public void ExecuteDbDataReader_WhenPreviousIsNotClosed_ThrowException()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
-
+        using var connection = CreateOpenConnection();
         var dbCommand = connection.CreateCommand();
-
         dbCommand.CommandText = "SELECT 1; SELECT 1;";
-
         var ydbDataReader = dbCommand.ExecuteReader();
 
         Assert.Equal("A command is already in progress: SELECT 1; SELECT 1;",
             Assert.Throws<YdbOperationInProgressException>(() => dbCommand.ExecuteReader()).Message);
-        Assert.True(ydbDataReader.NextResult());
         Assert.True(ydbDataReader.NextResult());
         Assert.False(ydbDataReader.NextResult());
 
@@ -291,15 +272,14 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     [Fact]
     public void GetChars_WhenSelectText_MoveCharsToBuffer()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
         var ydbDataReader =
             new YdbCommand(connection) { CommandText = "SELECT CAST('abacaba' AS Text)" }.ExecuteReader();
         Assert.True(ydbDataReader.Read());
         var bufferChars = new char[10];
         var checkBuffer = new char[10];
 
-        Assert.Equal(0, ydbDataReader.GetChars(0, 4, null, 0, 6));
+        Assert.Equal(7, ydbDataReader.GetChars(0, 4, null, 0, 6));
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
             Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, -1, null, 0, 6)).Message);
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
@@ -341,14 +321,13 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     [Fact]
     public void GetBytes_WhenSelectBytes_MoveBytesToBuffer()
     {
-        using var connection = new YdbConnection();
-        connection.Open();
+        using var connection = CreateOpenConnection();
         var ydbDataReader = new YdbCommand(connection) { CommandText = "SELECT 'abacaba'" }.ExecuteReader();
         Assert.True(ydbDataReader.Read());
         var bufferChars = new byte[10];
         var checkBuffer = new byte[10];
 
-        Assert.Equal(0, ydbDataReader.GetBytes(0, 4, null, 0, 6));
+        Assert.Equal(7, ydbDataReader.GetBytes(0, 4, null, 0, 6));
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
             Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetBytes(0, -1, null, 0, 6)).Message);
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
@@ -388,8 +367,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     [Fact]
     public async Task GetEnumerator_WhenReadMultiSelect_ReadFirstResultSet()
     {
-        await using var ydbConnection = new YdbConnection();
-        ydbConnection.Open();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         var ydbCommand = new YdbCommand(ydbConnection)
         {
             CommandText = @"
@@ -429,12 +407,29 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
     }
 
     [Fact]
-    public async Task ExecuteScalar_WhenSelectNull_ReturnNull()
+    public async Task ExecuteScalar_WhenSelectNull_ReturnDbNull()
     {
-        await using var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        Assert.Equal(DBNull.Value,
+            await new YdbCommand(ydbConnection) { CommandText = "SELECT NULL" }.ExecuteScalarAsync());
+    }
 
-        Assert.Null(await new YdbCommand(ydbConnection) { CommandText = "SELECT NULL" }.ExecuteScalarAsync());
+    [Fact]
+    public async Task GetValue_WhenSelectNull_ReturnDbNull()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var reader = await new YdbCommand(ydbConnection) { CommandText = "SELECT NULL" }.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.True(reader.IsDBNull(0));
+        Assert.Equal(DBNull.Value, reader.GetValue(0));
+    }
+
+    [Fact]
+    public async Task ExecuteScalar_WhenSelectNoRows_ReturnNull()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        Assert.Null(await new YdbCommand(ydbConnection) { CommandText = "SELECT * FROM (select 1) AS T WHERE FALSE" }
+            .ExecuteScalarAsync());
     }
 
     [Theory]
@@ -443,9 +438,7 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
     [InlineData("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")]
     public async Task Guid_WhenSelectUuid_ReturnThisUuid(string guid)
     {
-        await using var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
-
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         var actualGuid = await new YdbCommand(ydbConnection)
                 { CommandText = $"SELECT CAST('{guid}' AS UUID);" }
             .ExecuteScalarAsync();
@@ -460,9 +453,7 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
     [InlineData("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")]
     public async Task Guid_WhenSetUuid_ReturnThisUtf8Uuid(string guid)
     {
-        await using var ydbConnection = new YdbConnection();
-        await ydbConnection.OpenAsync();
-
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         var ydbCommand = new YdbCommand(ydbConnection)
         {
             CommandText = "SELECT CAST(@guid AS Text);"

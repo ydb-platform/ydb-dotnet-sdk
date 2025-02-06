@@ -17,7 +17,15 @@ public class WriterException : Exception
 
 public class ReaderException : Exception
 {
-    protected ReaderException(string message) : base(message)
+    public ReaderException(string message) : base(message)
+    {
+    }
+
+    public ReaderException(string message, Status status) : base(message + ": " + status)
+    {
+    }
+
+    public ReaderException(string message, Exception inner) : base(message, inner)
     {
     }
 }

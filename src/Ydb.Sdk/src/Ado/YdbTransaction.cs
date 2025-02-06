@@ -10,6 +10,8 @@ public sealed class YdbTransaction : DbTransaction
     private readonly TxMode _txMode;
 
     private bool _failed;
+    private YdbConnection? _ydbConnection;
+    private bool _isDisposed;
 
     internal string? TxId { get; set; }
     internal bool Completed { get; private set; }
@@ -32,7 +34,7 @@ public sealed class YdbTransaction : DbTransaction
 
     internal YdbTransaction(YdbConnection ydbConnection, TxMode txMode)
     {
-        DbConnection = ydbConnection;
+        _ydbConnection = ydbConnection;
         _txMode = txMode;
     }
 
@@ -44,7 +46,7 @@ public sealed class YdbTransaction : DbTransaction
     // TODO propagate cancellation token
     public override async Task CommitAsync(CancellationToken cancellationToken = new())
     {
-        await FinishTransaction(txId => DbConnection.Session.CommitTransaction(txId));
+        await FinishTransaction(txId => DbConnection!.Session.CommitTransaction(txId));
     }
 
     public override void Rollback()
@@ -62,10 +64,17 @@ public sealed class YdbTransaction : DbTransaction
             return;
         }
 
-        await FinishTransaction(txId => DbConnection.Session.RollbackTransaction(txId));
+        await FinishTransaction(txId => DbConnection!.Session.RollbackTransaction(txId));
     }
 
-    protected override YdbConnection DbConnection { get; }
+    protected override YdbConnection? DbConnection
+    {
+        get
+        {
+            CheckDisposed();
+            return _ydbConnection;
+        }
+    }
 
     public override IsolationLevel IsolationLevel => _txMode == TxMode.SerializableRw
         ? IsolationLevel.Serializable
@@ -73,30 +82,32 @@ public sealed class YdbTransaction : DbTransaction
 
     private async Task FinishTransaction(Func<string, Task<Status>> finishMethod)
     {
-        if (Completed || DbConnection.State == ConnectionState.Closed)
+        if (DbConnection?.State == ConnectionState.Closed || Completed)
         {
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
         }
 
-        if (DbConnection.IsBusy)
+        if (DbConnection!.IsBusy)
         {
             throw new YdbOperationInProgressException(DbConnection);
         }
 
-        Completed = true;
-
-        if (TxId == null)
-        {
-            return; // transaction isn't started
-        }
-
         try
         {
+            Completed = true;
+
+            if (TxId == null)
+            {
+                return; // transaction isn't started
+            }
+
             var status = await finishMethod(TxId); // Commit or Rollback
 
             if (status.IsNotSuccess)
             {
                 Failed = true;
+
+                DbConnection.Session.OnStatus(status);
 
                 throw new YdbException(status);
             }
@@ -105,7 +116,47 @@ public sealed class YdbTransaction : DbTransaction
         {
             Failed = true;
 
+            DbConnection.Session.OnStatus(e.Status);
+
             throw new YdbException(e.Status);
+        }
+        finally
+        {
+            _ydbConnection = null;
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (_isDisposed || !disposing)
+            return;
+
+        if (!Completed)
+        {
+            Rollback();
+        }
+
+        _isDisposed = true;
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        if (_isDisposed)
+            return;
+
+        if (!Completed)
+        {
+            await RollbackAsync();
+        }
+
+        _isDisposed = true;
+    }
+
+    private void CheckDisposed()
+    {
+        if (_isDisposed)
+        {
+            throw new ObjectDisposedException(nameof(YdbTransaction));
         }
     }
 }

@@ -20,8 +20,6 @@ public class YdbDataReaderTests
 
         Assert.Equal("No row is available", Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
 
-        Assert.True(reader.NextResult());
-
         Assert.Equal("No row is available",
             Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message); // Need Read()
 
@@ -32,19 +30,26 @@ public class YdbDataReaderTests
             Assert.Throws<IndexOutOfRangeException>(() => reader.GetBoolean(1)).Message);
 
         Assert.False(reader.Read());
-        Assert.True(reader.IsClosed);
+        Assert.False(reader.IsClosed);
 
-        Assert.Equal("The reader is closed",
+        Assert.Equal("No row is available",
             Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
         Assert.Empty(statuses);
+
+        await reader.CloseAsync();
+        Assert.True(reader.IsClosed);
+        Assert.Equal("The reader is closed",
+            Assert.Throws<InvalidOperationException>(() => reader.GetValue(0)).Message);
+        Assert.Equal("The reader is closed",
+            Assert.Throws<InvalidOperationException>(() => reader.Read()).Message);
     }
 
     [Fact]
-    public void CreateYdbDataReader_WhenAbortedStatus_ThrowException()
+    public async Task CreateYdbDataReader_WhenAbortedStatus_ThrowException()
     {
         var statuses = new List<Status>();
-        Assert.Equal("Status: Aborted", Assert.Throws<YdbException>(
-                () => YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed, statuses.Add).GetAwaiter().GetResult())
+        Assert.Equal("Status: Aborted", (await Assert.ThrowsAsync<YdbException>(
+                () => YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed, statuses.Add)))
             .Message);
         Assert.Single(statuses);
         Assert.Equal(StatusCode.Aborted, statuses[0].StatusCode);
@@ -56,7 +61,6 @@ public class YdbDataReaderTests
         var statuses = new List<Status>();
         var reader = await YdbDataReader.CreateYdbDataReader(EnumeratorSuccess(2), statuses.Add);
 
-        Assert.True(reader.NextResult());
         Assert.True(reader.NextResult());
         Assert.True(reader.Read());
         Assert.True((bool)reader.GetValue(0));

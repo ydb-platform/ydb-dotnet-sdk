@@ -32,7 +32,7 @@ public class WriterBuilder<TValue>
     /// This limit is applied after the first message has been added to the batch,
     /// regardless of the first message's size, this is to ensure that messages that exceed buffer size are produced. 
     /// </summary>
-    public int BufferMaxSize { get; set; } = 1024 * 1024; // 1 Mb 
+    public int BufferMaxSize { get; set; } = 20 * 1024 * 1024; // 20 Mb 
 
     /// <summary>
     /// Explicit partition id to write to.

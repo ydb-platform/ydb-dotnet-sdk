@@ -327,7 +327,7 @@ public class BasicUnitTests
         var elements = value.GetTuple();
         Assert.Equal(2, elements.Count);
 
-        Assert.Equal(0, elements[0].GetList().Count);
+        Assert.Empty(elements[0].GetList());
         Assert.Equal(new[] { "one", "two" }, elements[1].GetList().Select(v => (string)v!));
     }
 
@@ -340,9 +340,9 @@ public class BasicUnitTests
         });
 
         var elements = value.GetTuple();
-        Assert.Equal(1, elements.Count);
+        Assert.Single(elements);
 
-        Assert.Equal(0, elements[0].GetTuple().Count);
+        Assert.Empty(elements[0].GetTuple());
     }
 
     [Fact]
@@ -361,7 +361,7 @@ public class BasicUnitTests
         var elements = value.GetTuple();
         Assert.Equal(2, elements.Count);
 
-        Assert.Equal(0, elements[0].GetStruct().Count);
+        Assert.Empty(elements[0].GetStruct());
 
         var s = elements[1].GetStruct();
         Assert.Equal(2, s.Count);

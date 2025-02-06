@@ -61,7 +61,8 @@ public sealed class YdbParameter : DbParameter
     }
 
     public override DbType DbType { get; set; } = DbType.Object;
-    public override ParameterDirection Direction { get; set; } = ParameterDirection.InputOutput;
+    public override ParameterDirection Direction { get; set; } = ParameterDirection.Input;
+    public override DataRowVersion SourceVersion { get; set; } = DataRowVersion.Current;
     public override bool IsNullable { get; set; }
 
     [AllowNull]
@@ -73,7 +74,7 @@ public sealed class YdbParameter : DbParameter
         {
             _parameterName = value switch
             {
-                null => throw new YdbException("ParameterName must not be null!"),
+                null => string.Empty,
                 _ when value.StartsWith("$") => value,
                 _ when value.StartsWith("@") && value.Length > 1 => $"${value[1..]}",
                 _ => $"${value}"
@@ -81,7 +82,16 @@ public sealed class YdbParameter : DbParameter
         }
     }
 
-    [AllowNull] [DefaultValue("")] public override string SourceColumn { get; set; } = string.Empty;
+    private string _sourceColumn = string.Empty;
+
+    [AllowNull]
+    [DefaultValue("")]
+    public override string SourceColumn
+    {
+        get => _sourceColumn;
+        set => _sourceColumn = value ?? string.Empty;
+    }
+
     public override object? Value { get; set; }
     public override bool SourceColumnNullMapping { get; set; }
     public override int Size { get; set; }
@@ -102,7 +112,7 @@ public sealed class YdbParameter : DbParameter
                     DbType.Date => YdbValue.MakeDate(dateTimeValue),
                     DbType.DateTime => YdbValue.MakeDatetime(dateTimeValue),
                     DbType.DateTime2 or DbType.Object => YdbValue.MakeTimestamp(dateTimeValue),
-                    _ => ThrowInvalidCast()
+                    _ => ThrowInvalidOperation()
                 },
                 DateTimeOffset dateTimeOffset when DbType is DbType.DateTimeOffset or DbType.Object =>
                     YdbValue.MakeTimestamp(dateTimeOffset.UtcDateTime),
@@ -110,14 +120,14 @@ public sealed class YdbParameter : DbParameter
                 {
                     DbType.Single or DbType.Object => YdbValue.MakeFloat(floatValue),
                     DbType.Double => YdbValue.MakeDouble(floatValue),
-                    _ => ThrowInvalidCast()
+                    _ => ThrowInvalidOperation()
                 },
                 double doubleValue when DbType is DbType.Double or DbType.Object => YdbValue.MakeDouble(doubleValue),
                 int intValue => DbType switch
                 {
                     DbType.Int32 or DbType.Object => YdbValue.MakeInt32(intValue),
                     DbType.Int64 => YdbValue.MakeInt64(intValue),
-                    _ => ThrowInvalidCast()
+                    _ => ThrowInvalidOperation()
                 },
                 long longValue when DbType is DbType.Int64 or DbType.Object => YdbValue.MakeInt64(longValue),
                 decimal decimalValue when DbType is DbType.Decimal or DbType.Currency or DbType.Object =>
@@ -128,7 +138,7 @@ public sealed class YdbParameter : DbParameter
                     DbType.UInt32 or DbType.Object => YdbValue.MakeUint32(uintValue),
                     DbType.UInt64 => YdbValue.MakeUint64(uintValue),
                     DbType.Int64 => YdbValue.MakeInt64(uintValue),
-                    _ => ThrowInvalidCast()
+                    _ => ThrowInvalidOperation()
                 },
                 byte byteValue => DbType switch
                 {
@@ -139,7 +149,7 @@ public sealed class YdbParameter : DbParameter
                     DbType.UInt64 => YdbValue.MakeUint64(byteValue),
                     DbType.UInt32 => YdbValue.MakeUint32(byteValue),
                     DbType.UInt16 => YdbValue.MakeUint16(byteValue),
-                    _ => ThrowInvalidCast()
+                    _ => ThrowInvalidOperation()
                 },
                 sbyte sbyteValue => DbType switch
                 {
@@ -147,7 +157,7 @@ public sealed class YdbParameter : DbParameter
                     DbType.Int64 => YdbValue.MakeInt64(sbyteValue),
                     DbType.Int32 => YdbValue.MakeInt32(sbyteValue),
                     DbType.Int16 => YdbValue.MakeInt16(sbyteValue),
-                    _ => ThrowInvalidCast()
+                    _ => ThrowInvalidOperation()
                 },
                 ushort ushortValue => DbType switch
                 {
@@ -156,27 +166,29 @@ public sealed class YdbParameter : DbParameter
                     DbType.Int32 => YdbValue.MakeInt32(ushortValue),
                     DbType.UInt64 => YdbValue.MakeUint64(ushortValue),
                     DbType.UInt32 => YdbValue.MakeUint32(ushortValue),
-                    _ => ThrowInvalidCast()
+                    _ => ThrowInvalidOperation()
                 },
                 short shortValue => DbType switch
                 {
                     DbType.Int16 or DbType.Object => YdbValue.MakeInt16(shortValue),
                     DbType.Int64 => YdbValue.MakeInt64(shortValue),
                     DbType.Int32 => YdbValue.MakeInt32(shortValue),
-                    _ => ThrowInvalidCast()
+                    _ => ThrowInvalidOperation()
                 },
                 byte[] bytesValue when DbType is DbType.Binary or DbType.Object => YdbValue.MakeString(bytesValue),
                 Guid guidValue when DbType is DbType.Guid or DbType.Object => YdbValue.MakeUuid(guidValue),
+                MemoryStream memoryStream when DbType is DbType.Binary or DbType.Object => YdbValue.MakeString(
+                    memoryStream.ToArray()),
                 _ when DbType is DbType.VarNumeric or DbType.Xml or DbType.Time =>
                     throw new YdbException($"Ydb don't supported this DbType: {DbType}"),
-                _ => ThrowInvalidCast()
+                _ => ThrowInvalidOperation()
             };
         }
     }
 
-    private YdbValue ThrowInvalidCast()
+    private YdbValue ThrowInvalidOperation()
     {
-        throw new InvalidCastException(
+        throw new InvalidOperationException(
             $"Writing value of '{Value?.GetType().ToString() ?? "null"}' is not supported for parameters having DbType '{DbType}'");
     }
 }

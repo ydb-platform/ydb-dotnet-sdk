@@ -104,7 +104,7 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     }
 
     /// <inheritdoc />
-    public override int IndexOf(object value)
+    public override int IndexOf(object? value)
     {
         return _parameters.IndexOf(Cast(value));
     }
@@ -112,7 +112,7 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <inheritdoc />
     public override void Insert(int index, object value)
     {
-        _parameters[index] = Cast(value);
+        _parameters.Insert(index, Cast(value));
     }
 
     /// <summary>
@@ -175,6 +175,7 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <inheritdoc />
     protected override void SetParameter(string parameterName, DbParameter value)
     {
+        ArgumentNullException.ThrowIfNull(value);
         var index = IndexOf(parameterName);
 
         if (index == -1)
@@ -258,12 +259,9 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
 
     private static YdbParameter Cast(object? value)
     {
-        if (value is YdbParameter ydbParameter)
-        {
-            return ydbParameter;
-        }
+        ArgumentNullException.ThrowIfNull(value);
 
-        throw new InvalidCastException(
+        return value as YdbParameter ?? throw new InvalidCastException(
             $"The value \"{value}\" is not of type \"{nameof(YdbParameter)}\" and cannot be used in this parameter collection.");
     }
 }
