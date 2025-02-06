@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Collections.Immutable;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -247,6 +246,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         Channel.CreateUnbounded<MessageFromClient>(
             new UnboundedChannelOptions
             {
+                SingleWriter = true,
                 SingleReader = true,
                 AllowSynchronousContinuations = false
             }
@@ -282,9 +282,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             try
             {
-                await foreach (var fromClientMessage in _channelFromClientMessageSending.Reader.ReadAllAsync())
+                await foreach (var messageFromClient in _channelFromClientMessageSending.Reader.ReadAllAsync())
                 {
-                    await Stream.Write(fromClientMessage);
+                    await Stream.Write(messageFromClient);
                 }
             }
             catch (Driver.TransportException e)
@@ -301,25 +301,33 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             while (await Stream.MoveNextAsync())
             {
-                var fromServerMessage = Stream.Current;
+                var messageFromServer = Stream.Current;
 
-                switch (fromServerMessage.ServerMessageCase)
+                var status = Status.FromProto(messageFromServer.Status, messageFromServer.Issues);
+
+                if (status.IsNotSuccess)
+                {
+                    Logger.LogError(
+                        "ReaderSession[{SessionId}] received unsuccessful status while processing readAck: {Status}",
+                        SessionId, status);
+                    return;
+                }
+
+                switch (messageFromServer.ServerMessageCase)
                 {
                     case ServerMessageOneofCase.ReadResponse:
-                        await HandleReadResponse(fromServerMessage.ReadResponse);
+                        await HandleReadResponse(messageFromServer.ReadResponse);
                         break;
                     case ServerMessageOneofCase.StartPartitionSessionRequest:
-                        await HandleStartPartitionSessionRequest(fromServerMessage.StartPartitionSessionRequest);
+                        await HandleStartPartitionSessionRequest(messageFromServer.StartPartitionSessionRequest);
                         break;
                     case ServerMessageOneofCase.CommitOffsetResponse:
-                        HandleCommitOffsetResponse(fromServerMessage.CommitOffsetResponse);
+                        HandleCommitOffsetResponse(messageFromServer.CommitOffsetResponse);
                         break;
                     case ServerMessageOneofCase.PartitionSessionStatusResponse:
                     case ServerMessageOneofCase.UpdateTokenResponse:
                     case ServerMessageOneofCase.StopPartitionSessionRequest:
-                        TryReadRequestBytes(
-                            await StopPartitionSessionRequest(fromServerMessage.StopPartitionSessionRequest)
-                        );
+                        await StopPartitionSessionRequest(messageFromServer.StopPartitionSessionRequest);
                         break;
                     case ServerMessageOneofCase.InitResponse:
                     case ServerMessageOneofCase.None:
@@ -351,7 +359,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             return;
         }
 
-        if (Interlocked.CompareExchange(ref _readRequestBytes, 0, readRequestBytes) == 0)
+        if (Interlocked.CompareExchange(ref _readRequestBytes, 0, readRequestBytes) == readRequestBytes)
         {
             await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                 { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } });
@@ -393,7 +401,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             if (_partitionSessions.TryGetValue(partitionsCommittedOffset.PartitionSessionId,
                     out var partitionSession))
             {
-                partitionSession.HandleCommitedOffset(partitionSession.CommitedOffset);
+                partitionSession.HandleCommitedOffset(partitionsCommittedOffset.CommittedOffset);
             }
             else
             {
@@ -405,7 +413,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
     }
 
-    private async Task<long> StopPartitionSessionRequest(
+    private async Task StopPartitionSessionRequest(
         StreamReadMessage.Types.StopPartitionSessionRequest stopPartitionSessionRequest)
     {
         if (_partitionSessions.TryRemove(stopPartitionSessionRequest.PartitionSessionId, out var partitionSession))
@@ -419,25 +427,26 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 });
             }
 
-            return partitionSession.Stop();
+            partitionSession.Stop();
         }
-
-        Logger.LogError("Received StopPartitionSessionRequest[PartitionSessionId={}] for unknown PartitionSession",
-            stopPartitionSessionRequest.PartitionSessionId);
-
-        return 0;
+        else
+        {
+            Logger.LogError("Received StopPartitionSessionRequest[PartitionSessionId={}] for unknown PartitionSession",
+                stopPartitionSessionRequest.PartitionSessionId);
+        }
     }
 
-    public async Task CommitOffsetRange(OffsetsRange offsetsRange, long partitionId, long approximatelyBytesSize)
+    public async Task CommitOffsetRange(OffsetsRange offsetsRange, long partitionSessionId)
     {
         var tcsCommit = new TaskCompletionSource();
 
-        await using var register = _lifecycleReaderSessionCts.Token.Register(() => tcsCommit
-            .TrySetException(new YdbException($"ReaderSession[{SessionId}] was deactivated")));
+        await using var register = _lifecycleReaderSessionCts.Token.Register(
+            () => tcsCommit.TrySetException(new YdbException($"ReaderSession[{SessionId}] was deactivated"))
+        );
 
-        var commitSending = new CommitSending(offsetsRange, partitionId, tcsCommit, approximatelyBytesSize);
+        var commitSending = new CommitSending(offsetsRange, tcsCommit);
 
-        if (_partitionSessions.TryGetValue(commitSending.PartitionSessionId, out var partitionSession))
+        if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession))
         {
             partitionSession.RegisterCommitRequest(commitSending);
 
@@ -450,7 +459,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                             new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
                             {
                                 Offsets = { commitSending.OffsetsRange },
-                                PartitionSessionId = commitSending.PartitionSessionId
+                                PartitionSessionId = partitionSessionId
                             }
                         }
                     }
@@ -461,9 +470,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             Logger.LogWarning("Offset range [{OffsetRange}] is requested to be committed, " +
                               "but PartitionSession[PartitionSessionId={PartitionSessionId}] is already closed",
-                commitSending.OffsetsRange, commitSending.PartitionSessionId);
+                commitSending.OffsetsRange, partitionSessionId);
 
-            commitSending.TcsCommit.TrySetException(new ReaderException("TODO"));
+            Utils.SetPartitionClosedException(commitSending, partitionSessionId);
         }
 
         await tcsCommit.Task;

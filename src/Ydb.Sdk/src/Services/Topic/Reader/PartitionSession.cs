@@ -43,7 +43,7 @@ internal class PartitionSession
     {
         var endOffset = commitSending.OffsetsRange.End;
 
-        if (endOffset <= CommitedOffset)
+        if (endOffset < CommitedOffset)
         {
             commitSending.TcsCommit.SetResult();
         }
@@ -53,7 +53,7 @@ internal class PartitionSession
 
             if (_isStopped)
             {
-                SetPartitionClosedException(commitSending);
+                Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
             }
         }
     }
@@ -78,23 +78,12 @@ internal class PartitionSession
         }
     }
 
-    internal long Stop()
+    internal void Stop()
     {
         _isStopped = true;
-        long releaseCommitedBytes = 0;
         while (_waitCommitMessages.TryDequeue(out var commitSending))
         {
-            SetPartitionClosedException(commitSending);
-
-            releaseCommitedBytes += commitSending.ApproximatelyBytesSize;
+            Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
         }
-
-        return releaseCommitedBytes;
-    }
-
-    private void SetPartitionClosedException(CommitSending commitSending)
-    {
-        commitSending.TcsCommit.TrySetException(
-            new ReaderException($"PartitionSession[{PartitionSessionId}] was closed by server."));
     }
 }

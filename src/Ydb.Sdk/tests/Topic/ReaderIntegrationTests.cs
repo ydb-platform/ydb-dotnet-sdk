@@ -18,7 +18,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
     }
 
     [Fact]
-    public async Task Simple()
+    public async Task StressTest_WhenReadingThenCommiting_ReturnMessages()
     {
         var topicClient = new TopicClient(_driver);
         var topicSettings = new CreateTopicSettings { Path = _topicName };
@@ -27,13 +27,39 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
 
         using var writer = new WriterBuilder<string>(_driver, _topicName)
             { ProducerId = "producerId" }.Build();
-        using var reader = new ReaderBuilder<string>(_driver)
+        var reader = new ReaderBuilder<string>(_driver)
         {
             ConsumerName = "Consumer",
-            SubscribeSettings = { new SubscribeSettings(_topicName) }
+            SubscribeSettings = { new SubscribeSettings(_topicName) },
+            MemoryUsageMaxBytes = 200
         }.Build();
 
-        await writer.WriteAsync("Hello World!");
-        Assert.Equal("Hello World!", (await reader.ReadAsync()).Data);
+        for (var i = 0; i < 1000; i++)
+        {
+            await writer.WriteAsync($"{i}: Hello World!");
+            var message = await reader.ReadAsync();
+            Assert.Equal($"{i}: Hello World!", message.Data);
+            await message.CommitAsync();
+        }
+        reader.Dispose();
+
+        var readerNext = new ReaderBuilder<string>(_driver)
+        {
+            ConsumerName = "Consumer",
+            SubscribeSettings = { new SubscribeSettings(_topicName) },
+            MemoryUsageMaxBytes = 1000
+        }.Build();
+
+        for (var i = 1000; i < 2000; i++)
+        {
+            await writer.WriteAsync($"{i}: Hello World!");
+            var message = await readerNext.ReadAsync();
+            Assert.Equal($"{i}: Hello World!", message.Data);
+            await message.CommitAsync();
+        }
+
+        readerNext.Dispose();
+        
+        await topicClient.DropTopic(new DropTopicSettings { Path = _topicName });
     }
 }

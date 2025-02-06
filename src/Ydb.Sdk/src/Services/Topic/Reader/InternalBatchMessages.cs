@@ -1,61 +1,8 @@
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using Google.Protobuf;
-using Google.Protobuf.Collections;
-using Google.Protobuf.WellKnownTypes;
 using Ydb.Topic;
 
 namespace Ydb.Sdk.Services.Topic.Reader;
-
-internal class InternalBatchMessages
-{
-    public InternalBatchMessages(
-        ByteString data,
-        string topic,
-        long partitionId,
-        string producerId,
-        OffsetsRange offsetsRange,
-        Timestamp createdAt,
-        RepeatedField<MetadataItem> metadataItems,
-        long approximatelyBytesSize)
-    {
-        Data = data;
-        Topic = topic;
-        PartitionId = partitionId;
-        ProducerId = producerId;
-        OffsetsRange = offsetsRange;
-        CreatedAt = createdAt;
-        MetadataItems = metadataItems;
-        ApproximatelyBytesSize = approximatelyBytesSize;
-    }
-
-    private ByteString Data { get; }
-    private string Topic { get; }
-    private long PartitionId { get; }
-    private string ProducerId { get; }
-    private OffsetsRange OffsetsRange { get; }
-    private Timestamp CreatedAt { get; }
-    private RepeatedField<MetadataItem> MetadataItems { get; }
-    private long ApproximatelyBytesSize { get; }
-
-    internal Message<TValue> ToPublicMessage<TValue>(IDeserializer<TValue> deserializer,
-        ReaderSession<TValue> readerSession)
-    {
-        readerSession.TryReadRequestBytes(ApproximatelyBytesSize);
-
-        return new Message<TValue>(
-            data: deserializer.Deserialize(Data.ToByteArray()),
-            topic: Topic,
-            partitionId: PartitionId,
-            producerId: ProducerId,
-            createdAt: CreatedAt.ToDateTime(),
-            metadata: MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray())).ToImmutableArray(),
-            offsetsRange: OffsetsRange,
-            readerSession: readerSession,
-            approximatelyBytesSize: ApproximatelyBytesSize
-        );
-    }
-}
 
 internal class InternalBatchMessages<TValue>
 {
@@ -63,14 +10,12 @@ internal class InternalBatchMessages<TValue>
     private readonly PartitionSession _partitionSession;
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ReaderSession<TValue> _readerSession;
-    private readonly long _approximatelyBatchSizeOriginal;
+    private readonly long _approximatelyBatchSize;
 
-    private int _startMessageDataIndex = 0;
-    private long _approximatelyBatchSize;
+    private int _startMessageDataIndex;
 
     private int OriginalMessageCount => _batch.MessageData.Count;
-
-    internal bool IsActive => _startMessageDataIndex < OriginalMessageCount && _readerSession.IsActive;
+    private bool IsActive => _startMessageDataIndex < OriginalMessageCount && _readerSession.IsActive;
 
     public InternalBatchMessages(
         StreamReadMessage.Types.ReadResponse.Types.Batch batch,
@@ -83,7 +28,6 @@ internal class InternalBatchMessages<TValue>
         _partitionSession = partitionsSession;
         _readerSession = readerSession;
         _deserializer = deserializer;
-        _approximatelyBatchSizeOriginal = approximatelyBatchSize;
         _approximatelyBatchSize = approximatelyBatchSize;
     }
 
@@ -97,7 +41,7 @@ internal class InternalBatchMessages<TValue>
 
         var index = _startMessageDataIndex++;
         var approximatelyMessageBytesSize = Utils
-            .CalculateApproximatelyBytesSize(_approximatelyBatchSizeOriginal, OriginalMessageCount, index);
+            .CalculateApproximatelyBytesSize(_approximatelyBatchSize, OriginalMessageCount, index);
         var messageData = _batch.MessageData[index];
 
         TValue value;
@@ -110,21 +54,23 @@ internal class InternalBatchMessages<TValue>
             throw new ReaderException("Error when deserializing message data", e);
         }
 
-        _approximatelyBatchSize -= approximatelyMessageBytesSize;
+        _readerSession.TryReadRequestBytes(approximatelyMessageBytesSize);
+        var nextCommitedOffset = messageData.Offset + 1;
 
         message = new Message<TValue>(
-            value,
-            _partitionSession.TopicPath,
-            _partitionSession.PartitionId,
-            _batch.ProducerId,
-            messageData.CreatedAt.ToDateTime(),
-            messageData.MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray()))
+            data: value,
+            topic: _partitionSession.TopicPath,
+            partitionId: _partitionSession.PartitionId,
+            partitionSessionId: _partitionSession.PartitionSessionId,
+            producerId: _batch.ProducerId,
+            createdAt: messageData.CreatedAt.ToDateTime(),
+            metadata: messageData.MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray()))
                 .ToImmutableArray(),
-            new OffsetsRange { Start = _partitionSession.PrevEndOffsetMessage, End = messageData.Offset },
-            _readerSession,
-            approximatelyMessageBytesSize
+            offsetsRange: new OffsetsRange
+                { Start = _partitionSession.PrevEndOffsetMessage, End = nextCommitedOffset },
+            readerSession: _readerSession
         );
-        _partitionSession.PrevEndOffsetMessage = messageData.Offset + 1;
+        _partitionSession.PrevEndOffsetMessage = nextCommitedOffset;
 
         return true;
     }
@@ -137,9 +83,10 @@ internal class InternalBatchMessages<TValue>
             return false;
         }
 
+        var nextCommitedOffset = _batch.MessageData.Last().Offset + 1;
         var offsetsRangeBatch = new OffsetsRange
-            { Start = _partitionSession.PrevEndOffsetMessage, End = _batch.MessageData.Last().Offset };
-        var approximatelyBatchSize = _approximatelyBatchSize;
+            { Start = _partitionSession.PrevEndOffsetMessage, End = nextCommitedOffset };
+        _partitionSession.PrevEndOffsetMessage = nextCommitedOffset;
 
         var messages = new List<Message<TValue>>();
         while (TryDequeueMessage(out var message))
@@ -147,7 +94,12 @@ internal class InternalBatchMessages<TValue>
             messages.Add(message);
         }
 
-        batchMessages = new BatchMessages<TValue>(messages, _readerSession, approximatelyBatchSize, offsetsRangeBatch);
+        batchMessages = new BatchMessages<TValue>(
+            batch: messages,
+            readerSession: _readerSession,
+            offsetsRange: offsetsRangeBatch,
+            partitionSessionId: _partitionSession.PartitionSessionId
+        );
 
         return true;
     }
@@ -155,7 +107,5 @@ internal class InternalBatchMessages<TValue>
 
 internal record CommitSending(
     OffsetsRange OffsetsRange,
-    long PartitionSessionId,
-    TaskCompletionSource TcsCommit,
-    long ApproximatelyBytesSize
+    TaskCompletionSource TcsCommit
 );
