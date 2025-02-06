@@ -41,6 +41,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
             Assert.Equal($"{i}: Hello World!", message.Data);
             await message.CommitAsync();
         }
+
         reader.Dispose();
 
         var readerNext = new ReaderBuilder<string>(_driver)
@@ -59,7 +60,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
         }
 
         readerNext.Dispose();
-        
+
         await topicClient.DropTopic(new DropTopicSettings { Path = _topicName });
     }
 }

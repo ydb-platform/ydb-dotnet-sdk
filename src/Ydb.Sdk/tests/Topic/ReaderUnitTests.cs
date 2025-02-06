@@ -1,7 +1,6 @@
 using Google.Protobuf;
 using Grpc.Core;
 using Moq;
-using Xunit;
 using Ydb.Sdk.Services.Topic.Reader;
 using Ydb.Topic;
 
@@ -113,7 +112,7 @@ public class ReaderUnitTests
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
 
-        var message = await reader.ReadAsync();
+        await reader.ReadAsync();
         // await message.CommitAsync();
         // Assert.Equal(100, message.Data);
     }

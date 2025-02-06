@@ -6,7 +6,7 @@ internal static class Utils
     {
         return bytesSize / countParts + (currentIndex == countParts - 1 ? bytesSize % countParts : 0);
     }
-    
+
     internal static void SetPartitionClosedException(CommitSending commitSending, long partitionSessionId)
     {
         commitSending.TcsCommit.TrySetException(
