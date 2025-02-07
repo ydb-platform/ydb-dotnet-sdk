@@ -204,6 +204,8 @@ internal class Reader<TValue> : IReader<TValue>
         try
         {
             _disposeCts.Cancel();
+
+            _receivedMessagesChannel.Writer.Complete();
         }
         finally
         {
@@ -246,7 +248,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         Channel.CreateUnbounded<MessageFromClient>(
             new UnboundedChannelOptions
             {
-                SingleWriter = true,
                 SingleReader = true,
                 AllowSynchronousContinuations = false
             }

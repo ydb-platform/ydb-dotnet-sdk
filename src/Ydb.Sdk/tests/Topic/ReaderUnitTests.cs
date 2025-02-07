@@ -1,6 +1,8 @@
 using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Moq;
+using Xunit;
 using Ydb.Sdk.Services.Topic.Reader;
 using Ydb.Topic;
 
@@ -25,23 +27,42 @@ public class ReaderUnitTests
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.GetLoggerFactory);
     }
 
-    // [Fact]
+    [Fact]
     public async Task Initialize_WhenFailWriteMessage_ShouldRetryInitializeAndReadThenCommitMessage()
     {
-        var tcs = new TaskCompletionSource<bool>();
+        var tcsMoveNext = new TaskCompletionSource<bool>();
+        var tcsCommitMessage = new TaskCompletionSource<bool>();
 
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            // Write Throws Exception
             .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            // Write init
             .Returns(Task.CompletedTask)
+            // Write ReadRequest { 200 bytes }
             .Returns(Task.CompletedTask)
-            .Returns(Task.CompletedTask);
+            // Write StartSessionPartitionRequest
+            .Returns(() =>
+            {
+                tcsMoveNext.SetResult(true);
+
+                return Task.CompletedTask;
+            })
+            // Write ReadRequest { 50 bytes }
+            .Returns(Task.CompletedTask)
+            // Write CommitRequest
+            .Returns(() =>
+            {
+                tcsCommitMessage.SetResult(true);
+
+                return Task.CompletedTask;
+            });
 
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
-            .Returns(new ValueTask<bool>(true))
-            .Returns(new ValueTask<bool>(true))
-            .Returns(new ValueTask<bool>(true))
-            .Returns(new ValueTask<bool>(true))
-            .Returns(new ValueTask<bool>(tcs.Task));
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
+            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new FromServer
@@ -64,20 +85,27 @@ public class ReaderUnitTests
             .Returns(
                 new FromServer
                 {
+                    Status = StatusIds.Types.StatusCode.Success,
                     ReadResponse = new StreamReadMessage.Types.ReadResponse
                     {
                         BytesSize = 50, PartitionData =
                         {
                             new StreamReadMessage.Types.ReadResponse.Types.PartitionData
                             {
+                                PartitionSessionId = 1,
                                 Batches =
                                 {
                                     new StreamReadMessage.Types.ReadResponse.Types.Batch
                                     {
+                                        ProducerId = "ProducerId",
                                         MessageData =
                                         {
                                             new StreamReadMessage.Types.ReadResponse.Types.MessageData
-                                                { Data = ByteString.CopyFrom(BitConverter.GetBytes(100)) }
+                                            {
+                                                Data = ByteString.CopyFrom(BitConverter.GetBytes(100)),
+                                                Offset = 1,
+                                                CreatedAt = new Timestamp()
+                                            }
                                         }
                                     }
                                 }
@@ -89,6 +117,7 @@ public class ReaderUnitTests
             .Returns(
                 new FromServer
                 {
+                    Status = StatusIds.Types.StatusCode.Success,
                     CommitOffsetResponse =
                         new StreamReadMessage.Types.CommitOffsetResponse
                         {
@@ -97,7 +126,7 @@ public class ReaderUnitTests
                                 new StreamReadMessage.Types.CommitOffsetResponse.Types.PartitionCommittedOffset
                                 {
                                     PartitionSessionId = 1,
-                                    CommittedOffset = 50
+                                    CommittedOffset = 2
                                 }
                             }
                         }
@@ -112,8 +141,8 @@ public class ReaderUnitTests
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
 
-        await reader.ReadAsync();
-        // await message.CommitAsync();
-        // Assert.Equal(100, message.Data);
+        var message = await reader.ReadAsync();
+        await message.CommitAsync();
+        Assert.Equal(100, message.Data);
     }
 }
