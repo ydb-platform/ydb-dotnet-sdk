@@ -16,12 +16,12 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
 
     private readonly YdbBoolTypeMapping _bool = YdbBoolTypeMapping.Default;
 
-    private readonly SByteTypeMapping _int8 = new("INT8", DbType.Byte);
+    private readonly SByteTypeMapping _int8 = new("INT8", DbType.SByte);
     private readonly ShortTypeMapping _int16 = new("INT16", DbType.Int16);
     private readonly IntTypeMapping _int32 = new("INT32", DbType.Int32);
     private readonly LongTypeMapping _int64 = new("INT64", DbType.Int64);
 
-    private readonly ByteTypeMapping _uint8 = new("UINT8", DbType.SByte);
+    private readonly ByteTypeMapping _uint8 = new("UINT8", DbType.Byte);
     private readonly UShortTypeMapping _uint16 = new("UINT16", DbType.UInt16);
     private readonly UIntTypeMapping _uint32 = new("UINT32", DbType.UInt32);
     private readonly ULongTypeMapping _uint64 = new("UINT64", DbType.UInt64);
@@ -55,7 +55,7 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
             { "float", [_float] },
             { "double", [_double] },
 
-            { "string", [_string] }
+            { "text", [_string] }
         };
         var clrTypeMappings = new Dictionary<Type, RelationalTypeMapping>
         {
