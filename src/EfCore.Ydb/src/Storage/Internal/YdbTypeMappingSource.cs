@@ -29,7 +29,7 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
     private readonly FloatTypeMapping _float = new("FLOAT", DbType.Single);
     private readonly DoubleTypeMapping _double = new("DOUBLE", DbType.Double);
 
-    private readonly StringTypeMapping _string = new("STRING", DbType.String);
+    private readonly StringTypeMapping _string = new("TEXT", DbType.String);
 
     #endregion
 
@@ -54,7 +54,7 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
 
             { "float", [_float] },
             { "double", [_double] },
-
+            
             { "text", [_string] }
         };
         var clrTypeMappings = new Dictionary<Type, RelationalTypeMapping>
