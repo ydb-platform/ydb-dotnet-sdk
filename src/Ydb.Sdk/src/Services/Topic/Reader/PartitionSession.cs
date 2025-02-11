@@ -37,7 +37,7 @@ internal class PartitionSession
     internal long PrevEndOffsetMessage { get; set; }
 
     // Each offset up to and including (committed_offset - 1) was fully processed.
-    internal long CommitedOffset { get; private set; }
+    private long CommitedOffset { get; set; }
 
     internal void RegisterCommitRequest(CommitSending commitSending)
     {

@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Ado;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 using static Ydb.Topic.StreamReadMessage.Types.FromServer;
@@ -203,9 +202,9 @@ internal class Reader<TValue> : IReader<TValue>
     {
         try
         {
+            _receivedMessagesChannel.Writer.TryComplete();
+            
             _disposeCts.Cancel();
-
-            _receivedMessagesChannel.Writer.Complete();
         }
         finally
         {
@@ -442,7 +441,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         var tcsCommit = new TaskCompletionSource();
 
         await using var register = _lifecycleReaderSessionCts.Token.Register(
-            () => tcsCommit.TrySetException(new YdbException($"ReaderSession[{SessionId}] was deactivated"))
+            () => tcsCommit.TrySetException(new ReaderException($"ReaderSession[{SessionId}] was deactivated"))
         );
 
         var commitSending = new CommitSending(offsetsRange, tcsCommit);
