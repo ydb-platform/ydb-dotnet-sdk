@@ -203,7 +203,7 @@ internal class Reader<TValue> : IReader<TValue>
         try
         {
             _receivedMessagesChannel.Writer.TryComplete();
-            
+
             _disposeCts.Cancel();
         }
         finally
@@ -421,7 +421,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             if (stopPartitionSessionRequest.Graceful)
             {
                 partitionSession.Stop(stopPartitionSessionRequest.CommittedOffset);
-                
+
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                 {
                     StopPartitionSessionResponse = new StreamReadMessage.Types.StopPartitionSessionResponse
@@ -431,7 +431,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             else
             {
                 // Maybe a race condition with the server dropping all waiters before they can commit.
-                partitionSession.Stop(-1);    
+                partitionSession.Stop(-1);
             }
         }
         else

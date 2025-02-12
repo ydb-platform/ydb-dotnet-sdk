@@ -89,7 +89,7 @@ internal class PartitionSession
             }
             else
             {
-                Utils.SetPartitionClosedException(commitSending, PartitionSessionId);    
+                Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
             }
         }
     }

@@ -53,7 +53,7 @@ internal class InternalBatchMessages<TValue>
         {
             throw new ReaderException("Error when deserializing message data", e);
         }
-        
+
         var nextCommitedOffset = messageData.Offset + 1;
 
         message = new Message<TValue>(
