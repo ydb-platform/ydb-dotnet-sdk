@@ -1,3 +1,7 @@
+* PartitionSession.Stop uses committedOffset to complete commit tasks when stopPartitionSessionRequest.Graceful is true.
+* Changed batch type: IReadOnlyCollection<Message<TValue>> -> IReadOnlyList<Message<TValue>>.
+* Invoking TryReadRequestBytes before deserializing message.
+* Updated Ydb.Protos 1.0.6 -> 1.1.0: Updated version of the Grpc.Net.Client library to 2.67.0.
 * Fixed: YdbDataReader.GetDataTypeName for optional values.
 * Added support for "Columns" collectionName in YdbConnection.GetSchema(Async).
 
