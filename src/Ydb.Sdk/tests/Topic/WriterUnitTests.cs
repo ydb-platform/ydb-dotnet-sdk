@@ -6,6 +6,7 @@ using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Writer;
 using Ydb.Topic;
 using Codec = Ydb.Sdk.Services.Topic.Codec;
+using Range = Moq.Range;
 
 namespace Ydb.Sdk.Tests.Topic;
 
@@ -132,7 +133,7 @@ public class WriterUnitTests
         // check attempt repeated!!!
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(3));
         _mockStream.Verify(stream => stream.MoveNextAsync(),
-            Times.AtLeast(2)); // run processing ack may not be able to start on time 
+            Times.Between(2, 3, Range.Inclusive)); // run processing ack may not be able to start on time 
         _mockStream.Verify(stream => stream.Current, Times.Exactly(2));
     }
 
@@ -180,7 +181,7 @@ public class WriterUnitTests
         // check attempt repeated!!!
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(3));
         _mockStream.Verify(stream => stream.MoveNextAsync(),
-            Times.AtLeast(3)); // run processing ack may not be able to start on time 
+            Times.Between(3, 4, Range.Inclusive)); // run processing ack may not be able to start on time 
         _mockStream.Verify(stream => stream.Current, Times.Exactly(2));
     }
 
@@ -257,7 +258,7 @@ public class WriterUnitTests
         // check attempt repeated!!!
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(3));
         _mockStream.Verify(stream => stream.MoveNextAsync(),
-            Times.AtLeast(3)); // run processing ack may not be able to start on time 
+            Times.Between(3, 4, Range.Inclusive)); // run processing ack may not be able to start on time 
         _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
 
@@ -391,7 +392,7 @@ public class WriterUnitTests
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(4));
-        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.AtLeast(4));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(4, 5, Range.Inclusive));
         _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
 
@@ -466,7 +467,7 @@ public class WriterUnitTests
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
 
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(3));
-        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.AtLeast(4));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(4, 5, Range.Inclusive));
         _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
 
@@ -543,7 +544,7 @@ public class WriterUnitTests
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
 
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(3));
-        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.AtLeast(4));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(4, 5, Range.Inclusive));
         _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
 

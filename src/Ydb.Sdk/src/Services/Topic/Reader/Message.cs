@@ -59,10 +59,10 @@ public class BatchMessages<TValue>
     private readonly OffsetsRange _offsetsRange;
     private readonly long _partitionSessionId;
 
-    public IReadOnlyCollection<Message<TValue>> Batch { get; }
+    public IReadOnlyList<Message<TValue>> Batch { get; }
 
     internal BatchMessages(
-        IReadOnlyCollection<Message<TValue>> batch,
+        IReadOnlyList<Message<TValue>> batch,
         ReaderSession<TValue> readerSession,
         OffsetsRange offsetsRange,
         long partitionSessionId)

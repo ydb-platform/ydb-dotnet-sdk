@@ -130,7 +130,7 @@ public sealed class Driver : BaseDriver
         };
 
         var options = GetCallOptions(requestSettings);
-        options.Headers.Add(Metadata.RpcSdkInfoHeader, _sdkInfo);
+        options.Headers?.Add(Metadata.RpcSdkInfoHeader, _sdkInfo);
 
         var response = await client.ListEndpointsAsync(
             request: request,
