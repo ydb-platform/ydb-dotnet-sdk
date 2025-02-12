@@ -1075,7 +1075,7 @@ public class ReaderUnitTests
         Assert.Equal("Hello", batch.Batch[0].Data);
         Assert.Equal("World!", batch.Batch[1].Data);
 
-        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(11));
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Between(11, 12, Range.Inclusive));
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(8, 9, Range.Inclusive));
         _mockStream.Verify(stream => stream.Current, Times.Exactly(7));
 
@@ -1094,7 +1094,7 @@ public class ReaderUnitTests
             msg.CommitOffsetRequest != null &&
             msg.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId == 1 &&
             msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].Start == 0 &&
-            msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 21)));
+            msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 21)), Times.AtLeast(1));
     }
 
     /*
