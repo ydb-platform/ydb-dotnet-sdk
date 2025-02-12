@@ -40,9 +40,9 @@ internal class InternalBatchMessages<TValue>
         }
 
         var index = _startMessageDataIndex++;
-        var approximatelyMessageBytesSize = Utils
-            .CalculateApproximatelyBytesSize(_approximatelyBatchSize, OriginalMessageCount, index);
         var messageData = _batch.MessageData[index];
+        _readerSession.TryReadRequestBytes(Utils
+            .CalculateApproximatelyBytesSize(_approximatelyBatchSize, OriginalMessageCount, index));
 
         TValue value;
         try
@@ -53,8 +53,7 @@ internal class InternalBatchMessages<TValue>
         {
             throw new ReaderException("Error when deserializing message data", e);
         }
-
-        _readerSession.TryReadRequestBytes(approximatelyMessageBytesSize);
+        
         var nextCommitedOffset = messageData.Offset + 1;
 
         message = new Message<TValue>(

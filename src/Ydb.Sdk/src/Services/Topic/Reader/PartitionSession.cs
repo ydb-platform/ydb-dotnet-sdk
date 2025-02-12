@@ -78,12 +78,19 @@ internal class PartitionSession
         }
     }
 
-    internal void Stop()
+    internal void Stop(long commitedOffset)
     {
         _isStopped = true;
         while (_waitCommitMessages.TryDequeue(out var commitSending))
         {
-            Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
+            if (commitSending.OffsetsRange.End <= commitedOffset)
+            {
+                commitSending.TcsCommit.SetResult();
+            }
+            else
+            {
+                Utils.SetPartitionClosedException(commitSending, PartitionSessionId);    
+            }
         }
     }
 }

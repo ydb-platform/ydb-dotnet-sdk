@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
@@ -1089,7 +1090,7 @@ public class ReaderUnitTests
             msg.StartPartitionSessionResponse != null &&
             msg.StartPartitionSessionResponse.PartitionSessionId == 1)), Times.Exactly(2));
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
-            msg.ReadRequest != null && msg.ReadRequest.BytesSize == 100)));
+            msg.ReadRequest != null && msg.ReadRequest.BytesSize == 25)), Times.Exactly(4));
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
             msg.CommitOffsetRequest != null &&
             msg.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId == 1 &&
@@ -1097,7 +1098,40 @@ public class ReaderUnitTests
             msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 21)));
     }
 
-    //[Fact]
+    /*
+     *
+       Performed invocations:
+
+          Mock<IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>:1> (stream):
+
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "initRequest": { "topicsReadSettings": [ { "path": "/topic" } ], "consumer": "Consumer" } })
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "readRequest": { "bytesSize": "1000" } })
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "startPartitionSessionResponse": { "partitionSessionId": "1" } })
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "commitOffsetRequest": { "commitOffsets": [ { "partitionSessionId": "1", "offsets": [ { "end": "23" } ] } ] } })
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "initRequest": { "topicsReadSettings": [ { "path": "/topic" } ], "consumer": "Consumer" } })
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "readRequest": { "bytesSize": "1000" } })
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "startPartitionSessionResponse": { "partitionSessionId": "1" } })
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "commitOffsetRequest": { "commitOffsets": [ { "partitionSessionId": "1", "offsets": [ { "end": "23" } ] } ] } })
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+             IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync() [Maybe]
+     */
+    [Fact]
     public async Task
         RunProcessingTopic_WhenMoveNextAsyncThrowTransportExceptionAfterCommit_ShouldRetryInitializeAndReadThenCommitMessages()
     {
@@ -1120,7 +1154,7 @@ public class ReaderUnitTests
             {
                 tcsMoveNextSecond.TrySetException(
                     new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
-                
+
                 return Task.CompletedTask;
             })
             .Returns(Task.CompletedTask)
@@ -1131,8 +1165,6 @@ public class ReaderUnitTests
 
                 return Task.CompletedTask;
             })
-            .Returns(Task.CompletedTask)
-            .Returns(Task.CompletedTask)
             .Returns(() =>
             {
                 tcsCommitMessage.SetResult(true);
@@ -1149,6 +1181,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -1159,7 +1192,7 @@ public class ReaderUnitTests
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(20, bytes, bytes, bytes))
             .Returns(CommitOffsetResponse(10))
-            .Returns(CommitOffsetResponse(20));
+            .Returns(CommitOffsetResponse(23));
 
         using var reader = new ReaderBuilder<byte[]>(_mockIDriver.Object)
         {
@@ -1167,7 +1200,7 @@ public class ReaderUnitTests
             MemoryUsageMaxBytes = 1000,
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
-        
+
         var batch = await reader.ReadBatchAsync();
         Assert.Equal("ReaderSession[SessionId] was deactivated",
             (await Assert.ThrowsAsync<ReaderException>(() => batch.CommitBatchAsync())).Message);
@@ -1183,6 +1216,196 @@ public class ReaderUnitTests
         foreach (var message in batch.Batch)
         {
             Assert.Equal(bytes, message.Data);
+        }
+
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(8));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(9, 10, Range.Inclusive));
+        _mockStream.Verify(stream => stream.Current, Times.Exactly(8));
+
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.InitRequest != null &&
+            msg.InitRequest.Consumer == "Consumer" &&
+            msg.InitRequest.TopicsReadSettings[0].Path == "/topic")), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.ReadRequest != null && msg.ReadRequest.BytesSize == 1000)), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.ReadRequest != null)), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.StartPartitionSessionResponse != null &&
+            msg.StartPartitionSessionResponse.PartitionSessionId == 1)), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.CommitOffsetRequest != null &&
+            msg.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId == 1 &&
+            msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].Start == 0 &&
+            msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 23)));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RunProcessingTopic_WhenStopPartitionSessionRequestBeforeCommit_ThrowReaderExceptionOnCommit(
+        bool graceful)
+    {
+        var tcsMoveNext = new TaskCompletionSource<bool>();
+        var stopPartitionSessionRequest = new TaskCompletionSource<bool>();
+
+        var sequentialResultWrite = _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                tcsMoveNext.SetResult(true);
+
+                return Task.CompletedTask;
+            })
+            .Returns(() =>
+            {
+                stopPartitionSessionRequest.SetResult(true);
+
+                return Task.CompletedTask;
+            });
+
+        TaskCompletionSource waitStopPartitionSessionResponse;
+        if (graceful)
+        {
+            waitStopPartitionSessionResponse = new TaskCompletionSource();
+            sequentialResultWrite.Returns(() =>
+            {
+                waitStopPartitionSessionResponse.SetResult();
+                return Task.CompletedTask;
+            });
+        }
+        else
+        {
+            waitStopPartitionSessionResponse = new TaskCompletionSource();
+            waitStopPartitionSessionResponse.SetResult();
+        }
+
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
+            .Returns(new ValueTask<bool>(stopPartitionSessionRequest.Task))
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponseFromServer)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(ReadResponse(0, BitConverter.GetBytes(100), BitConverter.GetBytes(100)))
+            .Returns(new FromServer
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                StopPartitionSessionRequest = new StreamReadMessage.Types.StopPartitionSessionRequest
+                {
+                    PartitionSessionId = 1,
+                    CommittedOffset = 1,
+                    Graceful = graceful
+                }
+            })
+            .Returns(CommitOffsetResponse(2));
+
+        using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        {
+            ConsumerName = "Consumer",
+            MemoryUsageMaxBytes = 1000,
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        var firstMessage = await reader.ReadAsync();
+        Assert.Equal(100, firstMessage.Data);
+        if (graceful)
+        {
+            await firstMessage.CommitAsync();
+        }
+        else
+        {
+            Assert.Equal("PartitionSession[1] was closed by server.",
+                (await Assert.ThrowsAsync<ReaderException>(() => firstMessage.CommitAsync())).Message);
+        }
+
+        var secondMessage = await reader.ReadAsync();
+        Assert.Equal(100, secondMessage.Data);
+        Assert.Equal("PartitionSession[1] was closed by server.",
+            (await Assert.ThrowsAsync<ReaderException>(() => secondMessage.CommitAsync())).Message);
+
+        await waitStopPartitionSessionResponse.Task;
+
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(4 + (graceful ? 1 : 0)));
+        _mockStream.Verify(stream => stream.MoveNextAsync(),
+            Times.Between(4, 6, Range.Inclusive));
+        _mockStream.Verify(stream => stream.Current, Times.Between(4, 5, Range.Inclusive));
+
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.InitRequest != null &&
+            msg.InitRequest.Consumer == "Consumer" &&
+            msg.InitRequest.TopicsReadSettings[0].Path == "/topic")));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.ReadRequest != null && msg.ReadRequest.BytesSize == 1000)));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.ReadRequest != null)));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.StartPartitionSessionResponse != null &&
+            msg.StartPartitionSessionResponse.PartitionSessionId == 1)));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.CommitOffsetRequest != null &&
+            msg.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId == 1 &&
+            msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].Start == 0 &&
+            msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 1)));
+
+        if (graceful)
+        {
+            _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+                msg.StopPartitionSessionResponse != null &&
+                msg.StopPartitionSessionResponse.PartitionSessionId == 1)));
+        }
+    }
+
+    [Fact]
+    public async Task ReadAsync_WhenFailDeserializer_ThrowReaderExceptionAndInvokeReadRequest()
+    {
+        var tcsMoveNext = new TaskCompletionSource<bool>();
+
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                tcsMoveNext.SetResult(true);
+
+                return Task.CompletedTask;
+            })
+            .Returns(Task.CompletedTask);
+
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
+            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponseFromServer)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(ReadResponse(0, BitConverter.GetBytes(100)));
+
+        using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        {
+            ConsumerName = "Consumer",
+            MemoryUsageMaxBytes = 100,
+            SubscribeSettings = { new SubscribeSettings("/topic") },
+            Deserializer = new FailDeserializer()
+        }.Build();
+
+        Assert.Equal("Error when deserializing message data",
+            (await Assert.ThrowsAsync<ReaderException>(() => reader.ReadAsync().AsTask())).Message);
+    }
+
+    private class FailDeserializer : IDeserializer<int>
+    {
+        public int Deserialize(byte[] data)
+        {
+            throw new Exception("Some serialize exception");
         }
     }
 
@@ -1200,7 +1423,6 @@ public class ReaderUnitTests
             }
         };
     }
-
 
     private static FromServer ReadResponse(int commitedOffset = 0, params byte[][] args)
     {

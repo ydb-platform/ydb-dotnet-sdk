@@ -420,14 +420,19 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             if (stopPartitionSessionRequest.Graceful)
             {
+                partitionSession.Stop(stopPartitionSessionRequest.CommittedOffset);
+                
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                 {
                     StopPartitionSessionResponse = new StreamReadMessage.Types.StopPartitionSessionResponse
                         { PartitionSessionId = partitionSession.PartitionSessionId }
                 });
             }
-
-            partitionSession.Stop();
+            else
+            {
+                // Maybe a race condition with the server dropping all waiters before they can commit.
+                partitionSession.Stop(-1);    
+            }
         }
         else
         {
