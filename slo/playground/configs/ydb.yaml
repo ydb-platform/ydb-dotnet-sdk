@@ -1,6 +1,6 @@
-p_q_config:
+pqconfig:
   require_credentials_in_new_protocol: false
-
+  
 actor_system_config:
   cpu_count: 1
   node_type: STORAGE
