@@ -1,3 +1,6 @@
+p_q_config:
+  require_credentials_in_new_protocol: false
+
 actor_system_config:
   cpu_count: 1
   node_type: STORAGE
@@ -40,7 +43,7 @@ domains_config:
             vdisk_kind: Default
   state_storage:
     - ring:
-        node: [1]
+        node: [ 1 ]
         nto_select: 1
       ssid: 1
 host_configs:

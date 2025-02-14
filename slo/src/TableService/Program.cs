@@ -3,4 +3,4 @@
 using Internal;
 using TableService;
 
-return await Cli.Run(new SloContext(), args);
+return await Cli.Run(new SloTableContext(), args);
