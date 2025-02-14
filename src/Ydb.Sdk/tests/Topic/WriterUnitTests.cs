@@ -39,7 +39,7 @@ public class WriterUnitTests
     [Fact]
     public async Task WriteAsync_WhenSerializeThrowException_ThrowWriterException()
     {
-        using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-1")
             { ProducerId = "producerId", Serializer = new FailSerializer() }.Build();
 
         Assert.Equal("Error when serializing message data",
@@ -51,9 +51,9 @@ public class WriterUnitTests
 
        Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
 
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-2", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() <- return false
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-2", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() <- return true
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
@@ -81,7 +81,7 @@ public class WriterUnitTests
 
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-2")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100)).Status);
@@ -97,8 +97,8 @@ public class WriterUnitTests
 
        Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
 
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } }) <- Driver.TransportException
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-3", "producerId": "producerId" } }) <- Driver.TransportException
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-3", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() <- return true
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() <- return await write operation ValueTask
@@ -125,7 +125,7 @@ public class WriterUnitTests
 
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-3")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync("abacaba")).Status);
@@ -142,9 +142,9 @@ public class WriterUnitTests
 
        Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
 
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-4", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() <- throw exception
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-4", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
@@ -173,7 +173,7 @@ public class WriterUnitTests
 
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-4")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync("abacaba")).Status);
@@ -190,10 +190,10 @@ public class WriterUnitTests
 
        Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
 
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-5", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-5", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
@@ -250,7 +250,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-5")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(123L)).Status);
@@ -277,7 +277,7 @@ public class WriterUnitTests
                 Issues = { new IssueMessage { Message = "Topic not found" } }
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-6")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal("Initialization failed: Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
@@ -308,7 +308,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-7")
             { ProducerId = "producerId", Codec = Codec.Raw }.Build();
 
         Assert.Equal("Topic[Path=\"/topic\"] is not supported codec: Raw",
@@ -324,12 +324,12 @@ public class WriterUnitTests
 
        Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
 
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-8", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "1", "createdAt": "2024-12-03T12:44:23.276086Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-8", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "1", "createdAt": "2024-12-03T12:44:23.276086Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
@@ -387,7 +387,7 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-8")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
@@ -401,11 +401,11 @@ public class WriterUnitTests
 
        Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
 
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-9", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() <- transport exception
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-9", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() <- return true
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() <- return true after write message
@@ -461,7 +461,7 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-9")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
@@ -476,11 +476,11 @@ public class WriterUnitTests
 
        Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
 
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-10", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-10", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
@@ -537,7 +537,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-10")
             { ProducerId = "producerId" }.Build();
 
 
@@ -560,7 +560,7 @@ public class WriterUnitTests
             .Returns(new ValueTask<bool>(nextCompleted.Task));
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-11")
             { ProducerId = "producerId" }.Build();
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
@@ -583,7 +583,7 @@ public class WriterUnitTests
             .Returns(new ValueTask<bool>(nextCompleted.Task));
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-12")
             { ProducerId = "producerId" }.Build();
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
@@ -598,14 +598,14 @@ public class WriterUnitTests
 
        Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
 
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-13", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "1", "createdAt": "2024-12-03T15:43:34.479478Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "2", "createdAt": "2024-12-03T15:43:34.481385Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "3", "createdAt": "2024-12-03T15:43:34.481425Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-13", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "3", "createdAt": "2024-12-03T15:43:34.481425Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
@@ -677,7 +677,7 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic")
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-13")
             { ProducerId = "producerId" }.Build();
 
         var ctx = new CancellationTokenSource();
@@ -714,7 +714,7 @@ public class WriterUnitTests
             .ReturnsAsync(true);
         SetupReadOneWriteAckMessage();
 
-        var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic")
+        var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-14")
             { ProducerId = "producerId" }.Build();
         writer.Dispose();
 
