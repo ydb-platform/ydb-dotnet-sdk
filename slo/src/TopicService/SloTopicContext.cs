@@ -11,7 +11,7 @@ namespace TopicService;
 
 public class SloTopicContext : ISloContext
 {
-    private const string PathTopic = "/Root/pixcc-slice-db/slo-topic";
+    private const string PathTopic = "/Root/testdb/slo-topic";
     private const string ConsumerName = "Consumer";
     private const int PartitionSize = 10;
 
@@ -19,35 +19,6 @@ public class SloTopicContext : ISloContext
 
     public async Task Create(CreateConfig config)
     {
-//         var splitEndpoint = config.Endpoint.Split("://");
-//         var useTls = splitEndpoint[0] switch
-//         {
-//             "grpc" => false,
-//             "grpcs" => true,
-//             _ => throw new ArgumentException("Don't support schema: " + splitEndpoint[0])
-//         };
-//
-//         var host = splitEndpoint[1].Split(":")[0];
-//         var port = splitEndpoint[1].Split(":")[1];
-//
-//         await using var connection = new YdbConnection(new YdbConnectionStringBuilder
-//         {
-//             UseTls = useTls, Host = host, Port = int.Parse(port), Database = config.Db,
-//             LoggerFactory = ISloContext.Factory
-//         });
-//         await connection.OpenAsync();
-//
-//         await new YdbCommand(connection)
-//         {
-//             CommandText = @"
-//             CREATE TOPIC `/Root/testdb/slo-topic` (
-//                 CONSUMER Consumer
-//             ) WITH (min_active_partitions = 10);
-//
-//             CREATE USER user PASSWORD password;
-//             "
-//         }.ExecuteNonQueryAsync();
-
         var topicClient = new TopicClient(await Driver.CreateInitialized(
             new DriverConfig(config.Endpoint, config.Db), ISloContext.Factory)
         );
