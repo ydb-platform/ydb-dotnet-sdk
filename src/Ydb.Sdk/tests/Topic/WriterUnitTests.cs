@@ -311,7 +311,7 @@ public class WriterUnitTests
         using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-7")
             { ProducerId = "producerId", Codec = Codec.Raw }.Build();
 
-        Assert.Equal("Topic[Path=\"/topic\"] is not supported codec: Raw",
+        Assert.Equal("Topic[Path=\"/topic-7\"] is not supported codec: Raw",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123L))).Message);
 
         // check not attempt repeated!!!
@@ -718,7 +718,7 @@ public class WriterUnitTests
             { ProducerId = "producerId" }.Build();
         writer.Dispose();
 
-        Assert.Equal("Writer[TopicPath: /topic, ProducerId: producerId, Codec: Raw] is disposed",
+        Assert.Equal("Writer[TopicPath: /topic-14, ProducerId: producerId, Codec: Raw] is disposed",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"))).Message);
     }
 
