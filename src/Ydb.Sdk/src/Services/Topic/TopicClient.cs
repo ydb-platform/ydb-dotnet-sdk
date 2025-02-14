@@ -31,8 +31,8 @@ public class TopicClient
         {
             protoSettings.PartitioningSettings = new Ydb.Topic.PartitioningSettings
             {
-                PartitionCountLimit = settings.PartitioningSettings.PartitionCountLimit,
-                MinActivePartitions = settings.PartitioningSettings.MinActivePartitions
+                MinActivePartitions = settings.PartitioningSettings.MinActivePartitions,
+                MaxActivePartitions = settings.PartitioningSettings.MaxActivePartitions
             };
         }
 

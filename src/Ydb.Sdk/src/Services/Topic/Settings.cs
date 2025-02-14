@@ -76,10 +76,10 @@ public class PartitioningSettings
     public long MinActivePartitions { get; set; }
 
     /// <summary>
-    /// Limit for total partition count, including active (open for write) and read-only partitions.
-    /// Zero value means default - 100.
+    /// Auto split would stop working when the partitions count reaches max_active_partitions
+    /// Zero value means default - 1.
     /// </summary>
-    public long PartitionCountLimit { get; set; }
+    public long MaxActivePartitions { get; set; }
 }
 
 /// <summary>

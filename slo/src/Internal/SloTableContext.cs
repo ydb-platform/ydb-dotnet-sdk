@@ -7,10 +7,10 @@ using Ydb.Sdk.Value;
 
 namespace Internal;
 
-public abstract class SloContext<T> where T : IDisposable
+public interface ISloContext
 {
     // ReSharper disable once StaticMemberInGenericType
-    protected static readonly ILoggerFactory Factory =
+    public static readonly ILoggerFactory Factory =
         LoggerFactory.Create(builder =>
         {
             builder.AddConsole().SetMinimumLevel(LogLevel.Information);
@@ -19,7 +19,15 @@ public abstract class SloContext<T> where T : IDisposable
             builder.AddFilter("Ydb.Sdk.Services.Topic", LogLevel.Debug);
         });
 
-    protected static readonly ILogger Logger = Factory.CreateLogger<SloContext<T>>();
+
+    public Task Create(CreateConfig config);
+
+    public Task Run(RunConfig runConfig);
+}
+
+public abstract class SloTableContext<T> : ISloContext where T : IDisposable
+{
+    protected static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContext<T>>();
 
     private volatile int _maxId;
 
