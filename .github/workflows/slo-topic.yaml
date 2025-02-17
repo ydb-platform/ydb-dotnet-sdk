@@ -20,7 +20,9 @@ on:
       slo_workload_write_max_rps:
         default: '1000'
         required: false
-
+  # For detect flaky tests
+  schedule:
+    - cron: "45 * * * *"
 jobs:
   ydb-slo-action:
     name: SLO test

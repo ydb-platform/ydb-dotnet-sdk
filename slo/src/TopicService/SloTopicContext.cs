@@ -47,12 +47,11 @@ public class SloTopicContext : ISloContext
 
     public async Task Run(RunConfig config)
     {
+        Logger.LogInformation("Started Run topic slo test");
         var driver = await Driver.CreateInitialized(
             new DriverConfig(config.Endpoint, config.Db), ISloContext.Factory);
-        var promPgwEndpoint = $"{config.PromPgw}/metrics";
-        using var prometheus = new MetricPusher(promPgwEndpoint, "workload-" + Job,
-            intervalMilliseconds: config.ReportPeriod);
-        prometheus.Start();
+        
+        Logger.LogInformation("Driver is initialized!");
 
         var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
@@ -67,53 +66,12 @@ public class SloTopicContext : ISloContext
         var writeTasks = new List<Task>();
         for (var i = 0; i < PartitionSize; i++)
         {
-            const string operationType = "write";
             var producer = "producer-" + (i + 1);
             messageSending[producer] = new ConcurrentQueue<string>();
 
             writeTasks.Add(
                 Task.Run(async () =>
                 {
-                    var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
-                        {
-                            { "operation_type", operationType },
-                            { "sdk", "dotnet" },
-                            { "sdk_version", Environment.Version.ToString() },
-                            { "workload", Job },
-                            { "workload_version", "0.0.0" }
-                        }
-                    );
-
-                    var operationsSuccessTotal = metricFactory.CreateCounter(
-                        "sdk_operations_success_total",
-                        "Total number of successful operations, categorized by type."
-                    );
-
-                    var operationLatencySeconds = metricFactory.CreateHistogram(
-                        "sdk_operation_latency_seconds",
-                        "Latency of operations performed by the SDK in seconds, categorized by type and status.",
-                        ["operation_status"],
-                        new HistogramConfiguration
-                        {
-                            Buckets =
-                            [
-                                0.001, // 1 ms
-                                0.002, // 2 ms
-                                0.003, // 3 ms
-                                0.004, // 4 ms
-                                0.005, // 5 ms
-                                0.0075, // 7.5 ms
-                                0.010, // 10 ms
-                                0.020, // 20 ms
-                                0.050, // 50 ms
-                                0.100, // 100 ms
-                                0.200, // 200 ms
-                                0.500, // 500 ms
-                                1.000 // 1 s
-                            ]
-                        }
-                    );
-
                     using var writer = new WriterBuilder<string>(driver, PathTopic)
                     {
                         ProducerId = producer,
@@ -142,13 +100,8 @@ public class SloTopicContext : ISloContext
                         var data = textBuilder.ToString();
                         messageSending[producer].Enqueue(data);
 
-                        var sw = Stopwatch.StartNew();
                         // ReSharper disable once MethodSupportsCancellation
                         await writer.WriteAsync(data);
-                        sw.Stop();
-
-                        operationsSuccessTotal.Inc();
-                        operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
                     }
                 }, cts.Token)
             );
@@ -158,25 +111,9 @@ public class SloTopicContext : ISloContext
         for (var i = 0; i < PartitionSize; i++)
         {
             var handlerBatch = i % 2 == 0;
-            const string operationType = "read";
             var number = i;
             readTasks.Add(Task.Run(async () =>
             {
-                var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
-                    {
-                        { "operation_type", operationType },
-                        { "sdk", "dotnet" },
-                        { "sdk_version", Environment.Version.ToString() },
-                        { "workload", Job },
-                        { "workload_version", "0.0.0" }
-                    }
-                );
-
-                var operationsSuccessTotal = metricFactory.CreateCounter(
-                    "sdk_operations_success_total",
-                    "Total number of successful operations, categorized by type."
-                );
-
                 using var reader = new ReaderBuilder<string>(driver)
                 {
                     ConsumerName = ConsumerName,
@@ -191,11 +128,11 @@ public class SloTopicContext : ISloContext
 
                 if (handlerBatch)
                 {
-                    await ReadBatchMessages(cts, reader, messageSending, operationsSuccessTotal);
+                    await ReadBatchMessages(cts, reader, messageSending);
                 }
                 else
                 {
-                    await ReadMessage(cts, reader, messageSending, operationsSuccessTotal);
+                    await ReadMessage(cts, reader, messageSending);
                 }
             }, cts.Token));
         }
@@ -209,22 +146,18 @@ public class SloTopicContext : ISloContext
         {
         }
 
-        await prometheus.StopAsync();
-        
         Logger.LogInformation("Task finish!");
     }
 
     private static async Task ReadBatchMessages(
         CancellationTokenSource cts,
         IReader<string> reader,
-        ConcurrentDictionary<string, ConcurrentQueue<string>> localStore,
-        Counter messageCounter
+        ConcurrentDictionary<string, ConcurrentQueue<string>> localStore
     )
     {
         while (!cts.IsCancellationRequested)
         {
             var batchMessages = await reader.ReadBatchAsync(cts.Token);
-            messageCounter.Inc(batchMessages.Batch.Count);
 
             foreach (var message in batchMessages.Batch)
             {
@@ -236,14 +169,12 @@ public class SloTopicContext : ISloContext
     private static async Task ReadMessage(
         CancellationTokenSource cts,
         IReader<string> reader,
-        ConcurrentDictionary<string, ConcurrentQueue<string>> localStore,
-        Counter messageCounter
+        ConcurrentDictionary<string, ConcurrentQueue<string>> localStore
     )
     {
         while (!cts.IsCancellationRequested)
         {
             CheckMessage(localStore, await reader.ReadAsync(cts.Token));
-            messageCounter.Inc();
         }
     }
 
