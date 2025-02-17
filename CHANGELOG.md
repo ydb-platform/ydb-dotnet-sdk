@@ -1,4 +1,5 @@
-* PartitionSession.Stop uses committedOffset to complete commit tasks when stopPartitionSessionRequest.Graceful is true.
+* Dev: updated System.IdentityModel.Tokens.Jwt from version 0.7.0 to version 8.5.0.
+* PartitionSession.Stop uses committedOffset to complete commit tasks.
 * Changed batch type: IReadOnlyCollection<Message<TValue>> -> IReadOnlyList<Message<TValue>>.
 * Invoking TryReadRequestBytes before deserializing message.
 * Updated Ydb.Protos 1.0.6 -> 1.1.0: Updated version of the Grpc.Net.Client library to 2.67.0.
