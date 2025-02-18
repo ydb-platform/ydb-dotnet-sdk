@@ -101,7 +101,7 @@ public static class Cli
         CreateCommand, RunCommand
     };
 
-    public static async Task<int> Run<T>(SloContext<T> sloContext, string[] args) where T : IDisposable
+    public static async Task<int> Run(ISloContext sloContext, string[] args)
     {
         CreateCommand.SetHandler(async createConfig => { await sloContext.Create(createConfig); },
             new CreateConfigBinder(EndpointArgument, DbArgument, ResourceYdbPath, MinPartitionsCountOption,

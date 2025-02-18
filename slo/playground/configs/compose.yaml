@@ -7,7 +7,7 @@ x-runtime: &runtime
   network_mode: host
 
 x-ydb-node: &ydb-node
-  image: cr.yandex/crptqonuodf51kdj7a7d/ydb:24.2.7
+  image: cr.yandex/crptqonuodf51kdj7a7d/ydb:24.3.11.13
   restart: always
   <<: *runtime
   volumes:
@@ -270,31 +270,31 @@ services:
       tenant-init:
         condition: service_completed_successfully
 
-  prometheus:
-    image: prom/prometheus
-    restart: unless-stopped
-    <<: *runtime
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    deploy: &monitoring-deploy
-      resources:
-        limits:
-          cpus: "0.1"
-          memory: 1000M
-        reservations:
-          cpus: "0.001"
-          memory: 50M
-
-  prometheus-pushgateway:
-    image: prom/pushgateway
-    restart: unless-stopped
-    <<: *runtime
-    ports:
-      - "9091:9091"
-    deploy:
-      <<: *monitoring-deploy
+#  prometheus:
+#    image: prom/prometheus
+#    restart: unless-stopped
+#    <<: *runtime
+#    ports:
+#      - "9090:9090"
+#    volumes:
+#      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+#    deploy: &monitoring-deploy
+#      resources:
+#        limits:
+#          cpus: "0.1"
+#          memory: 1000M
+#        reservations:
+#          cpus: "0.001"
+#          memory: 50M
+#
+#  prometheus-pushgateway:
+#    image: prom/pushgateway
+#    restart: unless-stopped
+#    <<: *runtime
+#    ports:
+#      - "9091:9091"
+#    deploy:
+#      <<: *monitoring-deploy
 
 #  chaos:
 #    image: docker:latest

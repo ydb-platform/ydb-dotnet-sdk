@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Internal", "Internal\Intern
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdoNet", "AdoNet\AdoNet.csproj", "{B6FFBFBE-F568-4186-B160-CC35A1BBD050}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TopicService", "TopicService\TopicService.csproj", "{431B6493-440C-4550-86EB-E9446683880E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{B6FFBFBE-F568-4186-B160-CC35A1BBD050}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B6FFBFBE-F568-4186-B160-CC35A1BBD050}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B6FFBFBE-F568-4186-B160-CC35A1BBD050}.Release|Any CPU.Build.0 = Release|Any CPU
+		{431B6493-440C-4550-86EB-E9446683880E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{431B6493-440C-4550-86EB-E9446683880E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{431B6493-440C-4550-86EB-E9446683880E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{431B6493-440C-4550-86EB-E9446683880E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

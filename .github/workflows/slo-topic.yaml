@@ -1,0 +1,67 @@
+name: SLO YDB Topics
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      github_pull_request_number:
+        required: true
+      slo_workload_duration_seconds:
+        default: '600'
+        required: false
+      slo_workload_read_max_rps:
+        default: '1000'
+        required: false
+      slo_workload_write_max_rps:
+        default: '1000'
+        required: false
+
+jobs:
+  ydb-slo-action:
+    name: SLO test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Initialize YDB SLO
+        uses: ydb-platform/ydb-slo-action/init@main
+        with:
+          github_pull_request_number: ${{ github.event.inputs.github_pull_request_number }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workload_name: TopicService
+          ydb_database_node_count: 5
+      - name: Prepare SLO Database
+        run: |
+          cd slo/src/TopicService
+          dotnet run create grpc://localhost:2135 /Root/testdb
+      - name: Run SLO Tests
+        run: |
+          cd slo/src/TopicService
+          dotnet run run grpc://localhost:2135 /Root/testdb \
+            --prom-pgw http://localhost:9091  \
+            --report-period 250 \
+            --time ${{inputs.slo_workload_duration_seconds || 600 }} \
+            --write-rps ${{inputs.slo_workload_write_max_rps || 1000 }} \
+            --write-timeout 1000
+
+      - if: always()
+        name: Store ydb chaos testing logs
+        run: |
+          docker logs ydb-chaos > chaos-ydb.log
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TopicService-chaos-ydb.log
+          path: ./chaos-ydb.log
+          retention-days: 1

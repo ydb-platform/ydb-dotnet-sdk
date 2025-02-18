@@ -8,7 +8,7 @@ using Ydb.Sdk.Value;
 
 namespace AdoNet;
 
-public class SloContext : SloContext<YdbDataSource>
+public class SloTableContext : SloTableContext<YdbDataSource>
 {
     private readonly AsyncPolicy _policy = Policy.Handle<YdbException>(exception => exception.IsTransient)
         .WaitAndRetryAsync(10, attempt => TimeSpan.FromMilliseconds(attempt * 10),
@@ -103,6 +103,9 @@ public class SloContext : SloContext<YdbDataSource>
         var port = splitEndpoint[1].Split(":")[1];
 
         return Task.FromResult(new YdbDataSource(new YdbConnectionStringBuilder
-            { UseTls = useTls, Host = host, Port = int.Parse(port), Database = config.Db, LoggerFactory = Factory }));
+        {
+            UseTls = useTls, Host = host, Port = int.Parse(port), Database = config.Db,
+            LoggerFactory = ISloContext.Factory
+        }));
     }
 }

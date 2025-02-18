@@ -3,4 +3,4 @@
 using AdoNet;
 using Internal;
 
-await Cli.Run(new SloContext(), args);
+await Cli.Run(new SloTableContext(), args);
