@@ -133,7 +133,7 @@ public class SloTopicContext : ISloContext
                         MemoryUsageMaxBytes = 8 * 1024 * 1024,
                     }.Build();
 
-                    Logger.LogInformation("Started Reader[PartitionId={Number}]", partitionId);
+                    Logger.LogInformation("Started Reader[PartitionId={PartitionId}]", partitionId);
 
                     if (handlerBatch)
                     {
@@ -146,7 +146,7 @@ public class SloTopicContext : ISloContext
                 }
                 catch (OperationCanceledException)
                 {
-                    Logger.LogInformation("Finished Reader[PartitionId={Number}]", partitionId);
+                    Logger.LogInformation("Finished Reader[PartitionId={PartitionId}]", partitionId);
                 }
                 catch (Exception e)
                 {
@@ -170,6 +170,7 @@ public class SloTopicContext : ISloContext
     )
     {
         var queryFailedCommited = new Queue<string>();
+        var prevSuccessCommitMessage = "Nothing";
         while (!cts.IsCancellationRequested)
         {
             var batchMessages = await reader.ReadBatchAsync(cts.Token);
@@ -178,19 +179,25 @@ public class SloTopicContext : ISloContext
             {
                 while (queryFailedCommited.TryDequeue(out var expectedMessageData))
                 {
-                    Logger.LogInformation("Repeated read: {MessageData}", expectedMessageData);
-
-                    if (string.CompareOrdinal(expectedMessageData, message.Data) < 0)
-                    {
-                        Logger.LogCritical("FAILED prevFailMessage is less than message data!");
-
-                        AssertMessage(message, expectedMessageData);
-                    }
+                    Logger.LogInformation("ReadBatchMessages has repeated read: {MessageData}", expectedMessageData);
 
                     if (expectedMessageData == message.Data)
                     {
+                        queryFailedCommited.Clear();
+
                         goto ContinueForeach;
                     }
+
+                    if (string.CompareOrdinal(expectedMessageData, message.Data) < 0)
+                    {
+                        continue;
+                    }
+
+                    Logger.LogCritical("Previous success messages: {PrevSuccessCommitMessage}. \n" +
+                                       "FAILED ReadBatchMessages prevFailMessage is greater than message data!",
+                        prevSuccessCommitMessage);
+
+                    AssertMessage(message, expectedMessageData);
                 }
 
                 CheckMessage(localStore, message);
@@ -201,16 +208,24 @@ public class SloTopicContext : ISloContext
             try
             {
                 await batchMessages.CommitBatchAsync();
+
+                prevSuccessCommitMessage = string.Join(", ", batchMessages.Batch.Select(m =>
+                    $"[Topic: {m.Topic}, Data: {m.Data}, PartitionId: {m.PartitionId}, CreatedAt: {m.CreatedAt}]"));
             }
             catch (ReaderException e)
             {
-                Logger.LogInformation(e, "Commit batch have readerException error! For messages: {Messages}",
-                    string.Join(", ", batchMessages.Batch.Select(m => m.Data)));
+                Logger.LogInformation(e, "Previous success messages: {PrevSuccessCommitMessage}. \n" +
+                                         "Commit batch have readerException error! For messages: {Messages}",
+                    prevSuccessCommitMessage, string.Join(", ", batchMessages.Batch.Select(m =>
+                        $"[Topic: {m.Topic}, Data: {m.Data}, PartitionId: {m.PartitionId}, CreatedAt: {m.CreatedAt}]")));
 
                 foreach (var message in batchMessages.Batch)
                 {
                     queryFailedCommited.Enqueue(message.Data);
                 }
+
+                Logger.LogInformation("Failed on commited messages: {Messages}",
+                    string.Join(", ", queryFailedCommited));
             }
         }
     }
@@ -222,6 +237,7 @@ public class SloTopicContext : ISloContext
     )
     {
         string? prevFailMessage = null;
+        var prevSuccessCommitMessage = "Nothing";
 
         while (!cts.IsCancellationRequested)
         {
@@ -229,19 +245,27 @@ public class SloTopicContext : ISloContext
 
             if (prevFailMessage != null)
             {
-                if (string.CompareOrdinal(prevFailMessage, message.Data) < 0)
+                Logger.LogInformation("ReadMessage has repeated read: {MessageData}", prevFailMessage);
+
+                if (string.CompareOrdinal(prevFailMessage, message.Data) > 0)
                 {
-                    Logger.LogCritical("FAILED prevFailMessage is less than message data!");
+                    Logger.LogCritical("Previous success messages: {PrevSuccessCommitMessage}. \n" +
+                                       "FAILED ReadMessage prevFailMessage is greater than message data!",
+                        prevSuccessCommitMessage);
 
                     AssertMessage(message, prevFailMessage);
                 }
 
-                prevFailMessage = null;
-
                 if (prevFailMessage == message.Data)
                 {
+                    prevFailMessage = null;
+
                     goto ContinueForeach;
                 }
+
+                prevFailMessage = null;
+                
+                goto ContinueForeach;
             }
 
             CheckMessage(localStore, message);
@@ -250,11 +274,17 @@ public class SloTopicContext : ISloContext
             try
             {
                 await message.CommitAsync();
+
+                prevSuccessCommitMessage = $"[Topic: {message.Topic}, Data: {message.Data}, " +
+                                           $"PartitionId: {message.PartitionId}, CreatedAt: {message.CreatedAt}]";
             }
             catch (ReaderException e)
             {
-                Logger.LogInformation(e, "Commit message have ReaderException error! For message: {Message}",
-                    message.Data);
+                Logger.LogInformation(e,
+                    "Commit message have ReaderException error! For message: " +
+                    "[Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}] \n" +
+                    "Previous success messages: {PrevSuccessCommitMessage}. \n",
+                    message.Topic, message.Data, message.PartitionId, message.CreatedAt, prevSuccessCommitMessage);
 
                 prevFailMessage = message.Data;
             }

@@ -131,6 +131,11 @@ internal class Reader<TValue> : IReader<TValue>
                 {
                     topicReadSettings.ReadFrom = Timestamp.FromDateTime(subscribe.ReadFrom.Value);
                 }
+                
+                foreach (var id in subscribe.PartitionIds)
+                {
+                    topicReadSettings.PartitionIds.Add(id);
+                }
 
                 initRequest.TopicsReadSettings.Add(topicReadSettings);
             }
