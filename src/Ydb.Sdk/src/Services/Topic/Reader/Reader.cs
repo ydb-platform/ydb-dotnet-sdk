@@ -291,9 +291,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             {
                 Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Commit", SessionId);
 
-                _lifecycleReaderSessionCts.Cancel();
-
                 ReconnectSession();
+
+                _lifecycleReaderSessionCts.Cancel();
             }
         });
 
@@ -344,9 +344,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
         finally
         {
-            _lifecycleReaderSessionCts.Cancel();
-
             ReconnectSession();
+
+            _lifecycleReaderSessionCts.Cancel();
         }
     }
 
@@ -418,20 +418,22 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     {
         if (_partitionSessions.TryRemove(stopPartitionSessionRequest.PartitionSessionId, out var partitionSession))
         {
+            Logger.LogInformation("ReaderSession[{SessionId}] has stopped PartitionSession" +
+                                  "[PartitionSessionId={PartitionSessionId}, Path={Path}, PartitionId={PartitionId}, " +
+                                  "CommittedOffset={CommittedOffset}] with GracefulFlag = {Graceful}.",
+                SessionId, stopPartitionSessionRequest.PartitionSessionId, partitionSession.TopicPath,
+                partitionSession.PartitionId, stopPartitionSessionRequest.CommittedOffset,
+                stopPartitionSessionRequest.Graceful);
+
+            partitionSession.Stop(stopPartitionSessionRequest.CommittedOffset);
+
             if (stopPartitionSessionRequest.Graceful)
             {
-                partitionSession.Stop(stopPartitionSessionRequest.CommittedOffset);
-
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                 {
                     StopPartitionSessionResponse = new StreamReadMessage.Types.StopPartitionSessionResponse
                         { PartitionSessionId = partitionSession.PartitionSessionId }
                 });
-            }
-            else
-            {
-                // Maybe a race condition with the server dropping all waiters before they can commit.
-                partitionSession.Stop(-1);
             }
         }
         else

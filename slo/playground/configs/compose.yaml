@@ -273,7 +273,7 @@ services:
     restart: on-failure
     container_name: ydb-chaos
     <<: *runtime
-    entrypoint: ["/bin/sh", "-c", "ls -la /opt/ydb && /opt/ydb/chaos.sh"]
+    entrypoint: ["/bin/sh", "-c", "chmod +x /opt/ydb/chaos.sh && ls -la /opt/ydb && /opt/ydb/chaos.sh"]
     volumes:
       - ./chaos.sh:/opt/ydb/chaos.sh
       - ./ydb.yaml:/opt/ydb/cfg/config.yaml

@@ -61,16 +61,20 @@ public class BatchMessages<TValue>
 
     public IReadOnlyList<Message<TValue>> Batch { get; }
 
+    public string ProducerId { get; }
+
     internal BatchMessages(
         IReadOnlyList<Message<TValue>> batch,
         ReaderSession<TValue> readerSession,
         OffsetsRange offsetsRange,
-        long partitionSessionId)
+        long partitionSessionId,
+        string producerId)
     {
         Batch = batch;
         _readerSession = readerSession;
         _offsetsRange = offsetsRange;
         _partitionSessionId = partitionSessionId;
+        ProducerId = producerId;
     }
 
     public Task CommitBatchAsync()
