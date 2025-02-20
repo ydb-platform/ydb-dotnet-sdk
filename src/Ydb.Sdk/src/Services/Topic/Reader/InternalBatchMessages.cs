@@ -15,7 +15,10 @@ internal class InternalBatchMessages<TValue>
     private int _startMessageDataIndex;
 
     private int OriginalMessageCount => _batch.MessageData.Count;
-    private bool IsActive => _startMessageDataIndex < OriginalMessageCount && _readerSession.IsActive;
+
+    private bool IsActive => _partitionSession.IsActive &&
+                             _readerSession.IsActive &&
+                             _startMessageDataIndex < OriginalMessageCount;
 
     public InternalBatchMessages(
         StreamReadMessage.Types.ReadResponse.Types.Batch batch,

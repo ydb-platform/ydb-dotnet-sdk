@@ -34,6 +34,9 @@ public class SloTopicContext : ISloContext
                 Consumers =
                 {
                     new Consumer(ConsumerName)
+                    {
+                        Important = true
+                    }
                 }
             }
         );
@@ -73,6 +76,7 @@ public class SloTopicContext : ISloContext
                         using var writer = new WriterBuilder<string>(driver, PathTopic)
                         {
                             BufferMaxSize = 8 * 1024 * 1024,
+                            ProducerId = "producer-" + partitionId,
                             PartitionId = partitionId
                         }.Build();
 
@@ -92,6 +96,7 @@ public class SloTopicContext : ISloContext
 
                             var data = $"message-{messageNum++}";
                             messageSending[partitionId].Enqueue(data);
+
                             await writer.WriteAsync(data, writeRpc.Token);
                         }
                     }
@@ -137,11 +142,11 @@ public class SloTopicContext : ISloContext
 
                     if (handlerBatch)
                     {
-                        await ReadBatchMessages(cts, reader, messageSending);
+                        await ReadBatchMessages(cts, reader, messageSending, partitionId);
                     }
                     else
                     {
-                        await ReadMessage(cts, reader, messageSending);
+                        await ReadMessage(cts, reader, messageSending, partitionId);
                     }
                 }
                 catch (OperationCanceledException)
@@ -166,7 +171,8 @@ public class SloTopicContext : ISloContext
     private static async Task ReadBatchMessages(
         CancellationTokenSource cts,
         IReader<string> reader,
-        ConcurrentDictionary<long, ConcurrentQueue<string>> localStore
+        ConcurrentDictionary<long, ConcurrentQueue<string>> localStore,
+        int partitionId
     )
     {
         var queryFailedCommited = new Queue<string>();
@@ -179,13 +185,26 @@ public class SloTopicContext : ISloContext
             {
                 while (queryFailedCommited.TryDequeue(out var expectedMessageData))
                 {
-                    Logger.LogInformation("ReadBatchMessages has repeated read: {MessageData}", expectedMessageData);
+                    Logger.LogInformation(
+                        "ReadBatchMessages[PartitionId={PartitionId}] has repeated read: {MessageData}", partitionId,
+                        expectedMessageData);
 
                     if (expectedMessageData == message.Data)
                     {
-                        queryFailedCommited.Clear();
-
                         goto ContinueForeach;
+                    }
+                    
+                    if (localStore.TryGetValue(message.PartitionId, out var expectedQueue))
+                    {
+                        if (expectedQueue.TryPeek(out var commitedMessage))
+                        {
+                            if (commitedMessage == message.Data)
+                            {
+                                expectedQueue.TryDequeue(out _);
+                                
+                                goto ContinueForeach;
+                            }
+                        }
                     }
 
                     if (string.CompareOrdinal(expectedMessageData, message.Data) < 0)
@@ -194,8 +213,9 @@ public class SloTopicContext : ISloContext
                     }
 
                     Logger.LogCritical("Previous success messages: {PrevSuccessCommitMessage}. \n" +
-                                       "FAILED ReadBatchMessages prevFailMessage is greater than message data!",
-                        prevSuccessCommitMessage);
+                                       "FAILED ReadBatchMessages prevFailMessage is greater than message data! \n" +
+                                       "Local store: {LocalStore}",
+                        prevSuccessCommitMessage, PrintLocalStore(localStore));
 
                     AssertMessage(message, expectedMessageData);
                 }
@@ -215,17 +235,16 @@ public class SloTopicContext : ISloContext
             catch (ReaderException e)
             {
                 Logger.LogInformation(e, "Previous success messages: {PrevSuccessCommitMessage}. \n" +
-                                         "Commit batch have readerException error! For messages: {Messages}",
+                                         "Commit batch have readerException error! For messages: {Messages} \n" +
+                                         "Local store: {LocalStore}",
                     prevSuccessCommitMessage, string.Join(", ", batchMessages.Batch.Select(m =>
-                        $"[Topic: {m.Topic}, Data: {m.Data}, PartitionId: {m.PartitionId}, CreatedAt: {m.CreatedAt}]")));
+                        $"[Topic: {m.Topic}, Data: {m.Data}, PartitionId: {m.PartitionId}, CreatedAt: {m.CreatedAt}]")),
+                    PrintLocalStore(localStore));
 
                 foreach (var message in batchMessages.Batch)
                 {
                     queryFailedCommited.Enqueue(message.Data);
                 }
-
-                Logger.LogInformation("Failed on commited messages: {Messages}",
-                    string.Join(", ", queryFailedCommited));
             }
         }
     }
@@ -233,7 +252,8 @@ public class SloTopicContext : ISloContext
     private static async Task ReadMessage(
         CancellationTokenSource cts,
         IReader<string> reader,
-        ConcurrentDictionary<long, ConcurrentQueue<string>> localStore
+        ConcurrentDictionary<long, ConcurrentQueue<string>> localStore,
+        int partitionId
     )
     {
         string? prevFailMessage = null;
@@ -245,26 +265,32 @@ public class SloTopicContext : ISloContext
 
             if (prevFailMessage != null)
             {
-                Logger.LogInformation("ReadMessage has repeated read: {MessageData}", prevFailMessage);
+                Logger.LogInformation("ReadMessage[PartitionId={PartitionId}] has repeated read: {MessageData}",
+                    partitionId, prevFailMessage);
 
                 if (string.CompareOrdinal(prevFailMessage, message.Data) > 0)
                 {
                     Logger.LogCritical("Previous success messages: {PrevSuccessCommitMessage}. \n" +
-                                       "FAILED ReadMessage prevFailMessage is greater than message data!",
-                        prevSuccessCommitMessage);
+                                       "FAILED ReadMessage prevFailMessage is greater than message data! \n" +
+                                       "Local store: {LocalStore}",
+                        prevSuccessCommitMessage, PrintLocalStore(localStore));
 
                     AssertMessage(message, prevFailMessage);
                 }
 
-                if (prevFailMessage == message.Data)
-                {
-                    prevFailMessage = null;
+                prevFailMessage = null;
 
-                    goto ContinueForeach;
+                if (localStore.TryGetValue(message.PartitionId, out var expectedQueue))
+                {
+                    if (expectedQueue.TryPeek(out var commitedMessage))
+                    {
+                        if (commitedMessage == message.Data)
+                        {
+                            expectedQueue.TryDequeue(out _);
+                        }
+                    }
                 }
 
-                prevFailMessage = null;
-                
                 goto ContinueForeach;
             }
 
@@ -283,8 +309,10 @@ public class SloTopicContext : ISloContext
                 Logger.LogInformation(e,
                     "Commit message have ReaderException error! For message: " +
                     "[Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}] \n" +
-                    "Previous success messages: {PrevSuccessCommitMessage}. \n",
-                    message.Topic, message.Data, message.PartitionId, message.CreatedAt, prevSuccessCommitMessage);
+                    "Previous success messages: {PrevSuccessCommitMessage}. \n" +
+                    "Local store: {LocalStore}",
+                    message.Topic, message.Data, message.PartitionId, message.CreatedAt, prevSuccessCommitMessage,
+                    PrintLocalStore(localStore));
 
                 prevFailMessage = message.Data;
             }
@@ -303,17 +331,26 @@ public class SloTopicContext : ISloContext
             }
 
             Logger.LogCritical(
-                "Unknown message: [Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}]",
-                message.Topic, message.Data, message.PartitionId, message.CreatedAt);
+                "Unknown message: [Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}]\n" +
+                "Local store: {LocalStore}",
+                message.Topic, message.Data, message.PartitionId, message.CreatedAt, PrintLocalStore(localStore));
 
             throw new Exception("FAILED SLO TEST: UNKNOWN MESSAGE!");
         }
 
         Logger.LogCritical(
-            "Unknown message: [Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}]",
-            message.Topic, message.Data, message.PartitionId, message.CreatedAt);
+            "Unknown message: [Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}]\n" +
+            "Local store: {LocalStore}",
+            message.Topic, message.Data, message.PartitionId, message.CreatedAt, PrintLocalStore(localStore));
 
         throw new Exception("FAILED SLO TEST: NOT FOUND PARTITION FOR PRODUCER_ID!");
+    }
+
+    private static string PrintLocalStore(ConcurrentDictionary<long, ConcurrentQueue<string>> localStore)
+    {
+        return "[" +
+               string.Join("\n", localStore.Select(pair => pair.Key + ": " + string.Join(", ", pair.Value))) +
+               "]";
     }
 
     private static void AssertMessage(Ydb.Sdk.Services.Topic.Reader.Message<string> message, string expectedMessageData)

@@ -102,7 +102,7 @@ public class SubscribeSettings
             toString.Append(", ReadFrom: ").Append(ReadFrom);
         }
 
-        toString.Append("PartitionIds: [").Append(string.Join(", ", PartitionIds)).Append("]}");
+        toString.Append(", PartitionIds: [").Append(string.Join(", ", PartitionIds)).Append("]}");
 
         return toString.ToString();
     }

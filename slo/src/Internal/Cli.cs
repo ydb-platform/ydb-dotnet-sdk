@@ -23,7 +23,7 @@ public static class Cli
 
     private static readonly Option<int> WriteTimeoutOption = new(
         "--write-timeout",
-        () => 10,
+        () => 100,
         "write timeout seconds");
 
     private static readonly Option<int> ReportPeriodOption = new(
