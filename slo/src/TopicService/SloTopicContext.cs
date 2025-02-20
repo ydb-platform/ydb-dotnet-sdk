@@ -46,6 +46,8 @@ public class SloTopicContext : ISloContext
 
     public async Task Run(RunConfig config)
     {
+        AppContext.SetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
+        
         Logger.LogInformation("Started Run topic slo test");
         var driver = await Driver.CreateInitialized(
             new DriverConfig(config.Endpoint, config.Db), ISloContext.Factory);

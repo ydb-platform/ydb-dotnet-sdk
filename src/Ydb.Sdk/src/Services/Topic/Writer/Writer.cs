@@ -273,9 +273,6 @@ internal class Writer<TValue> : IWriter<TValue>
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
                 var lastSeqNo = initResponse.LastSeqNo;
 
-                _logger.LogInformation("Writer[{PartitionId}] have lastSeqNo: {lastSeqNo}", _config.PartitionId,
-                    lastSeqNo);
-
                 while (_inFlightMessages.TryDequeue(out var sendData))
                 {
                     if (lastSeqNo >= sendData.MessageData.SeqNo)
