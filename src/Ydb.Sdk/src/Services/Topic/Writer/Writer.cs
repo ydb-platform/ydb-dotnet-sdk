@@ -272,6 +272,10 @@ internal class Writer<TValue> : IWriter<TValue>
             {
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
                 var lastSeqNo = initResponse.LastSeqNo;
+
+                _logger.LogInformation("Writer[{PartitionId}] have lastSeqNo: {lastSeqNo}", _config.PartitionId,
+                    lastSeqNo);
+
                 while (_inFlightMessages.TryDequeue(out var sendData))
                 {
                     if (lastSeqNo >= sendData.MessageData.SeqNo)
@@ -305,6 +309,15 @@ internal class Writer<TValue> : IWriter<TValue>
 
                 if (!copyInFlightMessages.IsEmpty)
                 {
+                    if (_logger.IsEnabled(LogLevel.Trace))
+                    {
+                        _logger.LogDebug("Retrying sending messages: [{InFlightMessages}]",
+                            "{" + string.Join("}, {", copyInFlightMessages.Select(m =>
+                                $"Data: {m.MessageData.Data.ToStringUtf8()}, SeqNo: {m.MessageData.SeqNo}, PartitionId: {m.MessageData.PartitionId}, CreatedAt: {m.MessageData.CreatedAt}")) +
+                            "}"
+                        );
+                    }
+
                     await newSession.Write(copyInFlightMessages); // retry prev in flight messages    
                 }
 
