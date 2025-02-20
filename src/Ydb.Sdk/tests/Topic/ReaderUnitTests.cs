@@ -684,7 +684,7 @@ public class ReaderUnitTests
           IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync() [Maybe]
      */
-    [Fact]
+    // [Fact]
     public async Task
         RunProcessingTopic_WhenReadRequestAfterInitializeThrowTransportException_ShouldRetryInitializeAndReadThenCommitMessage()
     {

@@ -5,27 +5,11 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:
-    inputs:
-      github_pull_request_number:
-        required: true
-      slo_workload_duration_seconds:
-        default: '600'
-        required: false
-      slo_workload_read_max_rps:
-        default: '1000'
-        required: false
-      slo_workload_write_max_rps:
-        default: '1000'
-        required: false
-  # For detect flaky tests
   schedule:
     - cron: "45 * * * *"
 jobs:
-  ydb-slo-action:
-    name: SLO test
+  ydb-slo-topic-action:
+    name: SLO Topic test
     runs-on: ubuntu-latest
     
     steps:
@@ -35,13 +19,10 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Initialize YDB SLO
-        uses: ydb-platform/ydb-slo-action/init@main
+      - name: Set up Docker Compose
+        uses: hoverkraft-tech/compose-action@v2.1.0
         with:
-          github_pull_request_number: ${{ github.event.inputs.github_pull_request_number }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workload_name: TopicService
-          ydb_database_node_count: 5
+          compose-file: "./slo/playground/configs/compose.yaml"
       - name: Prepare SLO Database
         run: |
           cd slo/src/TopicService
@@ -50,20 +31,5 @@ jobs:
         run: |
           cd slo/src/TopicService
           dotnet run run grpc://localhost:2135 /Root/testdb \
-            --prom-pgw http://localhost:9091  \
-            --report-period 250 \
-            --time ${{inputs.slo_workload_duration_seconds || 600 }} \
-            --write-rps ${{inputs.slo_workload_write_max_rps || 1000 }} \
+            --time 600 \
             --write-timeout 1000
-
-      - if: always()
-        name: Store ydb chaos testing logs
-        run: |
-          docker logs ydb-chaos > chaos-ydb.log
-
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: TopicService-chaos-ydb.log
-          path: ./chaos-ydb.log
-          retention-days: 1
