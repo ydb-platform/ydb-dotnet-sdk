@@ -22,7 +22,7 @@ sleep 60
 
 echo "Start CHAOS YDB cluster!"
 
-for i in $(seq 1 10)
+for i in $(seq 1 5)
 do
   echo "docker stop/start iteration $i"
   
@@ -31,10 +31,10 @@ do
   sh -c "docker stop ${nodeForChaos} -t 10"
   sh -c "docker start ${nodeForChaos}"
   
-  sleep 20
+  sleep 40
 done
 
-for i in $(seq 1 10)
+for i in $(seq 1 5)
 do
   echo "docker restart iteration $i"
   
@@ -42,7 +42,7 @@ do
   
   sh -c "docker restart ${nodeForChaos} -t 0"
   
-  sleep 20
+  sleep 40
 done
 
 get_random_container

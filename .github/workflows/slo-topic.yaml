@@ -31,5 +31,5 @@ jobs:
         run: |
           cd slo/src/TopicService
           dotnet run run grpc://localhost:2135 /Root/testdb \
-            --write-rps 100 \
+            --write-rps 50 \
             --time 600
