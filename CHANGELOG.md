@@ -1,3 +1,4 @@
+## v0.13.0
 * Reader client for YDB topics
 * Fixed: send PartitionIds in InitRequest.
 * Do a committed offset on StopPartitionSessionRequest event anyway.
