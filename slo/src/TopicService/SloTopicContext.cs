@@ -135,7 +135,7 @@ public class SloTopicContext : ISloContext
                                 PartitionIds = { partitionId }
                             }
                         },
-                        MemoryUsageMaxBytes = 8 * 1024 * 1024,
+                        MemoryUsageMaxBytes = 8 * 1024 * 1024
                     }.Build();
 
                     Logger.LogInformation("Started Reader[PartitionId={PartitionId}]", partitionId);
@@ -193,7 +193,7 @@ public class SloTopicContext : ISloContext
                     {
                         goto ContinueForeach;
                     }
-                    
+
                     if (localStore.TryGetValue(message.PartitionId, out var expectedQueue))
                     {
                         if (expectedQueue.TryPeek(out var commitedMessage))
@@ -201,7 +201,7 @@ public class SloTopicContext : ISloContext
                             if (commitedMessage == message.Data)
                             {
                                 expectedQueue.TryDequeue(out _);
-                                
+
                                 goto ContinueForeach;
                             }
                         }
