@@ -10,7 +10,7 @@ on:
 jobs:
   ydb-slo-topic-action:
     name: SLO Topic test
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository
