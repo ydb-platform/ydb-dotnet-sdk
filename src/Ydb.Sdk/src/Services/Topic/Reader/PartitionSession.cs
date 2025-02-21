@@ -25,6 +25,8 @@ internal class PartitionSession
         CommitedOffset = commitedOffset;
     }
 
+    internal bool IsActive => !_isStopped;
+
     // Identifier of partition session. Unique inside one RPC call.
     internal long PartitionSessionId { get; }
 
@@ -49,12 +51,14 @@ internal class PartitionSession
         }
         else
         {
-            _waitCommitMessages.Enqueue(commitSending);
-
             if (_isStopped)
             {
                 Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
+
+                return;
             }
+
+            _waitCommitMessages.Enqueue(commitSending);
         }
     }
 
@@ -81,6 +85,7 @@ internal class PartitionSession
     internal void Stop(long commitedOffset)
     {
         _isStopped = true;
+
         while (_waitCommitMessages.TryDequeue(out var commitSending))
         {
             if (commitSending.OffsetsRange.End <= commitedOffset)

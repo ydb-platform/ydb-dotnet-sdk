@@ -1,8 +1,13 @@
+* Reader client for YDB topics
+* Fixed: send PartitionIds in InitRequest.
+* Do a committed offset on StopPartitionSessionRequest event anyway.
+* Added log info on StopPartitionSessionRequest event.
+* PartitioningSettings were changed to change the PartitionCountLimit to MaxActivePartitions.
 * Dev: updated System.IdentityModel.Tokens.Jwt from version 0.7.0 to version 8.5.0.
 * PartitionSession.Stop uses committedOffset to complete commit tasks.
 * Changed batch type: IReadOnlyCollection<Message<TValue>> -> IReadOnlyList<Message<TValue>>.
 * Invoking TryReadRequestBytes before deserializing message.
-* Updated Ydb.Protos 1.0.6 -> 1.1.0: Updated version of the Grpc.Net.Client library to 2.67.0.
+* Updated Ydb.Protos 1.0.6 -> 1.1.1: Updated version of the Grpc.Net.Client library to 2.67.0 and proto messages.
 * Fixed: YdbDataReader.GetDataTypeName for optional values.
 * Added support for "Columns" collectionName in YdbConnection.GetSchema(Async).
 

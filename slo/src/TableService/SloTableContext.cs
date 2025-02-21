@@ -7,7 +7,7 @@ using Ydb.Sdk.Value;
 
 namespace TableService;
 
-public class SloContext : SloContext<TableClient>
+public class SloTableContext : SloTableContext<TableClient>
 {
     private readonly TxControl _txControl = TxControl.BeginSerializableRW().Commit();
     protected override string Job => "TableService";
@@ -79,6 +79,7 @@ public class SloContext : SloContext<TableClient>
 
     protected override async Task<TableClient> CreateClient(Config config)
     {
-        return new TableClient(await Driver.CreateInitialized(new DriverConfig(config.Endpoint, config.Db), Factory));
+        return new TableClient(await Driver.CreateInitialized(new DriverConfig(config.Endpoint, config.Db),
+            ISloContext.Factory));
     }
 }

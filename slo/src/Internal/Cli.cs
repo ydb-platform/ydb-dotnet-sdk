@@ -14,7 +14,7 @@ public static class Cli
 
     private static readonly Option<string> PromPgwOption = new(
         "--prom-pgw",
-        "prometheus push gateway") { IsRequired = true };
+        "prometheus push gateway");
 
     private static readonly Option<string> ResourceYdbPath = new(
         new[] { "-t", "--resource-ydb-path" },
@@ -23,7 +23,7 @@ public static class Cli
 
     private static readonly Option<int> WriteTimeoutOption = new(
         "--write-timeout",
-        () => 1000,
+        () => 100,
         "write timeout seconds");
 
     private static readonly Option<int> ReportPeriodOption = new(
@@ -101,7 +101,7 @@ public static class Cli
         CreateCommand, RunCommand
     };
 
-    public static async Task<int> Run<T>(SloContext<T> sloContext, string[] args) where T : IDisposable
+    public static async Task<int> Run(ISloContext sloContext, string[] args)
     {
         CreateCommand.SetHandler(async createConfig => { await sloContext.Create(createConfig); },
             new CreateConfigBinder(EndpointArgument, DbArgument, ResourceYdbPath, MinPartitionsCountOption,

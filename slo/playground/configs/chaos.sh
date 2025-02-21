@@ -20,21 +20,31 @@ get_random_container() {
 
 sleep 60
 
-get_random_container
+echo "Start CHAOS YDB cluster!"
 
-sh -c "docker stop ${nodeForChaos} -t 30"
-sh -c "docker start ${nodeForChaos}"
+for i in $(seq 1 5)
+do
+  echo "docker stop/start iteration $i"
+  
+  get_random_container
+  
+  sh -c "docker stop ${nodeForChaos} -t 10"
+  sh -c "docker start ${nodeForChaos}"
+  
+  sleep 40
+done
 
-sleep 60
-
-get_random_container
-
-sh -c "docker restart ${nodeForChaos} -t 0"
-
-sleep 60
+for i in $(seq 1 5)
+do
+  echo "docker restart iteration $i"
+  
+  get_random_container
+  
+  sh -c "docker restart ${nodeForChaos} -t 0"
+  
+  sleep 40
+done
 
 get_random_container
 
 sh -c "docker kill -s SIGKILL ${nodeForChaos}"
-
-sleep 60
