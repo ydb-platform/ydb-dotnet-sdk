@@ -31,10 +31,10 @@ do
   sh -c "docker stop ${nodeForChaos} -t 10"
   sh -c "docker start ${nodeForChaos}"
   
-  sleep 40
+  sleep 60
 done
 
-for i in $(seq 1 5)
+for i in $(seq 1 3)
 do
   echo "docker restart iteration $i"
   
@@ -42,7 +42,7 @@ do
   
   sh -c "docker restart ${nodeForChaos} -t 0"
   
-  sleep 40
+  sleep 60
 done
 
 get_random_container
