@@ -1,4 +1,5 @@
 using System;
+using System.Data.Common;
 using EfCore.Ydb.Infrastructure;
 using EfCore.Ydb.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,22 @@ public static class YdbContextOptionsBuilderExtensions
 
         efYdbOptionsAction?.Invoke(new YdbDbContextOptionsBuilder(optionsBuilder));
         return optionsBuilder;
+    }
+
+    public static DbContextOptionsBuilder UseEfYdb(
+        this DbContextOptionsBuilder optionsBuilder,
+        DbConnection connection,
+        Action<YdbDbContextOptionsBuilder>? efYdbOptionsAction = null
+    )
+    {
+        var extension = GetOrCreateExtension(optionsBuilder).WithConnection(connection);
+        ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
+
+        ConfigureWarnings(optionsBuilder);
+
+        efYdbOptionsAction?.Invoke(new YdbDbContextOptionsBuilder(optionsBuilder));
+        return optionsBuilder;
+
     }
 
     // TODO: Right now there are no arguments for constructor, so probably it's ok
