@@ -23,6 +23,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{39DE35EE-6
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EfCore.Ydb.Tests", "EfCore.Ydb\test\EfCore.Ydb.Tests.csproj", "{C340085B-AB9E-484A-B4A5-32131AE5029F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EfCore.Ydb.FunctionalTests", "EfCore.Ydb.FunctionalTests\EfCore.Ydb.FunctionalTests.csproj", "{28550E34-B56D-4536-B455-031983D9E561}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -61,6 +63,10 @@ Global
 		{C340085B-AB9E-484A-B4A5-32131AE5029F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C340085B-AB9E-484A-B4A5-32131AE5029F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C340085B-AB9E-484A-B4A5-32131AE5029F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{28550E34-B56D-4536-B455-031983D9E561}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{28550E34-B56D-4536-B455-031983D9E561}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{28550E34-B56D-4536-B455-031983D9E561}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{28550E34-B56D-4536-B455-031983D9E561}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -77,6 +83,7 @@ Global
 		{D3C0891F-85FA-4FBA-A8BB-02A58C1D5202} = {369AA6CC-3CD3-40A9-82E4-61B7D7D42CE3}
 		{39DE35EE-621B-4DEC-BFA2-5337ACBAEEF4} = {5E7B167B-5FC7-41BD-8819-16B02ED9B961}
 		{C340085B-AB9E-484A-B4A5-32131AE5029F} = {39DE35EE-621B-4DEC-BFA2-5337ACBAEEF4}
+		{28550E34-B56D-4536-B455-031983D9E561} = {39DE35EE-621B-4DEC-BFA2-5337ACBAEEF4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0AB27123-0C66-4E43-A75F-D9EAB9ED0849}
