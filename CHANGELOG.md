@@ -1,57 +1,57 @@
-* Fixed: YdbDataReader does not throw YdbException when CloseAsync is called for UPDATE/INSERT statements with no
+- Fixed: YdbDataReader does not throw YdbException when CloseAsync is called for UPDATE/INSERT statements with no
   result.
 
 ## v0.14.0
 
-* Reader client for YDB topics
-* Fixed: send PartitionIds in InitRequest.
-* Do a committed offset on StopPartitionSessionRequest event anyway.
-* Added log info on StopPartitionSessionRequest event.
-* PartitioningSettings were changed to change the PartitionCountLimit to MaxActivePartitions.
-* Dev: updated System.IdentityModel.Tokens.Jwt from version 0.7.0 to version 8.5.0.
-* PartitionSession.Stop uses committedOffset to complete commit tasks.
-* Changed batch type: IReadOnlyCollection<Message<TValue>> -> IReadOnlyList<Message<TValue>>.
-* Invoking TryReadRequestBytes before deserializing message.
-* Updated Ydb.Protos 1.0.6 -> 1.1.1: Updated version of the Grpc.Net.Client library to 2.67.0 and proto messages.
-* Fixed: YdbDataReader.GetDataTypeName for optional values.
-* Added support for "Columns" collectionName in YdbConnection.GetSchema(Async).
+- Reader client for YDB topics
+- Fixed: send PartitionIds in InitRequest.
+- Do a committed offset on StopPartitionSessionRequest event anyway.
+- Added log info on StopPartitionSessionRequest event.
+- PartitioningSettings were changed to change the PartitionCountLimit to MaxActivePartitions.
+- Dev: updated System.IdentityModel.Tokens.Jwt from version 0.7.0 to version 8.5.0.
+- PartitionSession.Stop uses committedOffset to complete commit tasks.
+- Changed batch type: IReadOnlyCollection<Message<TValue>> -> IReadOnlyList<Message<TValue>>.
+- Invoking TryReadRequestBytes before deserializing message.
+- Updated Ydb.Protos 1.0.6 -> 1.1.1: Updated version of the Grpc.Net.Client library to 2.67.0 and proto messages.
+- Fixed: YdbDataReader.GetDataTypeName for optional values.
+- Added support for "Columns" collectionName in YdbConnection.GetSchema(Async).
 
 ## v0.12.0
 
-* GetUint64(int ordinal) returns a ulong for Uint8, Uint16, Uint32, Uint64 YDB types.
-* GetInt64(int ordinal) returns a int for Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32 YDB types.
-* GetUint32(int ordinal) returns a uint for Uint8, Uint16, Uint32 YDB types.
-* GetInt32(int ordinal) returns a int for Int8, Int16, Int32, Uint8, Uint16 YDB types.
-* GetUint16(int ordinal) returns a ushort for Uint8, Uint16 YDB types.
-* GetInt16(int ordinal) returns a short for Int8, Int16, Uint8 YDB types.
-* GetDouble(int ordinal) returns a double for Float and Double YDB types.
-* Throw InvalidCastException on string.Empty in `GetChar(int ordinal)`.
-* Changed Ydb.Sdk.Value.InvalidTypeException to InvalidCastException in YdbValueParser.
-* Changed InvalidCastException to InvalidOperationException in YdbParameter.
-* Added specification tests: YdbCommandTests and YdbParameterTests.
-* YdbConnection.Database returns string.Empty if ConnectionStringBuilder is null.
-* Propagated cancellationToken in Execute[.*]Async methods.
-* When YdbCommand has an open data reader, it throws InvalidOperationException on the setters: CommandText,
+- GetUint64(int ordinal) returns a ulong for Uint8, Uint16, Uint32, Uint64 YDB types.
+- GetInt64(int ordinal) returns a int for Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32 YDB types.
+- GetUint32(int ordinal) returns a uint for Uint8, Uint16, Uint32 YDB types.
+- GetInt32(int ordinal) returns a int for Int8, Int16, Int32, Uint8, Uint16 YDB types.
+- GetUint16(int ordinal) returns a ushort for Uint8, Uint16 YDB types.
+- GetInt16(int ordinal) returns a short for Int8, Int16, Uint8 YDB types.
+- GetDouble(int ordinal) returns a double for Float and Double YDB types.
+- Throw InvalidCastException on string.Empty in `GetChar(int ordinal)`.
+- Changed Ydb.Sdk.Value.InvalidTypeException to InvalidCastException in YdbValueParser.
+- Changed InvalidCastException to InvalidOperationException in YdbParameter.
+- Added specification tests: YdbCommandTests and YdbParameterTests.
+- YdbConnection.Database returns string.Empty if ConnectionStringBuilder is null.
+- Propagated cancellationToken in Execute[.*]Async methods.
+- When YdbCommand has an open data reader, it throws InvalidOperationException on the setters: CommandText,
   DbConnection.
-* Added checkers to YdbCommand.Prepare().
-* CommandText getter doesn't throw an exception if the CommandText property has not been initialized.
+- Added checkers to YdbCommand.Prepare().
+- CommandText getter doesn't throw an exception if the CommandText property has not been initialized.
 
 ## v0.11.0
 
-* Fix bug: GetValue(int ordinal) return DBNull.Value if fetched NULL value.
-* Fix: NextResult() moves to the next result and skip the first ResultSet.
-* Added specification DbDataReaderTests.
-* If dataOffset is larger than the length of data, GetChars and GetBytes methods will return 0.
-* If YdbDataReader is closed: `throw new InvalidOperationException("The reader is closed")`.
-* InvalidOperationException on ConnectionString property has not been initialized.
-* One YdbTransaction per YdbConnection. Otherwise, throw an exception: InvalidOperationException("A transaction is
+- Fix bug: GetValue(int ordinal) return DBNull.Value if fetched NULL value.
+- Fix: NextResult() moves to the next result and skip the first ResultSet.
+- Added specification DbDataReaderTests.
+- If dataOffset is larger than the length of data, GetChars and GetBytes methods will return 0.
+- If YdbDataReader is closed: `throw new InvalidOperationException("The reader is closed")`.
+- InvalidOperationException on ConnectionString property has not been initialized.
+- One YdbTransaction per YdbConnection. Otherwise, throw an exception: InvalidOperationException("A transaction is
   already in progress; nested/concurrent transactions aren't supported.").
-* ConnectionString returns an empty.String when it is not set.
-* When a YdbDataReader is closed, if stream is not empty, a YdbTransaction fails if it is not null. A session also fails
+- ConnectionString returns an empty.String when it is not set.
+- When a YdbDataReader is closed, if stream is not empty, a YdbTransaction fails if it is not null. A session also fails
   due to a possible error SessionBusy race condition with the server.
-* Fixed bug: Fetch txId from the last result set.
-* YdbTransaction CheckDisposed() (invoke rollback if transaction hasn't been committed).
-* Dev: Added specification tests for YdbTransaction.
+- Fixed bug: Fetch txId from the last result set.
+- YdbTransaction CheckDisposed() (invoke rollback if transaction hasn't been committed).
+- Dev: Added specification tests for YdbTransaction.
 
 ## v0.10.0
 
