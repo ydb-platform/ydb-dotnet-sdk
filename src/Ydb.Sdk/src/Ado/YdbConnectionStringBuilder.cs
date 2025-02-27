@@ -141,6 +141,19 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     public ICredentialsProvider? CredentialsProvider { get; set; }
 
+    public X509Certificate? CustomCertificate
+    {
+        get => _customCertificate;
+        set
+        {
+            RootCertificate = null;
+
+            _customCertificate = value;
+        }
+    }
+
+    private X509Certificate? _customCertificate;
+
     private void SaveValue(string propertyName, object? value)
     {
         if (value == null)
@@ -183,7 +196,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     {
         var credentialsProvider = CredentialsProvider ??
                                   (User != null ? new StaticCredentialsProvider(User, Password) : null);
-        var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
+        var cert = CustomCertificate ??
+                   (RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null);
 
         return Driver.CreateInitialized(new DriverConfig(
             endpoint: Endpoint,
