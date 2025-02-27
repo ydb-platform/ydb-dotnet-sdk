@@ -562,7 +562,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
 
         ReaderMetadata = CloseMetadata.Instance;
-        var isConsumed = ReaderState == State.IsConsumed;
+        var isConsumed = ReaderState == State.IsConsumed || !await ReadAsync() && ReaderState == State.IsConsumed;
         ReaderState = State.Close;
 
         if (isConsumed)
@@ -595,7 +595,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             : ydbValue;
     }
 
-    private async Task<State> NextExecPart()
+    private async ValueTask<State> NextExecPart()
     {
         try
         {
