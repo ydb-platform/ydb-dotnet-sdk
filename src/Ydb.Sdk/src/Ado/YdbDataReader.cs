@@ -561,8 +561,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        ReaderMetadata = CloseMetadata.Instance;
         var isConsumed = ReaderState == State.IsConsumed || !await ReadAsync() && ReaderState == State.IsConsumed;
+        ReaderMetadata = CloseMetadata.Instance;
         ReaderState = State.Close;
 
         if (isConsumed)
