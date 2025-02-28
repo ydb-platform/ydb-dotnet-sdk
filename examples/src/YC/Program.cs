@@ -11,8 +11,6 @@ await Parser.Default.ParseArguments<CmdOptions>(args).WithParsedAsync(async cmd 
     var saProvider = new ServiceAccountProvider(saFilePath: cmd.SaFilePath, loggerFactory: loggerFactory);
     await saProvider.Initialize();
 
-    var cert = YcCerts.GetDefaultServerCertificate();
-
     var builder = new YdbConnectionStringBuilder
     {
         UseTls = true,
@@ -21,11 +19,12 @@ await Parser.Default.ParseArguments<CmdOptions>(args).WithParsedAsync(async cmd 
         Database = cmd.Database,
         CredentialsProvider = saProvider,
         LoggerFactory = loggerFactory,
-        CustomCertificate = cert
+        ServerCertificates = YcCerts.GetYcServerCertificates()
     };
 
     await using var ydbConnection = new YdbConnection(builder);
     await ydbConnection.OpenAsync();
 
-    Console.WriteLine(await new YdbCommand(ydbConnection) { CommandText = "SELECT 'Hello YDB!'u" }.ExecuteScalarAsync());
+    Console.WriteLine(await new YdbCommand(ydbConnection) { CommandText = "SELECT 'Hello Dedicated YDB!'u" }
+        .ExecuteScalarAsync());
 });

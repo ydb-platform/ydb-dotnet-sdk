@@ -137,22 +137,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private string? _rootCertificate;
 
-    public ILoggerFactory? LoggerFactory { get; set; }
+    public ILoggerFactory? LoggerFactory { get; init; }
 
-    public ICredentialsProvider? CredentialsProvider { get; set; }
+    public ICredentialsProvider? CredentialsProvider { get; init; }
 
-    public X509Certificate? CustomCertificate
-    {
-        get => _customCertificate;
-        set
-        {
-            RootCertificate = null;
-
-            _customCertificate = value;
-        }
-    }
-
-    private X509Certificate? _customCertificate;
+    public X509Certificate2Collection? ServerCertificates { get; init; }
 
     private void SaveValue(string propertyName, object? value)
     {
@@ -196,14 +185,14 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     {
         var credentialsProvider = CredentialsProvider ??
                                   (User != null ? new StaticCredentialsProvider(User, Password) : null);
-        var cert = CustomCertificate ??
-                   (RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null);
+        var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
 
         return Driver.CreateInitialized(new DriverConfig(
             endpoint: Endpoint,
             database: Database,
             credentials: credentialsProvider,
-            customServerCertificate: cert
+            customServerCertificate: cert,
+            customServerCertificates: ServerCertificates
         ), LoggerFactory);
     }
 

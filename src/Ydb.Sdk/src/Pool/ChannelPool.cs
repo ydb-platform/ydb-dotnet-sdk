@@ -5,7 +5,6 @@ using System.Security.Cryptography.X509Certificates;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
-using Org.BouncyCastle.Security;
 
 namespace Ydb.Sdk.Pool;
 
@@ -79,14 +78,14 @@ public interface IChannelFactory<out T> where T : ChannelBase, IDisposable
 internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 {
     private readonly ILoggerFactory _loggerFactory;
-    private readonly X509Certificate? _x509Certificate;
     private readonly ILogger<GrpcChannelFactory> _logger;
+    private readonly X509Certificate2Collection _x509Certificate2Collection;
 
     internal GrpcChannelFactory(ILoggerFactory loggerFactory, DriverConfig config)
     {
         _loggerFactory = loggerFactory;
-        _x509Certificate = config.CustomServerCertificate;
         _logger = loggerFactory.CreateLogger<GrpcChannelFactory>();
+        _x509Certificate2Collection = config.CustomServerCertificates;
     }
 
     public GrpcChannel CreateChannel(string endpoint)
@@ -98,32 +97,40 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
             LoggerFactory = _loggerFactory
         };
 
-        if (_x509Certificate == null)
+        var httpHandler = new SocketsHttpHandler();
+
+        // https://github.com/grpc/grpc-dotnet/issues/2312#issuecomment-1790661801
+        httpHandler.Properties["__GrpcLoadBalancingDisabled"] = true;
+
+        channelOptions.HttpHandler = httpHandler;
+        channelOptions.DisposeHttpClient = true;
+
+        if (_x509Certificate2Collection.Count == 0)
         {
             return GrpcChannel.ForAddress(endpoint, channelOptions);
         }
 
-        var httpHandler = new SocketsHttpHandler();
-
-        var customCertificate = DotNetUtilities.FromX509Certificate(_x509Certificate);
-
-        httpHandler.SslOptions.RemoteCertificateValidationCallback =
-            (_, certificate, _, sslPolicyErrors) =>
+        httpHandler.SslOptions.RemoteCertificateValidationCallback +=
+            (_, certificate, chain, sslPolicyErrors) =>
             {
                 if (sslPolicyErrors == SslPolicyErrors.None)
                 {
                     return true;
                 }
 
-                if (certificate is null)
+                if (certificate is null || chain is null)
                 {
                     return false;
                 }
 
                 try
                 {
-                    var cert = DotNetUtilities.FromX509Certificate(certificate);
-                    cert.Verify(customCertificate.GetPublicKey());
+                    chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                    chain.ChainPolicy.ExtraStore.AddRange(_x509Certificate2Collection);
+
+                    return chain.Build(new X509Certificate2(certificate)) && chain.ChainElements.Any(chainElement =>
+                        _x509Certificate2Collection.Any(trustedCert =>
+                            chainElement.Certificate.Thumbprint == trustedCert.Thumbprint));
                 }
                 catch (Exception e)
                 {
@@ -131,14 +138,7 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 
                     return false;
                 }
-
-                return true;
             };
-        // https://github.com/grpc/grpc-dotnet/issues/2312#issuecomment-1790661801
-        httpHandler.Properties["__GrpcLoadBalancingDisabled"] = true;
-
-        channelOptions.HttpHandler = httpHandler;
-        channelOptions.DisposeHttpClient = true;
 
         return GrpcChannel.ForAddress(endpoint, channelOptions);
     }
