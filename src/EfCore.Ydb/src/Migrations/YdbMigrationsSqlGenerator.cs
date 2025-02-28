@@ -1,3 +1,5 @@
+using System;
+using EfCore.Ydb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -46,7 +48,37 @@ public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
             EndStatement(builder, suppressTransaction: true);
         }
     }
-    
+
+    protected override void ColumnDefinition(
+        string? schema,
+        string table,
+        string name,
+        ColumnOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder
+    )
+    {
+        var columnType = operation.ColumnType ?? GetColumnType(schema, table, name, operation, model)!;
+        var autoincrement = operation[YdbAnnotationNames.Serial] as bool?;
+
+        if (autoincrement == true)
+        {
+            columnType = columnType.ToLower() switch
+            {
+                "int32" => "SERIAL",
+                "int64" => "BIGSERIAL",
+                _ => throw new NotSupportedException("Serial column supported only for int32 and int64")
+            };
+        }
+
+        builder
+            .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(name))
+            .Append(" ")
+            // TODO: Add DEFAULT logic somewhere here
+            .Append(columnType)
+            .Append(operation.IsNullable ? " NULL" : " NOT NULL");
+    }
+
     protected override void CreateTablePrimaryKeyConstraint(
         CreateTableOperation operation,
         IModel? model,
