@@ -137,9 +137,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private string? _rootCertificate;
 
-    public ILoggerFactory? LoggerFactory { get; set; }
+    public ILoggerFactory? LoggerFactory { get; init; }
 
-    public ICredentialsProvider? CredentialsProvider { get; set; }
+    public ICredentialsProvider? CredentialsProvider { get; init; }
+
+    public X509Certificate2Collection? ServerCertificates { get; init; }
 
     private void SaveValue(string propertyName, object? value)
     {
@@ -189,7 +191,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             endpoint: Endpoint,
             database: Database,
             credentials: credentialsProvider,
-            customServerCertificate: cert
+            customServerCertificate: cert,
+            customServerCertificates: ServerCertificates
         ), LoggerFactory);
     }
 

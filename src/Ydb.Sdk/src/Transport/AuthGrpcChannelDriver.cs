@@ -17,7 +17,7 @@ internal class AuthGrpcChannelDriver : BaseDriver
         new DriverConfig(
             endpoint: driverConfig.Endpoint,
             database: driverConfig.Database,
-            customServerCertificate: driverConfig.CustomServerCertificate
+            customServerCertificates: driverConfig.CustomServerCertificates
         ), loggerFactory, loggerFactory.CreateLogger<AuthGrpcChannelDriver>())
     {
         _channel = grpcChannelFactory.CreateChannel(Config.Endpoint);
