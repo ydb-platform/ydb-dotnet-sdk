@@ -8,7 +8,7 @@ public class DriverConfig
     public string Endpoint { get; }
     public string Database { get; }
     public ICredentialsProvider Credentials { get; }
-    
+
     internal X509Certificate2Collection CustomServerCertificates { get; } = new();
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);

@@ -9,7 +9,7 @@ internal class CmdOptions
 
     [Option('d', "database", Required = true, HelpText = "Database name")]
     public string Database { get; set; } = null!;
-    
+
     [Option("saFilePath", Required = true, HelpText = "Sa Key")]
     public string SaFilePath { get; set; } = null!;
 }
