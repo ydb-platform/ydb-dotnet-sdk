@@ -40,7 +40,9 @@ public class YdbTestStore : RelationalTestStore
     }
 
     protected override async Task InitializeAsync(
-        Func<DbContext> createContext, Func<DbContext, Task>? seed, Func<DbContext, Task>? clean
+        Func<DbContext> createContext,
+        Func<DbContext, Task>? seed,
+        Func<DbContext, Task>? clean
     )
     {
         if (_scriptPath is not null)
