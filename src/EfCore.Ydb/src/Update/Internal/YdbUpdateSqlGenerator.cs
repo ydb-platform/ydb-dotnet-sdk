@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.EntityFrameworkCore.Update;
@@ -31,5 +32,12 @@ public class YdbUpdateSqlGenerator : UpdateSqlGenerator
         requiresTransaction = false;
 
         return ResultSetMapping.NoResults;
+    }
+
+    protected override void AppendReturningClause(
+        StringBuilder commandStringBuilder, IReadOnlyList<IColumnModification> operations, string? additionalValues = null
+    )
+    {
+        // Ydb doesn't support RETURNING clause
     }
 }

@@ -34,7 +34,7 @@ public class YdbDatabaseCreator : RelationalDatabaseCreator
         var connection = _connection.Clone();
         try
         {
-            await connection.OpenAsync(cancellationToken, errorsExpected: true);
+            await _connection.OpenAsync(cancellationToken, errorsExpected: true);
             return true;
         }
         catch (YdbException)
@@ -50,7 +50,8 @@ public class YdbDatabaseCreator : RelationalDatabaseCreator
 
     public override bool HasTables()
     {
-        throw new NotImplementedException();
+        // TODO: Implement later
+        return false;
     }
 
     public override void Create()

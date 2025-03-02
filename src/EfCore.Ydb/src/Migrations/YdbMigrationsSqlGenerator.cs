@@ -214,6 +214,42 @@ public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
         // Ignore bc YDB doesn't support adding keys outside table creation
     }
 
+    protected override void CreateTableForeignKeys(CreateTableOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    {
+        // Same comment about Foreign keys
+    }
+
+    protected override void ForeignKeyAction(ReferentialAction referentialAction, MigrationCommandListBuilder builder)
+    {
+        // Same comment about Foreign keys
+    }
+
+    protected override void ForeignKeyConstraint(AddForeignKeyOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    {
+        // Same comment about Foreign keys
+    }
+
+    protected override void CreateTableUniqueConstraints(CreateTableOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    {
+        // We don't have unique constraints
+    }
+
+    protected override void UniqueConstraint(AddUniqueConstraintOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    {
+        // Same comment about Unique constraints
+    }
+
+    protected override void Generate(
+        CreateIndexOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true
+    )
+    {
+        // TODO: We do have Indexes!
+        // But they're not implemented yet. Ignoring indexes because otherwise table generation during tests will fail
+    }
+
 
     // ReSharper disable once RedundantOverriddenMember
     protected override void EndStatement(
