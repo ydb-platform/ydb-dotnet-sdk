@@ -4,14 +4,13 @@ using System.Text.RegularExpressions;
 using EfCore.Ydb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.IdentityModel.Tokens;
 using Ydb.Sdk.Ado;
 
 namespace EfCore.Ydb.FunctionalTests.TestUtilities;
 
 public class YdbTestStore : RelationalTestStore
 {
-    public const int CommandTimeout = 690;
+    public const int CommandTimeout = 600;
     private readonly string? _scriptPath;
     private readonly string? _additionalSql;
 
@@ -22,7 +21,7 @@ public class YdbTestStore : RelationalTestStore
         string? connectionStringOptions = null,
         bool shared = true,
         bool useConnectionString = false
-    ) : base(name, shared, CreateConnection(name, shared))
+    ) : base(name, shared, CreateConnection())
     {
         _scriptPath = scriptPath;
         _additionalSql = additionalSql;
@@ -46,11 +45,11 @@ public class YdbTestStore : RelationalTestStore
     {
         if (_scriptPath is not null)
         {
-            ExecuteScript(_scriptPath);
+            await ExecuteScript(_scriptPath);
 
             if (_additionalSql is not null)
             {
-                Execute(Connection, command => command.ExecuteNonQuery(), _additionalSql);
+                await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), _additionalSql);
             }
         }
         else
@@ -60,7 +59,7 @@ public class YdbTestStore : RelationalTestStore
 
             if (_additionalSql is not null)
             {
-                Execute(Connection, command => command.ExecuteNonQuery(), _additionalSql);
+                await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), _additionalSql);
             }
 
             if (seed is not null)
@@ -71,16 +70,16 @@ public class YdbTestStore : RelationalTestStore
     }
 
 
-    public void ExecuteScript(string scriptPath)
+    public async Task ExecuteScript(string scriptPath)
     {
-        var script = File.ReadAllText(scriptPath);
-        Execute(
+        var script = await File.ReadAllTextAsync(scriptPath);
+        await ExecuteAsync(
             Connection, command =>
             {
                 var commandsToExecute =
                     new Regex("^GO",
                             RegexOptions.IgnoreCase | RegexOptions.Multiline,
-                            TimeSpan.FromMilliseconds(4269.0)
+                            TimeSpan.FromMilliseconds(1000.0)
                         )
                         .Split(script)
                         .Where(b => !string.IsNullOrEmpty(b));
@@ -90,60 +89,67 @@ public class YdbTestStore : RelationalTestStore
                 {
                     try
                     {
-                        var pureCommand = new Regex("\n", RegexOptions.IgnoreCase | RegexOptions.Multiline,
-                                TimeSpan.FromMilliseconds(1_000))
+                        var commandsSplitted = new Regex(
+                                "\n",
+                                RegexOptions.IgnoreCase | RegexOptions.Multiline,
+                                TimeSpan.FromMilliseconds(1_000)
+                            )
                             .Split(commandToExecute)
-                            .Where(b => !b.StartsWith("--") && !b.IsNullOrEmpty())
+                            .Where(b => !b.StartsWith("--") && !string.IsNullOrEmpty(b))
                             .ToList();
 
-                        var commandJoined = string.Join("\n", pureCommand);
+                        var readyCommand = string.Join("\n", commandsSplitted);
 
                         command.CommandTimeout = 100_000;
-                        command.CommandText = commandJoined;
-                        command.ExecuteNonQuery();
+                        command.CommandText = readyCommand;
+                        command.ExecuteNonQueryAsync();
                     }
                     catch (Exception e)
                     {
-                        throw new AggregateException(
-                            new Exception($"Command:\n{commandToExecute}\n"), e
-                        );
+                        throw new AggregateException($"Exception for command:\n{commandToExecute}\n", e);
                     }
                 }
 
-                return 0;
+                return Task.FromResult(0);
             }, "");
     }
 
-    private static T Execute<T>(
+    private static async Task ExecuteAsync<T>(
         DbConnection connection,
-        Func<DbCommand, T> execute,
+        Func<DbCommand, Task<T>> execute,
         string sql,
+        bool useTransaction = false,
         object[]? parameters = null
-    ) => ExecuteCommand(connection, execute, sql, parameters);
+    )
+    {
+        await ExecuteCommandAsync(connection, execute, sql, useTransaction, parameters);
+    }
 
-    private static T ExecuteCommand<T>(
+    private static async Task ExecuteCommandAsync<T>(
         DbConnection connection,
-        Func<DbCommand, T> execute,
+        Func<DbCommand, Task<T>> execute,
         string sql,
+        bool useTransaction,
         object[]? parameters
     )
     {
         if (connection.State != ConnectionState.Closed)
         {
-            connection.Close();
+            await connection.CloseAsync();
         }
 
-        connection.Open();
+        await connection.OpenAsync();
         try
         {
-            using var command = CreateCommand(connection, sql, parameters);
-            return execute(command);
+            await using var command = CreateCommand(connection, sql, parameters);
+            await execute(command);
         }
         finally
         {
-            if (connection.State != ConnectionState.Closed)
+            if (connection.State == ConnectionState.Closed
+                && connection.State != ConnectionState.Closed)
             {
-                connection.Close();
+                await connection.CloseAsync();
             }
         }
     }
@@ -171,20 +177,9 @@ public class YdbTestStore : RelationalTestStore
     }
 
 
-    private static YdbConnection CreateConnection(string name, bool sharedCache)
+    private static YdbConnection CreateConnection()
     {
-        var connectionString = new YdbConnectionStringBuilder(
-            $"Host=localhost;" +
-            $"Port=2135;" +
-            $"Database = \"/local\";" +
-            $"MaxSessionPool=10;" +
-            $"RootCertificate=" + Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                "dev/ydb_ca/ca.pem"
-            )
-        );
-
-        return new YdbConnection(connectionString);
+        return new YdbConnection();
     }
 
     public override Task CleanAsync(DbContext context)
