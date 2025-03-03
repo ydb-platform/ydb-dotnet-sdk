@@ -11,6 +11,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
     protected readonly string SessionId;
 
     private int _isActive = 1;
+    private string? _lastToken;
 
     protected TopicSession(
         IBidirectionalStream<TFromClient, TFromServer> stream,
@@ -22,6 +23,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
         Logger = logger;
         SessionId = sessionId;
         _initialize = initialize;
+        _lastToken = stream.AuthToken;
     }
 
     public bool IsActive => Volatile.Read(ref _isActive) == 1;
@@ -40,8 +42,26 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
         await _initialize();
     }
 
+    protected async Task SendMessage(TFromClient fromClient)
+    {
+        var curAuthToken = Stream.AuthToken;
+        
+        if (!string.Equals(_lastToken, curAuthToken) && curAuthToken != null)
+        {
+            var updateTokenRequest = GetSendUpdateTokenRequest(curAuthToken);
+
+            _lastToken = curAuthToken;
+            
+            await Stream.Write(updateTokenRequest);
+        }
+        
+        await Stream.Write(fromClient);
+    }
+
     public void Dispose()
     {
         Stream.Dispose();
     }
+
+    protected abstract TFromClient GetSendUpdateTokenRequest(string token);
 }
