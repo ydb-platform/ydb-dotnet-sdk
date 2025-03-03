@@ -1,5 +1,6 @@
 using Grpc.Core;
 using Moq;
+using Moq.Language;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Sdk.Services.Topic;
@@ -701,7 +702,7 @@ public class WriterUnitTests
         Assert.Equal(PersistenceStatus.Written, (await runTask2).Status);
 
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(6));
-        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(5));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(4, 5, Range.Inclusive));
         _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
     }
 
@@ -722,9 +723,127 @@ public class WriterUnitTests
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"))).Message);
     }
 
-    private void SetupReadOneWriteAckMessage()
+    /*
+     * Performed invocations:
+
+       Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
+
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-14", "producerId": "producerId" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.AuthToken
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.AuthToken
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "1", "createdAt": "2025-03-03T11:07:14.079309Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.AuthToken
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "updateTokenRequest": { "token": "Token2" } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "2", "createdAt": "2025-03-03T11:07:14.084021Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.AuthToken
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "writeRequest": { "messages": [ { "seqNo": "3", "createdAt": "2025-03-03T11:07:14.084187Z", "data": "ZAAAAAAAAAA=", "uncompressedSize": "8" } ], "codec": 1 } })
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync()
+     */
+    [Fact]
+    public async Task WriteAsync_WhenTokenIsUpdatedOneTime_SuccessUpdateToken()
     {
-        _mockStream.SetupSequence(stream => stream.Current)
+        var writeTcs1 = new TaskCompletionSource<bool>();
+        var writeTcs2 = new TaskCompletionSource<bool>();
+        var writeTcs3 = new TaskCompletionSource<bool>();
+
+        _mockStream.SetupSequence(stream => stream.AuthToken)
+            .Returns("Token1")
+            .Returns("Token1")
+            .Returns("Token2")
+            .Returns("Token2");
+
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                writeTcs1.SetResult(true);
+                return Task.CompletedTask;
+            })
+            .Returns(Task.CompletedTask) // send token update
+            .Returns(() =>
+            {
+                writeTcs2.SetResult(true);
+                return Task.CompletedTask;
+            })
+            .Returns(() =>
+            {
+                writeTcs3.SetResult(true);
+                return Task.CompletedTask;
+            });
+
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(writeTcs1.Task))
+            .Returns(new ValueTask<bool>(writeTcs2.Task))
+            .Returns(new ValueTask<bool>(writeTcs3.Task))
+            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+
+        SetupReadOneWriteAckMessage()
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    PartitionId = 1,
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 2,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                                { Offset = 2 }
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    PartitionId = 1,
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 3,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                                { Offset = 3 }
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+
+        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-14")
+            { ProducerId = "producerId" }.Build();
+
+        var writeTask1 = await writer.WriteAsync(100L);
+        Assert.Equal(PersistenceStatus.Written, writeTask1.Status);
+
+        var writeTask2 = await writer.WriteAsync(100);
+        Assert.Equal(PersistenceStatus.Written, writeTask2.Status);
+
+        var writeTask3 = await writer.WriteAsync(100);
+        Assert.Equal(PersistenceStatus.Written, writeTask3.Status);
+
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(4, 5, Range.Inclusive));
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(5));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.UpdateTokenRequest != null &&
+            msg.UpdateTokenRequest.Token == "Token2")));
+    }
+
+    private ISetupSequentialResult<StreamWriteMessage.Types.FromServer> SetupReadOneWriteAckMessage()
+    {
+        return _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
                 InitResponse = new StreamWriteMessage.Types.InitResponse

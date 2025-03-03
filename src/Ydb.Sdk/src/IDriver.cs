@@ -1,6 +1,7 @@
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Auth;
 
 namespace Ydb.Sdk;
 
@@ -36,6 +37,8 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
     public ValueTask<bool> MoveNextAsync();
 
     public TResponse Current { get; }
+
+    public string? AuthToken { get; }
 }
 
 public abstract class BaseDriver : IDriver
@@ -118,7 +121,10 @@ public abstract class BaseDriver : IDriver
             host: null,
             options: GetCallOptions(settings));
 
-        return new BidirectionalStream<TRequest, TResponse>(call, e => { OnRpcError(endpoint, e); });
+        return new BidirectionalStream<TRequest, TResponse>(
+            call,
+            e => { OnRpcError(endpoint, e); },
+            Config.Credentials);
     }
 
     protected abstract (string, GrpcChannel) GetChannel(long nodeId);
@@ -218,13 +224,16 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
 {
     private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;
+    private readonly ICredentialsProvider _credentialsProvider;
 
     internal BidirectionalStream(
         AsyncDuplexStreamingCall<TRequest, TResponse> stream,
-        Action<RpcException> rpcErrorAction)
+        Action<RpcException> rpcErrorAction,
+        ICredentialsProvider credentialsProvider)
     {
         _stream = stream;
         _rpcErrorAction = rpcErrorAction;
+        _credentialsProvider = credentialsProvider;
     }
 
     public async Task Write(TRequest request)
@@ -256,6 +265,8 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
     }
 
     public TResponse Current => _stream.ResponseStream.Current;
+
+    public string? AuthToken => _credentialsProvider.GetAuthInfo();
 
     public void Dispose()
     {
