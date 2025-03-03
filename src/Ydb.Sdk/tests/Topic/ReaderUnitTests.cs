@@ -1395,6 +1395,107 @@ public class ReaderUnitTests
             (await Assert.ThrowsAsync<ReaderException>(() => reader.ReadAsync().AsTask())).Message);
     }
 
+    /*
+     *
+       Performed invocations:
+
+       Mock<IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>:1> (stream):
+
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "initRequest": { "topicsReadSettings": [ { "path": "/topic" } ], "consumer": "Consumer Tester" } })
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "readRequest": { "bytesSize": "1000" } })
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.AuthToken
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.AuthToken
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "startPartitionSessionResponse": { "partitionSessionId": "1" } })
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync()
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.AuthToken
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "updateTokenRequest": { "token": "Token2" } })
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Write({ "commitOffsetRequest": { "commitOffsets": [ { "partitionSessionId": "1", "offsets": [ { "end": "1" } ] } ] } })
+          IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
+     */
+    [Fact]
+    public async Task ReadAsync_WhenTokenIsUpdatedOneTime_SuccessUpdateToken()
+    {
+        _mockStream.SetupSequence(stream => stream.AuthToken)
+            .Returns("Token1")
+            .Returns("Token1")
+            .Returns("Token2")
+            .Returns("Token2");
+
+        var tcsMoveNext = new TaskCompletionSource<bool>();
+        var tcsCommitMessage = new TaskCompletionSource<bool>();
+
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                tcsMoveNext.SetResult(true);
+
+                return Task.CompletedTask;
+            })
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                tcsCommitMessage.SetResult(true);
+
+                return Task.CompletedTask;
+            });
+
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
+            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponseFromServer)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(ReadResponse(0, BitConverter.GetBytes(100)))
+            .Returns(CommitOffsetResponse());
+
+        using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        {
+            ConsumerName = "Consumer Tester",
+            MemoryUsageMaxBytes = 1000,
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        var message = await reader.ReadAsync();
+        await message.CommitAsync();
+        Assert.Equal(100, message.Data);
+
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(5));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(4, 5, Range.Inclusive));
+        _mockStream.Verify(stream => stream.Current, Times.Exactly(4));
+
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.InitRequest != null &&
+            msg.InitRequest.Consumer == "Consumer Tester" &&
+            msg.InitRequest.TopicsReadSettings[0].Path == "/topic")));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.ReadRequest != null &&
+            msg.ReadRequest.BytesSize == 1000)));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.StartPartitionSessionResponse != null &&
+            msg.StartPartitionSessionResponse.PartitionSessionId == 1)));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.ReadRequest != null)));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.CommitOffsetRequest != null &&
+            msg.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId == 1 &&
+            msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 1)));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.UpdateTokenRequest != null &&
+            msg.UpdateTokenRequest.Token == "Token2")));
+    }
+
     private class FailDeserializer : IDeserializer<int>
     {
         public int Deserialize(byte[] data)

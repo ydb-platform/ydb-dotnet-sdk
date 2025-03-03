@@ -1,3 +1,5 @@
+- Topic Reader & Writer: update auth token in bidirectional stream.
+
 ## v0.14.1
 - Fixed bug: public key presented not for certificate signature.
 - Fixed: YdbDataReader does not throw YdbException when CloseAsync is called for UPDATE/INSERT statements with no

@@ -326,7 +326,7 @@ internal class Writer<TValue> : IWriter<TValue>
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("Initialize writer is canceled because it has been disposed");
+            _logger.LogInformation("Initialize writer is canceled because it has been disposed");
         }
     }
 
@@ -449,7 +449,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
             }
 
             Volatile.Write(ref _seqNum, currentSeqNum);
-            await Stream.Write(new MessageFromClient { WriteRequest = writeMessage });
+            await SendMessage(new MessageFromClient { WriteRequest = writeMessage });
         }
         catch (Driver.TransportException e)
         {
@@ -530,5 +530,16 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
         {
             ReconnectSession();
         }
+    }
+
+    protected override MessageFromClient GetSendUpdateTokenRequest(string token)
+    {
+        return new MessageFromClient
+        {
+            UpdateTokenRequest = new UpdateTokenRequest
+            {
+                Token = token
+            }
+        };
     }
 }

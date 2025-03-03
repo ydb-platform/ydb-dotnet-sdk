@@ -289,7 +289,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             {
                 await foreach (var messageFromClient in _channelFromClientMessageSending.Reader.ReadAllAsync())
                 {
-                    await Stream.Write(messageFromClient);
+                    await SendMessage(messageFromClient);
                 }
             }
             catch (Driver.TransportException e)
@@ -538,5 +538,16 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     SessionId, partitionSessionId);
             }
         }
+    }
+
+    protected override MessageFromClient GetSendUpdateTokenRequest(string token)
+    {
+        return new MessageFromClient
+        {
+            UpdateTokenRequest = new UpdateTokenRequest
+            {
+                Token = token
+            }
+        };
     }
 }
