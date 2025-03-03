@@ -45,16 +45,16 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
     protected async Task SendMessage(TFromClient fromClient)
     {
         var curAuthToken = Stream.AuthToken;
-        
+
         if (!string.Equals(_lastToken, curAuthToken) && curAuthToken != null)
         {
             var updateTokenRequest = GetSendUpdateTokenRequest(curAuthToken);
 
             _lastToken = curAuthToken;
-            
+
             await Stream.Write(updateTokenRequest);
         }
-        
+
         await Stream.Write(fromClient);
     }
 

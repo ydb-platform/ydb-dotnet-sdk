@@ -37,7 +37,7 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
     public ValueTask<bool> MoveNextAsync();
 
     public TResponse Current { get; }
-    
+
     public string? AuthToken { get; }
 }
 

@@ -3,7 +3,6 @@ using Moq;
 using Moq.Language;
 using Xunit;
 using Ydb.Issue;
-using Ydb.Sdk.Auth;
 using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Writer;
 using Ydb.Topic;
@@ -831,10 +830,10 @@ public class WriterUnitTests
 
         var writeTask2 = await writer.WriteAsync(100);
         Assert.Equal(PersistenceStatus.Written, writeTask2.Status);
-        
+
         var writeTask3 = await writer.WriteAsync(100);
         Assert.Equal(PersistenceStatus.Written, writeTask3.Status);
-        
+
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(4, 5, Range.Inclusive));
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(5));
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
