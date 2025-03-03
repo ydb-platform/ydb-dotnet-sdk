@@ -8,8 +8,8 @@ public class DriverConfig
     public string Endpoint { get; }
     public string Database { get; }
     public ICredentialsProvider Credentials { get; }
-    public X509Certificate? CustomServerCertificate { get; }
 
+    internal X509Certificate2Collection CustomServerCertificates { get; } = new();
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
 
@@ -17,12 +17,22 @@ public class DriverConfig
         string endpoint,
         string database,
         ICredentialsProvider? credentials = null,
-        X509Certificate? customServerCertificate = null)
+        X509Certificate? customServerCertificate = null,
+        X509Certificate2Collection? customServerCertificates = null)
     {
         Endpoint = FormatEndpoint(endpoint);
         Database = database;
         Credentials = credentials ?? new AnonymousProvider();
-        CustomServerCertificate = customServerCertificate;
+
+        if (customServerCertificate != null)
+        {
+            CustomServerCertificates.Add(new X509Certificate2(customServerCertificate));
+        }
+
+        if (customServerCertificates != null)
+        {
+            CustomServerCertificates.AddRange(customServerCertificates);
+        }
     }
 
     private static string FormatEndpoint(string endpoint)

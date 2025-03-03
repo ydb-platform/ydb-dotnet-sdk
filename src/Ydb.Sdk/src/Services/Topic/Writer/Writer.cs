@@ -272,6 +272,7 @@ internal class Writer<TValue> : IWriter<TValue>
             {
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
                 var lastSeqNo = initResponse.LastSeqNo;
+
                 while (_inFlightMessages.TryDequeue(out var sendData))
                 {
                     if (lastSeqNo >= sendData.MessageData.SeqNo)

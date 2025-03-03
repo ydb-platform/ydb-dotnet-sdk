@@ -110,7 +110,7 @@ jobs:
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src
-          dotnet test --filter "FullyQualifiedName~Topic" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=normal"  
+          dotnet test --filter "FullyQualifiedName~Topic" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=detailed"  
   integration-tests:
     runs-on: ubuntu-22.04
     strategy:

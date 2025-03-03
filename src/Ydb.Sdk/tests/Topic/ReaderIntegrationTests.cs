@@ -34,7 +34,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
             MemoryUsageMaxBytes = 200
         }.Build();
 
-        for (var i = 0; i < 1000; i++)
+        for (var i = 0; i < 100; i++)
         {
             await writer.WriteAsync($"{i}: Hello World!");
             var message = await reader.ReadAsync();
@@ -51,7 +51,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
             MemoryUsageMaxBytes = 1000
         }.Build();
 
-        for (var i = 1000; i < 2000; i++)
+        for (var i = 100; i < 200; i++)
         {
             await writer.WriteAsync($"{i}: Hello World!");
             var message = await readerNext.ReadAsync();

@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Ado;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 using static Ydb.Topic.StreamReadMessage.Types.FromServer;
@@ -133,6 +132,11 @@ internal class Reader<TValue> : IReader<TValue>
                     topicReadSettings.ReadFrom = Timestamp.FromDateTime(subscribe.ReadFrom.Value);
                 }
 
+                foreach (var id in subscribe.PartitionIds)
+                {
+                    topicReadSettings.PartitionIds.Add(id);
+                }
+
                 initRequest.TopicsReadSettings.Add(topicReadSettings);
             }
 
@@ -203,6 +207,8 @@ internal class Reader<TValue> : IReader<TValue>
     {
         try
         {
+            _receivedMessagesChannel.Writer.TryComplete();
+
             _disposeCts.Cancel();
         }
         finally
@@ -246,7 +252,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         Channel.CreateUnbounded<MessageFromClient>(
             new UnboundedChannelOptions
             {
-                SingleWriter = true,
                 SingleReader = true,
                 AllowSynchronousContinuations = false
             }
@@ -289,11 +294,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             }
             catch (Driver.TransportException e)
             {
-                Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Commit", SessionId);
-
-                _lifecycleReaderSessionCts.Cancel();
+                Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Write", SessionId);
 
                 ReconnectSession();
+
+                _lifecycleReaderSessionCts.Cancel();
             }
         });
 
@@ -331,6 +336,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                         break;
                     case ServerMessageOneofCase.InitResponse:
                     case ServerMessageOneofCase.None:
+                    case ServerMessageOneofCase.UpdatePartitionSession:
+                    case ServerMessageOneofCase.EndPartitionSession:
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
@@ -344,9 +351,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
         finally
         {
-            _lifecycleReaderSessionCts.Cancel();
-
             ReconnectSession();
+
+            _lifecycleReaderSessionCts.Cancel();
         }
     }
 
@@ -418,6 +425,15 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     {
         if (_partitionSessions.TryRemove(stopPartitionSessionRequest.PartitionSessionId, out var partitionSession))
         {
+            Logger.LogInformation("ReaderSession[{SessionId}] has stopped PartitionSession" +
+                                  "[PartitionSessionId={PartitionSessionId}, Path={Path}, PartitionId={PartitionId}, " +
+                                  "CommittedOffset={CommittedOffset}] with GracefulFlag = {Graceful}.",
+                SessionId, stopPartitionSessionRequest.PartitionSessionId, partitionSession.TopicPath,
+                partitionSession.PartitionId, stopPartitionSessionRequest.CommittedOffset,
+                stopPartitionSessionRequest.Graceful);
+
+            partitionSession.Stop(stopPartitionSessionRequest.CommittedOffset);
+
             if (stopPartitionSessionRequest.Graceful)
             {
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
@@ -426,12 +442,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                         { PartitionSessionId = partitionSession.PartitionSessionId }
                 });
             }
-
-            partitionSession.Stop();
         }
         else
         {
-            Logger.LogError("Received StopPartitionSessionRequest[PartitionSessionId={}] for unknown PartitionSession",
+            Logger.LogError(
+                "Received StopPartitionSessionRequest[PartitionSessionId={PartitionSessionId}] for unknown PartitionSession",
                 stopPartitionSessionRequest.PartitionSessionId);
         }
     }
@@ -441,7 +456,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         var tcsCommit = new TaskCompletionSource();
 
         await using var register = _lifecycleReaderSessionCts.Token.Register(
-            () => tcsCommit.TrySetException(new YdbException($"ReaderSession[{SessionId}] was deactivated"))
+            () => tcsCommit.TrySetException(new ReaderException($"ReaderSession[{SessionId}] was deactivated"))
         );
 
         var commitSending = new CommitSending(offsetsRange, tcsCommit);

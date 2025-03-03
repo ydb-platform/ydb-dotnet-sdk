@@ -43,6 +43,26 @@ public class YdbTransactionTests : YdbAdoNetFixture
     }
 
     [Fact]
+    public void Commit_WhenUpdateWithYdbDataReader_ReturnUpdatedRow()
+    {
+        using var connection = CreateOpenConnection();
+        var ydbTransaction = connection.BeginTransaction();
+        var ydbCommand = new YdbCommand(connection)
+        {
+            CommandText = $@"UPDATE {Tables.Episodes} SET title=""test Episode 2"" 
+                                     WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;"
+        };
+        var executeReaderAsync = ydbCommand.ExecuteReader();
+        executeReaderAsync.Close();
+        ydbTransaction.Commit();
+        Assert.Equal("test Episode 2", new YdbCommand(connection)
+        {
+            CommandText = $@"SELECT title FROM {Tables.Episodes} 
+                                     WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;"
+        }.ExecuteScalar());
+    }
+
+    [Fact]
     public void Commit_WhenMakeTwoUpsertOperation_ReturnUpdatedTables()
     {
         using var connection = CreateOpenConnection();

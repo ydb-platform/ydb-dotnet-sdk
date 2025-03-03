@@ -28,7 +28,7 @@ public class Transaction
         if (!string.IsNullOrEmpty(proto.Id))
         {
             tx.TxNum = IncTxCounter();
-            logger.LogTrace($"Received tx #{tx.TxNum}");
+            logger?.LogTrace($"Received tx #{tx.TxNum}");
         }
 
         return tx;

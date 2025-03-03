@@ -1,0 +1,35 @@
+name: SLO YDB Topics
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: "45 * * * *"
+jobs:
+  ydb-slo-topic-action:
+    name: SLO Topic test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Set up Docker Compose
+        uses: hoverkraft-tech/compose-action@v2.1.0
+        with:
+          compose-file: "./slo/playground/configs/compose.yaml"
+      - name: Prepare SLO Database
+        run: |
+          cd slo/src/TopicService
+          dotnet run create grpc://localhost:2135 /Root/testdb
+      - name: Run SLO Tests
+        run: |
+          cd slo/src/TopicService
+          dotnet run run grpc://localhost:2135 /Root/testdb \
+            --write-rps 50 \
+            --time 600

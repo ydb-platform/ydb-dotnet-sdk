@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdoNet", "AdoNet\AdoNet.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DapperExample", "DapperExample\DapperExample.csproj", "{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YC", "YC\YC.csproj", "{753E4F33-CB08-47B9-864F-4CC037B278C4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{753E4F33-CB08-47B9-864F-4CC037B278C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{753E4F33-CB08-47B9-864F-4CC037B278C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{753E4F33-CB08-47B9-864F-4CC037B278C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{753E4F33-CB08-47B9-864F-4CC037B278C4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
