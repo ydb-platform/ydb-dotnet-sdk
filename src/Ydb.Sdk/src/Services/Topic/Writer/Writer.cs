@@ -336,7 +336,7 @@ internal class Writer<TValue> : IWriter<TValue>
         await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
         try
         {
-            _disposeCts.Dispose();
+            _disposeCts.Cancel();
         }
         finally
         {

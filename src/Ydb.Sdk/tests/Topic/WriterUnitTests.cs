@@ -719,7 +719,7 @@ public class WriterUnitTests
             { ProducerId = "producerId" }.Build();
         await writer.DisposeAsync();
 
-        Assert.Equal("Writer[TopicPath: /topic-15, ProducerId: producerId, Codec: Raw] is disposed",
+        Assert.Equal("Writer[TopicPath: /topic-14, ProducerId: producerId, Codec: Raw] is disposed",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"))).Message);
     }
 
