@@ -2,7 +2,7 @@ using Ydb.Sdk.Services.Topic.Writer;
 
 namespace Ydb.Sdk.Services.Topic;
 
-public interface IWriter<TValue> : IDisposable
+public interface IWriter<TValue> : IAsyncDisposable
 {
     /// <summary>
     /// Asynchronously send a data to a YDB Topic.

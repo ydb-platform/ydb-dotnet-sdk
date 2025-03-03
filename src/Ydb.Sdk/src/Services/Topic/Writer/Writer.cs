@@ -21,11 +21,11 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
-    private readonly GrpcRequestSettings _writerGrpcRequestSettings;
+    private readonly GrpcRequestSettings _writerGrpcRequestSettings = new();
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeCts = new();
-    private readonly SemaphoreSlim _clearInFlightMessagesSemaphoreSlim = new(1);
+    private readonly SemaphoreSlim _sendInFlightMessagesSemaphoreSlim = new(1);
 
     private volatile TaskCompletionSource _tcsWakeUp = new();
     private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
@@ -39,7 +39,6 @@ internal class Writer<TValue> : IWriter<TValue>
         _logger = driver.LoggerFactory.CreateLogger<Writer<TValue>>();
         _serializer = serializer;
         _limitBufferMaxSize = config.BufferMaxSize;
-        _writerGrpcRequestSettings = new GrpcRequestSettings { CancellationToken = _disposeCts.Token };
 
         StartWriteWorker();
     }
@@ -95,7 +94,9 @@ internal class Writer<TValue> : IWriter<TValue>
                 if (Interlocked.CompareExchange(ref _limitBufferMaxSize,
                         curLimitBufferSize - data.Length, curLimitBufferSize) == curLimitBufferSize)
                 {
-                    _toSendBuffer.Enqueue(new MessageSending(messageData, tcs));
+                    _toSendBuffer.Enqueue(
+                        new MessageSending(messageData, tcs, writerDisposedCancellationTokenRegistration)
+                    );
                     WakeUpWorker();
 
                     break;
@@ -162,7 +163,7 @@ internal class Writer<TValue> : IWriter<TValue>
                     continue;
                 }
 
-                await _clearInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
+                await _sendInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
                 try
                 {
                     if (_session.IsActive)
@@ -172,7 +173,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 }
                 finally
                 {
-                    _clearInFlightMessagesSemaphoreSlim.Release();
+                    _sendInFlightMessagesSemaphoreSlim.Release();
                 }
             }
         }
@@ -193,7 +194,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
         try
         {
-            if (_disposeCts.IsCancellationRequested)
+            if (_disposeCts.IsCancellationRequested && _inFlightMessages.IsEmpty)
             {
                 _logger.LogWarning("Initialize writer is canceled because it has been disposed");
 
@@ -267,7 +268,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 return;
             }
 
-            await _clearInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
+            await _sendInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
             try
             {
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
@@ -315,7 +316,7 @@ internal class Writer<TValue> : IWriter<TValue>
             }
             finally
             {
-                _clearInFlightMessagesSemaphoreSlim.Release();
+                _sendInFlightMessagesSemaphoreSlim.Release();
             }
         }
         catch (Driver.TransportException e)
@@ -330,17 +331,42 @@ internal class Writer<TValue> : IWriter<TValue>
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        _disposeCts.Cancel();
+        await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
+        try
+        {
+            _disposeCts.Dispose();
+        }
+        finally
+        {
+            _sendInFlightMessagesSemaphoreSlim.Release();
+        }
 
-        _session = new NotStartedWriterSession("Writer is disposed");
+        // wait all messages
+        foreach (var inFlightMessage in _inFlightMessages)
+        {
+            try
+            {
+                await inFlightMessage.Tcs.Task;
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning(e, "Failed in flight message");
+            }
+        }
+
+        await _session.DisposeAsync();
     }
 }
 
-internal record MessageSending(MessageData MessageData, TaskCompletionSource<WriteResult> Tcs);
+internal record MessageSending(
+    MessageData MessageData,
+    TaskCompletionSource<WriteResult> Tcs,
+    CancellationTokenRegistration DisposedCtr
+);
 
-internal interface IWriteSession
+internal interface IWriteSession : IAsyncDisposable
 {
     Task Write(ConcurrentQueue<MessageSending> toSendBuffer);
 
@@ -372,6 +398,11 @@ internal class NotStartedWriterSession : IWriteSession
     }
 
     public bool IsActive => true;
+
+    public ValueTask DisposeAsync()
+    {
+        return ValueTask.CompletedTask;
+    }
 }
 
 internal class DummyWriterSession : IWriteSession
@@ -388,6 +419,11 @@ internal class DummyWriterSession : IWriteSession
     }
 
     public bool IsActive => false;
+
+    public ValueTask DisposeAsync()
+    {
+        return ValueTask.CompletedTask;
+    }
 }
 
 internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>, IWriteSession
@@ -436,6 +472,8 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
                     continue;
                 }
+
+                sendData.DisposedCtr.Unregister();
 
                 var messageData = sendData.MessageData;
 
