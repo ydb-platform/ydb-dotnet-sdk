@@ -898,7 +898,7 @@ public class WriterUnitTests
             { ProducerId = "producerId" }.Build();
 
         var writeTask1 = writer.WriteAsync(100L);
-        
+
         await tcsDetectedWrite.Task;
         var disposedTask = writer.DisposeAsync();
 
@@ -908,7 +908,7 @@ public class WriterUnitTests
             new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))));
         Assert.Equal("Writer[TopicPath: /topic-16, ProducerId: producerId, Codec: Raw] is disposed",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(12))).Message);
-        
+
         Assert.Equal(PersistenceStatus.Written, (await writeTask1).Status);
 
         Assert.Equal("Writer[TopicPath: /topic-16, ProducerId: producerId, Codec: Raw] is disposed",
