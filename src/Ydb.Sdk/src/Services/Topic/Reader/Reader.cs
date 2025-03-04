@@ -21,7 +21,9 @@ internal class Reader<TValue> : IReader<TValue>
     private readonly ReaderConfig _config;
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ILogger _logger;
-    private readonly GrpcRequestSettings _readerGrpcRequestSettings;
+    private readonly GrpcRequestSettings _readerGrpcRequestSettings = new();
+
+    private ReaderSession<TValue>? _currentReaderSession;
 
     private readonly Channel<InternalBatchMessages<TValue>> _receivedMessagesChannel =
         Channel.CreateUnbounded<InternalBatchMessages<TValue>>(
@@ -41,7 +43,6 @@ internal class Reader<TValue> : IReader<TValue>
         _config = config;
         _deserializer = deserializer;
         _logger = driver.LoggerFactory.CreateLogger<Reader<TValue>>();
-        _readerGrpcRequestSettings = new GrpcRequestSettings { CancellationToken = _disposeCts.Token };
 
         _ = Initialize();
     }
@@ -68,7 +69,7 @@ internal class Reader<TValue> : IReader<TValue>
             }
         }
 
-        throw new ObjectDisposedException("Reader");
+        throw new ReaderException("Reader is disposed");
     }
 
     public async ValueTask<BatchMessages<TValue>> ReadBatchAsync(CancellationToken cancellationToken = default)
@@ -86,7 +87,7 @@ internal class Reader<TValue> : IReader<TValue>
             }
         }
 
-        throw new ObjectDisposedException("Reader");
+        throw new ReaderException("Reader is disposed");
     }
 
     private async Task Initialize()
@@ -185,7 +186,7 @@ internal class Reader<TValue> : IReader<TValue>
                 ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = _config.MemoryUsageMaxBytes }
             });
 
-            new ReaderSession<TValue>(
+            _currentReaderSession = new ReaderSession<TValue>(
                 _config,
                 stream,
                 initResponse.SessionId,
@@ -193,7 +194,7 @@ internal class Reader<TValue> : IReader<TValue>
                 _logger,
                 _receivedMessagesChannel.Writer,
                 _deserializer
-            ).RunProcessingTopic();
+            );
         }
         catch (Driver.TransportException e)
         {
@@ -203,18 +204,12 @@ internal class Reader<TValue> : IReader<TValue>
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        try
-        {
-            _receivedMessagesChannel.Writer.TryComplete();
+        _receivedMessagesChannel.Writer.TryComplete();
+        _disposeCts.Cancel();
 
-            _disposeCts.Cancel();
-        }
-        finally
-        {
-            _disposeCts.Dispose();
-        }
+        return _currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask;
     }
 }
 
@@ -247,6 +242,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private readonly ChannelWriter<InternalBatchMessages<TValue>> _channelWriter;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
     private readonly IDeserializer<TValue> _deserializer;
+    private readonly Task _runProcessingStreamResponse;
+    private readonly Task _runProcessingStreamRequest;
 
     private readonly Channel<MessageFromClient> _channelFromClientMessageSending =
         Channel.CreateUnbounded<MessageFromClient>(
@@ -279,29 +276,13 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         _readerConfig = config;
         _channelWriter = channelWriter;
         _deserializer = deserializer;
+
+        _runProcessingStreamResponse = RunProcessingStreamResponse();
+        _runProcessingStreamRequest = RunProcessingStreamRequest();
     }
 
-    public async void RunProcessingTopic()
+    private async Task RunProcessingStreamResponse()
     {
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await foreach (var messageFromClient in _channelFromClientMessageSending.Reader.ReadAllAsync())
-                {
-                    await SendMessage(messageFromClient);
-                }
-            }
-            catch (Driver.TransportException e)
-            {
-                Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Write", SessionId);
-
-                ReconnectSession();
-
-                _lifecycleReaderSessionCts.Cancel();
-            }
-        });
-
         try
         {
             while (await Stream.MoveNextAsync())
@@ -349,10 +330,33 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on processing server messages",
                 SessionId);
         }
+        catch (OperationCanceledException)
+        {
+            Logger.LogInformation("");
+        }
         finally
         {
             ReconnectSession();
 
+            _lifecycleReaderSessionCts.Cancel();
+        }
+    }
+
+    private async Task RunProcessingStreamRequest()
+    {
+        try
+        {
+            await foreach (var messageFromClient in _channelFromClientMessageSending.Reader.ReadAllAsync())
+            {
+                await SendMessage(messageFromClient);
+            }
+        }
+        catch (Driver.TransportException e)
+        {
+            Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Write", SessionId);
+
+            ReconnectSession();
+            
             _lifecycleReaderSessionCts.Cancel();
         }
     }
@@ -549,5 +553,21 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 Token = token
             }
         };
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        _channelFromClientMessageSending.Writer.Complete();
+
+        try
+        {
+            await _runProcessingStreamRequest;
+            await Stream.RequestStreamComplete();
+            await _runProcessingStreamResponse; // waiting all ack's commits
+        }
+        finally
+        {
+            Stream.Dispose();
+        }
     }
 }
