@@ -73,7 +73,7 @@ public class SloTopicContext : ISloContext
                 {
                     try
                     {
-                        using var writer = new WriterBuilder<string>(driver, PathTopic)
+                        await using var writer = new WriterBuilder<string>(driver, PathTopic)
                         {
                             BufferMaxSize = 8 * 1024 * 1024,
                             ProducerId = "producer-" + partitionId,

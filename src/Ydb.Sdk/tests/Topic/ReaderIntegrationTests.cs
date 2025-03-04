@@ -25,7 +25,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
         topicSettings.Consumers.Add(new Consumer("Consumer"));
         await topicClient.CreateTopic(topicSettings);
 
-        using var writer = new WriterBuilder<string>(_driver, _topicName)
+        await using var writer = new WriterBuilder<string>(_driver, _topicName)
             { ProducerId = "producerId" }.Build();
         var reader = new ReaderBuilder<string>(_driver)
         {

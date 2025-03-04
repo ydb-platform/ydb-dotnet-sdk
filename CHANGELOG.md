@@ -1,4 +1,6 @@
-- Topic Reader & Writer: update auth token in bidirectional stream.
+- **Breaking Change**: `IWriter` now implements `IAsyncDisposable` instead of `IDisposable`.  
+  This change requires updates to code that disposes `IWriter` instances. Use `await using` instead of `using`.
+- Topic `Reader` & `Writer`: update auth token in bidirectional stream.
 
 ## v0.14.1
 - Fixed bug: public key presented not for certificate signature.
