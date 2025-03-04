@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using EfCore.Ydb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -104,12 +105,124 @@ public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
         IndexOptions(operation, model, builder);
     }
 
-    protected override void Generate(SqlOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    protected override void Generate(RenameTableOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
-        builder.AppendLine(operation.Sql);
-        // TODO: Find out how to apply migration without suppressing transaction
-        // We suppress transaction because CREATE/DROP operations cannot be executed during them
-        EndStatement(builder, suppressTransaction: true);
+        if (operation.NewSchema is not null && operation.NewSchema != operation.Schema)
+        {
+            throw new NotImplementedException("Rename table with schema is not supported");
+        }
+
+        if (operation.NewName is not null && operation.NewName != operation.Name)
+        {
+            builder
+                .Append("ALTER TABLE ")
+                .Append(DelimitIdentifier(operation.Name, operation.Schema))
+                .AppendLine("RENAME TO")
+                .Append(DelimitIdentifier(operation.NewName, operation.Schema));
+            EndStatement(builder);
+        }
+    }
+
+    protected override void Generate(
+        InsertDataOperation operation, IModel? model, MigrationCommandListBuilder builder, bool terminate = true
+    )
+    {
+        var sqlBuilder = new StringBuilder();
+        foreach (var modificationCommand in GenerateModificationCommands(operation, model))
+        {
+            SqlGenerator.AppendInsertOperation(
+                sqlBuilder,
+                modificationCommand,
+                0);
+        }
+
+        builder.Append(sqlBuilder.ToString());
+
+        if (terminate)
+        {
+            EndStatement(builder, suppressTransaction: false);
+        }
+    }
+
+    protected override void Generate(DeleteDataOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    {
+        var sqlBuilder = new StringBuilder();
+        foreach (var modificationCommand in GenerateModificationCommands(operation, model))
+        {
+            SqlGenerator.AppendDeleteOperation(
+                sqlBuilder,
+                modificationCommand,
+                0);
+        }
+
+        builder.Append(sqlBuilder.ToString());
+        EndStatement(builder, suppressTransaction: false);
+    }
+
+    protected override void Generate(UpdateDataOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    {
+        var sqlBuilder = new StringBuilder();
+        foreach (var modificationCommand in GenerateModificationCommands(operation, model))
+        {
+            SqlGenerator.AppendUpdateOperation(
+                sqlBuilder,
+                modificationCommand,
+                0);
+        }
+
+        builder.Append(sqlBuilder.ToString());
+        EndStatement(builder, suppressTransaction: false);
+    }
+
+    protected override void Generate(
+        DropForeignKeyOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true
+    )
+    {
+        // Ignore bc YDB doesn't have foreign keys
+    }
+
+    protected override void Generate(
+        DropPrimaryKeyOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true
+    )
+    {
+        // Ignore bc YDB automatically drops primary keys
+    }
+
+    protected override void Generate(
+        AddForeignKeyOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true
+    )
+    {
+        // Ignore bc YDB doesn't have foreign keys
+    }
+
+    protected override void Generate(
+        AddPrimaryKeyOperation operation, 
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true
+    )
+    {
+        // Ignore bc YDB doesn't support adding keys outside table creation
+    }
+
+
+    // ReSharper disable once RedundantOverriddenMember
+    protected override void EndStatement(
+        MigrationCommandListBuilder builder,
+        // ReSharper disable once OptionalParameterHierarchyMismatch
+        bool suppressTransaction = true
+    )
+    {
+        base.EndStatement(builder, suppressTransaction);
     }
 
     private string DelimitIdentifier(string name, string? schema)

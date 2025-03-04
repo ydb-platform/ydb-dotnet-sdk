@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using EfCore.Ydb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage;
 using Ydb.Sdk.Ado;
 
 namespace EfCore.Ydb.Migrations.Internal;
@@ -22,16 +21,17 @@ public class YdbHistoryRepository : HistoryRepository
         => throw new InvalidOperationException("Shouldn't be called");
 
     public override IMigrationsDatabaseLock AcquireDatabaseLock()
-    {
-        Dependencies.MigrationsLogger.AcquiringMigrationLock();
-        return new YdbMigrationDatabaseLock(this, Dependencies.Connection);
-    }
+        => AcquireDatabaseLockAsync().GetAwaiter().GetResult();
 
-    public override Task<IMigrationsDatabaseLock> AcquireDatabaseLockAsync(
+    public override async Task<IMigrationsDatabaseLock> AcquireDatabaseLockAsync(
         CancellationToken cancellationToken = default
     )
     {
-        throw new NotImplementedException();
+        Dependencies.MigrationsLogger.AcquiringMigrationLock();
+        var dbLock =
+            new YdbMigrationDatabaseLock("migrationLock", this, (YdbRelationalConnection)Dependencies.Connection);
+        await dbLock.Lock(timeoutInSeconds: 60, cancellationToken);
+        return dbLock;
     }
 
     public override string GetCreateIfNotExistsScript()
@@ -74,26 +74,122 @@ public class YdbHistoryRepository : HistoryRepository
         throw new NotImplementedException();
     }
 
-    // TODO Implement lock
     private sealed class YdbMigrationDatabaseLock : IMigrationsDatabaseLock
     {
-        private YdbRelationalConnection _connection;
+        public IYdbRelationalConnection Connection { get; }
+        private readonly string _name;
+        private volatile string _pid;
+        private CancellationTokenSource? _watchDogToken;
 
         public YdbMigrationDatabaseLock(
+            string name,
             IHistoryRepository historyRepository,
-            IRelationalConnection connection
+            YdbRelationalConnection ydbConnection
         )
         {
+            _name = name;
             HistoryRepository = historyRepository;
-            _connection = (YdbRelationalConnection)connection;
+            Connection = ydbConnection.Clone();
+        }
+
+        public async Task Lock(
+            int timeoutInSeconds,
+            CancellationToken cancellationToken = default
+        )
+        {
+            if (_watchDogToken != null)
+            {
+                throw new InvalidOperationException("Already locked");
+            }
+
+            await Connection.OpenAsync(cancellationToken);
+            await using (var command = Connection.DbConnection.CreateCommand())
+            {
+                command.CommandText =
+                    """
+                    CREATE TABLE IF NOT EXISTS shedlock (
+                        name STRING NOT NULL,
+                        locked_at TIMESTAMP NOT NULL,
+                        lock_until TIMESTAMP NOT NULL,
+                        locked_by STRING NOT NULL,
+                        PRIMARY KEY(name)
+                    );
+                    """;
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            _pid = $"PID:{Environment.ProcessId}";
+
+            var lockAcquired = false;
+            for (var i = 0; i < 10; i++)
+            {
+                if (await UpdateLock(_name, timeoutInSeconds))
+                {
+                    lockAcquired = true;
+                    break;
+                }
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+            }
+
+            if (!lockAcquired)
+            {
+                throw new TimeoutException("Failed to acquire lock for migration`");
+            }
+
+            _watchDogToken = new CancellationTokenSource();
+            _ = Task.Run((async Task () =>
+            {
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(timeoutInSeconds / 2), _watchDogToken.Token);
+                    await UpdateLock(_name, timeoutInSeconds);
+                }
+            })!, _watchDogToken.Token);
+        }
+
+        private async Task<bool> UpdateLock(
+            string name,
+            int timeoutInSeconds
+        )
+        {
+            var command = Connection.DbConnection.CreateCommand();
+            command.CommandText =
+                $"""
+                 UPSERT INTO shedlock (name, locked_at, lock_until, locked_by)
+                 VALUES (
+                        @name,
+                        CurrentUtcTimestamp(), 
+                        Unwrap(CurrentUtcTimestamp() + Interval("PT{timeoutInSeconds}S")),
+                        @locked_by
+                        );
+                 """;
+            command.Parameters.Add(new YdbParameter("name", DbType.String, name));
+            command.Parameters.Add(new YdbParameter("locked_by", DbType.String, _pid));
+            try
+            {
+                await command.ExecuteNonQueryAsync(default);
+                return true;
+            }
+            catch (YdbException _)
+            {
+                return false;
+            }
         }
 
         public void Dispose()
-        {
-        }
+            => DisposeInternalAsync().GetAwaiter().GetResult();
 
-        public ValueTask DisposeAsync()
-            => default;
+        public async ValueTask DisposeAsync()
+            => await DisposeInternalAsync();
+
+        private async Task DisposeInternalAsync()
+        {
+            if (_watchDogToken != null) await _watchDogToken.CancelAsync();
+            _watchDogToken = null;
+            await using var connection = Connection.DbConnection.CreateCommand();
+            connection.CommandText = "DELETE FROM shedlock WHERE name = '{_name}' AND locked_by = '{PID}';";
+            await connection.ExecuteNonQueryAsync();
+        }
 
         public IHistoryRepository HistoryRepository { get; }
     }
