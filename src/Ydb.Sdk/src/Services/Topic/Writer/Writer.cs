@@ -333,6 +333,11 @@ internal class Writer<TValue> : IWriter<TValue>
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposeCts.IsCancellationRequested)
+        {
+            return;
+        }
+        
         _logger.LogInformation("Starting Writer[{WriterConfig}] disposal process", _config);
 
         await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
