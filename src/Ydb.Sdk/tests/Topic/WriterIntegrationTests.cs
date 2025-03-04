@@ -30,7 +30,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
         };
         await topicClient.CreateTopic(topicSettings);
 
-        using var writer = new WriterBuilder<string>(_driver, _topicName) { ProducerId = "producerId" }.Build();
+        await using var writer = new WriterBuilder<string>(_driver, _topicName) { ProducerId = "producerId" }.Build();
 
         var result = await writer.WriteAsync("abacaba");
 
@@ -42,7 +42,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
     [Fact]
     public async Task WriteAsync_WhenTopicNotFound_ReturnNotFoundException()
     {
-        using var writer = new WriterBuilder<string>(_driver, _topicName + "_not_found")
+        await using var writer = new WriterBuilder<string>(_driver, _topicName + "_not_found")
             { ProducerId = "producerId" }.Build();
 
         Assert.Contains(
@@ -61,7 +61,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
         topicSettings.Consumers.Add(new Consumer("Consumer"));
         await topicClient.CreateTopic(topicSettings);
 
-        using var writer = new WriterBuilder<int>(_driver, topicName)
+        await using var writer = new WriterBuilder<int>(_driver, topicName)
             { ProducerId = "producerId" }.Build();
 
         var tasks = new List<Task>();

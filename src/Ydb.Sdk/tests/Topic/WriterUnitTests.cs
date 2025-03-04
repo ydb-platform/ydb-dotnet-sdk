@@ -40,7 +40,7 @@ public class WriterUnitTests
     [Fact]
     public async Task WriteAsync_WhenSerializeThrowException_ThrowWriterException()
     {
-        using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-1")
+        await using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-1")
             { ProducerId = "producerId", Serializer = new FailSerializer() }.Build();
 
         Assert.Equal("Error when serializing message data",
@@ -82,7 +82,7 @@ public class WriterUnitTests
 
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-2")
+        await using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-2")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100)).Status);
@@ -126,7 +126,7 @@ public class WriterUnitTests
 
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-3")
+        await using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-3")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync("abacaba")).Status);
@@ -174,7 +174,7 @@ public class WriterUnitTests
 
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-4")
+        await using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-4")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync("abacaba")).Status);
@@ -251,7 +251,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-5")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-5")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(123L)).Status);
@@ -278,7 +278,7 @@ public class WriterUnitTests
                 Issues = { new IssueMessage { Message = "Topic not found" } }
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-6")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-6")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal("Initialization failed: Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
@@ -309,7 +309,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-7")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-7")
             { ProducerId = "producerId", Codec = Codec.Raw }.Build();
 
         Assert.Equal("Topic[Path=\"/topic-7\"] is not supported codec: Raw",
@@ -388,7 +388,7 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-8")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-8")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
@@ -462,7 +462,7 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-9")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-9")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
@@ -538,7 +538,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-10")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-10")
             { ProducerId = "producerId" }.Build();
 
 
@@ -561,7 +561,7 @@ public class WriterUnitTests
             .Returns(new ValueTask<bool>(nextCompleted.Task));
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-11")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-11")
             { ProducerId = "producerId" }.Build();
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
@@ -584,7 +584,7 @@ public class WriterUnitTests
             .Returns(new ValueTask<bool>(nextCompleted.Task));
         SetupReadOneWriteAckMessage();
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-12")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-12")
             { ProducerId = "producerId" }.Build();
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
@@ -678,7 +678,7 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-13")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-13")
             { ProducerId = "producerId" }.Build();
 
         var ctx = new CancellationTokenSource();
@@ -717,7 +717,7 @@ public class WriterUnitTests
 
         var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-14")
             { ProducerId = "producerId" }.Build();
-        writer.Dispose();
+        await writer.DisposeAsync();
 
         Assert.Equal("Writer[TopicPath: /topic-14, ProducerId: producerId, Codec: Raw] is disposed",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("abacaba"))).Message);
@@ -822,7 +822,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-14")
+        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-15")
             { ProducerId = "producerId" }.Build();
 
         var writeTask1 = await writer.WriteAsync(100L);
@@ -839,6 +839,82 @@ public class WriterUnitTests
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
             msg.UpdateTokenRequest != null &&
             msg.UpdateTokenRequest.Token == "Token2")));
+    }
+
+    [Fact]
+    public async Task DisposeAsync_WhenInFlightMessages_WaitingInFlightMessages()
+    {
+        var tcsDetectedWrite = new TaskCompletionSource();
+        var writeTcs1 = new TaskCompletionSource<bool>();
+
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                tcsDetectedWrite.TrySetResult();
+                return Task.CompletedTask;
+            })
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(writeTcs1.Task))
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    PartitionId = 1,
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 1,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                                { Offset = 0 }
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+
+        var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-16")
+            { ProducerId = "producerId" }.Build();
+
+        var writeTask1 = writer.WriteAsync(100L);
+
+        await tcsDetectedWrite.Task;
+        var disposedTask = writer.DisposeAsync();
+
+        Assert.False(writeTask1.IsCompleted);
+        Assert.False(disposedTask.IsCompleted);
+        writeTcs1.TrySetException(new Driver.TransportException(
+            new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))));
+        Assert.Equal("Writer[TopicPath: /topic-16, ProducerId: producerId, Codec: Raw] is disposed",
+            (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(12))).Message);
+
+        Assert.Equal(PersistenceStatus.Written, (await writeTask1).Status);
+
+        Assert.Equal("Writer[TopicPath: /topic-16, ProducerId: producerId, Codec: Raw] is disposed",
+            (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(12))).Message);
+
+        await disposedTask;
     }
 
     private ISetupSequentialResult<StreamWriteMessage.Types.FromServer> SetupReadOneWriteAckMessage()

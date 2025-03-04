@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Services.Topic;
 
-internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
+internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposable
 {
     private readonly Func<Task> _initialize;
 
@@ -58,10 +58,12 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IDisposable
         await Stream.Write(fromClient);
     }
 
-    public void Dispose()
-    {
-        Stream.Dispose();
-    }
-
     protected abstract TFromClient GetSendUpdateTokenRequest(string token);
+
+    public ValueTask DisposeAsync()
+    {
+        Logger.LogInformation("TopicSession[{SessionId}] is being deleted", SessionId);
+
+        return Stream.DisposeAsync();
+    }
 }

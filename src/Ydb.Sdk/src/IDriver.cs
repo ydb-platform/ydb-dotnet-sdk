@@ -30,7 +30,7 @@ public interface IDriver : IAsyncDisposable, IDisposable
     ILoggerFactory LoggerFactory { get; }
 }
 
-public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
+public interface IBidirectionalStream<in TRequest, out TResponse> : IAsyncDisposable
 {
     public Task Write(TRequest request);
 
@@ -225,6 +225,7 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
     private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;
     private readonly ICredentialsProvider _credentialsProvider;
+    private readonly TaskCompletionSource _closedResponseStreamTcs = new();
 
     internal BidirectionalStream(
         AsyncDuplexStreamingCall<TRequest, TResponse> stream,
@@ -258,6 +259,7 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
         }
         catch (RpcException e)
         {
+            _closedResponseStreamTcs.SetResult();
             _rpcErrorAction(e);
 
             throw new Driver.TransportException(e);
@@ -268,8 +270,17 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
 
     public string? AuthToken => _credentialsProvider.GetAuthInfo();
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        try
+        {
+            await _stream.RequestStream.CompleteAsync();
+        }
+        catch (RpcException e)
+        {
+            _rpcErrorAction(e);
+        }
+
         _stream.Dispose();
     }
 }
