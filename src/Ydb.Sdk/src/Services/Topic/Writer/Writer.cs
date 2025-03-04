@@ -268,7 +268,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 return;
             }
 
-            await _sendInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
+            await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
             try
             {
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
@@ -333,9 +333,13 @@ internal class Writer<TValue> : IWriter<TValue>
 
     public async ValueTask DisposeAsync()
     {
+        _logger.LogInformation("Starting Writer[{WriterConfig}] disposal process", _config);
+
         await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
         try
         {
+            _logger.LogDebug("Signaling cancellation token to stop writing new messages");
+
             _disposeCts.Cancel();
         }
         finally
@@ -343,7 +347,8 @@ internal class Writer<TValue> : IWriter<TValue>
             _sendInFlightMessagesSemaphoreSlim.Release();
         }
 
-        // wait all messages
+        _logger.LogDebug("Writer[{WriterConfig}] is waiting for all in-flight messages to complete...", _config);
+
         foreach (var inFlightMessage in _inFlightMessages)
         {
             try
@@ -352,11 +357,14 @@ internal class Writer<TValue> : IWriter<TValue>
             }
             catch (Exception e)
             {
-                _logger.LogWarning(e, "Failed in flight message");
+                _logger.LogError(e, "Error occurred while waiting for in-flight message SeqNo: {SeqNo}",
+                    inFlightMessage.MessageData.SeqNo);
             }
         }
 
         await _session.DisposeAsync();
+
+        _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);
     }
 }
 

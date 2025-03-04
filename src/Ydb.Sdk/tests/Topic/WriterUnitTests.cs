@@ -841,6 +841,82 @@ public class WriterUnitTests
             msg.UpdateTokenRequest.Token == "Token2")));
     }
 
+    [Fact]
+    public async Task DisposeAsync_WhenInFlightMessages_WaitingInFlightMessages()
+    {
+        var tcsDetectedWrite = new TaskCompletionSource();
+        var writeTcs1 = new TaskCompletionSource<bool>();
+
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                tcsDetectedWrite.TrySetResult();
+                return Task.CompletedTask;
+            })
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(writeTcs1.Task))
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    PartitionId = 1,
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 1,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                                { Offset = 0 }
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+
+        var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-16")
+            { ProducerId = "producerId" }.Build();
+
+        var writeTask1 = writer.WriteAsync(100L);
+        
+        await tcsDetectedWrite.Task;
+        var disposedTask = writer.DisposeAsync();
+
+        Assert.False(writeTask1.IsCompleted);
+        Assert.False(disposedTask.IsCompleted);
+        writeTcs1.TrySetException(new Driver.TransportException(
+            new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))));
+        Assert.Equal("Writer[TopicPath: /topic-16, ProducerId: producerId, Codec: Raw] is disposed",
+            (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(12))).Message);
+        
+        Assert.Equal(PersistenceStatus.Written, (await writeTask1).Status);
+
+        Assert.Equal("Writer[TopicPath: /topic-16, ProducerId: producerId, Codec: Raw] is disposed",
+            (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(12))).Message);
+
+        await disposedTask;
+    }
+
     private ISetupSequentialResult<StreamWriteMessage.Types.FromServer> SetupReadOneWriteAckMessage()
     {
         return _mockStream.SetupSequence(stream => stream.Current)

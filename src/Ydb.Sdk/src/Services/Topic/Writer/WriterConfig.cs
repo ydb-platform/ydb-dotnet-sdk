@@ -37,6 +37,11 @@ internal class WriterConfig
             toString.Append(", ProducerId: ").Append(ProducerId);
         }
 
+        if (PartitionId != null)
+        {
+            toString.Append(", PartitionId: ").Append(PartitionId);
+        }
+
         return toString.Append(", Codec: ").Append(Codec).ToString();
     }
 }
