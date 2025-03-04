@@ -337,7 +337,7 @@ internal class Writer<TValue> : IWriter<TValue>
         {
             return;
         }
-        
+
         _logger.LogInformation("Starting Writer[{WriterConfig}] disposal process", _config);
 
         await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
