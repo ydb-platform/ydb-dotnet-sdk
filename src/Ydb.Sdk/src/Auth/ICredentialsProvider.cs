@@ -4,7 +4,7 @@ namespace Ydb.Sdk.Auth;
 
 public interface ICredentialsProvider
 {
-    [Obsolete("For removal in 1.*")]
+    // For removal in 1.*
     string? GetAuthInfo();
 
     ValueTask<string?> GetAuthInfoAsync()
