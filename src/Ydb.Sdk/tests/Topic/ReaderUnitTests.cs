@@ -26,6 +26,7 @@ public class ReaderUnitTests
 
     private readonly Mock<IDriver> _mockIDriver = new();
     private readonly Mock<ReaderStream> _mockStream = new();
+    private readonly ValueTask<bool> _lastMoveNext;
 
     public ReaderUnitTests()
     {
@@ -35,6 +36,16 @@ public class ReaderUnitTests
         ).Returns(_mockStream.Object);
 
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.GetLoggerFactory);
+
+        var tcsLastMoveNext = new TaskCompletionSource<bool>();
+
+        _lastMoveNext = new ValueTask<bool>(tcsLastMoveNext.Task);
+        _mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
+        {
+            tcsLastMoveNext.TrySetResult(false);
+
+            return Task.CompletedTask;
+        });
     }
 
     /*
@@ -87,7 +98,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -95,7 +106,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(0, BitConverter.GetBytes(100)))
             .Returns(CommitOffsetResponse());
 
-        using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer Tester",
             MemoryUsageMaxBytes = 200,
@@ -180,7 +191,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -188,7 +199,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(20, Encoding.UTF8.GetBytes("Hello World!")))
             .Returns(CommitOffsetResponse(21));
 
-        using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer Tester 2",
             MemoryUsageMaxBytes = 1000,
@@ -279,7 +290,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new FromServer
@@ -292,7 +303,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(10, Encoding.UTF8.GetBytes("First"), Encoding.UTF8.GetBytes("Second")))
             .Returns(CommitOffsetResponse(12));
 
-        using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -356,7 +367,7 @@ public class ReaderUnitTests
                 Issues = { new IssueMessage { Message = "Topic not found" } }
             });
 
-        using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -435,7 +446,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -444,7 +455,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(0, BitConverter.GetBytes(0L), BitConverter.GetBytes(1L), BitConverter.GetBytes(2L)))
             .Returns(CommitOffsetResponse(3));
 
-        using var reader = new ReaderBuilder<long>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<long>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 200,
@@ -579,7 +590,7 @@ public class ReaderUnitTests
             .Returns(new ValueTask<bool>(tcsCommitMessage1.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage2.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage3.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -591,7 +602,7 @@ public class ReaderUnitTests
             .Returns(CommitOffsetResponse(102))
             .Returns(CommitOffsetResponse(103));
 
-        using var reader = new ReaderBuilder<long>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<long>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 250,
@@ -684,9 +695,7 @@ public class ReaderUnitTests
           IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync() [Maybe]
      */
-#pragma warning disable xUnit1004
-    [Fact(Skip = "FLAP TEST")]
-#pragma warning restore xUnit1004
+    [Fact]
     public async Task
         RunProcessingTopic_WhenReadRequestAfterInitializeThrowTransportException_ShouldRetryInitializeAndReadThenCommitMessage()
     {
@@ -736,7 +745,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -747,7 +756,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(100, BitConverter.GetBytes(100L)))
             .Returns(CommitOffsetResponse(101));
 
-        using var reader = new ReaderBuilder<long>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<long>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -872,7 +881,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -883,7 +892,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(100, Encoding.UTF8.GetBytes("Hello"), Encoding.UTF8.GetBytes("World!")))
             .Returns(CommitOffsetResponse(102));
 
-        using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -1048,7 +1057,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -1059,7 +1068,7 @@ public class ReaderUnitTests
             .Returns(readResponseWithGaps)
             .Returns(CommitOffsetResponse(102));
 
-        using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -1183,7 +1192,7 @@ public class ReaderUnitTests
             .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -1195,7 +1204,7 @@ public class ReaderUnitTests
             .Returns(CommitOffsetResponse(10))
             .Returns(CommitOffsetResponse(23));
 
-        using var reader = new ReaderBuilder<byte[]>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<byte[]>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 1000,
@@ -1288,7 +1297,7 @@ public class ReaderUnitTests
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(stopPartitionSessionRequest.Task))
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -1306,7 +1315,7 @@ public class ReaderUnitTests
             })
             .Returns(CommitOffsetResponse(2));
 
-        using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 1000,
@@ -1376,14 +1385,14 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(0, BitConverter.GetBytes(100)));
 
-        using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -1452,7 +1461,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -1460,7 +1469,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(0, BitConverter.GetBytes(100)))
             .Returns(CommitOffsetResponse());
 
-        using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
         {
             ConsumerName = "Consumer Tester",
             MemoryUsageMaxBytes = 1000,
@@ -1494,6 +1503,80 @@ public class ReaderUnitTests
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
             msg.UpdateTokenRequest != null &&
             msg.UpdateTokenRequest.Token == "Token2")));
+    }
+
+    [Fact]
+    public async Task DisposeAsync_WhenCommitMessagesInFlight_CompleteThisCommits()
+    {
+        var tcsMoveNext = new TaskCompletionSource<bool>();
+        var tcsCommitMessage = new TaskCompletionSource<bool>();
+
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                tcsMoveNext.SetResult(true);
+
+                return Task.CompletedTask;
+            })
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask);
+
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
+            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(_lastMoveNext);
+
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponseFromServer)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(ReadResponse(0, BitConverter.GetBytes(100), BitConverter.GetBytes(1000)))
+            .Returns(CommitOffsetResponse());
+
+        var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        {
+            ConsumerName = "Consumer Tester",
+            MemoryUsageMaxBytes = 1000,
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        var message1 = await reader.ReadAsync();
+        var commitTask = message1.CommitAsync();
+        Assert.Equal(100, message1.Data);
+        var message2 = await reader.ReadAsync();
+        Assert.Equal(1000, message2.Data);
+        var disposeTask = reader.DisposeAsync();
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadAsync())).Message
+        );
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadBatchAsync())).Message
+        );
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await message2.CommitAsync())).Message
+        );
+
+        Assert.False(commitTask.IsCompleted);
+        Assert.False(disposeTask.IsCompleted);
+        tcsCommitMessage.SetResult(true);
+        await commitTask;
+        await disposeTask;
+
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadAsync())).Message
+        );
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadBatchAsync())).Message
+        );
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await message2.CommitAsync())).Message
+        );
+
+        // idempotent
+        await reader.DisposeAsync();
     }
 
     private class FailDeserializer : IDeserializer<int>

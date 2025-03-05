@@ -224,7 +224,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 _logger.LogError("Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}",
                     initRequest);
 
-                _ = Task.Run(Initialize, _disposeCts.Token);
+                _ = Task.Run(Initialize);
 
                 return;
             }
@@ -239,7 +239,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 {
                     _logger.LogError("Writer initialization failed to start. Reason: {Status}", status);
 
-                    _ = Task.Run(Initialize, _disposeCts.Token);
+                    _ = Task.Run(Initialize);
                 }
                 else
                 {
@@ -323,7 +323,7 @@ internal class Writer<TValue> : IWriter<TValue>
         {
             _logger.LogError(e, "Transport error on creating WriterSession");
 
-            _ = Task.Run(Initialize, _disposeCts.Token);
+            _ = Task.Run(Initialize);
         }
         catch (OperationCanceledException)
         {
@@ -337,8 +337,6 @@ internal class Writer<TValue> : IWriter<TValue>
         {
             return;
         }
-
-        _logger.LogInformation("Starting Writer[{WriterConfig}] disposal process", _config);
 
         await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
         try
@@ -592,5 +590,14 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                 Token = token
             }
         };
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        Logger.LogDebug("WriterSession[{SessionId}]: start dispose process", SessionId);
+
+        await Stream.RequestStreamComplete();
+
+        Stream.Dispose();
     }
 }

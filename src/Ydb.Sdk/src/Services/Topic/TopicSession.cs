@@ -60,10 +60,5 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
 
     protected abstract TFromClient GetSendUpdateTokenRequest(string token);
 
-    public ValueTask DisposeAsync()
-    {
-        Logger.LogInformation("TopicSession[{SessionId}] is being deleted", SessionId);
-
-        return Stream.DisposeAsync();
-    }
+    public abstract ValueTask DisposeAsync();
 }
