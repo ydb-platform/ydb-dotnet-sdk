@@ -1505,6 +1505,80 @@ public class ReaderUnitTests
             msg.UpdateTokenRequest.Token == "Token2")));
     }
 
+    [Fact]
+    public async Task DisposeAsync_WhenCommitMessagesInFlight_CompleteThisCommits()
+    {
+        var tcsMoveNext = new TaskCompletionSource<bool>();
+        var tcsCommitMessage = new TaskCompletionSource<bool>();
+
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                tcsMoveNext.SetResult(true);
+
+                return Task.CompletedTask;
+            })
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask);
+
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
+            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(_lastMoveNext);
+
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponseFromServer)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(ReadResponse(0, BitConverter.GetBytes(100), BitConverter.GetBytes(1000)))
+            .Returns(CommitOffsetResponse());
+
+        var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        {
+            ConsumerName = "Consumer Tester",
+            MemoryUsageMaxBytes = 1000,
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        var message1 = await reader.ReadAsync();
+        var commitTask = message1.CommitAsync();
+        Assert.Equal(100, message1.Data);
+        var message2 = await reader.ReadAsync();
+        Assert.Equal(1000, message2.Data);
+        var disposeTask = reader.DisposeAsync();
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadAsync())).Message
+        );
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadBatchAsync())).Message
+        );
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await message2.CommitAsync())).Message
+        );
+
+        Assert.False(commitTask.IsCompleted);
+        Assert.False(disposeTask.IsCompleted);
+        tcsCommitMessage.SetResult(true);
+        await commitTask;
+        await disposeTask;
+
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadAsync())).Message
+        );
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadBatchAsync())).Message
+        );
+        Assert.Equal("Reader is disposed",
+            (await Assert.ThrowsAsync<ReaderException>(async () => await message2.CommitAsync())).Message
+        );
+
+        // idempotent
+        await reader.DisposeAsync();
+    }
+
     private class FailDeserializer : IDeserializer<int>
     {
         public int Deserialize(byte[] data)

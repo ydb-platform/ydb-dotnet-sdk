@@ -476,21 +476,28 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             partitionSession.RegisterCommitRequest(commitSending);
 
-            await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
-                {
-                    CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
+            try
+            {
+                await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                     {
-                        CommitOffsets =
+                        CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
                         {
-                            new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
+                            CommitOffsets =
                             {
-                                Offsets = { commitSending.OffsetsRange },
-                                PartitionSessionId = partitionSessionId
+                                new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
+                                {
+                                    Offsets = { commitSending.OffsetsRange },
+                                    PartitionSessionId = partitionSessionId
+                                }
                             }
                         }
                     }
-                }
-            );
+                );
+            }
+            catch (ChannelClosedException)
+            {
+                throw new ReaderException("Reader is disposed");
+            }
         }
         else
         {
