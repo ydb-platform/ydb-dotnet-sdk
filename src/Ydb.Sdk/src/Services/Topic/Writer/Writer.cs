@@ -596,7 +596,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
 
     public override async ValueTask DisposeAsync()
     {
-        Logger.LogInformation("TopicSession[{SessionId}] is being deleted", SessionId);
+        Logger.LogInformation("WriterSession[{SessionId}]: start dispose process", SessionId);
         
         await Stream.RequestStreamComplete();
         

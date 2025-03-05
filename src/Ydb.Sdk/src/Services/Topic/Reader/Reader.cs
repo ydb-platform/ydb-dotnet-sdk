@@ -557,6 +557,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
     public override async ValueTask DisposeAsync()
     {
+        Logger.LogInformation("ReaderSession[{SessionId}]: start dispose process", SessionId);
+        
         _channelFromClientMessageSending.Writer.Complete();
 
         try
@@ -564,8 +566,12 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             await _runProcessingStreamRequest;
             await Stream.RequestStreamComplete();
             await _runProcessingStreamResponse; // waiting all ack's commits
-            
+
             _lifecycleReaderSessionCts.Cancel();
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "ReaderSession[{SessionId}]: error on disposing", SessionId);
         }
         finally
         {
