@@ -932,7 +932,7 @@ public class WriterUnitTests
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(12))).Message);
 
         await disposedTask;
-        
+
         // idempotent
         await writer.DisposeAsync();
     }
