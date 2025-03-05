@@ -42,7 +42,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
             await message.CommitAsync();
         }
 
-        reader.Dispose();
+        await reader.DisposeAsync();
 
         var readerNext = new ReaderBuilder<string>(_driver)
         {
@@ -59,7 +59,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
             await message.CommitAsync();
         }
 
-        readerNext.Dispose();
+        await readerNext.DisposeAsync();
 
         await topicClient.DropTopic(new DropTopicSettings { Path = _topicName });
     }

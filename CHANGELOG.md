@@ -1,8 +1,13 @@
+- Feat: `Writer.DisposeAsync()` waits for all in-flight messages to complete.
+- Feat: `Reader.DisposeAsync()` waits for all pending commits to be completed.
+- **Breaking Change**: `IReader` now implements `IAsyncDisposable` instead of `IDisposable`.  
+  This change requires updates to code that disposes `IReader` instances. Use `await using` instead of `using`.
 - **Breaking Change**: `IWriter` now implements `IAsyncDisposable` instead of `IDisposable`.  
   This change requires updates to code that disposes `IWriter` instances. Use `await using` instead of `using`.
 - Topic `Reader` & `Writer`: update auth token in bidirectional stream.
 
 ## v0.14.1
+
 - Fixed bug: public key presented not for certificate signature.
 - Fixed: YdbDataReader does not throw YdbException when CloseAsync is called for UPDATE/INSERT statements with no
   result.

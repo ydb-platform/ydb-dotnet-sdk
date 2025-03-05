@@ -2,7 +2,7 @@ using Ydb.Sdk.Services.Topic.Reader;
 
 namespace Ydb.Sdk.Services.Topic;
 
-public interface IReader<TValue> : IDisposable
+public interface IReader<TValue> : IAsyncDisposable
 {
     public ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default);
 
