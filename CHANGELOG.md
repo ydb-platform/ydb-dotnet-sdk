@@ -1,3 +1,4 @@
+## v0.15.0
 - Dev: added `ValueTask<string?> GetAuthInfoAsync()` in ICredentialProvider.
 - Feat: `Writer.DisposeAsync()` waits for all in-flight messages to complete.
 - Feat: `Reader.DisposeAsync()` waits for all pending commits to be completed.
