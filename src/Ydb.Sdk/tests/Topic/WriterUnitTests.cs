@@ -18,6 +18,7 @@ public class WriterUnitTests
 {
     private readonly Mock<IDriver> _mockIDriver = new();
     private readonly Mock<WriterStream> _mockStream = new();
+    private readonly ValueTask<bool> _lastMoveNext;
 
     public WriterUnitTests()
     {
@@ -27,6 +28,16 @@ public class WriterUnitTests
         ).Returns(_mockStream.Object);
 
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.GetLoggerFactory);
+
+        var tcsLastMoveNext = new TaskCompletionSource<bool>();
+
+        _lastMoveNext = new ValueTask<bool>(tcsLastMoveNext.Task);
+        _mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
+        {
+            tcsLastMoveNext.TrySetResult(false);
+
+            return Task.CompletedTask;
+        });
     }
 
     private class FailSerializer : ISerializer<int>
@@ -42,6 +53,12 @@ public class WriterUnitTests
     {
         await using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-1")
             { ProducerId = "producerId", Serializer = new FailSerializer() }.Build();
+
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(_lastMoveNext);
 
         Assert.Equal("Error when serializing message data",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123))).Message);
@@ -78,7 +95,7 @@ public class WriterUnitTests
             .ReturnsAsync(false)
             .ReturnsAsync(true)
             .Returns(() => new ValueTask<bool>(taskNextComplete.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         SetupReadOneWriteAckMessage();
 
@@ -122,7 +139,7 @@ public class WriterUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .Returns(() => new ValueTask<bool>(taskNextComplete.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         SetupReadOneWriteAckMessage();
 
@@ -170,7 +187,7 @@ public class WriterUnitTests
                 new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))))
             .ReturnsAsync(true)
             .Returns(() => new ValueTask<bool>(taskNextComplete.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         SetupReadOneWriteAckMessage();
 
@@ -218,8 +235,7 @@ public class WriterUnitTests
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .Returns(() => new ValueTask<bool>(taskNextComplete.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
-
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -357,7 +373,7 @@ public class WriterUnitTests
             .Returns(new ValueTask<bool>(moveTcs.Task))
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
@@ -431,7 +447,7 @@ public class WriterUnitTests
             .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .Returns(() => new ValueTask<bool>(moveTcs.Task)) // retry init writer session
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
@@ -506,7 +522,7 @@ public class WriterUnitTests
             .ReturnsAsync(false)
             .ReturnsAsync(true)
             .Returns(() => new ValueTask<bool>(moveTcs.Task)) // retry init writer session
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
@@ -558,7 +574,7 @@ public class WriterUnitTests
             .Returns(Task.CompletedTask);
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(nextCompleted.Task));
+            .Returns(_lastMoveNext);
         SetupReadOneWriteAckMessage();
 
         await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-11")
@@ -581,7 +597,8 @@ public class WriterUnitTests
             .Returns(Task.CompletedTask);
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(nextCompleted.Task));
+            .Returns(new ValueTask<bool>(nextCompleted.Task))
+            .Returns(_lastMoveNext);
         SetupReadOneWriteAckMessage();
 
         await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-12")
@@ -647,7 +664,7 @@ public class WriterUnitTests
             .Returns(new ValueTask<bool>(moveTcs.Task))
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
@@ -784,7 +801,7 @@ public class WriterUnitTests
             .Returns(new ValueTask<bool>(writeTcs1.Task))
             .Returns(new ValueTask<bool>(writeTcs2.Task))
             .Returns(new ValueTask<bool>(writeTcs3.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         SetupReadOneWriteAckMessage()
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -861,7 +878,7 @@ public class WriterUnitTests
             .Returns(new ValueTask<bool>(writeTcs1.Task))
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer

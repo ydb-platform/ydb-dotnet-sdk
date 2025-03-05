@@ -125,7 +125,7 @@ public class SloTopicContext : ISloContext
             {
                 try
                 {
-                    using var reader = new ReaderBuilder<string>(driver)
+                    await using var reader = new ReaderBuilder<string>(driver)
                     {
                         ConsumerName = ConsumerName,
                         SubscribeSettings =

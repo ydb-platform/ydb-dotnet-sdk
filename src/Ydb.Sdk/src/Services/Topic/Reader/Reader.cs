@@ -356,7 +356,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Write", SessionId);
 
             ReconnectSession();
-            
+
             _lifecycleReaderSessionCts.Cancel();
         }
     }
@@ -558,7 +558,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     public override async ValueTask DisposeAsync()
     {
         Logger.LogInformation("ReaderSession[{SessionId}]: start dispose process", SessionId);
-        
+
         _channelFromClientMessageSending.Writer.Complete();
 
         try

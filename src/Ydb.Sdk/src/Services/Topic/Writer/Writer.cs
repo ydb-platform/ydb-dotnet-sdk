@@ -597,9 +597,9 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
     public override async ValueTask DisposeAsync()
     {
         Logger.LogInformation("WriterSession[{SessionId}]: start dispose process", SessionId);
-        
+
         await Stream.RequestStreamComplete();
-        
+
         Stream.Dispose();
     }
 }

@@ -26,6 +26,7 @@ public class ReaderUnitTests
 
     private readonly Mock<IDriver> _mockIDriver = new();
     private readonly Mock<ReaderStream> _mockStream = new();
+    private readonly ValueTask<bool> _lastMoveNext;
 
     public ReaderUnitTests()
     {
@@ -35,6 +36,16 @@ public class ReaderUnitTests
         ).Returns(_mockStream.Object);
 
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.GetLoggerFactory);
+
+        var tcsLastMoveNext = new TaskCompletionSource<bool>();
+
+        _lastMoveNext = new ValueTask<bool>(tcsLastMoveNext.Task);
+        _mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
+        {
+            tcsLastMoveNext.TrySetResult(false);
+
+            return Task.CompletedTask;
+        });
     }
 
     /*
@@ -87,7 +98,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -180,7 +191,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -279,7 +290,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new FromServer
@@ -435,7 +446,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -579,7 +590,7 @@ public class ReaderUnitTests
             .Returns(new ValueTask<bool>(tcsCommitMessage1.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage2.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage3.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -684,9 +695,7 @@ public class ReaderUnitTests
           IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.Current
           IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>.MoveNextAsync() [Maybe]
      */
-#pragma warning disable xUnit1004
-    [Fact(Skip = "FLAP TEST")]
-#pragma warning restore xUnit1004
+    [Fact]
     public async Task
         RunProcessingTopic_WhenReadRequestAfterInitializeThrowTransportException_ShouldRetryInitializeAndReadThenCommitMessage()
     {
@@ -736,7 +745,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -872,7 +881,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -1048,7 +1057,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -1183,7 +1192,7 @@ public class ReaderUnitTests
             .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -1288,7 +1297,7 @@ public class ReaderUnitTests
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(stopPartitionSessionRequest.Task))
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -1376,7 +1385,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
@@ -1452,7 +1461,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
             .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
-            .Returns(new ValueTask<bool>(new TaskCompletionSource<bool>().Task));
+            .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponseFromServer)
