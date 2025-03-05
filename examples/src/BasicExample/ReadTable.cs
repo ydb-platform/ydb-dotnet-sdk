@@ -6,7 +6,7 @@ internal partial class BasicExample
 {
     private async Task ReadTable()
     {
-        var readStream = Client.ReadTable(
+        var readStream = await Client.ReadTable(
             FullTablePath("seasons"),
             new ReadTableSettings
             {
