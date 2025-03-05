@@ -129,7 +129,7 @@ public sealed class Driver : BaseDriver
             TransportTimeout = Config.EndpointDiscoveryTimeout
         };
 
-        var options = GetCallOptions(requestSettings);
+        var options = await GetCallOptions(requestSettings);
         options.Headers?.Add(Metadata.RpcSdkInfoHeader, _sdkInfo);
 
         var response = await client.ListEndpointsAsync(

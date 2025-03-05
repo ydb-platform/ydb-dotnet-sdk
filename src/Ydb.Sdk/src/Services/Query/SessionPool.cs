@@ -57,7 +57,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         {
             try
             {
-                await using var stream = _driver.ServerStreamCall(
+                await using var stream = await _driver.ServerStreamCall(
                     QueryService.AttachSessionMethod,
                     new AttachSessionRequest { SessionId = sessionId },
                     new GrpcRequestSettings { NodeId = nodeId }
@@ -136,7 +136,7 @@ internal class Session : SessionBase<Session>
         Driver = driver;
     }
 
-    internal ServerStream<ExecuteQueryResponsePart> ExecuteQuery(
+    internal ValueTask<ServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue>? parameters,
         ExecuteQuerySettings? settings,

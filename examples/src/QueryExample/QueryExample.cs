@@ -231,7 +231,7 @@ public class QueryExample
 
         await Client.DoTx(async tx =>
         {
-            await foreach (var part in tx.Stream(query, commit: true))
+            await foreach (var part in await tx.Stream(query, commit: true))
             {
                 foreach (var row in part.ResultSet!.Rows)
                 {
@@ -316,7 +316,7 @@ public class QueryExample
         var resultSets = await Client.DoTx(async tx =>
         {
             var resultSets = new List<Value.ResultSet>();
-            await foreach (var resultSet in tx.Stream(query, commit: true))
+            await foreach (var resultSet in await tx.Stream(query, commit: true))
             {
                 resultSets.Add(resultSet.ResultSet!);
             }

@@ -18,7 +18,7 @@ internal partial class BasicExample
                 ORDER BY series_id, season_id;
             ";
 
-        var scanStream = Client.ExecuteScanQuery(
+        var scanStream = await Client.ExecuteScanQuery(
             query,
             new Dictionary<string, YdbValue>
             {

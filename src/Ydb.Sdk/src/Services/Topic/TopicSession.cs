@@ -17,13 +17,14 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
         IBidirectionalStream<TFromClient, TFromServer> stream,
         ILogger logger,
         string sessionId,
-        Func<Task> initialize)
+        Func<Task> initialize,
+        string? lastToken)
     {
         Stream = stream;
         Logger = logger;
         SessionId = sessionId;
         _initialize = initialize;
-        _lastToken = stream.AuthToken;
+        _lastToken = lastToken;
     }
 
     public bool IsActive => Volatile.Read(ref _isActive) == 1;
@@ -44,7 +45,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
 
     protected async Task SendMessage(TFromClient fromClient)
     {
-        var curAuthToken = Stream.AuthToken;
+        var curAuthToken = await Stream.AuthToken;
 
         if (!string.Equals(_lastToken, curAuthToken) && curAuthToken != null)
         {
