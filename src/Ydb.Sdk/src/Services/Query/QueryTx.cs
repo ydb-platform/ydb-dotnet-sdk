@@ -27,17 +27,18 @@ public class QueryTx
         _txMode = txMode;
     }
 
-    public ExecuteQueryStream Stream(string query, Dictionary<string, YdbValue>? parameters = null,
+    public async ValueTask<ExecuteQueryStream> Stream(string query, Dictionary<string, YdbValue>? parameters = null,
         bool commit = false, ExecuteQuerySettings? settings = null)
     {
-        return new ExecuteQueryStream(_session.ExecuteQuery(query, parameters, settings, TxControl(commit)),
-            txId => TxId = txId);
+        return new ExecuteQueryStream(
+            await _session.ExecuteQuery(query, parameters, settings, TxControl(commit)), txId => TxId = txId
+        );
     }
 
     public async Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRows(string query,
         Dictionary<string, YdbValue>? parameters = null, bool commit = false, ExecuteQuerySettings? settings = null)
     {
-        await using var stream = Stream(query, parameters, commit, settings);
+        await using var stream = await Stream(query, parameters, commit, settings);
         List<Value.ResultSet.Row> rows = new();
 
         await foreach (var part in stream)
@@ -64,7 +65,7 @@ public class QueryTx
     public async Task Exec(string query, Dictionary<string, YdbValue>? parameters = null,
         ExecuteQuerySettings? settings = null, bool commit = false)
     {
-        await using var stream = Stream(query, parameters, commit, settings);
+        await using var stream = await Stream(query, parameters, commit, settings);
         await stream.MoveNextAsync();
     }
 

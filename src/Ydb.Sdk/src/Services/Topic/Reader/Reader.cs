@@ -103,7 +103,8 @@ internal class Reader<TValue> : IReader<TValue>
 
             _logger.LogInformation("Reader session initialization started. ReaderConfig: {ReaderConfig}", _config);
 
-            var stream = _driver.BidirectionalStreamCall(TopicService.StreamReadMethod, _readerGrpcRequestSettings);
+            var stream =
+                await _driver.BidirectionalStreamCall(TopicService.StreamReadMethod, _readerGrpcRequestSettings);
 
             var initRequest = new StreamReadMessage.Types.InitRequest();
             if (_config.ConsumerName != null)
@@ -191,6 +192,7 @@ internal class Reader<TValue> : IReader<TValue>
                 stream,
                 initResponse.SessionId,
                 Initialize,
+                await stream.AuthToken,
                 _logger,
                 _receivedMessagesChannel.Writer,
                 _deserializer
@@ -270,6 +272,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         ReaderStream stream,
         string sessionId,
         Func<Task> initialize,
+        string? lastToken,
         ILogger logger,
         ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
         IDeserializer<TValue> deserializer
@@ -277,7 +280,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         stream,
         logger,
         sessionId,
-        initialize
+        initialize,
+        lastToken
     )
     {
         _readerConfig = config;

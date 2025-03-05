@@ -25,7 +25,7 @@ public class WriterUnitTests
         _mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
             It.IsAny<GrpcRequestSettings>())
-        ).Returns(_mockStream.Object);
+        ).ReturnsAsync(_mockStream.Object);
 
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.GetLoggerFactory);
 
@@ -772,10 +772,10 @@ public class WriterUnitTests
         var writeTcs3 = new TaskCompletionSource<bool>();
 
         _mockStream.SetupSequence(stream => stream.AuthToken)
-            .Returns("Token1")
-            .Returns("Token1")
-            .Returns("Token2")
-            .Returns("Token2");
+            .ReturnsAsync("Token1")
+            .ReturnsAsync("Token1")
+            .ReturnsAsync("Token2")
+            .ReturnsAsync("Token2");
 
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask)

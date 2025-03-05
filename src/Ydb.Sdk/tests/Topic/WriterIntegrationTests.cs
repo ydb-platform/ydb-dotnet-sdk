@@ -79,7 +79,8 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
 
         await Task.WhenAll(tasks);
 
-        var initStream = _driver.BidirectionalStreamCall(TopicService.StreamReadMethod, new GrpcRequestSettings());
+        var initStream =
+            await _driver.BidirectionalStreamCall(TopicService.StreamReadMethod, new GrpcRequestSettings());
         await initStream.Write(new StreamReadMessage.Types.FromClient
         {
             InitRequest = new StreamReadMessage.Types.InitRequest

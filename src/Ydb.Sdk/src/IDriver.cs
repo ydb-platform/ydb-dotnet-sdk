@@ -14,14 +14,14 @@ public interface IDriver : IAsyncDisposable, IDisposable
         where TRequest : class
         where TResponse : class;
 
-    public ServerStream<TResponse> ServerStreamCall<TRequest, TResponse>(
+    public ValueTask<ServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
-    public IBidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
+    public ValueTask<IBidirectionalStream<TRequest, TResponse>> BidirectionalStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         GrpcRequestSettings settings)
         where TRequest : class
@@ -38,7 +38,7 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 
     public TResponse Current { get; }
 
-    public string? AuthToken { get; }
+    public ValueTask<string?> AuthToken { get; }
 
     public Task RequestStreamComplete();
 }
@@ -74,7 +74,7 @@ public abstract class BaseDriver : IDriver
             using var call = callInvoker.AsyncUnaryCall(
                 method: method,
                 host: null,
-                options: GetCallOptions(settings),
+                options: await GetCallOptions(settings),
                 request: request
             );
 
@@ -90,7 +90,7 @@ public abstract class BaseDriver : IDriver
         }
     }
 
-    public ServerStream<TResponse> ServerStreamCall<TRequest, TResponse>(
+    public async ValueTask<ServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
@@ -103,13 +103,13 @@ public abstract class BaseDriver : IDriver
         var call = callInvoker.AsyncServerStreamingCall(
             method: method,
             host: null,
-            options: GetCallOptions(settings),
+            options: await GetCallOptions(settings),
             request: request);
 
         return new ServerStream<TResponse>(call, e => { OnRpcError(endpoint, e); });
     }
 
-    public IBidirectionalStream<TRequest, TResponse> BidirectionalStreamCall<TRequest, TResponse>(
+    public async ValueTask<IBidirectionalStream<TRequest, TResponse>> BidirectionalStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         GrpcRequestSettings settings)
         where TRequest : class
@@ -121,7 +121,7 @@ public abstract class BaseDriver : IDriver
         var call = callInvoker.AsyncDuplexStreamingCall(
             method: method,
             host: null,
-            options: GetCallOptions(settings));
+            options: await GetCallOptions(settings));
 
         return new BidirectionalStream<TRequest, TResponse>(
             call,
@@ -133,14 +133,14 @@ public abstract class BaseDriver : IDriver
 
     protected abstract void OnRpcError(string endpoint, RpcException e);
 
-    protected CallOptions GetCallOptions(GrpcRequestSettings settings)
+    protected async ValueTask<CallOptions> GetCallOptions(GrpcRequestSettings settings)
     {
         var meta = new Grpc.Core.Metadata
         {
             { Metadata.RpcDatabaseHeader, Config.Database }
         };
 
-        var authInfo = Config.Credentials.GetAuthInfo();
+        var authInfo = await Config.Credentials.GetAuthInfoAsync();
         if (authInfo != null)
         {
             meta.Add(Metadata.RpcAuthHeader, authInfo);
@@ -268,7 +268,7 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
 
     public TResponse Current => _stream.ResponseStream.Current;
 
-    public string? AuthToken => _credentialsProvider.GetAuthInfo();
+    public ValueTask<string?> AuthToken => _credentialsProvider.GetAuthInfoAsync();
 
     public async Task RequestStreamComplete()
     {
