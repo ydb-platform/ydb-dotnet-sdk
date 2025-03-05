@@ -564,6 +564,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             await _runProcessingStreamRequest;
             await Stream.RequestStreamComplete();
             await _runProcessingStreamResponse; // waiting all ack's commits
+            
+            _lifecycleReaderSessionCts.Cancel();
         }
         finally
         {
