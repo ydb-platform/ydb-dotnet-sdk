@@ -338,8 +338,6 @@ internal class Writer<TValue> : IWriter<TValue>
             return;
         }
 
-        _logger.LogInformation("Starting Writer[{WriterConfig}] disposal process", _config);
-
         await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
         try
         {
@@ -596,7 +594,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
 
     public override async ValueTask DisposeAsync()
     {
-        Logger.LogInformation("WriterSession[{SessionId}]: start dispose process", SessionId);
+        Logger.LogDebug("WriterSession[{SessionId}]: start dispose process", SessionId);
 
         await Stream.RequestStreamComplete();
 

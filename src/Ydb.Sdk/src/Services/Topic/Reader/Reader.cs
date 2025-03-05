@@ -204,17 +204,19 @@ internal class Reader<TValue> : IReader<TValue>
         }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_disposeCts.IsCancellationRequested)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
-        
+
         _receivedMessagesChannel.Writer.TryComplete();
         _disposeCts.Cancel();
 
-        return _currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask;
+        await (_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask);
+
+        _logger.LogInformation("Reader[{WriterConfig}] is disposed", _config);
     }
 }
 
@@ -562,7 +564,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
     public override async ValueTask DisposeAsync()
     {
-        Logger.LogInformation("ReaderSession[{SessionId}]: start dispose process", SessionId);
+        Logger.LogDebug("ReaderSession[{SessionId}]: start dispose process", SessionId);
 
         _channelFromClientMessageSending.Writer.Complete();
 
