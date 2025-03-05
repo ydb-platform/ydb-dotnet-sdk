@@ -59,7 +59,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
             await message.CommitAsync();
         }
 
-        await reader.DisposeAsync();
+        await readerNext.DisposeAsync();
 
         await topicClient.DropTopic(new DropTopicSettings { Path = _topicName });
     }

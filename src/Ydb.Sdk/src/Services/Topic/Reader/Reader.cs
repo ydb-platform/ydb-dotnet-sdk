@@ -206,6 +206,11 @@ internal class Reader<TValue> : IReader<TValue>
 
     public ValueTask DisposeAsync()
     {
+        if (_disposeCts.IsCancellationRequested)
+        {
+            return ValueTask.CompletedTask;
+        }
+        
         _receivedMessagesChannel.Writer.TryComplete();
         _disposeCts.Cancel();
 
