@@ -337,10 +337,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on processing server messages",
                 SessionId);
         }
-        catch (OperationCanceledException)
-        {
-            Logger.LogInformation("");
-        }
         finally
         {
             ReconnectSession();
