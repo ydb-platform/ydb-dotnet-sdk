@@ -203,7 +203,8 @@ internal class Writer<TValue> : IWriter<TValue>
 
             _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
 
-            var stream = _driver.BidirectionalStreamCall(TopicService.StreamWriteMethod, _writerGrpcRequestSettings);
+            var stream =
+                await _driver.BidirectionalStreamCall(TopicService.StreamWriteMethod, _writerGrpcRequestSettings);
 
             var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
             if (_config.ProducerId != null)
@@ -301,6 +302,7 @@ internal class Writer<TValue> : IWriter<TValue>
                     lastSeqNo: lastSeqNo,
                     sessionId: initResponse.SessionId,
                     initialize: Initialize,
+                    await stream.AuthToken,
                     logger: _logger,
                     inFlightMessages: _inFlightMessages
                 );
@@ -450,13 +452,15 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         long lastSeqNo,
         string sessionId,
         Func<Task> initialize,
+        string? lastToken,
         ILogger logger,
         ConcurrentQueue<MessageSending> inFlightMessages
     ) : base(
         stream,
         logger,
         sessionId,
-        initialize
+        initialize,
+        lastToken
     )
     {
         _config = config;

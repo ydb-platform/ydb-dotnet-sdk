@@ -33,7 +33,7 @@ public class ReaderUnitTests
         _mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, FromServer>>(),
             It.IsAny<GrpcRequestSettings>())
-        ).Returns(_mockStream.Object);
+        ).ReturnsAsync(_mockStream.Object);
 
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.GetLoggerFactory);
 
@@ -1431,10 +1431,10 @@ public class ReaderUnitTests
     public async Task ReadAsync_WhenTokenIsUpdatedOneTime_SuccessUpdateToken()
     {
         _mockStream.SetupSequence(stream => stream.AuthToken)
-            .Returns("Token1")
-            .Returns("Token1")
-            .Returns("Token2")
-            .Returns("Token2");
+            .ReturnsAsync("Token1")
+            .ReturnsAsync("Token1")
+            .ReturnsAsync("Token2")
+            .ReturnsAsync("Token2");
 
         var tcsMoveNext = new TaskCompletionSource<bool>();
         var tcsCommitMessage = new TaskCompletionSource<bool>();

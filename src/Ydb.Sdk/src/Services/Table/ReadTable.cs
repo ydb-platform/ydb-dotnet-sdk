@@ -62,7 +62,7 @@ public class ReadTableStream : StreamResponse<ReadTableResponse, ReadTablePart>
 
 public partial class TableClient
 {
-    public ReadTableStream ReadTable(string tablePath, ReadTableSettings? settings = null)
+    public async ValueTask<ReadTableStream> ReadTable(string tablePath, ReadTableSettings? settings = null)
     {
         settings ??= new ReadTableSettings();
 
@@ -74,7 +74,7 @@ public partial class TableClient
             Ordered = settings.Ordered
         };
 
-        var streamIterator = _driver.ServerStreamCall(
+        var streamIterator = await _driver.ServerStreamCall(
             method: TableService.StreamReadTableMethod,
             request: request,
             settings: settings

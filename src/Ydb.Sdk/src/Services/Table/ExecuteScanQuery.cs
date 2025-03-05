@@ -57,7 +57,7 @@ public class ExecuteScanQueryStream : StreamResponse<ExecuteScanQueryPartialResp
 
 public partial class TableClient
 {
-    public ExecuteScanQueryStream ExecuteScanQuery(
+    public async ValueTask<ExecuteScanQueryStream> ExecuteScanQuery(
         string query,
         IReadOnlyDictionary<string, YdbValue> parameters,
         ExecuteScanQuerySettings? settings = null)
@@ -75,7 +75,7 @@ public partial class TableClient
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        var streamIterator = _driver.ServerStreamCall(
+        var streamIterator = await _driver.ServerStreamCall(
             method: TableService.StreamExecuteScanQueryMethod,
             request: request,
             settings: settings
@@ -84,7 +84,7 @@ public partial class TableClient
         return new ExecuteScanQueryStream(streamIterator);
     }
 
-    public ExecuteScanQueryStream ExecuteScanQuery(
+    public ValueTask<ExecuteScanQueryStream> ExecuteScanQuery(
         string query,
         ExecuteScanQuerySettings? settings = null)
     {
