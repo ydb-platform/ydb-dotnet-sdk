@@ -96,7 +96,7 @@ internal class Reader<TValue> : IReader<TValue>
         {
             if (_disposeCts.IsCancellationRequested)
             {
-                _logger.LogWarning("Reader writer is canceled because it has been disposed");
+                _logger.LogDebug("Initialize Reader[{ReaderConfig}] is stopped because it has been disposed", _config);
 
                 return;
             }
@@ -335,6 +335,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                         throw new ArgumentOutOfRangeException();
                 }
             }
+
+            Logger.LogInformation("ReaderSession[{SessionId}]: ResponseStream is closed", SessionId);
         }
         catch (Driver.TransportException e)
         {
@@ -579,6 +581,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             await _runProcessingStreamRequest;
             await Stream.RequestStreamComplete();
+            Logger.LogInformation("ReaderSession[{SessionId}]: RequestStream is closed", SessionId);
+
             await _runProcessingStreamResponse; // waiting all ack's commits
 
             _lifecycleReaderSessionCts.Cancel();

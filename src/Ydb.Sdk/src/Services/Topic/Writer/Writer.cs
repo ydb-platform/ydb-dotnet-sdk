@@ -31,6 +31,7 @@ internal class Writer<TValue> : IWriter<TValue>
     private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
     private volatile IWriteSession _session = null!;
     private volatile int _limitBufferMaxSize;
+    private volatile bool _isStopped;
 
     internal Writer(IDriver driver, WriterConfig config, ISerializer<TValue> serializer)
     {
@@ -52,9 +53,7 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         TaskCompletionSource<WriteResult> tcs = new();
         await using var registrationUserCancellationTokenRegistration = cancellationToken.Register(
-            () => tcs.TrySetException(
-                new WriterException("The write operation was canceled before it could be completed")
-            ), useSynchronizationContext: false
+            () => tcs.TrySetCanceled(), useSynchronizationContext: false
         );
         await using var writerDisposedCancellationTokenRegistration = _disposeCts.Token.Register(
             () => tcs.TrySetException(new WriterException($"Writer[{_config}] is disposed")),
@@ -194,9 +193,9 @@ internal class Writer<TValue> : IWriter<TValue>
 
         try
         {
-            if (_disposeCts.IsCancellationRequested && _inFlightMessages.IsEmpty)
+            if (_isStopped)
             {
-                _logger.LogWarning("Initialize writer is canceled because it has been disposed");
+                _logger.LogDebug("Initialize Writer[{WriterConfig}] is stopped because it has been disposed", _config);
 
                 return;
             }
@@ -313,7 +312,6 @@ internal class Writer<TValue> : IWriter<TValue>
                 }
 
                 _session = newSession;
-                newSession.RunProcessingWriteAck();
                 WakeUpWorker(); // attempt send buffer     
             }
             finally
@@ -366,6 +364,8 @@ internal class Writer<TValue> : IWriter<TValue>
                     inFlightMessage.MessageData.SeqNo);
             }
         }
+
+        _isStopped = true;
 
         await _session.DisposeAsync();
 
@@ -443,6 +443,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 {
     private readonly WriterConfig _config;
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages;
+    private readonly Task _processingResponseStream;
 
     private long _seqNum;
 
@@ -466,6 +467,8 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         _config = config;
         _inFlightMessages = inFlightMessages;
         Volatile.Write(ref _seqNum, lastSeqNo); // happens-before for Volatile.Read
+
+        _processingResponseStream = RunProcessingWriteAck();
     }
 
     public async Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
@@ -513,7 +516,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         }
     }
 
-    internal async void RunProcessingWriteAck()
+    private async Task RunProcessingWriteAck()
     {
         try
         {
@@ -573,7 +576,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                 }
             }
 
-            Logger.LogWarning("WriterSession[{SessionId}]: stream is closed", SessionId);
+            Logger.LogInformation("WriterSession[{SessionId}]: ResponseStream is closed", SessionId);
         }
         catch (Driver.TransportException e)
         {
@@ -601,6 +604,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
         Logger.LogDebug("WriterSession[{SessionId}]: start dispose process", SessionId);
 
         await Stream.RequestStreamComplete();
+        await _processingResponseStream;
 
         Stream.Dispose();
     }
