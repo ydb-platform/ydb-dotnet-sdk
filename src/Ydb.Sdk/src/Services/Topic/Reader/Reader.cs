@@ -96,6 +96,8 @@ internal class Reader<TValue> : IReader<TValue>
         {
             if (_disposeCts.IsCancellationRequested)
             {
+                _logger.LogDebug("Initialize Reader[{ReaderConfig}] is stopped because it has been disposed", _config);
+
                 return;
             }
 
