@@ -63,7 +63,7 @@ var readerJob = Task.Run(async () =>
             var message = await reader.ReadAsync(readerCts.Token);
 
             logger.LogInformation("Received message: [{MessageData}]", message.Data);
-            
+
             try
             {
                 await message.CommitAsync();

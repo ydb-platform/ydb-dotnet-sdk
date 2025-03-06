@@ -1,3 +1,7 @@
+- Fixed Writer: possible creation of a session after `DisposeAsync()`, which this could happen when there are canceled tasks in `InFlightMessages`.
+- Dev: `Writer.MoveNext()` changed exception on cancelToken from `WriterException` to `TaskCanceledException`.
+- Dev: changed log level from `Warning` to `Information` in `(Reader / Writer).Initialize()` when it is disposed.
+
 ## v0.15.0
 - Dev: added `ValueTask<string?> GetAuthInfoAsync()` in ICredentialProvider.
 - Feat: `Writer.DisposeAsync()` waits for all in-flight messages to complete.
