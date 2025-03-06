@@ -36,7 +36,7 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
 
         Assert.Equal(PersistenceStatus.Written, result.Status);
 
-        await topicClient.DropTopic(new DropTopicSettings { Path = _topicName });
+        await topicClient.DropTopic(_topicName);
     }
 
     [Fact]
@@ -127,6 +127,6 @@ public class WriterIntegrationTests : IClassFixture<DriverFixture>
 
         Assert.Equal(messageCount * (messageCount - 1) / 2, ans);
 
-        await topicClient.DropTopic(new DropTopicSettings { Path = topicName });
+        await topicClient.DropTopic(topicName);
     }
 }

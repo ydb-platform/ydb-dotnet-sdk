@@ -1,3 +1,5 @@
+- Changed signature of the `TopicClient.DropTopic` method.
+
 ## v0.15.1
 - Fixed Writer: possible creation of a session after `DisposeAsync()`, which this could happen when there are canceled tasks in `InFlightMessages`.
 - Dev: `Writer.MoveNext()` changed exception on cancelToken from `WriterException` to `TaskCanceledException`.

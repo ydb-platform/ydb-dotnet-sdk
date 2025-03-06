@@ -82,28 +82,6 @@ public class PartitioningSettings
     public long MaxActivePartitions { get; set; }
 }
 
-/// <summary>
-/// Drop topic request sent from client to server.
-/// </summary>
-public class DropTopicSettings : OperationSettings
-{
-    /// <summary>
-    /// Topic path.
-    /// </summary>
-    public string Path { get; set; } = string.Empty;
-}
-
-/// <summary>
-/// Update existing topic request sent from client to server.
-/// </summary>
-public class AlterTopicSettings : OperationSettings
-{
-    /// <summary>
-    /// Topic path.
-    /// </summary>
-    public string Path { get; set; } = string.Empty;
-}
-
 public enum Codec
 {
     Unspecified = Ydb.Topic.Codec.Unspecified,

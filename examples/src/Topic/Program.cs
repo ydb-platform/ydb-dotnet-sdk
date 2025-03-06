@@ -68,7 +68,7 @@ var readerJob = Task.Run(async () =>
             {
                 await message.CommitAsync();
             }
-            catch (Exception e)
+            catch (ReaderException e)
             {
                 logger.LogError(e, "Failed commit message");
             }
@@ -81,4 +81,4 @@ var readerJob = Task.Run(async () =>
 
 await writerJob;
 await readerJob;
-await topicClient.DropTopic(new DropTopicSettings { Path = topicName });
+await topicClient.DropTopic(topicName);
