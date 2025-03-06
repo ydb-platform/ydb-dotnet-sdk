@@ -38,7 +38,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
             return;
         }
 
-        Logger.LogInformation("TopicSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
+        Logger.LogDebug("TopicSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
 
         await _initialize();
     }

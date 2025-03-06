@@ -156,7 +156,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ydb-version: [ 'latest', '24.1' ]
+        ydb-version: [ 'latest', 'trunk' ]
         dotnet-version: [ 6.0.x, 7.0.x ]
         include:
           - dotnet-version: 6.0.x
@@ -181,7 +181,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
-      - name: Run ADO.NET examples
+      - name: Run ADO.NET example
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd ./examples/src/AdoNet
@@ -189,4 +189,8 @@ jobs:
       - name: Run Dapper example
         run: |
           cd ./examples/src/DapperExample
+          dotnet run
+      - name: YDB Topic example
+        run: |
+          cd ./examples/src/Topic
           dotnet run
