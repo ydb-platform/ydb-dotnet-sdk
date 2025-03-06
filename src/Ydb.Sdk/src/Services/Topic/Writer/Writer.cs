@@ -312,7 +312,6 @@ internal class Writer<TValue> : IWriter<TValue>
                 }
 
                 _session = newSession;
-                newSession.RunProcessingWriteAck();
                 WakeUpWorker(); // attempt send buffer     
             }
             finally
@@ -444,6 +443,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 {
     private readonly WriterConfig _config;
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages;
+    private readonly Task _processingResponseStream;
 
     private long _seqNum;
 
@@ -467,6 +467,8 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         _config = config;
         _inFlightMessages = inFlightMessages;
         Volatile.Write(ref _seqNum, lastSeqNo); // happens-before for Volatile.Read
+
+        _processingResponseStream = RunProcessingWriteAck();
     }
 
     public async Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
@@ -514,7 +516,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         }
     }
 
-    internal async void RunProcessingWriteAck()
+    private async Task RunProcessingWriteAck()
     {
         try
         {
@@ -574,7 +576,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                 }
             }
 
-            Logger.LogWarning("WriterSession[{SessionId}]: stream is closed", SessionId);
+            Logger.LogInformation("WriterSession[{SessionId}]: stream is closed", SessionId);
         }
         catch (Driver.TransportException e)
         {
@@ -606,6 +608,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
         Logger.LogDebug("WriterSession[{SessionId}]: start dispose process", SessionId);
 
         await Stream.RequestStreamComplete();
+        await _processingResponseStream;
 
         Stream.Dispose();
     }

@@ -358,6 +358,7 @@ public class WriterUnitTests
     public async Task WriteAsync_WhenTransportExceptionOnWriteInWriterSession_ShouldReconnectAndReturnWriteResult()
     {
         var moveTcs = new TaskCompletionSource<bool>();
+        var moveTcsRetry = new TaskCompletionSource<bool>();
 
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask)
@@ -367,12 +368,17 @@ public class WriterUnitTests
                 return new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled));
             })
             .Returns(Task.CompletedTask)
-            .Returns(Task.CompletedTask);
+            .Returns(() =>
+            {
+                moveTcsRetry.SetResult(true);
+
+                return Task.CompletedTask;
+            });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(moveTcs.Task))
             .ReturnsAsync(true)
-            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(moveTcsRetry.Task))
             .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -635,6 +641,7 @@ public class WriterUnitTests
         var writeTcs2 = new TaskCompletionSource();
         var writeTcs3 = new TaskCompletionSource();
         var moveTcs = new TaskCompletionSource<bool>();
+        var moveTcsRetry = new TaskCompletionSource<bool>();
 
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask)
@@ -654,13 +661,17 @@ public class WriterUnitTests
                 return Task.CompletedTask;
             })
             .Returns(Task.CompletedTask)
-            .Returns(Task.CompletedTask);
+            .Returns(() =>
+            {
+                moveTcsRetry.SetResult(true);
+                return Task.CompletedTask;
+            });
 
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(moveTcs.Task))
             .ReturnsAsync(true)
-            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(moveTcsRetry.Task))
             .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -859,6 +870,7 @@ public class WriterUnitTests
     {
         var tcsDetectedWrite = new TaskCompletionSource();
         var writeTcs1 = new TaskCompletionSource<bool>();
+        var moveTcsRetry = new TaskCompletionSource<bool>();
 
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask)
@@ -868,12 +880,16 @@ public class WriterUnitTests
                 return Task.CompletedTask;
             })
             .Returns(Task.CompletedTask)
-            .Returns(Task.CompletedTask);
+            .Returns(() =>
+            {
+                moveTcsRetry.SetResult(true);
+                return Task.CompletedTask;
+            });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(writeTcs1.Task))
             .ReturnsAsync(true)
-            .ReturnsAsync(true)
+            .Returns(new ValueTask<bool>(moveTcsRetry.Task))
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
