@@ -569,7 +569,6 @@ public class WriterUnitTests
     public async Task WriteAsync_WhenCancellationTokenIsClosed_ThrowCancellationException()
     {
         var cancellationTokenSource = new CancellationTokenSource();
-        var nextCompleted = new TaskCompletionSource<bool>();
         _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
@@ -582,10 +581,8 @@ public class WriterUnitTests
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
         cancellationTokenSource.Cancel();
-        nextCompleted.SetResult(true);
 
-        Assert.Equal("The write operation was canceled before it could be completed",
-            (await Assert.ThrowsAsync<WriterException>(() => task)).Message);
+        await Assert.ThrowsAsync<TaskCanceledException>(() => task);
     }
 
     [Fact]
@@ -713,8 +710,7 @@ public class WriterUnitTests
 
         moveTcs.SetResult(false); // Fail write ack stream => start reconnect
 
-        Assert.Equal("The write operation was canceled before it could be completed",
-            (await Assert.ThrowsAsync<WriterException>(() => runTaskWithCancel)).Message);
+        await Assert.ThrowsAsync<TaskCanceledException>(() => runTaskWithCancel);
         Assert.Equal(PersistenceStatus.AlreadyWritten, (await runTask1).Status);
         Assert.Equal(PersistenceStatus.Written, (await runTask2).Status);
 

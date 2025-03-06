@@ -31,6 +31,7 @@ internal class Writer<TValue> : IWriter<TValue>
     private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
     private volatile IWriteSession _session = null!;
     private volatile int _limitBufferMaxSize;
+    private volatile bool _isStopped;
 
     internal Writer(IDriver driver, WriterConfig config, ISerializer<TValue> serializer)
     {
@@ -52,9 +53,7 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         TaskCompletionSource<WriteResult> tcs = new();
         await using var registrationUserCancellationTokenRegistration = cancellationToken.Register(
-            () => tcs.TrySetException(
-                new WriterException("The write operation was canceled before it could be completed")
-            ), useSynchronizationContext: false
+            () => tcs.TrySetCanceled(), useSynchronizationContext: false
         );
         await using var writerDisposedCancellationTokenRegistration = _disposeCts.Token.Register(
             () => tcs.TrySetException(new WriterException($"Writer[{_config}] is disposed")),
@@ -194,9 +193,9 @@ internal class Writer<TValue> : IWriter<TValue>
 
         try
         {
-            if (_disposeCts.IsCancellationRequested && _inFlightMessages.IsEmpty)
+            if (_isStopped)
             {
-                _logger.LogWarning("Initialize writer is canceled because it has been disposed");
+                _logger.LogInformation("Initialize writer is stopped because it has been disposed");
 
                 return;
             }
@@ -366,6 +365,8 @@ internal class Writer<TValue> : IWriter<TValue>
                     inFlightMessage.MessageData.SeqNo);
             }
         }
+
+        _isStopped = true;
 
         await _session.DisposeAsync();
 
@@ -578,6 +579,10 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
         catch (Driver.TransportException e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
+        }
+        catch (ObjectDisposedException)
+        {
+            Logger.LogDebug("WriterSession[{SessionId}]: stream is disposed", SessionId);
         }
         finally
         {
