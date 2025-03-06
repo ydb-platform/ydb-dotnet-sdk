@@ -195,8 +195,6 @@ internal class Writer<TValue> : IWriter<TValue>
         {
             if (_isStopped)
             {
-                _logger.LogInformation("Initialize writer is stopped because it has been disposed");
-
                 return;
             }
 
