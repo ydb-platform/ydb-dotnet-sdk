@@ -576,15 +576,11 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                 }
             }
 
-            Logger.LogInformation("WriterSession[{SessionId}]: stream is closed", SessionId);
+            Logger.LogInformation("WriterSession[{SessionId}]: ResponseStream is closed", SessionId);
         }
         catch (Driver.TransportException e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
-        }
-        catch (ObjectDisposedException)
-        {
-            Logger.LogDebug("WriterSession[{SessionId}]: stream is disposed", SessionId);
         }
         finally
         {

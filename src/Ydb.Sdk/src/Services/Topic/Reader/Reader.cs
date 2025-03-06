@@ -335,6 +335,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                         throw new ArgumentOutOfRangeException();
                 }
             }
+
+            Logger.LogInformation("ReaderSession[{SessionId}]: ResponseStream is closed", SessionId);
         }
         catch (Driver.TransportException e)
         {
@@ -579,6 +581,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             await _runProcessingStreamRequest;
             await Stream.RequestStreamComplete();
+            Logger.LogInformation("ReaderSession[{SessionId}]: RequestStream is closed", SessionId);
+
             await _runProcessingStreamResponse; // waiting all ack's commits
 
             _lifecycleReaderSessionCts.Cancel();
