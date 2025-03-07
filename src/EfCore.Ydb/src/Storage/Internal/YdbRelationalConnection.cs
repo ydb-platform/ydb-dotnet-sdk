@@ -1,4 +1,6 @@
 using System.Data.Common;
+using EfCore.Ydb.Extensions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Ydb.Sdk.Ado;
 
@@ -23,5 +25,12 @@ public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConne
         
         var connection = new YdbConnection(GetValidatedConnectionString());
         return connection;
+    }
+
+    public IYdbRelationalConnection Clone()
+    {
+        var connectionStringBuilder = new YdbConnectionStringBuilder(GetValidatedConnectionString());
+        var options = new DbContextOptionsBuilder().UseEfYdb(connectionStringBuilder.ToString()).Options;
+        return new YdbRelationalConnection(Dependencies with { ContextOptions = options });
     }
 }
