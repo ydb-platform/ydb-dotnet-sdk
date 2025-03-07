@@ -73,15 +73,15 @@ public class TopicClient
         Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
     }
 
-    public async Task DropTopic(DropTopicSettings settings)
+    public async Task DropTopic(string topicName, GrpcRequestSettings? settings = null)
     {
         var protoSettings = new DropTopicRequest
         {
-            Path = settings.Path,
-            OperationParams = settings.MakeOperationParams()
+            Path = topicName
         };
 
-        var response = await _driver.UnaryCall(TopicService.DropTopicMethod, protoSettings, settings);
+        var response = await _driver.UnaryCall(TopicService.DropTopicMethod, protoSettings,
+            settings ?? new GrpcRequestSettings());
 
         Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
     }

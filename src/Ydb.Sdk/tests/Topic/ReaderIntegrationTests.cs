@@ -61,6 +61,6 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
 
         await readerNext.DisposeAsync();
 
-        await topicClient.DropTopic(new DropTopicSettings { Path = _topicName });
+        await topicClient.DropTopic(_topicName);
     }
 }
