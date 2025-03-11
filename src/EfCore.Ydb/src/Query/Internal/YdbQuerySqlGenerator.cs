@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
@@ -10,11 +12,22 @@ namespace EfCore.Ydb.Query.Internal;
 public class YdbQuerySqlGenerator : QuerySqlGenerator
 {
     protected readonly ISqlGenerationHelper SqlGenerationHelper;
+    protected readonly IRelationalTypeMappingSource TypeMappingSource;
     protected bool SkipAliases;
 
-    public YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : base(dependencies)
+    public YdbQuerySqlGenerator(
+        QuerySqlGeneratorDependencies dependencies,
+        IRelationalTypeMappingSource typeMappingSource
+    ) : base(dependencies)
     {
         SqlGenerationHelper = dependencies.SqlGenerationHelper;
+        TypeMappingSource = typeMappingSource;
+    }
+
+    [return: NotNullIfNotNull("node")]
+    public override Expression? Visit(Expression? node)
+    {
+        return base.Visit(node);
     }
 
     protected override Expression VisitColumn(ColumnExpression columnExpression)
@@ -224,5 +237,50 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
                || !(select.Tables.Count == 1
                     && select.Tables[0].Equals(fromTable)
                    );
+    }
+
+    protected override string GetOperator(SqlBinaryExpression binaryExpression)
+        => binaryExpression.OperatorType == ExpressionType.Add
+           && binaryExpression.Type == typeof(string)
+            ? " || "
+            : base.GetOperator(binaryExpression);
+
+    protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
+    {
+        Sql.Append("JSON_VALUE(");
+        Visit(jsonScalarExpression.Json);
+        Sql.Append(",");
+
+        var path = jsonScalarExpression.Path;
+        if (!path.Any())
+        {
+            return jsonScalarExpression;
+        }
+
+        Sql.Append("\"$.");
+        for (var i = 0; i < path.Count; i++)
+        {
+            var pathSegment = path[i];
+            var isFirst = i == 0;
+           
+            switch (pathSegment)
+            {
+                case { PropertyName: string propertyName }:
+                    Sql
+                        .Append(isFirst ? "" : ".")
+                        .Append(Dependencies.SqlGenerationHelper.DelimitJsonPathElement(propertyName));
+                    break;
+                case { ArrayIndex: SqlConstantExpression arrayIndex }:
+                    Sql.Append("[");
+                    Visit(pathSegment.ArrayIndex);
+                    Sql.Append("]");
+                    break;
+                default:
+                    throw new UnreachableException();
+            }
+        }
+
+        Sql.Append("\")");
+        return jsonScalarExpression;
     }
 }

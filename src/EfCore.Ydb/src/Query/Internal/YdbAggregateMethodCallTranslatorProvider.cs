@@ -14,7 +14,7 @@ public class YdbAggregateMethodCallTranslatorProvider
 
         AddTranslators(
         [
-            new YdbQueryableAggregateMethodTranslator(sqlExpressionFactory)
+            new YdbQueryableAggregateMethodTranslator(sqlExpressionFactory, dependencies.RelationalTypeMappingSource)
         ]);
     }
 }
