@@ -2,8 +2,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Numerics;
+using System.Text.Json;
 using EfCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Storage;
+using Type = System.Type;
 
 namespace EfCore.Ydb.Storage.Internal;
 
@@ -28,8 +31,20 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
 
     private readonly FloatTypeMapping _float = new("FLOAT", DbType.Single);
     private readonly DoubleTypeMapping _double = new("DOUBLE", DbType.Double);
+    private readonly YdbDecimalTypeMapping _biginteger = new(typeof(BigInteger));
+    private readonly YdbDecimalTypeMapping _decimal = new(typeof(decimal));
+    private readonly YdbDecimalTypeMapping _decimalAsDouble = new(typeof(double));
+    private readonly YdbDecimalTypeMapping _decimalAsFloat = new(typeof(float));
 
-    private readonly StringTypeMapping _string = new("TEXT", DbType.String);
+    private readonly StringTypeMapping _text = new("TEXT", DbType.String);
+    private readonly YdbStringTypeMapping _ydbString = YdbStringTypeMapping.Default;
+    private readonly YdbBytesTypeMapping _bytes = YdbBytesTypeMapping.Default;
+    private readonly YdbJsonTypeMapping _json = new("JSON", typeof(JsonElement), DbType.String);
+
+    private readonly DateOnlyTypeMapping _date = new("DATE");
+    private readonly DateTimeTypeMapping _dateTime = new("DATETIME");
+    private readonly DateTimeTypeMapping _timestamp = new("TIMESTAMP");
+    private readonly TimeSpanTypeMapping _interval = new("INTERVAL");
 
     #endregion
 
@@ -54,8 +69,19 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
 
             { "float", [_float] },
             { "double", [_double] },
-            
-            { "text", [_string] }
+
+            { "decimal", [_decimal, _decimalAsDouble, _decimalAsFloat, _biginteger] },
+
+            { "utf8", [_text] },
+            { "string", [_ydbString] },
+            { "json", [_json] },
+
+            { "bytes", [_bytes] },
+
+            { "date", [_date] },
+            { "dateTime", [_dateTime] },
+            { "timestamp", [_timestamp] },
+            { "interval", [_interval] },
         };
         var clrTypeMappings = new Dictionary<Type, RelationalTypeMapping>
         {
@@ -73,8 +99,15 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
 
             { typeof(float), _float },
             { typeof(double), _double },
+            { typeof(decimal), _decimal },
 
-            { typeof(string), _string }
+            { typeof(string), _text },
+            { typeof(byte[]), _bytes },
+            { typeof(JsonElement), _json },
+
+            { typeof(DateOnly), _date },
+            { typeof(DateTime), _timestamp },
+            { typeof(TimeSpan), _interval }
         };
 
         StoreTypeMapping = new ConcurrentDictionary<string, RelationalTypeMapping[]>(storeTypeMappings);
@@ -82,14 +115,21 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
     }
 
     protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
-        => base.FindMapping(mappingInfo)
-           ?? FindBaseMapping(mappingInfo);
+        => FindBaseMapping(mappingInfo)
+           ?? base.FindMapping(mappingInfo);
 
     protected virtual RelationalTypeMapping? FindBaseMapping(in RelationalTypeMappingInfo mappingInfo)
     {
         var clrType = mappingInfo.ClrType;
         var storeTypeName = mappingInfo.StoreTypeName;
         var storeTypeNameBase = mappingInfo.StoreTypeNameBase;
+
+        // Special case.
+        // If property has [YdbString] attribute then we use STRING type instead of TEXT
+        if (mappingInfo.StoreTypeName == "string")
+        {
+            return _ydbString;
+        }
 
         if (storeTypeName is not null)
         {
