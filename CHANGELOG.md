@@ -1,3 +1,4 @@
+## v0.15.3
 - Added SeqNo to `Ydb.Sdk.Services.Topic.Reader.Message`.
 
 ## v0.15.2
