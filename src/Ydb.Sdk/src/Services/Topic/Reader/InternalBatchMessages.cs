@@ -68,6 +68,7 @@ internal class InternalBatchMessages<TValue>
             createdAt: messageData.CreatedAt.ToDateTime(),
             metadata: messageData.MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray()))
                 .ToImmutableArray(),
+            seqNo: messageData.SeqNo,
             offsetsRange: new OffsetsRange
                 { Start = _partitionSession.PrevEndOffsetMessage, End = nextCommitedOffset },
             readerSession: _readerSession

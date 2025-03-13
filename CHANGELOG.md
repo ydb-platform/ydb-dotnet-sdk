@@ -1,3 +1,5 @@
+- Added SeqNo to `Ydb.Sdk.Services.Topic.Reader.Message`.
+
 ## v0.15.2
 - Added SeqNo to `WriteResult`.
 - Changed signature of the `TopicClient.DropTopic` method.

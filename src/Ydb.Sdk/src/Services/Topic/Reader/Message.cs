@@ -17,6 +17,7 @@ public class Message<TValue>
         string producerId,
         DateTime createdAt,
         ImmutableArray<Metadata> metadata,
+        long seqNo,
         OffsetsRange offsetsRange,
         ReaderSession<TValue> readerSession)
     {
@@ -26,6 +27,7 @@ public class Message<TValue>
         ProducerId = producerId;
         CreatedAt = createdAt;
         Metadata = metadata;
+        SeqNo = seqNo;
 
         _partitionSessionId = partitionSessionId;
         _offsetsRange = offsetsRange;
@@ -46,6 +48,8 @@ public class Message<TValue>
     public DateTime CreatedAt { get; }
 
     public IReadOnlyCollection<Metadata> Metadata { get; }
+
+    public long SeqNo { get; }
 
     public Task CommitAsync()
     {
