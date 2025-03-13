@@ -1,3 +1,4 @@
+- Added SeqNo to `WriteResult`.
 - Changed signature of the `TopicClient.DropTopic` method.
 
 ## v0.15.1
