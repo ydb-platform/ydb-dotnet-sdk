@@ -8,6 +8,8 @@ public class WriteResult
 
     internal WriteResult(StreamWriteMessage.Types.WriteResponse.Types.WriteAck ack)
     {
+        SeqNo = ack.SeqNo;
+
         switch (ack.MessageWriteStatusCase)
         {
             case StreamWriteMessage.Types.WriteResponse.Types.WriteAck.MessageWriteStatusOneofCase.Written:
@@ -16,6 +18,7 @@ public class WriteResult
             case StreamWriteMessage.Types.WriteResponse.Types.WriteAck.MessageWriteStatusOneofCase.Skipped:
                 Status = PersistenceStatus.AlreadyWritten;
                 break;
+            case StreamWriteMessage.Types.WriteResponse.Types.WriteAck.MessageWriteStatusOneofCase.WrittenInTx:
             case StreamWriteMessage.Types.WriteResponse.Types.WriteAck.MessageWriteStatusOneofCase.None:
             default:
                 throw new WriterException($"Unexpected WriteAck status: {ack.MessageWriteStatusCase}");
@@ -31,6 +34,11 @@ public class WriteResult
     /// The persistence status of the message
     /// </summary>
     public PersistenceStatus Status { get; }
+
+    /// <summary>
+    /// SeqNo is a unique identifier within a specific ProducerId
+    /// </summary>
+    public long SeqNo { get; }
 }
 
 /// <summary>
