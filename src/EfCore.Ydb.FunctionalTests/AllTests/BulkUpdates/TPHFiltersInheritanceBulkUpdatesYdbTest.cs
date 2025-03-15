@@ -1,8 +1,6 @@
-using System.Text;
+using EfCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
-using Xunit;
 using Xunit.Abstractions;
-using Xunit.Sdk;
 
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
@@ -16,158 +14,131 @@ class TPHFiltersInheritanceBulkUpdatesYdbTest(
     TPHFiltersInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper)
 {
     public override Task Delete_where_keyless_entity_mapped_to_sql_query(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Delete_where_keyless_entity_mapped_to_sql_query,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Update_where_keyless_entity_mapped_to_sql_query(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Update_where_keyless_entity_mapped_to_sql_query,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Delete_where_hierarchy(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Delete_where_hierarchy,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Delete_where_hierarchy_subquery(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Delete_where_hierarchy_subquery,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Delete_where_hierarchy_derived(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Delete_where_hierarchy_derived,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Delete_where_using_hierarchy(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Delete_where_using_hierarchy,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Delete_where_using_hierarchy_derived(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Delete_where_using_hierarchy_derived,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Delete_GroupBy_Where_Select_First(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Delete_GroupBy_Where_Select_First,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Delete_GroupBy_Where_Select_First_2(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Delete_GroupBy_Where_Select_First_2,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Delete_GroupBy_Where_Select_First_3(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Delete_GroupBy_Where_Select_First_3,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Update_base_type(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Update_base_type,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Update_base_type_with_OfType(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Update_base_type_with_OfType,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Update_where_hierarchy_subquery(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Update_where_hierarchy_subquery,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Update_base_property_on_derived_type(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Update_base_property_on_derived_type,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Update_derived_property_on_derived_type(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Update_derived_property_on_derived_type,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Update_base_and_derived_types(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Update_base_and_derived_types,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Update_where_using_hierarchy(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Update_where_using_hierarchy,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     public override Task Update_where_using_hierarchy_derived(bool async)
-        => TestIgnoringBase(
+        => SharedTestMethods.TestIgnoringBase(
             base.Update_where_using_hierarchy_derived,
+            Fixture.TestSqlLoggerFactory,
             async
         );
 
     protected override void ClearLog()
         => Fixture.TestSqlLoggerFactory.Clear();
-
-    private async Task TestIgnoringBase(
-        Func<bool, Task> baseTest,
-        bool async,
-        params string[] expectedSql
-    )
-    {
-        try
-        {
-            await baseTest(async);
-        }
-        catch (EqualException ex)
-        {
-            var commands = Fixture.TestSqlLoggerFactory.SqlStatements;
-            var commandsStr = new StringBuilder();
-
-            foreach (var command in commands)
-            {
-                commandsStr.Append("\n>>>\n");
-                commandsStr.Append(command);
-            }
-
-
-            if (expectedSql.Length == 0) throw new AggregateException(ex, new Exception(commandsStr.ToString()));
-            var actual = Fixture.TestSqlLoggerFactory.SqlStatements;
-            for (var i = 0; i < expectedSql.Length; i++)
-            {
-                Assert.Equal(expectedSql[i], actual[i]);
-            }
-        }
-        catch (Exception ex)
-        {
-            var commands = Fixture.TestSqlLoggerFactory.SqlStatements;
-            var commandsStr = new StringBuilder();
-
-            foreach (var command in commands)
-            {
-                commandsStr.Append("\n>>>\n");
-                commandsStr.Append(command);
-            }
-
-
-            throw new AggregateException(new Exception($"Sql:{commandsStr}\n<<<\n"), ex);
-        }
-    }
 }

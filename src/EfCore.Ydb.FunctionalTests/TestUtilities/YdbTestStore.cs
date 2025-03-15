@@ -57,7 +57,9 @@ public class YdbTestStore : RelationalTestStore
         else
         {
             await using var context = createContext();
-            await context.Database.EnsureCreatedResilientlyAsync();
+            if (clean != null) await clean(context);
+            await CleanAsync(context);
+            await context.Database.EnsureCreatedAsync();
 
             if (_additionalSql is not null)
             {
@@ -70,7 +72,6 @@ public class YdbTestStore : RelationalTestStore
             }
         }
     }
-
 
     public async Task ExecuteScript(string scriptPath)
     {
@@ -148,11 +149,7 @@ public class YdbTestStore : RelationalTestStore
         }
         finally
         {
-            if (connection.State == ConnectionState.Closed
-                && connection.State != ConnectionState.Closed)
-            {
-                await connection.CloseAsync();
-            }
+            await connection.CloseAsync();
         }
     }
 
@@ -181,11 +178,25 @@ public class YdbTestStore : RelationalTestStore
 
     private static YdbConnection CreateConnection()
     {
-        return new YdbConnection();
+        return new YdbConnection(new YdbConnectionStringBuilder());
     }
 
-    public override Task CleanAsync(DbContext context)
+    public override async Task CleanAsync(DbContext context)
     {
-        return Task.CompletedTask;
+        var connection = context.Database.GetDbConnection();
+        await connection.OpenAsync();
+        var schema = await connection.GetSchemaAsync("tables");
+        var tables = schema
+            .AsEnumerable()
+            .Select(entry => (string)entry["table_name"])
+            .Where(tableName => !tableName.StartsWith('.'));
+
+        var command = connection.CreateCommand();
+
+        foreach (var table in tables)
+        {
+            command.CommandText = $"DROP TABLE IF EXISTS {table};";
+            await command.ExecuteNonQueryAsync();
+        }
     }
 }
