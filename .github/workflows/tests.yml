@@ -15,6 +15,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-22.04, windows-2022, macos-15 ]
+        dotnet-version: [ 6.0.x, 7.0.x ]
+        include:
+          - dotnet-version: 6.0.x
+            dotnet-target-framework: net6.0
+          - dotnet-version: 7.0.x
+            dotnet-target-framework: net7.0
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -22,20 +28,21 @@ jobs:
       - name: Setup dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            6.0.x
-            7.0.x
-            9.0.x
+          dotnet-version: ${{ matrix.dotnet-version }}
       - name: Test
-        run: |
-          cd src
-          dotnet test --filter "Category=Unit"
+        run: dotnet test src/Ydb.Sdk/tests/Tests.csproj --filter "Category=Unit" -f ${{ matrix.dotnet-target-framework }}
   ado-net-tests:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
         ydb-version: [ 'trunk', 'latest' ]
+        dotnet-version: [ 6.0.x, 7.0.x ]
+        include:
+          - dotnet-version: 6.0.x
+            dotnet-target-framework: net6.0
+          - dotnet-version: 7.0.x
+            dotnet-target-framework: net7.0
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
@@ -52,20 +59,23 @@ jobs:
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            7.0.x
-            9.0.x
+          dotnet-version: ${{ matrix.dotnet-version }}
       - name: Run ADO.NET tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          cd src
-          dotnet test --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)"
+          dotnet test src/Ydb.Sdk/tests/Tests.csproj --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=normal"
   topic-tests:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
-        ydb-version: [ 'trunk', 'latest' ]
+        ydb-version: [ 'trunk' ]
+        dotnet-version: [ 6.0.x, 7.0.x ]
+        include:
+          - dotnet-version: 6.0.x
+            dotnet-target-framework: net6.0
+          - dotnet-version: 7.0.x
+            dotnet-target-framework: net7.0
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
@@ -82,19 +92,21 @@ jobs:
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            7.0.x
-            9.0.x
+          dotnet-version: ${{ matrix.dotnet-version }}
       - name: Run Topic tests
-        run: |
-          cd src
-          dotnet test --filter "FullyQualifiedName~Topic"
+        run: dotnet test src/Ydb.Sdk/tests/Tests.csproj --filter "FullyQualifiedName~Topic" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=detailed"  
   integration-tests:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
         ydb-version: [ 'trunk' ]
+        dotnet-version: [ 6.0.x, 7.0.x ]
+        include:
+          - dotnet-version: 6.0.x
+            dotnet-target-framework: net6.0
+          - dotnet-version: 7.0.x
+            dotnet-target-framework: net7.0
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
@@ -111,14 +123,9 @@ jobs:
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            7.0.x
-            9.0.x
+          dotnet-version: ${{ matrix.dotnet-version }}
       - name: Integration test
-        run: |
-          docker cp ydb-local:/ydb_certs/ca.pem ~/
-          cd src
-          dotnet test --filter "Category=Integration"
+        run: dotnet test src/Ydb.Sdk/tests/Tests.csproj --filter "Category=Integration" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=normal"
 
   run-examples:
     runs-on: ubuntu-22.04
@@ -126,6 +133,12 @@ jobs:
       fail-fast: false
       matrix:
         ydb-version: [ 'latest', 'trunk' ]
+        dotnet-version: [ 6.0.x, 7.0.x ]
+        include:
+          - dotnet-version: 6.0.x
+            dotnet-target-framework: net6.0
+          - dotnet-version: 7.0.x
+            dotnet-target-framework: net7.0
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
@@ -143,7 +156,7 @@ jobs:
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: ${{ matrix.dotnet-version }}
       - name: Run ADO.NET example
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
