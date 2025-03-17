@@ -64,6 +64,12 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
     public async Task ReadRows_UpsertDeleteSelectSingleRow_ReturnNewRow()
     {
         await _queryClient.Exec($@"
+            DECLARE $series_id AS Uint64;
+            DECLARE $season_id AS Uint64;
+            DECLARE $episode_id AS Uint64;
+            DECLARE $title AS Text;
+            DECLARE $air_date AS Date;
+
             UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date) 
             VALUES ($series_id, $season_id, $episode_id, $title, $air_date)", new Dictionary<string, YdbValue>
         {
@@ -75,6 +81,10 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
         });
 
         var row = await _queryClient.ReadRow($@"
+            DECLARE $series_id AS Uint64;
+            DECLARE $season_id AS Uint64;
+            DECLARE $episode_id AS Uint64;
+
             SELECT title FROM {Tables.Episodes} 
             WHERE series_id = $series_id AND season_id = $season_id AND episode_id = $episode_id;",
             new Dictionary<string, YdbValue>
@@ -101,6 +111,10 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
         await _queryClient.DoTx(async queryTx =>
         {
             await queryTx.Exec($@"
+                    DECLARE $series_id AS Uint64;
+                    DECLARE $season_id AS Uint64;
+                    DECLARE $air_date AS Date;
+
                     UPSERT INTO {Tables.Seasons} (series_id, season_id, first_aired) VALUES
                     ($series_id, $season_id, $air_date);
                 ", new Dictionary<string, YdbValue>
@@ -127,6 +141,10 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
             await _queryClient.DoTx(async queryTx =>
             {
                 await queryTx.Exec($@"
+                    DECLARE $series_id AS Uint64;
+                    DECLARE $season_id AS Uint64;
+                    DECLARE $air_date AS Date;
+
                     UPSERT INTO {Tables.Seasons} (series_id, season_id, first_aired) VALUES
                     ($series_id, $season_id, $air_date);
                 ", new Dictionary<string, YdbValue>
@@ -204,6 +222,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
         for (uint i = 0; i < sizeSeasons; i++)
         {
             tasks[i] = _queryClient.Exec(
+                $"DECLARE $season_id AS Uint64; DECLARE $title AS Text;" +
                 $"INSERT INTO {Tables.Seasons} (series_id, season_id, title) VALUES (3, $season_id, $title)",
                 new Dictionary<string, YdbValue>
                 {
