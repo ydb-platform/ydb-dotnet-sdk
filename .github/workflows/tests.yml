@@ -66,7 +66,7 @@ jobs:
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src/Ydb.Sdk/src
-          dotnet test --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)"
+          dotnet test --filter "(FullyQualifiedName~Ado) | (FullyQualifiedName~Dapper)" -f ${{ matrix.dotnet-target-framework }}
   topic-tests:
     runs-on: ubuntu-22.04
     strategy:
@@ -100,7 +100,7 @@ jobs:
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd src/Ydb.Sdk/src
-          dotnet test --filter "FullyQualifiedName~Topic" -f ${{ matrix.dotnet-target-framework }} -l
+          dotnet test --filter "FullyQualifiedName~Topic" -f ${{ matrix.dotnet-target-framework }}
   integration-tests:
     runs-on: ubuntu-22.04
     strategy:
