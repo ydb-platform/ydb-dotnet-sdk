@@ -5,15 +5,8 @@ using Microsoft.EntityFrameworkCore.Update;
 
 namespace EfCore.Ydb.Update.Internal;
 
-public class YdbUpdateSqlGenerator : UpdateSqlGenerator
+public class YdbUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies) : UpdateSqlGenerator(dependencies)
 {
-    public YdbUpdateSqlGenerator(
-        UpdateSqlGeneratorDependencies dependencies
-    ) : base(dependencies)
-    {
-    }
-
-
     public override ResultSetMapping AppendInsertOperation(
         StringBuilder commandStringBuilder,
         IReadOnlyModificationCommand command,

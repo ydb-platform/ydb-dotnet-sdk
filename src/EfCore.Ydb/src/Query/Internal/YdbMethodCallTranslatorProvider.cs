@@ -9,10 +9,9 @@ public sealed class YdbMethodCallTranslatorProvider : RelationalMethodCallTransl
         RelationalMethodCallTranslatorProviderDependencies dependencies
     ) : base(dependencies)
     {
-        var sqlExpressionFactory = (YdbSqlExpressionFactory)dependencies.SqlExpressionFactory;
         AddTranslators(
             [
-                new StubTranslator(sqlExpressionFactory)
+                new StubTranslator()
             ]
         );
     }

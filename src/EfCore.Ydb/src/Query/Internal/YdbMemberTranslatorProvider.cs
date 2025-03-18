@@ -7,11 +7,9 @@ public sealed class YdbMemberTranslatorProvider : RelationalMemberTranslatorProv
 {
     public YdbMemberTranslatorProvider(RelationalMemberTranslatorProviderDependencies dependencies) : base(dependencies)
     {
-        var sqlExpressionFactory = (YdbSqlExpressionFactory)dependencies.SqlExpressionFactory;
-
         AddTranslators(
             [
-                new StubTranslator(sqlExpressionFactory)
+                new StubTranslator()
             ]
         );
     }

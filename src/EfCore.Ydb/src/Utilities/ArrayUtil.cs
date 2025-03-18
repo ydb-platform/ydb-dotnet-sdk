@@ -7,7 +7,7 @@ internal static class ArrayUtil
         [],
         [true],
         [true, true],
-        [true, true, true],
+        [true, true, true]
     ];
 
     internal static readonly bool[][] FalseArrays =
@@ -15,6 +15,6 @@ internal static class ArrayUtil
         [],
         [false],
         [false, false],
-        [false, false, false],
+        [false, false, false]
     ];
 }

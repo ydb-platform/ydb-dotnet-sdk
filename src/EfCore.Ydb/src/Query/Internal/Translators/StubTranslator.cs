@@ -9,10 +9,8 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 namespace EfCore.Ydb.Query.Internal.Translators;
 
 // TODO: Remove this class. Temporary stub for debug only
-public class StubTranslator(YdbSqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator, IMemberTranslator
+public class StubTranslator : IMethodCallTranslator, IMemberTranslator
 {
-    private readonly YdbSqlExpressionFactory _expressionFactory = sqlExpressionFactory;
-
     public SqlExpression? Translate(
         SqlExpression? instance,
         MethodInfo method,

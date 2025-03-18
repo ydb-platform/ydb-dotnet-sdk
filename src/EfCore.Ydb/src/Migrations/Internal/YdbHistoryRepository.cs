@@ -71,28 +71,17 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : 
         throw new NotImplementedException();
     }
 
-    private sealed class YdbMigrationDatabaseLock : IMigrationsDatabaseLock
+    private sealed class YdbMigrationDatabaseLock(
+        string name,
+        IHistoryRepository historyRepository,
+        YdbRelationalConnection ydbConnection
+    ) : IMigrationsDatabaseLock
     {
-        public IYdbRelationalConnection Connection { get; }
-        private readonly string _name;
-        private volatile string _pid;
+        private IYdbRelationalConnection Connection { get; } = ydbConnection.Clone();
+        private volatile string _pid = null!;
         private CancellationTokenSource? _watchDogToken;
 
-        public YdbMigrationDatabaseLock(
-            string name,
-            IHistoryRepository historyRepository,
-            YdbRelationalConnection ydbConnection
-        )
-        {
-            _name = name;
-            HistoryRepository = historyRepository;
-            Connection = ydbConnection.Clone();
-        }
-
-        public async Task Lock(
-            int timeoutInSeconds,
-            CancellationToken cancellationToken = default
-        )
+        public async Task Lock(int timeoutInSeconds, CancellationToken cancellationToken = default)
         {
             if (_watchDogToken != null)
             {
@@ -102,16 +91,15 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : 
             await Connection.OpenAsync(cancellationToken);
             await using (var command = Connection.DbConnection.CreateCommand())
             {
-                command.CommandText =
-                    """
-                    CREATE TABLE IF NOT EXISTS shedlock (
-                        name Text NOT NULL,
-                        locked_at Timestamp NOT NULL,
-                        lock_until Timestamp NOT NULL,
-                        locked_by Text NOT NULL,
-                        PRIMARY KEY(name)
-                    );
-                    """;
+                command.CommandText = """
+                                      CREATE TABLE IF NOT EXISTS shedlock (
+                                          name Text NOT NULL,
+                                          locked_at Timestamp NOT NULL,
+                                          lock_until Timestamp NOT NULL,
+                                          locked_by Text NOT NULL,
+                                          PRIMARY KEY(name)
+                                      );
+                                      """;
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -120,11 +108,12 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : 
             var lockAcquired = false;
             for (var i = 0; i < 10; i++)
             {
-                if (await UpdateLock(_name, timeoutInSeconds))
+                if (await UpdateLock(name, timeoutInSeconds))
                 {
                     lockAcquired = true;
                     break;
                 }
+
                 await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
             }
 
@@ -138,16 +127,14 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : 
             {
                 while (true)
                 {
+                    // ReSharper disable once PossibleLossOfFraction
                     await Task.Delay(TimeSpan.FromSeconds(timeoutInSeconds / 2), _watchDogToken.Token);
-                    await UpdateLock(_name, timeoutInSeconds);
+                    await UpdateLock(name, timeoutInSeconds);
                 }
             })!, _watchDogToken.Token);
         }
 
-        private async Task<bool> UpdateLock(
-            string name,
-            int timeoutInSeconds
-        )
+        private async Task<bool> UpdateLock(string name, int timeoutInSeconds)
         {
             var command = Connection.DbConnection.CreateCommand();
             command.CommandText =
@@ -162,7 +149,7 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : 
                  """;
             command.Parameters.Add(new YdbParameter("name", DbType.String, name));
             command.Parameters.Add(new YdbParameter("locked_by", DbType.String, _pid));
-            
+
             try
             {
                 await command.ExecuteNonQueryAsync();
@@ -186,13 +173,13 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : 
             {
                 await _watchDogToken.CancelAsync();
             }
-            
+
             _watchDogToken = null;
             await using var connection = Connection.DbConnection.CreateCommand();
             connection.CommandText = "DELETE FROM shedlock WHERE name = '{_name}' AND locked_by = '{PID}';";
             await connection.ExecuteNonQueryAsync();
         }
 
-        public IHistoryRepository HistoryRepository { get; }
+        public IHistoryRepository HistoryRepository { get; } = historyRepository;
     }
 }

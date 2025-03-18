@@ -7,34 +7,23 @@ using Ydb.Sdk.Ado;
 
 namespace EfCore.Ydb.Storage.Internal;
 
-public class YdbDatabaseCreator : RelationalDatabaseCreator
+public class YdbDatabaseCreator(
+    RelationalDatabaseCreatorDependencies dependencies,
+    IYdbRelationalConnection connection
+) : RelationalDatabaseCreator(dependencies)
 {
-    private readonly IYdbRelationalConnection _connection;
-    private readonly IRelationalConnectionDiagnosticsLogger _connectionLogger;
-
-    public YdbDatabaseCreator(
-        RelationalDatabaseCreatorDependencies dependencies,
-        IYdbRelationalConnection connection,
-        IRawSqlCommandBuilder rawSqlCommandBuilder,
-        IRelationalConnectionDiagnosticsLogger connectionLogger
-    ) : base(dependencies)
-    {
-        _connection = connection;
-        _connectionLogger = connectionLogger;
-    }
-
     public override bool Exists()
         => ExistsInternal().GetAwaiter().GetResult();
 
-    public override Task<bool> ExistsAsync(CancellationToken cancellationToken = new CancellationToken())
+    public override Task<bool> ExistsAsync(CancellationToken cancellationToken = new())
         => ExistsInternal(cancellationToken);
 
     private async Task<bool> ExistsInternal(CancellationToken cancellationToken = default)
     {
-        var connection = _connection.Clone();
+        var connection1 = connection.Clone();
         try
         {
-            await _connection.OpenAsync(cancellationToken, errorsExpected: true);
+            await connection.OpenAsync(cancellationToken, errorsExpected: true);
             return true;
         }
         catch (YdbException)
@@ -43,8 +32,8 @@ public class YdbDatabaseCreator : RelationalDatabaseCreator
         }
         finally
         {
-            await connection.CloseAsync().ConfigureAwait(false);
-            await connection.DisposeAsync().ConfigureAwait(false);
+            await connection1.CloseAsync().ConfigureAwait(false);
+            await connection1.DisposeAsync().ConfigureAwait(false);
         }
     }
 

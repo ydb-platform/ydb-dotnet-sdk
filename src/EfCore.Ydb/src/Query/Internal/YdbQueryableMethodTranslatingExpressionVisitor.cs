@@ -10,7 +10,6 @@ public class YdbQueryableMethodTranslatingExpressionVisitor
     private readonly YdbTypeMappingSource? _typeMappingSource;
     private readonly YdbSqlExpressionFactory _sqlExpressionFactory;
 
-
     public YdbQueryableMethodTranslatingExpressionVisitor(
         QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
         RelationalQueryableMethodTranslatingExpressionVisitorDependencies relationalDependencies,

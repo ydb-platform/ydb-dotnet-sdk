@@ -265,14 +265,14 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
            
             switch (pathSegment)
             {
-                case { PropertyName: string propertyName }:
+                case { PropertyName: { } propertyName }:
                     Sql
                         .Append(isFirst ? "" : ".")
                         .Append(Dependencies.SqlGenerationHelper.DelimitJsonPathElement(propertyName));
                     break;
                 case { ArrayIndex: SqlConstantExpression arrayIndex }:
                     Sql.Append("[");
-                    Visit(pathSegment.ArrayIndex);
+                    Visit(arrayIndex);
                     Sql.Append("]");
                     break;
                 default:

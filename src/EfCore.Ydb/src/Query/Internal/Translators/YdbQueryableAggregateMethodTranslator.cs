@@ -29,10 +29,10 @@ public class YdbQueryableAggregateMethodTranslator(
             : method;
         switch (methodInfo.Name)
         {
-            case nameof(Queryable.Average)
-                when (QueryableMethods.IsAverageWithoutSelector(methodInfo)
-                      || QueryableMethods.IsAverageWithSelector(methodInfo))
-                     && source.Selector is SqlExpression averageSqlExpression:
+            case nameof(Queryable.Average) when
+                (QueryableMethods.IsAverageWithoutSelector(methodInfo) ||
+                 QueryableMethods.IsAverageWithSelector(methodInfo))
+                && source.Selector is SqlExpression averageSqlExpression:
                 var averageInputType = averageSqlExpression.Type;
                 if (averageInputType == typeof(int)
                     || averageInputType == typeof(long))
@@ -59,10 +59,10 @@ public class YdbQueryableAggregateMethodTranslator(
                         averageSqlExpression.Type,
                         averageSqlExpression.TypeMapping);
 
-            case nameof(Queryable.Count)
-                when methodInfo == QueryableMethods.CountWithoutPredicate
-                     || methodInfo == QueryableMethods.CountWithPredicate:
-                var countSqlExpression = (source.Selector as SqlExpression) ?? sqlExpressionFactory.Fragment("*");
+            case nameof(Queryable.Count) when
+                methodInfo == QueryableMethods.CountWithoutPredicate ||
+                methodInfo == QueryableMethods.CountWithPredicate:
+                var countSqlExpression = source.Selector as SqlExpression ?? sqlExpressionFactory.Fragment("*");
                 return sqlExpressionFactory.Convert(
                     sqlExpressionFactory.Function(
                         "COUNT",
@@ -73,10 +73,10 @@ public class YdbQueryableAggregateMethodTranslator(
                     typeof(int),
                     typeMappingSource.FindMapping(typeof(int)));
 
-            case nameof(Queryable.LongCount)
-                when methodInfo == QueryableMethods.LongCountWithoutPredicate
-                     || methodInfo == QueryableMethods.LongCountWithPredicate:
-                var longCountSqlExpression = (source.Selector as SqlExpression) ?? sqlExpressionFactory.Fragment("*");
+            case nameof(Queryable.LongCount) when
+                methodInfo == QueryableMethods.LongCountWithoutPredicate ||
+                methodInfo == QueryableMethods.LongCountWithPredicate:
+                var longCountSqlExpression = source.Selector as SqlExpression ?? sqlExpressionFactory.Fragment("*");
                 return sqlExpressionFactory.Function(
                     "COUNT",
                     [longCountSqlExpression],
@@ -84,10 +84,9 @@ public class YdbQueryableAggregateMethodTranslator(
                     argumentsPropagateNullability: ArrayUtil.FalseArrays[1],
                     typeof(long));
 
-            case nameof(Queryable.Max)
-                when (methodInfo == QueryableMethods.MaxWithoutSelector
-                      || methodInfo == QueryableMethods.MaxWithSelector)
-                     && source.Selector is SqlExpression maxSqlExpression:
+            case nameof(Queryable.Max) when
+                (methodInfo == QueryableMethods.MaxWithoutSelector || methodInfo == QueryableMethods.MaxWithSelector)
+                && source.Selector is SqlExpression maxSqlExpression:
                 return sqlExpressionFactory.Function(
                     "MAX",
                     [maxSqlExpression],
@@ -96,10 +95,9 @@ public class YdbQueryableAggregateMethodTranslator(
                     maxSqlExpression.Type,
                     maxSqlExpression.TypeMapping);
 
-            case nameof(Queryable.Min)
-                when (methodInfo == QueryableMethods.MinWithoutSelector
-                      || methodInfo == QueryableMethods.MinWithSelector)
-                     && source.Selector is SqlExpression minSqlExpression:
+            case nameof(Queryable.Min) when
+                (methodInfo == QueryableMethods.MinWithoutSelector || methodInfo == QueryableMethods.MinWithSelector)
+                && source.Selector is SqlExpression minSqlExpression:
                 return sqlExpressionFactory.Function(
                     "MIN",
                     [minSqlExpression],
