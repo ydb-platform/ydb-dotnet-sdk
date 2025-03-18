@@ -51,10 +51,9 @@ public static class YdbServiceCollectionExtensions
             .TryAdd<IRelationalParameterBasedSqlProcessorFactory, YdbParameterBasedSqlProcessorFactory>()
             .TryAdd<ISqlExpressionFactory, YdbSqlExpressionFactory>()
             .TryAdd<IQueryCompilationContextFactory, YdbQueryCompilationContextFactory>()
-            .TryAddProviderSpecificServices(
-                b => b
-                    .TryAddScoped<IYdbRelationalConnection, YdbRelationalConnection>()
-                    .TryAddScoped<IDbCommandInterceptor, YdbCommandInterceptor>())
+            .TryAddProviderSpecificServices(b => b
+                .TryAddScoped<IYdbRelationalConnection, YdbRelationalConnection>()
+                .TryAddScoped<IDbCommandInterceptor, YdbCommandInterceptor>())
             .TryAddCoreServices();
 
         return serviceCollection;

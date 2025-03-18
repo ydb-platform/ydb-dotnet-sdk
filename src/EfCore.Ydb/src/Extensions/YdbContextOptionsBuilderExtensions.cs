@@ -37,13 +37,11 @@ public static class YdbContextOptionsBuilderExtensions
 
         efYdbOptionsAction?.Invoke(new YdbDbContextOptionsBuilder(optionsBuilder));
         return optionsBuilder;
-
     }
 
     // TODO: Right now there are no arguments for constructor, so probably it's ok
     private static YdbOptionsExtension GetOrCreateExtension(DbContextOptionsBuilder options)
-        => options.Options.FindExtension<YdbOptionsExtension>()
-           ?? new YdbOptionsExtension();
+        => options.Options.FindExtension<YdbOptionsExtension>() ?? new YdbOptionsExtension();
 
     private static void ConfigureWarnings(DbContextOptionsBuilder optionsBuilder)
     {

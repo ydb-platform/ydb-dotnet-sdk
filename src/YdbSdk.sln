@@ -21,9 +21,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EfCore.Ydb", "EfCore.Ydb\sr
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{39DE35EE-621B-4DEC-BFA2-5337ACBAEEF4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EfCore.Ydb.Tests", "EfCore.Ydb\test\EfCore.Ydb.Tests.csproj", "{C340085B-AB9E-484A-B4A5-32131AE5029F}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EfCore.Ydb.FunctionalTests", "EfCore.Ydb.FunctionalTests\EfCore.Ydb.FunctionalTests.csproj", "{28550E34-B56D-4536-B455-031983D9E561}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EfCore.Ydb.FunctionalTests", "EfCore.Ydb\test\EfCore.Ydb.FunctionalTests\EfCore.Ydb.FunctionalTests.csproj", "{28550E34-B56D-4536-B455-031983D9E561}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

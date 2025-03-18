@@ -9,8 +9,10 @@ namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 public class ComplexTypeBulkUpdatesYdbTest(
     ComplexTypeBulkUpdatesYdbTest.ComplexTypeBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
-) : ComplexTypeBulkUpdatesRelationalTestBase<ComplexTypeBulkUpdatesYdbTest.ComplexTypeBulkUpdatesYdbFixture>(fixture,
-    testOutputHelper)
+) : ComplexTypeBulkUpdatesRelationalTestBase<ComplexTypeBulkUpdatesYdbTest.ComplexTypeBulkUpdatesYdbFixture>(
+    fixture,
+    testOutputHelper
+)
 {
     public override async Task Delete_entity_type_with_complex_type(bool async)
         => await SharedTestMethods.TestIgnoringBase(
@@ -18,7 +20,7 @@ public class ComplexTypeBulkUpdatesYdbTest(
             Fixture.TestSqlLoggerFactory,
             async,
             """
-            DELETE FROM `Customer` 
+            DELETE FROM `Customer`
             WHERE `Name` = 'Monty Elias'
             """
         );
@@ -242,7 +244,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """);
 
     public override async Task Update_collection_inside_complex_type(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    {
+        await SharedTestMethods.TestIgnoringBase(
             base.Update_collection_inside_complex_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -253,12 +256,25 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
             UPDATE `Customer`
             SET `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'
-            """
-        );
+            """);
+
+        AssertSql("""
+                  SELECT `c`.`Id`, `c`.`Name`, `c`.`BillingAddress_AddressLine1`, `c`.`BillingAddress_AddressLine2`, `c`.`BillingAddress_Tags`, `c`.`BillingAddress_ZipCode`, `c`.`BillingAddress_Country_Code`, `c`.`BillingAddress_Country_FullName`, `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
+                  FROM `Customer` AS `c`
+                  """);
+        AssertExecuteUpdateSql("""
+                               UPDATE `Customer`
+                               SET `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'
+                               """);
+    }
 
     public class ComplexTypeBulkUpdatesYdbFixture : ComplexTypeBulkUpdatesRelationalFixtureBase
     {
-        protected override ITestStoreFactory TestStoreFactory
-            => YdbTestStoreFactory.Instance;
+        protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
     }
+
+    private void AssertSql(params string[] expected) => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+    private void AssertExecuteUpdateSql(params string[] expected)
+        => Fixture.TestSqlLoggerFactory.AssertBaseline(expected, forUpdate: true);
 }

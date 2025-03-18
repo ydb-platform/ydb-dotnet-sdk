@@ -4,7 +4,7 @@ using Xunit.Sdk;
 
 namespace EfCore.Ydb.FunctionalTests.TestUtilities;
 
-static class SharedTestMethods
+internal static class SharedTestMethods
 {
     public static async Task TestIgnoringBase(
         Func<Task> baseTest,
@@ -23,7 +23,7 @@ static class SharedTestMethods
         {
             await baseTest(async);
         }
-        catch (EqualException e)
+        catch (EqualException)
         {
             var actual = loggerFactory.SqlStatements;
 

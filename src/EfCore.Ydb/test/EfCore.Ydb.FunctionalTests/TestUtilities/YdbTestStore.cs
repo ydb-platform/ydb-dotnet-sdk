@@ -10,7 +10,7 @@ namespace EfCore.Ydb.FunctionalTests.TestUtilities;
 
 public class YdbTestStore : RelationalTestStore
 {
-    public const int CommandTimeout = 600;
+    private const int CommandTimeout = 600;
     private readonly string? _scriptPath;
     private readonly string? _additionalSql;
 
@@ -92,7 +92,7 @@ public class YdbTestStore : RelationalTestStore
                 {
                     try
                     {
-                        var commandsSplitted = new Regex(
+                        var commandsSplit = new Regex(
                                 "\n",
                                 RegexOptions.IgnoreCase | RegexOptions.Multiline,
                                 TimeSpan.FromMilliseconds(1_000)
@@ -101,7 +101,7 @@ public class YdbTestStore : RelationalTestStore
                             .Where(b => !b.StartsWith("--") && !string.IsNullOrEmpty(b))
                             .ToList();
 
-                        var readyCommand = string.Join("\n", commandsSplitted);
+                        var readyCommand = string.Join("\n", commandsSplit);
 
                         command.CommandTimeout = 100_000;
                         command.CommandText = readyCommand;
