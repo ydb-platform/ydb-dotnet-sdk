@@ -6,11 +6,11 @@ public class YdbBoolTypeMapping : BoolTypeMapping
 {
     public new static YdbBoolTypeMapping Default { get; } = new();
 
-    public YdbBoolTypeMapping() : base("BOOL")
+    private YdbBoolTypeMapping() : base("BOOL")
     {
     }
 
-    protected YdbBoolTypeMapping(RelationalTypeMappingParameters parameters)
+    private YdbBoolTypeMapping(RelationalTypeMappingParameters parameters)
         : base(parameters)
     {
     }

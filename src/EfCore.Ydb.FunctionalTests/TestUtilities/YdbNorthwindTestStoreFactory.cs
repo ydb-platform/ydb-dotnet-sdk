@@ -4,7 +4,7 @@ namespace EfCore.Ydb.FunctionalTests.TestUtilities;
 
 public class YdbNorthwindTestStoreFactory : YdbTestStoreFactory
 {
-    public const string DatabaseName = "Northwind";
+    private const string DatabaseName = "Northwind";
 
     public new static YdbNorthwindTestStoreFactory Instance { get; } = new();
 

@@ -10,7 +10,7 @@ public class YdbDecimalTypeMapping : RelationalTypeMapping
     public YdbDecimalTypeMapping(Type? type) : this(
         new RelationalTypeMappingParameters(
             new CoreTypeMappingParameters(type ?? typeof(decimal)),
-            storeType: "decimal",
+            storeType: "Decimal",
             dbType: System.Data.DbType.Decimal
         )
     )
@@ -28,18 +28,13 @@ public class YdbDecimalTypeMapping : RelationalTypeMapping
         RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase
     )
     {
-        if (storeType == "BigInteger" && parameters.Precision != null)
-        {
-            return $"DECIMAL({parameters.Precision}, 0)";
-        }
-        else
-        {
-            return parameters.Precision is null
+        return storeType == "BigInteger" && parameters.Precision != null
+            ? $"Decimal({parameters.Precision}, 0)"
+            : parameters.Precision is null
                 ? storeType
                 : parameters.Scale is null
-                    ? $"DECIMAL({parameters.Precision}, 0)"
-                    : $"DECIMAL({parameters.Precision},{parameters.Scale})";
-        }
+                    ? $"Decimal({parameters.Precision}, 0)"
+                    : $"Decimal({parameters.Precision}, {parameters.Scale})";
     }
 
     public override MethodInfo GetDataReaderMethod()

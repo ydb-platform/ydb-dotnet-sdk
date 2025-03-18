@@ -8,11 +8,11 @@ public class YdbTestStoreFactory : RelationalTestStoreFactory
 {
     public static YdbTestStoreFactory Instance { get; } = new();
     
-    private string? _scriptPath = null;
-    private string? _additionalSql = null;
-    private string? _connectionStringOptions = null;
+    private readonly string? _scriptPath = null;
+    private readonly string? _additionalSql = null;
+    private readonly string? _connectionStringOptions = null;
     private readonly string? _connectionString;
-    private bool _useConnectionString = false;
+    private readonly bool _useConnectionString = false;
 
     public YdbTestStoreFactory(
         string? connectionString = null,

@@ -8,15 +8,18 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EfCore.Ydb.Storage.Internal;
 
-public class YdbRelationalTransaction : RelationalTransaction
+public class YdbRelationalTransaction(
+    IRelationalConnection connection,
+    DbTransaction transaction,
+    Guid transactionId,
+    IDiagnosticsLogger<DbLoggerCategory.Database.Transaction> logger,
+    bool transactionOwned,
+    ISqlGenerationHelper sqlGenerationHelper
+) : RelationalTransaction(connection, transaction, transactionId, logger, transactionOwned, sqlGenerationHelper)
 {
-    public YdbRelationalTransaction(IRelationalConnection connection, DbTransaction transaction, Guid transactionId, IDiagnosticsLogger<DbLoggerCategory.Database.Transaction> logger, bool transactionOwned, ISqlGenerationHelper sqlGenerationHelper) : base(connection, transaction, transactionId, logger, transactionOwned, sqlGenerationHelper)
-    {
-    }
-
     public override bool SupportsSavepoints
         => false;
-    
+
     public override void CreateSavepoint(string name)
         => throw new NotSupportedException("Savepoints are not supported in YDB");
 

@@ -54,9 +54,7 @@ public class YdbDatabaseCreator : RelationalDatabaseCreator
         return false;
     }
 
-    public override void Create()
-        => throw new NotSupportedException("Ydb does not support database creation");
+    public override void Create() => throw new NotSupportedException("YDB does not support database creation");
 
-    public override void Delete()
-        => throw new NotSupportedException("Ydb does not support database deletion");
+    public override void Delete() => throw new NotSupportedException("YDB does not support database deletion");
 }

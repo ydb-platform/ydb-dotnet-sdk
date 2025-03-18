@@ -8,14 +8,13 @@ public class YdbBytesTypeMapping : RelationalTypeMapping
 {
     public static YdbBytesTypeMapping Default { get; } = new();
 
-    public YdbBytesTypeMapping() : base(
+    private YdbBytesTypeMapping() : base(
         new RelationalTypeMappingParameters(
             new CoreTypeMappingParameters(
                 typeof(byte[]),
                 jsonValueReaderWriter: JsonByteArrayReaderWriter.Instance
             ),
-            storeType: "bytes",
-            storeTypePostfix: StoreTypePostfix.None,
+            storeType: "Bytes",
             dbType: System.Data.DbType.Binary,
             unicode: false
         )

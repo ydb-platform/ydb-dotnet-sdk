@@ -7,12 +7,10 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace EfCore.Ydb.Migrations;
 
-public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
+// ReSharper disable once ClassNeverInstantiated.Global
+public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies dependencies)
+    : MigrationsSqlGenerator(dependencies)
 {
-    public YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies dependencies) : base(dependencies)
-    {
-    }
-
     protected override void Generate(
         CreateTableOperation operation,
         IModel? model,
@@ -43,11 +41,13 @@ public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
 
         // TODO: Support `WITH {}` block
 
-        if (terminate)
+        if (!terminate)
         {
-            builder.Append(";");
-            EndStatement(builder, suppressTransaction: true);
+            return;
         }
+
+        builder.Append(";");
+        EndStatement(builder, suppressTransaction: true);
     }
 
     protected override void ColumnDefinition(
@@ -66,8 +66,8 @@ public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
         {
             columnType = columnType.ToLower() switch
             {
-                "int32" => "SERIAL",
-                "int64" => "BIGSERIAL",
+                "int32" => "Serial",
+                "int64" => "Bigserial",
                 _ => throw new NotSupportedException("Serial column supported only for int32 and int64")
             };
         }
@@ -112,15 +112,17 @@ public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
             throw new NotImplementedException("Rename table with schema is not supported");
         }
 
-        if (operation.NewName is not null && operation.NewName != operation.Name)
+        if (operation.NewName is null || operation.NewName == operation.Name)
         {
-            builder
-                .Append("ALTER TABLE ")
-                .Append(DelimitIdentifier(operation.Name, operation.Schema))
-                .AppendLine("RENAME TO")
-                .Append(DelimitIdentifier(operation.NewName, operation.Schema));
-            EndStatement(builder);
+            return;
         }
+
+        builder
+            .Append("ALTER TABLE ")
+            .Append(DelimitIdentifier(operation.Name, operation.Schema))
+            .AppendLine("RENAME TO")
+            .Append(DelimitIdentifier(operation.NewName, operation.Schema));
+        EndStatement(builder);
     }
 
     protected override void Generate(
@@ -205,7 +207,7 @@ public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
     }
 
     protected override void Generate(
-        AddPrimaryKeyOperation operation, 
+        AddPrimaryKeyOperation operation,
         IModel? model,
         MigrationCommandListBuilder builder,
         bool terminate = true
@@ -214,7 +216,8 @@ public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
         // Ignore bc YDB doesn't support adding keys outside table creation
     }
 
-    protected override void CreateTableForeignKeys(CreateTableOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    protected override void CreateTableForeignKeys(CreateTableOperation operation, IModel? model,
+        MigrationCommandListBuilder builder)
     {
         // Same comment about Foreign keys
     }
@@ -224,17 +227,20 @@ public class YdbMigrationsSqlGenerator : MigrationsSqlGenerator
         // Same comment about Foreign keys
     }
 
-    protected override void ForeignKeyConstraint(AddForeignKeyOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    protected override void ForeignKeyConstraint(AddForeignKeyOperation operation, IModel? model,
+        MigrationCommandListBuilder builder)
     {
         // Same comment about Foreign keys
     }
 
-    protected override void CreateTableUniqueConstraints(CreateTableOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    protected override void CreateTableUniqueConstraints(CreateTableOperation operation, IModel? model,
+        MigrationCommandListBuilder builder)
     {
         // We don't have unique constraints
     }
 
-    protected override void UniqueConstraint(AddUniqueConstraintOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    protected override void UniqueConstraint(AddUniqueConstraintOperation operation, IModel? model,
+        MigrationCommandListBuilder builder)
     {
         // Same comment about Unique constraints
     }

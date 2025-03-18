@@ -6,14 +6,9 @@ using Ydb.Sdk.Ado;
 
 namespace EfCore.Ydb.Storage.Internal;
 
-public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConnection
+public class YdbRelationalConnection(RelationalConnectionDependencies dependencies)
+    : RelationalConnection(dependencies), IYdbRelationalConnection
 {
-    public YdbRelationalConnection(
-        RelationalConnectionDependencies dependencies
-    ) : base(dependencies)
-    {
-    }
-
     public DbDataSource? DataSource { get; private set; }
 
     protected override DbConnection CreateDbConnection()

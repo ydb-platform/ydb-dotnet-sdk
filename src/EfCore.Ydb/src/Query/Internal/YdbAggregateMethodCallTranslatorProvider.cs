@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace EfCore.Ydb.Query.Internal;
 
-public class YdbAggregateMethodCallTranslatorProvider
+public sealed class YdbAggregateMethodCallTranslatorProvider
     : RelationalAggregateMethodCallTranslatorProvider
 {
     public YdbAggregateMethodCallTranslatorProvider(
@@ -13,8 +13,12 @@ public class YdbAggregateMethodCallTranslatorProvider
         var sqlExpressionFactory = (YdbSqlExpressionFactory)dependencies.SqlExpressionFactory;
 
         AddTranslators(
-        [
-            new YdbQueryableAggregateMethodTranslator(sqlExpressionFactory, dependencies.RelationalTypeMappingSource)
-        ]);
+            [
+                new YdbQueryableAggregateMethodTranslator(
+                    sqlExpressionFactory,
+                    dependencies.RelationalTypeMappingSource
+                )
+            ]
+        );
     }
 }

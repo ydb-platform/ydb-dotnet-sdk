@@ -5,12 +5,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace EfCore.Ydb.Metadata.Internal;
 
-public class YdbAnnotationProvider : RelationalAnnotationProvider
+public class YdbAnnotationProvider(RelationalAnnotationProviderDependencies dependencies)
+    : RelationalAnnotationProvider(dependencies)
 {
-    public YdbAnnotationProvider(RelationalAnnotationProviderDependencies dependencies) : base(dependencies)
-    {
-    }
-
     public override IEnumerable<IAnnotation> For(IColumn column, bool designTime)
     {
         if (!designTime)

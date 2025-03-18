@@ -11,12 +11,9 @@ using Ydb.Sdk.Ado;
 
 namespace EfCore.Ydb.Migrations.Internal;
 
-public class YdbHistoryRepository : HistoryRepository
+// ReSharper disable once ClassNeverInstantiated.Global
+public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : HistoryRepository(dependencies)
 {
-    public YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : base(dependencies)
-    {
-    }
-
     protected override bool InterpretExistsResult(object? value)
         => throw new InvalidOperationException("Shouldn't be called");
 
@@ -108,10 +105,10 @@ public class YdbHistoryRepository : HistoryRepository
                 command.CommandText =
                     """
                     CREATE TABLE IF NOT EXISTS shedlock (
-                        name STRING NOT NULL,
-                        locked_at TIMESTAMP NOT NULL,
-                        lock_until TIMESTAMP NOT NULL,
-                        locked_by STRING NOT NULL,
+                        name Text NOT NULL,
+                        locked_at Timestamp NOT NULL,
+                        lock_until Timestamp NOT NULL,
+                        locked_by Text NOT NULL,
                         PRIMARY KEY(name)
                     );
                     """;
@@ -165,12 +162,13 @@ public class YdbHistoryRepository : HistoryRepository
                  """;
             command.Parameters.Add(new YdbParameter("name", DbType.String, name));
             command.Parameters.Add(new YdbParameter("locked_by", DbType.String, _pid));
+            
             try
             {
-                await command.ExecuteNonQueryAsync(default);
+                await command.ExecuteNonQueryAsync();
                 return true;
             }
-            catch (YdbException _)
+            catch (YdbException)
             {
                 return false;
             }
@@ -184,7 +182,11 @@ public class YdbHistoryRepository : HistoryRepository
 
         private async Task DisposeInternalAsync()
         {
-            if (_watchDogToken != null) await _watchDogToken.CancelAsync();
+            if (_watchDogToken != null)
+            {
+                await _watchDogToken.CancelAsync();
+            }
+            
             _watchDogToken = null;
             await using var connection = Connection.DbConnection.CreateCommand();
             connection.CommandText = "DELETE FROM shedlock WHERE name = '{_name}' AND locked_by = '{PID}';";

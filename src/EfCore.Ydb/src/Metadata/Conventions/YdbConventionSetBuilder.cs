@@ -3,16 +3,12 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 
 namespace EfCore.Ydb.Metadata.Conventions;
 
-public class YdbConventionSetBuilder
-    : RelationalConventionSetBuilder
+// ReSharper disable once ClassNeverInstantiated.Global
+public class YdbConventionSetBuilder(
+    ProviderConventionSetBuilderDependencies dependencies,
+    RelationalConventionSetBuilderDependencies relationalDependencies
+) : RelationalConventionSetBuilder(dependencies, relationalDependencies)
 {
-    public YdbConventionSetBuilder(
-        ProviderConventionSetBuilderDependencies dependencies,
-        RelationalConventionSetBuilderDependencies relationalDependencies
-    ) : base(dependencies, relationalDependencies)
-    {
-    }
-
     public override ConventionSet CreateConventionSet()
     {
         var coreConventions = base.CreateConventionSet();

@@ -37,8 +37,6 @@ class TemporaryStubModificationCommandBatch : ReaderModificationCommandBatch
         CancellationToken cancellationToken = default
     )
     {
-        var ydbReader = (YdbDataReader)reader.DbDataReader;
-
         // In ideal world we want to read result of commands,
         // but right now all modification commands return nothing
         var commandIndex = 0;
@@ -96,7 +94,8 @@ class TemporaryStubModificationCommandBatch : ReaderModificationCommandBatch
                 throw new InvalidOperationException(
                     RelationalStrings.ModificationCommandInvalidEntityState(
                         modificationCommand.Entries[0].EntityType,
-                        modificationCommand.EntityState));
+                        modificationCommand.EntityState)
+                    );
         }
 
         ResultSetMappings.Add(ResultSetMapping.NoResults);

@@ -23,7 +23,7 @@ public class YdbJsonTypeMapping : JsonTypeMapping
     private static readonly MethodInfo GetStringMethod
         = typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetString), [typeof(int)])!;
 
-    private static readonly PropertyInfo UTF8Property
+    private static readonly PropertyInfo Utf8Property
         = typeof(Encoding).GetProperty(nameof(Encoding.UTF8))!;
 
     private static readonly MethodInfo EncodingGetBytesMethod
@@ -42,8 +42,8 @@ public class YdbJsonTypeMapping : JsonTypeMapping
     {
         switch (value)
         {
-            case JsonDocument _:
-            case JsonElement _:
+            case JsonDocument:
+            case JsonElement:
             {
                 using var stream = new MemoryStream();
                 using var writer = new Utf8JsonWriter(stream);
@@ -66,11 +66,11 @@ public class YdbJsonTypeMapping : JsonTypeMapping
         }
     }
 
-    public override Expression CustomizeDataReaderExpression(Expression expression)
-        => Expression.New(
-            MemoryStreamConstructor,
-            Expression.Call(
-                Expression.Property(null, UTF8Property),
-                EncodingGetBytesMethod,
-                expression));
+    public override Expression CustomizeDataReaderExpression(Expression expression) => Expression.New(
+        MemoryStreamConstructor,
+        Expression.Call(
+            Expression.Property(null, Utf8Property),
+            EncodingGetBytesMethod,
+            expression)
+    );
 }

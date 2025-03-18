@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EfCore.Ydb.Diagnostics.Internal;
 
-// TODO: Temporary for debugging
+// Temporary for debugging
 public class YdbCommandInterceptor : DbCommandInterceptor
 {
     public override InterceptionResult<DbDataReader> ReaderExecuting(

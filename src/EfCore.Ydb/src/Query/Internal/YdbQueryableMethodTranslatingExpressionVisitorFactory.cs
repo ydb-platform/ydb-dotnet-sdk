@@ -2,20 +2,15 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace EfCore.Ydb.Query.Internal;
 
-public class YdbQueryableMethodTranslatingExpressionVisitorFactory
-    : IQueryableMethodTranslatingExpressionVisitorFactory
+public class YdbQueryableMethodTranslatingExpressionVisitorFactory(
+    QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
+    RelationalQueryableMethodTranslatingExpressionVisitorDependencies relationalDependencies
+) : IQueryableMethodTranslatingExpressionVisitorFactory
 {
-    public YdbQueryableMethodTranslatingExpressionVisitorFactory(
-        QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
-        RelationalQueryableMethodTranslatingExpressionVisitorDependencies relationalDependencies
-    )
-    {
-        Dependencies = dependencies;
-        RelationalDependencies = relationalDependencies;
-    }
+    protected virtual QueryableMethodTranslatingExpressionVisitorDependencies Dependencies { get; } = dependencies;
 
-    protected virtual QueryableMethodTranslatingExpressionVisitorDependencies Dependencies { get; }
-    protected virtual RelationalQueryableMethodTranslatingExpressionVisitorDependencies RelationalDependencies { get; }
+    protected virtual RelationalQueryableMethodTranslatingExpressionVisitorDependencies
+        RelationalDependencies { get; } = relationalDependencies;
 
     public virtual QueryableMethodTranslatingExpressionVisitor Create(QueryCompilationContext queryCompilationContext)
         => new YdbQueryableMethodTranslatingExpressionVisitor(

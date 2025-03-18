@@ -6,12 +6,10 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EfCore.Ydb.Storage.Internal;
 
-public class YdbRelationalTransactionFactory : IRelationalTransactionFactory
+public class YdbRelationalTransactionFactory(RelationalTransactionFactoryDependencies dependencies)
+    : IRelationalTransactionFactory
 {
-    public YdbRelationalTransactionFactory(RelationalTransactionFactoryDependencies dependencies)
-        => Dependencies = dependencies;
-
-    protected virtual RelationalTransactionFactoryDependencies Dependencies { get; }
+    protected virtual RelationalTransactionFactoryDependencies Dependencies { get; } = dependencies;
 
     public RelationalTransaction Create(
         IRelationalConnection connection,

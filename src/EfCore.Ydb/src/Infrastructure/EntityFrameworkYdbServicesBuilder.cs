@@ -5,17 +5,14 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EfCore.Ydb.Infrastructure;
 
-public class EntityFrameworkYdbServicesBuilder : EntityFrameworkRelationalServicesBuilder
+public class EntityFrameworkYdbServicesBuilder(IServiceCollection serviceCollection)
+    : EntityFrameworkRelationalServicesBuilder(serviceCollection)
 {
     private static readonly IDictionary<Type, ServiceCharacteristics> YdbServices
         = new Dictionary<Type, ServiceCharacteristics>
         {
             // TODO: Add items if required
         };
-
-    public EntityFrameworkYdbServicesBuilder(IServiceCollection serviceCollection) : base(serviceCollection)
-    {
-    }
 
     protected override ServiceCharacteristics GetServiceCharacteristics(Type serviceType)
     {

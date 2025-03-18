@@ -10,20 +10,11 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EfCore.Ydb.Query.Internal.Translators;
 
-public class YdbQueryableAggregateMethodTranslator : IAggregateMethodCallTranslator
+public class YdbQueryableAggregateMethodTranslator(
+    YdbSqlExpressionFactory sqlExpressionFactory,
+    IRelationalTypeMappingSource typeMappingSource)
+    : IAggregateMethodCallTranslator
 {
-    private readonly YdbSqlExpressionFactory _sqlExpressionFactory;
-    private readonly IRelationalTypeMappingSource _typeMappingSource;
-
-    public YdbQueryableAggregateMethodTranslator(
-        YdbSqlExpressionFactory sqlExpressionFactory,
-        IRelationalTypeMappingSource typeMappingSource
-    )
-    {
-        _sqlExpressionFactory = sqlExpressionFactory;
-        _typeMappingSource = typeMappingSource;
-    }
-
     public SqlExpression? Translate(
         MethodInfo method,
         EnumerableExpression source,
@@ -46,13 +37,13 @@ public class YdbQueryableAggregateMethodTranslator : IAggregateMethodCallTransla
                 if (averageInputType == typeof(int)
                     || averageInputType == typeof(long))
                 {
-                    averageSqlExpression = _sqlExpressionFactory.ApplyDefaultTypeMapping(
-                        _sqlExpressionFactory.Convert(averageSqlExpression, typeof(double)));
+                    averageSqlExpression = sqlExpressionFactory.ApplyDefaultTypeMapping(
+                        sqlExpressionFactory.Convert(averageSqlExpression, typeof(double)));
                 }
 
                 return averageInputType == typeof(float)
-                    ? _sqlExpressionFactory.Convert(
-                        _sqlExpressionFactory.Function(
+                    ? sqlExpressionFactory.Convert(
+                        sqlExpressionFactory.Function(
                             "AVG",
                             [averageSqlExpression],
                             nullable: true,
@@ -60,7 +51,7 @@ public class YdbQueryableAggregateMethodTranslator : IAggregateMethodCallTransla
                             returnType: typeof(double)),
                         averageSqlExpression.Type,
                         averageSqlExpression.TypeMapping)
-                    : _sqlExpressionFactory.Function(
+                    : sqlExpressionFactory.Function(
                         "AVG",
                         [averageSqlExpression],
                         nullable: true,
@@ -71,22 +62,22 @@ public class YdbQueryableAggregateMethodTranslator : IAggregateMethodCallTransla
             case nameof(Queryable.Count)
                 when methodInfo == QueryableMethods.CountWithoutPredicate
                      || methodInfo == QueryableMethods.CountWithPredicate:
-                var countSqlExpression = (source.Selector as SqlExpression) ?? _sqlExpressionFactory.Fragment("*");
-                return _sqlExpressionFactory.Convert(
-                    _sqlExpressionFactory.Function(
+                var countSqlExpression = (source.Selector as SqlExpression) ?? sqlExpressionFactory.Fragment("*");
+                return sqlExpressionFactory.Convert(
+                    sqlExpressionFactory.Function(
                         "COUNT",
                         [countSqlExpression],
                         nullable: false,
                         argumentsPropagateNullability: ArrayUtil.FalseArrays[1],
                         typeof(long)),
                     typeof(int),
-                    _typeMappingSource.FindMapping(typeof(int)));
+                    typeMappingSource.FindMapping(typeof(int)));
 
             case nameof(Queryable.LongCount)
                 when methodInfo == QueryableMethods.LongCountWithoutPredicate
                      || methodInfo == QueryableMethods.LongCountWithPredicate:
-                var longCountSqlExpression = (source.Selector as SqlExpression) ?? _sqlExpressionFactory.Fragment("*");
-                return _sqlExpressionFactory.Function(
+                var longCountSqlExpression = (source.Selector as SqlExpression) ?? sqlExpressionFactory.Fragment("*");
+                return sqlExpressionFactory.Function(
                     "COUNT",
                     [longCountSqlExpression],
                     nullable: false,
@@ -97,7 +88,7 @@ public class YdbQueryableAggregateMethodTranslator : IAggregateMethodCallTransla
                 when (methodInfo == QueryableMethods.MaxWithoutSelector
                       || methodInfo == QueryableMethods.MaxWithSelector)
                      && source.Selector is SqlExpression maxSqlExpression:
-                return _sqlExpressionFactory.Function(
+                return sqlExpressionFactory.Function(
                     "MAX",
                     [maxSqlExpression],
                     nullable: true,
@@ -109,7 +100,7 @@ public class YdbQueryableAggregateMethodTranslator : IAggregateMethodCallTransla
                 when (methodInfo == QueryableMethods.MinWithoutSelector
                       || methodInfo == QueryableMethods.MinWithSelector)
                      && source.Selector is SqlExpression minSqlExpression:
-                return _sqlExpressionFactory.Function(
+                return sqlExpressionFactory.Function(
                     "MIN",
                     [minSqlExpression],
                     nullable: true,
@@ -125,8 +116,8 @@ public class YdbQueryableAggregateMethodTranslator : IAggregateMethodCallTransla
 
                 if (sumInputType == typeof(int))
                 {
-                    return _sqlExpressionFactory.Convert(
-                        _sqlExpressionFactory.Function(
+                    return sqlExpressionFactory.Convert(
+                        sqlExpressionFactory.Function(
                             "SUM",
                             [sumSqlExpression],
                             nullable: true,
@@ -138,8 +129,8 @@ public class YdbQueryableAggregateMethodTranslator : IAggregateMethodCallTransla
 
                 if (sumInputType == typeof(long))
                 {
-                    return _sqlExpressionFactory.Convert(
-                        _sqlExpressionFactory.Function(
+                    return sqlExpressionFactory.Convert(
+                        sqlExpressionFactory.Function(
                             "SUM",
                             [sumSqlExpression],
                             nullable: true,
@@ -149,7 +140,7 @@ public class YdbQueryableAggregateMethodTranslator : IAggregateMethodCallTransla
                         sumSqlExpression.TypeMapping);
                 }
 
-                return _sqlExpressionFactory.Function(
+                return sqlExpressionFactory.Function(
                     "SUM",
                     [sumSqlExpression],
                     nullable: true,

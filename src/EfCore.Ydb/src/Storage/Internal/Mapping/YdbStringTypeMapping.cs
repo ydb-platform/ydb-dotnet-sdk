@@ -9,14 +9,14 @@ public class YdbStringTypeMapping : RelationalTypeMapping
 {
     public static YdbStringTypeMapping Default { get; } = new();
 
-    public YdbStringTypeMapping() : base(
+    private YdbStringTypeMapping() : base(
         new RelationalTypeMappingParameters(
             new CoreTypeMappingParameters(
                 typeof(byte[]),
                 new StringToBytesConverter(Encoding.UTF8),
                 jsonValueReaderWriter: JsonByteArrayReaderWriter.Instance
             ),
-            storeType: "string",
+            storeType: "String",
             storeTypePostfix: StoreTypePostfix.None,
             dbType: System.Data.DbType.Binary,
             unicode: false

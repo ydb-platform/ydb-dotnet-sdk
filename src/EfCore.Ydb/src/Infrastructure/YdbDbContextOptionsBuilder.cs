@@ -4,10 +4,5 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EfCore.Ydb.Infrastructure;
 
-public class YdbDbContextOptionsBuilder
-    : RelationalDbContextOptionsBuilder<YdbDbContextOptionsBuilder, YdbOptionsExtension>
-{
-    public YdbDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilder) : base(optionsBuilder)
-    {
-    }
-}
+public class YdbDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilder)
+    : RelationalDbContextOptionsBuilder<YdbDbContextOptionsBuilder, YdbOptionsExtension>(optionsBuilder);

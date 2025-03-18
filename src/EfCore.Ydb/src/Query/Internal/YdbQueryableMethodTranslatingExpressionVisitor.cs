@@ -7,7 +7,7 @@ public class YdbQueryableMethodTranslatingExpressionVisitor
     : RelationalQueryableMethodTranslatingExpressionVisitor
 {
     private readonly RelationalQueryCompilationContext _queryCompilationContext;
-    private readonly YdbTypeMappingSource _typeMappingSource;
+    private readonly YdbTypeMappingSource? _typeMappingSource;
     private readonly YdbSqlExpressionFactory _sqlExpressionFactory;
 
 

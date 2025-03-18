@@ -7,13 +7,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 
 namespace EfCore.Ydb.Metadata.Conventions;
 
-public class YdbStringAttributeConvention
-    : PropertyAttributeConventionBase<YdbStringAttribute>
+public class YdbStringAttributeConvention(ProviderConventionSetBuilderDependencies dependencies)
+    : PropertyAttributeConventionBase<YdbStringAttribute>(dependencies)
 {
-    public YdbStringAttributeConvention(ProviderConventionSetBuilderDependencies dependencies) : base(dependencies)
-    {
-    }
-
     protected override void ProcessPropertyAdded(
         IConventionPropertyBuilder propertyBuilder,
         YdbStringAttribute attribute,

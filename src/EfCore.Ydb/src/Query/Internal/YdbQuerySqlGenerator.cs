@@ -27,7 +27,7 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
     [return: NotNullIfNotNull("node")]
     public override Expression? Visit(Expression? node)
     {
-        return base.Visit(node);
+        return node != null ? base.Visit(node) : null;
     }
 
     protected override Expression VisitColumn(ColumnExpression columnExpression)
