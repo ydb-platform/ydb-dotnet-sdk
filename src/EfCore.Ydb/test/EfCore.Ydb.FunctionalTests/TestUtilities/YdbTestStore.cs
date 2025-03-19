@@ -60,9 +60,9 @@ public class YdbTestStore(
         }
     }
 
-    public async Task ExecuteScript(string scriptPath)
+    public async Task ExecuteScript(string scriptPathParam)
     {
-        var script = await File.ReadAllTextAsync(scriptPath);
+        var script = await File.ReadAllTextAsync(scriptPathParam);
         await ExecuteAsync(
             Connection, command =>
             {
