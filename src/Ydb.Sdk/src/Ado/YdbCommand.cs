@@ -158,20 +158,13 @@ public sealed class YdbCommand : DbCommand
 
     public override bool DesignTimeVisible { get; set; }
 
-    protected override YdbParameter CreateDbParameter()
-    {
-        return new YdbParameter();
-    }
+    protected override YdbParameter CreateDbParameter() => new();
 
-    public new YdbDataReader ExecuteReader(CommandBehavior behavior = CommandBehavior.Default)
-    {
-        return ExecuteDbDataReader(behavior);
-    }
+    public new YdbDataReader ExecuteReader(CommandBehavior behavior = CommandBehavior.Default) =>
+        ExecuteDbDataReader(behavior);
 
-    protected override YdbDataReader ExecuteDbDataReader(CommandBehavior behavior)
-    {
-        return ExecuteReaderAsync(behavior).GetAwaiter().GetResult();
-    }
+    protected override YdbDataReader ExecuteDbDataReader(CommandBehavior behavior) =>
+        ExecuteReaderAsync(behavior).GetAwaiter().GetResult();
 
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
@@ -230,26 +223,18 @@ public sealed class YdbCommand : DbCommand
         return ydbDataReader;
     }
 
-    public new async Task<YdbDataReader> ExecuteReaderAsync()
-    {
-        return (YdbDataReader)await ExecuteDbDataReaderAsync(CommandBehavior.Default, CancellationToken.None);
-    }
+    public new async Task<YdbDataReader> ExecuteReaderAsync() =>
+        (YdbDataReader)await ExecuteDbDataReaderAsync(CommandBehavior.Default, CancellationToken.None);
 
-    public new Task<YdbDataReader> ExecuteReaderAsync(CancellationToken cancellationToken)
-    {
-        return ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);
-    }
+    public new Task<YdbDataReader> ExecuteReaderAsync(CancellationToken cancellationToken) =>
+        ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);
 
     // ReSharper disable once MemberCanBePrivate.Global
-    public new Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior)
-    {
-        return ExecuteReaderAsync(behavior, CancellationToken.None);
-    }
+    public new Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior) =>
+        ExecuteReaderAsync(behavior, CancellationToken.None);
 
     // ReSharper disable once MemberCanBePrivate.Global
     public new async Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior,
-        CancellationToken cancellationToken)
-    {
-        return (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken);
-    }
+        CancellationToken cancellationToken) =>
+        (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken);
 }

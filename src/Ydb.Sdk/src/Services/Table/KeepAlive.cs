@@ -31,12 +31,10 @@ public class KeepAliveResponse : ResponseWithResultBase<KeepAliveResponse.Result
 
         public SessionStatus SessionStatus { get; }
 
-        internal static ResultData FromProto(KeepAliveResult resultProto)
-        {
-            return new ResultData(
+        internal static ResultData FromProto(KeepAliveResult resultProto) =>
+            new(
                 sessionStatus: SessionStatusFromProto(resultProto.SessionStatus)
             );
-        }
     }
 
     private static SessionStatus SessionStatusFromProto(KeepAliveResult.Types.SessionStatus proto)

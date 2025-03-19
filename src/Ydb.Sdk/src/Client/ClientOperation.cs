@@ -82,10 +82,7 @@ public class ClientOperation : IClientOperation
         return _result.Unpack<TResult>();
     }
 
-    internal static ClientOperation FromProto(Operations.Operation operationProto)
-    {
-        return new ClientOperation(operationProto);
-    }
+    internal static ClientOperation FromProto(Operations.Operation operationProto) => new(operationProto);
 }
 
 public class OperationException : Exception

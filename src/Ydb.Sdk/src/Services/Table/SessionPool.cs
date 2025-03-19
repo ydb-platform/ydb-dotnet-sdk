@@ -54,14 +54,12 @@ internal sealed class SessionPool : SessionPoolBase<Session>
         return new GetSessionResponse(createSessionResponse.Status);
     }
 
-    private protected override Session CopySession(Session other)
-    {
-        return new Session(
-            driver: Driver,
-            sessionPool: this,
-            id: other.Id,
-            nodeId: other.NodeId);
-    }
+    private protected override Session CopySession(Session other) => new(
+        driver: Driver,
+        sessionPool: this,
+        id: other.Id,
+        nodeId: other.NodeId
+    );
 
     private async Task PeriodicCheck()
     {
@@ -143,11 +141,9 @@ internal sealed class SessionPool : SessionPoolBase<Session>
         }
     }
 
-    private protected override async Task DeleteSession(string id)
-    {
+    private protected override async Task DeleteSession(string id) =>
         await _tableClient.DeleteSession(id, new DeleteSessionSettings
         {
             TransportTimeout = SessionBase.DeleteSessionTimeout
         });
-    }
 }

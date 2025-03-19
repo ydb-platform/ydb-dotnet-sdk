@@ -36,10 +36,7 @@ public class StaticCredentialsProvider : ICredentialsProvider
         _logger = loggerFactory.CreateLogger<StaticCredentialsProvider>();
     }
 
-    private async Task UpdateToken()
-    {
-        _token = await ReceiveToken();
-    }
+    private async Task UpdateToken() => _token = await ReceiveToken();
 
     public string GetAuthInfo()
     {

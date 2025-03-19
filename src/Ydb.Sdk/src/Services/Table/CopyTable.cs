@@ -18,15 +18,13 @@ public class CopyTableItem
         OmitIndexes = omitIndexes;
     }
 
-    public Ydb.Table.CopyTableItem GetProto(TableClient tableClient)
-    {
-        return new Ydb.Table.CopyTableItem
+    public Ydb.Table.CopyTableItem GetProto(TableClient tableClient) =>
+        new()
         {
             SourcePath = tableClient.MakeTablePath(SourcePath),
             DestinationPath = tableClient.MakeTablePath(DestinationPath),
             OmitIndexes = OmitIndexes
         };
-    }
 }
 
 public class CopyTableSettings : OperationSettings

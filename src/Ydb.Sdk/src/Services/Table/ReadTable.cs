@@ -30,10 +30,7 @@ public class ReadTablePart : ResponseWithResultBase<ReadTablePart.ResultData>
 
         public Value.ResultSet ResultSet { get; }
 
-        internal static ResultData FromProto(ReadTableResult resultProto)
-        {
-            return new ResultData(resultProto.ResultSet.FromProto());
-        }
+        internal static ResultData FromProto(ReadTableResult resultProto) => new(resultProto.ResultSet.FromProto());
     }
 }
 
@@ -44,10 +41,7 @@ public class ReadTableStream : StreamResponse<ReadTableResponse, ReadTablePart>
     {
     }
 
-    protected override ReadTablePart MakeResponse(Status status)
-    {
-        return new ReadTablePart(status);
-    }
+    protected override ReadTablePart MakeResponse(Status status) => new(status);
 
     protected override ReadTablePart MakeResponse(ReadTableResponse protoResponse)
     {

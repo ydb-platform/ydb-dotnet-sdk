@@ -22,10 +22,7 @@ public class StaticAuthTests : IDisposable
         _logger = _loggerFactory.CreateLogger<StaticAuthTests>();
     }
 
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => GC.SuppressFinalize(this);
 
     private async Task CreateUser(TableClient tableClient, string user, string? password)
     {
