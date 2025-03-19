@@ -35,5 +35,5 @@ public class YdbDecimalTypeMapping : RelationalTypeMapping
                 : $"Decimal({parameters.Precision}, {parameters.Scale})";
 
     public override MethodInfo GetDataReaderMethod() =>
-        typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetDecimal), [typeof(int)])!;
+        typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetDecimal), [typeof(int)]) ?? throw new Exception();
 }

@@ -21,7 +21,7 @@ public class YdbJsonTypeMapping : JsonTypeMapping
     }
 
     private static readonly MethodInfo GetStringMethod
-        = typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetString), [typeof(int)])!;
+        = typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetString), [typeof(int)]) ?? throw new Exception();
 
     private static readonly PropertyInfo? Utf8Property
         = typeof(Encoding).GetProperty(nameof(Encoding.UTF8));

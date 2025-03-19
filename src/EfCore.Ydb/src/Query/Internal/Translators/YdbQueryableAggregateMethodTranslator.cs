@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EfCore.Ydb.Query.Internal.Translators;
 
+#pragma warning disable CS0162
 public class YdbQueryableAggregateMethodTranslator(
     YdbSqlExpressionFactory sqlExpressionFactory,
     IRelationalTypeMappingSource typeMappingSource)

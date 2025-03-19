@@ -116,6 +116,7 @@ public class YdbTestStore(
         DbConnection connection,
         Func<DbCommand, Task<T>> execute,
         string sql,
+        // ReSharper disable once UnusedParameter.Local
         bool useTransaction,
         object[]? parameters
     )
