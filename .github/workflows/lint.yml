@@ -48,6 +48,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup .NET
+        id: setup-dotnet
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
@@ -62,6 +63,7 @@ jobs:
             **.cs
             **.cshtml
           minimumReportSeverity: WARNING
+          dotnetVersion: ${{ steps.setup-dotnet.outputs.dotnet-version }}
           ignoreIssueType: | 
             UnusedField.Compiler,
             UnusedVariable.Compiler,
