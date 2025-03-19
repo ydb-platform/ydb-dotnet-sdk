@@ -176,116 +176,50 @@ public partial class YdbValue
         return new decimal((int)low64, (int)(low64 >> 32), (int)high64, isNegative, (byte)scale);
     }
 
-    public bool? GetOptionalBool()
-    {
-        return GetOptional()?.GetBool();
-    }
+    public bool? GetOptionalBool() => GetOptional()?.GetBool();
 
 
-    public sbyte? GetOptionalInt8()
-    {
-        return GetOptional()?.GetInt8();
-    }
+    public sbyte? GetOptionalInt8() => GetOptional()?.GetInt8();
 
-    public byte? GetOptionalUint8()
-    {
-        return GetOptional()?.GetUint8();
-    }
+    public byte? GetOptionalUint8() => GetOptional()?.GetUint8();
 
-    public short? GetOptionalInt16()
-    {
-        return GetOptional()?.GetInt16();
-    }
+    public short? GetOptionalInt16() => GetOptional()?.GetInt16();
 
-    public ushort? GetOptionalUint16()
-    {
-        return GetOptional()?.GetUint16();
-    }
+    public ushort? GetOptionalUint16() => GetOptional()?.GetUint16();
 
-    public int? GetOptionalInt32()
-    {
-        return GetOptional()?.GetInt32();
-    }
+    public int? GetOptionalInt32() => GetOptional()?.GetInt32();
 
-    public uint? GetOptionalUint32()
-    {
-        return GetOptional()?.GetUint32();
-    }
+    public uint? GetOptionalUint32() => GetOptional()?.GetUint32();
 
-    public long? GetOptionalInt64()
-    {
-        return GetOptional()?.GetInt64();
-    }
+    public long? GetOptionalInt64() => GetOptional()?.GetInt64();
 
-    public ulong? GetOptionalUint64()
-    {
-        return GetOptional()?.GetUint64();
-    }
+    public ulong? GetOptionalUint64() => GetOptional()?.GetUint64();
 
-    public float? GetOptionalFloat()
-    {
-        return GetOptional()?.GetFloat();
-    }
+    public float? GetOptionalFloat() => GetOptional()?.GetFloat();
 
-    public double? GetOptionalDouble()
-    {
-        return GetOptional()?.GetDouble();
-    }
+    public double? GetOptionalDouble() => GetOptional()?.GetDouble();
 
-    public DateTime? GetOptionalDate()
-    {
-        return GetOptional()?.GetDate();
-    }
+    public DateTime? GetOptionalDate() => GetOptional()?.GetDate();
 
-    public DateTime? GetOptionalDatetime()
-    {
-        return GetOptional()?.GetDatetime();
-    }
+    public DateTime? GetOptionalDatetime() => GetOptional()?.GetDatetime();
 
-    public DateTime? GetOptionalTimestamp()
-    {
-        return GetOptional()?.GetTimestamp();
-    }
+    public DateTime? GetOptionalTimestamp() => GetOptional()?.GetTimestamp();
 
-    public TimeSpan? GetOptionalInterval()
-    {
-        return GetOptional()?.GetInterval();
-    }
+    public TimeSpan? GetOptionalInterval() => GetOptional()?.GetInterval();
 
-    public byte[]? GetOptionalString()
-    {
-        return GetOptional()?.GetString();
-    }
+    public byte[]? GetOptionalString() => GetOptional()?.GetString();
 
-    public string? GetOptionalUtf8()
-    {
-        return GetOptional()?.GetUtf8();
-    }
+    public string? GetOptionalUtf8() => GetOptional()?.GetUtf8();
 
-    public byte[]? GetOptionalYson()
-    {
-        return GetOptional()?.GetYson();
-    }
+    public byte[]? GetOptionalYson() => GetOptional()?.GetYson();
 
-    public string? GetOptionalJson()
-    {
-        return GetOptional()?.GetJson();
-    }
+    public string? GetOptionalJson() => GetOptional()?.GetJson();
 
-    public string? GetOptionalJsonDocument()
-    {
-        return GetOptional()?.GetJsonDocument();
-    }
+    public string? GetOptionalJsonDocument() => GetOptional()?.GetJsonDocument();
 
-    public Guid? GetOptionalUuid()
-    {
-        return GetOptional()?.GetUuid();
-    }
+    public Guid? GetOptionalUuid() => GetOptional()?.GetUuid();
 
-    public decimal? GetOptionalDecimal()
-    {
-        return GetOptional()?.GetDecimal();
-    }
+    public decimal? GetOptionalDecimal() => GetOptional()?.GetDecimal();
 
     public YdbValue? GetOptional()
     {

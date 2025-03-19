@@ -6,30 +6,15 @@ public class YdbProviderFactory : DbProviderFactory
 {
     public static readonly YdbProviderFactory Instance = new();
 
-    public override YdbCommand CreateCommand()
-    {
-        return new YdbCommand();
-    }
+    public override YdbCommand CreateCommand() => new();
 
-    public override YdbConnection CreateConnection()
-    {
-        return new YdbConnection();
-    }
+    public override YdbConnection CreateConnection() => new();
 
-    public override YdbConnectionStringBuilder CreateConnectionStringBuilder()
-    {
-        return new YdbConnectionStringBuilder();
-    }
+    public override YdbConnectionStringBuilder CreateConnectionStringBuilder() => new();
 
-    public override DbParameter CreateParameter()
-    {
-        return new YdbParameter();
-    }
+    public override DbParameter CreateParameter() => new YdbParameter();
 
 #if NET7_0_OR_GREATER
-    public override YdbDataSource CreateDataSource(string connectionString)
-    {
-        return new YdbDataSource();
-    }
+    public override YdbDataSource CreateDataSource(string connectionString) => new();
 #endif
 }

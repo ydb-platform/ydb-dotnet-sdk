@@ -61,28 +61,18 @@ public sealed partial class YdbValue
 
     public YdbTypeId TypeId => GetYdbTypeId(_protoType);
 
-    public TypedValue GetProto()
+    public TypedValue GetProto() => new()
     {
-        return new TypedValue
-        {
-            Type = _protoType,
-            Value = _protoValue
-        };
-    }
+        Type = _protoType,
+        Value = _protoValue
+    };
 
-    public override string ToString()
-    {
-        return _protoValue.ToString() ?? "";
-    }
+    public override string ToString() => _protoValue.ToString() ?? "";
 
-    internal string ToYql()
-    {
-        return ToYql(_protoType);
-    }
+    internal string ToYql() => ToYql(_protoType);
 
-    private static string ToYql(Type type)
-    {
-        return type.TypeCase switch
+    private static string ToYql(Type type) =>
+        type.TypeCase switch
         {
             Type.TypeOneofCase.TypeId => type.TypeId.ToString(),
             Type.TypeOneofCase.DecimalType => "Decimal(22, 9)",
@@ -91,11 +81,9 @@ public sealed partial class YdbValue
             Type.TypeOneofCase.VoidType => "Void",
             _ => "Unknown"
         };
-    }
 
-    internal static YdbTypeId GetYdbTypeId(Type protoType)
-    {
-        return protoType.TypeCase switch
+    internal static YdbTypeId GetYdbTypeId(Type protoType) =>
+        protoType.TypeCase switch
         {
             Type.TypeOneofCase.TypeId => Enum.IsDefined(typeof(YdbTypeId), (uint)protoType.TypeId)
                 ? (YdbTypeId)protoType.TypeId
@@ -111,5 +99,4 @@ public sealed partial class YdbValue
             Type.TypeOneofCase.NullType => YdbTypeId.Null,
             _ => YdbTypeId.Unknown
         };
-    }
 }

@@ -6,15 +6,11 @@ namespace Ydb.Sdk.Tests.Ado.Specification;
 
 public class YdbSelectValueFixture : YdbFactoryFixture, ISelectValueFixture, IDeleteFixture
 {
-    public string CreateSelectSql(DbType dbType, ValueKind kind)
-    {
-        return $"SELECT `{dbType}` FROM `select_value_{Utils.Net}` WHERE Id = {(int)kind}";
-    }
+    public string CreateSelectSql(DbType dbType, ValueKind kind) =>
+        $"SELECT `{dbType}` FROM `select_value_{Utils.Net}` WHERE Id = {(int)kind}";
 
-    public string CreateSelectSql(byte[] value)
-    {
-        return $"SELECT String::HexDecode('{BitConverter.ToString(value).Replace("-", string.Empty)}');";
-    }
+    public string CreateSelectSql(byte[] value) =>
+        $"SELECT String::HexDecode('{BitConverter.ToString(value).Replace("-", string.Empty)}');";
 
     public IReadOnlyCollection<DbType> SupportedDbTypes => new ReadOnlyCollection<DbType>(new[]
     {

@@ -16,10 +16,7 @@ public class ResponseBase : IResponse
         Status = status;
     }
 
-    public void EnsureSuccess()
-    {
-        Status.EnsureSuccess();
-    }
+    public void EnsureSuccess() => Status.EnsureSuccess();
 }
 
 public class ClientInternalErrorResponse : ResponseBase

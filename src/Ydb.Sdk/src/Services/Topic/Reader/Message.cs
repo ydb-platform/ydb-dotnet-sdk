@@ -51,10 +51,7 @@ public class Message<TValue>
 
     public long SeqNo { get; }
 
-    public Task CommitAsync()
-    {
-        return _readerSession.CommitOffsetRange(_offsetsRange, _partitionSessionId);
-    }
+    public Task CommitAsync() => _readerSession.CommitOffsetRange(_offsetsRange, _partitionSessionId);
 }
 
 public class BatchMessages<TValue>
@@ -81,10 +78,7 @@ public class BatchMessages<TValue>
         ProducerId = producerId;
     }
 
-    public Task CommitBatchAsync()
-    {
-        return Batch.Count == 0
-            ? Task.CompletedTask
-            : _readerSession.CommitOffsetRange(_offsetsRange, _partitionSessionId);
-    }
+    public Task CommitBatchAsync() => Batch.Count == 0
+        ? Task.CompletedTask
+        : _readerSession.CommitOffsetRange(_offsetsRange, _partitionSessionId);
 }

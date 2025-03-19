@@ -346,12 +346,10 @@ public class SloTopicContext : ISloContext
         throw new Exception("FAILED SLO TEST: NOT FOUND PARTITION FOR PRODUCER_ID!");
     }
 
-    private static string PrintLocalStore(ConcurrentDictionary<long, ConcurrentQueue<string>> localStore)
-    {
-        return "[" +
-               string.Join("\n", localStore.Select(pair => pair.Key + ": " + string.Join(", ", pair.Value))) +
-               "]";
-    }
+    private static string PrintLocalStore(ConcurrentDictionary<long, ConcurrentQueue<string>> localStore) =>
+        "[" +
+        string.Join("\n", localStore.Select(pair => pair.Key + ": " + string.Join(", ", pair.Value))) +
+        "]";
 
     private static void AssertMessage(Ydb.Sdk.Services.Topic.Reader.Message<string> message, string expectedMessageData)
     {

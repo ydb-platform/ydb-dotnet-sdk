@@ -27,71 +27,59 @@ public class YdbDataReaderTests : DataReaderTestBase<YdbSelectValueFixture>
         Assert.False(reader.Read());
     }
 
-    public override void GetChars_reads_nothing_at_end_of_buffer()
+    public override void GetChars_reads_nothing_at_end_of_buffer() => TestGetChars(reader =>
     {
-        TestGetChars(reader => { Assert.Equal(0, reader.GetChars(0, 0, new char[4], 4, 0)); });
-    }
+        Assert.Equal(0, reader.GetChars(0, 0, new char[4], 4, 0));
+    });
 
-    public override void GetChars_reads_nothing_when_dataOffset_is_too_large()
+    public override void GetChars_reads_nothing_when_dataOffset_is_too_large() => TestGetChars(reader =>
     {
-        TestGetChars(reader => { Assert.Equal(0, reader.GetChars(0, 6, new char[4], 0, 4)); });
-    }
+        Assert.Equal(0, reader.GetChars(0, 6, new char[4], 0, 4));
+    });
 
-    public override void GetChars_reads_part_of_string()
-    {
+    public override void GetChars_reads_part_of_string() =>
         TestGetChars(reader =>
         {
             var buffer = new char[5];
             Assert.Equal(2, reader.GetChars(0, 1, buffer, 2, 2));
             Assert.Equal(new[] { '\0', '\0', 'b', '¢', '\0' }, buffer);
         });
-    }
 
-    public override void GetChars_returns_length_when_buffer_is_null()
+    public override void GetChars_returns_length_when_buffer_is_null() => TestGetChars(reader =>
     {
-        TestGetChars(reader => { Assert.Equal(4, reader.GetChars(0, 0, null, 0, 0)); });
-    }
+        Assert.Equal(4, reader.GetChars(0, 0, null, 0, 0));
+    });
 
-    public override void GetChars_returns_length_when_buffer_is_null_and_dataOffset_is_specified()
-    {
+    public override void GetChars_returns_length_when_buffer_is_null_and_dataOffset_is_specified() =>
         TestGetChars(reader => { Assert.Equal(4, reader.GetChars(0, 1, null, 0, 0)); });
-    }
 
-    public override void GetChars_throws_when_bufferOffset_is_negative()
-    {
+    public override void GetChars_throws_when_bufferOffset_is_negative() =>
         TestGetChars(reader =>
         {
             AssertThrowsAny<ArgumentOutOfRangeException, IndexOutOfRangeException>(() =>
                 reader.GetChars(0, 0, new char[4], -1, 4));
         });
-    }
 
-    public override void GetChars_throws_when_bufferOffset_is_too_large()
-    {
+    public override void GetChars_throws_when_bufferOffset_is_too_large() =>
         TestGetChars(reader =>
         {
             AssertThrowsAny<ArgumentOutOfRangeException, IndexOutOfRangeException>(() =>
                 reader.GetChars(0, 0, new char[4], 5, 0));
         });
-    }
 
-    public override void GetChars_throws_when_bufferOffset_plus_length_is_too_long()
-    {
+    public override void GetChars_throws_when_bufferOffset_plus_length_is_too_long() =>
         TestGetChars(reader =>
         {
             AssertThrowsAny<ArgumentException, IndexOutOfRangeException>(() =>
                 reader.GetChars(0, 0, new char[4], 2, 3));
         });
-    }
 
-    public override void GetChars_throws_when_dataOffset_is_negative()
-    {
+    public override void GetChars_throws_when_dataOffset_is_negative() =>
         TestGetChars(reader =>
         {
             AssertThrowsAny<ArgumentOutOfRangeException, IndexOutOfRangeException, InvalidOperationException>(() =>
                 reader.GetChars(0, -1, new char[4], 0, 4));
         });
-    }
 
     public override void GetChars_works()
     {
@@ -107,15 +95,13 @@ public class YdbDataReaderTests : DataReaderTestBase<YdbSelectValueFixture>
         Assert.Equal(new[] { 't', 'e', 's', 't' }, buffer);
     }
 
-    public override void GetChars_works_when_buffer_is_large()
-    {
+    public override void GetChars_works_when_buffer_is_large() =>
         TestGetChars(reader =>
         {
             var buffer = new char[6];
             Assert.Equal(4, reader.GetChars(0, 0, buffer, 0, 6));
             Assert.Equal(new[] { 'a', 'b', '¢', 'd', '\0', '\0' }, buffer);
         });
-    }
 
     public override void GetFieldType_works()
     {
@@ -151,22 +137,16 @@ public class YdbDataReaderTests : DataReaderTestBase<YdbSelectValueFixture>
     }
 
 
-    public override void GetValue_to_string_works_utf8_two_bytes()
-    {
+    public override void GetValue_to_string_works_utf8_two_bytes() =>
         GetX_works("SELECT 'Ä'u;", r => r.GetValue(0) as string, "Ä");
-    }
 
 
-    public override void GetValue_to_string_works_utf8_three_bytes()
-    {
+    public override void GetValue_to_string_works_utf8_three_bytes() =>
         GetX_works("SELECT 'Ḁ'u;", r => r.GetValue(0) as string, "Ḁ");
-    }
 
 
-    public override void GetValue_to_string_works_utf8_four_bytes()
-    {
+    public override void GetValue_to_string_works_utf8_four_bytes() =>
         GetX_works("SELECT '😀'u;", r => r.GetValue(0) as string, "😀");
-    }
 
     public override void GetValues_works()
     {
@@ -186,25 +166,13 @@ public class YdbDataReaderTests : DataReaderTestBase<YdbSelectValueFixture>
         Assert.Same(DBNull.Value, values[1]);
     }
 
-    public override void GetString_works()
-    {
-        GetX_works("SELECT 'test'u;", r => r.GetString(0), "test");
-    }
+    public override void GetString_works() => GetX_works("SELECT 'test'u;", r => r.GetString(0), "test");
 
-    public override void GetString_works_utf8_two_bytes()
-    {
-        GetX_works("SELECT 'Ä'u;", r => r.GetString(0), "Ä");
-    }
+    public override void GetString_works_utf8_two_bytes() => GetX_works("SELECT 'Ä'u;", r => r.GetString(0), "Ä");
 
-    public override void GetString_works_utf8_three_bytes()
-    {
-        GetX_works("SELECT 'Ḁ'u;", r => r.GetString(0), "Ḁ");
-    }
+    public override void GetString_works_utf8_three_bytes() => GetX_works("SELECT 'Ḁ'u;", r => r.GetString(0), "Ḁ");
 
-    public override void GetString_works_utf8_four_bytes()
-    {
-        GetX_works("SELECT '😀'u;", r => r.GetString(0), "😀");
-    }
+    public override void GetString_works_utf8_four_bytes() => GetX_works("SELECT '😀'u;", r => r.GetString(0), "😀");
 
     // UNION does not guarantee order
     public override void Read_works()
@@ -225,20 +193,14 @@ public class YdbDataReaderTests : DataReaderTestBase<YdbSelectValueFixture>
         Assert.False(hasData);
     }
 
-    public override void GetFieldValue_works_utf8_two_bytes()
-    {
+    public override void GetFieldValue_works_utf8_two_bytes() =>
         GetX_works("SELECT 'Ä'u;", r => r.GetFieldValue<string>(0), "Ä");
-    }
 
-    public override void GetFieldValue_works_utf8_three_bytes()
-    {
+    public override void GetFieldValue_works_utf8_three_bytes() =>
         GetX_works("SELECT 'Ḁ'u;", r => r.GetFieldValue<string>(0), "Ḁ");
-    }
 
-    public override void GetFieldValue_works_utf8_four_bytes()
-    {
+    public override void GetFieldValue_works_utf8_four_bytes() =>
         GetX_works("SELECT '😀'u;", r => r.GetFieldValue<string>(0), "😀");
-    }
 
 #pragma warning disable xUnit1004
     [Fact(Skip = "Don't supported CommandBehavior")]

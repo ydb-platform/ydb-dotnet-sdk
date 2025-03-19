@@ -23,10 +23,7 @@ internal class AuthGrpcChannelDriver : BaseDriver
         _channel = grpcChannelFactory.CreateChannel(Config.Endpoint);
     }
 
-    protected override (string, GrpcChannel) GetChannel(long nodeId)
-    {
-        return (Config.Endpoint, _channel);
-    }
+    protected override (string, GrpcChannel) GetChannel(long nodeId) => (Config.Endpoint, _channel);
 
     protected override void OnRpcError(string endpoint, RpcException e)
     {

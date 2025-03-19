@@ -180,9 +180,8 @@ public class QueryExample
     }
 
 
-    private async Task InteractiveTx()
-    {
-        await Client.DoTx(async tx =>
+    private Task InteractiveTx() =>
+        Client.DoTx(async tx =>
             {
                 var query1 = @$"
                     PRAGMA TablePathPrefix('{BasePath}');
@@ -217,7 +216,6 @@ public class QueryExample
                 await tx.Exec(query2, parameters2);
             }
         );
-    }
 
     private async Task StreamSelect()
     {

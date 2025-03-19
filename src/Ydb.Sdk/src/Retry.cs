@@ -84,38 +84,35 @@ public class RetrySettings
 
     private static readonly BackoffSettings NoBackoff = new(TimeSpan.Zero, 10, 0.5);
 
-    public RetryRule GetRetryRule(StatusCode statusCode)
+    public RetryRule GetRetryRule(StatusCode statusCode) => statusCode switch
     {
-        return statusCode switch
-        {
-            StatusCode.Unspecified => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.BadRequest => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.Unauthorized => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.InternalError => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.Aborted => new RetryRule(FastBackoff, false, RetryPolicy.Unconditional),
-            StatusCode.Unavailable => new RetryRule(FastBackoff, false, RetryPolicy.Unconditional),
-            StatusCode.Overloaded => new RetryRule(SlowBackoff, false, RetryPolicy.Unconditional),
-            StatusCode.SchemeError => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.GenericError => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.Timeout => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.BadSession => new RetryRule(NoBackoff, true, RetryPolicy.Unconditional),
-            StatusCode.PreconditionFailed => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.AlreadyExists => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.NotFound => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.SessionExpired => new RetryRule(NoBackoff, true, RetryPolicy.None),
-            StatusCode.Cancelled => new RetryRule(FastBackoff, false, RetryPolicy.None),
-            StatusCode.Undetermined => new RetryRule(FastBackoff, false, RetryPolicy.IdempotentOnly),
-            StatusCode.Unsupported => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.SessionBusy => new RetryRule(FastBackoff, true, RetryPolicy.Unconditional),
-            StatusCode.Success => new RetryRule(NoBackoff, false, RetryPolicy.None),
-            StatusCode.ClientResourceExhausted => new RetryRule(SlowBackoff, false, RetryPolicy.Unconditional),
-            StatusCode.ClientInternalError => new RetryRule(FastBackoff, true, RetryPolicy.IdempotentOnly),
-            StatusCode.ClientTransportUnknown => new RetryRule(NoBackoff, true, RetryPolicy.None),
-            StatusCode.ClientTransportUnavailable => new RetryRule(FastBackoff, true, RetryPolicy.IdempotentOnly),
-            StatusCode.ClientTransportTimeout => new RetryRule(FastBackoff, true, RetryPolicy.IdempotentOnly),
-            StatusCode.ClientTransportResourceExhausted => new RetryRule(SlowBackoff, true, RetryPolicy.Unconditional),
-            StatusCode.ClientTransportUnimplemented => new RetryRule(NoBackoff, true, RetryPolicy.None),
-            _ => throw new ArgumentOutOfRangeException(nameof(statusCode), statusCode, null)
-        };
-    }
+        StatusCode.Unspecified => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.BadRequest => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.Unauthorized => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.InternalError => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.Aborted => new RetryRule(FastBackoff, false, RetryPolicy.Unconditional),
+        StatusCode.Unavailable => new RetryRule(FastBackoff, false, RetryPolicy.Unconditional),
+        StatusCode.Overloaded => new RetryRule(SlowBackoff, false, RetryPolicy.Unconditional),
+        StatusCode.SchemeError => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.GenericError => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.Timeout => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.BadSession => new RetryRule(NoBackoff, true, RetryPolicy.Unconditional),
+        StatusCode.PreconditionFailed => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.AlreadyExists => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.NotFound => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.SessionExpired => new RetryRule(NoBackoff, true, RetryPolicy.None),
+        StatusCode.Cancelled => new RetryRule(FastBackoff, false, RetryPolicy.None),
+        StatusCode.Undetermined => new RetryRule(FastBackoff, false, RetryPolicy.IdempotentOnly),
+        StatusCode.Unsupported => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.SessionBusy => new RetryRule(FastBackoff, true, RetryPolicy.Unconditional),
+        StatusCode.Success => new RetryRule(NoBackoff, false, RetryPolicy.None),
+        StatusCode.ClientResourceExhausted => new RetryRule(SlowBackoff, false, RetryPolicy.Unconditional),
+        StatusCode.ClientInternalError => new RetryRule(FastBackoff, true, RetryPolicy.IdempotentOnly),
+        StatusCode.ClientTransportUnknown => new RetryRule(NoBackoff, true, RetryPolicy.None),
+        StatusCode.ClientTransportUnavailable => new RetryRule(FastBackoff, true, RetryPolicy.IdempotentOnly),
+        StatusCode.ClientTransportTimeout => new RetryRule(FastBackoff, true, RetryPolicy.IdempotentOnly),
+        StatusCode.ClientTransportResourceExhausted => new RetryRule(SlowBackoff, true, RetryPolicy.Unconditional),
+        StatusCode.ClientTransportUnimplemented => new RetryRule(NoBackoff, true, RetryPolicy.None),
+        _ => throw new ArgumentOutOfRangeException(nameof(statusCode), statusCode, null)
+    };
 }

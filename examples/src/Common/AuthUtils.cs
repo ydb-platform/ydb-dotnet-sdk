@@ -52,16 +52,10 @@ public static class AuthUtils
         throw new InvalidOperationException("Failed to parse credentials from environmet, no valid options found.");
     }
 
-    public static X509Certificate GetCustomServerCertificate()
-    {
-        return YcCerts.GetDefaultServerCertificate();
-    }
+    public static X509Certificate GetCustomServerCertificate() => YcCerts.GetDefaultServerCertificate();
 
-    private static bool IsTrueValue(string value)
-    {
-        return
-            value == "1" ||
-            value.ToLower() == "yes" ||
-            value.ToLower() == "true";
-    }
+    private static bool IsTrueValue(string value) =>
+        value == "1" ||
+        value.ToLower() == "yes" ||
+        value.ToLower() == "true";
 }

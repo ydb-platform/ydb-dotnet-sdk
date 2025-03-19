@@ -46,10 +46,7 @@ public sealed class Driver : BaseDriver
         return driver;
     }
 
-    protected override ValueTask InternalDispose()
-    {
-        return _channelPool.DisposeAsync();
-    }
+    protected override ValueTask InternalDispose() => _channelPool.DisposeAsync();
 
     public async Task Initialize()
     {

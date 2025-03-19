@@ -560,16 +560,14 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
     }
 
-    protected override MessageFromClient GetSendUpdateTokenRequest(string token)
-    {
-        return new MessageFromClient
+    protected override MessageFromClient GetSendUpdateTokenRequest(string token) =>
+        new()
         {
             UpdateTokenRequest = new UpdateTokenRequest
             {
                 Token = token
             }
         };
-    }
 
     public override async ValueTask DisposeAsync()
     {

@@ -241,10 +241,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         };
 
         [DoesNotReturn]
-        private static T UnexpectedArgumentException<T>(string key, object value)
-        {
+        private static T UnexpectedArgumentException<T>(string key, object value) =>
             throw new ArgumentException($"Expected type {typeof(T)} for key {key}, but actual {value.GetType()}");
-        }
 
         public static readonly Dictionary<string, YdbConnectionOption> KeyToOption = new();
 

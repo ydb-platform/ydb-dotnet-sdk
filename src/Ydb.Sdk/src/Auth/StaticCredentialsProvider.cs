@@ -36,10 +36,7 @@ public class StaticCredentialsProvider : ICredentialsProvider
         _logger = loggerFactory.CreateLogger<StaticCredentialsProvider>();
     }
 
-    private async Task UpdateToken()
-    {
-        _token = await ReceiveToken();
-    }
+    private async Task UpdateToken() => _token = await ReceiveToken();
 
     public string GetAuthInfo()
     {
@@ -188,15 +185,9 @@ public class StaticCredentialsProvider : ICredentialsProvider
 
         private DateTime RefreshAt { get; }
 
-        public bool IsExpired()
-        {
-            return DateTime.UtcNow >= ExpiresAt;
-        }
+        public bool IsExpired() => DateTime.UtcNow >= ExpiresAt;
 
-        public bool IsRefreshNeeded()
-        {
-            return DateTime.UtcNow >= RefreshAt;
-        }
+        public bool IsRefreshNeeded() => DateTime.UtcNow >= RefreshAt;
     }
 }
 

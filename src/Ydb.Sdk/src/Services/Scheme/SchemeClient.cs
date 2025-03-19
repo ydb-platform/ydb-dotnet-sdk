@@ -32,12 +32,8 @@ public class Permissions
     public string Subject { get; }
     public IReadOnlyList<string> PermissionNames { get; }
 
-    internal static Permissions FromProto(Ydb.Scheme.Permissions permissionsProto)
-    {
-        return new Permissions(
-            subject: permissionsProto.Subject,
-            permissionNames: permissionsProto.PermissionNames);
-    }
+    internal static Permissions FromProto(Ydb.Scheme.Permissions permissionsProto) =>
+        new(subject: permissionsProto.Subject, permissionNames: permissionsProto.PermissionNames);
 }
 
 public class SchemeEntry

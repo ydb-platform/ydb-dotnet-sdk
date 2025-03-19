@@ -49,17 +49,14 @@ public class TruncatedTests : IClassFixture<TableClientFixture>
         Assert.True(response.Status.IsSuccess);
     }
 
-    private static YdbValue MakeData(int n)
-    {
-        return YdbValue.MakeList(
-            Enumerable.Range(0, n)
-                .Select(i => YdbValue.MakeStruct(
-                    new Dictionary<string, YdbValue>
-                    {
-                        { "id", (YdbValue)i }
-                    }
-                ))
-                .ToList()
-        );
-    }
+    private static YdbValue MakeData(int n) => YdbValue.MakeList(
+        Enumerable.Range(0, n)
+            .Select(i => YdbValue.MakeStruct(
+                new Dictionary<string, YdbValue>
+                {
+                    { "id", (YdbValue)i }
+                }
+            ))
+            .ToList()
+    );
 }

@@ -20,10 +20,7 @@ public class DriverFixture : IAsyncLifetime
     {
     }
 
-    public Task InitializeAsync()
-    {
-        return Driver.Initialize();
-    }
+    public Task InitializeAsync() => Driver.Initialize();
 
     public Task DisposeAsync()
     {

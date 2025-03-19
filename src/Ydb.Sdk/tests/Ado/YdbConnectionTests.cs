@@ -202,21 +202,16 @@ INSERT INTO {tableName}
         await ydbCommand.ExecuteNonQueryAsync();
     }
 
-    private List<Task> GenerateTasks()
+    private List<Task> GenerateTasks() => Enumerable.Range(0, 100).Select(async i =>
     {
-        return Enumerable.Range(0, 100).Select(async i =>
-        {
-            await using var connection = await CreateOpenConnectionAsync();
-            var command = connection.CreateCommand();
-            command.CommandText = "SELECT " + i;
-            var scalar = (int)(await command.ExecuteScalarAsync())!;
-            Assert.Equal(i, scalar);
-            Interlocked.Add(ref _counter, scalar);
-        }).ToList();
-    }
+        await using var connection = await CreateOpenConnectionAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT " + i;
+        var scalar = (int)(await command.ExecuteScalarAsync())!;
+        Assert.Equal(i, scalar);
+        Interlocked.Add(ref _counter, scalar);
+    }).ToList();
 
-    protected override async Task OnDisposeAsync()
-    {
+    protected override async Task OnDisposeAsync() =>
         await YdbConnection.ClearPool(new YdbConnection(_connectionString));
-    }
 }

@@ -18,15 +18,13 @@ public class RenameTableItem
         ReplaceDestination = replaceDestination;
     }
 
-    public Ydb.Table.RenameTableItem GetProto(TableClient tableClient)
-    {
-        return new Ydb.Table.RenameTableItem
+    public Ydb.Table.RenameTableItem GetProto(TableClient tableClient) =>
+        new()
         {
             SourcePath = tableClient.MakeTablePath(SourcePath),
             DestinationPath = tableClient.MakeTablePath(DestinationPath),
             ReplaceDestination = ReplaceDestination
         };
-    }
 }
 
 public class RenameTablesSettings : OperationSettings

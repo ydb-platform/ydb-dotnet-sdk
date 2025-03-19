@@ -7,7 +7,7 @@ public class Transaction
 {
     private static int _txCounter;
 
-    internal Transaction(string txId)
+    private Transaction(string txId)
     {
         TxId = txId;
     }
@@ -34,10 +34,7 @@ public class Transaction
         return tx;
     }
 
-    private static int IncTxCounter()
-    {
-        return Interlocked.Increment(ref _txCounter);
-    }
+    private static int IncTxCounter() => Interlocked.Increment(ref _txCounter);
 }
 
 public enum TransactionState
@@ -59,20 +56,17 @@ public class TxControl
         _txNum = txNum;
     }
 
-    public static TxControl BeginSerializableRW()
-    {
-        return new TxControl(new TransactionControl
+    public static TxControl BeginSerializableRW() =>
+        new(new TransactionControl
         {
             BeginTx = new TransactionSettings
             {
                 SerializableReadWrite = new SerializableModeSettings()
             }
         });
-    }
 
-    public static TxControl BeginOnlineRO(bool allowInconsistentReads = false)
-    {
-        return new TxControl(new TransactionControl
+    public static TxControl BeginOnlineRO(bool allowInconsistentReads = false) =>
+        new(new TransactionControl
         {
             BeginTx = new TransactionSettings
             {
@@ -82,26 +76,21 @@ public class TxControl
                 }
             }
         });
-    }
 
-    public static TxControl BeginStaleRO()
-    {
-        return new TxControl(new TransactionControl
+    public static TxControl BeginStaleRO() =>
+        new(new TransactionControl
         {
             BeginTx = new TransactionSettings
             {
                 StaleReadOnly = new StaleModeSettings()
             }
         });
-    }
 
-    public static TxControl Tx(Transaction tx)
-    {
-        return new TxControl(new TransactionControl
+    public static TxControl Tx(Transaction tx) =>
+        new(new TransactionControl
         {
             TxId = tx.TxId
         }, tx.TxNum);
-    }
 
     public TxControl Commit()
     {

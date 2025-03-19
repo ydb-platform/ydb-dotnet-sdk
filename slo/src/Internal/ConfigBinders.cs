@@ -13,9 +13,8 @@ public class CreateConfigBinder(
     Option<int> writeTimeoutOption)
     : BinderBase<CreateConfig>
 {
-    protected override CreateConfig GetBoundValue(BindingContext bindingContext)
-    {
-        return new CreateConfig(
+    protected override CreateConfig GetBoundValue(BindingContext bindingContext) =>
+        new(
             bindingContext.ParseResult.GetValueForArgument(endpointArgument),
             bindingContext.ParseResult.GetValueForArgument(dbArgument),
             bindingContext.ParseResult.GetValueForOption(resourceYdbPath)!,
@@ -24,7 +23,6 @@ public class CreateConfigBinder(
             bindingContext.ParseResult.GetValueForOption(initialDataCountOption),
             bindingContext.ParseResult.GetValueForOption(writeTimeoutOption)
         );
-    }
 }
 
 internal class RunConfigBinder(
@@ -40,9 +38,8 @@ internal class RunConfigBinder(
     Option<int> timeOption)
     : BinderBase<RunConfig>
 {
-    protected override RunConfig GetBoundValue(BindingContext bindingContext)
-    {
-        return new RunConfig(
+    protected override RunConfig GetBoundValue(BindingContext bindingContext) =>
+        new(
             bindingContext.ParseResult.GetValueForArgument(endpointArgument),
             bindingContext.ParseResult.GetValueForArgument(dbArgument),
             bindingContext.ParseResult.GetValueForOption(resourceYdbPath)!,
@@ -54,5 +51,4 @@ internal class RunConfigBinder(
             bindingContext.ParseResult.GetValueForOption(writeTimeoutOption),
             bindingContext.ParseResult.GetValueForOption(timeOption)
         );
-    }
 }

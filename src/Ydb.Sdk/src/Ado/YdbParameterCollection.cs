@@ -22,10 +22,7 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// </summary>
     /// <param name="parameterName">The name of the <see cref="YdbParameter"/>.</param>
     /// <param name="value">The value of the <see cref="YdbParameter"/> to add to the collection.</param>
-    public void AddWithValue(string parameterName, object value)
-    {
-        Add(new YdbParameter(parameterName, value));
-    }
+    public void AddWithValue(string parameterName, object value) => Add(new YdbParameter(parameterName, value));
 
     /// <summary>
     /// Adds a <see cref="YdbParameter"/> to the <see cref="YdbParameterCollection"/> given the specified parameter name,
@@ -35,22 +32,14 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <param name="parameterType">One of the NpgsqlDbType values.</param>
     /// <param name="value">The value of the <see cref="YdbParameter"/> to add to the collection.</param>
     /// <returns>The parameter that was added.</returns>
-    public void AddWithValue(string parameterName, DbType parameterType, object? value = null)
-    {
+    public void AddWithValue(string parameterName, DbType parameterType, object? value = null) =>
         Add(new YdbParameter(parameterName, parameterType) { Value = value });
-    }
 
     /// <inheritdoc />
-    void ICollection<YdbParameter>.Add(YdbParameter item)
-    {
-        Add(item);
-    }
+    void ICollection<YdbParameter>.Add(YdbParameter item) => Add(item);
 
     /// <inheritdoc />
-    public override int Add(object value)
-    {
-        return Add(Cast(value));
-    }
+    public override int Add(object value) => Add(Cast(value));
 
     /// <summary>
     /// Adds the specified <see cref="YdbParameter"/> object to the <see cref="YdbParameterCollection"/>.
@@ -66,88 +55,55 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <summary>
     /// Removes all items from the collection.
     /// </summary>
-    public override void Clear()
-    {
-        _parameters.Clear();
-    }
+    public override void Clear() => _parameters.Clear();
 
     /// <summary>
     /// Report whether the specified parameter is present in the collection.
     /// </summary>
     /// <param name="item">Parameter to find.</param>
     /// <returns>True if the parameter was found, otherwise false.</returns>
-    public bool Contains(YdbParameter item)
-    {
-        return _parameters.Contains(item);
-    }
+    public bool Contains(YdbParameter item) => _parameters.Contains(item);
 
     /// <inheritdoc />
-    public override bool Contains(object value)
-    {
-        return _parameters.Contains(value);
-    }
+    public override bool Contains(object value) => _parameters.Contains(value);
 
     /// <inheritdoc />
-    public void CopyTo(YdbParameter[] array, int arrayIndex)
-    {
-        _parameters.CopyTo(array, arrayIndex);
-    }
+    public void CopyTo(YdbParameter[] array, int arrayIndex) => _parameters.CopyTo(array, arrayIndex);
 
     /// <summary>
     /// Remove the specified parameter from the collection.
     /// </summary>
     /// <param name="item">Parameter to remove.</param>
     /// <returns>True if the parameter was found and removed, otherwise false.</returns>
-    public bool Remove(YdbParameter item)
-    {
-        return _parameters.Remove(item);
-    }
+    public bool Remove(YdbParameter item) => _parameters.Remove(item);
 
     /// <inheritdoc />
-    public override int IndexOf(object? value)
-    {
-        return _parameters.IndexOf(Cast(value));
-    }
+    public override int IndexOf(object? value) => _parameters.IndexOf(Cast(value));
 
     /// <inheritdoc />
-    public override void Insert(int index, object value)
-    {
-        _parameters.Insert(index, Cast(value));
-    }
+    public override void Insert(int index, object value) => _parameters.Insert(index, Cast(value));
 
     /// <summary>
     /// Removes the specified <see cref="YdbParameter"/> from the collection.
     /// </summary>
     /// <param name="value">The <see cref="YdbParameter"/> to remove from the collection.</param>
-    public override void Remove(object value)
-    {
-        Remove(Cast(value));
-    }
+    public override void Remove(object value) => Remove(Cast(value));
 
     /// <summary>
     /// Report the offset within the collection of the given parameter.
     /// </summary>
     /// <param name="item">Parameter to find.</param>
     /// <returns>Index of the parameter, or -1 if the parameter is not present.</returns>
-    public int IndexOf(YdbParameter item)
-    {
-        return _parameters.IndexOf(item);
-    }
+    public int IndexOf(YdbParameter item) => _parameters.IndexOf(item);
 
     /// <inheritdoc />
-    public void Insert(int index, YdbParameter item)
-    {
-        _parameters[index] = item;
-    }
+    public void Insert(int index, YdbParameter item) => _parameters[index] = item;
 
     /// <summary>
     /// Removes the specified <see cref="YdbParameter"/> from the collection using a specific index.
     /// </summary>
     /// <param name="index">The zero-based index of the parameter.</param>
-    public override void RemoveAt(int index)
-    {
-        _parameters.RemoveAt(index);
-    }
+    public override void RemoveAt(int index) => _parameters.RemoveAt(index);
 
     /// <summary>
     /// Gets the <see cref="YdbParameter"/> at the specified index.
@@ -161,16 +117,10 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     }
 
     /// <inheritdoc />
-    public override void RemoveAt(string parameterName)
-    {
-        RemoveAt(IndexOf(parameterName));
-    }
+    public override void RemoveAt(string parameterName) => RemoveAt(IndexOf(parameterName));
 
     /// <inheritdoc />
-    protected override void SetParameter(int index, DbParameter value)
-    {
-        Insert(index, Cast(value));
-    }
+    protected override void SetParameter(int index, DbParameter value) => Insert(index, Cast(value));
 
     /// <inheritdoc />
     protected override void SetParameter(string parameterName, DbParameter value)
@@ -210,34 +160,19 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     }
 
     /// <inheritdoc />
-    public override bool Contains(string parameterName)
-    {
-        return IndexOf(parameterName) != -1;
-    }
+    public override bool Contains(string parameterName) => IndexOf(parameterName) != -1;
 
     /// <inheritdoc />
-    public override void CopyTo(Array array, int index)
-    {
-        ((ICollection)_parameters).CopyTo(array, index);
-    }
+    public override void CopyTo(Array array, int index) => ((ICollection)_parameters).CopyTo(array, index);
 
     /// <inheritdoc />
-    IEnumerator<YdbParameter> IEnumerable<YdbParameter>.GetEnumerator()
-    {
-        return _parameters.GetEnumerator();
-    }
+    IEnumerator<YdbParameter> IEnumerable<YdbParameter>.GetEnumerator() => _parameters.GetEnumerator();
 
     /// <inheritdoc />
-    public override IEnumerator GetEnumerator()
-    {
-        return _parameters.GetEnumerator();
-    }
+    public override IEnumerator GetEnumerator() => _parameters.GetEnumerator();
 
     /// <inheritdoc />
-    protected override YdbParameter GetParameter(int index)
-    {
-        return this[index];
-    }
+    protected override YdbParameter GetParameter(int index) => this[index];
 
     /// <inheritdoc />
     protected override YdbParameter GetParameter(string parameterName)

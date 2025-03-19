@@ -12,8 +12,5 @@ public class TableClientFixture : DriverFixture
         TableClient = new TableClient(Driver);
     }
 
-    protected override void ClientDispose()
-    {
-        TableClient.Dispose();
-    }
+    protected override void ClientDispose() => TableClient.Dispose();
 }

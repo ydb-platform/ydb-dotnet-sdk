@@ -23,27 +23,23 @@ public enum IndexType
 
 internal static class TableEnumConverter
 {
-    internal static FeatureFlagStatus FromProto(this FeatureFlag.Types.Status proto)
-    {
-        return proto switch
+    internal static FeatureFlagStatus FromProto(this FeatureFlag.Types.Status proto) =>
+        proto switch
         {
             FeatureFlag.Types.Status.Unspecified => FeatureFlagStatus.Unspecified,
             FeatureFlag.Types.Status.Enabled => FeatureFlagStatus.Enabled,
             FeatureFlag.Types.Status.Disabled => FeatureFlagStatus.Disabled,
             _ => throw new ArgumentOutOfRangeException()
         };
-    }
 
-    internal static FeatureFlag.Types.Status GetProto(this FeatureFlagStatus status)
-    {
-        return status switch
+    internal static FeatureFlag.Types.Status GetProto(this FeatureFlagStatus status) =>
+        status switch
         {
             FeatureFlagStatus.Unspecified => FeatureFlag.Types.Status.Unspecified,
             FeatureFlagStatus.Enabled => FeatureFlag.Types.Status.Enabled,
             FeatureFlagStatus.Disabled => FeatureFlag.Types.Status.Disabled,
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
         };
-    }
 }
 
 public class PartitionStats
@@ -100,14 +96,12 @@ public class DateTypeColumnModeSettings
         ExpireAfterSeconds = proto.ExpireAfterSeconds;
     }
 
-    public Ydb.Table.DateTypeColumnModeSettings GetProto()
-    {
-        return new Ydb.Table.DateTypeColumnModeSettings
+    public Ydb.Table.DateTypeColumnModeSettings GetProto() =>
+        new()
         {
             ColumnName = ColumnName,
             ExpireAfterSeconds = ExpireAfterSeconds
         };
-    }
 }
 
 public class ValueSinceUnixEpochModeSettings
@@ -147,19 +141,16 @@ public class ValueSinceUnixEpochModeSettings
         ExpireAfterSeconds = proto.ExpireAfterSeconds;
     }
 
-    public Ydb.Table.ValueSinceUnixEpochModeSettings GetProto()
-    {
-        return new Ydb.Table.ValueSinceUnixEpochModeSettings
+    public Ydb.Table.ValueSinceUnixEpochModeSettings GetProto() =>
+        new()
         {
             ColumnName = ColumnName,
             ColumnUnit = GetProtoUnit(ColumnUnit),
             ExpireAfterSeconds = ExpireAfterSeconds
         };
-    }
 
-    private static Ydb.Table.ValueSinceUnixEpochModeSettings.Types.Unit GetProtoUnit(Unit unit)
-    {
-        return unit switch
+    private static Ydb.Table.ValueSinceUnixEpochModeSettings.Types.Unit GetProtoUnit(Unit unit) =>
+        unit switch
         {
             Unit.Unspecified => Ydb.Table.ValueSinceUnixEpochModeSettings.Types.Unit.Unspecified,
             Unit.Seconds => Ydb.Table.ValueSinceUnixEpochModeSettings.Types.Unit.Seconds,
@@ -168,7 +159,6 @@ public class ValueSinceUnixEpochModeSettings
             Unit.Nanoseconds => Ydb.Table.ValueSinceUnixEpochModeSettings.Types.Unit.Nanoseconds,
             _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, null)
         };
-    }
 }
 
 public class TtlSettingsMode
@@ -304,10 +294,7 @@ public class StoragePool
         Media = proto?.Media;
     }
 
-    public Ydb.Table.StoragePool GetProto()
-    {
-        return new Ydb.Table.StoragePool { Media = Media };
-    }
+    public Ydb.Table.StoragePool GetProto() => new() { Media = Media };
 }
 
 public class StorageSettings
@@ -334,16 +321,14 @@ public class StorageSettings
         StoreExternalBlobs = proto.StoreExternalBlobs.FromProto();
     }
 
-    public Ydb.Table.StorageSettings GetProto()
-    {
-        return new Ydb.Table.StorageSettings
+    public Ydb.Table.StorageSettings GetProto() =>
+        new()
         {
             TabletCommitLog0 = TabletCommitLog0.GetProto(),
             TabletCommitLog1 = TabletCommitLog1.GetProto(),
             External = External.GetProto(),
             StoreExternalBlobs = StoreExternalBlobs.GetProto()
         };
-    }
 }
 
 public class PartitioningSettings
@@ -376,18 +361,15 @@ public class PartitioningSettings
         MaxPartitionsCount = proto.MaxPartitionsCount;
     }
 
-    public Ydb.Table.PartitioningSettings GetProto()
+    public Ydb.Table.PartitioningSettings GetProto() => new()
     {
-        return new Ydb.Table.PartitioningSettings
-        {
-            PartitionBy = { PartitionBy },
-            PartitioningBySize = PartitioningBySize.GetProto(),
-            PartitionSizeMb = PartitionSizeMb,
-            PartitioningByLoad = PartitioningByLoad.GetProto(),
-            MinPartitionsCount = MinPartitionsCount,
-            MaxPartitionsCount = MaxPartitionsCount
-        };
-    }
+        PartitionBy = { PartitionBy },
+        PartitioningBySize = PartitioningBySize.GetProto(),
+        PartitionSizeMb = PartitionSizeMb,
+        PartitioningByLoad = PartitioningByLoad.GetProto(),
+        MinPartitionsCount = MinPartitionsCount,
+        MaxPartitionsCount = MaxPartitionsCount
+    };
 }
 
 public class ReadReplicasSettings
@@ -401,7 +383,6 @@ public class ReadReplicasSettings
 
     public SettingsType Type { get; }
     public ulong Settings { get; }
-
 
     public ReadReplicasSettings(SettingsType type, ulong settings)
     {
@@ -435,18 +416,15 @@ public class ReadReplicasSettings
         }
     }
 
-    public Ydb.Table.ReadReplicasSettings GetProto()
+    public Ydb.Table.ReadReplicasSettings GetProto() => Type switch
     {
-        return Type switch
-        {
-            SettingsType.None => new Ydb.Table.ReadReplicasSettings(),
-            SettingsType.PerAzReadReplicasCount => new Ydb.Table.ReadReplicasSettings
-                { PerAzReadReplicasCount = Settings },
-            SettingsType.AnyAzReadReplicasCount => new Ydb.Table.ReadReplicasSettings
-                { AnyAzReadReplicasCount = Settings },
-            _ => throw new ArgumentOutOfRangeException()
-        };
-    }
+        SettingsType.None => new Ydb.Table.ReadReplicasSettings(),
+        SettingsType.PerAzReadReplicasCount => new Ydb.Table.ReadReplicasSettings
+            { PerAzReadReplicasCount = Settings },
+        SettingsType.AnyAzReadReplicasCount => new Ydb.Table.ReadReplicasSettings
+            { AnyAzReadReplicasCount = Settings },
+        _ => throw new ArgumentOutOfRangeException()
+    };
 }
 
 public class DescribeTableSettings : OperationSettings
@@ -518,9 +496,8 @@ public class DescribeTableResponse : ResponseWithResultBase<DescribeTableRespons
             ReadReplicasSettings = readReplicasSettings;
         }
 
-        internal static ResultData FromProto(DescribeTableResult resultProto)
-        {
-            return new ResultData(
+        internal static ResultData FromProto(DescribeTableResult resultProto) =>
+            new(
                 self: resultProto.Self,
                 columns: resultProto.Columns.Select(proto => new ColumnMeta(proto)).ToList(),
                 primaryKey: resultProto.PrimaryKey.ToList(),
@@ -536,7 +513,6 @@ public class DescribeTableResponse : ResponseWithResultBase<DescribeTableRespons
                 keyBloomFilter: resultProto.KeyBloomFilter.FromProto(),
                 readReplicasSettings: new ReadReplicasSettings(resultProto.ReadReplicasSettings)
             );
-        }
     }
 }
 

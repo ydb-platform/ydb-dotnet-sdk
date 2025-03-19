@@ -166,10 +166,7 @@ public abstract class BaseDriver : IDriver
 
     public ILoggerFactory LoggerFactory { get; }
 
-    public void Dispose()
-    {
-        DisposeAsync().AsTask().GetAwaiter().GetResult();
-    }
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     public async ValueTask DisposeAsync()
     {
@@ -216,10 +213,7 @@ public sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyn
 
     public TResponse Current => _stream.ResponseStream.Current;
 
-    public IAsyncEnumerator<TResponse> GetAsyncEnumerator(CancellationToken cancellationToken = new())
-    {
-        return this;
-    }
+    public IAsyncEnumerator<TResponse> GetAsyncEnumerator(CancellationToken cancellationToken = new()) => this;
 }
 
 internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<TRequest, TResponse>
@@ -282,8 +276,5 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
         }
     }
 
-    public void Dispose()
-    {
-        _stream.Dispose();
-    }
+    public void Dispose() => _stream.Dispose();
 }
