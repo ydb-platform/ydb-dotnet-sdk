@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
 // TODO: Key columns are not specified :c
-class TptInheritanceBulkUpdatesYdbTest(
+internal class TPTInheritanceBulkUpdatesYdbTest(
     TPTInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
 ) : TPTInheritanceBulkUpdatesTestBase<TPTInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper);

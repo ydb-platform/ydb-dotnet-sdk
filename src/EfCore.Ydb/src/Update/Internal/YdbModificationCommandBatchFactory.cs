@@ -12,7 +12,9 @@ namespace EfCore.Ydb.Update.Internal;
 public class YdbModificationCommandBatchFactory : IModificationCommandBatchFactory
 {
     public YdbModificationCommandBatchFactory(ModificationCommandBatchFactoryDependencies dependencies)
-        => Dependencies = dependencies;
+    {
+        Dependencies = dependencies;
+    }
 
     protected virtual ModificationCommandBatchFactoryDependencies Dependencies { get; }
 
@@ -20,13 +22,9 @@ public class YdbModificationCommandBatchFactory : IModificationCommandBatchFacto
         => new TemporaryStubModificationCommandBatch(Dependencies);
 }
 
-class TemporaryStubModificationCommandBatch : ReaderModificationCommandBatch
+internal class TemporaryStubModificationCommandBatch(ModificationCommandBatchFactoryDependencies dependencies)
+    : ReaderModificationCommandBatch(dependencies, 2000)
 {
-    public TemporaryStubModificationCommandBatch(ModificationCommandBatchFactoryDependencies dependencies)
-        : base(dependencies, 2000)
-    {
-    }
-
     protected override void Consume(RelationalDataReader reader) =>
         ConsumeAsync(reader).ConfigureAwait(false).GetAwaiter().GetResult();
 

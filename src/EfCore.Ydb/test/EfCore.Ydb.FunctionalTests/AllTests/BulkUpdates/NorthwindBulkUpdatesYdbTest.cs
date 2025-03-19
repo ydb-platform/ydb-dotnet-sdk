@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
 // TODO: Await Norhhwind
-class NorthwindBulkUpdatesYdbTest(
+internal class NorthwindBulkUpdatesYdbTest(
     NorthwindBulkUpdatesYdbFixture<NoopModelCustomizer> fixture,
     ITestOutputHelper testOutputHelper
 ) : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesYdbFixture<NoopModelCustomizer>>(

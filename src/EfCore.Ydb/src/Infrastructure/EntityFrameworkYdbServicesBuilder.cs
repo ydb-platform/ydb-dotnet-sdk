@@ -8,7 +8,10 @@ namespace EfCore.Ydb.Infrastructure;
 public class EntityFrameworkYdbServicesBuilder(IServiceCollection serviceCollection)
     : EntityFrameworkRelationalServicesBuilder(serviceCollection)
 {
+    // ReSharper disable once CollectionNeverUpdated.Local
+#pragma warning disable CA1859
     private static readonly IDictionary<Type, ServiceCharacteristics> YdbServices
+#pragma warning restore CA1859
         = new Dictionary<Type, ServiceCharacteristics>
         {
             // TODO: Add items if required

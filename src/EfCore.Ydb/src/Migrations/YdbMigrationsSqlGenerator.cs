@@ -262,10 +262,7 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         MigrationCommandListBuilder builder,
         // ReSharper disable once OptionalParameterHierarchyMismatch
         bool suppressTransaction = true
-    )
-    {
-        base.EndStatement(builder, suppressTransaction);
-    }
+    ) => base.EndStatement(builder, suppressTransaction);
 
     private string DelimitIdentifier(string name, string? schema)
         => Dependencies.SqlGenerationHelper.DelimitIdentifier(name, schema);

@@ -122,10 +122,11 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : 
                     await Task.Delay(TimeSpan.FromSeconds(timeoutInSeconds / 2), _watchDogToken.Token);
                     await UpdateLock(name, timeoutInSeconds);
                 }
+                // ReSharper disable once FunctionNeverReturns
             })!, _watchDogToken.Token);
         }
 
-        private async Task<bool> UpdateLock(string name, int timeoutInSeconds)
+        private async Task<bool> UpdateLock(string nameLock, int timeoutInSeconds)
         {
             var command = Connection.DbConnection.CreateCommand();
             command.CommandText =
@@ -138,7 +139,7 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : 
                         @locked_by
                         );
                  """;
-            command.Parameters.Add(new YdbParameter("name", DbType.String, name));
+            command.Parameters.Add(new YdbParameter("name", DbType.String, nameLock));
             command.Parameters.Add(new YdbParameter("locked_by", DbType.String, _pid));
 
             try

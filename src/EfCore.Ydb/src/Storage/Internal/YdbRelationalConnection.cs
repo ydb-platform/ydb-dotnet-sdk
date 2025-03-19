@@ -17,7 +17,7 @@ public class YdbRelationalConnection(RelationalConnectionDependencies dependenci
         {
             return DataSource.CreateConnection();
         }
-        
+
         var connection = new YdbConnection(GetValidatedConnectionString());
         return connection;
     }
