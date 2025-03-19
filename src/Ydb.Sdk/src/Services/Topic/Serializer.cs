@@ -39,33 +39,21 @@ public static class Serializers
 
     private class Utf8Serializer : ISerializer<string>
     {
-        public byte[] Serialize(string data)
-        {
-            return Encoding.UTF8.GetBytes(data);
-        }
+        public byte[] Serialize(string data) => Encoding.UTF8.GetBytes(data);
     }
 
     private class Int64Serializer : ISerializer<long>
     {
-        public byte[] Serialize(long data)
-        {
-            return BitConverter.GetBytes(data);
-        }
+        public byte[] Serialize(long data) => BitConverter.GetBytes(data);
     }
 
     private class Int32Serializer : ISerializer<int>
     {
-        public byte[] Serialize(int data)
-        {
-            return BitConverter.GetBytes(data);
-        }
+        public byte[] Serialize(int data) => BitConverter.GetBytes(data);
     }
 
     private class ByteArraySerializer : ISerializer<byte[]>
     {
-        public byte[] Serialize(byte[] data)
-        {
-            return data;
-        }
+        public byte[] Serialize(byte[] data) => data;
     }
 }

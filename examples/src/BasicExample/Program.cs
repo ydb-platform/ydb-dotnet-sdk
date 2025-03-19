@@ -22,12 +22,9 @@ internal class CmdOptions
 
 internal static class Program
 {
-    private static ServiceProvider GetServiceProvider()
-    {
-        return new ServiceCollection()
-            .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
-            .BuildServiceProvider();
-    }
+    private static ServiceProvider GetServiceProvider() => new ServiceCollection()
+        .AddLogging(configure => configure.AddConsole().SetMinimumLevel(LogLevel.Information))
+        .BuildServiceProvider();
 
     private static async Task Run(CmdOptions cmdOptions)
     {

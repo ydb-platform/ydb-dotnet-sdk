@@ -7,13 +7,7 @@ public interface ICredentialsProvider
     // For removal in 1.*
     string? GetAuthInfo();
 
-    ValueTask<string?> GetAuthInfoAsync()
-    {
-        return ValueTask.FromResult(GetAuthInfo());
-    }
+    ValueTask<string?> GetAuthInfoAsync() => ValueTask.FromResult(GetAuthInfo());
 
-    Task ProvideAuthClient(AuthClient authClient)
-    {
-        return Task.CompletedTask;
-    }
+    Task ProvideAuthClient(AuthClient authClient) => Task.CompletedTask;
 }

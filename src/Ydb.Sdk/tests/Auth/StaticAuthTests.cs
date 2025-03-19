@@ -22,10 +22,7 @@ public class StaticAuthTests : IDisposable
         _logger = _loggerFactory.CreateLogger<StaticAuthTests>();
     }
 
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => GC.SuppressFinalize(this);
 
     private async Task CreateUser(TableClient tableClient, string user, string? password)
     {
@@ -89,23 +86,14 @@ public class StaticAuthTests : IDisposable
 
 
     [Fact(Timeout = 5_000)]
-    public async Task GoodAuth()
-    {
-        await CheckAuth("test_password", "test_password");
-    }
+    public async Task GoodAuth() => await CheckAuth("test_password", "test_password");
 
     [Fact(Timeout = 5_000)]
-    public async Task NoPasswordAuth()
-    {
-        await CheckAuth(null, null);
-    }
+    public async Task NoPasswordAuth() => await CheckAuth(null, null);
 
     [Fact(Timeout = 5_000)]
-    public async Task WrongPassword()
-    {
-        await Assert.ThrowsAsync<InvalidCredentialsException>(
-            async () => await CheckAuth("good_password", "wrong_password", maxRetries: 1));
-    }
+    public async Task WrongPassword() => await Assert.ThrowsAsync<InvalidCredentialsException>(
+        async () => await CheckAuth("good_password", "wrong_password", maxRetries: 1));
 
     [Fact(Timeout = 5_000)]
     public async Task NotExistAuth()

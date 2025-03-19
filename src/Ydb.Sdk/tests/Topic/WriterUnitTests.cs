@@ -42,10 +42,7 @@ public class WriterUnitTests
 
     private class FailSerializer : ISerializer<int>
     {
-        public byte[] Serialize(int data)
-        {
-            throw new Exception("Some serialize exception");
-        }
+        public byte[] Serialize(int data) => throw new Exception("Some serialize exception");
     }
 
     [Fact]
@@ -949,9 +946,8 @@ public class WriterUnitTests
         await writer.DisposeAsync();
     }
 
-    private ISetupSequentialResult<StreamWriteMessage.Types.FromServer> SetupReadOneWriteAckMessage()
-    {
-        return _mockStream.SetupSequence(stream => stream.Current)
+    private ISetupSequentialResult<StreamWriteMessage.Types.FromServer> SetupReadOneWriteAckMessage() =>
+        _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
                 InitResponse = new StreamWriteMessage.Types.InitResponse
@@ -975,5 +971,4 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-    }
 }

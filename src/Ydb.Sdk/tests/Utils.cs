@@ -44,9 +44,8 @@ public static class Utils
         return (ExecuteSchemeQueryResponse)response;
     }
 
-    internal static ILoggerFactory GetLoggerFactory()
-    {
-        return new ServiceCollection()
+    internal static ILoggerFactory GetLoggerFactory() =>
+        new ServiceCollection()
             .AddLogging(configure =>
             {
                 configure.AddConsole().SetMinimumLevel(LogLevel.Information);
@@ -56,19 +55,14 @@ public static class Utils
             })
             .BuildServiceProvider()
             .GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
-    }
 
-    internal static async Task CreateSimpleTable(TableClient tableClient, string tableName, string columnName = "key")
-    {
-        await ExecuteSchemeQuery(
+    internal static Task CreateSimpleTable(TableClient tableClient, string tableName, string columnName = "key") =>
+        ExecuteSchemeQuery(
             tableClient,
             query: $"CREATE TABLE {tableName} ({columnName} Uint64, PRIMARY KEY ({columnName}))");
-    }
 
-    internal static async Task DropTable(TableClient tableClient, string tableName)
-    {
-        await ExecuteSchemeQuery(
+    internal static Task DropTable(TableClient tableClient, string tableName) =>
+        ExecuteSchemeQuery(
             tableClient,
             query: $"DROP TABLE {tableName}");
-    }
 }

@@ -10,15 +10,9 @@ public class YdbAdoNetFixture : DbFactoryTestBase<YdbFactoryFixture>
     {
     }
 
-    protected override YdbConnection CreateConnection()
-    {
-        return (YdbConnection)base.CreateConnection();
-    }
+    protected override YdbConnection CreateConnection() => (YdbConnection)base.CreateConnection();
 
-    protected override YdbConnection CreateOpenConnection()
-    {
-        return (YdbConnection)base.CreateOpenConnection();
-    }
+    protected override YdbConnection CreateOpenConnection() => (YdbConnection)base.CreateOpenConnection();
 
     protected async Task<YdbConnection> CreateOpenConnectionAsync()
     {

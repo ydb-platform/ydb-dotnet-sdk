@@ -7,31 +7,27 @@ namespace Ydb.Sdk.Examples;
 
 public record Series(ulong SeriesId, string Title, DateTime ReleaseDate, string Info)
 {
-    public static Series FromRow(Value.ResultSet.Row row)
-    {
-        return new Series(
+    public static Series FromRow(Value.ResultSet.Row row) =>
+        new(
             SeriesId: (ulong)row["series_id"].GetOptionalUint64()!,
             Title: (string)row["title"]!,
             ReleaseDate: (DateTime)row["release_date"].GetOptionalDate()!,
             Info: (string)row["series_info"]!
         );
-    }
 }
 
 public record Season(ulong SeriesId, ulong SeasonId, string Title, DateTime FirstAired, DateTime LastAired);
 
 public record Episode(ulong SeriesId, ulong SeasonId, ulong EpisodeId, string Title, DateTime AirDate)
 {
-    public static Episode FromRow(Value.ResultSet.Row row)
-    {
-        return new Episode(
+    public static Episode FromRow(Value.ResultSet.Row row) =>
+        new(
             SeriesId: (ulong)row["series_id"].GetOptionalUint64()!,
             SeasonId: (ulong)row["season_id"].GetOptionalUint64()!,
             EpisodeId: (ulong)row["episode_id"].GetOptionalUint64()!,
             Title: (string)row["title"]!,
             AirDate: (DateTime)row["air_date"].GetOptionalDate()!
         );
-    }
 }
 
 public static class DataUtils

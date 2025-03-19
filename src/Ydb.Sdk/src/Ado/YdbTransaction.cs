@@ -38,21 +38,13 @@ public sealed class YdbTransaction : DbTransaction
         _txMode = txMode;
     }
 
-    public override void Commit()
-    {
-        CommitAsync().GetAwaiter().GetResult();
-    }
+    public override void Commit() => CommitAsync().GetAwaiter().GetResult();
 
     // TODO propagate cancellation token
-    public override async Task CommitAsync(CancellationToken cancellationToken = new())
-    {
+    public override async Task CommitAsync(CancellationToken cancellationToken = new()) =>
         await FinishTransaction(txId => DbConnection!.Session.CommitTransaction(txId));
-    }
 
-    public override void Rollback()
-    {
-        RollbackAsync().GetAwaiter().GetResult();
-    }
+    public override void Rollback() => RollbackAsync().GetAwaiter().GetResult();
 
     // TODO propagate cancellation token
     public override async Task RollbackAsync(CancellationToken cancellationToken = new())

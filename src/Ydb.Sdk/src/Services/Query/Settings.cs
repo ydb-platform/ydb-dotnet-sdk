@@ -53,9 +53,8 @@ internal static class TxModeExtensions
     private static readonly TransactionSettings OnlineInconsistentRo = new()
         { OnlineReadOnly = new OnlineModeSettings { AllowInconsistentReads = true } };
 
-    internal static TransactionSettings? TransactionSettings(this TxMode mode)
-    {
-        return mode switch
+    internal static TransactionSettings? TransactionSettings(this TxMode mode) =>
+        mode switch
         {
             TxMode.SerializableRw => SerializableRw,
             TxMode.SnapshotRo => SnapshotRo,
@@ -64,16 +63,13 @@ internal static class TxModeExtensions
             TxMode.OnlineInconsistentRo => OnlineInconsistentRo,
             _ => null
         };
-    }
 
-    internal static TransactionControl? TransactionControl(this TxMode mode, bool commit = true)
-    {
-        return mode switch
+    internal static TransactionControl? TransactionControl(this TxMode mode, bool commit = true) =>
+        mode switch
         {
             TxMode.NoTx => null,
             _ => new TransactionControl { BeginTx = mode.TransactionSettings(), CommitTx = commit }
         };
-    }
 }
 
 public class ExecuteQueryPart
@@ -99,10 +95,7 @@ public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAs
         _onTxId = onTx ?? (_ => { });
     }
 
-    public ValueTask DisposeAsync()
-    {
-        return _stream.DisposeAsync();
-    }
+    public ValueTask DisposeAsync() => _stream.DisposeAsync();
 
     public async ValueTask<bool> MoveNextAsync()
     {
@@ -122,8 +115,5 @@ public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAs
 
     public ExecuteQueryPart Current => new(_stream.Current);
 
-    public IAsyncEnumerator<ExecuteQueryPart> GetAsyncEnumerator(CancellationToken cancellationToken = new())
-    {
-        return this;
-    }
+    public IAsyncEnumerator<ExecuteQueryPart> GetAsyncEnumerator(CancellationToken cancellationToken = new()) => this;
 }

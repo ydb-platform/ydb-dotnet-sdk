@@ -18,17 +18,15 @@ public class ExecuteScanQueryPart : ResponseWithResultBase<ExecuteScanQueryPart.
 
     public class ResultData
     {
-        internal ResultData(Value.ResultSet? resultSetPart)
+        private ResultData(Value.ResultSet? resultSetPart)
         {
             ResultSetPart = resultSetPart;
         }
 
         public Value.ResultSet? ResultSetPart { get; }
 
-        internal static ResultData FromProto(ExecuteScanQueryPartialResult resultProto)
-        {
-            return new ResultData(resultProto.ResultSet?.FromProto());
-        }
+        internal static ResultData FromProto(ExecuteScanQueryPartialResult resultProto) =>
+            new(resultProto.ResultSet?.FromProto());
     }
 }
 
@@ -39,10 +37,7 @@ public class ExecuteScanQueryStream : StreamResponse<ExecuteScanQueryPartialResp
     {
     }
 
-    protected override ExecuteScanQueryPart MakeResponse(Status status)
-    {
-        return new ExecuteScanQueryPart(status);
-    }
+    protected override ExecuteScanQueryPart MakeResponse(Status status) => new(status);
 
     protected override ExecuteScanQueryPart MakeResponse(ExecuteScanQueryPartialResponse protoResponse)
     {
@@ -86,8 +81,6 @@ public partial class TableClient
 
     public ValueTask<ExecuteScanQueryStream> ExecuteScanQuery(
         string query,
-        ExecuteScanQuerySettings? settings = null)
-    {
-        return ExecuteScanQuery(query, new Dictionary<string, YdbValue>(), settings);
-    }
+        ExecuteScanQuerySettings? settings = null) =>
+        ExecuteScanQuery(query, new Dictionary<string, YdbValue>(), settings);
 }

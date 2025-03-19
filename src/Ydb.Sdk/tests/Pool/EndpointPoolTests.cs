@@ -34,10 +34,8 @@ public class EndpointPoolTests
         [InlineData(3, "n3.ydb.tech")]
         [InlineData(4, "n4.ydb.tech")]
         [InlineData(5, "n5.ydb.tech")]
-        public void GetEndpoint_WhenResetNewState_ReturnEndpointByNodeId(int nodeId, string endpoint)
-        {
+        public void GetEndpoint_WhenResetNewState_ReturnEndpointByNodeId(int nodeId, string endpoint) =>
             Assert.Equal(endpoint, _endpointPool.GetEndpoint(nodeId));
-        }
 
         [Theory]
         [InlineData(1, "n1.ydb.tech")]

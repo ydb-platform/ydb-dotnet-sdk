@@ -155,18 +155,13 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         }
     }
 
-    private void Release()
-    {
-        _semaphore.Release();
-    }
+    private void Release() => _semaphore.Release();
 
-    private Task DeleteSession(TSession session)
-    {
-        return session.DeleteSession().ContinueWith(s =>
+    private Task DeleteSession(TSession session) =>
+        session.DeleteSession().ContinueWith(s =>
         {
             Logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
         });
-    }
 
     public async ValueTask DisposeAsync()
     {
@@ -187,10 +182,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         await TryDriverDispose(_size);
     }
 
-    protected virtual ValueTask DisposeDriver()
-    {
-        return default;
-    }
+    protected virtual ValueTask DisposeDriver() => default;
 
     private async ValueTask TryDriverDispose(int expectedCurrentCount)
     {
@@ -236,10 +228,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
         }
     }
 
-    internal ValueTask Release()
-    {
-        return _sessionPool.ReleaseSession((T)this);
-    }
+    internal ValueTask Release() => _sessionPool.ReleaseSession((T)this);
 
     internal TS MakeGrpcRequestSettings<TS>(TS settings) where TS : GrpcRequestSettings
     {

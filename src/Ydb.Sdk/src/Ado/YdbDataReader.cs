@@ -83,26 +83,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         ReaderState = State.ReadResultSet;
     }
 
-    public override bool GetBoolean(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetBool();
-    }
+    public override bool GetBoolean(int ordinal) => GetFieldYdbValue(ordinal).GetBool();
 
-    public override byte GetByte(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetUint8();
-    }
+    public override byte GetByte(int ordinal) => GetFieldYdbValue(ordinal).GetUint8();
 
-    public sbyte GetSByte(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetInt8();
-    }
+    public sbyte GetSByte(int ordinal) => GetFieldYdbValue(ordinal).GetInt8();
 
     // ReSharper disable once MemberCanBePrivate.Global
-    public byte[] GetBytes(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetString();
-    }
+    public byte[] GetBytes(int ordinal) => GetFieldYdbValue(ordinal).GetString();
 
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
     {
@@ -179,10 +167,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
-    public override string GetDataTypeName(int ordinal)
-    {
-        return ReaderMetadata.GetColumn(ordinal).Type.YqlTableType();
-    }
+    public override string GetDataTypeName(int ordinal) => ReaderMetadata.GetColumn(ordinal).Type.YqlTableType();
 
     public override DateTime GetDateTime(int ordinal)
     {
@@ -197,15 +182,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
-    public TimeSpan GetInterval(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetInterval();
-    }
+    public TimeSpan GetInterval(int ordinal) => GetFieldYdbValue(ordinal).GetInterval();
 
-    public override decimal GetDecimal(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetDecimal();
-    }
+    public override decimal GetDecimal(int ordinal) => GetFieldYdbValue(ordinal).GetDecimal();
 
     public override double GetDouble(int ordinal)
     {
@@ -274,15 +253,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return systemType;
     }
 
-    public override float GetFloat(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetFloat();
-    }
+    public override float GetFloat(int ordinal) => GetFieldYdbValue(ordinal).GetFloat();
 
-    public override Guid GetGuid(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetUuid();
-    }
+    public override Guid GetGuid(int ordinal) => GetFieldYdbValue(ordinal).GetUuid();
 
     public override short GetInt16(int ordinal)
     {
@@ -368,10 +341,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
-    public override string GetName(int ordinal)
-    {
-        return ReaderMetadata.GetColumn(ordinal).Name;
-    }
+    public override string GetName(int ordinal) => ReaderMetadata.GetColumn(ordinal).Name;
 
     public override int GetOrdinal(string name)
     {
@@ -383,25 +353,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         throw new IndexOutOfRangeException($"Field not found in row: {name}");
     }
 
-    public override string GetString(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetUtf8();
-    }
+    public override string GetString(int ordinal) => GetFieldYdbValue(ordinal).GetUtf8();
 
-    public override TextReader GetTextReader(int ordinal)
-    {
-        return new StringReader(GetString(ordinal));
-    }
+    public override TextReader GetTextReader(int ordinal) => new StringReader(GetString(ordinal));
 
-    public string GetJson(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetJson();
-    }
+    public string GetJson(int ordinal) => GetFieldYdbValue(ordinal).GetJson();
 
-    public string GetJsonDocument(int ordinal)
-    {
-        return GetFieldYdbValue(ordinal).GetJsonDocument();
-    }
+    public string GetJsonDocument(int ordinal) => GetFieldYdbValue(ordinal).GetJsonDocument();
 
     public override object GetValue(int ordinal)
     {
@@ -464,11 +422,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return count;
     }
 
-    public override bool IsDBNull(int ordinal)
-    {
-        return CurrentRow[ordinal].TypeId == YdbTypeId.Null ||
-               (CurrentRow[ordinal].TypeId == YdbTypeId.OptionalType && CurrentRow[ordinal].GetOptional() == null);
-    }
+    public override bool IsDBNull(int ordinal) =>
+        CurrentRow[ordinal].TypeId == YdbTypeId.Null ||
+        (CurrentRow[ordinal].TypeId == YdbTypeId.OptionalType && CurrentRow[ordinal].GetOptional() == null);
 
     public override int FieldCount => ReaderMetadata.FieldCount;
     public override object this[int ordinal] => GetValue(ordinal);
@@ -477,15 +433,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     public override bool HasRows => ReaderMetadata.RowsCount > 0;
     public override bool IsClosed => ReaderState == State.Close;
 
-    public override bool NextResult()
-    {
-        return NextResultAsync().GetAwaiter().GetResult();
-    }
+    public override bool NextResult() => NextResultAsync().GetAwaiter().GetResult();
 
-    public override bool Read()
-    {
-        return ReadAsync().GetAwaiter().GetResult();
-    }
+    public override bool Read() => ReadAsync().GetAwaiter().GetResult();
 
     public override async Task<bool> NextResultAsync(CancellationToken cancellationToken)
     {
@@ -581,10 +531,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
-    public override void Close()
-    {
-        CloseAsync().GetAwaiter().GetResult();
-    }
+    public override void Close() => CloseAsync().GetAwaiter().GetResult();
 
     private YdbValue GetFieldYdbValue(int ordinal)
     {
@@ -663,10 +610,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
-    public override async ValueTask DisposeAsync()
-    {
-        await CloseAsync();
-    }
+    public override async ValueTask DisposeAsync() => await CloseAsync();
 
     public async IAsyncEnumerator<YdbDataRecord> GetAsyncEnumerator(CancellationToken cancellationToken = new())
     {
@@ -690,10 +634,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         public int FieldCount => 0;
         public int RowsCount => 0;
 
-        public Value.ResultSet.Column GetColumn(int ordinal)
-        {
+        public Value.ResultSet.Column GetColumn(int ordinal) =>
             throw new InvalidOperationException("No resultset is currently being traversed");
-        }
     }
 
     private class CloseMetadata : IMetadata
@@ -710,10 +652,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         public int FieldCount => throw new InvalidOperationException("The reader is closed");
         public int RowsCount => 0;
 
-        public Value.ResultSet.Column GetColumn(int ordinal)
-        {
+        public Value.ResultSet.Column GetColumn(int ordinal) =>
             throw new InvalidOperationException("The reader is closed");
-        }
     }
 
     private class Metadata : IMetadata

@@ -62,10 +62,7 @@ public sealed class YdbConnection : DbConnection
         });
     }
 
-    public new YdbTransaction BeginTransaction(IsolationLevel isolationLevel)
-    {
-        return BeginDbTransaction(isolationLevel);
-    }
+    public new YdbTransaction BeginTransaction(IsolationLevel isolationLevel) => BeginDbTransaction(isolationLevel);
 
     public YdbTransaction BeginTransaction(TxMode txMode = TxMode.SerializableRw)
     {
@@ -87,15 +84,9 @@ public sealed class YdbConnection : DbConnection
     {
     }
 
-    public override void Close()
-    {
-        CloseAsync().GetAwaiter().GetResult();
-    }
+    public override void Close() => CloseAsync().GetAwaiter().GetResult();
 
-    public override void Open()
-    {
-        OpenAsync().GetAwaiter().GetResult();
-    }
+    public override void Open() => OpenAsync().GetAwaiter().GetResult();
 
     public override async Task OpenAsync(CancellationToken cancellationToken)
     {
@@ -186,48 +177,30 @@ public sealed class YdbConnection : DbConnection
         }
     }
 
-    protected override YdbCommand CreateDbCommand()
-    {
-        return new YdbCommand(this);
-    }
+    protected override YdbCommand CreateDbCommand() => new(this);
 
-    public new YdbCommand CreateCommand()
-    {
-        return CreateDbCommand();
-    }
+    public new YdbCommand CreateCommand() => CreateDbCommand();
 
-    public override DataTable GetSchema()
-    {
-        return GetSchemaAsync().GetAwaiter().GetResult();
-    }
+    public override DataTable GetSchema() => GetSchemaAsync().GetAwaiter().GetResult();
 
-    public override DataTable GetSchema(string collectionName)
-    {
-        return GetSchemaAsync(collectionName).GetAwaiter().GetResult();
-    }
+    public override DataTable GetSchema(string collectionName) =>
+        GetSchemaAsync(collectionName).GetAwaiter().GetResult();
 
-    public override DataTable GetSchema(string collectionName, string?[] restrictionValues)
-    {
-        return GetSchemaAsync(collectionName, restrictionValues).GetAwaiter().GetResult();
-    }
+    public override DataTable GetSchema(string collectionName, string?[] restrictionValues) =>
+        GetSchemaAsync(collectionName, restrictionValues).GetAwaiter().GetResult();
 
-    public override Task<DataTable> GetSchemaAsync(CancellationToken cancellationToken = default)
-    {
-        return GetSchemaAsync("MetaDataCollections", cancellationToken);
-    }
+    public override Task<DataTable> GetSchemaAsync(CancellationToken cancellationToken = default) =>
+        GetSchemaAsync("MetaDataCollections", cancellationToken);
 
-    public override Task<DataTable> GetSchemaAsync(string collectionName, CancellationToken cancellationToken = default)
-    {
-        return GetSchemaAsync(collectionName, new string[4], cancellationToken);
-    }
+    public override Task<DataTable>
+        GetSchemaAsync(string collectionName, CancellationToken cancellationToken = default) =>
+        GetSchemaAsync(collectionName, new string[4], cancellationToken);
 
     public override Task<DataTable> GetSchemaAsync(
         string collectionName,
         string?[] restrictionValues,
-        CancellationToken cancellationToken = default)
-    {
-        return YdbSchema.GetSchemaAsync(this, collectionName, restrictionValues, cancellationToken);
-    }
+        CancellationToken cancellationToken = default
+    ) => YdbSchema.GetSchemaAsync(this, collectionName, restrictionValues, cancellationToken);
 
     internal void EnsureConnectionOpen()
     {
@@ -281,18 +254,12 @@ public sealed class YdbConnection : DbConnection
     /// immediately closed, and any busy connections which were opened before <see cref="ClearPool"/> was called
     /// will be closed when returned to the pool.
     /// </summary>
-    public static Task ClearPool(YdbConnection connection)
-    {
-        return PoolManager.ClearPool(connection.ConnectionString);
-    }
+    public static Task ClearPool(YdbConnection connection) => PoolManager.ClearPool(connection.ConnectionString);
 
     /// <summary>
     /// Clear all connection pools. All idle physical connections in all pools are immediately closed, and any busy
     /// connections which were opened before <see cref="ClearAllPools"/> was called will be closed when returned
     /// to their pool.
     /// </summary>
-    public static Task ClearAllPools()
-    {
-        return PoolManager.ClearAllPools();
-    }
+    public static Task ClearAllPools() => PoolManager.ClearAllPools();
 }
