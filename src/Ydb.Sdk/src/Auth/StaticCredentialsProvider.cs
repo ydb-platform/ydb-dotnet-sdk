@@ -188,15 +188,9 @@ public class StaticCredentialsProvider : ICredentialsProvider
 
         private DateTime RefreshAt { get; }
 
-        public bool IsExpired()
-        {
-            return DateTime.UtcNow >= ExpiresAt;
-        }
+        public bool IsExpired() => DateTime.UtcNow >= ExpiresAt;
 
-        public bool IsRefreshNeeded()
-        {
-            return DateTime.UtcNow >= RefreshAt;
-        }
+        public bool IsRefreshNeeded() => DateTime.UtcNow >= RefreshAt;
     }
 }
 

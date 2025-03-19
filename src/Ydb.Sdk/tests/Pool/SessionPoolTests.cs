@@ -15,10 +15,8 @@ public class SessionPoolTests
     private readonly TestSessionPool _testSessionPool = new();
 
     [Fact]
-    public void GetSession_WhenRaceConditionThenRelease_CreateSuccessSessionIsCalledWithSizeLimit()
-    {
+    public void GetSession_WhenRaceConditionThenRelease_CreateSuccessSessionIsCalledWithSizeLimit() =>
         StressTestSessionPoolAndCheckCreatedSessions(10_000, TestSessionPoolSize);
-    }
 
     [Fact]
     public async Task GetSession_WhenCreateSessionReturnUnavailable_ExpectedStatusAndReleaseSessionInPool()
@@ -107,8 +105,5 @@ public class TestSession : SessionBase<TestSession>
     {
     }
 
-    internal override Task<Status> DeleteSession()
-    {
-        return Task.FromResult(new Status(StatusCode.Success));
-    }
+    internal override Task<Status> DeleteSession() => Task.FromResult(new Status(StatusCode.Success));
 }

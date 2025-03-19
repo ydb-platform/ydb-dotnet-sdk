@@ -8,10 +8,7 @@ namespace Ydb.Sdk.Services.Table;
 
 public class IndexBuildMetadata
 {
-    internal static IndexBuildMetadata FromProto(Ydb.Table.IndexBuildMetadata metaProto)
-    {
-        return new IndexBuildMetadata();
-    }
+    internal static IndexBuildMetadata FromProto(Ydb.Table.IndexBuildMetadata metaProto) => new();
 }
 
 public class AlterTableMetadata
@@ -27,12 +24,10 @@ public class AlterTableMetadata
 
     public IndexBuildMetadata? IndexBuild { get; }
 
-    internal static AlterTableMetadata FromProto(Any metaProto)
-    {
-        return metaProto.Is(Ydb.Table.IndexBuildMetadata.Descriptor)
+    internal static AlterTableMetadata FromProto(Any metaProto) =>
+        metaProto.Is(Ydb.Table.IndexBuildMetadata.Descriptor)
             ? new AlterTableMetadata(metaProto.Unpack<Ydb.Table.IndexBuildMetadata>())
             : new AlterTableMetadata();
-    }
 }
 
 public sealed class AlterTableOperation : OperationResponse<EmptyResult, AlterTableMetadata>
@@ -50,27 +45,17 @@ public sealed class AlterTableOperation : OperationResponse<EmptyResult, AlterTa
     {
     }
 
-    protected override EmptyResult UnpackResult(ClientOperation operation)
-    {
-        return new EmptyResult();
-    }
+    protected override EmptyResult UnpackResult(ClientOperation operation) => new();
 
-    protected override AlterTableMetadata UnpackMetadata(ClientOperation operation)
-    {
-        return AlterTableMetadata.FromProto(operation.Metadata);
-    }
+    protected override AlterTableMetadata UnpackMetadata(ClientOperation operation) =>
+        AlterTableMetadata.FromProto(operation.Metadata);
 
-    public async Task<AlterTableOperation> Poll()
-    {
-        return new AlterTableOperation(_operationsClient, await _operationsClient.GetOperation(Id));
-    }
+    public async Task<AlterTableOperation> Poll() => new(_operationsClient, await _operationsClient.GetOperation(Id));
 
     public async Task<AlterTableOperation> PollReady(TimeSpan? delay = default,
-        CancellationToken cancellationToken = default)
-    {
-        return new AlterTableOperation(_operationsClient,
+        CancellationToken cancellationToken = default) =>
+        new(_operationsClient,
             await _operationsClient.PollReady(Id, delay, cancellationToken));
-    }
 }
 
 public class AddIndexSettings : OperationSettings

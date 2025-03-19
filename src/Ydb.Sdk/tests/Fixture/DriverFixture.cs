@@ -6,7 +6,7 @@ public class DriverFixture : IAsyncLifetime
 {
     public Driver Driver { get; }
 
-    public DriverFixture()
+    protected DriverFixture()
     {
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
@@ -20,10 +20,7 @@ public class DriverFixture : IAsyncLifetime
     {
     }
 
-    public Task InitializeAsync()
-    {
-        return Driver.Initialize();
-    }
+    public Task InitializeAsync() => Driver.Initialize();
 
     public Task DisposeAsync()
     {

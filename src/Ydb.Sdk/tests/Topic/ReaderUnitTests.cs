@@ -1581,26 +1581,20 @@ public class ReaderUnitTests
 
     private class FailDeserializer : IDeserializer<int>
     {
-        public int Deserialize(byte[] data)
-        {
-            throw new Exception("Some serialize exception");
-        }
+        public int Deserialize(byte[] data) => throw new Exception("Some serialize exception");
     }
 
-    private static FromServer StartPartitionSessionRequest(int commitedOffset = 0)
+    private static FromServer StartPartitionSessionRequest(int commitedOffset = 0) => new()
     {
-        return new FromServer
+        Status = StatusIds.Types.StatusCode.Success,
+        StartPartitionSessionRequest = new StreamReadMessage.Types.StartPartitionSessionRequest
         {
-            Status = StatusIds.Types.StatusCode.Success,
-            StartPartitionSessionRequest = new StreamReadMessage.Types.StartPartitionSessionRequest
-            {
-                CommittedOffset = commitedOffset,
-                PartitionOffsets = new OffsetsRange { Start = commitedOffset, End = commitedOffset + 1000 },
-                PartitionSession = new StreamReadMessage.Types.PartitionSession
-                    { Path = "/topic", PartitionId = 1, PartitionSessionId = 1 }
-            }
-        };
-    }
+            CommittedOffset = commitedOffset,
+            PartitionOffsets = new OffsetsRange { Start = commitedOffset, End = commitedOffset + 1000 },
+            PartitionSession = new StreamReadMessage.Types.PartitionSession
+                { Path = "/topic", PartitionId = 1, PartitionSessionId = 1 }
+        }
+    };
 
     private static FromServer ReadResponse(int commitedOffset = 0, params byte[][] args)
     {
@@ -1638,19 +1632,16 @@ public class ReaderUnitTests
         };
     }
 
-    private static FromServer CommitOffsetResponse(int committedOffset = 1)
+    private static FromServer CommitOffsetResponse(int committedOffset = 1) => new()
     {
-        return new FromServer
+        Status = StatusIds.Types.StatusCode.Success,
+        CommitOffsetResponse = new StreamReadMessage.Types.CommitOffsetResponse
         {
-            Status = StatusIds.Types.StatusCode.Success,
-            CommitOffsetResponse = new StreamReadMessage.Types.CommitOffsetResponse
+            PartitionsCommittedOffsets =
             {
-                PartitionsCommittedOffsets =
-                {
-                    new StreamReadMessage.Types.CommitOffsetResponse.Types.PartitionCommittedOffset
-                        { PartitionSessionId = 1, CommittedOffset = committedOffset }
-                }
+                new StreamReadMessage.Types.CommitOffsetResponse.Types.PartitionCommittedOffset
+                    { PartitionSessionId = 1, CommittedOffset = committedOffset }
             }
-        };
-    }
+        }
+    };
 }

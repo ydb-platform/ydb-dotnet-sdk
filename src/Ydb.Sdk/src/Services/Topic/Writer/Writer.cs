@@ -44,10 +44,8 @@ internal class Writer<TValue> : IWriter<TValue>
         StartWriteWorker();
     }
 
-    public Task<WriteResult> WriteAsync(TValue data, CancellationToken cancellationToken)
-    {
-        return WriteAsync(new Message<TValue>(data), cancellationToken);
-    }
+    public Task<WriteResult> WriteAsync(TValue data, CancellationToken cancellationToken) =>
+        WriteAsync(new Message<TValue>(data), cancellationToken);
 
     public async Task<WriteResult> WriteAsync(Message<TValue> message, CancellationToken cancellationToken)
     {
@@ -182,10 +180,7 @@ internal class Writer<TValue> : IWriter<TValue>
         }
     }
 
-    private void WakeUpWorker()
-    {
-        _tcsWakeUp.TrySetResult();
-    }
+    private void WakeUpWorker() => _tcsWakeUp.TrySetResult();
 
     private async Task Initialize()
     {
@@ -412,10 +407,7 @@ internal class NotStartedWriterSession : IWriteSession
 
     public bool IsActive => true;
 
-    public ValueTask DisposeAsync()
-    {
-        return ValueTask.CompletedTask;
-    }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
 internal class DummyWriterSession : IWriteSession
@@ -426,17 +418,11 @@ internal class DummyWriterSession : IWriteSession
     {
     }
 
-    public Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
-    {
-        return Task.CompletedTask;
-    }
+    public Task Write(ConcurrentQueue<MessageSending> toSendBuffer) => Task.CompletedTask;
 
     public bool IsActive => false;
 
-    public ValueTask DisposeAsync()
-    {
-        return ValueTask.CompletedTask;
-    }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
 internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>, IWriteSession
@@ -588,16 +574,14 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
         }
     }
 
-    protected override MessageFromClient GetSendUpdateTokenRequest(string token)
-    {
-        return new MessageFromClient
+    protected override MessageFromClient GetSendUpdateTokenRequest(string token) =>
+        new()
         {
             UpdateTokenRequest = new UpdateTokenRequest
             {
                 Token = token
             }
         };
-    }
 
     public override async ValueTask DisposeAsync()
     {

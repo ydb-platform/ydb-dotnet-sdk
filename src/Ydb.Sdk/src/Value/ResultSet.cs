@@ -6,10 +6,7 @@ namespace Ydb.Sdk.Value;
 
 public static class ResultSetExtension
 {
-    internal static ResultSet FromProto(this Ydb.ResultSet resultSetProto)
-    {
-        return new ResultSet(resultSetProto);
-    }
+    internal static ResultSet FromProto(this Ydb.ResultSet resultSetProto) => new(resultSetProto);
 }
 
 public class ResultSet
@@ -64,20 +61,11 @@ public class ResultSet
 
         public Row this[int index] => new(_rows[index], _columns, _columnsMap);
 
-        private IEnumerator<Row> GetRowsEnumerator()
-        {
-            return new Enumerator(_rows.GetEnumerator(), _columns, _columnsMap);
-        }
+        private IEnumerator<Row> GetRowsEnumerator() => new Enumerator(_rows.GetEnumerator(), _columns, _columnsMap);
 
-        public IEnumerator<Row> GetEnumerator()
-        {
-            return GetRowsEnumerator();
-        }
+        public IEnumerator<Row> GetEnumerator() => GetRowsEnumerator();
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetRowsEnumerator();
-        }
+        IEnumerator IEnumerable.GetEnumerator() => GetRowsEnumerator();
 
         private class Enumerator : IEnumerator<Row>
         {
@@ -101,20 +89,11 @@ public class ResultSet
 
             object IEnumerator.Current => CurrentRow;
 
-            public void Dispose()
-            {
-                _protoEnumerator.Dispose();
-            }
+            public void Dispose() => _protoEnumerator.Dispose();
 
-            public bool MoveNext()
-            {
-                return _protoEnumerator.MoveNext();
-            }
+            public bool MoveNext() => _protoEnumerator.MoveNext();
 
-            public void Reset()
-            {
-                _protoEnumerator.Reset();
-            }
+            public void Reset() => _protoEnumerator.Reset();
         }
     }
 

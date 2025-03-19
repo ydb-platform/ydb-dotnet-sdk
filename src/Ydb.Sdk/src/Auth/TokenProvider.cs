@@ -9,8 +9,5 @@ public class TokenProvider : ICredentialsProvider
         _token = token;
     }
 
-    public string GetAuthInfo()
-    {
-        return _token;
-    }
+    public string GetAuthInfo() => _token;
 }

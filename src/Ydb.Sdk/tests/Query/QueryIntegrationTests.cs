@@ -236,8 +236,5 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
         await _queryClient.Exec(Tables.UpsertData);
     }
 
-    public async Task DisposeAsync()
-    {
-        await _queryClient.Exec(Tables.DeleteTables);
-    }
+    public async Task DisposeAsync() => await _queryClient.Exec(Tables.DeleteTables);
 }

@@ -444,27 +444,16 @@ internal static class YdbSchema
         return table;
     }
 
-    private static string WithSuffix(string path)
-    {
-        return path.EndsWith('/') ? path : path + '/';
-    }
+    private static string WithSuffix(string path) => path.EndsWith('/') ? path : path + '/';
 
-    private static bool IsSystem(this string tablePath)
-    {
-        return tablePath.StartsWith(".sys/")
-               || tablePath.StartsWith(".sys_health/")
-               || tablePath.StartsWith(".sys_health_dev/");
-    }
+    private static bool IsSystem(this string tablePath) => tablePath.StartsWith(".sys/")
+                                                           || tablePath.StartsWith(".sys_health/")
+                                                           || tablePath.StartsWith(".sys_health_dev/");
 
-    private static bool IsPattern(this string tableType, string? expectedTableType)
-    {
-        return expectedTableType == null || expectedTableType.Equals(tableType, StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool IsPattern(this string tableType, string? expectedTableType) =>
+        expectedTableType == null || expectedTableType.Equals(tableType, StringComparison.OrdinalIgnoreCase);
 
-    internal static string YqlTableType(this Type type)
-    {
-        return type.TypeCase == Type.TypeOneofCase.OptionalType
-            ? type.OptionalType.Item.TypeId.ToString()
-            : type.TypeId.ToString();
-    }
+    internal static string YqlTableType(this Type type) => type.TypeCase == Type.TypeOneofCase.OptionalType
+        ? type.OptionalType.Item.TypeId.ToString()
+        : type.TypeId.ToString();
 }

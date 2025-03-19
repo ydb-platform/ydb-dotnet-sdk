@@ -145,10 +145,7 @@ internal class EndpointPool
     {
         internal int Priority { get; private set; }
 
-        internal void Pessimize()
-        {
-            Priority = int.MaxValue;
-        }
+        internal void Pessimize() => Priority = int.MaxValue;
 
         internal bool IsPessimized => Priority == int.MaxValue;
     }
@@ -173,8 +170,5 @@ internal class ThreadLocalRandom : IRandom
     {
     }
 
-    public int Next(int maxValue)
-    {
-        return ThreadStaticRandom.Next(maxValue);
-    }
+    public int Next(int maxValue) => ThreadStaticRandom.Next(maxValue);
 }

@@ -5,122 +5,75 @@ namespace Ydb.Sdk.Value;
 
 public partial class YdbValue
 {
-    public static YdbValue MakeBool(bool value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Bool), new Ydb.Value { BoolValue = value });
-    }
+    public static YdbValue MakeBool(bool value) => new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Bool),
+        new Ydb.Value { BoolValue = value });
 
-    public static YdbValue MakeInt8(sbyte value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int8), new Ydb.Value { Int32Value = value });
-    }
+    public static YdbValue MakeInt8(sbyte value) => new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int8),
+        new Ydb.Value { Int32Value = value });
 
-    public static YdbValue MakeUint8(byte value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint8),
+    public static YdbValue MakeUint8(byte value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint8),
             new Ydb.Value { Uint32Value = value });
-    }
 
-    public static YdbValue MakeInt16(short value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int16), new Ydb.Value { Int32Value = value });
-    }
+    public static YdbValue MakeInt16(short value) => new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int16),
+        new Ydb.Value { Int32Value = value });
 
-    public static YdbValue MakeUint16(ushort value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint16),
-            new Ydb.Value { Uint32Value = value });
-    }
+    public static YdbValue MakeUint16(ushort value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint16), new Ydb.Value { Uint32Value = value });
 
-    public static YdbValue MakeInt32(int value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int32), new Ydb.Value { Int32Value = value });
-    }
+    public static YdbValue MakeInt32(int value) => new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int32),
+        new Ydb.Value { Int32Value = value });
 
-    public static YdbValue MakeUint32(uint value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint32),
-            new Ydb.Value { Uint32Value = value });
-    }
+    public static YdbValue MakeUint32(uint value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint32), new Ydb.Value { Uint32Value = value });
 
-    public static YdbValue MakeInt64(long value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int64),
-            new Ydb.Value { Int64Value = value });
-    }
+    public static YdbValue MakeInt64(long value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Int64), new Ydb.Value { Int64Value = value });
 
-    public static YdbValue MakeUint64(ulong value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint64),
-            new Ydb.Value { Uint64Value = value });
-    }
+    public static YdbValue MakeUint64(ulong value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Uint64), new Ydb.Value { Uint64Value = value });
 
-    public static YdbValue MakeFloat(float value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Float),
-            new Ydb.Value { FloatValue = value });
-    }
+    public static YdbValue MakeFloat(float value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Float), new Ydb.Value { FloatValue = value });
 
-    public static YdbValue MakeDouble(double value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Double),
-            new Ydb.Value { DoubleValue = value });
-    }
+    public static YdbValue MakeDouble(double value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Double), new Ydb.Value { DoubleValue = value });
 
-    public static YdbValue MakeDate(DateTime value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Date), new Ydb.Value
+    public static YdbValue MakeDate(DateTime value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Date), new Ydb.Value
             { Uint32Value = (uint)value.Subtract(DateTime.UnixEpoch).TotalDays });
-    }
 
-    public static YdbValue MakeDatetime(DateTime value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Datetime), new Ydb.Value
+    public static YdbValue MakeDatetime(DateTime value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Datetime), new Ydb.Value
         {
             Uint32Value = (uint)((value.Ticks - DateTime.UnixEpoch.Ticks) *
                 Duration.NanosecondsPerTick / Duration.NanosecondsPerSecond)
         });
-    }
 
-    public static YdbValue MakeTimestamp(DateTime value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Timestamp), new Ydb.Value
+    public static YdbValue MakeTimestamp(DateTime value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Timestamp), new Ydb.Value
             { Uint64Value = (ulong)(value.Ticks - DateTime.UnixEpoch.Ticks) * Duration.NanosecondsPerTick / 1000 });
-    }
 
-    public static YdbValue MakeInterval(TimeSpan value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Interval), new Ydb.Value
+    public static YdbValue MakeInterval(TimeSpan value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Interval), new Ydb.Value
             { Int64Value = value.Ticks * Duration.NanosecondsPerTick / 1000 });
-    }
 
-    public static YdbValue MakeString(byte[] value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.String), new Ydb.Value
+    public static YdbValue MakeString(byte[] value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.String), new Ydb.Value
             { BytesValue = ByteString.CopyFrom(value) });
-    }
 
-    public static YdbValue MakeUtf8(string value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Utf8), new Ydb.Value { TextValue = value });
-    }
+    public static YdbValue MakeUtf8(string value) => new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Utf8),
+        new Ydb.Value { TextValue = value });
 
-    public static YdbValue MakeYson(byte[] value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Yson),
+    public static YdbValue MakeYson(byte[] value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Yson),
             new Ydb.Value { BytesValue = ByteString.CopyFrom(value) });
-    }
 
-    public static YdbValue MakeJson(string value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.Json), new Ydb.Value { TextValue = value });
-    }
+    public static YdbValue MakeJson(string value) => new(MakePrimitiveType(Type.Types.PrimitiveTypeId.Json),
+        new Ydb.Value { TextValue = value });
 
-    public static YdbValue MakeJsonDocument(string value)
-    {
-        return new YdbValue(MakePrimitiveType(Type.Types.PrimitiveTypeId.JsonDocument),
-            new Ydb.Value { TextValue = value });
-    }
+    public static YdbValue MakeJsonDocument(string value) =>
+        new(MakePrimitiveType(Type.Types.PrimitiveTypeId.JsonDocument), new Ydb.Value { TextValue = value });
 
     public static YdbValue MakeUuid(Guid guid)
     {
@@ -215,34 +168,27 @@ public partial class YdbValue
         return new YdbValue(type, ydbValue);
     }
 
-    public static YdbValue MakeDecimal(decimal value)
-    {
-        return MakeDecimalWithPrecision(value, 22, 9);
-    }
+    public static YdbValue MakeDecimal(decimal value) => MakeDecimalWithPrecision(value, 22, 9);
 
-    private static YdbValue MakeOptional(YdbValue value)
-    {
-        return new YdbValue(
+    private static YdbValue MakeOptional(YdbValue value) =>
+        new(
             new Type { OptionalType = new OptionalType { Item = value._protoType } },
             value.TypeId != YdbTypeId.OptionalType
                 ? value._protoValue
                 : new Ydb.Value { NestedValue = value._protoValue });
-    }
 
     // TODO: MakeEmptyList with complex types
-    public static YdbValue MakeEmptyList(YdbTypeId typeId)
-    {
-        return new YdbValue(
+    public static YdbValue MakeEmptyList(YdbTypeId typeId) =>
+        new(
             new Type { ListType = new ListType { Item = MakePrimitiveType(typeId) } },
             new Ydb.Value());
-    }
 
     // TODO: Check items type
     public static YdbValue MakeList(IReadOnlyList<YdbValue> values)
     {
         if (values.Count == 0)
         {
-            throw new ArgumentOutOfRangeException("values");
+            throw new ArgumentOutOfRangeException(nameof(values));
         }
 
         var value = new Ydb.Value();
@@ -282,10 +228,8 @@ public partial class YdbValue
         return new YdbValue(type, value);
     }
 
-    private static Type MakePrimitiveType(Type.Types.PrimitiveTypeId primitiveTypeId)
-    {
-        return new Type { TypeId = primitiveTypeId };
-    }
+    private static Type MakePrimitiveType(Type.Types.PrimitiveTypeId primitiveTypeId) =>
+        new() { TypeId = primitiveTypeId };
 
     private static Type MakePrimitiveType(YdbTypeId typeId)
     {
@@ -293,10 +237,7 @@ public partial class YdbValue
         return new Type { TypeId = (Type.Types.PrimitiveTypeId)typeId };
     }
 
-    private static bool IsPrimitiveTypeId(YdbTypeId typeId)
-    {
-        return (uint)typeId < YdbTypeIdRanges.ComplexTypesFirst;
-    }
+    private static bool IsPrimitiveTypeId(YdbTypeId typeId) => (uint)typeId < YdbTypeIdRanges.ComplexTypesFirst;
 
     private static void EnsurePrimitiveTypeId(YdbTypeId typeId)
     {
@@ -306,125 +247,65 @@ public partial class YdbValue
         }
     }
 
-    public static YdbValue MakeOptionalBool(bool? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Bool, MakeBool);
-    }
+    public static YdbValue MakeOptionalBool(bool? value = null) => MakeOptionalOf(value, YdbTypeId.Bool, MakeBool);
 
-    public static YdbValue MakeOptionalInt8(sbyte? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Int8, MakeInt8);
-    }
+    public static YdbValue MakeOptionalInt8(sbyte? value = null) => MakeOptionalOf(value, YdbTypeId.Int8, MakeInt8);
 
-    public static YdbValue MakeOptionalUint8(byte? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Uint8, MakeUint8);
-    }
+    public static YdbValue MakeOptionalUint8(byte? value = null) => MakeOptionalOf(value, YdbTypeId.Uint8, MakeUint8);
 
-    public static YdbValue MakeOptionalInt16(short? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Int16, MakeInt16);
-    }
+    public static YdbValue MakeOptionalInt16(short? value = null) => MakeOptionalOf(value, YdbTypeId.Int16, MakeInt16);
 
-    public static YdbValue MakeOptionalUint16(ushort? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Uint16, MakeUint16);
-    }
+    public static YdbValue MakeOptionalUint16(ushort? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.Uint16, MakeUint16);
 
-    public static YdbValue MakeOptionalInt32(int? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Int32, MakeInt32);
-    }
+    public static YdbValue MakeOptionalInt32(int? value = null) => MakeOptionalOf(value, YdbTypeId.Int32, MakeInt32);
 
-    public static YdbValue MakeOptionalUint32(uint? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Uint32, MakeUint32);
-    }
+    public static YdbValue MakeOptionalUint32(uint? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.Uint32, MakeUint32);
 
-    public static YdbValue MakeOptionalInt64(long? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Int64, MakeInt64);
-    }
+    public static YdbValue MakeOptionalInt64(long? value = null) => MakeOptionalOf(value, YdbTypeId.Int64, MakeInt64);
 
-    public static YdbValue MakeOptionalUint64(ulong? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Uint64, MakeUint64);
-    }
+    public static YdbValue MakeOptionalUint64(ulong? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.Uint64, MakeUint64);
 
-    public static YdbValue MakeOptionalFloat(float? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Float, MakeFloat);
-    }
+    public static YdbValue MakeOptionalFloat(float? value = null) => MakeOptionalOf(value, YdbTypeId.Float, MakeFloat);
 
-    public static YdbValue MakeOptionalDouble(double? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Double, MakeDouble);
-    }
+    public static YdbValue MakeOptionalDouble(double? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.Double, MakeDouble);
 
-    public static YdbValue MakeOptionalDate(DateTime? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Date, MakeDate);
-    }
+    public static YdbValue MakeOptionalDate(DateTime? value = null) => MakeOptionalOf(value, YdbTypeId.Date, MakeDate);
 
-    public static YdbValue MakeOptionalDatetime(DateTime? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Datetime, MakeDatetime);
-    }
+    public static YdbValue MakeOptionalDatetime(DateTime? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.Datetime, MakeDatetime);
 
-    public static YdbValue MakeOptionalTimestamp(DateTime? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Timestamp, MakeTimestamp);
-    }
+    public static YdbValue MakeOptionalTimestamp(DateTime? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.Timestamp, MakeTimestamp);
 
-    public static YdbValue MakeOptionalInterval(TimeSpan? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Interval, MakeInterval);
-    }
+    public static YdbValue MakeOptionalInterval(TimeSpan? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.Interval, MakeInterval);
 
-    public static YdbValue MakeOptionalString(byte[]? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.String, MakeString);
-    }
+    public static YdbValue MakeOptionalString(byte[]? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.String, MakeString);
 
-    public static YdbValue MakeOptionalUtf8(string? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Utf8, MakeUtf8);
-    }
+    public static YdbValue MakeOptionalUtf8(string? value = null) => MakeOptionalOf(value, YdbTypeId.Utf8, MakeUtf8);
 
-    public static YdbValue MakeOptionalYson(byte[]? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Yson, MakeYson);
-    }
+    public static YdbValue MakeOptionalYson(byte[]? value = null) => MakeOptionalOf(value, YdbTypeId.Yson, MakeYson);
 
-    public static YdbValue MakeOptionalJson(string? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Json, MakeJson);
-    }
+    public static YdbValue MakeOptionalJson(string? value = null) => MakeOptionalOf(value, YdbTypeId.Json, MakeJson);
 
-    public static YdbValue MakeOptionalJsonDocument(string? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.JsonDocument, MakeJsonDocument);
-    }
+    public static YdbValue MakeOptionalJsonDocument(string? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.JsonDocument, MakeJsonDocument);
 
-    public static YdbValue MakeOptionalUuid(Guid? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.Uuid, MakeUuid);
-    }
+    public static YdbValue MakeOptionalUuid(Guid? value = null) => MakeOptionalOf(value, YdbTypeId.Uuid, MakeUuid);
 
-    public static YdbValue MakeOptionalDecimal(decimal? value = null)
-    {
-        return MakeOptionalOf(value, YdbTypeId.DecimalType, MakeDecimal);
-    }
+    public static YdbValue MakeOptionalDecimal(decimal? value = null) =>
+        MakeOptionalOf(value, YdbTypeId.DecimalType, MakeDecimal);
 
-    private static YdbValue MakeOptionalOf<T>(T? value, YdbTypeId type, Func<T, YdbValue> func) where T : struct
-    {
-        return value is null ? MakeEmptyOptional(type) : MakeOptional(func((T)value));
-    }
+    private static YdbValue MakeOptionalOf<T>(T? value, YdbTypeId type, Func<T, YdbValue> func) where T : struct =>
+        value is null ? MakeEmptyOptional(type) : MakeOptional(func((T)value));
 
-    private static YdbValue MakeOptionalOf<T>(T? value, YdbTypeId type, Func<T, YdbValue> func) where T : class
-    {
-        return value is null ? MakeEmptyOptional(type) : MakeOptional(func(value));
-    }
+    private static YdbValue MakeOptionalOf<T>(T? value, YdbTypeId type, Func<T, YdbValue> func) where T : class =>
+        value is null ? MakeEmptyOptional(type) : MakeOptional(func(value));
 
     private static YdbValue MakeEmptyOptional(YdbTypeId typeId)
     {

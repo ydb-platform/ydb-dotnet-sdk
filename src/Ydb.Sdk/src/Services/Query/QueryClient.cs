@@ -35,29 +35,24 @@ public class QueryClient : IAsyncDisposable
 
     public Task<T> Stream<T>(string query, Func<ExecuteQueryStream, Task<T>> onStream,
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
-        ExecuteQuerySettings? settings = null)
-    {
-        return _sessionPool.ExecOnSession(async session => await onStream(new ExecuteQueryStream(
+        ExecuteQuerySettings? settings = null) =>
+        _sessionPool.ExecOnSession(async session => await onStream(new ExecuteQueryStream(
             await session.ExecuteQuery(query, parameters, settings, txMode.TransactionControl())))
         );
-    }
 
     public Task Stream(string query, Func<ExecuteQueryStream, Task> onStream,
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
-        ExecuteQuerySettings? settings = null)
-    {
-        return Stream<object>(query, async stream =>
+        ExecuteQuerySettings? settings = null) =>
+        Stream<object>(query, async stream =>
         {
             await onStream(stream);
             return None;
         }, parameters, txMode, settings);
-    }
 
     public Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRows(string query,
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
-        ExecuteQuerySettings? settings = null)
-    {
-        return Stream<IReadOnlyList<Value.ResultSet.Row>>(query, async stream =>
+        ExecuteQuerySettings? settings = null) =>
+        Stream<IReadOnlyList<Value.ResultSet.Row>>(query, async stream =>
         {
             await using var uStream = stream;
             List<Value.ResultSet.Row> rows = new();
@@ -74,7 +69,6 @@ public class QueryClient : IAsyncDisposable
 
             return rows.AsReadOnly();
         }, parameters, txMode, settings);
-    }
 
     public async Task<Value.ResultSet.Row?> ReadRow(string query,
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
@@ -86,15 +80,13 @@ public class QueryClient : IAsyncDisposable
     }
 
     public async Task Exec(string query, Dictionary<string, YdbValue>? parameters = null,
-        TxMode txMode = TxMode.NoTx, ExecuteQuerySettings? settings = null)
-    {
+        TxMode txMode = TxMode.NoTx, ExecuteQuerySettings? settings = null) =>
         await Stream(query, async stream =>
         {
             await using var uStream = stream;
 
             _ = await stream.MoveNextAsync();
         }, parameters, txMode, settings);
-    }
 
     public Task<T> DoTx<T>(Func<QueryTx, Task<T>> queryTx, TxMode txMode = TxMode.SerializableRw)
     {
@@ -137,15 +129,13 @@ public class QueryClient : IAsyncDisposable
 
     private static readonly object None = new();
 
-    public async Task DoTx(Func<QueryTx, Task> queryTx, TxMode txMode = TxMode.SerializableRw)
-    {
+    public async Task DoTx(Func<QueryTx, Task> queryTx, TxMode txMode = TxMode.SerializableRw) =>
         await DoTx<object>(async tx =>
         {
             await queryTx(tx);
 
             return None;
         }, txMode);
-    }
 
     public ValueTask DisposeAsync()
     {

@@ -13,8 +13,5 @@ public class TableExampleBase
         BasePath = string.Join('/', database, path);
     }
 
-    protected string FullTablePath(string table)
-    {
-        return string.Join('/', BasePath, table);
-    }
+    protected string FullTablePath(string table) => string.Join('/', BasePath, table);
 }

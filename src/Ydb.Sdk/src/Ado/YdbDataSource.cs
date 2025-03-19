@@ -22,10 +22,7 @@ public class YdbDataSource : DbDataSource
         _ydbConnectionStringBuilder = new YdbConnectionStringBuilder();
     }
 
-    protected override YdbConnection CreateDbConnection()
-    {
-        return new YdbConnection(_ydbConnectionStringBuilder);
-    }
+    protected override YdbConnection CreateDbConnection() => new(_ydbConnectionStringBuilder);
 
     protected override YdbConnection OpenDbConnection()
     {
@@ -42,15 +39,9 @@ public class YdbDataSource : DbDataSource
         }
     }
 
-    public new YdbConnection CreateConnection()
-    {
-        return CreateDbConnection();
-    }
+    public new YdbConnection CreateConnection() => CreateDbConnection();
 
-    public new YdbConnection OpenConnection()
-    {
-        return OpenDbConnection();
-    }
+    public new YdbConnection OpenConnection() => OpenDbConnection();
 
     public new async ValueTask<YdbConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
     {
@@ -70,15 +61,10 @@ public class YdbDataSource : DbDataSource
 
     public override string ConnectionString => _ydbConnectionStringBuilder.ConnectionString;
 
-    protected override async ValueTask DisposeAsyncCore()
-    {
+    protected override async ValueTask DisposeAsyncCore() =>
         await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString);
-    }
 
-    protected override void Dispose(bool disposing)
-    {
-        DisposeAsyncCore().AsTask().GetAwaiter().GetResult();
-    }
+    protected override void Dispose(bool disposing) => DisposeAsyncCore().AsTask().GetAwaiter().GetResult();
 }
 
 #endif

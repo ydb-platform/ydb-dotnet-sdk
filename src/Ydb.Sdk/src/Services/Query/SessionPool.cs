@@ -115,10 +115,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         return session;
     }
 
-    protected override ValueTask DisposeDriver()
-    {
-        return _disposingDriver ? _driver.DisposeAsync() : default;
-    }
+    protected override ValueTask DisposeDriver() => _disposingDriver ? _driver.DisposeAsync() : default;
 }
 
 internal class Session : SessionBase<Session>

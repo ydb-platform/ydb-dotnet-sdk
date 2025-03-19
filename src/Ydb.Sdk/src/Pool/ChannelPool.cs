@@ -21,10 +21,8 @@ internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposa
         _channelFactory = channelFactory;
     }
 
-    public T GetChannel(string endpoint)
-    {
-        return _channels.GetOrAdd(endpoint, new Lazy<T>(() => _channelFactory.CreateChannel(endpoint))).Value;
-    }
+    public T GetChannel(string endpoint) =>
+        _channels.GetOrAdd(endpoint, new Lazy<T>(() => _channelFactory.CreateChannel(endpoint))).Value;
 
     public async ValueTask RemoveChannels(ImmutableArray<string> removedEndpoints)
     {

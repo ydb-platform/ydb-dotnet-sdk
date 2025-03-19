@@ -55,12 +55,10 @@ public class YdbParameterTests
     }
 
     [Fact]
-    public void YdbValue_WhenYdbValueIsSet_ReturnThis()
-    {
+    public void YdbValue_WhenYdbValueIsSet_ReturnThis() =>
         Assert.Equal("{\"type\": \"jsondoc\"}",
             new YdbParameter("$parameter", YdbValue.MakeJsonDocument("{\"type\": \"jsondoc\"}")).YdbValue
                 .GetJsonDocument());
-    }
 
     [Fact]
     public void YdbValue_WhenUnCastTypes_ThrowInvalidCastException()
@@ -82,12 +80,10 @@ public class YdbParameterTests
     [InlineData(DbType.VarNumeric, "VarNumeric")]
     [InlineData(DbType.Xml, "Xml")]
     [InlineData(DbType.Time, "Time")]
-    public void YdbValue_WhenNoSupportedDbType_ThrowException(DbType dbType, string name)
-    {
+    public void YdbValue_WhenNoSupportedDbType_ThrowException(DbType dbType, string name) =>
         Assert.Equal("Ydb don't supported this DbType: " + name,
             Assert.Throws<YdbException>(() => new YdbParameter("$parameter", dbType)
                 { IsNullable = true }.YdbValue).Message);
-    }
 
     [Fact]
     public void Parameter_WhenSetAndNoSet_ReturnValueOrException()
@@ -248,14 +244,8 @@ public class YdbParameterTests
             new object[] { new Data<decimal?>(DbType.Decimal, null, value => value.GetOptionalDecimal()) }
         };
 
-        public IEnumerator<object[]> GetEnumerator()
-        {
-            return _data.GetEnumerator();
-        }
+        public IEnumerator<object[]> GetEnumerator() => _data.GetEnumerator();
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

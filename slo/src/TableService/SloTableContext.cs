@@ -77,9 +77,7 @@ public class SloTableContext : SloTableContext<TableClient>
             response.Status.IsSuccess ? response.Result.ResultSets[0].Rows[0][0].GetOptionalInt32() : null);
     }
 
-    protected override async Task<TableClient> CreateClient(Config config)
-    {
-        return new TableClient(await Driver.CreateInitialized(new DriverConfig(config.Endpoint, config.Db),
-            ISloContext.Factory));
-    }
+    protected override async Task<TableClient> CreateClient(Config config) => new(
+        await Driver.CreateInitialized(new DriverConfig(config.Endpoint, config.Db), ISloContext.Factory)
+    );
 }

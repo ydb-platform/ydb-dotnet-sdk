@@ -120,10 +120,7 @@ public class Issue
         Message = message;
     }
 
-    public override string ToString()
-    {
-        return ToString(0, 4);
-    }
+    public override string ToString() => ToString(0, 4);
 
     private string ToString(int currentIndent, int indent)
     {
@@ -142,10 +139,7 @@ public class Issue
         return sb.ToString();
     }
 
-    internal static string IssuesToString(IReadOnlyList<Issue> issues)
-    {
-        return IssuesToString(issues, 0, 4);
-    }
+    internal static string IssuesToString(IReadOnlyList<Issue> issues) => IssuesToString(issues, 0, 4);
 
     private static string IssuesToString(IReadOnlyList<Issue> issues, int currentIndent, int indent)
     {
@@ -221,10 +215,8 @@ public class Status
         return StatusCode.Unspecified;
     }
 
-    public static Status FromProto(StatusIds.Types.StatusCode statusCode, RepeatedField<IssueMessage> issues)
-    {
-        return new Status(ConvertStatusCode(statusCode), issues.Select(i => new Issue(i)).ToList());
-    }
+    public static Status FromProto(StatusIds.Types.StatusCode statusCode, RepeatedField<IssueMessage> issues) =>
+        new(ConvertStatusCode(statusCode), issues.Select(i => new Issue(i)).ToList());
 }
 
 public class StatusUnsuccessfulException : Exception
@@ -239,9 +231,8 @@ public class StatusUnsuccessfulException : Exception
 
 internal static class StatusExtensions
 {
-    internal static Status ConvertStatus(this Grpc.Core.Status rpcStatus)
-    {
-        return new Status(
+    internal static Status ConvertStatus(this Grpc.Core.Status rpcStatus) =>
+        new(
             rpcStatus.StatusCode switch
             {
                 Grpc.Core.StatusCode.Unavailable => StatusCode.ClientTransportUnavailable,
@@ -253,5 +244,4 @@ internal static class StatusExtensions
             },
             new List<Issue> { new(rpcStatus.Detail) }
         );
-    }
 }

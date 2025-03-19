@@ -28,10 +28,7 @@ public sealed class YdbCommand : DbCommand
     {
     }
 
-    public override int ExecuteNonQuery()
-    {
-        return ExecuteNonQueryAsync().GetAwaiter().GetResult();
-    }
+    public override int ExecuteNonQuery() => ExecuteNonQueryAsync().GetAwaiter().GetResult();
 
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {
@@ -44,10 +41,7 @@ public sealed class YdbCommand : DbCommand
         return dataReader.RecordsAffected;
     }
 
-    public override object? ExecuteScalar()
-    {
-        return ExecuteScalarAsync().GetAwaiter().GetResult();
-    }
+    public override object? ExecuteScalar() => ExecuteScalarAsync().GetAwaiter().GetResult();
 
     public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
     {

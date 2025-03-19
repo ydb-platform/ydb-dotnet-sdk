@@ -24,10 +24,7 @@ public class GetSessionResponse<TSession> : ResponseWithResultBase<TSession>, ID
     {
     }
 
-    public void Dispose()
-    {
-        Dispose(true);
-    }
+    public void Dispose() => Dispose(true);
 
     protected void Dispose(bool disposing)
     {
@@ -45,10 +42,8 @@ internal interface ISessionPool<TSession> : IDisposable where TSession : Session
 
 internal class NoPool<TSession> : ISessionPool<TSession> where TSession : SessionBase
 {
-    public Task<GetSessionResponse<TSession>> GetSession()
-    {
+    public Task<GetSessionResponse<TSession>> GetSession() =>
         throw new InvalidOperationException("Unexpected session pool access.");
-    }
 
     public void Dispose()
     {
@@ -158,10 +153,7 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where T
         }
     }
 
-    public void Dispose()
-    {
-        Dispose(true);
-    }
+    public void Dispose() => Dispose(true);
 
     private void Dispose(bool disposing)
     {

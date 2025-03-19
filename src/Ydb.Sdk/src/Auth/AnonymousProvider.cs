@@ -2,8 +2,5 @@
 
 public class AnonymousProvider : ICredentialsProvider
 {
-    public string? GetAuthInfo()
-    {
-        return null;
-    }
+    public string? GetAuthInfo() => null;
 }
