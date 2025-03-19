@@ -16,14 +16,8 @@ public class StubTranslator : IMethodCallTranslator, IMemberTranslator
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger
-    )
-    {
-        return null;
-    }
+    ) => null;
 
     public SqlExpression? Translate(SqlExpression? instance, MemberInfo member, Type returnType,
-        IDiagnosticsLogger<DbLoggerCategory.Query> logger)
-    {
-        return null;
-    }
+        IDiagnosticsLogger<DbLoggerCategory.Query> logger) => null;
 }

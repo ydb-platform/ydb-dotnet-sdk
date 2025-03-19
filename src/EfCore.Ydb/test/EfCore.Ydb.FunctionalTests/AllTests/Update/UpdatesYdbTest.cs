@@ -13,9 +13,9 @@ namespace EfCore.Ydb.FunctionalTests.AllTests.Update;
 // Ignore_before_save_property_is_still_generated,
 // SaveChanges_processes_all_tracked_entities.
 // They're failing, but I cannot ignore them because they're not virtual
-class UpdatesYdbTest 
+class UpdatesYdbTest
     : UpdatesRelationalTestBase<UpdatesYdbTest.UpdatesYdbFixture>
-        // , UpdatesTestBase<UpdatesYdbTest.UpdatesYdbFixture>
+// , UpdatesTestBase<UpdatesYdbTest.UpdatesYdbFixture>
 {
     public UpdatesYdbTest(UpdatesYdbFixture fixture) : base(fixture)
     {
@@ -39,9 +39,9 @@ class UpdatesYdbTest
     [Fact(Skip = "There's no foreign keys in ydb")]
     public override Task Save_with_shared_foreign_key()
         => TestIgnoringBase(base.Save_with_shared_foreign_key);
- 
+
     [Fact(Skip = "Need fix")]
-    public override Task Can_use_shared_columns_with_conversion() 
+    public override Task Can_use_shared_columns_with_conversion()
         => TestIgnoringBase(base.Can_use_shared_columns_with_conversion);
 
     public override Task Swap_filtered_unique_index_values()
@@ -130,11 +130,11 @@ class UpdatesYdbTest
     public override Task Save_replaced_principal()
         => TestIgnoringBase(
             base.Save_replaced_principal);
-    
+
     private async Task TestIgnoringBase(
         Func<Task> baseTest,
         params string[] expectedSql
-    ) => await TestIgnoringBase((_ => baseTest()), false, expectedSql);
+    ) => await TestIgnoringBase(_ => baseTest(), false, expectedSql);
 
     private async Task TestIgnoringBase(
         Func<bool, Task> baseTest,
@@ -152,15 +152,15 @@ class UpdatesYdbTest
             var actual = Fixture.TestSqlLoggerFactory.SqlStatements;
 
             var comms = new StringBuilder();
-            for (var i = 0; i < actual.Count; i++)
+            foreach (var str in actual)
             {
                 comms
                     .Append(">>>\n")
-                    .Append(actual[i])
+                    .Append(str)
                     .Append("\n<<<\n");
             }
 
             throw new AggregateException(new Exception(comms.ToString()), e);
         }
-    } 
+    }
 }

@@ -10,8 +10,5 @@ public class YdbCommandInterceptor : DbCommandInterceptor
         DbCommand command,
         CommandEventData eventData,
         InterceptionResult<DbDataReader> result
-    )
-    {
-        return result;
-    }
+    ) => result;
 }

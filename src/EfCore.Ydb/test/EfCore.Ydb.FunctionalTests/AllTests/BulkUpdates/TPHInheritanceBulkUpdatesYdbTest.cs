@@ -4,9 +4,7 @@ using Xunit.Abstractions;
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
 // TODO: Primary key required for ydb tables
-public class TphInheritanceBulkUpdatesYdbTest(
+public class TPHInheritanceBulkUpdatesYdbTest(
     TPHInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper)
-    : TPHInheritanceBulkUpdatesTestBase<TPHInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper)
-    {
-}
+    : TPHInheritanceBulkUpdatesTestBase<TPHInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper);

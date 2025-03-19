@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
 // TODO: need fix
-class NonSharedModelBulkUpdatesYdbTest : NonSharedModelBulkUpdatesRelationalTestBase
+internal class NonSharedModelBulkUpdatesYdbTest : NonSharedModelBulkUpdatesRelationalTestBase
 {
     protected override ITestStoreFactory TestStoreFactory
         => YdbTestStoreFactory.Instance;

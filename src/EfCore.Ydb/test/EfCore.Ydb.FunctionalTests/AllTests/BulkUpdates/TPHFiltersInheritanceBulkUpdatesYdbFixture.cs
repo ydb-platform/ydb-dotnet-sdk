@@ -1,7 +1,6 @@
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
-public class TPHFiltersInheritanceBulkUpdatesYdbFixture : TPHInheritanceBulkUpdatesYdbFixture
+public class TphFiltersInheritanceBulkUpdatesYdbFixture : TPHInheritanceBulkUpdatesYdbFixture
 {
-    public override bool EnableFilters
-        => true;
+    public override bool EnableFilters => true;
 }

@@ -26,19 +26,14 @@ public class YdbDecimalTypeMapping : RelationalTypeMapping
 
     protected override string ProcessStoreType(
         RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase
-    )
-    {
-        return storeType == "BigInteger" && parameters.Precision != null
-            ? $"Decimal({parameters.Precision}, 0)"
-            : parameters.Precision is null
-                ? storeType
-                : parameters.Scale is null
-                    ? $"Decimal({parameters.Precision}, 0)"
-                    : $"Decimal({parameters.Precision}, {parameters.Scale})";
-    }
+    ) => storeType == "BigInteger" && parameters.Precision != null
+        ? $"Decimal({parameters.Precision}, 0)"
+        : parameters.Precision is null
+            ? storeType
+            : parameters.Scale is null
+                ? $"Decimal({parameters.Precision}, 0)"
+                : $"Decimal({parameters.Precision}, {parameters.Scale})";
 
-    public override MethodInfo GetDataReaderMethod()
-    {
-        return typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetDecimal), [typeof(int)])!;
-    }
+    public override MethodInfo GetDataReaderMethod() =>
+        typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetDecimal), [typeof(int)])!;
 }

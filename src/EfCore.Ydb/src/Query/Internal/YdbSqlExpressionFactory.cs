@@ -8,8 +8,6 @@ namespace EfCore.Ydb.Query.Internal;
 public class YdbSqlExpressionFactory(SqlExpressionFactoryDependencies dependencies) : SqlExpressionFactory(dependencies)
 {
     [return: NotNullIfNotNull("sqlExpression")]
-    public override SqlExpression? ApplyTypeMapping(SqlExpression? sqlExpression, RelationalTypeMapping? typeMapping)
-    {
-        return base.ApplyTypeMapping(sqlExpression, typeMapping);
-    }
+    public override SqlExpression? ApplyTypeMapping(SqlExpression? sqlExpression, RelationalTypeMapping? typeMapping) =>
+        base.ApplyTypeMapping(sqlExpression, typeMapping);
 }

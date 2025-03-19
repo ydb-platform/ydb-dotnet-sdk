@@ -7,11 +7,11 @@ namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 // TODO: following error
 // Error: Primary key is required for ydb tables.
 // Probably use Name+CountryId, but...
-class TPHFiltersInheritanceBulkUpdatesYdbTest(
-    TPHFiltersInheritanceBulkUpdatesYdbFixture fixture,
+internal class TphFiltersInheritanceBulkUpdatesYdbTest(
+    TphFiltersInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
 ) : FiltersInheritanceBulkUpdatesRelationalTestBase<
-    TPHFiltersInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper)
+    TphFiltersInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper)
 {
     public override Task Delete_where_keyless_entity_mapped_to_sql_query(bool async)
         => SharedTestMethods.TestIgnoringBase(

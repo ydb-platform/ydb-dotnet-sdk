@@ -14,8 +14,9 @@ public class YdbTestStoreFactory(
 
     private readonly string? _scriptPath = null;
 
-    public override TestStore Create(string storeName) => 
-        new YdbTestStore(storeName, _scriptPath, additionalSql, connectionStringOptions, shared: false, useConnectionString);
+    public override TestStore Create(string storeName) =>
+        new YdbTestStore(storeName, _scriptPath, additionalSql, connectionStringOptions, shared: false,
+            useConnectionString);
 
     public override TestStore GetOrCreate(string storeName)
         => new YdbTestStore(storeName, _scriptPath, additionalSql, connectionStringOptions, shared: true,

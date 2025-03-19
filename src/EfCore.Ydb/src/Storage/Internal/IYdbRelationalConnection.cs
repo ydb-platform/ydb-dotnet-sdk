@@ -4,6 +4,5 @@ namespace EfCore.Ydb.Storage.Internal;
 
 public interface IYdbRelationalConnection : IRelationalConnection
 {
-
     IYdbRelationalConnection Clone();
 }

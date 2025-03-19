@@ -81,7 +81,7 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
             { "Date", [_date] },
             { "DateTime", [_dateTime] },
             { "Timestamp", [_timestamp] },
-            { "Interval", [_interval] },
+            { "Interval", [_interval] }
         };
         var clrTypeMappings = new Dictionary<Type, RelationalTypeMapping>
         {
@@ -140,7 +140,7 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
         {
             return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
         }
-        
+
         foreach (var m in mappings)
         {
             if (m.ClrType == clrType)

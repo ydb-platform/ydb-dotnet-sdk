@@ -56,20 +56,11 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies) : 
         return Task.FromResult(foundTables.Count() == 1);
     }
 
-    public override string GetBeginIfNotExistsScript(string migrationId)
-    {
-        throw new NotImplementedException();
-    }
+    public override string GetBeginIfNotExistsScript(string migrationId) => throw new NotImplementedException();
 
-    public override string GetBeginIfExistsScript(string migrationId)
-    {
-        throw new NotImplementedException();
-    }
+    public override string GetBeginIfExistsScript(string migrationId) => throw new NotImplementedException();
 
-    public override string GetEndIfScript()
-    {
-        throw new NotImplementedException();
-    }
+    public override string GetEndIfScript() => throw new NotImplementedException();
 
     private sealed class YdbMigrationDatabaseLock(
         string name,

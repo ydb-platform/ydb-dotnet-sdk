@@ -27,10 +27,8 @@ class TemporaryStubModificationCommandBatch : ReaderModificationCommandBatch
     {
     }
 
-    protected override void Consume(RelationalDataReader reader)
-    {
+    protected override void Consume(RelationalDataReader reader) =>
         ConsumeAsync(reader).ConfigureAwait(false).GetAwaiter().GetResult();
-    }
 
     protected override async Task ConsumeAsync(
         RelationalDataReader? reader,
@@ -48,11 +46,8 @@ class TemporaryStubModificationCommandBatch : ReaderModificationCommandBatch
                 {
                     // Skip
                 }
-                else
-                {
-                    // TODO: implement in case commands return type will change 
-                }
 
+                // TODO: implement in case commands return type will change 
                 commandIndex++;
             }
         }
@@ -95,7 +90,7 @@ class TemporaryStubModificationCommandBatch : ReaderModificationCommandBatch
                     RelationalStrings.ModificationCommandInvalidEntityState(
                         modificationCommand.Entries[0].EntityType,
                         modificationCommand.EntityState)
-                    );
+                );
         }
 
         ResultSetMappings.Add(ResultSetMapping.NoResults);

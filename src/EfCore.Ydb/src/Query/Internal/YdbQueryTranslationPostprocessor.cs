@@ -9,7 +9,7 @@ public class YdbQueryTranslationPostprocessor(
     RelationalQueryCompilationContext queryCompilationContext
 ) : RelationalQueryTranslationPostprocessor(dependencies, relationalDependencies, queryCompilationContext)
 {
-    protected override Expression ProcessTypeMappings(Expression expression) => 
+    protected override Expression ProcessTypeMappings(Expression expression) =>
         new YdbTypeMappingPostprocessor(Dependencies, RelationalDependencies, RelationalQueryCompilationContext)
             .Process(expression);
 }

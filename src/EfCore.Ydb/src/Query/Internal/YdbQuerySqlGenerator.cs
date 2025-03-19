@@ -25,10 +25,7 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
     }
 
     [return: NotNullIfNotNull("node")]
-    public override Expression? Visit(Expression? node)
-    {
-        return node != null ? base.Visit(node) : null;
-    }
+    public override Expression? Visit(Expression? node) => node != null ? base.Visit(node) : null;
 
     protected override Expression VisitColumn(ColumnExpression columnExpression)
     {
@@ -221,23 +218,16 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
         }
     }
 
-    private bool IsComplexSelect(
-        SelectExpression select,
-        TableExpressionBase fromTable
-    )
-    {
-        return select.Offset != null
-               || select.Limit != null
-               || select.Having != null
-               || select.Orderings.Count > 0
-               || select.GroupBy.Count > 0
-               || select.Projection.Count > 0
-               || select.Tables.Count > 1
-               || select.Predicate is InExpression
-               || !(select.Tables.Count == 1
-                    && select.Tables[0].Equals(fromTable)
-                   );
-    }
+    private bool IsComplexSelect(SelectExpression select, TableExpressionBase fromTable) =>
+        select.Offset != null
+        || select.Limit != null
+        || select.Having != null
+        || select.Orderings.Count > 0
+        || select.GroupBy.Count > 0
+        || select.Projection.Count > 0
+        || select.Tables.Count > 1
+        || select.Predicate is InExpression
+        || !(select.Tables.Count == 1 && select.Tables[0].Equals(fromTable));
 
     protected override string GetOperator(SqlBinaryExpression binaryExpression)
         => binaryExpression.OperatorType == ExpressionType.Add
@@ -262,7 +252,7 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
         {
             var pathSegment = path[i];
             var isFirst = i == 0;
-           
+
             switch (pathSegment)
             {
                 case { PropertyName: { } propertyName }:

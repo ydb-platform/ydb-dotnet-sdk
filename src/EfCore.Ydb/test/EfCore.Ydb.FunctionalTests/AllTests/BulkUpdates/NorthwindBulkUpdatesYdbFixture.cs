@@ -8,6 +8,5 @@ namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 public class NorthwindBulkUpdatesYdbFixture<TModelCustomizer> : NorthwindBulkUpdatesRelationalFixture<TModelCustomizer>
     where TModelCustomizer : ITestModelCustomizer, new()
 {
-    protected override ITestStoreFactory TestStoreFactory
-        => YdbNorthwindTestStoreFactory.Instance;
+    protected override ITestStoreFactory TestStoreFactory => YdbNorthwindTestStoreFactory.Instance;
 }

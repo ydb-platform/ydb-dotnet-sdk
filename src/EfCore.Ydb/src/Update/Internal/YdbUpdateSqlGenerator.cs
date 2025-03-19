@@ -28,7 +28,8 @@ public class YdbUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies) 
     }
 
     protected override void AppendReturningClause(
-        StringBuilder commandStringBuilder, IReadOnlyList<IColumnModification> operations, string? additionalValues = null
+        StringBuilder commandStringBuilder, IReadOnlyList<IColumnModification> operations,
+        string? additionalValues = null
     )
     {
         // Ydb doesn't support RETURNING clause

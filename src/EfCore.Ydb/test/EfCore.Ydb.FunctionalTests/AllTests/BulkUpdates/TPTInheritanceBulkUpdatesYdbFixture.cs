@@ -6,6 +6,5 @@ namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
 public class TPTInheritanceBulkUpdatesYdbFixture : TPTInheritanceBulkUpdatesFixture
 {
-    protected override ITestStoreFactory TestStoreFactory
-        => YdbTestStoreFactory.Instance;
+    protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
 }

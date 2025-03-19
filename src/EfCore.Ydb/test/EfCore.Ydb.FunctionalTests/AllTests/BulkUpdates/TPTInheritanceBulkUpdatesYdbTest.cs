@@ -6,7 +6,5 @@ namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 // TODO: Key columns are not specified :c
 class TptInheritanceBulkUpdatesYdbTest(
     TPTInheritanceBulkUpdatesYdbFixture fixture,
-    ITestOutputHelper testOutputHelper)
-    : TPTInheritanceBulkUpdatesTestBase<TPTInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper)
-{
-}
+    ITestOutputHelper testOutputHelper
+) : TPTInheritanceBulkUpdatesTestBase<TPTInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper);

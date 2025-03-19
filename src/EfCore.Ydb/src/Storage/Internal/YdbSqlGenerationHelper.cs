@@ -6,11 +6,8 @@ namespace EfCore.Ydb.Storage.Internal;
 public class YdbSqlGenerationHelper(RelationalSqlGenerationHelperDependencies dependencies)
     : RelationalSqlGenerationHelper(dependencies)
 {
-    public override void DelimitIdentifier(StringBuilder builder, string identifier)
-    {
+    public override void DelimitIdentifier(StringBuilder builder, string identifier) =>
         builder.Append('`').Append(identifier).Append('`');
-    }
 
-    public override string DelimitIdentifier(string identifier)
-        => $"`{identifier}`";
+    public override string DelimitIdentifier(string identifier) => $"`{identifier}`";
 }

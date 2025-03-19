@@ -32,12 +32,9 @@ public class YdbTestStore : RelationalTestStore
         string? scriptPath = null
     ) => new(name: name, scriptPath: scriptPath);
 
-    public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
-    {
-        return UseConnectionString
-            ? builder.UseEfYdb(Connection.ConnectionString)
-            : builder.UseEfYdb(Connection);
-    }
+    public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) => UseConnectionString
+        ? builder.UseEfYdb(Connection.ConnectionString)
+        : builder.UseEfYdb(Connection);
 
     protected override async Task InitializeAsync(
         Func<DbContext> createContext,
@@ -123,10 +120,7 @@ public class YdbTestStore : RelationalTestStore
         string sql,
         bool useTransaction = false,
         object[]? parameters = null
-    )
-    {
-        await ExecuteCommandAsync(connection, execute, sql, useTransaction, parameters);
-    }
+    ) => await ExecuteCommandAsync(connection, execute, sql, useTransaction, parameters);
 
     private static async Task ExecuteCommandAsync<T>(
         DbConnection connection,
@@ -164,22 +158,21 @@ public class YdbTestStore : RelationalTestStore
         command.CommandText = commandText;
         command.CommandTimeout = CommandTimeout;
 
-        if (parameters is not null)
+        if (parameters is null)
         {
-            for (var i = 0; i < parameters.Count; i++)
-            {
-                command.Parameters.AddWithValue("p" + i, parameters[i]);
-            }
+            return command;
+        }
+
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            command.Parameters.AddWithValue("p" + i, parameters[i]);
         }
 
         return command;
     }
 
 
-    private static YdbConnection CreateConnection()
-    {
-        return new YdbConnection(new YdbConnectionStringBuilder());
-    }
+    private static YdbConnection CreateConnection() => new();
 
     public override async Task CleanAsync(DbContext context)
     {

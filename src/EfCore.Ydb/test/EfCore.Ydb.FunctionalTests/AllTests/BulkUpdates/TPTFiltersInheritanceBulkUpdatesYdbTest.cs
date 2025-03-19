@@ -10,7 +10,6 @@ public class TPTFiltersInheritanceBulkUpdatesSqlServerTest(
     ITestOutputHelper testOutputHelper
 ) : TPTFiltersInheritanceBulkUpdatesTestBase<TPTFiltersInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper)
 {
-
     [ConditionalTheory(Skip = "https://github.com/ydb-platform/ydb/issues/15177")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_where_using_hierarchy(bool async)

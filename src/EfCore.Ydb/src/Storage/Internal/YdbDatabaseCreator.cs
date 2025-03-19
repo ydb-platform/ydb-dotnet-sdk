@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 using Ydb.Sdk.Ado;
 
@@ -37,11 +36,8 @@ public class YdbDatabaseCreator(
         }
     }
 
-    public override bool HasTables()
-    {
-        // TODO: Implement later
-        return false;
-    }
+    // TODO: Implement later
+    public override bool HasTables() => false;
 
     public override void Create() => throw new NotSupportedException("YDB does not support database creation");
 

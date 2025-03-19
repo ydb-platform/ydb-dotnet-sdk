@@ -15,8 +15,5 @@ public class YdbStringAttributeConvention(ProviderConventionSetBuilderDependenci
         YdbStringAttribute attribute,
         MemberInfo clrMember,
         IConventionContext context
-    )
-    {
-        propertyBuilder.HasColumnType("string");
-    }
+    ) => propertyBuilder.HasColumnType("string");
 }
