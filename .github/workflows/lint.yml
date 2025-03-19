@@ -27,13 +27,13 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: 9.0.x
       - name: Restore
         run: dotnet restore ${{ matrix.source-dir }}${{ matrix.solutionFile }}
       - name: Install ReSharper
         run: dotnet tool install -g JetBrains.ReSharper.GlobalTools
       - name: format all files with auto-formatter
-        run: bash ./.github/scripts/format-all-dotnet-code.sh ${{ matrix.source-dir }} ${{ matrix.solutionFile }} "Custom Cleanup"
+        run: bash ./.github/scripts/format-all-dotnet-code.sh ${{ matrix.source-dir }} ${{ matrix.solutionFile }}
       - name: Check repository diff
         run: bash ./.github/scripts/check-work-copy-equals-to-committed.sh "auto-format broken"
 
@@ -48,20 +48,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup .NET
+        id: setup-dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: 9.0.x
       - name: Restore
         run: dotnet restore ${{ matrix.solutionPath }}
       - name: Inspect code
         uses: muno92/resharper_inspectcode@v1
         with:
           solutionPath: ${{ matrix.solutionPath }}
-          version: 2023.2.1
           include: |
             **.cs
             **.cshtml
           minimumReportSeverity: WARNING
+          dotnetVersion: ${{ steps.setup-dotnet.outputs.dotnet-version }}
           ignoreIssueType: | 
             UnusedField.Compiler,
             UnusedVariable.Compiler,

@@ -245,6 +245,7 @@ VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn,
 
     private record NullableFields
     {
+#pragma warning disable CollectionNeverQueried.Local
         public int? Id { get; init; }
         public bool? BoolColumn { get; init; }
         public long? LongColumn { get; init; }
@@ -260,6 +261,7 @@ VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn,
         public string? TextColumn { get; init; }
         public byte[]? BytesColumn { get; init; }
         public DateTime? TimestampColumn { get; init; }
+#pragma warning restore CollectionNeverQueried.Local
     }
 
     private record Episode
