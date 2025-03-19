@@ -29,8 +29,5 @@ internal class User
     public string Name { get; init; } = null!;
     public string Email { get; init; } = null!;
 
-    public override string ToString()
-    {
-        return $"Id: {Id}, Name: {Name}, Email: {Email}";
-    }
+    public override string ToString() => $"Id: {Id}, Name: {Name}, Email: {Email}";
 }

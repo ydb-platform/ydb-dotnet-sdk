@@ -6,7 +6,7 @@ public class DriverFixture : IAsyncLifetime
 {
     public Driver Driver { get; }
 
-    protected DriverFixture()
+    public DriverFixture()
     {
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
