@@ -8,24 +8,14 @@ using Ydb.Sdk.Ado;
 
 namespace EfCore.Ydb.FunctionalTests.TestUtilities;
 
-public class YdbTestStore : RelationalTestStore
+public class YdbTestStore(
+    string name,
+    string? scriptPath = null,
+    string? additionalSql = null,
+    bool shared = true
+) : RelationalTestStore(name, shared, CreateConnection())
 {
     private const int CommandTimeout = 600;
-    private readonly string? _scriptPath;
-    private readonly string? _additionalSql;
-
-    public YdbTestStore(
-        string name,
-        string? scriptPath = null,
-        string? additionalSql = null,
-        string? connectionStringOptions = null,
-        bool shared = true,
-        bool useConnectionString = false
-    ) : base(name, shared, CreateConnection())
-    {
-        _scriptPath = scriptPath;
-        _additionalSql = additionalSql;
-    }
 
     public static YdbTestStore GetOrCreate(
         string name,
@@ -42,13 +32,13 @@ public class YdbTestStore : RelationalTestStore
         Func<DbContext, Task>? clean
     )
     {
-        if (_scriptPath is not null)
+        if (scriptPath is not null)
         {
-            await ExecuteScript(_scriptPath);
+            await ExecuteScript(scriptPath);
 
-            if (_additionalSql is not null)
+            if (additionalSql is not null)
             {
-                await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), _additionalSql);
+                await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), additionalSql);
             }
         }
         else
@@ -58,9 +48,9 @@ public class YdbTestStore : RelationalTestStore
             await CleanAsync(context);
             await context.Database.EnsureCreatedAsync();
 
-            if (_additionalSql is not null)
+            if (additionalSql is not null)
             {
-                await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), _additionalSql);
+                await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), additionalSql);
             }
 
             if (seed is not null)

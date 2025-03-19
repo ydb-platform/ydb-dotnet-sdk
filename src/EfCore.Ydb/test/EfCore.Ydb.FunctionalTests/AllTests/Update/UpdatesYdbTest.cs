@@ -132,14 +132,12 @@ internal class UpdatesYdbTest
             base.Save_replaced_principal);
 
     private async Task TestIgnoringBase(
-        Func<Task> baseTest,
-        params string[] expectedSql
-    ) => await TestIgnoringBase(_ => baseTest(), false, expectedSql);
+        Func<Task> baseTest
+    ) => await TestIgnoringBase(_ => baseTest(), false);
 
     private async Task TestIgnoringBase(
         Func<bool, Task> baseTest,
-        bool async,
-        params string[] expectedSql
+        bool async
     )
     {
         try
@@ -151,16 +149,16 @@ internal class UpdatesYdbTest
             // if (expectedSql.Length == 0) throw;
             var actual = Fixture.TestSqlLoggerFactory.SqlStatements;
 
-            var comms = new StringBuilder();
+            var commas = new StringBuilder();
             foreach (var str in actual)
             {
-                comms
+                commas
                     .Append(">>>\n")
                     .Append(str)
                     .Append("\n<<<\n");
             }
 
-            throw new AggregateException(new Exception(comms.ToString()), e);
+            throw new AggregateException(new Exception(commas.ToString()), e);
         }
     }
 }
