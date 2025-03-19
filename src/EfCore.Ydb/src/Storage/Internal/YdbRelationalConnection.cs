@@ -9,18 +9,7 @@ namespace EfCore.Ydb.Storage.Internal;
 public class YdbRelationalConnection(RelationalConnectionDependencies dependencies)
     : RelationalConnection(dependencies), IYdbRelationalConnection
 {
-    public DbDataSource? DataSource { get; private set; }
-
-    protected override DbConnection CreateDbConnection()
-    {
-        if (DataSource is not null)
-        {
-            return DataSource.CreateConnection();
-        }
-
-        var connection = new YdbConnection(GetValidatedConnectionString());
-        return connection;
-    }
+    protected override DbConnection CreateDbConnection() => new YdbConnection(GetValidatedConnectionString());
 
     public IYdbRelationalConnection Clone()
     {

@@ -106,11 +106,6 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_projected_complex_type_via_OrderBy_Skip(bool async)
-    {
-        // TODO: Implement later
-    }
-
     public override async Task Update_complex_type_to_parameter(bool async)
         => await SharedTestMethods.TestIgnoringBase(
             base.Update_complex_type_to_parameter,

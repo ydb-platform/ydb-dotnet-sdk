@@ -122,7 +122,6 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
     {
         var clrType = mappingInfo.ClrType;
         var storeTypeName = mappingInfo.StoreTypeName;
-        var storeTypeNameBase = mappingInfo.StoreTypeNameBase;
 
         // Special case.
         // If property has [YdbString] attribute then we use STRING type instead of TEXT

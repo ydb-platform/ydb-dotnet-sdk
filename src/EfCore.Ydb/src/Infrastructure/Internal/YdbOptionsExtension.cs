@@ -28,8 +28,6 @@ public class YdbOptionsExtension : RelationalOptionsExtension
 
     private sealed class ExtensionInfo(IDbContextOptionsExtension extension) : RelationalExtensionInfo(extension)
     {
-        private new YdbOptionsExtension Extension => (YdbOptionsExtension)base.Extension;
-
         public override bool IsDatabaseProvider => true;
 
         // TODO: Right now it's stub

@@ -35,8 +35,7 @@ public class YdbJsonTypeMapping : JsonTypeMapping
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new YdbJsonTypeMapping(parameters);
 
-    public override MethodInfo GetDataReaderMethod()
-        => GetStringMethod;
+    public override MethodInfo GetDataReaderMethod() => GetStringMethod;
 
     protected override string GenerateNonNullSqlLiteral(object value)
     {

@@ -5,18 +5,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
-using Ydb.Sdk.Ado;
 
 namespace EfCore.Ydb.Update.Internal;
 
-public class YdbModificationCommandBatchFactory : IModificationCommandBatchFactory
+public sealed class YdbModificationCommandBatchFactory(ModificationCommandBatchFactoryDependencies dependencies)
+    : IModificationCommandBatchFactory
 {
-    public YdbModificationCommandBatchFactory(ModificationCommandBatchFactoryDependencies dependencies)
-    {
-        Dependencies = dependencies;
-    }
-
-    protected virtual ModificationCommandBatchFactoryDependencies Dependencies { get; }
+    private ModificationCommandBatchFactoryDependencies Dependencies { get; } = dependencies;
 
     public ModificationCommandBatch Create()
         => new TemporaryStubModificationCommandBatch(Dependencies);
@@ -28,7 +23,7 @@ internal class TemporaryStubModificationCommandBatch(ModificationCommandBatchFac
     protected override void Consume(RelationalDataReader reader) =>
         ConsumeAsync(reader).ConfigureAwait(false).GetAwaiter().GetResult();
 
-    protected override async Task ConsumeAsync(
+    protected override Task ConsumeAsync(
         RelationalDataReader? reader,
         CancellationToken cancellationToken = default
     )
@@ -62,6 +57,8 @@ internal class TemporaryStubModificationCommandBatch(ModificationCommandBatchFac
                 ModificationCommands[commandIndex].Entries
             );
         }
+
+        return Task.CompletedTask;
     }
 
     protected override void AddCommand(IReadOnlyModificationCommand modificationCommand)
