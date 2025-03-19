@@ -122,10 +122,8 @@ public partial class Session
     public async Task<ExecuteDataQueryResponse> ExecuteDataQuery(
         string query,
         TxControl txControl,
-        ExecuteDataQuerySettings? settings = null)
-    {
-        return await ExecuteDataQuery(query, txControl, new Dictionary<string, YdbValue>(), settings);
-    }
+        ExecuteDataQuerySettings? settings = null
+    ) => await ExecuteDataQuery(query, txControl, new Dictionary<string, YdbValue>(), settings);
 }
 
 public class TruncateException : Exception

@@ -96,14 +96,12 @@ public class DateTypeColumnModeSettings
         ExpireAfterSeconds = proto.ExpireAfterSeconds;
     }
 
-    public Ydb.Table.DateTypeColumnModeSettings GetProto()
-    {
-        return new Ydb.Table.DateTypeColumnModeSettings
+    public Ydb.Table.DateTypeColumnModeSettings GetProto() =>
+        new()
         {
             ColumnName = ColumnName,
             ExpireAfterSeconds = ExpireAfterSeconds
         };
-    }
 }
 
 public class ValueSinceUnixEpochModeSettings
@@ -143,15 +141,13 @@ public class ValueSinceUnixEpochModeSettings
         ExpireAfterSeconds = proto.ExpireAfterSeconds;
     }
 
-    public Ydb.Table.ValueSinceUnixEpochModeSettings GetProto()
-    {
-        return new Ydb.Table.ValueSinceUnixEpochModeSettings
+    public Ydb.Table.ValueSinceUnixEpochModeSettings GetProto() =>
+        new()
         {
             ColumnName = ColumnName,
             ColumnUnit = GetProtoUnit(ColumnUnit),
             ExpireAfterSeconds = ExpireAfterSeconds
         };
-    }
 
     private static Ydb.Table.ValueSinceUnixEpochModeSettings.Types.Unit GetProtoUnit(Unit unit) =>
         unit switch
@@ -325,16 +321,14 @@ public class StorageSettings
         StoreExternalBlobs = proto.StoreExternalBlobs.FromProto();
     }
 
-    public Ydb.Table.StorageSettings GetProto()
-    {
-        return new Ydb.Table.StorageSettings
+    public Ydb.Table.StorageSettings GetProto() =>
+        new()
         {
             TabletCommitLog0 = TabletCommitLog0.GetProto(),
             TabletCommitLog1 = TabletCommitLog1.GetProto(),
             External = External.GetProto(),
             StoreExternalBlobs = StoreExternalBlobs.GetProto()
         };
-    }
 }
 
 public class PartitioningSettings
