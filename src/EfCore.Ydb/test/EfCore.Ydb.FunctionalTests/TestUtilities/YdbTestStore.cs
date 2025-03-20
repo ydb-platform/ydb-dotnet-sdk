@@ -163,7 +163,7 @@ public class YdbTestStore(
     }
 
 
-    private static YdbConnection CreateConnection() => new();
+    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder());
 
     public override async Task CleanAsync(DbContext context)
     {
