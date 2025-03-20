@@ -1,16 +1,23 @@
+- CommandTimeout is set to 30 seconds by default (as NpgsqlCommand).
+
 ## v0.15.3
+
 - Added SeqNo to `Ydb.Sdk.Services.Topic.Reader.Message`.
 
 ## v0.15.2
+
 - Added SeqNo to `WriteResult`.
 - Changed signature of the `TopicClient.DropTopic` method.
 
 ## v0.15.1
-- Fixed Writer: possible creation of a session after `DisposeAsync()`, which this could happen when there are canceled tasks in `InFlightMessages`.
+
+- Fixed Writer: possible creation of a session after `DisposeAsync()`, which this could happen when there are canceled
+  tasks in `InFlightMessages`.
 - Dev: `Writer.MoveNext()` changed exception on cancelToken from `WriterException` to `TaskCanceledException`.
 - Dev: changed log level from `Warning` to `Information` in `(Reader / Writer).Initialize()` when it is disposed.
 
 ## v0.15.0
+
 - Dev: added `ValueTask<string?> GetAuthInfoAsync()` in ICredentialProvider.
 - Feat: `Writer.DisposeAsync()` waits for all in-flight messages to complete.
 - Feat: `Reader.DisposeAsync()` waits for all pending commits to be completed.
