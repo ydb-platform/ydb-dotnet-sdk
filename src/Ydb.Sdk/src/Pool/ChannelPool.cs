@@ -75,17 +75,17 @@ public interface IChannelFactory<out T> where T : ChannelBase, IDisposable
 
 internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 {
+    private const int KeepAlivePingDelaySeconds = 10;
+
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<GrpcChannelFactory> _logger;
-    private readonly DriverConfig _config;
-
-    private X509Certificate2Collection ServerCertificates => _config.CustomServerCertificates;
+    private readonly X509Certificate2Collection _x509Certificate2Collection;
 
     internal GrpcChannelFactory(ILoggerFactory loggerFactory, DriverConfig config)
     {
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<GrpcChannelFactory>();
-        _config = config;
+        _x509Certificate2Collection = config.CustomServerCertificates;
     }
 
     public GrpcChannel CreateChannel(string endpoint)
@@ -99,7 +99,7 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 
         var httpHandler = new SocketsHttpHandler
         {
-            KeepAlivePingDelay = _config.KeepAlivePingDelay
+            KeepAlivePingDelay = TimeSpan.FromSeconds(KeepAlivePingDelaySeconds)
         };
 
         // https://github.com/grpc/grpc-dotnet/issues/2312#issuecomment-1790661801
@@ -108,7 +108,7 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
         channelOptions.HttpHandler = httpHandler;
         channelOptions.DisposeHttpClient = true;
 
-        if (ServerCertificates.Count == 0)
+        if (_x509Certificate2Collection.Count == 0)
         {
             return GrpcChannel.ForAddress(endpoint, channelOptions);
         }
@@ -129,11 +129,11 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
                 try
                 {
                     chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
-                    chain.ChainPolicy.ExtraStore.AddRange(ServerCertificates);
+                    chain.ChainPolicy.ExtraStore.AddRange(_x509Certificate2Collection);
 
-                    return chain.Build(new X509Certificate2(certificate))
-                           && chain.ChainElements.Any(chainElement => ServerCertificates.Any(trustedCert =>
-                               chainElement.Certificate.Thumbprint == trustedCert.Thumbprint));
+                    return chain.Build(new X509Certificate2(certificate)) && chain.ChainElements.Any(chainElement =>
+                        _x509Certificate2Collection.Any(trustedCert =>
+                            chainElement.Certificate.Thumbprint == trustedCert.Thumbprint));
                 }
                 catch (Exception e)
                 {
