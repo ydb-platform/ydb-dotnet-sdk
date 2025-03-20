@@ -9,6 +9,8 @@ public class DriverConfig
     public string Database { get; }
     public ICredentialsProvider Credentials { get; }
 
+    public TimeSpan KeepAlivePingDelay { get; set; } = TimeSpan.FromSeconds(10);
+    
     internal X509Certificate2Collection CustomServerCertificates { get; } = new();
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);

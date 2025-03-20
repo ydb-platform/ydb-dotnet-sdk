@@ -1,5 +1,3 @@
-- CommandTimeout is set to 30 seconds by default (as NpgsqlCommand).
-
 ## v0.15.3
 
 - Added SeqNo to `Ydb.Sdk.Services.Topic.Reader.Message`.

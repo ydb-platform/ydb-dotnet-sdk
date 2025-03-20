@@ -106,7 +106,7 @@ public sealed class YdbCommand : DbCommand
         }
     }
 
-    private int _timeout = 30;
+    private int _timeout;
 
     public override CommandType CommandType { get; set; } = CommandType.Text;
     public override UpdateRowSource UpdatedRowSource { get; set; }
