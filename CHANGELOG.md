@@ -1,3 +1,4 @@
+## v0.15.4\n
 - Added `KeepAlivePingTimeout`, with a default value of 10 seconds.
 - Added `KeepAlivePingDelay`, with a default value of 10 seconds.
 
