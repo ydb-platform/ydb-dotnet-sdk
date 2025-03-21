@@ -1,5 +1,5 @@
-- Added `KeepAlivePingTimeout` to detect and close unresponsive connections, with a default value of 10 seconds
-- Added `KeepAlivePingDelay` to maintain active connections during inactivity, with a value of 10 second by default.
+- Added `KeepAlivePingTimeout`, with a default value of 10 seconds.
+- Added `KeepAlivePingDelay`, with a default value of 10 seconds.
 
 ## v0.15.3
 
