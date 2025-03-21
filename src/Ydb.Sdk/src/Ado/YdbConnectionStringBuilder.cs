@@ -27,6 +27,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _database = "/local";
         _maxSessionPool = 100;
         _useTls = false;
+        _keepAlivePingDelay = SocketHttpHandlerDefaults.DefaultKeepAlivePingSeconds;
+        _keepAlivePingTimeout = SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds;
     }
 
     public string Host
@@ -147,7 +149,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         }
     }
 
-    private int _keepAlivePingDelay = SocketHttpHandlerDefaults.DefaultKeepAlivePingSeconds;
+    private int _keepAlivePingDelay;
 
     public int KeepAlivePingTimeout
     {
@@ -159,7 +161,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         }
     }
 
-    private int _keepAlivePingTimeout = SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds;
+    private int _keepAlivePingTimeout;
 
     public ILoggerFactory? LoggerFactory { get; init; }
 
