@@ -144,6 +144,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         get => _keepAlivePingDelay;
         set
         {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid keep alive ping delay: " + value);
+            }
+
             _keepAlivePingDelay = value;
             SaveValue(nameof(KeepAlivePingDelay), value);
         }
@@ -156,6 +161,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         get => _keepAlivePingTimeout;
         set
         {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value,
+                    "Invalid keep alive ping timeout: " + value);
+            }
+
             _keepAlivePingTimeout = value;
             SaveValue(nameof(KeepAlivePingTimeout), value);
         }
@@ -221,8 +232,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             customServerCertificates: ServerCertificates
         )
         {
-            KeepAlivePingDelay = TimeSpan.FromSeconds(KeepAlivePingDelay),
-            KeepAlivePingTimeout = TimeSpan.FromSeconds(KeepAlivePingTimeout)
+            KeepAlivePingDelay = KeepAlivePingDelay == 0
+                ? Timeout.InfiniteTimeSpan
+                : TimeSpan.FromSeconds(KeepAlivePingDelay),
+            KeepAlivePingTimeout = KeepAlivePingTimeout == 0
+                ? Timeout.InfiniteTimeSpan
+                : TimeSpan.FromSeconds(KeepAlivePingTimeout)
         }, LoggerFactory);
     }
 
