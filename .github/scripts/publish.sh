@@ -37,7 +37,7 @@ else
   VERSION="$MAJOR.$MINOR.$PATCH";
 fi;
 TAG="v$VERSION"
-echo "## v$VERSION\n" >> $CHANGELOG_FILE.tmp
+echo -e "## v$VERSION\n" >> $CHANGELOG_FILE.tmp
 cat $CHANGELOG_FILE >> $CHANGELOG_FILE.tmp
 mv $CHANGELOG_FILE.tmp $CHANGELOG_FILE;
 git add $CHANGELOG_FILE;
