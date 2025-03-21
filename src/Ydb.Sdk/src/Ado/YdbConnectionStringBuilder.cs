@@ -137,6 +137,30 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private string? _rootCertificate;
 
+    public int KeepAlivePingDelay
+    {
+        get => _keepAlivePingDelay;
+        set
+        {
+            _keepAlivePingDelay = value;
+            SaveValue(nameof(KeepAlivePingDelay), value);
+        }
+    }
+
+    private int _keepAlivePingDelay = SocketHttpHandlerDefaults.DefaultKeepAlivePingSeconds;
+
+    public int KeepAlivePingTimeout
+    {
+        get => _keepAlivePingTimeout;
+        set
+        {
+            _keepAlivePingTimeout = value;
+            SaveValue(nameof(KeepAlivePingTimeout), value);
+        }
+    }
+
+    private int _keepAlivePingTimeout = SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds;
+
     public ILoggerFactory? LoggerFactory { get; init; }
 
     public ICredentialsProvider? CredentialsProvider { get; init; }
@@ -193,7 +217,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             credentials: credentialsProvider,
             customServerCertificate: cert,
             customServerCertificates: ServerCertificates
-        ), LoggerFactory);
+        )
+        {
+            KeepAlivePingDelay = TimeSpan.FromSeconds(KeepAlivePingDelay),
+            KeepAlivePingTimeout = TimeSpan.FromSeconds(KeepAlivePingTimeout)
+        }, LoggerFactory);
     }
 
     public override void Clear()
@@ -265,6 +293,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 new YdbConnectionOption<string>(StringExtractor,
                     (builder, rootCertificate) => builder.RootCertificate = rootCertificate),
                 "RootCertificate", "Root Certificate");
+            AddOption(new YdbConnectionOption<int>(IntExtractor,
+                    (builder, keepAlivePingDelay) => builder.KeepAlivePingDelay = keepAlivePingDelay),
+                "KeepAlivePingDelay", "Keep Alive Ping Delay");
+            AddOption(new YdbConnectionOption<int>(IntExtractor,
+                    (builder, keepAlivePingTimeout) => builder.KeepAlivePingTimeout = keepAlivePingTimeout),
+                "KeepAlivePingTimeout", "Keep Alive Ping Timeout");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)
