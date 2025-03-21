@@ -1,3 +1,6 @@
+- Added `KeepAlivePingTimeout` to detect and close unresponsive connections, with a default value of 10 seconds
+- Added `KeepAlivePingDelay` to maintain active connections during inactivity, with a value of 10 second by default.
+
 ## v0.15.3
 
 - Added SeqNo to `Ydb.Sdk.Services.Topic.Reader.Message`.
