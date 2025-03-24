@@ -13,7 +13,7 @@ namespace EfCore.Ydb.FunctionalTests.AllTests.Update;
 // Ignore_before_save_property_is_still_generated,
 // SaveChanges_processes_all_tracked_entities.
 // They're failing, but I cannot ignore them because they're not virtual
-internal class UpdatesYdbTest
+public class UpdatesYdbTest
     : UpdatesRelationalTestBase<UpdatesYdbTest.UpdatesYdbFixture>
 // , UpdatesTestBase<UpdatesYdbTest.UpdatesYdbFixture>
 {
@@ -24,8 +24,7 @@ internal class UpdatesYdbTest
 
     public class UpdatesYdbFixture : UpdatesRelationalFixture
     {
-        protected override ITestStoreFactory TestStoreFactory
-            => YdbTestStoreFactory.Instance;
+        protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
     }
 
     public override void Identifiers_are_generated_correctly()

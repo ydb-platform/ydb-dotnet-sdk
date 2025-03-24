@@ -13,7 +13,7 @@ public class YdbOptionsExtension : RelationalOptionsExtension
     {
     }
 
-    protected YdbOptionsExtension(YdbOptionsExtension copyFrom) : base(copyFrom)
+    private YdbOptionsExtension(YdbOptionsExtension copyFrom) : base(copyFrom)
     {
     }
 

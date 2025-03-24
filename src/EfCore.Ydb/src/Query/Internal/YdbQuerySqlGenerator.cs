@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
@@ -9,29 +8,16 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EfCore.Ydb.Query.Internal;
 
-public class YdbQuerySqlGenerator : QuerySqlGenerator
+public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : QuerySqlGenerator(dependencies)
 {
-    protected readonly ISqlGenerationHelper SqlGenerationHelper;
-    protected readonly IRelationalTypeMappingSource TypeMappingSource;
-    protected bool SkipAliases;
-
-    public YdbQuerySqlGenerator(
-        QuerySqlGeneratorDependencies dependencies,
-        IRelationalTypeMappingSource typeMappingSource
-    ) : base(dependencies)
-    {
-        SqlGenerationHelper = dependencies.SqlGenerationHelper;
-        TypeMappingSource = typeMappingSource;
-    }
-
-    [return: NotNullIfNotNull("node")]
-    public override Expression? Visit(Expression? node) => node != null ? base.Visit(node) : null;
+    private bool SkipAliases { get; set; }
+    private ISqlGenerationHelper SqlGenerationHelper => Dependencies.SqlGenerationHelper;
 
     protected override Expression VisitColumn(ColumnExpression columnExpression)
     {
         if (SkipAliases)
         {
-            Sql.Append(SqlGenerationHelper.DelimitIdentifier(columnExpression.Name));
+            Sql.Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(columnExpression.Name));
         }
         else
         {
@@ -139,9 +125,9 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
         {
             foreach (var columnValueSetter in updateExpression.ColumnValueSetters.Skip(1))
             {
-                Sql
-                    .AppendLine(",")
-                    .Append($"{SqlGenerationHelper.DelimitIdentifier(columnValueSetter.Column.Name)} = ");
+                Sql.AppendLine(",")
+                    .Append(SqlGenerationHelper.DelimitIdentifier(columnValueSetter.Column.Name))
+                    .Append(" = ");
                 SkipAliases = true;
                 Visit(columnValueSetter.Value);
                 SkipAliases = false;
@@ -149,7 +135,7 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
         }
     }
 
-    protected void GenerateOnSubquery(
+    private void GenerateOnSubquery(
         IReadOnlyList<ColumnValueSetter>? columnValueSetters,
         SelectExpression select
     )
@@ -196,9 +182,13 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
         }
     }
 
+    /// <inheritdoc />    
     protected override void GenerateLimitOffset(SelectExpression selectExpression)
     {
-        if (selectExpression.Limit == null && selectExpression.Offset == null) return;
+        if (selectExpression.Limit == null && selectExpression.Offset == null)
+        {
+            return;
+        }
 
         Sql.AppendLine().Append("LIMIT ");
         if (selectExpression.Limit != null)
@@ -211,6 +201,7 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
             Sql.Append(ulong.MaxValue.ToString());
         }
 
+        // ReSharper disable once InvertIf
         if (selectExpression.Offset != null)
         {
             Sql.Append(" OFFSET ");
@@ -218,7 +209,7 @@ public class YdbQuerySqlGenerator : QuerySqlGenerator
         }
     }
 
-    private bool IsComplexSelect(SelectExpression select, TableExpressionBase fromTable) =>
+    private static bool IsComplexSelect(SelectExpression select, TableExpressionBase fromTable) =>
         select.Offset != null
         || select.Limit != null
         || select.Having != null

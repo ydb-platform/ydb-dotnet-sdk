@@ -10,10 +10,10 @@ using Type = System.Type;
 
 namespace EfCore.Ydb.Storage.Internal;
 
-public class YdbTypeMappingSource : RelationalTypeMappingSource
+public sealed class YdbTypeMappingSource : RelationalTypeMappingSource
 {
-    protected virtual ConcurrentDictionary<string, RelationalTypeMapping[]> StoreTypeMapping { get; }
-    protected virtual ConcurrentDictionary<Type, RelationalTypeMapping> ClrTypeMapping { get; }
+    private ConcurrentDictionary<string, RelationalTypeMapping[]> StoreTypeMapping { get; }
+    private ConcurrentDictionary<Type, RelationalTypeMapping> ClrTypeMapping { get; }
 
     #region Mappings
 
@@ -118,7 +118,7 @@ public class YdbTypeMappingSource : RelationalTypeMappingSource
         => FindBaseMapping(mappingInfo)
            ?? base.FindMapping(mappingInfo);
 
-    protected virtual RelationalTypeMapping? FindBaseMapping(in RelationalTypeMappingInfo mappingInfo)
+    private RelationalTypeMapping? FindBaseMapping(in RelationalTypeMappingInfo mappingInfo)
     {
         var clrType = mappingInfo.ClrType;
         var storeTypeName = mappingInfo.StoreTypeName;

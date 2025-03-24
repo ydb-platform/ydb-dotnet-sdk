@@ -23,8 +23,8 @@ public class YdbTestStore(
     ) => new(name: name, scriptPath: scriptPath);
 
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) => UseConnectionString
-        ? builder.UseEfYdb(Connection.ConnectionString)
-        : builder.UseEfYdb(Connection);
+        ? builder.UseYdb(Connection.ConnectionString)
+        : builder.UseYdb(Connection);
 
     protected override async Task InitializeAsync(
         Func<DbContext> createContext,
@@ -163,7 +163,7 @@ public class YdbTestStore(
     }
 
 
-    private static YdbConnection CreateConnection() => new();
+    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder());
 
     public override async Task CleanAsync(DbContext context)
     {

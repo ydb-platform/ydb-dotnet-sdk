@@ -2,12 +2,12 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace EfCore.Ydb.Query.Internal;
 
-public class YdbQueryTranslationPostprocessorFactory(
+public sealed class YdbQueryTranslationPostprocessorFactory(
     QueryTranslationPostprocessorDependencies dependencies,
     RelationalQueryTranslationPostprocessorDependencies relationalDependencies
 ) : IQueryTranslationPostprocessorFactory
 {
-    public virtual QueryTranslationPostprocessor Create(QueryCompilationContext queryCompilationContext)
+    public QueryTranslationPostprocessor Create(QueryCompilationContext queryCompilationContext)
         => new YdbQueryTranslationPostprocessor(
             dependencies,
             relationalDependencies,
