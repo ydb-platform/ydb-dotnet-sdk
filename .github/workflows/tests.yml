@@ -166,7 +166,11 @@ jobs:
         run: |
           cd ./examples/src/DapperExample
           dotnet run
-      - name: YDB Topic example
+      - name: Run YDB Topic example
         run: |
           cd ./examples/src/Topic
+          dotnet run
+      - name: Run EF example
+        run: |
+          cd ./examples/src/EF
           dotnet run

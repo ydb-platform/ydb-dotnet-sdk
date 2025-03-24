@@ -9,7 +9,7 @@ namespace EfCore.Ydb.Extensions;
 
 public static class YdbContextOptionsBuilderExtensions
 {
-    public static DbContextOptionsBuilder UseEfYdb(
+    public static DbContextOptionsBuilder UseYdb(
         this DbContextOptionsBuilder optionsBuilder,
         string? connectionString,
         Action<YdbDbContextOptionsBuilder>? efYdbOptionsAction = null
@@ -24,7 +24,7 @@ public static class YdbContextOptionsBuilderExtensions
         return optionsBuilder;
     }
 
-    public static DbContextOptionsBuilder UseEfYdb(
+    public static DbContextOptionsBuilder UseYdb(
         this DbContextOptionsBuilder optionsBuilder,
         DbConnection connection,
         Action<YdbDbContextOptionsBuilder>? efYdbOptionsAction = null

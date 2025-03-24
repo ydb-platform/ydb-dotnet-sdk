@@ -14,7 +14,7 @@ public class YdbRelationalConnection(RelationalConnectionDependencies dependenci
     public IYdbRelationalConnection Clone()
     {
         var connectionStringBuilder = new YdbConnectionStringBuilder(GetValidatedConnectionString());
-        var options = new DbContextOptionsBuilder().UseEfYdb(connectionStringBuilder.ToString()).Options;
+        var options = new DbContextOptionsBuilder().UseYdb(connectionStringBuilder.ToString()).Options;
         return new YdbRelationalConnection(Dependencies with { ContextOptions = options });
     }
 }
