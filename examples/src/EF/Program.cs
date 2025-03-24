@@ -38,6 +38,7 @@ internal class Blog
 
     public string Url { get; set; } = string.Empty;
 
+    // ReSharper disable once CollectionNeverQueried.Global
     public List<Post> Posts { get; init; } = [];
 }
 
