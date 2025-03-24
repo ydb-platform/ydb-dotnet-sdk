@@ -36,10 +36,8 @@ internal class Blog
 {
     public int BlogId { get; init; }
 
-    // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
     public string Url { get; set; } = string.Empty;
 
-    // ReSharper disable once CollectionNeverQueried.Global
     public List<Post> Posts { get; init; } = [];
 }
 
@@ -47,10 +45,8 @@ internal class Post
 {
     public int PostId { get; init; }
 
-    // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
     public string Title { get; init; } = string.Empty;
 
-    // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
     public string Content { get; init; } = string.Empty;
 
     public Blog Blog { get; init; } = null!;
