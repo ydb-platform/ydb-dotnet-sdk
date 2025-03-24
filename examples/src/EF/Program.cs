@@ -1,5 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
-using EfCore.Ydb.Extensions;
+﻿using EfCore.Ydb.Extensions;
+using Microsoft.EntityFrameworkCore;
 
 await using var db = new BloggingContext();
 
@@ -34,18 +34,24 @@ internal class BloggingContext : DbContext
 
 internal class Blog
 {
-    public int BlogId { get; set; }
-    public string Url { get; set; }
+    public int BlogId { get; init; }
 
-    public List<Post> Posts { get; } = new();
+    // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
+    public string Url { get; set; } = string.Empty;
+
+    // ReSharper disable once CollectionNeverQueried.Global
+    public List<Post> Posts { get; init; } = [];
 }
 
 internal class Post
 {
-    public int PostId { get; set; }
-    public string Title { get; set; }
-    public string Content { get; set; }
+    public int PostId { get; init; }
 
-    public int BlogId { get; set; }
-    public Blog Blog { get; set; }
+    // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
+    public string Title { get; init; } = string.Empty;
+
+    // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
+    public string Content { get; init; } = string.Empty;
+
+    public Blog Blog { get; init; } = null!;
 }

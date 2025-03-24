@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EfCore.Ydb.Query.Internal;
 
