@@ -1,6 +1,7 @@
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Transport;
@@ -34,6 +35,8 @@ internal class AuthGrpcChannelDriver : BaseDriver
                 status.StatusCode, status.Detail, endpoint);
         }
     }
+
+    protected override ICredentialsProvider? CredentialsProvider => null;
 
     protected override async ValueTask InternalDispose()
     {

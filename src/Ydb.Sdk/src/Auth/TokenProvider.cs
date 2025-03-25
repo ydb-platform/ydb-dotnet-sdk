@@ -9,5 +9,5 @@ public class TokenProvider : ICredentialsProvider
         _token = token;
     }
 
-    public string GetAuthInfo() => _token;
+    public ValueTask<string> GetAuthInfoAsync() => ValueTask.FromResult(_token);
 }

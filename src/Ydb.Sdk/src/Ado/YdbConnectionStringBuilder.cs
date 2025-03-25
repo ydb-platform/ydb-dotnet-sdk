@@ -220,14 +220,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     internal Task<Driver> BuildDriver()
     {
-        var credentialsProvider = CredentialsProvider ??
-                                  (User != null ? new StaticCredentialsProvider(User, Password) : null);
         var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
 
         return Driver.CreateInitialized(new DriverConfig(
             endpoint: Endpoint,
             database: Database,
-            credentials: credentialsProvider,
+            credentials: CredentialsProvider,
             customServerCertificate: cert,
             customServerCertificates: ServerCertificates
         )
@@ -237,7 +235,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 : TimeSpan.FromSeconds(KeepAlivePingDelay),
             KeepAlivePingTimeout = KeepAlivePingTimeout == 0
                 ? Timeout.InfiniteTimeSpan
-                : TimeSpan.FromSeconds(KeepAlivePingTimeout)
+                : TimeSpan.FromSeconds(KeepAlivePingTimeout),
+            User = User,
+            Password = Password
         }, LoggerFactory);
     }
 

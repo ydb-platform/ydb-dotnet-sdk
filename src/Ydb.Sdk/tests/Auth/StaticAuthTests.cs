@@ -1,12 +1,11 @@
 using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
-using Ydb.Sdk.Auth;
 using Ydb.Sdk.Services.Table;
 
 namespace Ydb.Sdk.Tests.Auth;
 
-// [Trait("Category", "Integration")]
+[Trait("Category", "Integration")]
 [Collection("Auth tests")]
 public class StaticAuthTests : IDisposable
 {
@@ -38,13 +37,12 @@ public class StaticAuthTests : IDisposable
         _logger.LogInformation($"User {user} dropped successfully");
     }
 
-    private async Task Authorize(string user, string? password, int maxRetries)
+    private async Task Authorize(string user, string? password)
     {
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
-            database: "/local",
-            new StaticCredentialsProvider(user, password, _loggerFactory) { MaxRetries = maxRetries }
-        );
+            database: "/local"
+        ) { User = user, Password = password };
 
         _logger.LogInformation($"DriverConfig for {user} created");
 
@@ -57,7 +55,7 @@ public class StaticAuthTests : IDisposable
         Assert.Equal(1, row[0].GetInt32());
     }
 
-    private async Task CheckAuth(string? passwordCreate, string? passwordAuth, int maxRetries = 5)
+    private async Task CheckAuth(string? passwordCreate, string? passwordAuth)
     {
         _logger.LogInformation("Creating anon driver");
         var anonDriverConfig = new DriverConfig(
@@ -76,7 +74,7 @@ public class StaticAuthTests : IDisposable
 
         try
         {
-            await Authorize(user, passwordAuth, maxRetries);
+            await Authorize(user, passwordAuth);
         }
         finally
         {
@@ -85,26 +83,25 @@ public class StaticAuthTests : IDisposable
     }
 
 
-    [Fact(Timeout = 5_000)]
-    public async Task GoodAuth() => await CheckAuth("test_password", "test_password");
+    [Fact]
+    public async Task GoodAuth() => await CheckAuth("testpassword", "testpassword");
 
-    [Fact(Timeout = 5_000)]
+    [Fact]
     public async Task NoPasswordAuth() => await CheckAuth(null, null);
 
-    [Fact(Timeout = 5_000)]
-    public async Task WrongPassword() => await Assert.ThrowsAsync<InvalidCredentialsException>(
-        async () => await CheckAuth("good_password", "wrong_password", maxRetries: 1));
+    [Fact]
+    public async Task WrongPassword() => await Assert.ThrowsAsync<StatusUnsuccessfulException>(
+        async () => await CheckAuth("good_password", "wrong_password"));
 
-    [Fact(Timeout = 5_000)]
+    [Fact]
     public async Task NotExistAuth()
     {
         var driverConfig = new DriverConfig(
             endpoint: "grpc://localhost:2136",
-            database: "/local",
-            new StaticCredentialsProvider("notexists", "nopass", _loggerFactory) { MaxRetries = 1 }
-        );
+            database: "/local"
+        ) { User = "notexists", Password = "nopass" };
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(
+        await Assert.ThrowsAsync<StatusUnsuccessfulException>(
             async () => await Driver.CreateInitialized(driverConfig, _loggerFactory));
     }
 }

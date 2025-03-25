@@ -775,7 +775,7 @@ public class WriterUnitTests
         var writeTcs2 = new TaskCompletionSource<bool>();
         var writeTcs3 = new TaskCompletionSource<bool>();
 
-        _mockStream.SetupSequence(stream => stream.AuthToken)
+        _mockStream.SetupSequence(stream => stream.AuthToken())
             .ReturnsAsync("Token1")
             .ReturnsAsync("Token1")
             .ReturnsAsync("Token2")

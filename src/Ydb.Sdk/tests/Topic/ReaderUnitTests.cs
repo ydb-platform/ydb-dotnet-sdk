@@ -1430,7 +1430,7 @@ public class ReaderUnitTests
     [Fact]
     public async Task ReadAsync_WhenTokenIsUpdatedOneTime_SuccessUpdateToken()
     {
-        _mockStream.SetupSequence(stream => stream.AuthToken)
+        _mockStream.SetupSequence(stream => stream.AuthToken())
             .ReturnsAsync("Token1")
             .ReturnsAsync("Token1")
             .ReturnsAsync("Token2")
