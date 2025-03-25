@@ -1,8 +1,5 @@
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-
-[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 namespace Ydb.Sdk.Auth;
 
@@ -13,7 +10,7 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
 
     private ILogger<TokenManagerCredentialsProvider> Logger { get; }
 
-    private volatile IHolderState _holderState;
+    private volatile ITokenState _tokenState;
 
     public TokenManagerCredentialsProvider(
         IAuthClient authClient,
@@ -22,8 +19,8 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
     {
         _clock = new SystemClock();
         _authClient = authClient;
-        _holderState = new SyncState(this);
-        _holderState.Init();
+        _tokenState = new SyncState(this);
+        _tokenState.Init();
 
         loggerFactory ??= new NullLoggerFactory();
         Logger = loggerFactory.CreateLogger<TokenManagerCredentialsProvider>();
@@ -35,32 +32,32 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
     }
 
     public async ValueTask<string> GetAuthInfoAsync() =>
-        (await _holderState.Validate(_clock.UtcNow)).TokenResponse.Token;
+        (await _tokenState.Validate(_clock.UtcNow)).TokenResponse.Token;
 
     private ValueTask<TokenResponse> FetchToken() => _authClient.FetchToken();
 
-    private IHolderState UpdateState(IHolderState current, IHolderState next)
+    private ITokenState UpdateState(ITokenState current, ITokenState next)
     {
-        if (Interlocked.CompareExchange(ref _holderState, next, current) == current)
+        if (Interlocked.CompareExchange(ref _tokenState, next, current) == current)
         {
             next.Init();
         }
 
-        return _holderState;
+        return _tokenState;
     }
 
-    private interface IHolderState
+    private interface ITokenState
     {
         TokenResponse TokenResponse { get; }
 
-        ValueTask<IHolderState> Validate(DateTime now);
+        ValueTask<ITokenState> Validate(DateTime now);
 
         void Init()
         {
         }
     }
 
-    private class ActiveState : IHolderState
+    private class ActiveState : ITokenState
     {
         private readonly TokenManagerCredentialsProvider _tokenManagerCredentialsProvider;
 
@@ -72,25 +69,31 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
 
         public TokenResponse TokenResponse { get; }
 
-        public async ValueTask<IHolderState> Validate(DateTime now)
+        public async ValueTask<ITokenState> Validate(DateTime now)
         {
-            if (now >= TokenResponse.ExpiresAt)
+            if (now < TokenResponse.ExpiredAt)
             {
-                return await _tokenManagerCredentialsProvider
-                    .UpdateState(this, new SyncState(_tokenManagerCredentialsProvider))
-                    .Validate(now);
+                return now >= TokenResponse.RefreshAt
+                    ? _tokenManagerCredentialsProvider.UpdateState(
+                        this,
+                        new BackgroundState(TokenResponse, _tokenManagerCredentialsProvider)
+                    )
+                    : this;
             }
 
-            return now >= TokenResponse.RefreshAt
-                ? _tokenManagerCredentialsProvider.UpdateState(
-                    this,
-                    new BackgroundState(TokenResponse, _tokenManagerCredentialsProvider)
-                )
-                : this;
+            _tokenManagerCredentialsProvider.Logger.LogWarning(
+                "Token has expired. ExpiredAt: {ExpiredAt}, CurrentTime: {CurrentTime}. " +
+                "Switching to synchronous state to fetch a new token",
+                TokenResponse.ExpiredAt, now
+            );
+
+            return await _tokenManagerCredentialsProvider
+                .UpdateState(this, new SyncState(_tokenManagerCredentialsProvider))
+                .Validate(now);
         }
     }
 
-    private class SyncState : IHolderState
+    private class SyncState : ITokenState
     {
         private readonly TokenManagerCredentialsProvider _tokenManagerCredentialsProvider;
 
@@ -104,14 +107,19 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
         public TokenResponse TokenResponse =>
             throw new InvalidOperationException("Get token for unfinished sync state");
 
-        public async ValueTask<IHolderState> Validate(DateTime now)
+        public async ValueTask<ITokenState> Validate(DateTime now)
         {
             try
             {
-                var tokenHolder = await _fetchTokenTask;
+                var tokenResponse = await _fetchTokenTask;
+
+                _tokenManagerCredentialsProvider.Logger.LogDebug(
+                    "Successfully fetched token at {Timestamp}. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
+                    DateTime.Now, tokenResponse.ExpiredAt, tokenResponse.RefreshAt
+                );
 
                 return _tokenManagerCredentialsProvider.UpdateState(this,
-                    new ActiveState(tokenHolder, _tokenManagerCredentialsProvider));
+                    new ActiveState(tokenResponse, _tokenManagerCredentialsProvider));
             }
             catch (Exception e)
             {
@@ -125,7 +133,7 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
         public void Init() => _fetchTokenTask = _tokenManagerCredentialsProvider.FetchToken().AsTask();
     }
 
-    private class BackgroundState : IHolderState
+    private class BackgroundState : ITokenState
     {
         private readonly TokenManagerCredentialsProvider _tokenManagerCredentialsProvider;
 
@@ -140,11 +148,16 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
 
         public TokenResponse TokenResponse { get; }
 
-        public async ValueTask<IHolderState> Validate(DateTime now)
+        public async ValueTask<ITokenState> Validate(DateTime now)
         {
             if (_fetchTokenTask.IsCanceled || _fetchTokenTask.IsFaulted)
             {
-                return now > TokenResponse.ExpiresAt
+                _tokenManagerCredentialsProvider.Logger.LogWarning(
+                    "Fetching token task failed. Status: {Status}, Retrying login...",
+                    _fetchTokenTask.IsCanceled ? "Canceled" : "Faulted"
+                );
+
+                return now >= TokenResponse.ExpiredAt
                     ? _tokenManagerCredentialsProvider
                         .UpdateState(this, new SyncState(_tokenManagerCredentialsProvider))
                     : _tokenManagerCredentialsProvider
@@ -157,17 +170,22 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
                     .UpdateState(this, new ActiveState(await _fetchTokenTask, _tokenManagerCredentialsProvider));
             }
 
-            if (now < TokenResponse.ExpiresAt)
+            if (now < TokenResponse.ExpiredAt)
             {
                 return this;
             }
 
             try
             {
-                var tokenHolder = await _fetchTokenTask;
+                var tokenResponse = await _fetchTokenTask;
+
+                _tokenManagerCredentialsProvider.Logger.LogDebug(
+                    "Successfully fetched token. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
+                    tokenResponse.ExpiredAt, tokenResponse.RefreshAt
+                );
 
                 return _tokenManagerCredentialsProvider.UpdateState(this,
-                    new ActiveState(tokenHolder, _tokenManagerCredentialsProvider));
+                    new ActiveState(tokenResponse, _tokenManagerCredentialsProvider));
             }
             catch (Exception e)
             {
@@ -181,7 +199,7 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
         public void Init() => _fetchTokenTask = _tokenManagerCredentialsProvider.FetchToken().AsTask();
     }
 
-    private class ErrorState : IHolderState
+    private class ErrorState : ITokenState
     {
         private readonly Exception _exception;
         private readonly TokenManagerCredentialsProvider _managerCredentialsProvider;
@@ -194,7 +212,7 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
 
         public TokenResponse TokenResponse => throw _exception;
 
-        public ValueTask<IHolderState> Validate(DateTime now) => _managerCredentialsProvider
+        public ValueTask<ITokenState> Validate(DateTime now) => _managerCredentialsProvider
             .UpdateState(this, new SyncState(_managerCredentialsProvider))
             .Validate(now);
     }
@@ -204,21 +222,21 @@ public class TokenResponse
 {
     private const double RefreshInterval = 0.5;
 
-    public TokenResponse(string token, DateTime expiresAt, DateTime? refreshAt = null)
+    public TokenResponse(string token, DateTime expiredAt, DateTime? refreshAt = null)
     {
         var now = DateTime.UtcNow;
 
         Token = token;
-        ExpiresAt = expiresAt.ToUniversalTime();
-        RefreshAt = refreshAt?.ToUniversalTime() ?? now + (ExpiresAt - now) * RefreshInterval;
+        ExpiredAt = expiredAt.ToUniversalTime();
+        RefreshAt = refreshAt?.ToUniversalTime() ?? now + (ExpiredAt - now) * RefreshInterval;
     }
 
-    internal string Token { get; }
-    internal DateTime ExpiresAt { get; }
-    internal DateTime RefreshAt { get; }
+    public string Token { get; }
+    public DateTime ExpiredAt { get; }
+    public DateTime RefreshAt { get; }
 }
 
-internal interface IClock
+public interface IClock
 {
     DateTime UtcNow { get; }
 }
