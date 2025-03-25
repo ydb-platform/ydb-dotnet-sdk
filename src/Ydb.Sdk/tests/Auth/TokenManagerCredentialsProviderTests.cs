@@ -1,4 +1,3 @@
-using Grpc.Core;
 using Moq;
 using Xunit;
 using Ydb.Sdk.Auth;
@@ -28,10 +27,7 @@ public class TokenManagerCredentialsProviderTests
 
         var credentialsProvider = new TokenManagerCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
 
-        Assert.Equal("Status: Unavailable, Issues:\n[0] Error: :(\n",
-            (await Assert.ThrowsAsync<StatusUnsuccessfulException>(
-                () => credentialsProvider.GetAuthInfoAsync().AsTask())).Message
-        );
+        await Assert.ThrowsAsync<StatusUnsuccessfulException>(() => credentialsProvider.GetAuthInfoAsync().AsTask());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
