@@ -40,7 +40,10 @@ public sealed class Driver : BaseDriver
         _sdkInfo = $"ydb-dotnet-sdk/{versionStr}";
 
         CredentialsProvider = Config.User != null
-            ? new TokenCredentialsProvider(new AuthClient(config, _grpcChannelFactory, LoggerFactory), LoggerFactory)
+            ? new TokenManagerCredentialsProvider(
+                new AuthClient(config, _grpcChannelFactory, LoggerFactory),
+                LoggerFactory
+            )
             : Config.Credentials;
     }
 

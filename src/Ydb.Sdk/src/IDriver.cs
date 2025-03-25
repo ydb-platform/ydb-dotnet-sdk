@@ -126,7 +126,8 @@ public abstract class BaseDriver : IDriver
         return new BidirectionalStream<TRequest, TResponse>(
             call,
             e => { OnRpcError(endpoint, e); },
-            Config.Credentials);
+            CredentialsProvider
+        );
     }
 
     protected abstract (string, GrpcChannel) GetChannel(long nodeId);
@@ -164,7 +165,7 @@ public abstract class BaseDriver : IDriver
     }
 
     protected abstract ICredentialsProvider? CredentialsProvider { get; }
-    
+
     public ILoggerFactory LoggerFactory { get; }
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -266,7 +267,7 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
     public async ValueTask<string?> AuthToken() => _credentialsProvider != null
         ? await _credentialsProvider.GetAuthInfoAsync()
         : null;
-    
+
     public async Task RequestStreamComplete()
     {
         try

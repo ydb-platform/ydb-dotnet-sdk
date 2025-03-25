@@ -9,7 +9,7 @@ namespace Ydb.Sdk.Examples;
 
 public static class AuthUtils
 {
-    public static async Task<ICredentialsProvider> MakeCredentialsFromEnv(
+    public static async Task<ICredentialsProvider?> MakeCredentialsFromEnv(
         bool fallbackAnonymous = false,
         ILoggerFactory? loggerFactory = null)
     {
@@ -26,7 +26,7 @@ public static class AuthUtils
         var anonymousValue = Environment.GetEnvironmentVariable("YDB_ANONYMOUS_CREDENTIALS");
         if (anonymousValue != null && IsTrueValue(anonymousValue))
         {
-            return new AnonymousProvider();
+            return null;
         }
 
         var metadataValue = Environment.GetEnvironmentVariable("YDB_METADATA_CREDENTIALS");
@@ -46,7 +46,7 @@ public static class AuthUtils
 
         if (fallbackAnonymous)
         {
-            return new AnonymousProvider();
+            return null;
         }
 
         throw new InvalidOperationException("Failed to parse credentials from environmet, no valid options found.");
