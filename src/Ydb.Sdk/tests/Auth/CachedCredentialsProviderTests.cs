@@ -5,7 +5,7 @@ using Ydb.Sdk.Auth;
 namespace Ydb.Sdk.Tests.Auth;
 
 [Trait("Category", "Unit")]
-public class TokenManagerCredentialsProviderTests
+public class CachedCredentialsProviderTests
 {
     private const string Token = "SomeToken";
 
@@ -24,7 +24,7 @@ public class TokenManagerCredentialsProviderTests
             )
             .ReturnsAsync(new TokenResponse(Token, now.Add(TimeSpan.FromSeconds(2))));
         _mockClock.Setup(clock => clock.UtcNow).Returns(now);
-        var credentialsProvider = new TokenManagerCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
+        var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
 
         await Assert.ThrowsAsync<StatusUnsuccessfulException>(() => credentialsProvider.GetAuthInfoAsync().AsTask());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
@@ -52,7 +52,7 @@ public class TokenManagerCredentialsProviderTests
             .Returns(now.Add(TimeSpan.FromSeconds(3)))
             .Returns(now.Add(TimeSpan.FromSeconds(3)))
             .Returns(now.Add(TimeSpan.FromSeconds(4)));
-        var credentialsProvider = new TokenManagerCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
+        var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
 
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
@@ -78,7 +78,7 @@ public class TokenManagerCredentialsProviderTests
             .Returns(now)
             .Returns(now.Add(TimeSpan.FromSeconds(4)))
             .Returns(now.Add(TimeSpan.FromSeconds(4)));
-        var credentialsProvider = new TokenManagerCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
+        var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
 
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token + "1", await credentialsProvider.GetAuthInfoAsync());

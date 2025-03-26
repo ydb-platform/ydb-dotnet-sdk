@@ -3,16 +3,16 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Ydb.Sdk.Auth;
 
-public class TokenManagerCredentialsProvider : ICredentialsProvider
+public class CachedCredentialsProvider : ICredentialsProvider
 {
     private readonly IClock _clock;
     private readonly IAuthClient _authClient;
 
-    private ILogger<TokenManagerCredentialsProvider> Logger { get; }
+    private ILogger<CachedCredentialsProvider> Logger { get; }
 
     private volatile ITokenState _tokenState;
 
-    public TokenManagerCredentialsProvider(
+    public CachedCredentialsProvider(
         IAuthClient authClient,
         ILoggerFactory? loggerFactory = null
     )
@@ -23,10 +23,10 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
         _tokenState.Init();
 
         loggerFactory ??= new NullLoggerFactory();
-        Logger = loggerFactory.CreateLogger<TokenManagerCredentialsProvider>();
+        Logger = loggerFactory.CreateLogger<CachedCredentialsProvider>();
     }
 
-    internal TokenManagerCredentialsProvider(IAuthClient authClient, IClock clock) : this(authClient)
+    internal CachedCredentialsProvider(IAuthClient authClient, IClock clock) : this(authClient)
     {
         _clock = clock;
     }
@@ -59,12 +59,12 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
 
     private class ActiveState : ITokenState
     {
-        private readonly TokenManagerCredentialsProvider _tokenManagerCredentialsProvider;
+        private readonly CachedCredentialsProvider _cachedCredentialsProvider;
 
-        public ActiveState(TokenResponse tokenResponse, TokenManagerCredentialsProvider tokenManagerCredentialsProvider)
+        public ActiveState(TokenResponse tokenResponse, CachedCredentialsProvider cachedCredentialsProvider)
         {
             TokenResponse = tokenResponse;
-            _tokenManagerCredentialsProvider = tokenManagerCredentialsProvider;
+            _cachedCredentialsProvider = cachedCredentialsProvider;
         }
 
         public TokenResponse TokenResponse { get; }
@@ -74,34 +74,34 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
             if (now < TokenResponse.ExpiredAt)
             {
                 return now >= TokenResponse.RefreshAt
-                    ? _tokenManagerCredentialsProvider.UpdateState(
+                    ? _cachedCredentialsProvider.UpdateState(
                         this,
-                        new BackgroundState(TokenResponse, _tokenManagerCredentialsProvider)
+                        new BackgroundState(TokenResponse, _cachedCredentialsProvider)
                     )
                     : this;
             }
 
-            _tokenManagerCredentialsProvider.Logger.LogWarning(
+            _cachedCredentialsProvider.Logger.LogWarning(
                 "Token has expired. ExpiredAt: {ExpiredAt}, CurrentTime: {CurrentTime}. " +
                 "Switching to synchronous state to fetch a new token",
                 TokenResponse.ExpiredAt, now
             );
 
-            return await _tokenManagerCredentialsProvider
-                .UpdateState(this, new SyncState(_tokenManagerCredentialsProvider))
+            return await _cachedCredentialsProvider
+                .UpdateState(this, new SyncState(_cachedCredentialsProvider))
                 .Validate(now);
         }
     }
 
     private class SyncState : ITokenState
     {
-        private readonly TokenManagerCredentialsProvider _tokenManagerCredentialsProvider;
+        private readonly CachedCredentialsProvider _cachedCredentialsProvider;
 
         private volatile Task<TokenResponse> _fetchTokenTask = null!;
 
-        public SyncState(TokenManagerCredentialsProvider tokenManagerCredentialsProvider)
+        public SyncState(CachedCredentialsProvider cachedCredentialsProvider)
         {
-            _tokenManagerCredentialsProvider = tokenManagerCredentialsProvider;
+            _cachedCredentialsProvider = cachedCredentialsProvider;
         }
 
         public TokenResponse TokenResponse =>
@@ -113,37 +113,37 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
             {
                 var tokenResponse = await _fetchTokenTask;
 
-                _tokenManagerCredentialsProvider.Logger.LogDebug(
+                _cachedCredentialsProvider.Logger.LogDebug(
                     "Successfully fetched token at {Timestamp}. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
                     DateTime.Now, tokenResponse.ExpiredAt, tokenResponse.RefreshAt
                 );
 
-                return _tokenManagerCredentialsProvider.UpdateState(this,
-                    new ActiveState(tokenResponse, _tokenManagerCredentialsProvider));
+                return _cachedCredentialsProvider.UpdateState(this,
+                    new ActiveState(tokenResponse, _cachedCredentialsProvider));
             }
             catch (Exception e)
             {
-                _tokenManagerCredentialsProvider.Logger.LogCritical(e, "Error on authentication token update");
+                _cachedCredentialsProvider.Logger.LogCritical(e, "Error on authentication token update");
 
-                return _tokenManagerCredentialsProvider.UpdateState(this,
-                    new ErrorState(e, _tokenManagerCredentialsProvider));
+                return _cachedCredentialsProvider.UpdateState(this,
+                    new ErrorState(e, _cachedCredentialsProvider));
             }
         }
 
-        public void Init() => _fetchTokenTask = _tokenManagerCredentialsProvider.FetchToken();
+        public void Init() => _fetchTokenTask = _cachedCredentialsProvider.FetchToken();
     }
 
     private class BackgroundState : ITokenState
     {
-        private readonly TokenManagerCredentialsProvider _tokenManagerCredentialsProvider;
+        private readonly CachedCredentialsProvider _cachedCredentialsProvider;
 
         private volatile Task<TokenResponse> _fetchTokenTask = null!;
 
         public BackgroundState(TokenResponse tokenResponse,
-            TokenManagerCredentialsProvider tokenManagerCredentialsProvider)
+            CachedCredentialsProvider cachedCredentialsProvider)
         {
             TokenResponse = tokenResponse;
-            _tokenManagerCredentialsProvider = tokenManagerCredentialsProvider;
+            _cachedCredentialsProvider = cachedCredentialsProvider;
         }
 
         public TokenResponse TokenResponse { get; }
@@ -152,22 +152,22 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
         {
             if (_fetchTokenTask.IsCanceled || _fetchTokenTask.IsFaulted)
             {
-                _tokenManagerCredentialsProvider.Logger.LogWarning(
+                _cachedCredentialsProvider.Logger.LogWarning(
                     "Fetching token task failed. Status: {Status}, Retrying login...",
                     _fetchTokenTask.IsCanceled ? "Canceled" : "Faulted"
                 );
 
                 return now >= TokenResponse.ExpiredAt
-                    ? _tokenManagerCredentialsProvider
-                        .UpdateState(this, new SyncState(_tokenManagerCredentialsProvider))
-                    : _tokenManagerCredentialsProvider
-                        .UpdateState(this, new BackgroundState(TokenResponse, _tokenManagerCredentialsProvider));
+                    ? _cachedCredentialsProvider
+                        .UpdateState(this, new SyncState(_cachedCredentialsProvider))
+                    : _cachedCredentialsProvider
+                        .UpdateState(this, new BackgroundState(TokenResponse, _cachedCredentialsProvider));
             }
 
             if (_fetchTokenTask.IsCompleted)
             {
-                return _tokenManagerCredentialsProvider
-                    .UpdateState(this, new ActiveState(await _fetchTokenTask, _tokenManagerCredentialsProvider));
+                return _cachedCredentialsProvider
+                    .UpdateState(this, new ActiveState(await _fetchTokenTask, _cachedCredentialsProvider));
             }
 
             if (now < TokenResponse.ExpiredAt)
@@ -179,32 +179,32 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
             {
                 var tokenResponse = await _fetchTokenTask;
 
-                _tokenManagerCredentialsProvider.Logger.LogDebug(
+                _cachedCredentialsProvider.Logger.LogDebug(
                     "Successfully fetched token. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
                     tokenResponse.ExpiredAt, tokenResponse.RefreshAt
                 );
 
-                return _tokenManagerCredentialsProvider.UpdateState(this,
-                    new ActiveState(tokenResponse, _tokenManagerCredentialsProvider));
+                return _cachedCredentialsProvider.UpdateState(this,
+                    new ActiveState(tokenResponse, _cachedCredentialsProvider));
             }
             catch (Exception e)
             {
-                _tokenManagerCredentialsProvider.Logger.LogCritical(e, "Error on authentication token update");
+                _cachedCredentialsProvider.Logger.LogCritical(e, "Error on authentication token update");
 
-                return _tokenManagerCredentialsProvider.UpdateState(this,
-                    new ErrorState(e, _tokenManagerCredentialsProvider));
+                return _cachedCredentialsProvider.UpdateState(this,
+                    new ErrorState(e, _cachedCredentialsProvider));
             }
         }
 
-        public void Init() => _fetchTokenTask = _tokenManagerCredentialsProvider.FetchToken();
+        public void Init() => _fetchTokenTask = _cachedCredentialsProvider.FetchToken();
     }
 
     private class ErrorState : ITokenState
     {
         private readonly Exception _exception;
-        private readonly TokenManagerCredentialsProvider _managerCredentialsProvider;
+        private readonly CachedCredentialsProvider _managerCredentialsProvider;
 
-        public ErrorState(Exception exception, TokenManagerCredentialsProvider managerCredentialsProvider)
+        public ErrorState(Exception exception, CachedCredentialsProvider managerCredentialsProvider)
         {
             _exception = exception;
             _managerCredentialsProvider = managerCredentialsProvider;
