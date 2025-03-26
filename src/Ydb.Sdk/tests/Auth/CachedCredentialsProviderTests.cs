@@ -199,8 +199,8 @@ public class CachedCredentialsProviderTests
         Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
         _mockAuthClient.Verify(authClient => authClient.FetchToken(), Times.Exactly(3));
     }
-    
-            [Fact]
+
+    [Fact]
     public async Task
         SyncState_To_ActiveState_To_BackgroundState_To_BackgroundState_When_Task_Is_Canceled_To_ActiveState()
     {
@@ -246,7 +246,7 @@ public class CachedCredentialsProviderTests
             .Returns(now.Add(TimeSpan.FromSeconds(4)))
             .Returns(now.Add(TimeSpan.FromSeconds(4)));
         var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
-        
+
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         tcsTokenResponse.SetException(new StatusUnsuccessfulException(new Status(StatusCode.Unavailable)));
