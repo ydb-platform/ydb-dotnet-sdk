@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
 using Ydb.Discovery.V1;
+using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
 
@@ -22,10 +23,10 @@ public sealed class Driver : BaseDriver
 
     internal string Database => Config.Database;
 
-    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null) : base(
-        config, loggerFactory ?? NullLoggerFactory.Instance,
-        (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>()
-    )
+    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null)
+        : base(config, loggerFactory ?? NullLoggerFactory.Instance,
+            (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>()
+        )
     {
         _grpcChannelFactory = new GrpcChannelFactory(LoggerFactory, config);
         _endpointPool = new EndpointPool(LoggerFactory.CreateLogger<EndpointPool>());
@@ -37,6 +38,13 @@ public sealed class Driver : BaseDriver
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         var versionStr = version is null ? "unknown" : version.ToString(3);
         _sdkInfo = $"ydb-dotnet-sdk/{versionStr}";
+
+        CredentialsProvider = Config.User != null
+            ? new CachedCredentialsProvider(
+                new StaticCredentialsAuthClient(config, _grpcChannelFactory, LoggerFactory),
+                LoggerFactory
+            )
+            : Config.Credentials;
     }
 
     public static async Task<Driver> CreateInitialized(DriverConfig config, ILoggerFactory? loggerFactory = null)
@@ -50,8 +58,6 @@ public sealed class Driver : BaseDriver
 
     public async Task Initialize()
     {
-        await Config.Credentials.ProvideAuthClient(new AuthClient(Config, _grpcChannelFactory, LoggerFactory));
-
         Logger.LogInformation("Started initial endpoint discovery");
 
         for (var i = 0; i < AttemptDiscovery; i++)
@@ -109,6 +115,8 @@ public sealed class Driver : BaseDriver
 
         _ = Task.Run(DiscoverEndpoints);
     }
+
+    protected override ICredentialsProvider? CredentialsProvider { get; }
 
     private async Task<Status> DiscoverEndpoints()
     {

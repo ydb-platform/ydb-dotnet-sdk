@@ -7,13 +7,16 @@ public class DriverConfig
 {
     public string Endpoint { get; }
     public string Database { get; }
-    public ICredentialsProvider Credentials { get; }
+    public ICredentialsProvider? Credentials { get; }
 
-    public TimeSpan KeepAlivePingDelay { get; set; } =
+    public TimeSpan KeepAlivePingDelay { get; init; } =
         TimeSpan.FromSeconds(SocketHttpHandlerDefaults.DefaultKeepAlivePingSeconds);
 
-    public TimeSpan KeepAlivePingTimeout { get; set; } =
+    public TimeSpan KeepAlivePingTimeout { get; init; } =
         TimeSpan.FromSeconds(SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds);
+
+    public string? User { get; init; }
+    public string? Password { get; init; }
 
     internal X509Certificate2Collection CustomServerCertificates { get; } = new();
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
@@ -28,7 +31,7 @@ public class DriverConfig
     {
         Endpoint = FormatEndpoint(endpoint);
         Database = database;
-        Credentials = credentials ?? new AnonymousProvider();
+        Credentials = credentials;
 
         if (customServerCertificate != null)
         {

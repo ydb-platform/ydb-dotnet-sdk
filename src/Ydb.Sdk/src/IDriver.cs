@@ -38,7 +38,7 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 
     public TResponse Current { get; }
 
-    public ValueTask<string?> AuthToken { get; }
+    public ValueTask<string?> AuthToken();
 
     public Task RequestStreamComplete();
 }
@@ -126,7 +126,8 @@ public abstract class BaseDriver : IDriver
         return new BidirectionalStream<TRequest, TResponse>(
             call,
             e => { OnRpcError(endpoint, e); },
-            Config.Credentials);
+            CredentialsProvider
+        );
     }
 
     protected abstract (string, GrpcChannel) GetChannel(long nodeId);
@@ -140,10 +141,9 @@ public abstract class BaseDriver : IDriver
             { Metadata.RpcDatabaseHeader, Config.Database }
         };
 
-        var authInfo = await Config.Credentials.GetAuthInfoAsync();
-        if (authInfo != null)
+        if (CredentialsProvider != null)
         {
-            meta.Add(Metadata.RpcAuthHeader, authInfo);
+            meta.Add(Metadata.RpcAuthHeader, await CredentialsProvider.GetAuthInfoAsync());
         }
 
         if (settings.TraceId.Length > 0)
@@ -163,6 +163,8 @@ public abstract class BaseDriver : IDriver
 
         return options;
     }
+
+    protected abstract ICredentialsProvider? CredentialsProvider { get; }
 
     public ILoggerFactory LoggerFactory { get; }
 
@@ -220,12 +222,12 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
 {
     private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;
-    private readonly ICredentialsProvider _credentialsProvider;
+    private readonly ICredentialsProvider? _credentialsProvider;
 
     internal BidirectionalStream(
         AsyncDuplexStreamingCall<TRequest, TResponse> stream,
         Action<RpcException> rpcErrorAction,
-        ICredentialsProvider credentialsProvider)
+        ICredentialsProvider? credentialsProvider)
     {
         _stream = stream;
         _rpcErrorAction = rpcErrorAction;
@@ -262,7 +264,9 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
 
     public TResponse Current => _stream.ResponseStream.Current;
 
-    public ValueTask<string?> AuthToken => _credentialsProvider.GetAuthInfoAsync();
+    public async ValueTask<string?> AuthToken() => _credentialsProvider != null
+        ? await _credentialsProvider.GetAuthInfoAsync()
+        : null;
 
     public async Task RequestStreamComplete()
     {

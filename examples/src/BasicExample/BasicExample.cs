@@ -15,7 +15,7 @@ internal partial class BasicExample : TableExampleBase
     public static async Task Run(
         string endpoint,
         string database,
-        ICredentialsProvider credentialsProvider,
+        ICredentialsProvider? credentialsProvider,
         X509Certificate? customServerCertificate,
         string path,
         ILoggerFactory loggerFactory)

@@ -296,7 +296,7 @@ internal class Writer<TValue> : IWriter<TValue>
                     lastSeqNo: lastSeqNo,
                     sessionId: initResponse.SessionId,
                     initialize: Initialize,
-                    await stream.AuthToken,
+                    await stream.AuthToken(),
                     logger: _logger,
                     inFlightMessages: _inFlightMessages
                 );

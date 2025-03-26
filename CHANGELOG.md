@@ -1,3 +1,21 @@
+- **Breaking Change**: `Ydb.Sdk.Yc.Auth` version <= 0.1.0 is not compatible with newer versions.
+- Added `IAuthClient` to fetch auth token.
+- Added the `CachedCredentialsProvider` class, which streamlines token lifecycle management.
+- **Breaking Change**: Deleted `AnonymousProvider`. Now users don't need to do anything for anonymous authentication.
+  Migration guide:
+  ```c#
+  var config = new DriverConfig(...); // Using AnonymousProvider if Credentials property is null
+  ```
+- **Breaking Change**: Deleted `StaticCredentialsProvider`. Users are now recommended to use the `User` and `Password`
+  properties in `DriverConfig` for configuring authentication. Migration guide:
+  ```c#
+  var config = new DriverConfig(...)
+  {
+      User = "your_username",
+      Password = "your_password"
+  };
+  ```
+
 ## v0.15.4
 
 - Added `KeepAlivePingTimeout`, with a default value of 10 seconds.

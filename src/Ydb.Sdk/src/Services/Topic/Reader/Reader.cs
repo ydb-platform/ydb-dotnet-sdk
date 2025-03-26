@@ -192,7 +192,7 @@ internal class Reader<TValue> : IReader<TValue>
                 stream,
                 initResponse.SessionId,
                 Initialize,
-                await stream.AuthToken,
+                await stream.AuthToken(),
                 _logger,
                 _receivedMessagesChannel.Writer,
                 _deserializer
