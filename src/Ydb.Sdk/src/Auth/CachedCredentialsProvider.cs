@@ -57,22 +57,6 @@ public class CachedCredentialsProvider : ICredentialsProvider
         }
     }
 
-    private class InitState : ITokenState
-    {
-        private readonly SyncState _syncState;
-
-        public InitState(SyncState syncState)
-        {
-            syncState.Init();
-            _syncState = syncState;
-        }
-
-        public TokenResponse TokenResponse => _syncState.TokenResponse;
-
-        public async ValueTask<ITokenState> Validate(DateTime now) =>
-            await (await _syncState.Validate(now)).Validate(now);
-    }
-
     private class ActiveState : ITokenState
     {
         private readonly CachedCredentialsProvider _cachedCredentialsProvider;
