@@ -85,4 +85,174 @@ public class CachedCredentialsProviderTests
         Assert.Equal(Token + "1", await credentialsProvider.GetAuthInfoAsync());
         _mockAuthClient.Verify(authClient => authClient.FetchToken(), Times.Exactly(2));
     }
+
+    [Fact]
+    public async Task
+        SyncState_To_ActiveState_To_BackgroundState_To_ErrorState_When_Task_Is_Canceled_To_SyncState_To_ActiveState()
+    {
+        var now = DateTime.UtcNow;
+        var tcsTokenResponse = new TaskCompletionSource<TokenResponse>();
+
+        _mockAuthClient.SetupSequence(authClient => authClient.FetchToken())
+            .ReturnsAsync(new TokenResponse(Token, now.Add(TimeSpan.FromSeconds(3))))
+            .Returns(tcsTokenResponse.Task)
+            .ReturnsAsync(new TokenResponse(Token + Token, now.Add(TimeSpan.FromSeconds(10))));
+        _mockClock.SetupSequence(clock => clock.UtcNow)
+            .Returns(now)
+            .Returns(now.Add(TimeSpan.FromSeconds(2)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)));
+        var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
+
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        var taskOnError = credentialsProvider.GetAuthInfoAsync();
+        tcsTokenResponse.SetCanceled();
+        await Assert.ThrowsAsync<TaskCanceledException>(async () => await taskOnError);
+        Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
+        Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
+        _mockAuthClient.Verify(authClient => authClient.FetchToken(), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task
+        SyncState_To_ActiveState_To_BackgroundState_To_ErrorState_When_Task_Is_Faulted_To_SyncState_To_ActiveState()
+    {
+        var now = DateTime.UtcNow;
+        var tcsTokenResponse = new TaskCompletionSource<TokenResponse>();
+
+        _mockAuthClient.SetupSequence(authClient => authClient.FetchToken())
+            .ReturnsAsync(new TokenResponse(Token, now.Add(TimeSpan.FromSeconds(3))))
+            .Returns(tcsTokenResponse.Task)
+            .ReturnsAsync(new TokenResponse(Token + Token, now.Add(TimeSpan.FromSeconds(10))));
+        _mockClock.SetupSequence(clock => clock.UtcNow)
+            .Returns(now)
+            .Returns(now.Add(TimeSpan.FromSeconds(2)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)));
+        var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
+
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        var taskOnError = credentialsProvider.GetAuthInfoAsync();
+        tcsTokenResponse.SetException(new StatusUnsuccessfulException(new Status(StatusCode.Unavailable)));
+        await Assert.ThrowsAsync<StatusUnsuccessfulException>(async () => await taskOnError);
+        Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
+        Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
+        _mockAuthClient.Verify(authClient => authClient.FetchToken(), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task
+        SyncState_To_ActiveState_To_BackgroundState_To_SyncState_When_Task_Is_Canceled_To_ActiveState()
+    {
+        var now = DateTime.UtcNow;
+        var tcsTokenResponse = new TaskCompletionSource<TokenResponse>();
+
+        _mockAuthClient.SetupSequence(authClient => authClient.FetchToken())
+            .ReturnsAsync(new TokenResponse(Token, now.Add(TimeSpan.FromSeconds(3))))
+            .Returns(tcsTokenResponse.Task)
+            .ReturnsAsync(new TokenResponse(Token + Token, now.Add(TimeSpan.FromSeconds(10))));
+        _mockClock.SetupSequence(clock => clock.UtcNow)
+            .Returns(now)
+            .Returns(now.Add(TimeSpan.FromSeconds(2)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)));
+        var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
+
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        tcsTokenResponse.SetCanceled();
+        var taskOnBackground = credentialsProvider.GetAuthInfoAsync();
+        Assert.Equal(Token + Token, await taskOnBackground);
+        Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
+        _mockAuthClient.Verify(authClient => authClient.FetchToken(), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task
+        SyncState_To_ActiveState_To_BackgroundState_To_SyncState_When_Task_Is_Fauleted_To_ActiveState()
+    {
+        var now = DateTime.UtcNow;
+        var tcsTokenResponse = new TaskCompletionSource<TokenResponse>();
+
+        _mockAuthClient.SetupSequence(authClient => authClient.FetchToken())
+            .ReturnsAsync(new TokenResponse(Token, now.Add(TimeSpan.FromSeconds(3))))
+            .Returns(tcsTokenResponse.Task)
+            .ReturnsAsync(new TokenResponse(Token + Token, now.Add(TimeSpan.FromSeconds(10))));
+        _mockClock.SetupSequence(clock => clock.UtcNow)
+            .Returns(now)
+            .Returns(now.Add(TimeSpan.FromSeconds(2)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)));
+        var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
+
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        tcsTokenResponse.SetException(new StatusUnsuccessfulException(new Status(StatusCode.Unavailable)));
+        var taskOnBackground = credentialsProvider.GetAuthInfoAsync();
+        Assert.Equal(Token + Token, await taskOnBackground);
+        Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
+        _mockAuthClient.Verify(authClient => authClient.FetchToken(), Times.Exactly(3));
+    }
+    
+            [Fact]
+    public async Task
+        SyncState_To_ActiveState_To_BackgroundState_To_BackgroundState_When_Task_Is_Canceled_To_ActiveState()
+    {
+        var now = DateTime.UtcNow;
+        var tcsTokenResponse = new TaskCompletionSource<TokenResponse>();
+
+        _mockAuthClient.SetupSequence(authClient => authClient.FetchToken())
+            .ReturnsAsync(new TokenResponse(Token, now.Add(TimeSpan.FromSeconds(3))))
+            .Returns(tcsTokenResponse.Task)
+            .ReturnsAsync(new TokenResponse(Token + Token, now.Add(TimeSpan.FromSeconds(10))));
+        _mockClock.SetupSequence(clock => clock.UtcNow)
+            .Returns(now)
+            .Returns(now.Add(TimeSpan.FromSeconds(2)))
+            .Returns(now.Add(TimeSpan.FromSeconds(2)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)));
+        var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
+
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        tcsTokenResponse.SetCanceled();
+        var taskOnBackground = credentialsProvider.GetAuthInfoAsync();
+        Assert.Equal(Token, await taskOnBackground);
+        Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
+        _mockAuthClient.Verify(authClient => authClient.FetchToken(), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task
+        SyncState_To_ActiveState_To_BackgroundState_To_BackgroundState_When_Task_Is_Fauleted_To_ActiveState()
+    {
+        var now = DateTime.UtcNow;
+        var tcsTokenResponse = new TaskCompletionSource<TokenResponse>();
+
+        _mockAuthClient.SetupSequence(authClient => authClient.FetchToken())
+            .ReturnsAsync(new TokenResponse(Token, now.Add(TimeSpan.FromSeconds(3))))
+            .Returns(tcsTokenResponse.Task)
+            .ReturnsAsync(new TokenResponse(Token + Token, now.Add(TimeSpan.FromSeconds(10))));
+        _mockClock.SetupSequence(clock => clock.UtcNow)
+            .Returns(now)
+            .Returns(now.Add(TimeSpan.FromSeconds(2)))
+            .Returns(now.Add(TimeSpan.FromSeconds(2)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)))
+            .Returns(now.Add(TimeSpan.FromSeconds(4)));
+        var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
+        
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
+        tcsTokenResponse.SetException(new StatusUnsuccessfulException(new Status(StatusCode.Unavailable)));
+        var taskOnBackground = credentialsProvider.GetAuthInfoAsync();
+        Assert.Equal(Token, await taskOnBackground);
+        Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
+        _mockAuthClient.Verify(authClient => authClient.FetchToken(), Times.Exactly(3));
+    }
 }

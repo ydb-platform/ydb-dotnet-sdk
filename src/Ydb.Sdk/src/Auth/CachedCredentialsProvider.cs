@@ -57,6 +57,22 @@ public class CachedCredentialsProvider : ICredentialsProvider
         }
     }
 
+    private class InitState : ITokenState
+    {
+        private readonly SyncState _syncState;
+
+        public InitState(SyncState syncState)
+        {
+            syncState.Init();
+            _syncState = syncState;
+        }
+
+        public TokenResponse TokenResponse => _syncState.TokenResponse;
+
+        public async ValueTask<ITokenState> Validate(DateTime now) =>
+            await (await _syncState.Validate(now)).Validate(now);
+    }
+
     private class ActiveState : ITokenState
     {
         private readonly CachedCredentialsProvider _cachedCredentialsProvider;
@@ -114,8 +130,8 @@ public class CachedCredentialsProvider : ICredentialsProvider
                 var tokenResponse = await _fetchTokenTask;
 
                 _cachedCredentialsProvider.Logger.LogDebug(
-                    "Successfully fetched token at {Timestamp}. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
-                    DateTime.Now, tokenResponse.ExpiredAt, tokenResponse.RefreshAt
+                    "Successfully fetched token. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
+                    tokenResponse.ExpiredAt, tokenResponse.RefreshAt
                 );
 
                 return _cachedCredentialsProvider.UpdateState(this,
@@ -125,8 +141,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
             {
                 _cachedCredentialsProvider.Logger.LogCritical(e, "Error on authentication token update");
 
-                return _cachedCredentialsProvider.UpdateState(this,
-                    new ErrorState(e, _cachedCredentialsProvider));
+                return _cachedCredentialsProvider.UpdateState(this, new ErrorState(e, _cachedCredentialsProvider));
             }
         }
 
@@ -158,8 +173,9 @@ public class CachedCredentialsProvider : ICredentialsProvider
                 );
 
                 return now >= TokenResponse.ExpiredAt
-                    ? _cachedCredentialsProvider
+                    ? await _cachedCredentialsProvider
                         .UpdateState(this, new SyncState(_cachedCredentialsProvider))
+                        .Validate(now)
                     : _cachedCredentialsProvider
                         .UpdateState(this, new BackgroundState(TokenResponse, _cachedCredentialsProvider));
             }
