@@ -19,7 +19,11 @@ internal class StaticCredentialsAuthClient : IAuthClient
 
     private readonly RetrySettings _retrySettings = new(5);
 
-    internal StaticCredentialsAuthClient(DriverConfig config, GrpcChannelFactory grpcChannelFactory, ILoggerFactory loggerFactory)
+    internal StaticCredentialsAuthClient(
+        DriverConfig config,
+        GrpcChannelFactory grpcChannelFactory,
+        ILoggerFactory loggerFactory
+    )
     {
         _config = config;
         _grpcChannelFactory = grpcChannelFactory;
