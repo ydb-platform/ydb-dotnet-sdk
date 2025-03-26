@@ -1,5 +1,5 @@
-- **Breaking Change**: Ydb.Sdk.Yc.Auth version < 0.1.0 is not compatible with newer versions.
-- Added IAuthClient to fetch auth token.
+- **Breaking Change**: `Ydb.Sdk.Yc.Auth` version <= 0.1.0 is not compatible with newer versions.
+- Added `IAuthClient` to fetch auth token.
 - Added the `TokenManagerCredentialsProvider` class, which streamlines token lifecycle management.
 - **Breaking Change**: Deleted `AnonymousProvider`. Now users don't need to do anything for anonymous authentication.
   Migration guide:

@@ -7,5 +7,5 @@ public interface ICredentialsProvider
 
 public interface IAuthClient
 {
-    ValueTask<TokenResponse> FetchToken();
+    Task<TokenResponse> FetchToken();
 }

@@ -41,7 +41,7 @@ public sealed class Driver : BaseDriver
 
         CredentialsProvider = Config.User != null
             ? new TokenManagerCredentialsProvider(
-                new AuthClient(config, _grpcChannelFactory, LoggerFactory),
+                new StaticCredentialsAuthClient(config, _grpcChannelFactory, LoggerFactory),
                 LoggerFactory
             )
             : Config.Credentials;

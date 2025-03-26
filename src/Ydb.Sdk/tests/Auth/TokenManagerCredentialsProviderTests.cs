@@ -43,7 +43,7 @@ public class TokenManagerCredentialsProviderTests
         _mockAuthClient.SetupSequence(authClient => authClient.FetchToken())
             .ReturnsAsync(new TokenResponse(Token, now.Add(TimeSpan.FromSeconds(3))))
             .ReturnsAsync(new TokenResponse(Token + Token, now.Add(TimeSpan.FromSeconds(4))))
-            .Returns(new ValueTask<TokenResponse>(tcsTokenResponse.Task));
+            .Returns(tcsTokenResponse.Task);
         _mockClock.SetupSequence(clock => clock.UtcNow)
             .Returns(now)
             .Returns(now.Add(TimeSpan.FromSeconds(2)))

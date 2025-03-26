@@ -34,7 +34,7 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
     public async ValueTask<string> GetAuthInfoAsync() =>
         (await _tokenState.Validate(_clock.UtcNow)).TokenResponse.Token;
 
-    private ValueTask<TokenResponse> FetchToken() => _authClient.FetchToken();
+    private Task<TokenResponse> FetchToken() => _authClient.FetchToken();
 
     private ITokenState UpdateState(ITokenState current, ITokenState next)
     {
@@ -130,7 +130,7 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
             }
         }
 
-        public void Init() => _fetchTokenTask = _tokenManagerCredentialsProvider.FetchToken().AsTask();
+        public void Init() => _fetchTokenTask = _tokenManagerCredentialsProvider.FetchToken();
     }
 
     private class BackgroundState : ITokenState
@@ -196,7 +196,7 @@ public class TokenManagerCredentialsProvider : ICredentialsProvider
             }
         }
 
-        public void Init() => _fetchTokenTask = _tokenManagerCredentialsProvider.FetchToken().AsTask();
+        public void Init() => _fetchTokenTask = _tokenManagerCredentialsProvider.FetchToken();
     }
 
     private class ErrorState : ITokenState

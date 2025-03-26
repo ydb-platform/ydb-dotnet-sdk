@@ -10,24 +10,24 @@ using Ydb.Sdk.Transport;
 
 namespace Ydb.Sdk.Services.Auth;
 
-internal class AuthClient : IAuthClient
+internal class StaticCredentialsAuthClient : IAuthClient
 {
     private readonly DriverConfig _config;
     private readonly GrpcChannelFactory _grpcChannelFactory;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly ILogger<AuthClient> _logger;
+    private readonly ILogger<StaticCredentialsAuthClient> _logger;
 
     private readonly RetrySettings _retrySettings = new(5);
 
-    internal AuthClient(DriverConfig config, GrpcChannelFactory grpcChannelFactory, ILoggerFactory loggerFactory)
+    internal StaticCredentialsAuthClient(DriverConfig config, GrpcChannelFactory grpcChannelFactory, ILoggerFactory loggerFactory)
     {
         _config = config;
         _grpcChannelFactory = grpcChannelFactory;
         _loggerFactory = loggerFactory;
-        _logger = loggerFactory.CreateLogger<AuthClient>();
+        _logger = loggerFactory.CreateLogger<StaticCredentialsAuthClient>();
     }
 
-    public async ValueTask<TokenResponse> FetchToken()
+    public async Task<TokenResponse> FetchToken()
     {
         uint attempt = 0;
         while (true)
