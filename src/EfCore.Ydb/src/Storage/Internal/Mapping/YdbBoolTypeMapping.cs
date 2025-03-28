@@ -6,7 +6,7 @@ public class YdbBoolTypeMapping : BoolTypeMapping
 {
     public new static YdbBoolTypeMapping Default { get; } = new();
 
-    private YdbBoolTypeMapping() : base("BOOL")
+    private YdbBoolTypeMapping() : base("Bool")
     {
     }
 
@@ -19,5 +19,5 @@ public class YdbBoolTypeMapping : BoolTypeMapping
         => new YdbBoolTypeMapping(parameters);
 
     protected override string GenerateNonNullSqlLiteral(object value)
-        => (bool)value ? "true" : "false";
+        => (bool)value ? "TRUE" : "FALSE";
 }
