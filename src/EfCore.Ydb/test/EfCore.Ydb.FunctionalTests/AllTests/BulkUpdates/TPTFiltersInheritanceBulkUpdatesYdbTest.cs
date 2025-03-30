@@ -5,7 +5,9 @@ using Xunit.Abstractions;
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
 // TODO: Refactor later
+#pragma warning disable xUnit1000
 internal class TPTFiltersInheritanceBulkUpdatesSqlServerTest(
+#pragma warning restore xUnit1000
     TPTFiltersInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
 ) : TPTFiltersInheritanceBulkUpdatesTestBase<TPTFiltersInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper)

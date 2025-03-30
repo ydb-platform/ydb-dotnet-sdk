@@ -5,7 +5,9 @@ using Xunit.Abstractions;
 
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
+#pragma warning disable xUnit1000
 internal class TpcInheritanceBulkUpdatesYdbTest(
+#pragma warning restore xUnit1000
     TPCInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
 ) : TPCInheritanceBulkUpdatesTestBase<TPCInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper)

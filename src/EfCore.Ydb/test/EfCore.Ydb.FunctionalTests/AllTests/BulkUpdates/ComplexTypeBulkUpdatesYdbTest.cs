@@ -6,7 +6,9 @@ using Xunit.Abstractions;
 
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
-public class ComplexTypeBulkUpdatesYdbTest(
+#pragma warning disable xUnit1000
+internal class ComplexTypeBulkUpdatesYdbTest(
+#pragma warning restore xUnit1000
     ComplexTypeBulkUpdatesYdbTest.ComplexTypeBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
 ) : ComplexTypeBulkUpdatesRelationalTestBase<ComplexTypeBulkUpdatesYdbTest.ComplexTypeBulkUpdatesYdbFixture>(
