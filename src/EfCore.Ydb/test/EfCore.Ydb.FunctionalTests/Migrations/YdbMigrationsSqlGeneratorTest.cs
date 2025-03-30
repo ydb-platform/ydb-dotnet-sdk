@@ -1,5 +1,7 @@
 using EfCore.Ydb.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Xunit;
 
 namespace EfCore.Ydb.FunctionalTests.Migrations;
@@ -146,10 +148,19 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
 
     public override void InsertDataOperation_throws_for_unsupported_column_types()
-    {
-        base.InsertDataOperation_throws_for_unsupported_column_types();
-    }
-
+        => Assert.Equal(
+            RelationalStrings.UnsupportedDataOperationStoreType("foo", "dbo.People.First Name"),
+            Assert.Throws<InvalidOperationException>(
+                () =>
+                    Generate(
+                        new InsertDataOperation
+                        {
+                            Table = "People",
+                            Schema = "dbo",
+                            Columns = ["First Name"],
+                            ColumnTypes = ["foo"],
+                            Values = new object?[,] { { null } }
+                        })).Message);
 
     public override void DeleteDataOperation_all_args()
     {

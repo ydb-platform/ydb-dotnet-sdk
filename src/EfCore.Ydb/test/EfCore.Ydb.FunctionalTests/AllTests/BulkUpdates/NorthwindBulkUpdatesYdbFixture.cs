@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
-internal class NorthwindBulkUpdatesYdbFixture<TModelCustomizer> : NorthwindBulkUpdatesRelationalFixture<TModelCustomizer>
+internal class
+    NorthwindBulkUpdatesYdbFixture<TModelCustomizer> : NorthwindBulkUpdatesRelationalFixture<TModelCustomizer>
     where TModelCustomizer : ITestModelCustomizer, new()
 {
     protected override ITestStoreFactory TestStoreFactory => YdbNorthwindTestStoreFactory.Instance;
