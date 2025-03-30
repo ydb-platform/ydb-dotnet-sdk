@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EfCore.Ydb.FunctionalTests.Query;
 
-public class NorthwindQueryYdbFixture<TModelCustomizer> : NorthwindQueryRelationalFixture<TModelCustomizer>
+internal class NorthwindQueryYdbFixture<TModelCustomizer> : NorthwindQueryRelationalFixture<TModelCustomizer>
     where TModelCustomizer : ITestModelCustomizer, new()
 {
     protected override ITestStoreFactory TestStoreFactory

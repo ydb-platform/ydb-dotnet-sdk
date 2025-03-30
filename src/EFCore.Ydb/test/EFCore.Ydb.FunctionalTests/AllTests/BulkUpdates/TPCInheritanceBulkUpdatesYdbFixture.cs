@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
-public class TPCInheritanceBulkUpdatesYdbFixture : TPCInheritanceBulkUpdatesFixture
+internal class TPCInheritanceBulkUpdatesYdbFixture : TPCInheritanceBulkUpdatesFixture
 {
     protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
 

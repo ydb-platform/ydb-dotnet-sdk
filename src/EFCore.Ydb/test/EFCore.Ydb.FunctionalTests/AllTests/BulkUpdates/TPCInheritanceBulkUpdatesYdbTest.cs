@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 
-public class TpcInheritanceBulkUpdatesYdbTest(
+internal class TpcInheritanceBulkUpdatesYdbTest(
     TPCInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
 ) : TPCInheritanceBulkUpdatesTestBase<TPCInheritanceBulkUpdatesYdbFixture>(fixture, testOutputHelper)

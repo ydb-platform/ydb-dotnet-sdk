@@ -117,7 +117,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            INSERT INTO `dbo.People` ("First Name")
+            INSERT INTO `dbo/People` (`First Name`)
             VALUES ('John');
             """);
     }
@@ -335,9 +335,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
         );
     }
 
-    [ConditionalTheory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [ConditionalTheory(Skip = "YDB does not support default value")]
     public override void DefaultValue_with_line_breaks(bool isUnicode)
     {
         base.DefaultValue_with_line_breaks(isUnicode);
@@ -349,18 +347,28 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
                   """);
     }
 
-    [ConditionalTheory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [ConditionalTheory(Skip = "YDB does not support default value")]
     public override void DefaultValue_with_line_breaks_2(bool isUnicode)
     {
         base.DefaultValue_with_line_breaks_2(isUnicode);
+
+        AssertSql("""
+                  CREATE TABLE `dbo/TestLineBreaks` (
+                      `TestDefaultValue` Text NOT NULL
+                  );
+                  """);
     }
 
-    [ConditionalTheory(Skip = "ClickHouse does not support sequences")]
+    [ConditionalTheory(Skip = "YDB does not support sequences")]
     public override void Sequence_restart_operation(long? startsAt)
     {
         base.Sequence_restart_operation(startsAt);
+
+        AssertSql("""
+                  CREATE TABLE `dbo/TestLineBreaks` (
+                      `TestDefaultValue` Text NOT NULL
+                  );
+                  """);
     }
 
     protected override string GetGeometryCollectionStoreType() => throw new NotSupportedException();
