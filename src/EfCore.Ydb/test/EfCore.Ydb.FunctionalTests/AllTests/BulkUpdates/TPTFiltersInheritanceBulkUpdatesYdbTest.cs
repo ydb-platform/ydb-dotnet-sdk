@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore.BulkUpdates;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
