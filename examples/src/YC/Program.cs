@@ -9,7 +9,6 @@ await Parser.Default.ParseArguments<CmdOptions>(args).WithParsedAsync(async cmd 
     var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
 
     var saProvider = new ServiceAccountProvider(saFilePath: cmd.SaFilePath, loggerFactory: loggerFactory);
-    await saProvider.Initialize();
 
     var builder = new YdbConnectionStringBuilder
     {

@@ -1,0 +1,1 @@
+- Supported connect to Yandex Cloud
