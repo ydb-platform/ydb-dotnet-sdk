@@ -1,9 +1,7 @@
-using System;
 using System.Security.Cryptography.X509Certificates;
 using EfCore.Ydb.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
 
 namespace EfCore.Ydb.Infrastructure;
