@@ -31,7 +31,7 @@ await Parser.Default.ParseArguments<CmdOptions>(args).WithParsedAsync(async cmd 
     {
         Console.WriteLine($"- {user.Id}: {user.Name} ({user.Email})");
     }
-    
+
     // Users in database:
     // - 1: Alex (alex@example.com)
     // - 2: Kirill (kirill@example.com)
