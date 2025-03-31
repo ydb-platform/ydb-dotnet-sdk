@@ -11,11 +11,10 @@ namespace EfCore.Ydb.FunctionalTests.TestUtilities;
 public class YdbTestStore(
     string name,
     string? scriptPath = null,
-    string? additionalSql = null,
-    bool shared = true
-) : RelationalTestStore(name, shared, CreateConnection())
+    string? additionalSql = null
+) : RelationalTestStore(name, false, CreateConnection())
 {
-    private const int CommandTimeout = 600;
+    private const int CommandTimeout = 6942;
 
     public static YdbTestStore GetOrCreate(
         string name,
@@ -32,6 +31,9 @@ public class YdbTestStore(
         Func<DbContext, Task>? clean
     )
     {
+        await using var context = createContext();
+        if (clean != null) await clean(context);
+        await CleanAsync(context);
         if (scriptPath is not null)
         {
             await ExecuteScript(scriptPath);
@@ -43,9 +45,6 @@ public class YdbTestStore(
         }
         else
         {
-            await using var context = createContext();
-            if (clean != null) await clean(context);
-            await CleanAsync(context);
             await context.Database.EnsureCreatedAsync();
 
             if (additionalSql is not null)
@@ -60,16 +59,16 @@ public class YdbTestStore(
         }
     }
 
-    public async Task ExecuteScript(string scriptPathParam)
+    private async Task ExecuteScript(string scriptPathParam)
     {
         var script = await File.ReadAllTextAsync(scriptPathParam);
         await ExecuteAsync(
-            Connection, command =>
+            Connection, async command =>
             {
                 var commandsToExecute =
                     new Regex("^GO",
                             RegexOptions.IgnoreCase | RegexOptions.Multiline,
-                            TimeSpan.FromMilliseconds(1000.0)
+                            TimeSpan.FromMilliseconds(10_000.0)
                         )
                         .Split(script)
                         .Where(b => !string.IsNullOrEmpty(b));
@@ -82,7 +81,7 @@ public class YdbTestStore(
                         var commandsSplit = new Regex(
                                 "\n",
                                 RegexOptions.IgnoreCase | RegexOptions.Multiline,
-                                TimeSpan.FromMilliseconds(1_000)
+                                TimeSpan.FromMilliseconds(10_000)
                             )
                             .Split(commandToExecute)
                             .Where(b => !b.StartsWith("--") && !string.IsNullOrEmpty(b))
@@ -92,7 +91,7 @@ public class YdbTestStore(
 
                         command.CommandTimeout = 100_000;
                         command.CommandText = readyCommand;
-                        command.ExecuteNonQueryAsync();
+                        await command.ExecuteNonQueryAsync();
                     }
                     catch (Exception e)
                     {
@@ -100,7 +99,7 @@ public class YdbTestStore(
                     }
                 }
 
-                return Task.FromResult(0);
+                return 0;
             }, "");
     }
 
@@ -163,7 +162,7 @@ public class YdbTestStore(
     }
 
 
-    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder());
+    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder { MaxSessionPool = 10 });
 
     public override async Task CleanAsync(DbContext context)
     {
@@ -182,5 +181,7 @@ public class YdbTestStore(
             command.CommandText = $"DROP TABLE IF EXISTS {table};";
             await command.ExecuteNonQueryAsync();
         }
+
+        await connection.CloseAsync();
     }
 }

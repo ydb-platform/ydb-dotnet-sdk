@@ -31,7 +31,6 @@ public class YdbDatabaseCreator(
         }
         finally
         {
-            await connection1.CloseAsync().ConfigureAwait(false);
             await connection1.DisposeAsync().ConfigureAwait(false);
         }
     }

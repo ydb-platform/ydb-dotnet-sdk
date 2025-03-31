@@ -1,5 +1,3 @@
-//npgsql
-
 using System.Text;
 using EfCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -132,9 +130,7 @@ internal class UpdatesYdbTest
         => TestIgnoringBase(
             base.Save_replaced_principal);
 
-    private async Task TestIgnoringBase(
-        Func<Task> baseTest
-    ) => await TestIgnoringBase(_ => baseTest(), false);
+    private async Task TestIgnoringBase(Func<Task> baseTest) => await TestIgnoringBase(_ => baseTest(), false);
 
     private async Task TestIgnoringBase(
         Func<bool, Task> baseTest,
