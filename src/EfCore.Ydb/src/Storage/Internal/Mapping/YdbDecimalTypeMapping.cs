@@ -1,12 +1,13 @@
 using System;
-using System.Data.Common;
-using System.Reflection;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EfCore.Ydb.Storage.Internal.Mapping;
 
-public class YdbDecimalTypeMapping : RelationalTypeMapping
+public class YdbDecimalTypeMapping : DecimalTypeMapping
 {
+    private const byte DefaultPrecision = 22;
+    private const byte DefaultScale = 9;
+
     public YdbDecimalTypeMapping(Type? type) : this(
         new RelationalTypeMappingParameters(
             new CoreTypeMappingParameters(type ?? typeof(decimal)),
@@ -26,14 +27,5 @@ public class YdbDecimalTypeMapping : RelationalTypeMapping
 
     protected override string ProcessStoreType(
         RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase
-    ) => storeType == "BigInteger" && parameters.Precision != null
-        ? $"Decimal({parameters.Precision}, 0)"
-        : parameters.Precision is null
-            ? storeType
-            : parameters.Scale is null
-                ? $"Decimal({parameters.Precision}, 0)"
-                : $"Decimal({parameters.Precision}, {parameters.Scale})";
-
-    public override MethodInfo GetDataReaderMethod() =>
-        typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetDecimal), [typeof(int)]) ?? throw new Exception();
+    ) => $"{storeType}({parameters.Precision ?? DefaultPrecision}, {parameters.Scale ?? DefaultScale})";
 }

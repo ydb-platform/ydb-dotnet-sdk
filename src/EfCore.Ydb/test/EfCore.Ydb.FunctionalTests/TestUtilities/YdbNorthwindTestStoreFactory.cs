@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EfCore.Ydb.FunctionalTests.TestUtilities;
 
-public class YdbNorthwindTestStoreFactory : YdbTestStoreFactory
+internal class YdbNorthwindTestStoreFactory : YdbTestStoreFactory
 {
     private const string DatabaseName = "Northwind";
 

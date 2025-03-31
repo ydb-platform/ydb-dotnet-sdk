@@ -95,6 +95,31 @@ jobs:
           dotnet-version: ${{ matrix.dotnet-version }}
       - name: Run Topic tests
         run: dotnet test src/Ydb.Sdk/tests/Tests.csproj --filter "FullyQualifiedName~Topic" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=detailed"  
+  efcore-functional-tests:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ydb-version: [ 'latest', 'trunk' ]
+    services:
+      ydb:
+        image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
+        ports:
+          - 2135:2135
+          - 2136:2136
+          - 8765:8765
+        env:
+          YDB_LOCAL_SURVIVE_RESTART: true
+        options: '--name ydb-local -h localhost'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Run EfCore tests
+        run: dotnet test src/EfCore.Ydb/test/EfCore.Ydb.FunctionalTests/EfCore.Ydb.FunctionalTests.csproj -l "console;verbosity=detailed"
   integration-tests:
     runs-on: ubuntu-22.04
     strategy:

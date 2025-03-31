@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace EfCore.Ydb.Migrations;
 
-// ReSharper disable once ClassNeverInstantiated.Global
 public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies dependencies)
     : MigrationsSqlGenerator(dependencies)
 {
@@ -23,10 +22,7 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
             // TODO: Handle comments
         }
 
-        builder.Append("CREATE ");
-        // TODO: Support EXTERNAL tables?
-        builder
-            .Append("TABLE ")
+        builder.Append("CREATE TABLE ")
             .Append(DelimitIdentifier(operation.Name, operation.Schema))
             .AppendLine(" (");
 
@@ -66,9 +62,10 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         {
             columnType = columnType.ToLower() switch
             {
+                "int8" or "int16" => "SmallSerial",
                 "int32" => "Serial",
                 "int64" => "Bigserial",
-                _ => throw new NotSupportedException("Serial column supported only for int32 and int64")
+                _ => throw new NotSupportedException($"Serial column isn't supported for {columnType} type")
             };
         }
 
@@ -77,7 +74,7 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
             .Append(" ")
             // TODO: Add DEFAULT logic somewhere here
             .Append(columnType)
-            .Append(operation.IsNullable ? " NULL" : " NOT NULL");
+            .Append(operation.IsNullable ? string.Empty : " NOT NULL");
     }
 
     protected override void CreateTablePrimaryKeyConstraint(
@@ -109,7 +106,7 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
     {
         if (operation.NewSchema is not null && operation.NewSchema != operation.Schema)
         {
-            throw new NotImplementedException("Rename table with schema is not supported");
+            throw new NotSupportedException("Rename table with schema is not supported");
         }
 
         if (operation.NewName is null || operation.NewName == operation.Name)
@@ -120,22 +117,23 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         builder
             .Append("ALTER TABLE ")
             .Append(DelimitIdentifier(operation.Name, operation.Schema))
-            .AppendLine("RENAME TO")
-            .Append(DelimitIdentifier(operation.NewName, operation.Schema));
+            .Append(" RENAME TO ")
+            .Append(DelimitIdentifier(operation.NewName, operation.Schema))
+            .AppendLine(";");
         EndStatement(builder);
     }
 
     protected override void Generate(
-        InsertDataOperation operation, IModel? model, MigrationCommandListBuilder builder, bool terminate = true
+        InsertDataOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true
     )
     {
         var sqlBuilder = new StringBuilder();
         foreach (var modificationCommand in GenerateModificationCommands(operation, model))
         {
-            SqlGenerator.AppendInsertOperation(
-                sqlBuilder,
-                modificationCommand,
-                0);
+            SqlGenerator.AppendInsertOperation(sqlBuilder, modificationCommand, 0);
         }
 
         builder.Append(sqlBuilder.ToString());

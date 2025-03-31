@@ -7,7 +7,8 @@ namespace EfCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
 // TODO: following error
 // Error: Primary key is required for ydb tables.
 // Probably use Name+CountryId, but...
-internal class TphFiltersInheritanceBulkUpdatesYdbTest(
+// ReSharper disable once InconsistentNaming
+internal class TPHFiltersInheritanceBulkUpdatesYdbTest(
     TphFiltersInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
 ) : FiltersInheritanceBulkUpdatesRelationalTestBase<
@@ -55,12 +56,12 @@ internal class TphFiltersInheritanceBulkUpdatesYdbTest(
             async
         );
 
-    public override Task Delete_where_using_hierarchy_derived(bool async)
-        => SharedTestMethods.TestIgnoringBase(
-            base.Delete_where_using_hierarchy_derived,
-            Fixture.TestSqlLoggerFactory,
-            async
-        );
+    // public override Task Delete_where_using_hierarchy_derived(bool async)
+    //     => SharedTestMethods.TestIgnoringBase(
+    //         base.Delete_where_using_hierarchy_derived,
+    //         Fixture.TestSqlLoggerFactory,
+    //         async
+    //     );
 
     public override Task Delete_GroupBy_Where_Select_First(bool async)
         => SharedTestMethods.TestIgnoringBase(
