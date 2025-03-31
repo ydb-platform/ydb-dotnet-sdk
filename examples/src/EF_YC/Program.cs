@@ -31,14 +31,18 @@ await Parser.Default.ParseArguments<CmdOptions>(args).WithParsedAsync(async cmd 
     {
         Console.WriteLine($"- {user.Id}: {user.Name} ({user.Email})");
     }
+    
+    // Users in database:
+    // - 1: Alex (alex@example.com)
+    // - 2: Kirill (kirill@example.com)
 });
 
 
 internal class User
 {
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public string Email { get; set; }
+    public int Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string Email { get; init; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
