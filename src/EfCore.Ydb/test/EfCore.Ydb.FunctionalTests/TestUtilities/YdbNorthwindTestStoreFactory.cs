@@ -8,6 +8,9 @@ internal class YdbNorthwindTestStoreFactory : YdbTestStoreFactory
 
     public new static YdbNorthwindTestStoreFactory Instance { get; } = new();
 
-    public override TestStore GetOrCreate(string storeName)
-        => YdbTestStore.GetOrCreate(DatabaseName, scriptPath: $"{DatabaseName}.sql");
+    public override TestStore Create(string storeName) =>
+        YdbTestStore.GetOrCreate(DatabaseName, scriptPath: $"{DatabaseName}.sql");
+
+    public override TestStore GetOrCreate(string storeName) =>
+        YdbTestStore.GetOrCreate(DatabaseName, scriptPath: $"{DatabaseName}.sql");
 }
