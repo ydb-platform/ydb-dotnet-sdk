@@ -11,10 +11,10 @@ public class YdbTestStoreFactory(string? additionalSql = null) : RelationalTestS
     private readonly string? _scriptPath = null;
 
     public override TestStore Create(string storeName) =>
-        new YdbTestStore(storeName, _scriptPath, additionalSql, shared: false);
+        new YdbTestStore(storeName, _scriptPath, additionalSql);
 
     public override TestStore GetOrCreate(string storeName)
-        => new YdbTestStore(storeName, _scriptPath, additionalSql, shared: true);
+        => new YdbTestStore(storeName, _scriptPath, additionalSql);
 
     public override IServiceCollection AddProviderServices(IServiceCollection serviceCollection)
         => serviceCollection.AddEntityFrameworkYdb();
