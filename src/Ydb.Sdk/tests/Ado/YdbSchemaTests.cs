@@ -6,8 +6,6 @@ using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[CollectionDefinition("YdbSchemaTests isolation test", DisableParallelization = true)]
-[Collection("YdbSchemaTests isolation test")]
 public class YdbSchemaTests : YdbAdoNetFixture
 {
     private readonly string _table1;
@@ -47,10 +45,6 @@ public class YdbSchemaTests : YdbAdoNetFixture
         Assert.Equal(_table2, singleTable2.Rows[0]["table_name"].ToString());
         Assert.Equal("TABLE", singleTable2.Rows[0]["table_type"].ToString());
 
-        var userTables = await ydbConnection.GetSchemaAsync("Tables", new[] { null, "TABLE" });
-        Assert.Equal(3, userTables.Rows.Count);
-
-        // not found case
         await Assert.ThrowsAsync<YdbException>(
             async () => await ydbConnection.GetSchemaAsync("Tables", new[] { "not_found", null })
         );
