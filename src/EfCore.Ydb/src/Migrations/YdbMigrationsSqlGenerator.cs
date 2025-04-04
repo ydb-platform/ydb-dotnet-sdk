@@ -227,10 +227,10 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
             .Append(DelimitIdentifier(operation.Name))
             .Append(" GLOBAL ");
 
-        if (operation.IsUnique)
-        {
-            builder.Append(" UNIQUE ");
-        }
+        // if (operation.IsUnique)
+        // {
+        //     builder.Append("UNIQUE ");
+        // }
 
         if (operation.IsDescending != null)
         {

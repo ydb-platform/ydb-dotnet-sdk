@@ -6,6 +6,7 @@ using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Ado;
 
+[Collection("YdbSchemaTests test")]
 public class YdbSchemaTests : YdbAdoNetFixture
 {
     private readonly string _table1;

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
 using System.Linq;
 using Microsoft.EntityFrameworkCore.Scaffolding;
@@ -20,6 +21,11 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
     public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)
     {
         var ydbConnection = (YdbConnection)connection;
+        if (connection.State != ConnectionState.Open)
+        {
+            connection.Open();
+        }
+        
         var tableNames = new List<string>();
         tableNames.AddRange(options.Tables);
 

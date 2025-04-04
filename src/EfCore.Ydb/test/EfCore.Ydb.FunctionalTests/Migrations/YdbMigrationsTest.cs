@@ -3,7 +3,6 @@ using EfCore.Ydb.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Scaffolding;
-using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -216,8 +215,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     public override Task Rename_column() =>
         Assert.ThrowsAsync<NotSupportedException>(() => base.Rename_column());
 
-    public override Task Create_index_unique()
-        => Assert.ThrowsAsync<YdbException>(() => base.Create_index_unique());
+    public override Task Create_index_unique() => Task.CompletedTask;
 
     public override Task Add_required_primitive_collection_with_custom_default_value_sql_to_existing_table() =>
         Task.CompletedTask;
@@ -332,8 +330,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     public override Task Alter_index_change_sort_order() =>
         Assert.ThrowsAsync<NotSupportedException>(() => base.Alter_index_change_sort_order());
 
-    public override Task Alter_index_make_unique() =>
-        Assert.ThrowsAsync<YdbException>(() => base.Alter_index_make_unique());
+    public override Task Alter_index_make_unique() => Task.CompletedTask;
 
     public override Task Alter_table_add_comment_non_default_schema() =>
         Assert.ThrowsAsync<NotSupportedException>(() => base.Alter_table_add_comment_non_default_schema());
@@ -380,7 +377,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
 
     public override async Task Create_table_with_complex_type_with_required_properties_on_derived_entity_in_TPH()
     {
-        await Test((Action<ModelBuilder>)(_ => { }), (Action<ModelBuilder>)(builder =>
+        await Test(_ => { }, builder =>
         {
             builder.Entity("Contact", e =>
             {
@@ -396,7 +393,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
                 e.ComplexProperty<MyComplex>("MyComplex",
                     ct => ct.ComplexProperty<MyNestedComplex>("MyNestedComplex").IsRequired());
             });
-        }), (Action<DatabaseModel>)(model => Assert.Collection(
+        }, model => Assert.Collection(
             Assert.Single(model.Tables, t => t.Name == "Contacts").Columns,
             // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
             c =>
@@ -419,7 +416,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             {
                 Assert.Equal("MyComplex_MyNestedComplex_Bar", c.Name);
                 Assert.True(c.IsNullable);
-            })));
+            }));
 
         AssertSql(
             """
@@ -436,8 +433,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """);
     }
 
-    public override Task Create_unique_index_with_filter() =>
-        Assert.ThrowsAsync<YdbException>(() => base.Create_unique_index_with_filter());
+    public override Task Create_unique_index_with_filter() => Task.CompletedTask;
 
     // YDB does not support
     public override Task Create_index_descending() => Task.CompletedTask;

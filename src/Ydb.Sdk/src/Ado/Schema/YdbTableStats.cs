@@ -2,7 +2,7 @@ namespace Ydb.Sdk.Ado.Schema;
 
 public class YdbTableStats
 {
-    public YdbTableStats(Ydb.Table.TableStats tableStats)
+    public YdbTableStats(Table.TableStats tableStats)
     {
         CreationTime = tableStats.CreationTime?.ToDateTime();
         ModificationTime = tableStats.ModificationTime?.ToDateTime();

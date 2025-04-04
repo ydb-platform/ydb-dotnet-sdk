@@ -17,15 +17,15 @@ internal class YdbTableIndex
             _ => throw new YdbException($"Unexpected index type: {index.TypeCase}")
         };
     }
-    
+
     public string Name { get; }
-    
+
     public IndexType Type { get; }
-    
+
     public IReadOnlyList<string> IndexColumns { get; }
-    
+
     public IReadOnlyList<string> DataColumns { get; }
-    
+
     public enum IndexType
     {
         GlobalIndex,

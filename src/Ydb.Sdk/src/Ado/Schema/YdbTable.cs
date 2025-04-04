@@ -35,7 +35,7 @@ internal class YdbTable
     public IReadOnlyList<string> PrimaryKey { get; }
 
     public IReadOnlyList<YdbTableIndex> Indexes { get; }
-    
+
     public YdbTableStats? YdbTableStats { get; }
 
     public enum TableType
