@@ -167,18 +167,21 @@ public class YdbTestStore(
     public override async Task CleanAsync(DbContext context)
     {
         var connection = context.Database.GetDbConnection();
-        await connection.OpenAsync();
-        var schema = await connection.GetSchemaAsync("tables");
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync();
+        }
+
+        var schema = await connection.GetSchemaAsync("Tables", [null, "TABLE"]);
         var tables = schema
             .AsEnumerable()
-            .Select(entry => (string)entry["table_name"])
-            .Where(tableName => !tableName.StartsWith('.'));
+            .Select(entry => (string)entry["table_name"]);
 
         var command = connection.CreateCommand();
 
         foreach (var table in tables)
         {
-            command.CommandText = $"DROP TABLE IF EXISTS {table};";
+            command.CommandText = $"DROP TABLE IF EXISTS `{table}`;";
             await command.ExecuteNonQueryAsync();
         }
 

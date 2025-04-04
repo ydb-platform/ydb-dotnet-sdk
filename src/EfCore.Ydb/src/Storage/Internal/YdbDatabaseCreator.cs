@@ -7,8 +7,7 @@ using Ydb.Sdk.Ado;
 namespace EfCore.Ydb.Storage.Internal;
 
 public class YdbDatabaseCreator(
-    RelationalDatabaseCreatorDependencies dependencies,
-    IYdbRelationalConnection connection
+    RelationalDatabaseCreatorDependencies dependencies
 ) : RelationalDatabaseCreator(dependencies)
 {
     public override bool Exists()
@@ -19,7 +18,7 @@ public class YdbDatabaseCreator(
 
     private async Task<bool> ExistsInternal(CancellationToken cancellationToken = default)
     {
-        var connection1 = connection.Clone();
+        await using var connection = Dependencies.Connection;
         try
         {
             await connection.OpenAsync(cancellationToken, errorsExpected: true);
@@ -29,13 +28,8 @@ public class YdbDatabaseCreator(
         {
             return false;
         }
-        finally
-        {
-            await connection1.DisposeAsync().ConfigureAwait(false);
-        }
     }
 
-    // TODO: Implement later
     public override bool HasTables() => false;
 
     public override void Create() => throw new NotSupportedException("YDB does not support database creation");
