@@ -6,8 +6,8 @@ using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Ado;
 
-[CollectionDefinition("GracefulShutdown isolation test", DisableParallelization = true)]
-[Collection("YdbSchemaTests test")]
+[CollectionDefinition("YdbSchemaTests isolation test", DisableParallelization = true)]
+[Collection("YdbSchemaTests isolation test")]
 public class YdbSchemaTests : YdbAdoNetFixture
 {
     private readonly string _table1;
