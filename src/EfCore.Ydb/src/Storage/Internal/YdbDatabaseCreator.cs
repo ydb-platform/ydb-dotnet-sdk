@@ -30,7 +30,7 @@ public class YdbDatabaseCreator(
         }
     }
 
-    public override bool HasTables() => Dependencies.Connection.DbConnection.GetSchema("Tables").Rows.Count > 0;
+    public override bool HasTables() => false;
 
     public override void Create() => throw new NotSupportedException("YDB does not support database creation");
 
