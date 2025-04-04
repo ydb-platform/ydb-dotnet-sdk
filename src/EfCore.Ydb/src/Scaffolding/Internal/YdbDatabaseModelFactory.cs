@@ -25,7 +25,7 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
         {
             connection.Open();
         }
-        
+
         var tableNames = new List<string>();
         tableNames.AddRange(options.Tables);
 
