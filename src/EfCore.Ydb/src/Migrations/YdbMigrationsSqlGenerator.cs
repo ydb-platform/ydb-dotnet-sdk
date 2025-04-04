@@ -1,9 +1,11 @@
 using System;
 using System.Text;
 using EfCore.Ydb.Metadata.Internal;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using Ydb.Sdk.Ado;
 
 namespace EfCore.Ydb.Migrations;
 
@@ -43,7 +45,7 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         }
 
         builder.Append(";");
-        EndStatement(builder, suppressTransaction: true);
+        EndStatementSuppressTransaction(builder);
     }
 
     protected override void ColumnDefinition(
@@ -69,10 +71,14 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
             };
         }
 
+        if (operation.ComputedColumnSql is not null)
+        {
+            throw new NotSupportedException("Computed/generated columns aren't supported in YDB");
+        }
+
         builder
-            .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(name))
+            .Append(DelimitIdentifier(name))
             .Append(" ")
-            // TODO: Add DEFAULT logic somewhere here
             .Append(columnType)
             .Append(operation.IsNullable ? string.Empty : " NOT NULL");
     }
@@ -120,7 +126,7 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
             .Append(" RENAME TO ")
             .Append(DelimitIdentifier(operation.NewName, operation.Schema))
             .AppendLine(";");
-        EndStatement(builder);
+        EndStatementSuppressTransaction(builder);
     }
 
     protected override void Generate(
@@ -140,7 +146,7 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
 
         if (terminate)
         {
-            EndStatement(builder, suppressTransaction: false);
+            EndStatement(builder);
         }
     }
 
@@ -156,7 +162,133 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         }
 
         builder.Append(sqlBuilder.ToString());
-        EndStatement(builder, suppressTransaction: false);
+        EndStatement(builder);
+    }
+
+    protected override void Generate(
+        DropTableOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true)
+    {
+        builder.Append("DROP TABLE ")
+            .Append(DelimitIdentifier(operation.Name, operation.Schema));
+        if (!terminate)
+            return;
+        builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+        EndStatementSuppressTransaction(builder);
+    }
+
+    protected override void Generate(
+        AddColumnOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true)
+    {
+        if (operation["Relational:ColumnOrder"] != null)
+            Dependencies.MigrationsLogger.ColumnOrderIgnoredWarning(operation);
+        builder.Append("ALTER TABLE ")
+            .Append(DelimitIdentifier(operation.Table, operation.Schema))
+            .Append(" ADD ");
+        ColumnDefinition(operation, model, builder);
+        if (!terminate)
+            return;
+        builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+        EndStatementSuppressTransaction(builder);
+    }
+
+    protected override void Generate(
+        DropColumnOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true)
+    {
+        builder.Append("ALTER TABLE ")
+            .Append(DelimitIdentifier(operation.Table, operation.Schema))
+            .Append(" DROP COLUMN ")
+            .Append(DelimitIdentifier(operation.Name));
+
+        if (!terminate)
+            return;
+        builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+        EndStatementSuppressTransaction(builder);
+    }
+
+    protected override void Generate(
+        CreateIndexOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true
+    )
+    {
+        builder.Append("ALTER TABLE ")
+            .Append(DelimitIdentifier(operation.Table, operation.Schema))
+            .Append(" ADD INDEX ")
+            .Append(DelimitIdentifier(operation.Name))
+            .Append(" GLOBAL ");
+
+        if (operation.IsUnique)
+        {
+            builder.Append(" UNIQUE ");
+        }
+
+        if (operation.IsDescending != null)
+        {
+            throw new NotSupportedException("Descending columns in the index aren't supported in YDB");
+        }
+
+        builder.Append("SYNC ON (")
+            .Append(ColumnList(operation.Columns))
+            .Append(")");
+
+        if (!terminate)
+            return;
+        builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+        EndStatementSuppressTransaction(builder);
+    }
+
+    protected override void Generate(
+        DropIndexOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder,
+        bool terminate = true)
+    {
+        if (operation.Table == null)
+        {
+            throw new YdbException("Table name must be specified for DROP INDEX in YDB");
+        }
+
+        builder.Append("ALTER TABLE ")
+            .Append(DelimitIdentifier(operation.Table, operation.Schema))
+            .Append(" DROP INDEX ")
+            .Append(DelimitIdentifier(operation.Name));
+
+        if (!terminate)
+            return;
+        builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+        EndStatementSuppressTransaction(builder);
+    }
+
+    protected override void Generate(
+        RenameIndexOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder
+    )
+    {
+        if (operation.Table == null)
+        {
+            throw new YdbException("Table name must be specified for RENAME INDEX in YDB");
+        }
+
+        builder.Append("ALTER TABLE ")
+            .Append(DelimitIdentifier(operation.Table, operation.Schema))
+            .Append(" RENAME INDEX ")
+            .Append(DelimitIdentifier(operation.Name))
+            .Append(" TO ")
+            .Append(DelimitIdentifier(operation.NewName));
+
+        builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+        EndStatementSuppressTransaction(builder);
     }
 
     protected override void Generate(UpdateDataOperation operation, IModel? model, MigrationCommandListBuilder builder)
@@ -171,8 +303,29 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         }
 
         builder.Append(sqlBuilder.ToString());
-        EndStatement(builder, suppressTransaction: false);
+        EndStatement(builder);
     }
+
+    protected override void Generate(
+        DropUniqueConstraintOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder
+    )
+    {
+        builder.Append("ALTER TABLE ")
+            .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema))
+            .Append(" DROP INDEX ")
+            .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
+            .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+
+        EndStatementSuppressTransaction(builder);
+    }
+
+    protected override void Generate(
+        DropCheckConstraintOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder
+    ) => throw new NotSupportedException("Drop check constraint isn't supported in YDB");
 
     protected override void Generate(
         DropForeignKeyOperation operation,
@@ -231,37 +384,20 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         // Same comment about Foreign keys
     }
 
-    protected override void CreateTableUniqueConstraints(CreateTableOperation operation, IModel? model,
-        MigrationCommandListBuilder builder)
-    {
-        // We don't have unique constraints
-    }
-
-    protected override void UniqueConstraint(AddUniqueConstraintOperation operation, IModel? model,
-        MigrationCommandListBuilder builder)
-    {
-        // Same comment about Unique constraints
-    }
-
-    protected override void Generate(
-        CreateIndexOperation operation,
+    protected override void UniqueConstraint(
+        AddUniqueConstraintOperation operation,
         IModel? model,
-        MigrationCommandListBuilder builder,
-        bool terminate = true
-    )
-    {
-        // TODO: We do have Indexes!
-        // But they're not implemented yet. Ignoring indexes because otherwise table generation during tests will fail
-    }
+        MigrationCommandListBuilder builder
+    ) => builder
+        .Append("INDEX ")
+        .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
+        .Append(" GLOBAL UNIQUE SYNC ON (")
+        .Append(ColumnList(operation.Columns))
+        .Append(")");
 
+    private void EndStatementSuppressTransaction(MigrationCommandListBuilder builder) =>
+        base.EndStatement(builder, true);
 
-    // ReSharper disable once RedundantOverriddenMember
-    protected override void EndStatement(
-        MigrationCommandListBuilder builder,
-        // ReSharper disable once OptionalParameterHierarchyMismatch
-        bool suppressTransaction = true
-    ) => base.EndStatement(builder, suppressTransaction);
-
-    private string DelimitIdentifier(string name, string? schema)
+    private string DelimitIdentifier(string name, string? schema = null)
         => Dependencies.SqlGenerationHelper.DelimitIdentifier(name, schema);
 }

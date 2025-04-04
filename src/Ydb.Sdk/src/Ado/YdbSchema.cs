@@ -1,9 +1,9 @@
-using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
 using Ydb.Scheme;
 using Ydb.Scheme.V1;
+using Ydb.Sdk.Ado.Schema;
 using Ydb.Sdk.Services.Table;
 using Ydb.Table;
 
@@ -11,7 +11,9 @@ namespace Ydb.Sdk.Ado;
 
 internal static class YdbSchema
 {
-    public static Task<DataTable> GetSchemaAsync(
+    private const int TransportTimeoutSeconds = 10;
+
+    internal static Task<DataTable> GetSchemaAsync(
         YdbConnection ydbConnection,
         string? collectionName,
         string?[] restrictions,
@@ -38,6 +40,48 @@ internal static class YdbSchema
         };
     }
 
+    internal static Task<IReadOnlyCollection<YdbObject>> SchemaObjects(
+        YdbConnection ydbConnection,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var database = ydbConnection.Database;
+
+        return SchemaObjects(ydbConnection, WithSuffix(database), database, cancellationToken);
+    }
+
+    internal static async Task<YdbTable> DescribeTable(
+        YdbConnection ydbConnection,
+        string tableName,
+        DescribeTableSettings? describeTableSettings = null
+    )
+    {
+        try
+        {
+            var describeResponse = await ydbConnection.Session
+                .DescribeTable(WithSuffix(ydbConnection.Database) + tableName, describeTableSettings);
+
+            var status = Status.FromProto(describeResponse.Operation.Status, describeResponse.Operation.Issues);
+
+            if (status.IsNotSuccess)
+            {
+                ydbConnection.Session.OnStatus(status);
+
+                throw new YdbException(status);
+            }
+
+            var describeRes = describeResponse.Operation.Result.Unpack<DescribeTableResult>();
+
+            return new YdbTable(tableName, describeRes);
+        }
+        catch (Driver.TransportException e)
+        {
+            ydbConnection.Session.OnStatus(e.Status);
+
+            throw new YdbException("Transport error on DescribeTable", e);
+        }
+    }
+
     private static async Task<DataTable> GetTables(
         YdbConnection ydbConnection,
         string?[] restrictions,
@@ -55,12 +99,10 @@ internal static class YdbSchema
 
         var tableName = restrictions[0];
         var tableType = restrictions[1];
-        var database = ydbConnection.Database;
 
         if (tableName == null) // tableName isn't set
         {
-            foreach (var tupleTable in
-                     await ListTables(ydbConnection, WithSuffix(database), database, tableType, cancellationToken))
+            foreach (var tupleTable in await ListTables(ydbConnection, tableType, cancellationToken))
             {
                 table.Rows.Add(tupleTable.TableName, tupleTable.TableType);
             }
@@ -98,12 +140,10 @@ internal static class YdbSchema
 
         var tableName = restrictions[0];
         var tableType = restrictions[1];
-        var database = ydbConnection.Database;
 
         if (tableName == null) // tableName isn't set
         {
-            foreach (var tupleTable in
-                     await ListTables(ydbConnection, WithSuffix(database), database, tableType, cancellationToken))
+            foreach (var tupleTable in await ListTables(ydbConnection, tableType, cancellationToken))
             {
                 await AppendDescribeTable(
                     ydbConnection: ydbConnection,
@@ -111,16 +151,16 @@ internal static class YdbSchema
                         .WithTableStats(),
                     tableName: tupleTable.TableName,
                     tableType: tableType,
-                    (describeTableResult, type) =>
+                    (ydbTable, type) =>
                     {
                         var row = table.Rows.Add();
-                        var tableStats = describeTableResult.TableStats;
+                        var tableStats = ydbTable.YdbTableStats!;
 
                         row["table_name"] = tupleTable.TableName;
                         row["table_type"] = type;
                         row["rows_estimate"] = tableStats.RowsEstimate;
-                        row["creation_time"] = tableStats.CreationTime.ToDateTime();
-                        row["modification_time"] = (object?)tableStats.ModificationTime?.ToDateTime() ?? DBNull.Value;
+                        row["creation_time"] = tableStats.CreationTime;
+                        row["modification_time"] = (object?)tableStats.ModificationTime ?? DBNull.Value;
                     });
             }
         }
@@ -132,16 +172,16 @@ internal static class YdbSchema
                     .WithTableStats(),
                 tableName: tableName,
                 tableType: tableType,
-                (describeTableResult, type) =>
+                (ydbTable, type) =>
                 {
                     var row = table.Rows.Add();
-                    var tableStats = describeTableResult.TableStats;
+                    var tableStats = ydbTable.YdbTableStats!;
 
                     row["table_name"] = tableName;
                     row["table_type"] = type;
                     row["rows_estimate"] = tableStats.RowsEstimate;
-                    row["creation_time"] = tableStats.CreationTime.ToDateTime();
-                    row["modification_time"] = (object?)tableStats.ModificationTime?.ToDateTime() ?? DBNull.Value;
+                    row["creation_time"] = tableStats.CreationTime;
+                    row["modification_time"] = (object?)tableStats.ModificationTime ?? DBNull.Value;
                 });
         }
 
@@ -189,13 +229,12 @@ internal static class YdbSchema
                         }
 
                         var row = table.Rows.Add();
-                        var type = column.Type;
 
                         row["table_name"] = tableName;
                         row["column_name"] = column.Name;
                         row["ordinal_position"] = ordinal;
-                        row["is_nullable"] = type.TypeCase == Type.TypeOneofCase.OptionalType ? "YES" : "NO";
-                        row["data_type"] = type.YqlTableType();
+                        row["is_nullable"] = column.IsNullable ? "YES" : "NO";
+                        row["data_type"] = column.StorageType;
                         row["family_name"] = column.Family;
                     }
                 }
@@ -210,143 +249,49 @@ internal static class YdbSchema
         DescribeTableSettings describeTableSettings,
         string tableName,
         string? tableType,
-        Action<DescribeTableResult, string> appendInTable)
+        Action<YdbTable, string> appendInTable)
     {
-        try
-        {
-            var describeResponse = await ydbConnection.Session
-                .DescribeTable(WithSuffix(ydbConnection.Database) + tableName, describeTableSettings);
-
-            if (describeResponse.Operation.Status == StatusIds.Types.StatusCode.SchemeError)
+        var ydbTable = await DescribeTable(ydbConnection, tableName, describeTableSettings);
+        var type = ydbTable.IsSystem
+            ? "SYSTEM_TABLE"
+            : ydbTable.Type switch
             {
-                // ignore scheme errors like path not found
-                return;
-            }
-
-            var status = Status.FromProto(describeResponse.Operation.Status, describeResponse.Operation.Issues);
-
-            if (status.IsNotSuccess)
-            {
-                ydbConnection.Session.OnStatus(status);
-
-                throw new YdbException(status);
-            }
-
-            var describeRes = describeResponse.Operation.Result.Unpack<DescribeTableResult>();
-
-            // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
-            var type = describeRes.Self.Type switch
-            {
-                Entry.Types.Type.Table => tableName.IsSystem() ? "SYSTEM_TABLE" : "TABLE",
-                Entry.Types.Type.ColumnTable => "COLUMN_TABLE",
-                _ => throw new YdbException($"Unexpected entry type for Table: {describeRes.Self.Type}")
+                YdbTable.TableType.Table => "TABLE",
+                YdbTable.TableType.ColumnTable => "COLUMN_TABLE",
+                YdbTable.TableType.ExternalTable => "EXTERNAL_TABLE",
+                _ => throw new ArgumentOutOfRangeException(nameof(tableType))
             };
-
-            if (type.IsPattern(tableType))
-            {
-                appendInTable(describeRes, type);
-            }
-        }
-        catch (Driver.TransportException e)
+        if (type.IsPattern(tableType))
         {
-            ydbConnection.Session.OnStatus(e.Status);
-
-            throw new YdbException("Transport error on DescribeTable", e);
+            appendInTable(ydbTable, type);
         }
     }
 
-    private static async Task<IReadOnlyCollection<string>> ListTableNames(
+    private static async Task<IEnumerable<string>> ListTableNames(
         YdbConnection ydbConnection,
         string? tableName,
-        CancellationToken cancellationToken)
-    {
-        var database = ydbConnection.Database;
+        CancellationToken cancellationToken
+    ) => tableName != null
+        ? new List<string> { tableName }
+        : from table in await ListTables(ydbConnection, cancellationToken: cancellationToken)
+        select table.TableName;
 
-        return tableName != null
-            ? new List<string> { tableName }
-            : (await ListTables(
-                ydbConnection,
-                WithSuffix(database),
-                database,
-                null,
-                cancellationToken
-            )).Select(tuple => tuple.TableName).ToImmutableList();
-    }
-
-    private static async Task<IReadOnlyCollection<(string TableName, string TableType)>> ListTables(
+    private static async Task<IEnumerable<(string TableName, string TableType)>> ListTables(
         YdbConnection ydbConnection,
-        string databasePath,
-        string path,
-        string? tableType,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var fullPath = WithSuffix(path);
-            var tables = new List<(string, string)>();
-            var response = await ydbConnection.Session.Driver.UnaryCall(
-                SchemeService.ListDirectoryMethod,
-                new ListDirectoryRequest { Path = fullPath },
-                new GrpcRequestSettings { CancellationToken = cancellationToken }
-            );
-
-            var operation = response.Operation;
-            var status = Status.FromProto(operation.Status, operation.Issues);
-
-            if (status.IsNotSuccess)
+        string? tableType = null,
+        CancellationToken cancellationToken = default
+    ) => from ydbObject in await SchemaObjects(ydbConnection, cancellationToken)
+        let type = ydbObject.IsSystem
+            ? "SYSTEM_TABLE"
+            : ydbObject.Type switch
             {
-                throw new YdbException(status);
+                SchemeType.Table => "TABLE",
+                SchemeType.ColumnTable => "COLUMN_TABLE",
+                SchemeType.ExternalTable => "EXTERNAL_TABLE",
+                _ => null
             }
-
-            foreach (var entry in operation.Result.Unpack<ListDirectoryResult>().Children)
-            {
-                var tablePath = fullPath[databasePath.Length..] + entry.Name;
-
-                switch (entry.Type)
-                {
-                    case Entry.Types.Type.Table:
-                        var type = tablePath.IsSystem() ? "SYSTEM_TABLE" : "TABLE";
-                        if (type.IsPattern(tableType))
-                        {
-                            tables.Add((tablePath, type));
-                        }
-
-                        break;
-                    case Entry.Types.Type.ColumnTable:
-                        if ("COLUMN_TABLE".IsPattern(tableType))
-                        {
-                            tables.Add((tablePath, "COLUMN_TABLE"));
-                        }
-
-                        break;
-                    case Entry.Types.Type.Directory:
-                        tables.AddRange(
-                            await ListTables(ydbConnection, databasePath, fullPath + entry.Name, tableType,
-                                cancellationToken)
-                        );
-                        break;
-                    case Entry.Types.Type.Unspecified:
-                    case Entry.Types.Type.PersQueueGroup:
-                    case Entry.Types.Type.Database:
-                    case Entry.Types.Type.RtmrVolume:
-                    case Entry.Types.Type.BlockStoreVolume:
-                    case Entry.Types.Type.CoordinationNode:
-                    case Entry.Types.Type.ColumnStore:
-                    case Entry.Types.Type.Sequence:
-                    case Entry.Types.Type.Replication:
-                    case Entry.Types.Type.Topic:
-                    default:
-                        continue;
-                }
-            }
-
-            return tables;
-        }
-        catch (Driver.TransportException e)
-        {
-            throw new YdbException("Transport error on ListDirectory", e);
-        }
-    }
+        where type != null && type.IsPattern(tableType)
+        select (ydbObject.Name, type);
 
     private static async Task<DataTable> GetDataSourceInformation(YdbConnection ydbConnection)
     {
@@ -444,11 +389,83 @@ internal static class YdbSchema
         return table;
     }
 
-    private static string WithSuffix(string path) => path.EndsWith('/') ? path : path + '/';
+    private static async Task<IReadOnlyCollection<YdbObject>> SchemaObjects(
+        YdbConnection ydbConnection,
+        string databasePath,
+        string path,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            var fullPath = WithSuffix(path);
+            var ydbSchemaObjects = new List<YdbObject>();
+            var response = await ydbConnection.Session.Driver.UnaryCall(
+                SchemeService.ListDirectoryMethod,
+                new ListDirectoryRequest { Path = fullPath },
+                new GrpcRequestSettings
+                {
+                    TransportTimeout = TimeSpan.FromSeconds(TransportTimeoutSeconds),
+                    CancellationToken = cancellationToken
+                }
+            );
 
-    private static bool IsSystem(this string tablePath) => tablePath.StartsWith(".sys/")
-                                                           || tablePath.StartsWith(".sys_health/")
-                                                           || tablePath.StartsWith(".sys_health_dev/");
+            var operation = response.Operation;
+            var status = Status.FromProto(operation.Status, operation.Issues);
+
+            if (status.IsNotSuccess)
+            {
+                throw new YdbException(status);
+            }
+
+            foreach (var entry in operation.Result.Unpack<ListDirectoryResult>().Children)
+            {
+                var ydbObjectPath = fullPath[databasePath.Length..] + entry.Name;
+
+
+                switch (entry.Type)
+                {
+                    case Entry.Types.Type.Directory:
+                        ydbSchemaObjects.AddRange(
+                            await SchemaObjects(
+                                ydbConnection,
+                                databasePath,
+                                fullPath + entry.Name,
+                                cancellationToken
+                            )
+                        );
+                        break;
+                    case Entry.Types.Type.Table:
+                    case Entry.Types.Type.ColumnTable:
+                    case Entry.Types.Type.Unspecified:
+                    case Entry.Types.Type.PersQueueGroup:
+                    case Entry.Types.Type.Database:
+                    case Entry.Types.Type.RtmrVolume:
+                    case Entry.Types.Type.BlockStoreVolume:
+                    case Entry.Types.Type.CoordinationNode:
+                    case Entry.Types.Type.ColumnStore:
+                    case Entry.Types.Type.Sequence:
+                    case Entry.Types.Type.Replication:
+                    case Entry.Types.Type.Topic:
+                    case Entry.Types.Type.ExternalTable:
+                    case Entry.Types.Type.ExternalDataSource:
+                    case Entry.Types.Type.View:
+                        ydbSchemaObjects.Add(new YdbObject(entry.Type, ydbObjectPath));
+                        break;
+                    default:
+                        continue;
+                }
+            }
+
+            return ydbSchemaObjects;
+        }
+        catch (Driver.TransportException e)
+        {
+            throw new YdbException("Transport error on ListDirectory", e);
+        }
+    }
+
+    private static string WithSuffix(string path) => path.EndsWith('/') ? path : path + '/';
 
     private static bool IsPattern(this string tableType, string? expectedTableType) =>
         expectedTableType == null || expectedTableType.Equals(tableType, StringComparison.OrdinalIgnoreCase);

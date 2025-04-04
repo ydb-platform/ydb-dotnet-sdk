@@ -17,9 +17,8 @@ public class EntityFrameworkYdbServicesBuilder(IServiceCollection serviceCollect
             // TODO: Add items if required
         };
 
-    protected override ServiceCharacteristics GetServiceCharacteristics(Type serviceType)
-    {
-        var contains = YdbServices.TryGetValue(serviceType, out var characteristics);
-        return contains ? characteristics : base.GetServiceCharacteristics(serviceType);
-    }
+    protected override ServiceCharacteristics GetServiceCharacteristics(Type serviceType) =>
+        YdbServices.TryGetValue(serviceType, out var characteristics)
+            ? characteristics
+            : base.GetServiceCharacteristics(serviceType);
 }
