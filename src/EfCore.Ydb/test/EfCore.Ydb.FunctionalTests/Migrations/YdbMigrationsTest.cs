@@ -1,7 +1,6 @@
 using EfCore.Ydb.FunctionalTests.TestUtilities;
 using EfCore.Ydb.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
@@ -399,6 +398,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             });
         }), (Action<DatabaseModel>)(model => Assert.Collection(
             Assert.Single(model.Tables, t => t.Name == "Contacts").Columns,
+            // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
             c =>
             {
                 Assert.Equal("MyComplex_MyNestedComplex_Foo", c.Name);
@@ -408,11 +408,13 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             c => Assert.Equal("Discriminator", c.Name),
             c => Assert.Equal("Name", c.Name),
             c => Assert.Equal("Number", c.Name),
+            // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
             c =>
             {
                 Assert.Equal("MyComplex_Prop", c.Name);
                 Assert.True(c.IsNullable);
             },
+            // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
             c =>
             {
                 Assert.Equal("MyComplex_MyNestedComplex_Bar", c.Name);
