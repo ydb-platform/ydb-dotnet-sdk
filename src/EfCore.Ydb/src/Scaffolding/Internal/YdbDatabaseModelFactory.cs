@@ -28,11 +28,11 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
             ydbConnection.Open();
         }
 
-        try 
+        try
         {
             var tableNames = new List<string>();
             tableNames.AddRange(options.Tables);
-    
+
             if (tableNames.Count == 0)
             {
                 tableNames.AddRange(
@@ -42,12 +42,12 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                     select ydbObject.Name
                 );
             }
-    
+
             var databaseModel = new DatabaseModel
             {
                 DatabaseName = connection.Database
             };
-    
+
             foreach (var ydbTable in tableNames.Select(tableName =>
                          YdbSchema.DescribeTable(ydbConnection, tableName).GetAwaiter().GetResult()))
             {
@@ -56,9 +56,9 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                     Name = ydbTable.Name,
                     Database = databaseModel
                 };
-    
+
                 var columnNameToDatabaseColumn = new Dictionary<string, DatabaseColumn>();
-    
+
                 foreach (var column in ydbTable.Columns)
                 {
                     var databaseColumn = new DatabaseColumn
@@ -68,11 +68,11 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                         StoreType = column.StorageType,
                         IsNullable = column.IsNullable
                     };
-    
+
                     databaseTable.Columns.Add(databaseColumn);
                     columnNameToDatabaseColumn[column.Name] = databaseColumn;
                 }
-    
+
                 foreach (var index in ydbTable.Indexes)
                 {
                     var databaseIndex = new DatabaseIndex
@@ -81,28 +81,30 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                         Table = databaseTable,
                         IsUnique = index.Type == YdbTableIndex.IndexType.GlobalUniqueIndex
                     };
-    
+
                     foreach (var columnName in index.IndexColumns)
                     {
                         databaseIndex.Columns.Add(columnNameToDatabaseColumn[columnName]);
                         databaseIndex.IsDescending.Add(false);
                     }
-    
+
                     databaseTable.Indexes.Add(databaseIndex);
                 }
-    
+
                 databaseTable.PrimaryKey = new DatabasePrimaryKey
                 {
                     Name = null // YDB does not have a primary key named
                 };
-    
+
                 foreach (var columnName in ydbTable.PrimaryKey)
                 {
                     databaseTable.PrimaryKey.Columns.Add(columnNameToDatabaseColumn[columnName]);
                 }
-    
+
                 databaseModel.Tables.Add(databaseTable);
             }
+
+            return databaseModel;
         }
         finally
         {
@@ -111,7 +113,5 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                 ydbConnection.Close();
             }
         }
-        
-        return databaseModel;
     }
 }
