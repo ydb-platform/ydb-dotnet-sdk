@@ -21,85 +21,97 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
     public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)
     {
         var ydbConnection = (YdbConnection)connection;
-        if (connection.State != ConnectionState.Open)
+        var connectionStartedOpen = ydbConnection.State == ConnectionState.Open;
+
+        if (!connectionStartedOpen)
         {
-            connection.Open();
+            ydbConnection.Open();
         }
 
-        var tableNames = new List<string>();
-        tableNames.AddRange(options.Tables);
-
-        if (tableNames.Count == 0)
+        try
         {
-            tableNames.AddRange(
-                from ydbObject in YdbSchema.SchemaObjects(ydbConnection).GetAwaiter().GetResult()
-                where ydbObject.Type is SchemeType.Table or SchemeType.ColumnTable or SchemeType.ExternalTable &&
-                      !ydbObject.IsSystem
-                select ydbObject.Name
-            );
-        }
+            var tableNames = new List<string>();
+            tableNames.AddRange(options.Tables);
 
-        var databaseModel = new DatabaseModel
-        {
-            DatabaseName = connection.Database
-        };
-
-        foreach (var ydbTable in tableNames.Select(tableName =>
-                     YdbSchema.DescribeTable(ydbConnection, tableName).GetAwaiter().GetResult()))
-        {
-            var databaseTable = new DatabaseTable
+            if (tableNames.Count == 0)
             {
-                Name = ydbTable.Name,
-                Database = databaseModel
-            };
-
-            var columnNameToDatabaseColumn = new Dictionary<string, DatabaseColumn>();
-
-            foreach (var column in ydbTable.Columns)
-            {
-                var databaseColumn = new DatabaseColumn
-                {
-                    Name = column.Name,
-                    Table = databaseTable,
-                    StoreType = column.StorageType,
-                    IsNullable = column.IsNullable
-                };
-
-                databaseTable.Columns.Add(databaseColumn);
-                columnNameToDatabaseColumn[column.Name] = databaseColumn;
+                tableNames.AddRange(
+                    from ydbObject in YdbSchema.SchemaObjects(ydbConnection).GetAwaiter().GetResult()
+                    where ydbObject.Type is SchemeType.Table or SchemeType.ColumnTable or SchemeType.ExternalTable &&
+                          !ydbObject.IsSystem
+                    select ydbObject.Name
+                );
             }
 
-            foreach (var index in ydbTable.Indexes)
+            var databaseModel = new DatabaseModel
             {
-                var databaseIndex = new DatabaseIndex
+                DatabaseName = connection.Database
+            };
+
+            foreach (var ydbTable in tableNames.Select(tableName =>
+                         YdbSchema.DescribeTable(ydbConnection, tableName).GetAwaiter().GetResult()))
+            {
+                var databaseTable = new DatabaseTable
                 {
-                    Name = index.Name,
-                    Table = databaseTable,
-                    IsUnique = index.Type == YdbTableIndex.IndexType.GlobalUniqueIndex
+                    Name = ydbTable.Name,
+                    Database = databaseModel
                 };
 
-                foreach (var columnName in index.IndexColumns)
+                var columnNameToDatabaseColumn = new Dictionary<string, DatabaseColumn>();
+
+                foreach (var column in ydbTable.Columns)
                 {
-                    databaseIndex.Columns.Add(columnNameToDatabaseColumn[columnName]);
-                    databaseIndex.IsDescending.Add(false);
+                    var databaseColumn = new DatabaseColumn
+                    {
+                        Name = column.Name,
+                        Table = databaseTable,
+                        StoreType = column.StorageType,
+                        IsNullable = column.IsNullable
+                    };
+
+                    databaseTable.Columns.Add(databaseColumn);
+                    columnNameToDatabaseColumn[column.Name] = databaseColumn;
                 }
 
-                databaseTable.Indexes.Add(databaseIndex);
+                foreach (var index in ydbTable.Indexes)
+                {
+                    var databaseIndex = new DatabaseIndex
+                    {
+                        Name = index.Name,
+                        Table = databaseTable,
+                        IsUnique = index.Type == YdbTableIndex.IndexType.GlobalUniqueIndex
+                    };
+
+                    foreach (var columnName in index.IndexColumns)
+                    {
+                        databaseIndex.Columns.Add(columnNameToDatabaseColumn[columnName]);
+                        databaseIndex.IsDescending.Add(false);
+                    }
+
+                    databaseTable.Indexes.Add(databaseIndex);
+                }
+
+                databaseTable.PrimaryKey = new DatabasePrimaryKey
+                {
+                    Name = null // YDB does not have a primary key named
+                };
+
+                foreach (var columnName in ydbTable.PrimaryKey)
+                {
+                    databaseTable.PrimaryKey.Columns.Add(columnNameToDatabaseColumn[columnName]);
+                }
+
+                databaseModel.Tables.Add(databaseTable);
             }
 
-            databaseTable.PrimaryKey = new DatabasePrimaryKey
-            {
-                Name = null // YDB does not have a primary key named
-            };
-
-            foreach (var columnName in ydbTable.PrimaryKey)
-            {
-                databaseTable.PrimaryKey.Columns.Add(columnNameToDatabaseColumn[columnName]);
-            }
-
-            databaseModel.Tables.Add(databaseTable);
+            return databaseModel;
         }
-
-        return databaseModel;
+        finally
+        {
+            if (!connectionStartedOpen)
+            {
+                ydbConnection.Close();
+            }
+        }
     }
 }
