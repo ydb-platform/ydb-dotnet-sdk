@@ -23,6 +23,8 @@ Console.WriteLine("Delete the blog");
 db.Remove(blog);
 await db.SaveChangesAsync();
 
+await db.Database.EnsureDeletedAsync();
+
 internal class BloggingContext : DbContext
 {
     public DbSet<Blog> Blogs { get; set; }
