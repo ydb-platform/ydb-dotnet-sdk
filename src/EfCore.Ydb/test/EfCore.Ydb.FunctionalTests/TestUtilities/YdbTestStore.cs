@@ -25,6 +25,8 @@ public class YdbTestStore(
         ? builder.UseYdb(Connection.ConnectionString)
         : builder.UseYdb(Connection);
 
+    internal Task ExecuteNonQueryAsync(string sql, params object[] parameters)
+        => ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), sql, false, parameters);
     protected override async Task InitializeAsync(
         Func<DbContext> createContext,
         Func<DbContext, Task>? seed,
