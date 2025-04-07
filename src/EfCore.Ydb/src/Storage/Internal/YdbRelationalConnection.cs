@@ -36,8 +36,12 @@ public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConne
 
     public IYdbRelationalConnection Clone()
     {
-        var connectionStringBuilder = new YdbConnectionStringBuilder(GetValidatedConnectionString());
-        var options = new DbContextOptionsBuilder().UseYdb(connectionStringBuilder.ToString()).Options;
+        var options = new DbContextOptionsBuilder().UseYdb(GetValidatedConnectionString(), builder =>
+        {
+            builder.WithCredentialsProvider(_credentialsProvider);
+            builder.WithServerCertificates(_serverCertificates);
+        }).Options;
+        
         return new YdbRelationalConnection(Dependencies with { ContextOptions = options });
     }
 }

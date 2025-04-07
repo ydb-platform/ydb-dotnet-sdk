@@ -275,7 +275,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             return value switch
             {
                 bool boolValue => boolValue,
-                string strValue => strValue switch
+                string strValue => strValue.ToLowerInvariant() switch
                 {
                     "on" or "true" or "1" => true,
                     "off" or "false" or "0" => false,
