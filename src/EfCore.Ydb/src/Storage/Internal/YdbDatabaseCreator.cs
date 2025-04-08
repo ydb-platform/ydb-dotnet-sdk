@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado;
 
 namespace EfCore.Ydb.Storage.Internal;
@@ -12,22 +13,21 @@ namespace EfCore.Ydb.Storage.Internal;
 public class YdbDatabaseCreator(RelationalDatabaseCreatorDependencies dependencies)
     : RelationalDatabaseCreator(dependencies)
 {
-    public override bool Exists() => ExistsInternal().GetAwaiter().GetResult();
+    public override bool Exists() => ExistsAsync().GetAwaiter().GetResult();
 
-    public override Task<bool> ExistsAsync(CancellationToken cancellationToken = default) =>
-        ExistsInternal(cancellationToken);
-
-    private async Task<bool> ExistsInternal(CancellationToken cancellationToken = default)
+    public override async Task<bool> ExistsAsync(CancellationToken cancellationToken = default)
     {
-        await using var connection = ((IYdbRelationalConnection)Dependencies.Connection).Clone();
+        await using var connection = Dependencies.Connection;
 
         try
         {
             await connection.OpenAsync(cancellationToken, errorsExpected: true);
             return true;
         }
-        catch (YdbException)
+        catch (YdbException e)
         {
+            Dependencies.CommandLogger.Logger.LogCritical(e, "Failed to verify database existence");
+
             return false;
         }
     }
@@ -36,7 +36,7 @@ public class YdbDatabaseCreator(RelationalDatabaseCreatorDependencies dependenci
 
     public override async Task<bool> HasTablesAsync(CancellationToken cancellationToken = default)
     {
-        await using var connection = ((IYdbRelationalConnection)Dependencies.Connection).Clone();
+        await using var connection = Dependencies.Connection;
 
         try
         {
@@ -71,7 +71,7 @@ public class YdbDatabaseCreator(RelationalDatabaseCreatorDependencies dependenci
     public override async Task DeleteAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = Dependencies.Connection;
-        await connection.OpenAsync(cancellationToken, errorsExpected: true);
+        await connection.OpenAsync(cancellationToken);
 
         var dataTable = await connection
             .DbConnection

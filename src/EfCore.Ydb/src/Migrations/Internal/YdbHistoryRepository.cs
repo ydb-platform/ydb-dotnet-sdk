@@ -41,15 +41,15 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
         {
             now = DateTime.UtcNow;
 
-            await using var connection = ((IYdbRelationalConnection)Dependencies.Connection).Clone().DbConnection;
             try
             {
-                await connection.OpenAsync(cancellationToken);
-
-                var command = connection.CreateCommand();
-                command.CommandText = GetInsertScript(new HistoryRow(LockKey,
-                    $"LockTime: {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}, PID: {Environment.ProcessId}"));
-                await command.ExecuteNonQueryAsync(cancellationToken);
+                await Dependencies.MigrationCommandExecutor.ExecuteNonQueryAsync(
+                    AcquireDatabaseLockCommand(),
+                    ((IYdbRelationalConnection)Dependencies.Connection).Clone(), // TODO usage ExecutionContext
+                    new MigrationExecutionState(),
+                    commitTransaction: true,
+                    cancellationToken: cancellationToken
+                ).ConfigureAwait(false);
 
                 return new YdbMigrationDatabaseLock(this);
             }
@@ -62,6 +62,20 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
         throw new YdbException("Unable to obtain table lock - another EF instance may be running");
     }
 
+    private IReadOnlyList<MigrationCommand> AcquireDatabaseLockCommand() =>
+        Dependencies.MigrationsSqlGenerator.Generate(new List<MigrationOperation>
+        {
+            new SqlOperation
+            {
+                Sql = GetInsertScript(
+                    new HistoryRow(
+                        LockKey,
+                        $"LockTime: {DateTime.UtcNow.ToString(CultureInfo.InvariantCulture)}, PID: {Environment.ProcessId}"
+                    )
+                )
+            }
+        });
+
     private async Task ReleaseDatabaseLockAsync()
     {
         for (var i = 0; i < ReleaseMaxAttempt; i++)
@@ -70,11 +84,11 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
 
             try
             {
-                await connection.OpenAsync();
-                var command = connection.CreateCommand();
-                command.CommandText = GetDeleteScript(LockKey);
-                await command.ExecuteNonQueryAsync();
-                
+                await Dependencies.MigrationCommandExecutor.ExecuteNonQueryAsync(
+                    ReleaseDatabaseLockCommand(),
+                    ((IYdbRelationalConnection)Dependencies.Connection).Clone()
+                ).ConfigureAwait(false);
+
                 return;
             }
             catch (YdbException e)
@@ -83,6 +97,11 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
             }
         }
     }
+
+    private IReadOnlyList<MigrationCommand> ReleaseDatabaseLockCommand() =>
+        Dependencies.MigrationsSqlGenerator.Generate(new List<MigrationOperation>
+            { new SqlOperation { Sql = GetDeleteScript(LockKey) } }
+        );
 
     bool IHistoryRepository.CreateIfNotExists() => CreateIfNotExistsAsync().GetAwaiter().GetResult();
 
@@ -98,8 +117,6 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
             await Dependencies.MigrationCommandExecutor.ExecuteNonQueryAsync(
                 GetCreateIfNotExistsCommands(),
                 Dependencies.Connection,
-                new MigrationExecutionState(),
-                true,
                 cancellationToken: cancellationToken
             ).ConfigureAwait(false);
 
@@ -139,15 +156,15 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
 
     public override async Task<bool> ExistsAsync(CancellationToken cancellationToken = default)
     {
-        await using var ydbConnection = (YdbConnection)
-            ((IYdbRelationalConnection)Dependencies.Connection).Clone().DbConnection;
-        await ydbConnection.OpenAsync(cancellationToken);
-
         try
         {
-            await new YdbCommand(ydbConnection)
-                    { CommandText = $"SELECT * FROM {TableName} WHERE MigrationId = '{LockKey}';" }
-                .ExecuteNonQueryAsync(cancellationToken);
+            await Dependencies.MigrationCommandExecutor.ExecuteNonQueryAsync(
+                SelectHistoryTableCommand(),
+                Dependencies.Connection,
+                new MigrationExecutionState(),
+                commitTransaction: true,
+                cancellationToken: cancellationToken
+            ).ConfigureAwait(false);
 
             return true;
         }
@@ -156,6 +173,16 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
             return false;
         }
     }
+
+    private IReadOnlyList<MigrationCommand> SelectHistoryTableCommand() =>
+        Dependencies.MigrationsSqlGenerator.Generate(new List<MigrationOperation>
+        {
+            new SqlOperation
+            {
+                Sql = $"SELECT * FROM {SqlGenerationHelper.DelimitIdentifier(TableName, TableSchema)}" +
+                      $" WHERE MigrationId = '{LockKey}';"
+            }
+        });
 
     public override string GetBeginIfNotExistsScript(string migrationId) => throw new NotSupportedException();
 
