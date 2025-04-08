@@ -9,6 +9,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\src\EfCore.Ydb\src\EfCore.Ydb.csproj" />
+        <ProjectReference Include="..\..\..\src\EfCore.Ydb\src\EfCore.Ydb.csproj"/>
     </ItemGroup>
 </Project>

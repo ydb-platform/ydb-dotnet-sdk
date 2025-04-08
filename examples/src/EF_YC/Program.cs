@@ -19,7 +19,8 @@ await Parser.Default.ParseArguments<CmdOptions>(args).WithParsedAsync(async cmd 
         .Options;
 
     await using var db = new AppDbContext(options);
-    db.Database.EnsureCreated();
+    await db.Database.EnsureDeletedAsync();
+    await db.Database.EnsureCreatedAsync();
 
     db.Users.Add(new User { Name = "Alex", Email = "alex@example.com" });
     db.Users.Add(new User { Name = "Kirill", Email = "kirill@example.com" });
