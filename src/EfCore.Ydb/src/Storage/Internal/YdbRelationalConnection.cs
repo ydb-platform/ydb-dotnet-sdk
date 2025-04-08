@@ -41,7 +41,7 @@ public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConne
             builder.WithCredentialsProvider(_credentialsProvider);
             builder.WithServerCertificates(_serverCertificates);
         }).Options;
-        
+
         return new YdbRelationalConnection(Dependencies with { ContextOptions = options });
     }
 }
