@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
-
 namespace EfCore.Ydb.FunctionalTests.Migrations;
 
 public class YdbMigrationsInfrastructureTest(YdbMigrationsInfrastructureTest.YdbMigrationsInfrastructureFixture fixture)
