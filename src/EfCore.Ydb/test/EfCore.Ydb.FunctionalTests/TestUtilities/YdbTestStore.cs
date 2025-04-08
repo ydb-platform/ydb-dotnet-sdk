@@ -23,7 +23,12 @@ public class YdbTestStore(
 
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) => UseConnectionString
         ? builder.UseYdb(Connection.ConnectionString)
-        : builder.UseYdb(Connection);
+            .LogTo(Console.WriteLine)
+        : builder.UseYdb(Connection)
+            .LogTo(Console.WriteLine);
+
+    internal Task ExecuteNonQueryAsync(string sql, params object[] parameters)
+        => ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), sql, false, parameters);
 
     protected override async Task InitializeAsync(
         Func<DbContext> createContext,
@@ -162,10 +167,11 @@ public class YdbTestStore(
     }
 
 
-    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder { MaxSessionPool = 10 });
+    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder());
 
     public override async Task CleanAsync(DbContext context)
     {
+        await context.Database.EnsureDeletedAsync();
         var connection = context.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
         {

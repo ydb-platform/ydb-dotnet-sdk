@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 await using var db = new BloggingContext();
 
+await db.Database.EnsureDeletedAsync();
 await db.Database.EnsureCreatedAsync();
 
 Console.WriteLine("Inserting a new blog");
