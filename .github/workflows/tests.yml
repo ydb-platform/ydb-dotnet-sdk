@@ -118,8 +118,8 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
-      - name: Run EfCore tests
-        run: dotnet test src/EfCore.Ydb/test/EfCore.Ydb.FunctionalTests/EfCore.Ydb.FunctionalTests.csproj -l "console;verbosity=detailed"
+      - name: Run EFCore tests
+        run: dotnet test src/EFCore.Ydb/test/EfCore.Ydb.FunctionalTests/EFCore.Ydb.FunctionalTests.csproj -l "console;verbosity=detailed"
   integration-tests:
     runs-on: ubuntu-22.04
     strategy:

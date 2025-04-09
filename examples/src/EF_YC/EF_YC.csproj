@@ -15,7 +15,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\src\EfCore.Ydb\src\EfCore.Ydb.csproj"/>
+        <ProjectReference Include="..\..\..\src\EFCore.Ydb\src\EntityFrameworkCore.Ydb.csproj"/>
         <ProjectReference Include="..\..\..\src\Ydb.Sdk\src\Ydb.Sdk.csproj"/>
     </ItemGroup>
 </Project>
