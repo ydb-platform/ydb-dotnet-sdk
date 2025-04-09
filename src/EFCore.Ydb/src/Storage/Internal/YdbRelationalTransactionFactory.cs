@@ -1,11 +1,10 @@
 using System;
 using System.Data.Common;
-using EntityFrameworkCore.Ydb.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace EfCore.Ydb.Storage.Internal;
+namespace EntityFrameworkCore.Ydb.Storage.Internal;
 
 public class YdbRelationalTransactionFactory(RelationalTransactionFactoryDependencies dependencies)
     : IRelationalTransactionFactory

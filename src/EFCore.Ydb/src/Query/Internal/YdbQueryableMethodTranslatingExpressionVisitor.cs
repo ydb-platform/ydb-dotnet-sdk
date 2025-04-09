@@ -1,5 +1,3 @@
-using EfCore.Ydb.Query.Internal;
-using EfCore.Ydb.Storage.Internal;
 using EntityFrameworkCore.Ydb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 

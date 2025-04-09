@@ -1,6 +1,7 @@
+using EfCore.Ydb.Update.Internal;
 using Microsoft.EntityFrameworkCore.Update;
 
-namespace EfCore.Ydb.Update.Internal;
+namespace EntityFrameworkCore.Ydb.Update.Internal;
 
 public sealed class YdbModificationCommandBatchFactory(ModificationCommandBatchFactoryDependencies dependencies)
     : IModificationCommandBatchFactory

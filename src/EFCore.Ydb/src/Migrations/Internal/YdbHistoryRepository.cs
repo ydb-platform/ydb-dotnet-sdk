@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
-using EfCore.Ydb.Storage.Internal;
 using EntityFrameworkCore.Ydb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -13,7 +12,7 @@ using Microsoft.Extensions.Logging;
 using Ydb.Sdk;
 using Ydb.Sdk.Ado;
 
-namespace EfCore.Ydb.Migrations.Internal;
+namespace EntityFrameworkCore.Ydb.Migrations.Internal;
 
 public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
     : HistoryRepository(dependencies), IHistoryRepository

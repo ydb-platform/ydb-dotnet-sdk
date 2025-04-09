@@ -119,7 +119,7 @@ jobs:
         with:
           dotnet-version: 9.0.x
       - name: Run EFCore tests
-        run: dotnet test src/EFCore.Ydb/test/EfCore.Ydb.FunctionalTests/EntityFrameworkCore.Ydb.FunctionalTests.csproj -l "console;verbosity=detailed"
+        run: dotnet test src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests/EntityFrameworkCore.Ydb.FunctionalTests.csproj -l "console;verbosity=detailed"
   integration-tests:
     runs-on: ubuntu-22.04
     strategy:

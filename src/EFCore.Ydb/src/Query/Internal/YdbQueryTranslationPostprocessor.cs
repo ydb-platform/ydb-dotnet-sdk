@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using EfCore.Ydb.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;

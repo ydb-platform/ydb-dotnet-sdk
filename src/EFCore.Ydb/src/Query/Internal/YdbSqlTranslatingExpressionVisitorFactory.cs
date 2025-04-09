@@ -1,7 +1,6 @@
-using EntityFrameworkCore.Ydb.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 
-namespace EfCore.Ydb.Query.Internal;
+namespace EntityFrameworkCore.Ydb.Query.Internal;
 
 public class YdbSqlTranslatingExpressionVisitorFactory(
     RelationalSqlTranslatingExpressionVisitorDependencies dependencies
