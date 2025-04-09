@@ -23,9 +23,7 @@ public class YdbTestStore(
 
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) => UseConnectionString
         ? builder.UseYdb(Connection.ConnectionString)
-            .LogTo(Console.WriteLine)
-        : builder.UseYdb(Connection)
-            .LogTo(Console.WriteLine);
+        : builder.UseYdb(Connection);
 
     internal Task ExecuteNonQueryAsync(string sql, params object[] parameters)
         => ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), sql, false, parameters);
