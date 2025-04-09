@@ -1,15 +1,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using EfCore.Ydb.Utilities;
-using EntityFrameworkCore.Ydb.Query.Internal;
+using EntityFrameworkCore.Ydb.Utilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace EfCore.Ydb.Query.Internal.Translators;
+namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
 
 public class YdbQueryableAggregateMethodTranslator(
     YdbSqlExpressionFactory sqlExpressionFactory,

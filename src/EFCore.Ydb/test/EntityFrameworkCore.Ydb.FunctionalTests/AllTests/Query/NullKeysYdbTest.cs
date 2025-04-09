@@ -2,7 +2,7 @@ using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
-namespace EfCore.Ydb.FunctionalTests.AllTests.Query;
+namespace EntityFrameworkCore.Ydb.FunctionalTests.AllTests.Query;
 
 public class NullKeysYdbTest(NullKeysYdbTest.NullKeysYdbFixture fixture)
     : NullKeysTestBase<NullKeysYdbTest.NullKeysYdbFixture>(fixture)

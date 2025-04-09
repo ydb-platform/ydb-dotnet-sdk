@@ -1,4 +1,4 @@
-namespace EfCore.Ydb.Utilities;
+namespace EntityFrameworkCore.Ydb.Utilities;
 
 internal static class ArrayUtil
 {

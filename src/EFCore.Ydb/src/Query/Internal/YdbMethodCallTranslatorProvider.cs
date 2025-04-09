@@ -1,4 +1,4 @@
-using EfCore.Ydb.Query.Internal.Translators;
+using EntityFrameworkCore.Ydb.Query.Internal.Translators;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;

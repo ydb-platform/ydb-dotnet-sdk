@@ -1,7 +1,7 @@
 using EntityFrameworkCore.Ydb.Extensions;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfCore.Ydb.FunctionalTests.AllTests;
+namespace EntityFrameworkCore.Ydb.FunctionalTests.AllTests;
 
 public class ModelBuilding101YdbTest : ModelBuilding101RelationalTestBase
 {

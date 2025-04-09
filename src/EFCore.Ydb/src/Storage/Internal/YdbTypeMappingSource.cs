@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Text.Json;
-using EfCore.Ydb.Storage.Internal.Mapping;
+using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Storage;
 using Type = System.Type;
 

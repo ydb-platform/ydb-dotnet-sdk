@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
-namespace EfCore.Ydb.Query.Internal.Translators;
+namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
 
 // TODO: Remove this class. Temporary stub for debug only
 public class StubTranslator : IMethodCallTranslator, IMemberTranslator

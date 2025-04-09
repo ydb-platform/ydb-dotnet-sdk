@@ -2,7 +2,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 
-namespace EfCore.Ydb.Storage.Internal.Mapping;
+namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
 public class YdbBytesTypeMapping : RelationalTypeMapping
 {

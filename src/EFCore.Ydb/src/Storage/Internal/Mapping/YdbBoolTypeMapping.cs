@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace EfCore.Ydb.Storage.Internal.Mapping;
+namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
 public class YdbBoolTypeMapping : BoolTypeMapping
 {

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
-namespace EfCore.Ydb.Storage.Internal.Mapping;
+namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
 public class YdbStringTypeMapping : RelationalTypeMapping
 {

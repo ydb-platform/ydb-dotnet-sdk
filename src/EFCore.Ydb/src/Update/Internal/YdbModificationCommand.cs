@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore.Update;
 
-namespace EfCore.Ydb.Update.Internal;
+namespace EntityFrameworkCore.Ydb.Update.Internal;
 
 public class YdbModificationCommand : ModificationCommand
 {
