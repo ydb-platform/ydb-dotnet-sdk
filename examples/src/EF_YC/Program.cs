@@ -1,6 +1,6 @@
 ﻿using CommandLine;
 using EF_YC;
-using EfCore.Ydb.Extensions;
+using EntityFrameworkCore.Ydb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Yc;

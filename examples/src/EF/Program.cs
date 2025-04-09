@@ -1,4 +1,4 @@
-﻿using EfCore.Ydb.Extensions;
+﻿using EntityFrameworkCore.Ydb.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 await using var db = new BloggingContext();
@@ -8,6 +8,7 @@ await db.Database.EnsureCreatedAsync();
 
 Console.WriteLine("Inserting a new blog");
 db.Add(new Blog { Url = "http://blogs.msdn.com/adonet" });
+
 await db.SaveChangesAsync();
 
 Console.WriteLine("Querying for a blog");
@@ -30,7 +31,8 @@ internal class BloggingContext : DbContext
     public DbSet<Post> Posts { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder options)
-        => options.UseYdb("Host=localhost;Port=2136;Database=/local");
+        => options.UseYdb("Host=localhost;Port=2136;Database=/local")
+            .LogTo(Console.WriteLine);
 }
 
 internal class Blog
