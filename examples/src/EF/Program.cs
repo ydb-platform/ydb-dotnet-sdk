@@ -7,10 +7,7 @@ await db.Database.EnsureDeletedAsync();
 await db.Database.EnsureCreatedAsync();
 
 Console.WriteLine("Inserting a new blog");
-db.Add(new Blog { Url = "http://blogs.msdn.com/adonet - 1" });
-db.Add(new Blog { Url = "http://blogs.msdn.com/adonet - 2" });
-db.Add(new Blog { Url = "http://blogs.msdn.com/adonet - 3" });
-db.Add(new Blog { Url = "http://blogs.msdn.com/adonet - 4" });
+db.Add(new Blog { Url = "http://blogs.msdn.com/adonet" });
 
 await db.SaveChangesAsync();
 
