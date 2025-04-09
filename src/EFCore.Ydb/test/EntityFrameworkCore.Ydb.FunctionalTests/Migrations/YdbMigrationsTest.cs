@@ -547,7 +547,9 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
         public override RelationalTestHelpers TestHelpers => YdbTestHelpers.Instance;
 
         protected override IServiceCollection AddServices(IServiceCollection serviceCollection) =>
+#pragma warning disable EF1001
             base.AddServices(serviceCollection)
                 .AddScoped<IDatabaseModelFactory, YdbDatabaseModelFactory>();
+#pragma warning restore EF1001
     }
 }
