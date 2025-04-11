@@ -94,7 +94,7 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
       - name: Run Topic tests
-        run: dotnet test src/Ydb.Sdk/tests/Tests.csproj --filter "FullyQualifiedName~Topic" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=detailed"  
+        run: dotnet test src/Ydb.Sdk/tests/Tests.csproj --filter "FullyQualifiedName~Topic" -f ${{ matrix.dotnet-target-framework }} -l "console;verbosity=detailed"
   efcore-functional-tests:
     runs-on: ubuntu-22.04
     strategy:
@@ -118,8 +118,8 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
-      - name: Run EfCore tests
-        run: dotnet test src/EfCore.Ydb/test/EfCore.Ydb.FunctionalTests/EfCore.Ydb.FunctionalTests.csproj -l "console;verbosity=detailed"
+      - name: Run EFCore tests
+        run: dotnet test src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests/EntityFrameworkCore.Ydb.FunctionalTests.csproj -l "console;verbosity=detailed"
   integration-tests:
     runs-on: ubuntu-22.04
     strategy:

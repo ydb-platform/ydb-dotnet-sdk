@@ -5,10 +5,10 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>EfCore</RootNamespace>
+        <RootNamespace>EF</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\src\EfCore.Ydb\src\EfCore.Ydb.csproj"/>
+        <ProjectReference Include="..\..\..\src\EFCore.Ydb\src\EntityFrameworkCore.Ydb.csproj"/>
     </ItemGroup>
 </Project>

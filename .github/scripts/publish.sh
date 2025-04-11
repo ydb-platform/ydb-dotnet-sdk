@@ -31,9 +31,6 @@ if [ "$RELEASE_CANDIDATE" = true ]
 then
   VERSION="$MAJOR.$MINOR.$PATCH-rc$RC";
 else
-  sed -e "s/Minor = [0-9]*/Minor = $MINOR/g" -i $VERSION_FILE
-  sed -e "s/Patch = [0-9]*/Patch = $PATCH/g" -i $VERSION_FILE
-  git add $VERSION_FILE;
   VERSION="$MAJOR.$MINOR.$PATCH";
 fi;
 TAG="v$VERSION"
