@@ -9,7 +9,6 @@ Provides an ADO.NET standard implementation for working with YDB, as well as nat
 ## Features
 
 - **ADO.NET**: Full support for standard ADO.NET interfaces including DbConnection, DbCommand, DbDataReader, and more. This allows you to use familiar methods and patterns for database operations while leveraging the power and flexibility of YDB.
-- **QueryClient**: A lightweight, high-performance native client for direct interaction with YDB tables.
 
 ## Versioning
 
@@ -62,64 +61,6 @@ while (await ydbDataReader.ReadAsync())
         ydbDataReader.GetUint64(0), ydbDataReader.GetUint64(1), ydbDataReader.GetUint64(2),
         ydbDataReader.GetDateTime(3), ydbDataReader.GetString(4));
 }
-```
-
-## Usage Native clients
-
-To begin your work with YDB, create an instance of `Ydb.Sdk.Driver` class:
-```c#
-var config = new DriverConfig(
-    endpoint: endpoint, // Database endpoint, "grpcs://host:port"
-    database: database, // Full database path
-    credentials: credentialsProvider // Credentials provider, see "Credentials" section
-);
-
-using var driver = new Driver(
-    config: config,
-    loggerFactory: loggerFactory
-);
-
-await driver.Initialize(); // Make sure to await driver initialization
-```
-
-After you have driver instance, you can use it to create clients for different YDB services.
-
-### Credentials
-YDB SDK provides several standard ways for authentication:
-1) `Ydb.Sdk.Auth.AnonymousProvider`. Anonymous YDB access, mainly for tests purposes.
-2) `Ydb.Sdk.Auth.TokenProvider`. Token authentication for OAuth-like tokens.
-3) `Ydb.Sdk.Auth.StaticCredentialsProvider`. Username and password based authentication.
-
-For Yandex.Cloud specific authentication methods, consider using **[ydb-dotnet-yc](https://github.com/ydb-platform/ydb-dotnet-yc)**.
-
-### QueryClient
-
-Example of using a query client to execute a simple query:
-
-```c#
-// Create QueryClient using Driver instance.
-using var queryClient = new QueryClient(driver);
-
-var row = await queryClient.ReadRow(@"
-        DECLARE $id AS Uint64;
-
-        SELECT
-            series_id,
-            title,
-            release_date
-        FROM series
-        WHERE series_id = $id;
-    ",
-    new Dictionary<string, YdbValue>
-    {
-        { "$id", YdbValue.MakeUint64(id) }
-    }
-);
-
-Console.WriteLine($"> Series, " +
-    $"series_id: {(ulong?)row["series_id"]}, " +
-    $"title: {(string?)row["title"]}, " +
-    $"release_date: {(DateTime?)row["release_date"]}");
 ```
 
 ## Examples
