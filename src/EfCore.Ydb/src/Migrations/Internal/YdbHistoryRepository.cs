@@ -180,7 +180,7 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
             new SqlOperation
             {
                 Sql = $"SELECT * FROM {SqlGenerationHelper.DelimitIdentifier(TableName, TableSchema)}" +
-                      $" WHERE MigrationId = '{LockKey}';"
+                      $" WHERE '{MigrationIdColumnName}' = '{LockKey}';"
             }
         });
 
