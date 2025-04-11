@@ -24,7 +24,7 @@ jobs:
     env:
       VERSION_CHANGE: ${{ github.event.inputs.version-change }}
       RELEASE_CANDIDATE: ${{ github.event.inputs.release-candidate }}
-      CHANGELOG_FILE: CHANGELOG.md
+      CHANGELOG_FILE: ./src/EFCore.Ydb/CHANGELOG.md
       GITHUB_TOKEN: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
       NUGET_TOKEN: ${{ secrets.YDB_PLATFORM_NUGET_TOKEN }}
     steps:
@@ -36,14 +36,11 @@ jobs:
       - name: Setup dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            6.0.x
-            7.0.x
-            9.0.x
+          dotnet-version: 8.0.x
       - name: Build
         run: |
-          cd src
+          cd src/EFCore.Ydb/src
           dotnet build --configuration Release 
       - name: Publish
-        run: bash .github/scripts/publish.sh
+        run: bash .github/scripts/publish-ef.sh
         
