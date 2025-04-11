@@ -24,7 +24,7 @@ jobs:
     env:
       VERSION_CHANGE: ${{ github.event.inputs.version-change }}
       RELEASE_CANDIDATE: ${{ github.event.inputs.release-candidate }}
-      CHANGELOG_FILE: CHANGELOG.md
+      CHANGELOG_FILE: ./src/Ydb.Sdk/CHANGELOG.md
       GITHUB_TOKEN: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
       NUGET_TOKEN: ${{ secrets.YDB_PLATFORM_NUGET_TOKEN }}
     steps:
@@ -42,7 +42,7 @@ jobs:
             9.0.x
       - name: Build
         run: |
-          cd src
+          cd src/Ydb.Sdk/src
           dotnet build --configuration Release 
       - name: Publish
         run: bash .github/scripts/publish.sh
