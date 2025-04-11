@@ -42,7 +42,7 @@ jobs:
             9.0.x
       - name: Build
         run: |
-          cd src
+          cd src/Ydb.Sdk/src
           dotnet build --configuration Release 
       - name: Publish
         run: bash .github/scripts/publish.sh
