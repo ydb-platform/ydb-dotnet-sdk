@@ -357,12 +357,6 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         // Ignore bc YDB doesn't have foreign keys
     }
 
-    protected override void Generate(EnsureSchemaOperation operation, IModel? model,
-        MigrationCommandListBuilder builder)
-    {
-        // Ignore bc YDB doesn't support schema
-    }
-    
     protected override void Generate(
         AddPrimaryKeyOperation operation,
         IModel? model,
@@ -406,6 +400,4 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
 
     private string DelimitIdentifier(string name, string? schema = null)
         => Dependencies.SqlGenerationHelper.DelimitIdentifier(name, schema);
-
-    
 }
