@@ -264,4 +264,60 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         Sql.Append("\")");
         return jsonScalarExpression;
     }
+
+    protected override Expression VisitProjection(ProjectionExpression projectionExpression)
+    {
+        Visit(projectionExpression.Expression);
+
+        if (projectionExpression.Alias != string.Empty)
+        {
+            Sql
+                .Append(AliasSeparator)
+                .Append(SqlGenerationHelper.DelimitIdentifier(projectionExpression.Alias));
+        }
+
+        return projectionExpression;
+    }
+
+    protected override Expression VisitCase(CaseExpression caseExpression)
+    {
+        Sql.Append("CASE");
+
+        if (caseExpression.Operand != null)
+        {
+            Sql.Append(" ");
+            Visit(caseExpression.Operand);
+        }
+
+        using (Sql.Indent())
+        {
+            foreach (var whenClause in caseExpression.WhenClauses)
+            {
+                Sql
+                    .AppendLine()
+                    .Append("WHEN ");
+                Visit(whenClause.Test);
+                Sql.Append(" THEN ");
+                Visit(whenClause.Result);
+            }
+
+            Sql
+                .AppendLine()
+                .Append("ELSE ");
+            if (caseExpression.ElseResult != null)
+            {
+                Visit(caseExpression.ElseResult);
+            }
+            else
+            {
+                Sql.Append("NULL");
+            }
+        }
+
+        Sql
+            .AppendLine()
+            .Append("END");
+
+        return caseExpression;
+    }
 }
