@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Ydb.Extensions;
@@ -42,10 +43,14 @@ public static class YdbServiceCollectionExtensions
             .TryAdd<IHistoryRepository, YdbHistoryRepository>()
             .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,
                 YdbQueryableMethodTranslatingExpressionVisitorFactory>()
+            .TryAdd<IExecutionStrategyFactory, YdbExecutionStrategyFactory>()
             .TryAdd<IMethodCallTranslatorProvider, YdbMethodCallTranslatorProvider>()
             .TryAdd<IAggregateMethodCallTranslatorProvider, YdbAggregateMethodCallTranslatorProvider>()
             .TryAdd<IMemberTranslatorProvider, YdbMemberTranslatorProvider>()
             .TryAdd<IQuerySqlGeneratorFactory, YdbQuerySqlGeneratorFactory>()
+#pragma warning disable EF9002
+            .TryAdd<ISqlAliasManagerFactory, YdbSqlAliasManagerFactory>()
+#pragma warning restore EF9002
             .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, YdbSqlTranslatingExpressionVisitorFactory>()
             .TryAdd<IQueryTranslationPostprocessorFactory, YdbQueryTranslationPostprocessorFactory>()
             .TryAdd<IRelationalParameterBasedSqlProcessorFactory, YdbParameterBasedSqlProcessorFactory>()

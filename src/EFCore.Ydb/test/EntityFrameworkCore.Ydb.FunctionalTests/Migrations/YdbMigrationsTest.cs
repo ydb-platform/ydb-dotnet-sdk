@@ -27,7 +27,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """
             CREATE TABLE `People` (
                 `Id` Serial NOT NULL,
-                `Name` Text,
+                `Name` TEXT,
                 PRIMARY KEY (`Id`)
             );
             """);
@@ -45,7 +45,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """
             CREATE TABLE `People` (
                 `Id` Serial NOT NULL,
-                `Name` Text,
+                `Name` TEXT,
                 PRIMARY KEY (`Id`)
             );
             """);
@@ -59,7 +59,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """
             CREATE TABLE `People` (
                 `Id` Serial NOT NULL,
-                `Name` Text,
+                `Name` TEXT,
                 PRIMARY KEY (`Id`)
             );
             """);
@@ -134,7 +134,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     {
         await base.Add_column_with_ansi();
 
-        AssertSql("ALTER TABLE `People` ADD `Name` Text;");
+        AssertSql("ALTER TABLE `People` ADD `Name` TEXT;");
     }
 
     public override async Task Add_column_with_max_length()
@@ -147,7 +147,6 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     public override async Task Add_column_with_unbounded_max_length()
     {
         await base.Add_column_with_unbounded_max_length();
-
         AssertSql("ALTER TABLE `People` ADD `Name` Text;");
     }
 
@@ -165,7 +164,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     {
         await base.Add_column_with_comment();
 
-        AssertSql("ALTER TABLE `People` ADD `FullName` Text;");
+        AssertSql("ALTER TABLE `People` ADD `FullName` TEXT;");
     }
 
     public override Task Alter_column_change_type() =>
@@ -419,8 +418,8 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """
             CREATE TABLE `Contacts` (
                 `Id` Serial NOT NULL,
-                `Discriminator` Text NOT NULL,
-                `Name` Text,
+                `Discriminator` TEXT NOT NULL,
+                `Name` TEXT,
                 `Number` Int32,
                 `MyComplex_Prop` Text,
                 `MyComplex_MyNestedComplex_Bar` Timestamp,
@@ -466,13 +465,13 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
         AssertSql(
             """
             INSERT INTO `Person` (`Id`, `Name`)
-            VALUES (1, 'Daenerys Targaryen');
+            VALUES (1, 'Daenerys Targaryen'u);
             INSERT INTO `Person` (`Id`, `Name`)
-            VALUES (2, 'John Snow');
+            VALUES (2, 'John Snow'u);
             INSERT INTO `Person` (`Id`, `Name`)
-            VALUES (3, 'Arya Stark');
+            VALUES (3, 'Arya Stark'u);
             INSERT INTO `Person` (`Id`, `Name`)
-            VALUES (4, 'Harry Strickland');
+            VALUES (4, 'Harry Strickland'u);
             INSERT INTO `Person` (`Id`, `Name`)
             VALUES (5, NULL);
             """
@@ -507,7 +506,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
 
         AssertSql(
             """
-            UPDATE `Person` SET `Name` = 'Another John Snow'
+            UPDATE `Person` SET `Name` = 'Another John Snow'u
             WHERE `Id` = 2;
             """);
     }
@@ -518,7 +517,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
 
         AssertSql(
             """
-            UPDATE `Person` SET `Name` = 'Another John Snow'
+            UPDATE `Person` SET `Name` = 'Another John Snow'u
             WHERE `AnotherId` = 11 AND `Id` = 2;
             """);
     }
@@ -529,7 +528,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
 
         AssertSql(
             """
-            UPDATE `Person` SET `Age` = 21, `Name` = 'Another John Snow'
+            UPDATE `Person` SET `Age` = 21, `Name` = 'Another John Snow'u
             WHERE `Id` = 2;
             """);
     }

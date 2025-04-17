@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using EntityFrameworkCore.Ydb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 

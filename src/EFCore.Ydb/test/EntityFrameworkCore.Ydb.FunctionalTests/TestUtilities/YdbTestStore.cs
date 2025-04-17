@@ -16,6 +16,9 @@ public class YdbTestStore(
 {
     private const int CommandTimeout = 6942;
 
+    internal Task ExecuteNonQueryAsync(string sql, params object[] parameters)
+        => ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), sql, false, parameters);
+
     public static YdbTestStore GetOrCreate(
         string name,
         string? scriptPath = null
@@ -24,9 +27,6 @@ public class YdbTestStore(
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) => UseConnectionString
         ? builder.UseYdb(Connection.ConnectionString)
         : builder.UseYdb(Connection);
-
-    internal Task ExecuteNonQueryAsync(string sql, params object[] parameters)
-        => ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), sql, false, parameters);
 
     protected override async Task InitializeAsync(
         Func<DbContext> createContext,
@@ -165,30 +165,36 @@ public class YdbTestStore(
     }
 
 
-    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder());
+    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder { MaxSessionPool = 10 });
 
     public override async Task CleanAsync(DbContext context)
     {
-        await context.Database.EnsureDeletedAsync();
         var connection = context.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
         {
             await connection.OpenAsync();
         }
 
-        var schema = await connection.GetSchemaAsync("Tables", [null, "TABLE"]);
+        var schema = await connection.GetSchemaAsync("tables");
         var tables = schema
             .AsEnumerable()
-            .Select(entry => (string)entry["table_name"]);
+            .Select(entry => (string)entry["table_name"])
+            .Where(tableName => !tableName.StartsWith('.'));
+
+        if (!tables.Any()) return;
 
         var command = connection.CreateCommand();
 
         foreach (var table in tables)
         {
-            command.CommandText = $"DROP TABLE IF EXISTS `{table}`;";
-            await command.ExecuteNonQueryAsync();
+            command.CommandText += $"DROP TABLE IF EXISTS `{table}`;";
         }
+
+        await command.ExecuteNonQueryAsync();
 
         await connection.CloseAsync();
     }
+
+    protected override string OpenDelimiter => "`";
+    protected override string CloseDelimiter => "`";
 }
