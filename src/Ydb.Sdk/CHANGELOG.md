@@ -1,3 +1,5 @@
+- Added `x-ydb-sdk-build-info` header to any RPC call.
+
 ## v0.16.0
 
 - **Breaking Change**: `Ydb.Sdk.Yc.Auth` version <= 0.1.0 is not compatible with newer versions.

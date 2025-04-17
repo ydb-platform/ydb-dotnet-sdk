@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Reflection;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
@@ -16,7 +15,6 @@ public sealed class Driver : BaseDriver
 {
     private const int AttemptDiscovery = 10;
 
-    private readonly string _sdkInfo;
     private readonly GrpcChannelFactory _grpcChannelFactory;
     private readonly EndpointPool _endpointPool;
     private readonly ChannelPool<GrpcChannel> _channelPool;
@@ -34,10 +32,6 @@ public sealed class Driver : BaseDriver
             LoggerFactory.CreateLogger<ChannelPool<GrpcChannel>>(),
             _grpcChannelFactory
         );
-
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        var versionStr = version is null ? "unknown" : version.ToString(3);
-        _sdkInfo = $"ydb-dotnet-sdk/{versionStr}";
 
         CredentialsProvider = Config.User != null
             ? new CachedCredentialsProvider(
@@ -134,12 +128,10 @@ public sealed class Driver : BaseDriver
             TransportTimeout = Config.EndpointDiscoveryTimeout
         };
 
-        var options = await GetCallOptions(requestSettings);
-        options.Headers?.Add(Metadata.RpcSdkInfoHeader, _sdkInfo);
-
         var response = await client.ListEndpointsAsync(
             request: request,
-            options: options);
+            options: await GetCallOptions(requestSettings)
+        );
 
         if (!response.Operation.Ready)
         {
@@ -168,7 +160,8 @@ public sealed class Driver : BaseDriver
 
         Logger.LogDebug(
             "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, sdk info: {SdkInfo}",
-            resultProto.Endpoints.Count, resultProto.SelfLocation, _sdkInfo);
+            resultProto.Endpoints.Count, resultProto.SelfLocation, Config.SdkVersion
+        );
 
         _endpointPool.Reset(resultProto.Endpoints
             .Select(endpointSettings => new EndpointSettings(
@@ -189,15 +182,16 @@ public sealed class Driver : BaseDriver
             try
             {
                 await Task.Delay(Config.EndpointDiscoveryInterval);
+                
                 _ = await DiscoverEndpoints();
             }
             catch (RpcException e)
             {
-                Logger.LogWarning($"RPC error during endpoint discovery: {e.Status}");
+                Logger.LogWarning("RPC error during endpoint discovery: {Status}", e.Status);
             }
             catch (Exception e)
             {
-                Logger.LogError($"Unexpected exception during session pool periodic check: {e}");
+                Logger.LogError(e, "Unexpected exception during session pool periodic check");
             }
         }
     }

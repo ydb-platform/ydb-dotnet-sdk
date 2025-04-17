@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography.X509Certificates;
+﻿using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
 
 namespace Ydb.Sdk;
@@ -21,6 +22,7 @@ public class DriverConfig
     internal X509Certificate2Collection CustomServerCertificates { get; } = new();
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
+    internal string SdkVersion { get; }
 
     public DriverConfig(
         string endpoint,
@@ -42,6 +44,10 @@ public class DriverConfig
         {
             CustomServerCertificates.AddRange(customServerCertificates);
         }
+        
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        var versionStr = version is null ? "unknown" : version.ToString(3);
+        SdkVersion = $"ydb-dotnet-sdk/{versionStr}";
     }
 
     private static string FormatEndpoint(string endpoint)
