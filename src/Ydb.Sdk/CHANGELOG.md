@@ -1,3 +1,5 @@
+## v0.16.1
+
 - Added `x-ydb-sdk-build-info` header to any RPC call.
 
 ## v0.16.0
