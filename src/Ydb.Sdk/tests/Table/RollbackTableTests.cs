@@ -17,8 +17,8 @@ public class RollbackTableTests : IClassFixture<TableClientFixture>
     [Fact]
     public async Task RollbackTransactionTest()
     {
-        var response = await _tableClientFixture.TableClient.SessionExec(
-            async session => await session.ExecuteSchemeQuery(@"
+        var response = await _tableClientFixture.TableClient.SessionExec(async session =>
+            await session.ExecuteSchemeQuery(@"
                 CREATE TABLE `test` (
                     id Int32 NOT NULL,
                     name Text,

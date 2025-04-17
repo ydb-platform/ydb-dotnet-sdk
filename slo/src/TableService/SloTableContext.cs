@@ -14,9 +14,8 @@ public class SloTableContext : SloTableContext<TableClient>
 
     protected override async Task Create(TableClient client, string createTableSql, int operationTimeout)
     {
-        var response = await client.SessionExec(
-            async session => await session.ExecuteSchemeQuery(createTableSql,
-                new ExecuteSchemeQuerySettings { OperationTimeout = TimeSpan.FromSeconds(operationTimeout) }));
+        var response = await client.SessionExec(async session => await session.ExecuteSchemeQuery(createTableSql,
+            new ExecuteSchemeQuerySettings { OperationTimeout = TimeSpan.FromSeconds(operationTimeout) }));
 
         response.Status.EnsureSuccess();
     }
@@ -29,21 +28,20 @@ public class SloTableContext : SloTableContext<TableClient>
 
         var attempts = 0;
 
-        var response = await tableClient.SessionExec(
-            async session =>
+        var response = await tableClient.SessionExec(async session =>
+        {
+            attempts++;
+            var response = await session.ExecuteDataQuery(upsertSql, _txControl, parameters, querySettings);
+            if (response.Status.IsSuccess)
             {
-                attempts++;
-                var response = await session.ExecuteDataQuery(upsertSql, _txControl, parameters, querySettings);
-                if (response.Status.IsSuccess)
-                {
-                    return response;
-                }
-
-
-                errorsGauge?.WithLabels(response.Status.StatusCode.ToString(), "retried").Inc();
-
                 return response;
-            });
+            }
+
+
+            errorsGauge?.WithLabels(response.Status.StatusCode.ToString(), "retried").Inc();
+
+            return response;
+        });
 
         return (attempts, response.Status.StatusCode);
     }
@@ -56,22 +54,21 @@ public class SloTableContext : SloTableContext<TableClient>
 
         var attempts = 0;
 
-        var response = (ExecuteDataQueryResponse)await tableClient.SessionExec(
-            async session =>
+        var response = (ExecuteDataQueryResponse)await tableClient.SessionExec(async session =>
+        {
+            attempts++;
+            var response = await session.ExecuteDataQuery(selectSql, _txControl, parameters, querySettings);
+            if (response.Status.IsSuccess)
             {
-                attempts++;
-                var response = await session.ExecuteDataQuery(selectSql, _txControl, parameters, querySettings);
-                if (response.Status.IsSuccess)
-                {
-                    return response;
-                }
-
-                Logger.LogWarning("{}", response.Status.ToString());
-
-                errorsGauge?.WithLabels(response.Status.StatusCode.StatusName(), "retried").Inc();
-
                 return response;
-            });
+            }
+
+            Logger.LogWarning("{}", response.Status.ToString());
+
+            errorsGauge?.WithLabels(response.Status.StatusCode.StatusName(), "retried").Inc();
+
+            return response;
+        });
 
         return (attempts, response.Status.StatusCode,
             response.Status.IsSuccess ? response.Result.ResultSets[0].Rows[0][0].GetOptionalInt32() : null);

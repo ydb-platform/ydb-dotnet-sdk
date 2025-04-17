@@ -22,8 +22,7 @@ public class GracefulShutdownTests : IClassFixture<TableClientFixture>
     public async Task Test()
     {
         var session1 = "";
-        await _tableClientFixture.TableClient.SessionExec(
-            async session =>
+        await _tableClientFixture.TableClient.SessionExec(async session =>
             {
                 session1 = session.Id;
                 return await session.ExecuteDataQuery("SELECT 1", TxControl.BeginSerializableRW().Commit());
@@ -31,8 +30,7 @@ public class GracefulShutdownTests : IClassFixture<TableClientFixture>
         );
 
         var session2 = "";
-        await _tableClientFixture.TableClient.SessionExec(
-            async session =>
+        await _tableClientFixture.TableClient.SessionExec(async session =>
             {
                 session2 = session.Id;
                 return await session.ExecuteDataQuery("SELECT 1", TxControl.BeginSerializableRW().Commit());
@@ -49,8 +47,7 @@ public class GracefulShutdownTests : IClassFixture<TableClientFixture>
 
         // new session
         var session3 = "";
-        await _tableClientFixture.TableClient.SessionExec(
-            async session =>
+        await _tableClientFixture.TableClient.SessionExec(async session =>
             {
                 session3 = session.Id;
                 return await session.ExecuteDataQuery("SELECT 1", TxControl.BeginSerializableRW().Commit());
@@ -60,8 +57,7 @@ public class GracefulShutdownTests : IClassFixture<TableClientFixture>
         Assert.Equal(session2, session3);
 
         var session4 = "";
-        await _tableClientFixture.TableClient.SessionExec(
-            async session =>
+        await _tableClientFixture.TableClient.SessionExec(async session =>
             {
                 session4 = session.Id;
                 return await session.ExecuteDataQuery("SELECT 1", TxControl.BeginSerializableRW().Commit());

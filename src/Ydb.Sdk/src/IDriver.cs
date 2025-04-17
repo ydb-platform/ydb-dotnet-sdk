@@ -138,7 +138,8 @@ public abstract class BaseDriver : IDriver
     {
         var meta = new Grpc.Core.Metadata
         {
-            { Metadata.RpcDatabaseHeader, Config.Database }
+            { Metadata.RpcDatabaseHeader, Config.Database },
+            { Metadata.RpcSdkInfoHeader, Config.SdkVersion }
         };
 
         if (CredentialsProvider != null)

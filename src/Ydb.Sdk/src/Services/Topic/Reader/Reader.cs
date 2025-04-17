@@ -468,8 +468,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     {
         var tcsCommit = new TaskCompletionSource();
 
-        await using var register = _lifecycleReaderSessionCts.Token.Register(
-            () => tcsCommit.TrySetException(new ReaderException($"ReaderSession[{SessionId}] was deactivated"))
+        await using var register = _lifecycleReaderSessionCts.Token.Register(() =>
+            tcsCommit.TrySetException(new ReaderException($"ReaderSession[{SessionId}] was deactivated"))
         );
 
         var commitSending = new CommitSending(offsetsRange, tcsCommit);

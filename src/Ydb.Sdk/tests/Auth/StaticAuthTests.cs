@@ -90,8 +90,8 @@ public class StaticAuthTests : IDisposable
     public async Task NoPasswordAuth() => await CheckAuth(null, null);
 
     [Fact]
-    public async Task WrongPassword() => await Assert.ThrowsAsync<StatusUnsuccessfulException>(
-        async () => await CheckAuth("good_password", "wrong_password"));
+    public async Task WrongPassword() => await Assert.ThrowsAsync<StatusUnsuccessfulException>(async () =>
+        await CheckAuth("good_password", "wrong_password"));
 
     [Fact]
     public async Task NotExistAuth()
@@ -101,7 +101,7 @@ public class StaticAuthTests : IDisposable
             database: "/local"
         ) { User = "notexists", Password = "nopass" };
 
-        await Assert.ThrowsAsync<StatusUnsuccessfulException>(
-            async () => await Driver.CreateInitialized(driverConfig, _loggerFactory));
+        await Assert.ThrowsAsync<StatusUnsuccessfulException>(async () =>
+            await Driver.CreateInitialized(driverConfig, _loggerFactory));
     }
 }

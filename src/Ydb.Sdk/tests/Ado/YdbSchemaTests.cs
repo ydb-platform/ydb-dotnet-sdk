@@ -47,8 +47,8 @@ public class YdbSchemaTests : YdbAdoNetFixture
         Assert.Equal(_table2, singleTable2.Rows[0]["table_name"].ToString());
         Assert.Equal("TABLE", singleTable2.Rows[0]["table_type"].ToString());
 
-        await Assert.ThrowsAsync<YdbException>(
-            async () => await ydbConnection.GetSchemaAsync("Tables", new[] { "not_found", null })
+        await Assert.ThrowsAsync<YdbException>(async () =>
+            await ydbConnection.GetSchemaAsync("Tables", new[] { "not_found", null })
         );
     }
 
@@ -87,8 +87,8 @@ public class YdbSchemaTests : YdbAdoNetFixture
         Assert.NotNull(singleTable2.Rows[0]["modification_time"]);
 
         // not found case
-        await Assert.ThrowsAsync<YdbException>(
-            async () => await ydbConnection.GetSchemaAsync("Tables", new[] { "not_found", null })
+        await Assert.ThrowsAsync<YdbException>(async () =>
+            await ydbConnection.GetSchemaAsync("Tables", new[] { "not_found", null })
         );
     }
 

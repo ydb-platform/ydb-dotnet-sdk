@@ -48,9 +48,8 @@ public class YdbDataReaderTests
     public async Task CreateYdbDataReader_WhenAbortedStatus_ThrowException()
     {
         var statuses = new List<Status>();
-        Assert.Equal("Status: Aborted", (await Assert.ThrowsAsync<YdbException>(
-                () => YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed, statuses.Add)))
-            .Message);
+        Assert.Equal("Status: Aborted", (await Assert.ThrowsAsync<YdbException>(() =>
+            YdbDataReader.CreateYdbDataReader(SingleEnumeratorFailed, statuses.Add))).Message);
         Assert.Single(statuses);
         Assert.Equal(StatusCode.Aborted, statuses[0].StatusCode);
     }
