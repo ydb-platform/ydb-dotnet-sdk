@@ -224,12 +224,12 @@ public class YdbParameterTests
             new object[] { new Data<DateTime?>(DbType.DateTime2, null, value => value.GetOptionalTimestamp()) },
             new object[]
             {
-                new Data<byte[]>(DbType.Binary, Encoding.ASCII.GetBytes("test str").ToArray(),
+                new Data<byte[]>(DbType.Binary, Encoding.ASCII.GetBytes("test str"),
                     value => value.GetString())
             },
             new object[]
             {
-                new Data<byte[]?>(DbType.Binary, Encoding.ASCII.GetBytes("test str").ToArray(),
+                new Data<byte[]?>(DbType.Binary, Encoding.ASCII.GetBytes("test str"),
                     value => value.GetString(), true)
             },
             new object[] { new Data<byte[]?>(DbType.Binary, null, value => value.GetOptionalString()) },

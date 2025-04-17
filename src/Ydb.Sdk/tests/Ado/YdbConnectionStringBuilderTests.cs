@@ -24,11 +24,11 @@ public class YdbConnectionStringBuilderTests
     [Fact]
     public void InitConnectionStringBuilder_WhenUnexpectedKey_ThrowException()
     {
-        Assert.Equal("Key doesn't support: unexpectedkey", Assert.Throws<ArgumentException>(
-            () => new YdbConnectionStringBuilder("UnexpectedKey=123;Port=2135;")).Message);
+        Assert.Equal("Key doesn't support: unexpectedkey", Assert.Throws<ArgumentException>(() =>
+            new YdbConnectionStringBuilder("UnexpectedKey=123;Port=2135;")).Message);
 
-        Assert.Equal("Key doesn't support: unexpectedkey", Assert.Throws<ArgumentException>(
-            () => new YdbConnectionStringBuilder { ConnectionString = "UnexpectedKey=123;Port=2135;" }).Message);
+        Assert.Equal("Key doesn't support: unexpectedkey", Assert.Throws<ArgumentException>(() =>
+            new YdbConnectionStringBuilder { ConnectionString = "UnexpectedKey=123;Port=2135;" }).Message);
     }
 
     [Fact]

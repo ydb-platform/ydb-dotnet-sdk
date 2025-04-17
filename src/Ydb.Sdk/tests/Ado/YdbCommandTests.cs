@@ -283,18 +283,18 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
             Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, -1, null, 0, 6)).Message);
         Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
-            Assert.Throws<IndexOutOfRangeException>(
-                () => ydbDataReader.GetChars(0, long.MaxValue, null, 0, 6)).Message);
+            Assert.Throws<IndexOutOfRangeException>(() =>
+                ydbDataReader.GetChars(0, long.MaxValue, null, 0, 6)).Message);
 
-        Assert.Equal("bufferOffset must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
-            () => ydbDataReader.GetChars(0, 0, bufferChars, -1, 6)).Message);
-        Assert.Equal("bufferOffset must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
-            () => ydbDataReader.GetChars(0, 0, bufferChars, -1, 6)).Message);
+        Assert.Equal("bufferOffset must be between 0 and 10",
+            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, 0, bufferChars, -1, 6)).Message);
+        Assert.Equal("bufferOffset must be between 0 and 10",
+            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, 0, bufferChars, -1, 6)).Message);
 
-        Assert.Equal("length must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(
-            () => ydbDataReader.GetChars(0, 0, bufferChars, 3, -1)).Message);
-        Assert.Equal("bufferOffset must be between 0 and 5", Assert.Throws<IndexOutOfRangeException>(
-            () => ydbDataReader.GetChars(0, 0, bufferChars, 8, 5)).Message);
+        Assert.Equal("length must be between 0 and 10",
+            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, 0, bufferChars, 3, -1)).Message);
+        Assert.Equal("bufferOffset must be between 0 and 5",
+            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, 0, bufferChars, 8, 5)).Message);
 
         Assert.Equal(6, ydbDataReader.GetChars(0, 0, bufferChars, 4, 6));
         checkBuffer[4] = 'a';

@@ -182,7 +182,7 @@ public sealed class Driver : BaseDriver
             try
             {
                 await Task.Delay(Config.EndpointDiscoveryInterval);
-                
+
                 _ = await DiscoverEndpoints();
             }
             catch (RpcException e)
