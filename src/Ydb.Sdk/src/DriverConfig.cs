@@ -44,7 +44,7 @@ public class DriverConfig
         {
             CustomServerCertificates.AddRange(customServerCertificates);
         }
-        
+
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         var versionStr = version is null ? "unknown" : version.ToString(3);
         SdkVersion = $"ydb-dotnet-sdk/{versionStr}";

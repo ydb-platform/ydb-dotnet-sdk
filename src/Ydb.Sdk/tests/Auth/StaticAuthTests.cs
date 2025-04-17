@@ -101,7 +101,7 @@ public class StaticAuthTests : IDisposable
             database: "/local"
         ) { User = "notexists", Password = "nopass" };
 
-        await Assert.ThrowsAsync<StatusUnsuccessfulException>(async () => 
+        await Assert.ThrowsAsync<StatusUnsuccessfulException>(async () =>
             await Driver.CreateInitialized(driverConfig, _loggerFactory));
     }
 }

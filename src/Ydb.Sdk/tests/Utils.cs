@@ -32,9 +32,8 @@ public static class Utils
     public static async Task<ExecuteSchemeQueryResponse> ExecuteSchemeQuery(
         TableClient tableClient, string query, bool ensureSuccess = true)
     {
-        var response = await tableClient.SessionExec(
-            async session =>
-                await session.ExecuteSchemeQuery(query: query));
+        var response = await tableClient.SessionExec(async session =>
+            await session.ExecuteSchemeQuery(query: query));
 
         if (ensureSuccess)
         {
