@@ -13,9 +13,9 @@ This repository contains all official C# components for working with YDB:
 
 ## Packages
 
-| Package   | NuGet                                                                                      | Readme                            | Documentation |
-|-----------|--------------------------------------------------------------------------------------------|-----------------------------------|---------------|
-| `Ydb.Sdk` | [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk)](https://www.nuget.org/packages/Ydb.Sdk) | [README](./src/Ydb.Sdk/README.md) |               |
+| Package   | NuGet                                                                                      | Readme                            | Documentation                                                                                                                           |
+|-----------|--------------------------------------------------------------------------------------------|-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| `Ydb.Sdk` | [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk)](https://www.nuget.org/packages/Ydb.Sdk) | [README](./src/Ydb.Sdk/README.md) | [ADO.NET](https://ydb.tech/docs/en/reference/languages-and-apis/ado-net), [YDB Topic](https://ydb.tech/docs/en/reference/ydb-sdk/topic) |
 
 ## Versioning
 
