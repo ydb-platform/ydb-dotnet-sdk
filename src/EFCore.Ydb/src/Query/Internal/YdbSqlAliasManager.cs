@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
@@ -17,6 +19,17 @@ public class YdbSqlAliasManager : SqlAliasManager
     // Doesn't work in all cases. Should be improved
     private sealed class AliasRewriter : ExpressionVisitor
     {
+        private bool isRootSelect = true;
+        
+        [return: NotNullIfNotNull("node")]
+        public override Expression? Visit(Expression? node) => node switch
+        {
+            ShapedQueryExpression shapedQuery => shapedQuery.UpdateQueryExpression(Visit(shapedQuery.QueryExpression)),
+            SelectExpression selectExpression => VisitSelect(selectExpression),
+
+            _ => base.Visit(node)
+        };
+
         protected override Expression VisitExtension(Expression node) => node switch
         {
             ShapedQueryExpression shapedQuery => shapedQuery.UpdateQueryExpression(Visit(shapedQuery.QueryExpression)),
@@ -26,6 +39,9 @@ public class YdbSqlAliasManager : SqlAliasManager
 
         private Expression VisitSelect(SelectExpression selectExpression)
         {
+            var newProjections = AdjustAliases(selectExpression.Projection, isRootSelect);
+            isRootSelect = false;
+
             var newTables = new List<TableExpressionBase>(selectExpression.Tables.Count);
             foreach (var table in selectExpression.Tables)
             {
@@ -33,9 +49,7 @@ public class YdbSqlAliasManager : SqlAliasManager
                 newTables.Add((Visit(table) as TableExpressionBase)!);
             }
 
-            var newProjections = AdjustAliases(selectExpression.Projection);
-
-            return selectExpression.Update(
+            var news = selectExpression.Update(
                 tables: newTables,
                 predicate: selectExpression.Predicate,
                 groupBy: selectExpression.GroupBy,
@@ -45,8 +59,9 @@ public class YdbSqlAliasManager : SqlAliasManager
                 offset: selectExpression.Offset,
                 limit: selectExpression.Limit
             );
+            return news;
         }
-
+        
         private Expression VisitTableBase(TableExpressionBase tableExpression)
             => tableExpression switch
             {
@@ -67,9 +82,34 @@ public class YdbSqlAliasManager : SqlAliasManager
             return tableExpression;
         }
 
-        private IReadOnlyList<ProjectionExpression> AdjustAliases(IReadOnlyList<ProjectionExpression> projections)
+        private IReadOnlyList<ProjectionExpression> AdjustAliases(
+            IReadOnlyList<ProjectionExpression> projections,
+            bool isRoot
+        )
         {
             var newProjections = new ProjectionExpression[projections.Count];
+
+            if (isRoot)
+            {
+                for (var i = 0; i < projections.Count; i++)
+                {
+                    var currentProjection = projections[i];
+                    if (currentProjection.Expression is not ColumnExpression columnExpression)
+                    {
+                        newProjections[i] = currentProjection;
+                    }
+                    else
+                    {
+                        newProjections[i] =
+                            currentProjection.Alias == columnExpression.Name
+                                ? new ProjectionExpression(currentProjection.Expression, string.Empty)
+                                : currentProjection;
+                    }
+                }
+
+                return newProjections;
+            }
+
             var knownAliases = new Dictionary<string, int>();
             var isTrueAlias = new bool[projections.Count];
 

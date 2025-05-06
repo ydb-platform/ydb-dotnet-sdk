@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
 public class YdbTextTypeMapping : RelationalTypeMapping
 {
-    public static YdbTextTypeMapping Default { get; } = new("TEXT");
+    public static YdbTextTypeMapping Default { get; } = new("Text");
 
     public YdbTextTypeMapping(string storeType)
         : base(

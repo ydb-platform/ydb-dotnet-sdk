@@ -1,6 +1,12 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Ydb.Storage.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
@@ -75,4 +81,10 @@ public class EntitySplittingQueryYdbTest : EntitySplittingQueryTestBase
 
     public override Task Tpc_entity_owning_a_split_reference_on_leaf_without_table_sharing(bool async) =>
         Task.CompletedTask;
+
+    protected override IServiceCollection AddServices(IServiceCollection serviceCollection)
+    {
+        serviceCollection.AddScoped<IExecutionStrategyFactory, NonRetryingExecutionStrategyFactory>();
+        return serviceCollection;
+    }
 }

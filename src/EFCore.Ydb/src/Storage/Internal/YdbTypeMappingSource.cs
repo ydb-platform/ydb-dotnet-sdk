@@ -34,12 +34,13 @@ public sealed class YdbTypeMappingSource(
 
     private static readonly YdbTextTypeMapping Text = YdbTextTypeMapping.Default;
     private static readonly YdbBytesTypeMapping Bytes = YdbBytesTypeMapping.Default;
-    private static readonly YdbJsonTypeMapping Json = new("Json", typeof(JsonElement), DbType.String);
+    private static readonly YdbJsonTypeMapping Json = new("Json", typeof(JsonElement), null);
 
-    private static readonly DateTimeTypeMapping Date = new("DATETIME");
-    private static readonly DateTimeTypeMapping DateTime = new("DATETIME");
-    private static readonly YdbDateTimeTypeMapping Timestamp = new("TIMESTAMP", DbType.DateTime, typeof(DateTime));
-    private static readonly TimeSpanTypeMapping Interval = new("Interval");
+    private static readonly YdbDateOnlyTypeMapping Date = new("Date");
+    private static readonly DateTimeTypeMapping DateTime = new("DateTime");
+    private static readonly YdbDateTimeTypeMapping Timestamp = new("Timestamp", DbType.DateTime, typeof(DateTime));
+    // TODO: Await interval in Ydb.Sdk
+    private static readonly TimeSpanTypeMapping Interval = new("Interval", DbType.Object);
 
     #endregion
 

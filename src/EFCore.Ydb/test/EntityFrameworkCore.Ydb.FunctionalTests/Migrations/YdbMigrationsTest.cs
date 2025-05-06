@@ -27,7 +27,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """
             CREATE TABLE `People` (
                 `Id` Serial NOT NULL,
-                `Name` TEXT,
+                `Name` Text,
                 PRIMARY KEY (`Id`)
             );
             """);
@@ -45,7 +45,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """
             CREATE TABLE `People` (
                 `Id` Serial NOT NULL,
-                `Name` TEXT,
+                `Name` Text,
                 PRIMARY KEY (`Id`)
             );
             """);
@@ -59,7 +59,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """
             CREATE TABLE `People` (
                 `Id` Serial NOT NULL,
-                `Name` TEXT,
+                `Name` Text,
                 PRIMARY KEY (`Id`)
             );
             """);
@@ -134,7 +134,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     {
         await base.Add_column_with_ansi();
 
-        AssertSql("ALTER TABLE `People` ADD `Name` TEXT;");
+        AssertSql("ALTER TABLE `People` ADD `Name` Text;");
     }
 
     public override async Task Add_column_with_max_length()
@@ -164,7 +164,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     {
         await base.Add_column_with_comment();
 
-        AssertSql("ALTER TABLE `People` ADD `FullName` TEXT;");
+        AssertSql("ALTER TABLE `People` ADD `FullName` Text;");
     }
 
     public override Task Alter_column_change_type() =>
@@ -418,8 +418,8 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """
             CREATE TABLE `Contacts` (
                 `Id` Serial NOT NULL,
-                `Discriminator` TEXT NOT NULL,
-                `Name` TEXT,
+                `Discriminator` Text NOT NULL,
+                `Name` Text,
                 `Number` Int32,
                 `MyComplex_Prop` Text,
                 `MyComplex_MyNestedComplex_Bar` Timestamp,

@@ -16,10 +16,6 @@ public class AdHocAdvancedMappingsQueryYdbTest : AdHocAdvancedMappingsQueryRelat
 
     public override Task Two_similar_complex_properties_projected_with_split_query2() => Task.CompletedTask;
 
-    public override Task Projecting_one_of_two_similar_complex_types_picks_the_correct_one() => Task.CompletedTask;
-
-    public override Task Hierarchy_query_with_abstract_type_sibling_TPT(bool async) => Task.CompletedTask;
-
     public override Task Projecting_correlated_collection_along_with_non_mapped_property() => Task.CompletedTask;
 
     public override Task Double_convert_interface_created_expression_tree() => Task.CompletedTask;
