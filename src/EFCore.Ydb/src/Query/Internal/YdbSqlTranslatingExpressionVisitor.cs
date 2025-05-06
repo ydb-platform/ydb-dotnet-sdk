@@ -161,7 +161,7 @@ public class YdbSqlTranslatingExpressionVisitor(
                         var substringArguments = new SqlExpression[3];
                         substringArguments[0] = translatedInstance;
                         substringArguments[2] = _sqlExpressionFactory.Function(
-                            "len",
+                            "LENGTH",
                             [translatedPattern],
                             nullable: true,
                             argumentsPropagateNullability: [true],
@@ -176,14 +176,14 @@ public class YdbSqlTranslatingExpressionVisitor(
                         {
                             substringArguments[1] = _sqlExpressionFactory.Subtract(
                                 _sqlExpressionFactory.Function(
-                                    "len",
+                                    "LENGTH",
                                     [translatedInstance],
                                     nullable: true,
                                     argumentsPropagateNullability: [true],
                                     typeof(int)
                                 ),
                                 _sqlExpressionFactory.Function(
-                                    "len",
+                                    "LENGTH",
                                     [translatedPattern],
                                     nullable: true,
                                     argumentsPropagateNullability: [true],
@@ -193,7 +193,7 @@ public class YdbSqlTranslatingExpressionVisitor(
                         }
 
                         var substringFunction = _sqlExpressionFactory.Function(
-                            "substring",
+                            "SUBSTRING",
                             substringArguments,
                             nullable: true,
                             argumentsPropagateNullability: [true, false, false],

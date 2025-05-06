@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using System.Text.RegularExpressions;
 using EntityFrameworkCore.Ydb.Extensions;
+using EntityFrameworkCore.Ydb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Ydb.Sdk.Ado;
@@ -14,7 +15,7 @@ public class YdbTestStore(
     string? additionalSql = null
 ) : RelationalTestStore(name, false, CreateConnection())
 {
-    private const int CommandTimeout = 6942;
+    public const int CommandTimeout = 6942;
 
     internal Task ExecuteNonQueryAsync(string sql, params object[] parameters)
         => ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), sql, false, parameters);
@@ -24,9 +25,15 @@ public class YdbTestStore(
         string? scriptPath = null
     ) => new(name: name, scriptPath: scriptPath);
 
-    public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) => UseConnectionString
-        ? builder.UseYdb(Connection.ConnectionString)
-        : builder.UseYdb(Connection);
+    public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
+    {
+        Action<YdbDbContextOptionsBuilder> ydbOptionsBuilder = b => b.ApplyConfiguration()
+            .CommandTimeout(CommandTimeout);
+
+        return UseConnectionString
+            ? builder.UseYdb(Connection.ConnectionString, ydbOptionsBuilder)
+            : builder.UseYdb(Connection, ydbOptionsBuilder);
+    }
 
     protected override async Task InitializeAsync(
         Func<DbContext> createContext,
@@ -34,31 +41,40 @@ public class YdbTestStore(
         Func<DbContext, Task>? clean
     )
     {
-        await using var context = createContext();
-        if (clean != null) await clean(context);
-        await CleanAsync(context);
-        if (scriptPath is not null)
+        try
         {
-            await ExecuteScript(scriptPath);
+            await using var context = createContext();
+            if (clean != null) await clean(context);
+            await CleanAsync(context);
 
-            if (additionalSql is not null)
+            if (scriptPath is not null)
             {
-                await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), additionalSql);
+                await ExecuteScript(scriptPath);
+
+                if (additionalSql is not null)
+                {
+                    await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), additionalSql);
+                }
+            }
+            else
+            { 
+                await context.Database.EnsureCreatedAsync(); 
+                
+                if (additionalSql is not null)
+                {
+                    await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), additionalSql);
+                }
+
+                if (seed is not null)
+                {
+                    await seed(context);
+                }
             }
         }
-        else
+        catch (Exception e)
         {
-            await context.Database.EnsureCreatedAsync();
-
-            if (additionalSql is not null)
-            {
-                await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), additionalSql);
-            }
-
-            if (seed is not null)
-            {
-                await seed(context);
-            }
+            Console.WriteLine(e);
+            throw;
         }
     }
 
