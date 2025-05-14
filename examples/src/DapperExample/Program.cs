@@ -7,7 +7,7 @@ using Ydb.Sdk.Ado;
 await using var connection = await new YdbDataSource().OpenConnectionAsync();
 
 await connection.ExecuteAsync("""
-                              CREATE TABLE Users(
+                              CREATE TABLE IF NOT EXISTS Users(
                                   Id Int32,
                                   Name Text,
                                   Email Text,
@@ -21,7 +21,7 @@ await connection.ExecuteAsync("INSERT INTO Users(Id, Name, Email) VALUES (@Id, @
 Console.WriteLine(await connection.QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = @Id",
     new { Id = 1 }));
 
-await connection.ExecuteAsync("DROP TABLE Users");
+await connection.ExecuteAsync("DROP TABLE IF EXISTS Users");
 
 internal class User
 {

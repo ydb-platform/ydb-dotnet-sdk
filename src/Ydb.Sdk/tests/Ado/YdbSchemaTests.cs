@@ -13,14 +13,20 @@ public class YdbSchemaTests : YdbAdoNetFixture
     private readonly string _table1;
     private readonly string _table2;
     private readonly string _table3;
-    private readonly HashSet<string> _tableNames;
+    private readonly string _allTypesTable;
+    private readonly string _allTypesTableNullable;
+    private readonly HashSet<string> _allTableNames;
+    private readonly HashSet<string> _simpleTableNames;
 
     public YdbSchemaTests(YdbFactoryFixture fixture) : base(fixture)
     {
         _table1 = $"a/b/{Utils.Net}_{Random.Shared.Next()}";
         _table2 = $"a/{Utils.Net}_{Random.Shared.Next()}";
         _table3 = $"{Utils.Net}_{Random.Shared.Next()}";
-        _tableNames = new HashSet<string> { _table1, _table2, _table3 };
+        _allTypesTable = $"allTypesTable_{Utils.Net}_{Random.Shared.Next()}";
+        _allTypesTableNullable = $"allTypesTableNullable_{Utils.Net}_{Random.Shared.Next()}";
+        _allTableNames = new HashSet<string> { _table1, _table2, _table3, _allTypesTable, _allTypesTableNullable };
+        _simpleTableNames = new HashSet<string> { _table1, _table2, _table3 };
     }
 
     [Fact]
@@ -32,10 +38,10 @@ public class YdbSchemaTests : YdbAdoNetFixture
 
         foreach (DataRow row in table.Rows)
         {
-            _tableNames.Remove(row["table_name"].ToString()!);
+            _allTableNames.Remove(row["table_name"].ToString()!);
         }
 
-        Assert.Empty(_tableNames);
+        Assert.Empty(_allTableNames);
 
         var singleTable1 = await ydbConnection.GetSchemaAsync("Tables", new[] { _table1, "TABLE" });
         Assert.Equal(1, singleTable1.Rows.Count);
@@ -61,14 +67,14 @@ public class YdbSchemaTests : YdbAdoNetFixture
 
         foreach (DataRow row in table.Rows)
         {
-            _tableNames.Remove(row["table_name"].ToString()!);
+            _allTableNames.Remove(row["table_name"].ToString()!);
 
             Assert.NotNull(row["rows_estimate"]);
             Assert.NotNull(row["creation_time"]);
             Assert.NotNull(row["modification_time"]);
         }
 
-        Assert.Empty(_tableNames);
+        Assert.Empty(_allTableNames);
 
         var singleTable1 = await ydbConnection.GetSchemaAsync("TablesWithStats", new[] { _table1, "TABLE" });
         Assert.Equal(1, singleTable1.Rows.Count);
@@ -97,7 +103,7 @@ public class YdbSchemaTests : YdbAdoNetFixture
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
 
-        foreach (var tableName in _tableNames)
+        foreach (var tableName in new[] { _table1, _table2, _table3 })
         {
             var dataTable = await ydbConnection.GetSchemaAsync("Columns", new[] { tableName, null });
 
@@ -128,7 +134,7 @@ public class YdbSchemaTests : YdbAdoNetFixture
             CheckColumnB(rowsB[i]);
         }
 
-        foreach (var tableName in _tableNames)
+        foreach (var tableName in _simpleTableNames)
         {
             var dataTable = await ydbConnection.GetSchemaAsync("Columns", new[] { tableName, "a" });
             Assert.Equal(1, dataTable.Rows.Count);
@@ -137,7 +143,7 @@ public class YdbSchemaTests : YdbAdoNetFixture
             CheckColumnA(columnA);
         }
 
-        foreach (var tableName in _tableNames)
+        foreach (var tableName in _simpleTableNames)
         {
             var dataTable = await ydbConnection.GetSchemaAsync("Columns", new[] { tableName, "b" });
             Assert.Equal(1, dataTable.Rows.Count);
@@ -167,6 +173,51 @@ public class YdbSchemaTests : YdbAdoNetFixture
         }
     }
 
+    [Fact]
+    public async Task GetSchema_WhenAllTypesTable_ReturnAllTypes()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var dataTable = await ydbConnection.GetSchemaAsync("Columns", new[] { _allTypesTable, null });
+        var dataTableNullable = await ydbConnection.GetSchemaAsync("Columns", new[] { _allTypesTableNullable, null });
+
+        Assert.Equal(17, dataTable.Rows.Count);
+        Assert.Equal(17, dataTableNullable.Rows.Count);
+
+        CheckAllColumns(dataTable, false);
+        CheckAllColumns(dataTableNullable, true);
+        return;
+
+        void CheckAllColumns(DataTable pDataTable, bool isNullableTable)
+        {
+            CheckColumn(pDataTable.Rows[0], "TimestampColumn", 0, isNullableTable);
+            CheckColumn(pDataTable.Rows[1], "Int32Column", 1, isNullableTable);
+            CheckColumn(pDataTable.Rows[2], "BoolColumn", 2, isNullableTable);
+            CheckColumn(pDataTable.Rows[3], "Int64Column", 3, isNullableTable);
+            CheckColumn(pDataTable.Rows[4], "Int16Column", 4, isNullableTable);
+            CheckColumn(pDataTable.Rows[5], "Int8Column", 5, isNullableTable);
+            CheckColumn(pDataTable.Rows[6], "FloatColumn", 6, isNullableTable);
+            CheckColumn(pDataTable.Rows[7], "DoubleColumn", 7, isNullableTable);
+            CheckColumn(pDataTable.Rows[8], "DefaultDecimalColumn", 8, isNullableTable, "Decimal(22, 9)");
+            CheckColumn(pDataTable.Rows[9], "Uint8Column", 9, isNullableTable);
+            CheckColumn(pDataTable.Rows[10], "Uint16Column", 10, isNullableTable);
+            CheckColumn(pDataTable.Rows[11], "Uint32Column", 11, isNullableTable);
+            CheckColumn(pDataTable.Rows[12], "Uint64Column", 12, isNullableTable);
+            CheckColumn(pDataTable.Rows[13], "TextColumn", 13, isNullableTable);
+            CheckColumn(pDataTable.Rows[14], "BytesColumn", 14, isNullableTable);
+            CheckColumn(pDataTable.Rows[15], "DateColumn", 15, isNullableTable);
+            CheckColumn(pDataTable.Rows[16], "DatetimeColumn", 16, isNullableTable);
+        }
+
+        void CheckColumn(DataRow column, string columnName, int ordinal, bool isNullable, string? dataType = null)
+        {
+            Assert.Equal(columnName, column["column_name"]);
+            Assert.Equal(ordinal, column["ordinal_position"]);
+            Assert.Equal(isNullable ? "YES" : "NO", column["is_nullable"]);
+            Assert.Equal(dataType ?? columnName[..^"Column".Length], column["data_type"]);
+            Assert.Empty((string)column["family_name"]);
+        }
+    }
+
     protected override async Task OnInitializeAsync()
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
@@ -177,6 +228,48 @@ public class YdbSchemaTests : YdbAdoNetFixture
             CREATE TABLE `{_table1}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
             CREATE TABLE `{_table2}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
             CREATE TABLE `{_table3}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
+
+            CREATE TABLE {_allTypesTable} (
+                Int32Column Int32 NOT NULL,
+                BoolColumn Bool NOT NULL,
+                Int64Column Int64 NOT NULL,
+                Int16Column Int16 NOT NULL,
+                Int8Column Int8 NOT NULL,
+                FloatColumn Float NOT NULL,
+                DoubleColumn Double NOT NULL,
+                DefaultDecimalColumn Decimal(22,9) NOT NULL,
+                Uint8Column Uint8 NOT NULL,
+                Uint16Column Uint16 NOT NULL,
+                Uint32Column Uint32 NOT NULL,
+                Uint64Column Uint64 NOT NULL,
+                TextColumn Text NOT NULL,
+                BytesColumn Bytes NOT NULL,
+                DateColumn Date NOT NULL,
+                DatetimeColumn Datetime NOT NULL,
+                TimestampColumn Timestamp NOT NULL,
+                PRIMARY KEY (Int32Column)
+            );
+
+            CREATE TABLE {_allTypesTableNullable} (
+                Int32Column Int32,
+                BoolColumn Bool,
+                Int64Column Int64,
+                Int16Column Int16,
+                Int8Column Int8,
+                FloatColumn Float,
+                DoubleColumn Double,
+                DefaultDecimalColumn Decimal(22,9),
+                Uint8Column Uint8,
+                Uint16Column Uint16,
+                Uint32Column Uint32,
+                Uint64Column Uint64,
+                TextColumn Text,
+                BytesColumn Bytes,
+                DateColumn Date,
+                DatetimeColumn Datetime,
+                TimestampColumn Timestamp,
+                PRIMARY KEY (Int32Column)
+            );
             "
         }.ExecuteNonQueryAsync();
     }
@@ -191,6 +284,8 @@ public class YdbSchemaTests : YdbAdoNetFixture
             DROP TABLE `{_table1}`; 
             DROP TABLE `{_table2}`; 
             DROP TABLE `{_table3}`;
+            DROP TABLE `{_allTypesTable}`;
+            DROP TABLE `{_allTypesTableNullable}`;
             "
         }.ExecuteNonQueryAsync();
     }

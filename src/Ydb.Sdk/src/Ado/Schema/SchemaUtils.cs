@@ -2,19 +2,19 @@ namespace Ydb.Sdk.Ado.Schema;
 
 internal static class SchemaUtils
 {
-    internal static string YqlTableType(this Type type)
+    internal static string YqlTableType(this Type type) => type.TypeCase switch
     {
-        var typeId = type.TypeCase == Type.TypeOneofCase.OptionalType
-            ? type.OptionalType.Item.TypeId
-            : type.TypeId;
-
-        return typeId switch
-        {
-            Type.Types.PrimitiveTypeId.Utf8 => "Text",
-            Type.Types.PrimitiveTypeId.String => "Bytes",
-            _ => typeId.ToString()
-        };
-    }
+        Type.TypeOneofCase.OptionalType => type.OptionalType.Item.YqlTableType(),
+        Type.TypeOneofCase.TypeId =>
+            type.TypeId switch
+            {
+                Type.Types.PrimitiveTypeId.Utf8 => "Text",
+                Type.Types.PrimitiveTypeId.String => "Bytes",
+                _ => type.TypeId.ToString()
+            },
+        Type.TypeOneofCase.DecimalType => "Decimal(22, 9)",
+        _ => "Unknown"
+    };
 
     internal static bool IsSystem(this string path) => path.StartsWith(".sys/")
                                                        || path.StartsWith(".sys_health/")

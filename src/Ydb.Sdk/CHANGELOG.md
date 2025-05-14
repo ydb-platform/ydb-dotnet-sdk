@@ -1,3 +1,5 @@
+- Fixed bug in method GetSchema(): collection columns return Unspecified when decimal type about column.
+
 ## v0.16.1
 
 - Added `x-ydb-sdk-build-info` header to any RPC call.
