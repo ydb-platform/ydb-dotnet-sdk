@@ -188,7 +188,7 @@ public sealed class YdbCommand : DbCommand
         {
             if (ydbParameters.TryGetValue(paramName, out var ydbValue))
             {
-                preparedSql.Append($"DECLARE {paramName} AS {ydbValue.ToYql};\n");
+                preparedSql.Append($"DECLARE {paramName} AS {ydbValue.ToYql()};\n");
             }
             else
             {
