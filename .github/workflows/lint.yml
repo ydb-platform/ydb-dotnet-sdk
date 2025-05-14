@@ -93,4 +93,5 @@ jobs:
             CollectionNeverUpdated.Global,
             CSharpErrors,
             EmptyStatement,
-            ObjectCreationAsStatement
+            ObjectCreationAsStatement,
+            ParameterOnlyUsedForPreconditionCheck.Local
