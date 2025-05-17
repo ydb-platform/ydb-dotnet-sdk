@@ -18,7 +18,7 @@ public class YdbDateTimeTypeMapping : DateTimeTypeMapping
     {
         StoreTypeLiteral = storeType;
     }
-    
+
     protected YdbDateTimeTypeMapping(RelationalTypeMappingParameters parameters) : base(parameters)
     {
     }

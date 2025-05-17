@@ -46,6 +46,5 @@ internal class ConvertToProviderTypesYdbTest : ConvertToProviderTypesTestBase<
 
         public override bool PreservesDateTimeKind
             => false;
-
     }
 }

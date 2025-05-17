@@ -14,7 +14,7 @@ public abstract class QueryExpressionInterceptionYdbTestBase(
     QueryExpressionInterceptionYdbTestBase.InterceptionYdbFixtureBase fixture)
     : QueryExpressionInterceptionTestBase(fixture)
 {
-        public abstract class InterceptionYdbFixtureBase : InterceptionFixtureBase
+    public abstract class InterceptionYdbFixtureBase : InterceptionFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory
             => YdbTestStoreFactory.Instance;
@@ -33,7 +33,8 @@ public abstract class QueryExpressionInterceptionYdbTestBase(
     }
 
     public class QueryExpressionInterceptionYdbTest(QueryExpressionInterceptionYdbTest.InterceptionYdbFixture fixture)
-        : QueryExpressionInterceptionYdbTestBase(fixture), IClassFixture<QueryExpressionInterceptionYdbTest.InterceptionYdbFixture>
+        : QueryExpressionInterceptionYdbTestBase(fixture),
+            IClassFixture<QueryExpressionInterceptionYdbTest.InterceptionYdbFixture>
     {
         public class InterceptionYdbFixture : InterceptionYdbFixtureBase
         {

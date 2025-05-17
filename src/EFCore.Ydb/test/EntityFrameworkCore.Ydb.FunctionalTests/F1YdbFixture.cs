@@ -9,6 +9,7 @@ public class F1ULongYdbFixture : F1YdbFixtureBase<ulong?>
     protected override string StoreName
         => "F1ULongTest";
 }
+
 public class F1YdbFixture : F1YdbFixtureBase<byte[]>;
 
 public abstract class F1YdbFixtureBase<TRowVersion> : F1RelationalFixture<TRowVersion>

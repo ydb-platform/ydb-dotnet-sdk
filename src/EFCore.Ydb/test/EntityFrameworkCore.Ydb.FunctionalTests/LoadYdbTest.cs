@@ -8,7 +8,6 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
 public class LoadYdbTest : LoadTestBase<LoadYdbTest.LoadYdbFixture>
 {
-
     public LoadYdbTest(LoadYdbFixture fixture)
         : base(fixture)
     {

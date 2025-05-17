@@ -5,7 +5,6 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 
 public static class YdbDbContextOptionsBuilderExtensions
 {
-    
     public static YdbDbContextOptionsBuilder ApplyConfiguration(this YdbDbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
@@ -13,5 +12,4 @@ public static class YdbDbContextOptionsBuilderExtensions
 
         return optionsBuilder;
     }
-    
 }

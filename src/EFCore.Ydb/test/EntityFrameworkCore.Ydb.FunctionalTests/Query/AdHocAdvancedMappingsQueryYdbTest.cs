@@ -1,6 +1,7 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
@@ -27,4 +28,8 @@ public class AdHocAdvancedMappingsQueryYdbTest : AdHocAdvancedMappingsQueryRelat
     public override Task Hierarchy_query_with_abstract_type_sibling_TPC(bool async) => Task.CompletedTask;
 
     public override Task Projection_failing_with_EnumToStringConverter() => Task.CompletedTask;
+
+    [ConditionalFact(Skip = "OrderBy parameter not included in SELECT")]
+    public override Task Projecting_one_of_two_similar_complex_types_picks_the_correct_one() =>
+        base.Projecting_one_of_two_similar_complex_types_picks_the_correct_one();
 }

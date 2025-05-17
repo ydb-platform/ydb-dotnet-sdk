@@ -1,4 +1,3 @@
-using EntityFrameworkCore.Ydb.FunctionalTests.Query;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
@@ -297,5 +296,5 @@ public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCust
 
     public override Task GroupBy_Property_Select_Key_with_constant(bool async) => Task.CompletedTask;
 
-    public override Task GroupBy_conditional_properties(bool async)  => Task.CompletedTask;
+    public override Task GroupBy_conditional_properties(bool async) => Task.CompletedTask;
 }

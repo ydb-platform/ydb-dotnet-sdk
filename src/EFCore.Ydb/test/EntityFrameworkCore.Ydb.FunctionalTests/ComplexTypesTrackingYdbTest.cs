@@ -27,5 +27,4 @@ public class ComplexTypesTrackingYdbTest : ComplexTypesTrackingTestBase<ComplexT
         public TestSqlLoggerFactory TestSqlLoggerFactory
             => (TestSqlLoggerFactory)ListLoggerFactory;
     }
-
 }

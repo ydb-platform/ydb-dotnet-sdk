@@ -1,5 +1,4 @@
 using EntityFrameworkCore.Ydb.Query.Internal.Translators;
-using EntityFrameworkCore.Ydb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;
@@ -16,7 +15,7 @@ public sealed class YdbMethodCallTranslatorProvider : RelationalMethodCallTransl
                 new YdbDateTimeMethodTranslator(sqlExpressionFactory),
                 new YdbMathTranslator(sqlExpressionFactory),
                 new YdbMathTranslator(sqlExpressionFactory),
-                new YdbByteArrayMethodTranslator(sqlExpressionFactory),
+                new YdbByteArrayMethodTranslator(sqlExpressionFactory)
             ]
         );
     }

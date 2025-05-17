@@ -1,8 +1,5 @@
 using System;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using EntityFrameworkCore.Ydb.Storage.Internal;
 using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using EntityFrameworkCore.Ydb.Utilities;
 using Microsoft.EntityFrameworkCore;
@@ -91,7 +88,8 @@ public class YdbDateTimeMemberTranslator : IMemberTranslator
         };
 
         SqlExpression UtcNow()
-            => _sqlExpressionFactory.Function(
+        {
+            return _sqlExpressionFactory.Function(
                 "CurrentUtc" + returnType.Name == "DateOnly" ? "Date" : returnType.Name,
                 [],
                 nullable: false,
@@ -99,6 +97,7 @@ public class YdbDateTimeMemberTranslator : IMemberTranslator
                 returnType,
                 _typeMappingSource.FindMapping(returnType)
             );
+        }
     }
 
     private SqlExpression? DatePart(SqlExpression instance, string partName)

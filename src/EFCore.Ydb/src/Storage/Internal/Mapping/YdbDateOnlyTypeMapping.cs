@@ -1,7 +1,5 @@
 using System;
-using System.Data;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
