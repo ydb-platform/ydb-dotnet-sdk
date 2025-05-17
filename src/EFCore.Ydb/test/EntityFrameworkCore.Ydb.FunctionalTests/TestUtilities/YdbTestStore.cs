@@ -57,9 +57,9 @@ public class YdbTestStore(
                 }
             }
             else
-            { 
-                await context.Database.EnsureCreatedAsync(); 
-                
+            {
+                await context.Database.EnsureCreatedAsync();
+
                 if (additionalSql is not null)
                 {
                     await ExecuteAsync(Connection, command => command.ExecuteNonQueryAsync(), additionalSql);

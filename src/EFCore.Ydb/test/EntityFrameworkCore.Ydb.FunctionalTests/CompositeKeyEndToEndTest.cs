@@ -8,7 +8,6 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests;
 public class CompositeKeyEndToEndYdbTest(CompositeKeyEndToEndYdbTest.CompositeKeyEndToEndYdbFixture fixture)
     : CompositeKeyEndToEndTestBase<CompositeKeyEndToEndYdbTest.CompositeKeyEndToEndYdbFixture>(fixture)
 {
-    
     [ConditionalFact(Skip = "TODO: Cannot access table")]
     public override Task Can_use_generated_values_in_composite_key_end_to_end()
         => base.Can_use_generated_values_in_composite_key_end_to_end();

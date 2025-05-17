@@ -110,7 +110,8 @@ public class YdbMigrationsInfrastructureTest(YdbMigrationsInfrastructureTest.Ydb
     public override void Can_apply_one_migration_in_parallel() => base.Can_apply_one_migration_in_parallel();
 
     [ConditionalFact(Skip = "TODO")]
-    public override Task Can_apply_one_migration_in_parallel_async() => base.Can_apply_one_migration_in_parallel_async();
+    public override Task Can_apply_one_migration_in_parallel_async() =>
+        base.Can_apply_one_migration_in_parallel_async();
 
     protected override Task ExecuteSqlAsync(string value) =>
         ((YdbTestStore)Fixture.TestStore).ExecuteNonQueryAsync(value);

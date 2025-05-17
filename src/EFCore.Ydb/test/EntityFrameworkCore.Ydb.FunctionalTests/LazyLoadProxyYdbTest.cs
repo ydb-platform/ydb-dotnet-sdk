@@ -18,10 +18,14 @@ public class LazyLoadProxyYdbTest : LazyLoadProxyTestBase<LazyLoadProxyYdbTest.L
 
     [ConditionalTheory(Skip = "TODO: InvalidOperationException")]
     [InlineData(EntityState.Unchanged)]
-    public override void Lazy_load_one_to_one_reference_with_recursive_property(EntityState state) => base.Lazy_load_one_to_one_reference_with_recursive_property(state);
+    public override void Lazy_load_one_to_one_reference_with_recursive_property(EntityState state)
+    {
+        base.Lazy_load_one_to_one_reference_with_recursive_property(state);
+    }
 
     [ConditionalFact(Skip = "TODO: InvalidOperationException")]
-    public override void Top_level_projection_track_entities_before_passing_to_client_method() => base.Top_level_projection_track_entities_before_passing_to_client_method();
+    public override void Top_level_projection_track_entities_before_passing_to_client_method() =>
+        base.Top_level_projection_track_entities_before_passing_to_client_method();
 
     public class LoadYdbFixture : LoadFixtureBase
     {

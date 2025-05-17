@@ -12,7 +12,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
     {
         base.AddColumnOperation_with_fixed_length_no_model();
 
-        AssertSql("ALTER TABLE `Person` ADD `Name` TEXT;");
+        AssertSql("ALTER TABLE `Person` ADD `Name` Text;");
     }
 
 
@@ -20,7 +20,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
     {
         base.AddColumnOperation_without_column_type();
 
-        AssertSql("ALTER TABLE `People` ADD `Alias` TEXT NOT NULL;");
+        AssertSql("ALTER TABLE `People` ADD `Alias` Text NOT NULL;");
     }
 
 
@@ -28,7 +28,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
     {
         base.AddColumnOperation_with_unicode_overridden();
 
-        AssertSql("ALTER TABLE `Person` ADD `Name` TEXT;");
+        AssertSql("ALTER TABLE `Person` ADD `Name` Text;");
     }
 
 
@@ -36,7 +36,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
     {
         base.AddColumnOperation_with_unicode_no_model();
 
-        AssertSql("ALTER TABLE `Person` ADD `Name` TEXT;");
+        AssertSql("ALTER TABLE `Person` ADD `Name` Text;");
     }
 
 
@@ -44,7 +44,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
     {
         base.AddColumnOperation_with_maxLength_overridden();
 
-        AssertSql("ALTER TABLE `Person` ADD `Name` TEXT;");
+        AssertSql("ALTER TABLE `Person` ADD `Name` Text;");
     }
 
 
@@ -52,7 +52,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
     {
         base.AddColumnOperation_with_maxLength_no_model();
 
-        AssertSql("ALTER TABLE `Person` ADD `Name` TEXT;");
+        AssertSql("ALTER TABLE `Person` ADD `Name` Text;");
     }
 
 

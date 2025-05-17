@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
-public class TptGearsOfWarQueryYdbFixture: TPTGearsOfWarQueryRelationalFixture
+public class TptGearsOfWarQueryYdbFixture : TPTGearsOfWarQueryRelationalFixture
 {
     protected override ITestStoreFactory TestStoreFactory
         => YdbTestStoreFactory.Instance;

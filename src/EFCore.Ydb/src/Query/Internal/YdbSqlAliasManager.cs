@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
@@ -20,7 +19,7 @@ public class YdbSqlAliasManager : SqlAliasManager
     private sealed class AliasRewriter : ExpressionVisitor
     {
         private bool isRootSelect = true;
-        
+
         [return: NotNullIfNotNull("node")]
         public override Expression? Visit(Expression? node) => node switch
         {
@@ -61,7 +60,7 @@ public class YdbSqlAliasManager : SqlAliasManager
             );
             return news;
         }
-        
+
         private Expression VisitTableBase(TableExpressionBase tableExpression)
             => tableExpression switch
             {
@@ -77,10 +76,7 @@ public class YdbSqlAliasManager : SqlAliasManager
                 leftJoinExpression.JoinPredicate
             );
 
-        private Expression VisitTable(TableExpressionBase tableExpression)
-        {
-            return tableExpression;
-        }
+        private Expression VisitTable(TableExpressionBase tableExpression) => tableExpression;
 
         private IReadOnlyList<ProjectionExpression> AdjustAliases(
             IReadOnlyList<ProjectionExpression> projections,

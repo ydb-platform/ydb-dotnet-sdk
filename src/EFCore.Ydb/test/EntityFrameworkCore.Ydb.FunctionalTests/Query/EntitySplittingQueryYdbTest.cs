@@ -1,12 +1,8 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Ydb.Storage.Internal;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Storage.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 

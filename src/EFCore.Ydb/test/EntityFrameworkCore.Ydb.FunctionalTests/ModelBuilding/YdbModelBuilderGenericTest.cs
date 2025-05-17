@@ -6,14 +6,17 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.ModelBuilding;
 
 public class YdbModelBuilderGenericTest : YdbModelBuilderTestBase
 {
-    
     public class YdbGenericNonRelationship(YdbModelBuilderFixture fixture) : YdbNonRelationship(fixture)
     {
         [ConditionalFact(Skip = "TODO: Not ready yet")]
-        public override void Element_types_can_have_precision_and_scale() => base.Element_types_can_have_precision_and_scale();
+        public override void Element_types_can_have_precision_and_scale()
+        {
+            base.Element_types_can_have_precision_and_scale();
+        }
 
         [ConditionalFact(Skip = "TODO: Not ready yet")]
-        public override void Element_types_have_default_precision_and_scale() => base.Element_types_have_default_precision_and_scale();
+        public override void Element_types_have_default_precision_and_scale() =>
+            base.Element_types_have_default_precision_and_scale();
 
         [ConditionalFact(Skip = "TODO: Not ready yet")]
         public override void Element_types_have_default_unicode() => base.Element_types_have_default_unicode();
@@ -61,10 +64,12 @@ public class YdbModelBuilderGenericTest : YdbModelBuilderTestBase
     public class YdbGenericOwnedTypes(YdbModelBuilderFixture fixture) : YdbOwnedTypes(fixture)
     {
         [ConditionalFact(Skip = "TODO: Not ready yet")]
-        public override void Can_configure_one_to_one_owned_type_with_fields() => base.Can_configure_one_to_one_owned_type_with_fields();
+        public override void Can_configure_one_to_one_owned_type_with_fields() =>
+            base.Can_configure_one_to_one_owned_type_with_fields();
 
         [ConditionalFact(Skip = "TODO: Not ready yet")]
-        public override void Shared_type_entity_types_with_FK_to_another_entity_works() => base.Shared_type_entity_types_with_FK_to_another_entity_works();
+        public override void Shared_type_entity_types_with_FK_to_another_entity_works() =>
+            base.Shared_type_entity_types_with_FK_to_another_entity_works();
 
 
         protected override TestModelBuilder CreateModelBuilder(Action<ModelConfigurationBuilder>? configure)

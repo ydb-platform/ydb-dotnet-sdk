@@ -7,7 +7,6 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 public class FieldsOnlyLoadYdbTest(FieldsOnlyLoadYdbTest.FieldsOnlyLoadYdbFixture fixture)
     : FieldsOnlyLoadTestBase<FieldsOnlyLoadYdbTest.FieldsOnlyLoadYdbFixture>(fixture)
 {
-    
     public class FieldsOnlyLoadYdbFixture : FieldsOnlyLoadFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory

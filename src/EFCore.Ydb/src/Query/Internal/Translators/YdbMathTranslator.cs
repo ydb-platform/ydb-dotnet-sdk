@@ -71,7 +71,7 @@ public class YdbMathTranslator : IMethodCallTranslator
         { typeof(MathF).GetMethod(nameof(MathF.Sqrt), [typeof(float)])!, "Sqrt" },
         { typeof(MathF).GetMethod(nameof(MathF.Tan), [typeof(float)])!, "Tan" },
         { typeof(MathF).GetMethod(nameof(MathF.Tanh), [typeof(float)])!, "Tanh" },
-        { typeof(MathF).GetMethod(nameof(MathF.Truncate), [typeof(float)])!, "Trunc" },
+        { typeof(MathF).GetMethod(nameof(MathF.Truncate), [typeof(float)])!, "Trunc" }
     };
 
     private static readonly List<MethodInfo> _roundWithDecimalMethods =
@@ -89,7 +89,9 @@ public class YdbMathTranslator : IMethodCallTranslator
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
     public YdbMathTranslator(ISqlExpressionFactory sqlExpressionFactory)
-        => _sqlExpressionFactory = sqlExpressionFactory;
+    {
+        _sqlExpressionFactory = sqlExpressionFactory;
+    }
 
     public virtual SqlExpression? Translate(
         SqlExpression? instance,

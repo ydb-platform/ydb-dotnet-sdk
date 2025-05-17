@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.GearsOfWarModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Ydb.Sdk.Ado;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 

@@ -15,7 +15,7 @@ public sealed class YdbMemberTranslatorProvider : RelationalMemberTranslatorProv
 
         AddTranslators(
             [
-                new YdbDateTimeMemberTranslator(typeMappingSource, sqlExpressionFactory),
+                new YdbDateTimeMemberTranslator(typeMappingSource, sqlExpressionFactory)
             ]
         );
     }

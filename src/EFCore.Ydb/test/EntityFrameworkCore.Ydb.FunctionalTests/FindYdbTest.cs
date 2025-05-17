@@ -20,14 +20,16 @@ public abstract class FindYdbTest : FindTestBase<FindYdbTest.FindYdbFixture>
 
     [ConditionalTheory(Skip = "TODO: Requires fixes")]
     [InlineData(CancellationType.None)]
-    public override Task Find_int_key_from_store_async(CancellationType cancellationType) => base.Find_int_key_from_store_async(cancellationType);
+    public override Task Find_int_key_from_store_async(CancellationType cancellationType) =>
+        base.Find_int_key_from_store_async(cancellationType);
 
     [ConditionalFact(Skip = "Requires fixes")]
     public override void Returns_null_for_int_key_not_in_store() => base.Returns_null_for_int_key_not_in_store();
 
     [ConditionalTheory(Skip = "TODO: Requires fixes")]
     [InlineData(CancellationType.None)]
-    public override Task Returns_null_for_int_key_not_in_store_async(CancellationType cancellationType) => base.Returns_null_for_int_key_not_in_store_async(cancellationType);
+    public override Task Returns_null_for_int_key_not_in_store_async(CancellationType cancellationType) =>
+        base.Returns_null_for_int_key_not_in_store_async(cancellationType);
 
     public class FindYdbTestSet(FindYdbFixture fixture) : FindYdbTest(fixture)
     {
@@ -52,5 +54,4 @@ public abstract class FindYdbTest : FindTestBase<FindYdbTest.FindYdbFixture>
         protected override ITestStoreFactory TestStoreFactory
             => YdbTestStoreFactory.Instance;
     }
-
 }
