@@ -214,7 +214,7 @@ public sealed class YdbCommand : DbCommand
             await YdbConnection.Session.ExecuteQuery(
                 preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl
             ),
-            YdbConnection.Session.OnStatus, transaction
+            YdbConnection.OnStatus, transaction
         );
 
         YdbConnection.LastReader = ydbDataReader;

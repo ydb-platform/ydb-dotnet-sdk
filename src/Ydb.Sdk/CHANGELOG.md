@@ -1,3 +1,5 @@
+- `Connection.State` is set to `Broken` when the session is deactivated.
+
 ## v0.16.2
 
 - Fixed bug in method GetSchema(): collection columns return Unspecified when decimal type about column.
