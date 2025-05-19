@@ -191,11 +191,9 @@ public class YdbTestStore(
             await connection.OpenAsync();
         }
 
-        var schema = await connection.GetSchemaAsync("tables");
-        var tables = schema
+        var tables = (await connection.GetSchemaAsync("Tables", [null, "TABLE"]))
             .AsEnumerable()
-            .Select(entry => (string)entry["table_name"])
-            .Where(tableName => !tableName.StartsWith('.'));
+            .Select(entry => (string)entry["table_name"]);
 
         if (!tables.Any()) return;
 

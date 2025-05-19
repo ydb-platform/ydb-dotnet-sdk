@@ -1,4 +1,3 @@
-using EfCore.Ydb.FunctionalTests.ModelBuilding;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 

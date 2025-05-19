@@ -39,7 +39,7 @@ public sealed class YdbTypeMappingSource(
     private static readonly YdbDateOnlyTypeMapping Date = new("Date");
     private static readonly DateTimeTypeMapping DateTime = new("DateTime");
 
-    private static readonly YdbDateTimeTypeMapping Timestamp = new("Timestamp", DbType.DateTime, typeof(DateTime));
+    private static readonly YdbDateTimeTypeMapping Timestamp = new("Timestamp", DbType.DateTime);
 
     // TODO: Await interval in Ydb.Sdk
     private static readonly TimeSpanTypeMapping Interval = new("Interval", DbType.Object);

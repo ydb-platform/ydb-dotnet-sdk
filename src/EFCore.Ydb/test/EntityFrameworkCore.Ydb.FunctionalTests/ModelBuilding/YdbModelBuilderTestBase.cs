@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.ModelBuilding;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
-namespace EfCore.Ydb.FunctionalTests.ModelBuilding;
+namespace EntityFrameworkCore.Ydb.FunctionalTests.ModelBuilding;
 
 public class YdbModelBuilderTestBase : RelationalModelBuilderTest
 {

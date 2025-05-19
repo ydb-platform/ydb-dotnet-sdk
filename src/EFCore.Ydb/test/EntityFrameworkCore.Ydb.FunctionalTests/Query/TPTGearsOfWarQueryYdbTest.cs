@@ -922,8 +922,7 @@ public class TptGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<Tp
     public override Task Byte_array_filter_by_length_parameter(bool async) =>
         base.Byte_array_filter_by_length_parameter(async);
 
-    [ConditionalTheory(Skip = "TODO: Fix tests")]
-    [MemberData(nameof(IsAsyncData))]
+    [Fact(Skip = "TODO: Fix tests")]
     public override void Byte_array_filter_by_length_parameter_compiled() =>
         base.Byte_array_filter_by_length_parameter_compiled();
 

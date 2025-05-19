@@ -74,13 +74,13 @@ public class YdbMathTranslator : IMethodCallTranslator
         { typeof(MathF).GetMethod(nameof(MathF.Truncate), [typeof(float)])!, "Trunc" }
     };
 
-    private static readonly List<MethodInfo> _roundWithDecimalMethods =
+    private static readonly List<MethodInfo> RoundWithDecimalMethods =
     [
         typeof(Math).GetMethod(nameof(Math.Round), [typeof(double), typeof(int)])!,
         typeof(MathF).GetMethod(nameof(MathF.Round), [typeof(float), typeof(int)])!
     ];
 
-    private static readonly List<MethodInfo> _logWithBaseMethods =
+    private static readonly List<MethodInfo> LogWithBaseMethods =
     [
         typeof(Math).GetMethod(nameof(Math.Log), [typeof(double), typeof(double)])!,
         typeof(MathF).GetMethod(nameof(MathF.Log), [typeof(float), typeof(float)])!
@@ -117,7 +117,7 @@ public class YdbMathTranslator : IMethodCallTranslator
             );
         }
 
-        if (_roundWithDecimalMethods.Contains(method))
+        if (RoundWithDecimalMethods.Contains(method))
         {
             return _sqlExpressionFactory.Function(
                 "Math::Round",

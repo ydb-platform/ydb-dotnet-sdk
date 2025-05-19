@@ -12,15 +12,10 @@ public class YdbDateTimeTypeMapping : DateTimeTypeMapping
 
     public YdbDateTimeTypeMapping(
         string storeType,
-        DbType? dbType,
-        Type clrType
+        DbType? dbType
     ) : base(storeType, dbType)
     {
         StoreTypeLiteral = storeType;
-    }
-
-    protected YdbDateTimeTypeMapping(RelationalTypeMappingParameters parameters) : base(parameters)
-    {
     }
 
     protected override string SqlLiteralFormatString
