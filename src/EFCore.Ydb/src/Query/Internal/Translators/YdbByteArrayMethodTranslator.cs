@@ -39,7 +39,7 @@ public class YdbByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFac
         {
             return null;
         }
-        
+
         var source = arguments[0];
 
         var value = arguments[1] is SqlConstantExpression constantValue
@@ -60,6 +60,5 @@ public class YdbByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFac
                 typeof(int)
             )
         );
-
     }
 }

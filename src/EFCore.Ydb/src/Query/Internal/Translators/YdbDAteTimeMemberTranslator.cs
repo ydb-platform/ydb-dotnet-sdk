@@ -10,22 +10,11 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
 
-public class YdbDateTimeMemberTranslator : IMemberTranslator
+public class YdbDateTimeMemberTranslator(
+    IRelationalTypeMappingSource typeMappingSource,
+    YdbSqlExpressionFactory sqlExpressionFactory)
+    : IMemberTranslator
 {
-    private readonly IRelationalTypeMappingSource _typeMappingSource;
-    private readonly YdbSqlExpressionFactory _sqlExpressionFactory;
-    private readonly RelationalTypeMapping _timestampMapping;
-
-    public YdbDateTimeMemberTranslator(
-        IRelationalTypeMappingSource typeMappingSource,
-        YdbSqlExpressionFactory sqlExpressionFactory
-    )
-    {
-        _typeMappingSource = typeMappingSource;
-        _timestampMapping = typeMappingSource.FindMapping(typeof(DateTime), "TimeStamp")!;
-        _sqlExpressionFactory = sqlExpressionFactory;
-    }
-
     public virtual SqlExpression? Translate(
         SqlExpression? instance,
         MemberInfo member,
@@ -51,8 +40,8 @@ public class YdbDateTimeMemberTranslator : IMemberTranslator
             {
                 case { TypeMapping: YdbDateTimeTypeMapping }:
                 case { Type: var type } when type == typeof(DateTime):
-                    return _sqlExpressionFactory.Convert(
-                        _sqlExpressionFactory.Convert(instance, typeof(DateOnly)),
+                    return sqlExpressionFactory.Convert(
+                        sqlExpressionFactory.Convert(instance, typeof(DateOnly)),
                         typeof(DateTime)
                     );
                 case { TypeMapping: YdbDateOnlyTypeMapping }:
@@ -89,20 +78,20 @@ public class YdbDateTimeMemberTranslator : IMemberTranslator
 
         SqlExpression UtcNow()
         {
-            return _sqlExpressionFactory.Function(
+            return sqlExpressionFactory.Function(
                 "CurrentUtc" + returnType.Name == "DateOnly" ? "Date" : returnType.Name,
                 [],
                 nullable: false,
                 argumentsPropagateNullability: ArrayUtil.TrueArrays[0],
                 returnType,
-                _typeMappingSource.FindMapping(returnType)
+                typeMappingSource.FindMapping(returnType)
             );
         }
     }
 
-    private SqlExpression? DatePart(SqlExpression instance, string partName)
+    private SqlExpression DatePart(SqlExpression instance, string partName)
     {
-        var result = _sqlExpressionFactory.Function(
+        var result = sqlExpressionFactory.Function(
             $"DateTime::{partName}",
             [instance],
             nullable: true,
@@ -110,6 +99,6 @@ public class YdbDateTimeMemberTranslator : IMemberTranslator
             typeof(short) // Doesn't matter because we cast it to int in next line anyway
         );
 
-        return _sqlExpressionFactory.Convert(result, typeof(int));
+        return sqlExpressionFactory.Convert(result, typeof(int));
     }
 }

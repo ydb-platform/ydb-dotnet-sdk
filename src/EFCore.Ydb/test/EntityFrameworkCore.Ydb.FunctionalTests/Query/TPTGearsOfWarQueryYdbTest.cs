@@ -647,9 +647,6 @@ public class TptGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<Tp
     public override Task Project_one_value_type_converted_to_nullable_from_empty_collection(bool async) =>
         base.Project_one_value_type_converted_to_nullable_from_empty_collection(async);
 
-    public override Task Project_one_value_type_with_client_projection_from_empty_collection(bool async) =>
-        base.Project_one_value_type_with_client_projection_from_empty_collection(async);
-
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Filter_on_subquery_projecting_one_value_type_from_empty_collection(bool async) =>

@@ -27,7 +27,9 @@ public abstract class QueryExpressionInterceptionYdbTestBase(
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
         {
             new YdbDbContextOptionsBuilder(base.AddOptions(builder))
+#pragma warning disable EF1001
                 .ExecutionStrategy(d => new YdbExecutionStrategy(d));
+#pragma warning restore EF1001
             return builder;
         }
     }

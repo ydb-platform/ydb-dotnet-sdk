@@ -18,9 +18,8 @@ public class LoadYdbTest : LoadTestBase<LoadYdbTest.LoadYdbFixture>
         => Fixture.TestSqlLoggerFactory.Clear();
 
     protected override void RecordLog()
-        => Sql = Fixture.TestSqlLoggerFactory.Sql;
-
-    private string Sql { get; set; } = null!;
+    {
+    }
 
     public class LoadYdbFixture : LoadFixtureBase
     {

@@ -11,14 +11,16 @@ public class YdbSqlAliasManager : SqlAliasManager
     public override Expression PostprocessAliases(Expression expression)
     {
         var aliasRewriter = new AliasRewriter();
+#pragma warning disable EF1001
         return base.PostprocessAliases(aliasRewriter.Visit(expression));
+#pragma warning restore EF1001
     }
 
     // TODO: Temporary solution to solve following problem (https://t.me/ydb_ru/28649)
     // Doesn't work in all cases. Should be improved
     private sealed class AliasRewriter : ExpressionVisitor
     {
-        private bool isRootSelect = true;
+        private bool _isRootSelect = true;
 
         [return: NotNullIfNotNull("node")]
         public override Expression? Visit(Expression? node) => node switch
@@ -38,8 +40,8 @@ public class YdbSqlAliasManager : SqlAliasManager
 
         private Expression VisitSelect(SelectExpression selectExpression)
         {
-            var newProjections = AdjustAliases(selectExpression.Projection, isRootSelect);
-            isRootSelect = false;
+            var newProjections = AdjustAliases(selectExpression.Projection, _isRootSelect);
+            _isRootSelect = false;
 
             var newTables = new List<TableExpressionBase>(selectExpression.Tables.Count);
             foreach (var table in selectExpression.Tables)

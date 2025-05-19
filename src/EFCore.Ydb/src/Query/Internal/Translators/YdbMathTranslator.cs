@@ -80,12 +80,6 @@ public class YdbMathTranslator : IMethodCallTranslator
         typeof(MathF).GetMethod(nameof(MathF.Round), [typeof(float), typeof(int)])!
     ];
 
-    private static readonly List<MethodInfo> LogWithBaseMethods =
-    [
-        typeof(Math).GetMethod(nameof(Math.Log), [typeof(double), typeof(double)])!,
-        typeof(MathF).GetMethod(nameof(MathF.Log), [typeof(float), typeof(float)])!
-    ];
-
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
     public YdbMathTranslator(ISqlExpressionFactory sqlExpressionFactory)
