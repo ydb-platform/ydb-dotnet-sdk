@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
@@ -77,10 +76,7 @@ public class YdbSqlAliasManager : SqlAliasManager
                 leftJoinExpression.JoinPredicate
             );
 
-        private Expression VisitTable(TableExpressionBase tableExpression)
-        {
-            return tableExpression;
-        }
+        private static Expression VisitTable(TableExpressionBase tableExpression) => tableExpression;
 
         private IReadOnlyList<ProjectionExpression> AdjustAliases(
             IReadOnlyList<ProjectionExpression> projections,

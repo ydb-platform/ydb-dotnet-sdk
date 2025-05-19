@@ -160,6 +160,16 @@ public sealed class YdbConnection : DbConnection
 
     private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
 
+    internal void OnStatus(Status status)
+    {
+        _session.OnStatus(status);
+
+        if (!_session.IsActive)
+        {
+            ConnectionState = ConnectionState.Broken;
+        }
+    }
+
     internal YdbDataReader? LastReader { get; set; }
     internal string LastCommand { get; set; } = string.Empty;
     internal bool IsBusy => LastReader is { IsOpen: true };

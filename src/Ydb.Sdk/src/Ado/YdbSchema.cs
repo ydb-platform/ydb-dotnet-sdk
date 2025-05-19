@@ -65,7 +65,7 @@ internal static class YdbSchema
 
             if (status.IsNotSuccess)
             {
-                ydbConnection.Session.OnStatus(status);
+                ydbConnection.OnStatus(status);
 
                 throw new YdbException(status);
             }
@@ -76,7 +76,7 @@ internal static class YdbSchema
         }
         catch (Driver.TransportException e)
         {
-            ydbConnection.Session.OnStatus(e.Status);
+            ydbConnection.OnStatus(e.Status);
 
             throw new YdbException("Transport error on DescribeTable", e);
         }

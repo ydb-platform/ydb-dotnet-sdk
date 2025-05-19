@@ -99,7 +99,7 @@ public sealed class YdbTransaction : DbTransaction
             {
                 Failed = true;
 
-                DbConnection.Session.OnStatus(status);
+                DbConnection.OnStatus(status);
 
                 throw new YdbException(status);
             }
@@ -108,7 +108,7 @@ public sealed class YdbTransaction : DbTransaction
         {
             Failed = true;
 
-            DbConnection.Session.OnStatus(e.Status);
+            DbConnection.OnStatus(e.Status);
 
             throw new YdbException(e.Status);
         }
