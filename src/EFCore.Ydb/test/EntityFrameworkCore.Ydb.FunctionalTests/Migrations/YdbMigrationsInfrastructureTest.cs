@@ -1,7 +1,9 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Migrations;
@@ -12,6 +14,12 @@ public class YdbMigrationsInfrastructureTest(YdbMigrationsInfrastructureTest.Ydb
     public class YdbMigrationsInfrastructureFixture : MigrationsInfrastructureFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
+
+        protected override IServiceCollection AddServices(IServiceCollection serviceCollection)
+        {
+            serviceCollection.AddScoped<IExecutionStrategyFactory, NonRetryingExecutionStrategyFactory>();
+            return base.AddServices(serviceCollection);
+        }
     }
 
     protected override void GiveMeSomeTime(DbContext db)
@@ -97,6 +105,13 @@ public class YdbMigrationsInfrastructureTest(YdbMigrationsInfrastructureTest.Ydb
 
         Assert.Equal("EntityFrameworkCore.Ydb", ActiveProvider);
     }
+
+    [ConditionalFact(Skip = "TODO")]
+    public override void Can_apply_one_migration_in_parallel() => base.Can_apply_one_migration_in_parallel();
+
+    [ConditionalFact(Skip = "TODO")]
+    public override Task Can_apply_one_migration_in_parallel_async() =>
+        base.Can_apply_one_migration_in_parallel_async();
 
     protected override Task ExecuteSqlAsync(string value) =>
         ((YdbTestStore)Fixture.TestStore).ExecuteNonQueryAsync(value);

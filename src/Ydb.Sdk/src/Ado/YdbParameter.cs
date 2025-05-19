@@ -172,6 +172,7 @@ public sealed class YdbParameter : DbParameter
         Guid guidValue when DbType is DbType.Guid or DbType.Object => YdbValue.MakeUuid(guidValue),
         MemoryStream memoryStream when DbType is DbType.Binary or DbType.Object => YdbValue.MakeString(
             memoryStream.ToArray()),
+        TimeSpan timeSpan when DbType is DbType.Object => YdbValue.MakeInterval(timeSpan),
         _ when DbType is DbType.VarNumeric or DbType.Xml or DbType.Time =>
             throw new YdbException($"Ydb don't supported this DbType: {DbType}"),
         _ => ThrowInvalidOperation()

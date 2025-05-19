@@ -229,15 +229,14 @@ VALUES ('BOLID', 'Bólido Comidas preparadas', 'Martín Sommer', 'Owner', 'C/ Ar
         'Spain', '(91) 555 22 82', '(91) 555 91 99');
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
-VALUES ('BONAP', 'Bon app\'\'', 'Laurence Lebihan', 'Owner', '12, rue des Bouchers', 'Marseille', NULL, '13008',
+VALUES ('BONAP', 'Bon app\'', 'Laurence Lebihan', 'Owner', '12, rue des Bouchers', 'Marseille', NULL, '13008',
         'France', '91.24.45.40', '91.24.45.41');
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
 VALUES ('BOTTM', 'Bottom-Dollar Markets', 'Elizabeth Lincoln', 'Accounting Manager', '23 Tsawassen Blvd.', 'Tsawassen',
         'BC', 'T2F 8M4', 'Canada', '(604) 555-4729', '(604) 555-3745');
 GO
-INSERT INTO `Customers`(`CustomerID`,`CompanyName`,`ContactName`,`ContactTitle`,`Address`,`City`,`Region`,`PostalCode`,`Country`,`Phone`,`Fax`) VALUES ('BSBEV','B\'
-\'s Beverages','Victoria Ashworth','Sales Representative','Fauntleroy Circus','London',NULL,'EC2 5NT','UK','(171) 555-1212',NULL);
+INSERT INTO `Customers`(`CustomerID`,`CompanyName`,`ContactName`,`ContactTitle`,`Address`,`City`,`Region`,`PostalCode`,`Country`,`Phone`,`Fax`) VALUES ('BSBEV','B\'s Beverages','Victoria Ashworth','Sales Representative','Fauntleroy Circus','London',NULL,'EC2 5NT','UK','(171) 555-1212',NULL);
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
 VALUES ('CACTU', 'Cactus Comidas para llevar', 'Patricio Simpson', 'Sales Agent', 'Cerrito 333', 'Buenos Aires', NULL,
@@ -349,7 +348,7 @@ VALUES ('KOENE', 'Königlich Essen', 'Philip Cramer', 'Sales Associate', 'Maubel
         'Germany', '0555-09876', NULL);
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
-VALUES ('LACOR', 'La corne d\'\'abondance', 'Daniel Tonini', 'Sales Representative', '67, avenue de l\'\'Europe',
+VALUES ('LACOR', 'La corne d\'abondance', 'Daniel Tonini', 'Sales Representative', '67, avenue de l\'Europe',
         'Versailles', NULL, '78000', 'France', '30.59.84.10', '30.59.85.11');
 GO
 INSERT INTO `Customers`(`CustomerID`,`CompanyName`,`ContactName`,`ContactTitle`,`Address`,`City`,`Region`,`PostalCode`,`Country`,`Phone`,`Fax`) VALUES ('LAMAI','La maison d\'
@@ -368,7 +367,7 @@ VALUES ('LEHMS', 'Lehmanns Marktstand', 'Renate Messner', 'Sales Representative'
         NULL, '60528', 'Germany', '069-0245984', '069-0245874');
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
-VALUES ('LETSS', 'Let\'\'s Stop N Shop', 'Jaime Yorres', 'Owner', '87 Polk St. Suite 5', 'San Francisco', 'CA', '94117',
+VALUES ('LETSS', 'Let\'s Stop N Shop', 'Jaime Yorres', 'Owner', '87 Polk St. Suite 5', 'San Francisco', 'CA', '94117',
         'USA', '(415) 555-5938', NULL);
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
@@ -509,7 +508,7 @@ GO
 INSERT INTO `Customers`(`CustomerID`,`CompanyName`,`ContactName`,`ContactTitle`,`Address`,`City`,`Region`,`PostalCode`,`Country`,`Phone`,`Fax`) VALUES ('TRADH','Tradição Hipermercados','Anabela Domingues','Sales Representative','Av. Inês de Castro, 414','Sao Paulo','SP','05634-030','Brazil','(11) 555-2167','(11) 555-2168');
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
-VALUES ('TRAIH', 'Trail\'\'s Head Gourmet Provisioners', 'Helvetius Nagy', 'Sales Associate', '722 DaVinci Blvd.',
+VALUES ('TRAIH', 'Trail\'s Head Gourmet Provisioners', 'Helvetius Nagy', 'Sales Associate', '722 DaVinci Blvd.',
         'Kirkland', 'WA', '98034', 'USA', '(206) 555-8257', '(206) 555-2174');
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
@@ -521,7 +520,7 @@ VALUES ('VICTE', 'Victuailles en stock', 'Mary Saveley', 'Sales Agent', '2, rue 
         'France', '78.32.54.86', '78.32.54.87');
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
-VALUES ('VINET', 'Vins et alcools Chevalier', 'Paul Henriot', 'Accounting Manager', '59 rue de l\'\'Abbaye', 'Reims',
+VALUES ('VINET', 'Vins et alcools Chevalier', 'Paul Henriot', 'Accounting Manager', '59 rue de l\'Abbaye', 'Reims',
         NULL, '51100', 'France', '26.47.15.10', '26.47.15.11');
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
@@ -5065,7 +5064,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10274, 'VINET', 6, Date ('1996-8-6'), Date ('1996-9-3'), Date ('1996-8-16'), 1, Decimal('6.01', 22, 9),
-        'Vins et alcools Chevalier', '59 rue de l\'\'Abbaye', 'Reims',
+        'Vins et alcools Chevalier', '59 rue de l\'Abbaye', 'Reims',
         NULL, '51100', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -5170,7 +5169,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10289, 'BSBEV', 7, Date ('1996-8-26'), Date ('1996-9-23'), Date ('1996-8-28'), 3, Decimal('22.77', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -5212,7 +5211,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10295, 'VINET', 2, Date ('1996-9-2'), Date ('1996-9-30'), Date ('1996-9-10'), 2, Decimal('1.15', 22, 9),
-        'Vins et alcools Chevalier', '59 rue de l\'\'Abbaye', 'Reims',
+        'Vins et alcools Chevalier', '59 rue de l\'Abbaye', 'Reims',
         NULL, '51100', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -5464,7 +5463,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10331, 'BONAP', 9, Date ('1996-10-16'), Date ('1996-11-27'), Date ('1996-10-21'), 1, Decimal('10.19', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -5527,7 +5526,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10340, 'BONAP', 1, Date ('1996-10-29'), Date ('1996-11-26'), Date ('1996-11-8'), 3, Decimal('166.31', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -5598,7 +5597,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10350, 'LAMAI', 6, Date ('1996-11-11'), Date ('1996-12-9'), Date ('1996-12-3'), 2, Decimal('64.19', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -5654,7 +5653,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10358, 'LAMAI', 5, Date ('1996-11-20'), Date ('1996-12-18'), Date ('1996-11-27'), 1, Decimal('19.64', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -5682,7 +5681,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10362, 'BONAP', 3, Date ('1996-11-25'), Date ('1996-12-23'), Date ('1996-11-28'), 1, Decimal('96.04', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -5745,7 +5744,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10371, 'LAMAI', 1, Date ('1996-12-3'), Date ('1996-12-31'), Date ('1996-12-24'), 1, Decimal('0.45', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -6039,7 +6038,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10413, 'LAMAI', 3, Date ('1997-1-14'), Date ('1997-2-11'), Date ('1997-1-16'), 2, Decimal('95.66', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -6123,7 +6122,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10425, 'LAMAI', 6, Date ('1997-1-24'), Date ('1997-2-21'), Date ('1997-2-14'), 2, Decimal('7.93', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -6327,7 +6326,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10454, 'LAMAI', 4, Date ('1997-2-21'), Date ('1997-3-21'), Date ('1997-2-25'), 3, Decimal('2.74', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -6439,14 +6438,14 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10470, 'BONAP', 4, Date ('1997-3-11'), Date ('1997-4-8'), Date ('1997-3-14'), 2, Decimal('64.56', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10471, 'BSBEV', 2, Date ('1997-3-11'), Date ('1997-4-8'), Date ('1997-3-18'), 3, Decimal('45.59', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -6537,7 +6536,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10484, 'BSBEV', 3, Date ('1997-3-24'), Date ('1997-4-21'), Date ('1997-4-1'), 3, Decimal('6.88', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -6600,7 +6599,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10493, 'LAMAI', 4, Date ('1997-4-2'), Date ('1997-4-30'), Date ('1997-4-10'), 3, Decimal('10.64', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 GO
 INSERT INTO `Orders`
@@ -6650,7 +6649,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10500, 'LAMAI', 6, Date ('1997-4-9'), Date ('1997-5-7'), Date ('1997-4-17'), 1, Decimal('42.68', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -6727,7 +6726,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10511, 'BONAP', 4, Date ('1997-4-18'), Date ('1997-5-16'), Date ('1997-4-21'), 3, Decimal('350.64', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -6825,7 +6824,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10525, 'BONAP', 1, Date ('1997-5-2'), Date ('1997-5-30'), Date ('1997-5-23'), 2, Decimal('11.06', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -6916,14 +6915,14 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10538, 'BSBEV', 9, Date ('1997-5-15'), Date ('1997-6-12'), Date ('1997-5-16'), 3, Decimal('4.87', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10539, 'BSBEV', 6, Date ('1997-5-16'), Date ('1997-6-13'), Date ('1997-5-23'), 3, Decimal('12.36', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -7169,7 +7168,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10574, 'TRAIH', 4, Date ('1997-6-19'), Date ('1997-7-17'), Date ('1997-6-30'), 2, Decimal('37.60', 22, 9),
-        'Trail\'\'s Head Gourmet Provisioners', '722 DaVinci Blvd.', 'Kirkland',
+        'Trail\'s Head Gourmet Provisioners', '722 DaVinci Blvd.', 'Kirkland',
         'WA', '98034', 'USA');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -7190,21 +7189,21 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10577, 'TRAIH', 9, Date ('1997-6-23'), Date ('1997-8-4'), Date ('1997-6-30'), 2, Decimal('25.41', 22, 9),
-        'Trail\'\'s Head Gourmet Provisioners', '722 DaVinci Blvd.', 'Kirkland',
+        'Trail\'s Head Gourmet Provisioners', '722 DaVinci Blvd.', 'Kirkland',
         'WA', '98034', 'USA');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10578, 'BSBEV', 4, Date ('1997-6-24'), Date ('1997-7-22'), Date ('1997-7-25'), 3, Decimal('29.60', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10579, 'LETSS', 1, Date ('1997-6-25'), Date ('1997-7-23'), Date ('1997-7-4'), 2, Decimal('13.73', 22, 9),
-        'Let\'\'s Stop N Shop', '87 Polk St. Suite 5', 'San Francisco',
+        'Let\'s Stop N Shop', '87 Polk St. Suite 5', 'San Francisco',
         'CA', '94117', 'USA');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -7344,7 +7343,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10599, 'BSBEV', 6, Date ('1997-7-15'), Date ('1997-8-26'), Date ('1997-7-21'), 3, Decimal('29.98', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -7421,7 +7420,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10610, 'LAMAI', 8, Date ('1997-7-25'), Date ('1997-8-22'), Date ('1997-8-6'), 1, Decimal('26.78', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -7568,7 +7567,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10631, 'LAMAI', 8, Date ('1997-8-14'), Date ('1997-9-11'), Date ('1997-8-15'), 1, Decimal('0.87', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -7793,7 +7792,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10663, 'BONAP', 2, Date ('1997-9-10'), Date ('1997-9-24'), Date ('1997-10-3'), 2, Decimal('113.15', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -7997,7 +7996,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10692, 'ALFKI', 4, Date ('1997-10-3'), Date ('1997-10-31'), Date ('1997-10-13'), 2, Decimal('61.02', 22, 9),
-        'Alfred\'\'s Futterkiste', 'Obere Str. 57', 'Berlin',
+        'Alfred\'s Futterkiste', 'Obere Str. 57', 'Berlin',
         NULL, '12209', 'Germany');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8067,7 +8066,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10702, 'ALFKI', 4, Date ('1997-10-13'), Date ('1997-11-24'), Date ('1997-10-21'), 1, Decimal('23.94', 22, 9),
-        'Alfred\'\'s Futterkiste', 'Obere Str. 57', 'Berlin',
+        'Alfred\'s Futterkiste', 'Obere Str. 57', 'Berlin',
         NULL, '12209', 'Germany');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8158,7 +8157,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10715, 'BONAP', 3, Date ('1997-10-23'), Date ('1997-11-6'), Date ('1997-10-29'), 1, Decimal('63.20', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8186,7 +8185,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10719, 'LETSS', 8, Date ('1997-10-27'), Date ('1997-11-24'), Date ('1997-11-5'), 2, Decimal('51.44', 22, 9),
-        'Let\'\'s Stop N Shop', '87 Polk St. Suite 5', 'San Francisco',
+        'Let\'s Stop N Shop', '87 Polk St. Suite 5', 'San Francisco',
         'CA', '94117', 'USA');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8263,7 +8262,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10730, 'BONAP', 5, Date ('1997-11-5'), Date ('1997-12-3'), Date ('1997-11-14'), 1, Decimal('20.12', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8277,7 +8276,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10732, 'BONAP', 3, Date ('1997-11-6'), Date ('1997-12-4'), Date ('1997-11-7'), 1, Decimal('16.97', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8298,7 +8297,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10735, 'LETSS', 6, Date ('1997-11-10'), Date ('1997-12-8'), Date ('1997-11-21'), 2, Decimal('45.97', 22, 9),
-        'Let\'\'s Stop N Shop', '87 Polk St. Suite 5', 'San Francisco',
+        'Let\'s Stop N Shop', '87 Polk St. Suite 5', 'San Francisco',
         'CA', '94117', 'USA');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8312,7 +8311,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10737, 'VINET', 2, Date ('1997-11-11'), Date ('1997-12-9'), Date ('1997-11-18'), 2, Decimal('7.79', 22, 9),
-        'Vins et alcools Chevalier', '59 rue de l\'\'Abbaye', 'Reims',
+        'Vins et alcools Chevalier', '59 rue de l\'Abbaye', 'Reims',
         NULL, '51100', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8326,7 +8325,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10739, 'VINET', 3, Date ('1997-11-12'), Date ('1997-12-10'), Date ('1997-11-17'), 3, Decimal('11.08', 22, 9),
-        'Vins et alcools Chevalier', '59 rue de l\'\'Abbaye', 'Reims',
+        'Vins et alcools Chevalier', '59 rue de l\'Abbaye', 'Reims',
         NULL, '51100', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8439,7 +8438,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10755, 'BONAP', 4, Date ('1997-11-26'), Date ('1997-12-24'), Date ('1997-11-28'), 2, Decimal('16.71', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8663,7 +8662,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10787, 'LAMAI', 2, Date ('1997-12-19'), Date ('1998-1-2'), Date ('1997-12-26'), 1, Decimal('249.93', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8909,7 +8908,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10822, 'TRAIH', 6, Date ('1998-1-8'), Date ('1998-2-5'), Date ('1998-1-16'), 3, Decimal('7.00', 22, 9),
-        'Trail\'\'s Head Gourmet Provisioners', '722 DaVinci Blvd.', 'Kirkland',
+        'Trail\'s Head Gourmet Provisioners', '722 DaVinci Blvd.', 'Kirkland',
         'WA', '98034', 'USA');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8944,7 +8943,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10827, 'BONAP', 1, Date ('1998-1-12'), Date ('1998-1-26'), Date ('1998-2-6'), 2, Decimal('63.54', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -8979,7 +8978,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10832, 'LAMAI', 2, Date ('1998-1-14'), Date ('1998-2-11'), Date ('1998-1-19'), 2, Decimal('43.26', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9000,7 +8999,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10835, 'ALFKI', 1, Date ('1998-1-15'), Date ('1998-2-12'), Date ('1998-1-21'), 3, Decimal('69.53', 22, 9),
-        'Alfred\'\'s Futterkiste', 'Obere Str. 57', 'Berlin',
+        'Alfred\'s Futterkiste', 'Obere Str. 57', 'Berlin',
         NULL, '12209', 'Germany');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9162,7 +9161,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10858, 'LACOR', 2, Date ('1998-1-29'), Date ('1998-2-26'), Date ('1998-2-3'), 1, Decimal('52.51', 22, 9),
-        'La corne d\'\'abondance', '67, avenue de l\'\'Europe', 'Versailles',
+        'La corne d\'abondance', '67, avenue de l\'Europe', 'Versailles',
         NULL, '78000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9253,7 +9252,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10871, 'BONAP', 9, Date ('1998-2-5'), Date ('1998-3-5'), Date ('1998-2-10'), 2, Decimal('112.27', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9288,7 +9287,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10876, 'BONAP', 7, Date ('1998-2-9'), Date ('1998-3-9'), Date ('1998-2-12'), 3, Decimal('60.42', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9344,7 +9343,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10884, 'LETSS', 4, Date ('1998-2-12'), Date ('1998-3-12'), Date ('1998-2-13'), 2, Decimal('90.97', 22, 9),
-        'Let\'\'s Stop N Shop', '87 Polk St. Suite 5', 'San Francisco',
+        'Let\'s Stop N Shop', '87 Polk St. Suite 5', 'San Francisco',
         'CA', '94117', 'USA');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9617,7 +9616,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10923, 'LAMAI', 7, Date ('1998-3-3'), Date ('1998-4-14'), Date ('1998-3-13'), 3, Decimal('68.26', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9645,7 +9644,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10927, 'LACOR', 4, Date ('1998-3-5'), Date ('1998-4-2'), Date ('1998-4-8'), 1, Decimal('19.79', 22, 9),
-        'La corne d\'\'abondance', '67, avenue de l\'\'Europe', 'Versailles',
+        'La corne d\'abondance', '67, avenue de l\'Europe', 'Versailles',
         NULL, '78000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9680,7 +9679,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10932, 'BONAP', 8, Date ('1998-3-6'), Date ('1998-4-3'), Date ('1998-3-24'), 1, Decimal('134.64', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9736,7 +9735,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10940, 'BONAP', 8, Date ('1998-3-11'), Date ('1998-4-8'), Date ('1998-3-23'), 3, Decimal('19.77', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9757,7 +9756,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10943, 'BSBEV', 4, Date ('1998-3-11'), Date ('1998-4-8'), Date ('1998-3-19'), 2, Decimal('2.17', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9785,7 +9784,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10947, 'BSBEV', 3, Date ('1998-3-13'), Date ('1998-4-10'), Date ('1998-3-16'), 2, Decimal('3.26', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9820,7 +9819,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10952, 'ALFKI', 1, Date ('1998-3-16'), Date ('1998-4-27'), Date ('1998-3-24'), 1, Decimal('40.42', 22, 9),
-        'Alfred\'\'s Futterkiste', 'Obere Str. 57', 'Berlin',
+        'Alfred\'s Futterkiste', 'Obere Str. 57', 'Berlin',
         NULL, '12209', 'Germany');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -9961,14 +9960,14 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10972, 'LACOR', 4, Date ('1998-3-24'), Date ('1998-4-21'), Date ('1998-3-26'), 2, Decimal('0.02', 22, 9),
-        'La corne d\'\'abondance', '67, avenue de l\'\'Europe', 'Versailles',
+        'La corne d\'abondance', '67, avenue de l\'Europe', 'Versailles',
         NULL, '78000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (10973, 'LACOR', 6, Date ('1998-3-24'), Date ('1998-4-21'), Date ('1998-3-27'), 2, Decimal('15.17', 22, 9),
-        'La corne d\'\'abondance', '67, avenue de l\'\'Europe', 'Versailles',
+        'La corne d\'abondance', '67, avenue de l\'Europe', 'Versailles',
         NULL, '78000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -10234,7 +10233,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (11011, 'ALFKI', 3, Date ('1998-4-9'), Date ('1998-5-7'), Date ('1998-4-13'), 1, Decimal('1.21', 22, 9),
-        'Alfred\'\'s Futterkiste', 'Obere Str. 57', 'Berlin',
+        'Alfred\'s Futterkiste', 'Obere Str. 57', 'Berlin',
         NULL, '12209', 'Germany');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -10318,7 +10317,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (11023, 'BSBEV', 1, Date ('1998-4-14'), Date ('1998-4-28'), Date ('1998-4-24'), 2, Decimal('123.83', 22, 9),
-        'B\'\'s Beverages', 'Fauntleroy Circus', 'London',
+        'B\'s Beverages', 'Fauntleroy Circus', 'London',
         NULL, 'EC2 5NT', 'UK');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -10515,7 +10514,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (11051, 'LAMAI', 7, Date ('1998-4-27'), Date ('1998-5-25'), NULL, 3, Decimal('2.79', 22, 9),
-        'La maison d\'\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
+        'La maison d\'Asie', '1 rue Alsace-Lorraine', 'Toulouse',
         NULL, '31000', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -10690,7 +10689,7 @@ INSERT INTO `Orders`
  `ShippedDate`, `ShipVia`, `Freight`, `ShipName`, `ShipAddress`,
  `ShipCity`, `ShipRegion`, `ShipPostalCode`, `ShipCountry`)
 VALUES (11076, 'BONAP', 4, Date ('1998-5-6'), Date ('1998-6-3'), NULL, 2, Decimal('38.28', 22, 9),
-        'Bon app\'\'', '12, rue des Bouchers', 'Marseille',
+        'Bon app\'', '12, rue des Bouchers', 'Marseille',
         NULL, '13008', 'France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -10709,16 +10708,16 @@ INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `
 VALUES (3, 'Aniseed Syrup', 1, 2, '12 - 550 ml bottles', Decimal('10', 22, 9), 13, 70, 25, false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
-VALUES (4, 'Chef Anton\'\'s Cajun Seasoning', 2, 2, '48 - 6 oz jars', Decimal('22', 22, 9), 53, 0, 0, false);
+VALUES (4, 'Chef Anton\'s Cajun Seasoning', 2, 2, '48 - 6 oz jars', Decimal('22', 22, 9), 53, 0, 0, false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
-VALUES (5, 'Chef Anton\'\'s Gumbo Mix', 2, 2, '36 boxes', Decimal('21.35', 22, 9), 0, 0, 0, true);
+VALUES (5, 'Chef Anton\'s Gumbo Mix', 2, 2, '36 boxes', Decimal('21.35', 22, 9), 0, 0, 0, true);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
-VALUES (6, 'Grandma\'\'s Boysenberry Spread', 3, 2, '12 - 8 oz jars', Decimal('25', 22, 9), 120, 0, 25, false);
+VALUES (6, 'Grandma\'s Boysenberry Spread', 3, 2, '12 - 8 oz jars', Decimal('25', 22, 9), 120, 0, 25, false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
-VALUES (7, 'Uncle Bob\'\'s Organic Dried Pears', 3, 7, '12 - 1 lb pkgs.', Decimal('30', 22, 9), 15, 0, 10, false);
+VALUES (7, 'Uncle Bob\'s Organic Dried Pears', 3, 7, '12 - 1 lb pkgs.', Decimal('30', 22, 9), 15, 0, 10, false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
 VALUES (8, 'Northwoods Cranberry Sauce', 3, 2, '12 - 12 oz jars', Decimal('40', 22, 9), 6, 0, 0, false);
@@ -10756,13 +10755,13 @@ INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `
 VALUES (19, 'Teatime Chocolate Biscuits', 8, 3, '10 boxes x 12 pieces', Decimal('9.2', 22, 9), 25, 0, 5, false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
-VALUES (20, 'Sir Rodney\'\'s Marmalade', 8, 3, '30 gift boxes', Decimal('81', 22, 9), 40, 0, 0, false);
+VALUES (20, 'Sir Rodney\'s Marmalade', 8, 3, '30 gift boxes', Decimal('81', 22, 9), 40, 0, 0, false);
 GO
 INSERT INTO `Products`(`ProductID`,`ProductName`,`SupplierID`,`CategoryID`,`QuantityPerUnit`,`UnitPrice`,`UnitsInStock`,`UnitsOnOrder`,`ReorderLevel`,`Discontinued`) VALUES (21,'Sir Rodney\'
 \'s Scones',8,3,'24 pkgs. x 4 pieces',Decimal('10', 22, 9),3,40,5,false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
-VALUES (22, 'Gustaf\'\'s Knäckebröd', 9, 5, '24 - 500 g pkgs.', Decimal('21', 22, 9), 104, 0, 25, false);
+VALUES (22, 'Gustaf\'s Knäckebröd', 9, 5, '24 - 500 g pkgs.', Decimal('21', 22, 9), 104, 0, 25, false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
 VALUES (23, 'Tunnbröd', 9, 5, '12 - 250 g pkgs.', Decimal('9', 22, 9), 61, 0, 25, false);
@@ -10939,7 +10938,7 @@ VALUES (2, 'New Orleans Cajun Delights', 'Shelley Burke', 'Order Administrator',
         '70117', 'USA', '(100) 555-4822', NULL, '#CAJUN.HTM#');
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
-VALUES (3, 'Grandma Kelly\'\'s Homestead', 'Regina Murphy', 'Sales Representative', '707 Oxford Rd.', 'Ann Arbor', 'MI',
+VALUES (3, 'Grandma Kelly\'s Homestead', 'Regina Murphy', 'Sales Representative', '707 Oxford Rd.', 'Ann Arbor', 'MI',
         '48104', 'USA', '(313) 555-5735', '(313) 555-3349', NULL);
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
@@ -10947,20 +10946,20 @@ VALUES (4, 'Tokyo Traders', 'Yoshi Nagase', 'Marketing Manager', '9-8 Sekimai Mu
         'Japan', '(03) 3555-5011', NULL, NULL);
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
-VALUES (5, 'Cooperativa de Quesos \'\'Las Cabras\'\'', 'Antonio del Valle Saavedra', 'Export Administrator',
+VALUES (5, 'Cooperativa de Quesos \'Las Cabras\'', 'Antonio del Valle Saavedra', 'Export Administrator',
         'Calle del Rosal 4', 'Oviedo', 'Asturias', '33007', 'Spain', '(98) 598 76 54', NULL, NULL);
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
-VALUES (6, 'Mayumi\'\'s', 'Mayumi Ohno', 'Marketing Representative', '92 Setsuko Chuo-ku', 'Osaka', NULL, '545',
+VALUES (6, 'Mayumi\'s', 'Mayumi Ohno', 'Marketing Representative', '92 Setsuko Chuo-ku', 'Osaka', NULL, '545',
         'Japan', '(06) 431-7877', NULL,
-        'Mayumi\'\'s (on the World Wide Web)#http://www.microsoft.com/accessdev/sampleapps/mayumi.htm#');
+        'Mayumi\'s (on the World Wide Web)#http://www.microsoft.com/accessdev/sampleapps/mayumi.htm#');
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
 VALUES (7, 'Pavlova, Ltd.', 'Ian Devling', 'Marketing Manager', '74 Rose St. Moonie Ponds', 'Melbourne', 'Victoria',
         '3058', 'Australia', '(03) 444-2343', '(03) 444-6588', NULL);
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
-VALUES (8, 'Specialty Biscuits, Ltd.', 'Peter Wilson', 'Sales Representative', '29 King\'\'s Way', 'Manchester', NULL,
+VALUES (8, 'Specialty Biscuits, Ltd.', 'Peter Wilson', 'Sales Representative', '29 King\'s Way', 'Manchester', NULL,
         'M14 GSD', 'UK', '(161) 555-4448', NULL, NULL);
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
@@ -11022,9 +11021,9 @@ VALUES (23, 'Karkki Oy', 'Anne Heikkonen', 'Product Manager', 'Valtakatu 12', 'L
         '(953) 10956', NULL, NULL);
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
-VALUES (24, 'G\'\'day, Mate', 'Wendy Mackenzie', 'Sales Representative', '170 Prince Edward Parade Hunter\'\'s Hill',
+VALUES (24, 'G\'day, Mate', 'Wendy Mackenzie', 'Sales Representative', '170 Prince Edward Parade Hunter\'s Hill',
         'Sydney', 'NSW', '2042', 'Australia', '(02) 555-5914', '(02) 555-4873',
-        'G\'\'day Mate (on the World Wide Web)#http://www.microsoft.com/accessdev/sampleapps/gdaymate.htm#');
+        'G\'day Mate (on the World Wide Web)#http://www.microsoft.com/accessdev/sampleapps/gdaymate.htm#');
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
 VALUES (25, 'Ma Maison', 'Jean-Guy Lauzon', 'Marketing Manager', '2960 Rue St. Laurent', 'Montréal', 'Québec',
@@ -11043,7 +11042,7 @@ VALUES (28, 'Gai pâturage', 'Eliane Noz', 'Sales Representative', 'Bat. B 3, ru
         'France', '38.76.98.06', '38.76.98.58', NULL);
 INSERT INTO `Suppliers`(`SupplierID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`, `HomePage`)
-VALUES (29, 'Forêts d\'\'érables', 'Chantal Goulet', 'Accounting Manager', '148 rue Chasseur', 'Ste-Hyacinthe',
+VALUES (29, 'Forêts d\'érables', 'Chantal Goulet', 'Accounting Manager', '148 rue Chasseur', 'Ste-Hyacinthe',
         'Québec', 'J2S 7S8', 'Canada', '(514) 555-2955', '(514) 555-2921', NULL);
 GO
 CREATE TABLE `CustomerCustomerDemo`

@@ -116,7 +116,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
         AssertSql(
             """
             INSERT INTO `dbo/People` (`First Name`)
-            VALUES ('John');
+            VALUES ('John'u);
             """);
     }
 
@@ -128,7 +128,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
         AssertSql(
             """
             INSERT INTO `dbo/People` (`First Name`, `Last Name`)
-            VALUES ('John', 'Snow');
+            VALUES ('John'u, 'Snow'u);
             """);
     }
 
@@ -140,9 +140,9 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
         AssertSql(
             """
             INSERT INTO `dbo/People` (`First Name`)
-            VALUES ('John');
+            VALUES ('John'u);
             INSERT INTO `dbo/People` (`First Name`)
-            VALUES ('Daenerys');
+            VALUES ('Daenerys'u);
             """);
     }
 
@@ -168,15 +168,15 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
         AssertSql(
             """
             DELETE FROM `People`
-            WHERE `First Name` = 'Hodor';
+            WHERE `First Name` = 'Hodor'u;
             DELETE FROM `People`
-            WHERE `First Name` = 'Daenerys';
+            WHERE `First Name` = 'Daenerys'u;
             DELETE FROM `People`
-            WHERE `First Name` = 'John';
+            WHERE `First Name` = 'John'u;
             DELETE FROM `People`
-            WHERE `First Name` = 'Arya';
+            WHERE `First Name` = 'Arya'u;
             DELETE FROM `People`
-            WHERE `First Name` = 'Harry';
+            WHERE `First Name` = 'Harry'u;
             """);
     }
 
@@ -188,15 +188,15 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
         AssertSql(
             """
             DELETE FROM `People`
-            WHERE `First Name` = 'Hodor' AND `Last Name` IS NULL;
+            WHERE `First Name` = 'Hodor'u AND `Last Name` IS NULL;
             DELETE FROM `People`
-            WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
+            WHERE `First Name` = 'Daenerys'u AND `Last Name` = 'Targaryen'u;
             DELETE FROM `People`
-            WHERE `First Name` = 'John' AND `Last Name` = 'Snow';
+            WHERE `First Name` = 'John'u AND `Last Name` = 'Snow'u;
             DELETE FROM `People`
-            WHERE `First Name` = 'Arya' AND `Last Name` = 'Stark';
+            WHERE `First Name` = 'Arya'u AND `Last Name` = 'Stark'u;
             DELETE FROM `People`
-            WHERE `First Name` = 'Harry' AND `Last Name` = 'Strickland';
+            WHERE `First Name` = 'Harry'u AND `Last Name` = 'Strickland'u;
             """);
     }
 
@@ -208,7 +208,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
         AssertSql(
             """
             DELETE FROM `People`
-            WHERE `Last Name` = 'Snow';
+            WHERE `Last Name` = 'Snow'u;
             """);
     }
 
@@ -220,7 +220,7 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
         AssertSql(
             """
             DELETE FROM `People`
-            WHERE `First Name` = 'John' AND `Last Name` = 'Snow';
+            WHERE `First Name` = 'John'u AND `Last Name` = 'Snow'u;
             """);
     }
 
@@ -231,10 +231,10 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            UPDATE `People` SET `Birthplace` = 'Winterfell', `House Allegiance` = 'Stark', `Culture` = 'Northmen'
-            WHERE `First Name` = 'Hodor';
-            UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
-            WHERE `First Name` = 'Daenerys';
+            UPDATE `People` SET `Birthplace` = 'Winterfell'u, `House Allegiance` = 'Stark'u, `Culture` = 'Northmen'u
+            WHERE `First Name` = 'Hodor'u;
+            UPDATE `People` SET `Birthplace` = 'Dragonstone'u, `House Allegiance` = 'Targaryen'u, `Culture` = 'Valyrian'u
+            WHERE `First Name` = 'Daenerys'u;
             """);
     }
 
@@ -245,10 +245,10 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            UPDATE `People` SET `House Allegiance` = 'Stark'
-            WHERE `First Name` = 'Hodor' AND `Last Name` IS NULL;
-            UPDATE `People` SET `House Allegiance` = 'Targaryen'
-            WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
+            UPDATE `People` SET `House Allegiance` = 'Stark'u
+            WHERE `First Name` = 'Hodor'u AND `Last Name` IS NULL;
+            UPDATE `People` SET `House Allegiance` = 'Targaryen'u
+            WHERE `First Name` = 'Daenerys'u AND `Last Name` = 'Targaryen'u;
             """);
     }
 
@@ -259,10 +259,10 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            UPDATE `People` SET `Birthplace` = 'Winterfell', `House Allegiance` = 'Stark', `Culture` = 'Northmen'
-            WHERE `First Name` = 'Hodor' AND `Last Name` IS NULL;
-            UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
-            WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
+            UPDATE `People` SET `Birthplace` = 'Winterfell'u, `House Allegiance` = 'Stark'u, `Culture` = 'Northmen'u
+            WHERE `First Name` = 'Hodor'u AND `Last Name` IS NULL;
+            UPDATE `People` SET `Birthplace` = 'Dragonstone'u, `House Allegiance` = 'Targaryen'u, `Culture` = 'Valyrian'u
+            WHERE `First Name` = 'Daenerys'u AND `Last Name` = 'Targaryen'u;
             """);
     }
 
@@ -273,8 +273,8 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
-            WHERE `First Name` = 'Daenerys';
+            UPDATE `People` SET `Birthplace` = 'Dragonstone'u, `House Allegiance` = 'Targaryen'u, `Culture` = 'Valyrian'u
+            WHERE `First Name` = 'Daenerys'u;
             """);
     }
 
@@ -285,8 +285,8 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            UPDATE `People` SET `House Allegiance` = 'Targaryen'
-            WHERE `First Name` = 'Daenerys';
+            UPDATE `People` SET `House Allegiance` = 'Targaryen'u
+            WHERE `First Name` = 'Daenerys'u;
             """);
     }
 
@@ -297,10 +297,10 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            UPDATE `People` SET `House Allegiance` = 'Stark'
-            WHERE `First Name` = 'Hodor';
-            UPDATE `People` SET `House Allegiance` = 'Targaryen'
-            WHERE `First Name` = 'Daenerys';
+            UPDATE `People` SET `House Allegiance` = 'Stark'u
+            WHERE `First Name` = 'Hodor'u;
+            UPDATE `People` SET `House Allegiance` = 'Targaryen'u
+            WHERE `First Name` = 'Daenerys'u;
             """);
     }
 
@@ -311,8 +311,8 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            UPDATE `People` SET `House Allegiance` = 'Targaryen'
-            WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
+            UPDATE `People` SET `House Allegiance` = 'Targaryen'u
+            WHERE `First Name` = 'Daenerys'u AND `Last Name` = 'Targaryen'u;
             """);
     }
 
@@ -323,8 +323,8 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
-            WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
+            UPDATE `People` SET `Birthplace` = 'Dragonstone'u, `House Allegiance` = 'Targaryen'u, `Culture` = 'Valyrian'u
+            WHERE `First Name` = 'Daenerys'u AND `Last Name` = 'Targaryen'u;
             """);
     }
 
@@ -334,8 +334,8 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
 
         AssertSql(
             """
-            UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
-            WHERE `First Name` = 'Daenerys';
+            UPDATE `People` SET `Birthplace` = 'Dragonstone'u, `House Allegiance` = 'Targaryen'u, `Culture` = 'Valyrian'u
+            WHERE `First Name` = 'Daenerys'u;
             """
         );
     }

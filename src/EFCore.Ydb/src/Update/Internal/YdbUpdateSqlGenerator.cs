@@ -142,10 +142,12 @@ public class YdbUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies) 
         commandStringBuilder
             .AppendLine()
             .Append("RETURNING ");
-        foreach (var operation in operations)
-        {
-            SqlGenerationHelper.DelimitIdentifier(commandStringBuilder, operation.ColumnName);
-        }
+
+        commandStringBuilder.AppendJoin(
+            ',',
+            operations
+                .Select(operation => SqlGenerationHelper.DelimitIdentifier(operation.ColumnName))
+        );
     }
 
     public override string GenerateNextSequenceValueOperation(string name, string? schema)
