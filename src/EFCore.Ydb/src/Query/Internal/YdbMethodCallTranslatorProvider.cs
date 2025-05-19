@@ -14,7 +14,6 @@ public sealed class YdbMethodCallTranslatorProvider : RelationalMethodCallTransl
             [
                 new YdbDateTimeMethodTranslator(sqlExpressionFactory),
                 new YdbMathTranslator(sqlExpressionFactory),
-                new YdbMathTranslator(sqlExpressionFactory),
                 new YdbByteArrayMethodTranslator(sqlExpressionFactory)
             ]
         );

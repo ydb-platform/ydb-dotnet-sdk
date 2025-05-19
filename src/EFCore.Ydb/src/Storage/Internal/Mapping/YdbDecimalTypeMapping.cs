@@ -27,5 +27,5 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
 
     protected override string ProcessStoreType(
         RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase
-    ) => $"Decimal({parameters.Precision ?? DefaultPrecision}, {parameters.Scale ?? DefaultScale})";
+    ) => $"{storeType}({parameters.Precision ?? DefaultPrecision}, {parameters.Scale ?? DefaultScale})";
 }

@@ -76,7 +76,7 @@ public class YdbSqlAliasManager : SqlAliasManager
                 leftJoinExpression.JoinPredicate
             );
 
-        private Expression VisitTable(TableExpressionBase tableExpression) => tableExpression;
+        private static Expression VisitTable(TableExpressionBase tableExpression) => tableExpression;
 
         private IReadOnlyList<ProjectionExpression> AdjustAliases(
             IReadOnlyList<ProjectionExpression> projections,
