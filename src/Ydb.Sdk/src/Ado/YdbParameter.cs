@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
