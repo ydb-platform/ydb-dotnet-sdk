@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.Update;
 using Xunit;
 
-namespace EntityFrameworkCore.Ydb.FunctionalTests.AllTests.Update;
+namespace EntityFrameworkCore.Ydb.FunctionalTests.Update;
 
 // Tests:
 // Ignore_before_save_property_is_still_generated_graph,

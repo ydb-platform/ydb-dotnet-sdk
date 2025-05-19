@@ -1,4 +1,4 @@
-namespace EntityFrameworkCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
+namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
 internal class TPTFiltersInheritanceBulkUpdatesYdbFixture : TPTInheritanceBulkUpdatesYdbFixture
 {

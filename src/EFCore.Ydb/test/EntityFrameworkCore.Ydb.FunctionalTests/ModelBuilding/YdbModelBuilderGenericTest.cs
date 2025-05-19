@@ -9,10 +9,7 @@ public class YdbModelBuilderGenericTest : YdbModelBuilderTestBase
     public class YdbGenericNonRelationship(YdbModelBuilderFixture fixture) : YdbNonRelationship(fixture)
     {
         [ConditionalFact(Skip = "TODO: Not ready yet")]
-        public override void Element_types_can_have_precision_and_scale()
-        {
-            base.Element_types_can_have_precision_and_scale();
-        }
+        public override void Element_types_can_have_precision_and_scale() => base.Element_types_can_have_precision_and_scale();
 
         [ConditionalFact(Skip = "TODO: Not ready yet")]
         public override void Element_types_have_default_precision_and_scale() =>

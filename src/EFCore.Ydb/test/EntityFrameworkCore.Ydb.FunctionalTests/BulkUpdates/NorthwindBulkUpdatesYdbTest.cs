@@ -1,9 +1,8 @@
-using EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
 
-namespace EntityFrameworkCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
+namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
 // TODO: Await Norhhwind
 internal class NorthwindBulkUpdatesYdbTest(

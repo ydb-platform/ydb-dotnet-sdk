@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace EntityFrameworkCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
+namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
 #pragma warning disable xUnit1000
 internal class TpcInheritanceBulkUpdatesYdbTest(

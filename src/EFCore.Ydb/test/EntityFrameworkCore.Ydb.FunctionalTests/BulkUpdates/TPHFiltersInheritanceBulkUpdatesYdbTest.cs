@@ -2,7 +2,7 @@ using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Xunit.Abstractions;
 
-namespace EntityFrameworkCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
+namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
 // TODO: following error
 // Error: Primary key is required for ydb tables.

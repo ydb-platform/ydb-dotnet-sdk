@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Xunit.Abstractions;
 
-namespace EntityFrameworkCore.Ydb.FunctionalTests.AllTests.BulkUpdates;
+namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
 // TODO: Refactor later
 #pragma warning disable xUnit1000

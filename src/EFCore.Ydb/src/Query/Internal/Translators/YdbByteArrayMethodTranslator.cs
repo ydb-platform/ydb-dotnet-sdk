@@ -9,13 +9,8 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
 
-public class YdbByteArrayMethodTranslator : IMethodCallTranslator
+public class YdbByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
 {
-    private readonly ISqlExpressionFactory _sqlExpressionFactory;
-
-    public YdbByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
-        => _sqlExpressionFactory = sqlExpressionFactory;
-
     private static MethodInfo Contains => typeof(Enumerable)
         .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
         .Where(m => m.Name == nameof(Enumerable.Contains))
@@ -38,32 +33,33 @@ public class YdbByteArrayMethodTranslator : IMethodCallTranslator
         IDiagnosticsLogger<DbLoggerCategory.Query> logger
     )
     {
-        if (method.IsGenericMethod
-            && method.GetGenericMethodDefinition().Equals(Contains)
-            && arguments[0].Type == typeof(byte[]))
+        if (!method.IsGenericMethod
+            || !method.GetGenericMethodDefinition().Equals(Contains)
+            || arguments[0].Type != typeof(byte[]))
         {
-            var source = arguments[0];
-
-            var value = arguments[1] is SqlConstantExpression constantValue
-                ? _sqlExpressionFactory.Constant(new[] { (byte)constantValue.Value! }, source.TypeMapping)
-                : _sqlExpressionFactory.Function(
-                    "ToBytes",
-                    [arguments[1]],
-                    nullable: false,
-                    argumentsPropagateNullability: ArrayUtil.TrueArrays[1],
-                    typeof(string));
-
-            return _sqlExpressionFactory.IsNotNull(
-                _sqlExpressionFactory.Function(
-                    "FIND",
-                    [source, value],
-                    nullable: true,
-                    argumentsPropagateNullability: ArrayUtil.FalseArrays[2],
-                    typeof(int)
-                )
-            );
+            return null;
         }
+        
+        var source = arguments[0];
 
-        return null;
+        var value = arguments[1] is SqlConstantExpression constantValue
+            ? sqlExpressionFactory.Constant(new[] { (byte)constantValue.Value! }, source.TypeMapping)
+            : sqlExpressionFactory.Function(
+                "ToBytes",
+                [arguments[1]],
+                nullable: false,
+                argumentsPropagateNullability: ArrayUtil.TrueArrays[1],
+                typeof(string));
+
+        return sqlExpressionFactory.IsNotNull(
+            sqlExpressionFactory.Function(
+                "FIND",
+                [source, value],
+                nullable: true,
+                argumentsPropagateNullability: ArrayUtil.FalseArrays[2],
+                typeof(int)
+            )
+        );
+
     }
 }
