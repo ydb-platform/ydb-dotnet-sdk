@@ -104,7 +104,7 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
             KeepAlivePingDelay = _config.KeepAlivePingDelay,
             KeepAlivePingTimeout = _config.KeepAlivePingTimeout,
             KeepAlivePingPolicy = HttpKeepAlivePingPolicy.Always,
-            EnableMultipleHttp2Connections = true
+            EnableMultipleHttp2Connections = _config.EnableMultipleHttp2Connections
         };
 
         // https://github.com/grpc/grpc-dotnet/issues/2312#issuecomment-1790661801
