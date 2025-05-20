@@ -50,8 +50,8 @@ public class YdbConnectionStringBuilderTests
         Assert.Null(connectionString.Password);
         Assert.True(connectionString.EnableMultipleHttp2Connections);
         Assert.Equal("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=True;" +
-                     "KeepAlivePingDelay=30;KeepAlivePingTimeout=60" +
-                     "EnableMultipleHttp2Connections=true", connectionString.ConnectionString);
+                     "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
+                     "EnableMultipleHttp2Connections=True", connectionString.ConnectionString);
     }
 
     [Fact]
