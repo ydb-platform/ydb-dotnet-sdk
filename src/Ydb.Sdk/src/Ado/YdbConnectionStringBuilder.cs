@@ -29,6 +29,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _useTls = false;
         _keepAlivePingDelay = SocketHttpHandlerDefaults.DefaultKeepAlivePingSeconds;
         _keepAlivePingTimeout = SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds;
+        _enableMultipleHttp2Connections = false;
     }
 
     public string Host
@@ -174,6 +175,18 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private int _keepAlivePingTimeout;
 
+    public bool EnableMultipleHttp2Connections
+    {
+        get => _enableMultipleHttp2Connections;
+        set
+        {
+            _enableMultipleHttp2Connections = value;
+            SaveValue(nameof(EnableMultipleHttp2Connections), value);
+        }
+    }
+
+    private bool _enableMultipleHttp2Connections;
+
     public ILoggerFactory? LoggerFactory { get; init; }
 
     public ICredentialsProvider? CredentialsProvider { get; init; }
@@ -237,7 +250,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 ? Timeout.InfiniteTimeSpan
                 : TimeSpan.FromSeconds(KeepAlivePingTimeout),
             User = User,
-            Password = Password
+            Password = Password,
+            EnableMultipleHttp2Connections = EnableMultipleHttp2Connections
         }, LoggerFactory);
     }
 
@@ -316,13 +330,16 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<int>(IntExtractor,
                     (builder, keepAlivePingTimeout) => builder.KeepAlivePingTimeout = keepAlivePingTimeout),
                 "KeepAlivePingTimeout", "Keep Alive Ping Timeout");
+            AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, enableMultipleHttp2Connections) =>
+                    builder.EnableMultipleHttp2Connections = enableMultipleHttp2Connections),
+                "EnableMultipleHttp2Connections", "Enable Multiple Http2 Connections");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)
         {
             foreach (var key in keys)
             {
-                KeyToOption.Add(key, option);
+                KeyToOption.Add(key.Trim(), option);
                 KeyToOption.Add(key.ToLower(), option);
             }
         }

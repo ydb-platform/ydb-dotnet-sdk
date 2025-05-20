@@ -1,3 +1,4 @@
+- Added `EnableMultipleHttp2Connections` setting to grpc channel.
 - `Connection.State` is set to `Broken` when the session is deactivated.
 
 ## v0.16.2

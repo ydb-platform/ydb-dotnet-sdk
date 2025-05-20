@@ -19,6 +19,7 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(10, connectionString.KeepAlivePingDelay);
         Assert.Equal(10, connectionString.KeepAlivePingTimeout);
         Assert.Equal("", connectionString.ConnectionString);
+        Assert.False(connectionString.EnableMultipleHttp2Connections);
     }
 
     [Fact]
@@ -36,7 +37,8 @@ public class YdbConnectionStringBuilderTests
     {
         var connectionString =
             new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true;" +
-                                           "KeepAlivePingDelay=30;KeepAlivePingTimeout=60");
+                                           "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
+                                           "EnableMultipleHttp2Connections=true");
 
         Assert.Equal(2135, connectionString.Port);
         Assert.Equal("server", connectionString.Host);
@@ -46,8 +48,10 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(30, connectionString.KeepAlivePingDelay);
         Assert.Equal(60, connectionString.KeepAlivePingTimeout);
         Assert.Null(connectionString.Password);
+        Assert.True(connectionString.EnableMultipleHttp2Connections);
         Assert.Equal("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=True;" +
-                     "KeepAlivePingDelay=30;KeepAlivePingTimeout=60", connectionString.ConnectionString);
+                     "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
+                     "EnableMultipleHttp2Connections=True", connectionString.ConnectionString);
     }
 
     [Fact]
@@ -61,5 +65,22 @@ public class YdbConnectionStringBuilderTests
 
         Assert.Equal("Host=new_server;Port=2135;Database=/my/path;User=Kirill",
             connectionString.ConnectionString);
+    }
+
+    [Fact]
+    public void SetProperty_WhenPropertyNeedsTrimOperation_ReturnUpdatedConnectionString()
+    {
+        var connectionString =
+            new YdbConnectionStringBuilder(" Host  =server;Port=2135;   EnableMultipleHttp2Connections  =true");
+
+        Assert.Equal(2135, connectionString.Port);
+        Assert.Equal("server", connectionString.Host);
+        Assert.True(connectionString.EnableMultipleHttp2Connections);
+
+        Assert.Equal("Host=server;Port=2135;EnableMultipleHttp2Connections=True", connectionString.ConnectionString);
+
+        connectionString.EnableMultipleHttp2Connections = false;
+
+        Assert.Equal("Host=server;Port=2135;EnableMultipleHttp2Connections=False", connectionString.ConnectionString);
     }
 }

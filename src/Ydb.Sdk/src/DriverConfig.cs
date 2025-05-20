@@ -16,6 +16,8 @@ public class DriverConfig
     public TimeSpan KeepAlivePingTimeout { get; init; } =
         TimeSpan.FromSeconds(SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds);
 
+    public bool EnableMultipleHttp2Connections { get; init; }
+
     public string? User { get; init; }
     public string? Password { get; init; }
 
