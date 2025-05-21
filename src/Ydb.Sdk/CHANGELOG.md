@@ -1,3 +1,5 @@
+- Fixed bug: Received message exceeds the maximum configured message size (#421).
+- Added `MaxSendMessageSize` \ `MaxReceiveMessageSize` grpc message size settings.
 - Added `EnableMultipleHttp2Connections` setting to grpc channel.
 - `Connection.State` is set to `Broken` when the session is deactivated.
 
