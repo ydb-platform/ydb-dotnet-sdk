@@ -1,3 +1,4 @@
+- Shutdown channels which are removed from the EndpointPool after discovery calls.
 - Fixed bug: Received message exceeds the maximum configured message size ([#421](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/421)).
 - Added `MaxSendMessageSize` \ `MaxReceiveMessageSize` grpc message size settings.
 - Added `EnableMultipleHttp2Connections` setting to grpc channel.
