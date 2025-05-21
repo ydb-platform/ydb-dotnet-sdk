@@ -27,9 +27,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _database = "/local";
         _maxSessionPool = 100;
         _useTls = false;
-        _keepAlivePingDelay = SocketHttpHandlerDefaults.DefaultKeepAlivePingSeconds;
-        _keepAlivePingTimeout = SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds;
+        _keepAlivePingDelay = GrpcDefaultSettings.DefaultKeepAlivePingSeconds;
+        _keepAlivePingTimeout = GrpcDefaultSettings.DefaultKeepAlivePingTimeoutSeconds;
         _enableMultipleHttp2Connections = false;
+        _maxSendMessageSize = GrpcDefaultSettings.MaxSendMessageSize;
+        _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
     }
 
     public string Host
@@ -187,6 +189,30 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private bool _enableMultipleHttp2Connections;
 
+    public int MaxSendMessageSize
+    {
+        get => _maxSendMessageSize;
+        set
+        {
+            _maxSendMessageSize = value;
+            SaveValue(nameof(MaxSendMessageSize), value);
+        }
+    }
+
+    private int _maxSendMessageSize;
+
+    public int MaxReceiveMessageSize
+    {
+        get => _maxReceiveMessageSize;
+        set
+        {
+            _maxReceiveMessageSize = value;
+            SaveValue(nameof(MaxReceiveMessageSize), value);
+        }
+    }
+
+    private int _maxReceiveMessageSize;
+
     public ILoggerFactory? LoggerFactory { get; init; }
 
     public ICredentialsProvider? CredentialsProvider { get; init; }
@@ -235,24 +261,29 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     {
         var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
 
-        return Driver.CreateInitialized(new DriverConfig(
-            endpoint: Endpoint,
-            database: Database,
-            credentials: CredentialsProvider,
-            customServerCertificate: cert,
-            customServerCertificates: ServerCertificates
-        )
-        {
-            KeepAlivePingDelay = KeepAlivePingDelay == 0
-                ? Timeout.InfiniteTimeSpan
-                : TimeSpan.FromSeconds(KeepAlivePingDelay),
-            KeepAlivePingTimeout = KeepAlivePingTimeout == 0
-                ? Timeout.InfiniteTimeSpan
-                : TimeSpan.FromSeconds(KeepAlivePingTimeout),
-            User = User,
-            Password = Password,
-            EnableMultipleHttp2Connections = EnableMultipleHttp2Connections
-        }, LoggerFactory);
+        return Driver.CreateInitialized(
+            new DriverConfig(
+                endpoint: Endpoint,
+                database: Database,
+                credentials: CredentialsProvider,
+                customServerCertificate: cert,
+                customServerCertificates: ServerCertificates
+            )
+            {
+                KeepAlivePingDelay = KeepAlivePingDelay == 0
+                    ? Timeout.InfiniteTimeSpan
+                    : TimeSpan.FromSeconds(KeepAlivePingDelay),
+                KeepAlivePingTimeout = KeepAlivePingTimeout == 0
+                    ? Timeout.InfiniteTimeSpan
+                    : TimeSpan.FromSeconds(KeepAlivePingTimeout),
+                User = User,
+                Password = Password,
+                EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
+                MaxSendMessageSize = MaxSendMessageSize,
+                MaxReceiveMessageSize = MaxReceiveMessageSize
+            },
+            LoggerFactory
+        );
     }
 
     public override void Clear()
@@ -333,6 +364,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, enableMultipleHttp2Connections) =>
                     builder.EnableMultipleHttp2Connections = enableMultipleHttp2Connections),
                 "EnableMultipleHttp2Connections", "Enable Multiple Http2 Connections");
+            AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, maxSendMessageSize) =>
+                builder.MaxSendMessageSize = maxSendMessageSize), "MaxSendMessageSize", "Max Send Message Size");
+            AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, maxReceiveMessageSize) =>
+                    builder.MaxReceiveMessageSize = maxReceiveMessageSize),
+                "MaxReceiveMessageSize", "Max Receive Message Size");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)

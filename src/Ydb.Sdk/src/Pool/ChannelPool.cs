@@ -95,7 +95,9 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
         var channelOptions = new GrpcChannelOptions
         {
             LoggerFactory = _loggerFactory,
-            DisposeHttpClient = true
+            DisposeHttpClient = true,
+            MaxSendMessageSize = _config.MaxSendMessageSize,
+            MaxReceiveMessageSize = _config.MaxReceiveMessageSize
         };
 
         var httpHandler = new SocketsHttpHandler
