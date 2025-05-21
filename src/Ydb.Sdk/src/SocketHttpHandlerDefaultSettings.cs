@@ -11,4 +11,8 @@ internal static class SocketHttpHandlerDefaults
     /// Default timeout (in seconds) for receiving a response to a keep-alive ping.
     /// </summary>
     internal const int DefaultKeepAlivePingTimeoutSeconds = 10;
+    
+    internal const int MaxSendMessageSize = 64 * 1024 * 1024; // 64 Mb
+    
+    internal const int MaxReceiveMessageSize = 64 * 1024 * 1024; // 64 Mb
 }

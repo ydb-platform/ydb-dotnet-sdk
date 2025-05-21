@@ -16,10 +16,13 @@ public class DriverConfig
     public TimeSpan KeepAlivePingTimeout { get; init; } =
         TimeSpan.FromSeconds(SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds);
 
-    public bool EnableMultipleHttp2Connections { get; init; }
-
     public string? User { get; init; }
     public string? Password { get; init; }
+
+    public bool EnableMultipleHttp2Connections { get; init; }
+
+    public int MaxSendMessageSize { get; init; } = SocketHttpHandlerDefaults.MaxSendMessageSize;
+    public int MaxReceiveMessageSize { get; init; } = SocketHttpHandlerDefaults.MaxReceiveMessageSize;
 
     internal X509Certificate2Collection CustomServerCertificates { get; } = new();
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
