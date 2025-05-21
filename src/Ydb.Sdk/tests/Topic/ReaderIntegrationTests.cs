@@ -82,12 +82,10 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
         var payload = new byte[payloadSize];
         Random.Shared.NextBytes(payload);
 
-
         // 20 Mb sending
-
         for (var i = 0; i < messageSize; i++)
         {
-            await writer.WriteAsync(new byte[payloadSize]);
+            await writer.WriteAsync(payload);
         }
 
         await using var reader = new ReaderBuilder<byte[]>(_driver)
@@ -98,7 +96,6 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
 
 
         // 20 Mb reading
-
         for (var i = 0; i < messageSize; i++)
         {
             var message = await reader.ReadAsync();
