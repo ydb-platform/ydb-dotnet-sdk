@@ -27,11 +27,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _database = "/local";
         _maxSessionPool = 100;
         _useTls = false;
-        _keepAlivePingDelay = SocketHttpHandlerDefaults.DefaultKeepAlivePingSeconds;
-        _keepAlivePingTimeout = SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds;
+        _keepAlivePingDelay = GrpcDefaultSettings.DefaultKeepAlivePingSeconds;
+        _keepAlivePingTimeout = GrpcDefaultSettings.DefaultKeepAlivePingTimeoutSeconds;
         _enableMultipleHttp2Connections = false;
-        _maxSendMessageSize = SocketHttpHandlerDefaults.MaxSendMessageSize;
-        _maxReceiveMessageSize = SocketHttpHandlerDefaults.MaxReceiveMessageSize;
+        _maxSendMessageSize = GrpcDefaultSettings.MaxSendMessageSize;
+        _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
     }
 
     public string Host

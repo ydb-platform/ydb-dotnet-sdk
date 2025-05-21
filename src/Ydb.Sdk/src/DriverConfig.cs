@@ -11,18 +11,18 @@ public class DriverConfig
     public ICredentialsProvider? Credentials { get; }
 
     public TimeSpan KeepAlivePingDelay { get; init; } =
-        TimeSpan.FromSeconds(SocketHttpHandlerDefaults.DefaultKeepAlivePingSeconds);
+        TimeSpan.FromSeconds(GrpcDefaultSettings.DefaultKeepAlivePingSeconds);
 
     public TimeSpan KeepAlivePingTimeout { get; init; } =
-        TimeSpan.FromSeconds(SocketHttpHandlerDefaults.DefaultKeepAlivePingTimeoutSeconds);
+        TimeSpan.FromSeconds(GrpcDefaultSettings.DefaultKeepAlivePingTimeoutSeconds);
 
     public string? User { get; init; }
     public string? Password { get; init; }
 
     public bool EnableMultipleHttp2Connections { get; init; }
 
-    public int MaxSendMessageSize { get; init; } = SocketHttpHandlerDefaults.MaxSendMessageSize;
-    public int MaxReceiveMessageSize { get; init; } = SocketHttpHandlerDefaults.MaxReceiveMessageSize;
+    public int MaxSendMessageSize { get; init; } = GrpcDefaultSettings.MaxSendMessageSize;
+    public int MaxReceiveMessageSize { get; init; } = GrpcDefaultSettings.MaxReceiveMessageSize;
 
     internal X509Certificate2Collection CustomServerCertificates { get; } = new();
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
