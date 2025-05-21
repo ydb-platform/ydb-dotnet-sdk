@@ -163,13 +163,15 @@ public sealed class Driver : BaseDriver
             resultProto.Endpoints.Count, resultProto.SelfLocation, Config.SdkVersion
         );
 
-        _endpointPool.Reset(resultProto.Endpoints
-            .Select(endpointSettings => new EndpointSettings(
-                (int)endpointSettings.NodeId,
-                (endpointSettings.Ssl ? "https://" : "http://") +
-                endpointSettings.Address + ":" + endpointSettings.Port,
-                endpointSettings.Location))
-            .ToImmutableArray()
+        await _channelPool.RemoveChannels(
+            _endpointPool.Reset(resultProto.Endpoints
+                .Select(endpointSettings => new EndpointSettings(
+                    (int)endpointSettings.NodeId,
+                    (endpointSettings.Ssl ? "https://" : "http://") +
+                    endpointSettings.Address + ":" + endpointSettings.Port,
+                    endpointSettings.Location))
+                .ToImmutableArray()
+            )
         );
 
         return new Status(StatusCode.Success);
