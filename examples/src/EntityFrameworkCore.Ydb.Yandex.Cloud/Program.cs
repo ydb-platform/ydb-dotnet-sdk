@@ -1,6 +1,6 @@
 ﻿using CommandLine;
-using EF_YC;
 using EntityFrameworkCore.Ydb.Extensions;
+using EntityFrameworkCore.Ydb.Yandex.Cloud;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Yc;
@@ -11,11 +11,10 @@ await Parser.Default.ParseArguments<CmdOptions>(args).WithParsedAsync(async cmd 
     var saProvider = new ServiceAccountProvider(saFilePath: cmd.SaFilePath, loggerFactory: loggerFactory);
 
     var options = new DbContextOptionsBuilder<AppDbContext>()
-        .UseYdb(cmd.ConnectionString, builder =>
-        {
-            builder.WithCredentialsProvider(saProvider);
-            builder.WithServerCertificates(YcCerts.GetYcServerCertificates());
-        })
+        .UseYdb(cmd.ConnectionString, builder => builder
+            .WithCredentialsProvider(saProvider)
+            .WithServerCertificates(YcCerts.GetYcServerCertificates())
+        )
         .Options;
 
     await using var db = new AppDbContext(options);

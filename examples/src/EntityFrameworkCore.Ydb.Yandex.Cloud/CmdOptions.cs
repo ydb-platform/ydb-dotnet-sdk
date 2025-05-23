@@ -1,10 +1,10 @@
 using CommandLine;
 
-namespace EF_YC;
+namespace EntityFrameworkCore.Ydb.Yandex.Cloud;
 
 internal class CmdOptions
 {
-    [Option('c', "connectionString", Required = true, HelpText = "Connection string")]
+    [Option("connectionString", Required = true, HelpText = "Connection string")]
     public string ConnectionString { get; set; } = null!;
 
     [Option("saFilePath", Required = true, HelpText = "Sa Key")]
