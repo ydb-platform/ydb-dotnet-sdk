@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace EntityFramework.Yandex.Cloud;
+namespace EntityFrameworkCore.Ydb.Yandex.Cloud;
 
 internal class CmdOptions
 {

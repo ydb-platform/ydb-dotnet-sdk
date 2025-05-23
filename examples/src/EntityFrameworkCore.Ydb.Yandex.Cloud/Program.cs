@@ -1,6 +1,6 @@
 ﻿using CommandLine;
-using EntityFramework.Yandex.Cloud;
 using EntityFrameworkCore.Ydb.Extensions;
+using EntityFrameworkCore.Ydb.Yandex.Cloud;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Yc;
