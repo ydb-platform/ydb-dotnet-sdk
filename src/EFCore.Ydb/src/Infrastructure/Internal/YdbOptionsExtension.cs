@@ -13,6 +13,8 @@ public class YdbOptionsExtension : RelationalOptionsExtension
 
     public X509Certificate2Collection? ServerCertificates { get; private set; }
 
+    public bool DisableRetryExecutionStrategy { get; private set; }
+
     private DbContextOptionsExtensionInfo? _info;
 
     public YdbOptionsExtension()
@@ -23,11 +25,13 @@ public class YdbOptionsExtension : RelationalOptionsExtension
     {
         CredentialsProvider = copyFrom.CredentialsProvider;
         ServerCertificates = copyFrom.ServerCertificates;
+        DisableRetryExecutionStrategy = copyFrom.DisableRetryExecutionStrategy;
     }
 
     protected override RelationalOptionsExtension Clone() => new YdbOptionsExtension(this);
 
-    public override void ApplyServices(IServiceCollection services) => services.AddEntityFrameworkYdb();
+    public override void ApplyServices(IServiceCollection services) =>
+        services.AddEntityFrameworkYdb(!DisableRetryExecutionStrategy);
 
     public override DbContextOptionsExtensionInfo Info => _info ??= new ExtensionInfo(this);
 
@@ -45,6 +49,15 @@ public class YdbOptionsExtension : RelationalOptionsExtension
         var clone = (YdbOptionsExtension)Clone();
 
         clone.ServerCertificates = serverCertificates;
+
+        return clone;
+    }
+
+    public YdbOptionsExtension DisableRetryOnFailure()
+    {
+        var clone = (YdbOptionsExtension)Clone();
+
+        clone.DisableRetryExecutionStrategy = true;
 
         return clone;
     }
