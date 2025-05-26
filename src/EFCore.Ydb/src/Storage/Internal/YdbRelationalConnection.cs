@@ -30,7 +30,7 @@ public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConne
         var ydbConnectionStringBuilder = new YdbConnectionStringBuilder(GetValidatedConnectionString())
         {
             CredentialsProvider = _credentialsProvider,
-            ServerCertificates = _serverCertificates,
+            ServerCertificates = _serverCertificates
         };
 
         return new YdbConnection(ydbConnectionStringBuilder);

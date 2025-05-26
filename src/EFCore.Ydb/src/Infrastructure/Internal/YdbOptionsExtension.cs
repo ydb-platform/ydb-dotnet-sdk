@@ -30,7 +30,7 @@ public class YdbOptionsExtension : RelationalOptionsExtension
 
     protected override RelationalOptionsExtension Clone() => new YdbOptionsExtension(this);
 
-    public override void ApplyServices(IServiceCollection services) => 
+    public override void ApplyServices(IServiceCollection services) =>
         services.AddEntityFrameworkYdb(!DisableRetryExecutionStrategy);
 
     public override DbContextOptionsExtensionInfo Info => _info ??= new ExtensionInfo(this);
@@ -56,7 +56,7 @@ public class YdbOptionsExtension : RelationalOptionsExtension
     public YdbOptionsExtension DisableRetryOnFailure()
     {
         var clone = (YdbOptionsExtension)Clone();
-        
+
         clone.DisableRetryExecutionStrategy = true;
 
         return clone;
