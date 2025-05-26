@@ -38,7 +38,7 @@ internal class BloggingContextFactory : IDesignTimeDbContextFactory<BloggingCont
         // Required because migration operations may use suppressed or explicit transactions,
         // and enabling retries in this case leads to runtime errors with this provider.
         //
-        // "User transaction is not supported with a TransactionSuppressed migrations or a retrying execution strategy."
+        // "System.NotSupportedException: User transaction is not supported with a TransactionSuppressed migrations or a retrying execution strategy."
         //
         // Bottom line: ALWAYS disable retries for design-time/migration contexts to avoid migration failures and errors.
         return new BloggingContext(
