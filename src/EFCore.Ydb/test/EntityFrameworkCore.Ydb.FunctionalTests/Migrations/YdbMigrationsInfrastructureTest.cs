@@ -17,7 +17,7 @@ public class YdbMigrationsInfrastructureTest(YdbMigrationsInfrastructureTest.Ydb
 
         protected override IServiceCollection AddServices(IServiceCollection serviceCollection)
         {
-            serviceCollection.AddScoped<IExecutionStrategyFactory, NonRetryingExecutionStrategyFactory>();
+            YdbTestStoreFactory.Instance.UseYdbExecutionStrategy = false;
             return base.AddServices(serviceCollection);
         }
     }
