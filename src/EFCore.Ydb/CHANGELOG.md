@@ -1,1 +1,4 @@
-- Supported connect to Yandex Cloud
+- Supported migration tools: initial implementation of EF Core migration tool support.
+- Enabled `EntityFrameworkCore.FunctionalTests` for unit and functional testing coverage.
+- Supported connections to Yandex Cloud (YDB Cloud) using standard configuration options.
+- First provider implementation for YDB: basic CRUD, DbContext mapping, and initial LINQ translation functionality.
