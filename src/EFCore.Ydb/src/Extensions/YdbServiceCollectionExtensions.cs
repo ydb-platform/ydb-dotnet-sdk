@@ -59,13 +59,14 @@ public static class YdbServiceCollectionExtensions
             .TryAdd<IQueryCompilationContextFactory, YdbQueryCompilationContextFactory>()
             .TryAddProviderSpecificServices(b => b
                 .TryAddScoped<IYdbRelationalConnection, YdbRelationalConnection>()
-                .TryAddScoped<IDbCommandInterceptor, YdbCommandInterceptor>())
-            .TryAddCoreServices();
+                .TryAddScoped<IDbCommandInterceptor, YdbCommandInterceptor>());
 
         if (useYdbExecutionStrategy)
         {
             entityFrameworkServicesBuilder.TryAdd<IExecutionStrategyFactory, YdbExecutionStrategyFactory>();
         }
+
+        entityFrameworkServicesBuilder.TryAddCoreServices();
 
         return serviceCollection;
     }
