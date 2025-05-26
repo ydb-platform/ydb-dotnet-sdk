@@ -1,5 +1,6 @@
 ﻿using EntityFrameworkCore.Ydb.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 
 await using var db = new BloggingContext();
 
@@ -26,14 +27,35 @@ Console.WriteLine("Delete the blog");
 db.Remove(blog);
 await db.SaveChangesAsync();
 
+internal class BloggingContextFactory : IDesignTimeDbContextFactory<BloggingContext>
+{
+    public BloggingContext CreateDbContext(string[] args)
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<BloggingContext>();
+
+        return new BloggingContext(
+            optionsBuilder.UseYdb("Host=localhost;Port=2136;Database=/local",
+                builder => builder.DisableRetryOnFailure()
+            ).Options
+        );
+    }
+}
+
 internal class BloggingContext : DbContext
 {
+    internal BloggingContext()
+    {
+    }
+
+    internal BloggingContext(DbContextOptions<BloggingContext> options) : base(options)
+    {
+    }
+
     public DbSet<Blog> Blogs { get; set; }
     public DbSet<Post> Posts { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder options)
-        => options.UseYdb("Host=localhost;Port=2136;Database=/local")
-            .LogTo(Console.WriteLine);
+    protected override void OnConfiguring(DbContextOptionsBuilder options) =>
+        options.UseYdb("Host=localhost;Port=2136;Database=/local");
 }
 
 internal class Blog

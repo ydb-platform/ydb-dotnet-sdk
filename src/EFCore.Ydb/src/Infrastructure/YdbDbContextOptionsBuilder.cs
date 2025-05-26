@@ -14,4 +14,7 @@ public class YdbDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilder)
 
     public YdbDbContextOptionsBuilder WithServerCertificates(X509Certificate2Collection? serverCertificates) =>
         WithOption(optionsBuilder => optionsBuilder.WithServerCertificates(serverCertificates));
+    
+    public YdbDbContextOptionsBuilder DisableRetryOnFailure() =>
+        WithOption(optionsBuilder => optionsBuilder.DisableRetryOnFailure());
 }
