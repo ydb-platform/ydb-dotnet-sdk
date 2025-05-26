@@ -17,7 +17,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YC", "YC\YC.csproj", "{753E
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Topic", "Topic\Topic.csproj", "{0FB9A1C2-4B0C-4AE4-9FA2-E0ED37802A6E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EF", "EF\EF.csproj", "{0CE9DF93-1411-4E73-BA88-A66018FAB948}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EntityFrameworkCore.Ydb.QuickStart", "EntityFrameworkCore.Ydb.QuickStart\EntityFrameworkCore.Ydb.QuickStart.csproj", "{0CE9DF93-1411-4E73-BA88-A66018FAB948}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EntityFrameworkCore.Ydb.Yandex.Cloud", "EntityFrameworkCore.Ydb.Yandex.Cloud\EntityFrameworkCore.Ydb.Yandex.Cloud.csproj", "{8F7266C7-75BB-4753-9FB2-BDF4678AF73B}"
 EndProject

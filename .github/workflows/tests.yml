@@ -195,7 +195,11 @@ jobs:
         run: |
           cd ./examples/src/Topic
           dotnet run
-      - name: Run EF example
+      - name: Run Entity Framework Core example
         run: |
-          cd ./examples/src/EF
+          cd ./examples/src/EntityFrameworkCore.Ydb.QuickStart
+          dotnet tool install --global dotnet-ef
+          dotnet add package Microsoft.EntityFrameworkCore.Design
+          dotnet ef migrations add InitialCreate
+          dotnet ef database update
           dotnet run
