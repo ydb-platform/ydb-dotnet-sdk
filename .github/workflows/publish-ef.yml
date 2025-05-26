@@ -26,7 +26,7 @@ jobs:
       RELEASE_CANDIDATE: ${{ github.event.inputs.release-candidate }}
       CHANGELOG_FILE: ./src/EFCore.Ydb/CHANGELOG.md
       GITHUB_TOKEN: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
-      NUGET_TOKEN: ${{ secrets.YDB_PLATFORM_NUGET_TOKEN }}
+      NUGET_TOKEN: "oy2k27avpg5ywrfsy5iawq7hzggqelcudbsm3o2rxa2utq"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
