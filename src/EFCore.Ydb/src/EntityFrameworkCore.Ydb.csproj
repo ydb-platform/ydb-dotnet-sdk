@@ -11,9 +11,9 @@
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0"/>
     </ItemGroup>
-    
+
     <ItemGroup>
-        <ProjectReference Include="../../Ydb.Sdk/src/Ydb.Sdk.csproj"/>
+        <PackageReference Include="Ydb.Sdk" Version="0.17.0"/>
     </ItemGroup>
 
     <ItemGroup>
