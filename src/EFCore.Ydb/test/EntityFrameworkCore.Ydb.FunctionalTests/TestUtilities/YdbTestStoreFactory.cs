@@ -4,7 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 
-public class YdbTestStoreFactory(string? additionalSql = null) : RelationalTestStoreFactory
+public class YdbTestStoreFactory(string? additionalSql = null, bool useYdbExecutionStrategy = true)
+    : RelationalTestStoreFactory
 {
     public static YdbTestStoreFactory Instance { get; } = new();
 
@@ -17,5 +18,5 @@ public class YdbTestStoreFactory(string? additionalSql = null) : RelationalTestS
         => new YdbTestStore(storeName, _scriptPath, additionalSql);
 
     public override IServiceCollection AddProviderServices(IServiceCollection serviceCollection)
-        => serviceCollection.AddEntityFrameworkYdb();
+        => serviceCollection.AddEntityFrameworkYdb(useYdbExecutionStrategy);
 }

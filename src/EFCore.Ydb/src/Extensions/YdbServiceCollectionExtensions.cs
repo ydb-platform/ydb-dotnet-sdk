@@ -22,9 +22,12 @@ namespace EntityFrameworkCore.Ydb.Extensions;
 
 public static class YdbServiceCollectionExtensions
 {
-    public static IServiceCollection AddEntityFrameworkYdb(this IServiceCollection serviceCollection)
+    public static IServiceCollection AddEntityFrameworkYdb(
+        this IServiceCollection serviceCollection,
+        bool useYdbExecutionStrategy = true
+    )
     {
-        new EntityFrameworkYdbServicesBuilder(serviceCollection)
+        var entityFrameworkServicesBuilder = new EntityFrameworkYdbServicesBuilder(serviceCollection)
             .TryAdd<LoggingDefinitions, YdbLoggingDefinitions>()
             .TryAdd<IDatabaseProvider, DatabaseProvider<YdbOptionsExtension>>()
             .TryAdd<IRelationalTypeMappingSource, YdbTypeMappingSource>()
@@ -42,7 +45,6 @@ public static class YdbServiceCollectionExtensions
             .TryAdd<IHistoryRepository, YdbHistoryRepository>()
             .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,
                 YdbQueryableMethodTranslatingExpressionVisitorFactory>()
-            .TryAdd<IExecutionStrategyFactory, YdbExecutionStrategyFactory>()
             .TryAdd<IMethodCallTranslatorProvider, YdbMethodCallTranslatorProvider>()
             .TryAdd<IAggregateMethodCallTranslatorProvider, YdbAggregateMethodCallTranslatorProvider>()
             .TryAdd<IMemberTranslatorProvider, YdbMemberTranslatorProvider>()
@@ -57,8 +59,14 @@ public static class YdbServiceCollectionExtensions
             .TryAdd<IQueryCompilationContextFactory, YdbQueryCompilationContextFactory>()
             .TryAddProviderSpecificServices(b => b
                 .TryAddScoped<IYdbRelationalConnection, YdbRelationalConnection>()
-                .TryAddScoped<IDbCommandInterceptor, YdbCommandInterceptor>())
-            .TryAddCoreServices();
+                .TryAddScoped<IDbCommandInterceptor, YdbCommandInterceptor>());
+
+        if (useYdbExecutionStrategy)
+        {
+            entityFrameworkServicesBuilder.TryAdd<IExecutionStrategyFactory, YdbExecutionStrategyFactory>();
+        }
+
+        entityFrameworkServicesBuilder.TryAddCoreServices();
 
         return serviceCollection;
     }

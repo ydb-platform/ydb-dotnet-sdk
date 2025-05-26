@@ -1,9 +1,7 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Migrations;
@@ -13,13 +11,8 @@ public class YdbMigrationsInfrastructureTest(YdbMigrationsInfrastructureTest.Ydb
 {
     public class YdbMigrationsInfrastructureFixture : MigrationsInfrastructureFixtureBase
     {
-        protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
-
-        protected override IServiceCollection AddServices(IServiceCollection serviceCollection)
-        {
-            serviceCollection.AddScoped<IExecutionStrategyFactory, NonRetryingExecutionStrategyFactory>();
-            return base.AddServices(serviceCollection);
-        }
+        protected override ITestStoreFactory TestStoreFactory =>
+            new YdbTestStoreFactory(useYdbExecutionStrategy: false);
     }
 
     protected override void GiveMeSomeTime(DbContext db)
