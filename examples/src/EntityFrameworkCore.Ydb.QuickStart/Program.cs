@@ -33,6 +33,14 @@ internal class BloggingContextFactory : IDesignTimeDbContextFactory<BloggingCont
     {
         var optionsBuilder = new DbContextOptionsBuilder<BloggingContext>();
 
+        // IMPORTANT!
+        // Disables retries for the migrations context.
+        // Required because migration operations may use suppressed or explicit transactions,
+        // and enabling retries in this case leads to runtime errors with this provider.
+        //
+        // "User transaction is not supported with a TransactionSuppressed migrations or a retrying execution strategy."
+        //
+        // Bottom line: ALWAYS disable retries for design-time/migration contexts to avoid migration failures and errors.
         return new BloggingContext(
             optionsBuilder.UseYdb("Host=localhost;Port=2136;Database=/local",
                 builder => builder.DisableRetryOnFailure()
