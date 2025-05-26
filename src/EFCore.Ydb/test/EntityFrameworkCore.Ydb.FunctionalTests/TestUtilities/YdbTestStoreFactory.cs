@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 public class YdbTestStoreFactory(string? additionalSql = null) : RelationalTestStoreFactory
 {
     public static YdbTestStoreFactory Instance { get; } = new();
-    
+
     private readonly string? _scriptPath = null;
 
     public bool UseYdbExecutionStrategy { get; set; } = true;
