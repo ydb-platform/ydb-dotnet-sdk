@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 
-namespace Section_3.ProjectEF;
+namespace Database.Operations.Tutorial;
 
 internal class HRContextFactory : IDesignTimeDbContextFactory<HRContext>
 {

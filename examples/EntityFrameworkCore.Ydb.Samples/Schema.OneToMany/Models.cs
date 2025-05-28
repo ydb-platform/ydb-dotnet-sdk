@@ -1,4 +1,4 @@
-namespace Section_2.OneToMany;
+namespace Schema.OneToMany;
 
 public class Department
 {
@@ -12,14 +12,14 @@ public class Department
 public class Employee
 {
     public int Id { get; set; }
-    public required string FirstName {  get; set; }
-    public required string LastName {  get; set; }
+    public required string FirstName { get; set; }
+    public required string LastName { get; set; }
     public required decimal Salary { get; set; }
     public required DateTime JoinedDate { get; set; }
-    
+
     // Required foreign key property    
-    public int DepartmentId  {   get; set; } 
+    public int DepartmentId { get; set; }
 
     //  Required reference navigation to parent 
-    public Department Department {  get; set; } = null!;
+    public Department Department { get; set; } = null!;
 }

@@ -5,7 +5,7 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>Section_2.OneToMany</RootNamespace>
+        <RootNamespace>Schema.OneToMany</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

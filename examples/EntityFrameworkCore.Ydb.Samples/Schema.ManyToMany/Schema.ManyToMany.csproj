@@ -5,7 +5,7 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>Section_2.ManyToMany</RootNamespace>
+        <RootNamespace>Schema.ManyToMany</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

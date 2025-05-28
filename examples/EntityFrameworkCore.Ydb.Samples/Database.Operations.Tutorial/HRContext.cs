@@ -3,13 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 
-namespace Section_3.ProjectEF;
+namespace Database.Operations.Tutorial;
 
 public class HRContext : DbContext
 {
     public DbSet<Employee> Employees { get; set; }
-    public DbSet<Department> Departments  { get; set; }
-    public DbSet<EmployeeProfile> EmployeeProfiles  { get; set; }
+    public DbSet<Department> Departments { get; set; }
+    public DbSet<EmployeeProfile> EmployeeProfiles { get; set; }
     public DbSet<Skill> Skills { get; set; }
 
     public HRContext()
@@ -28,9 +28,9 @@ public class HRContext : DbContext
             .Build();
 
         var connectionString = configuration.GetConnectionString("Local");
-        
+
         optionsBuilder.UseYdb(connectionString)
-                      .ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning))
-                      .EnableSensitiveDataLogging();
+            .ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning))
+            .EnableSensitiveDataLogging();
     }
 }

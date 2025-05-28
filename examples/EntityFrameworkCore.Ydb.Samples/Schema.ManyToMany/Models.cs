@@ -1,4 +1,4 @@
-namespace ManyToMany;
+namespace Schema.ManyToMany;
 
 public class Department
 {
@@ -12,17 +12,17 @@ public class Department
 public class Employee
 {
     public int Id { get; set; }
-    public required string FirstName {  get; set; } 
-    public required string LastName {  get; set; }
+    public required string FirstName { get; set; }
+    public required string LastName { get; set; }
     public required decimal Salary { get; set; }
     public required DateTime JoinedDate { get; set; }
-    public int DepartmentId  {   get; set; }
+    public int DepartmentId { get; set; }
 
     // Reference navigation to Department
     public Department Department { get; set; } = null!;
 
     // Reference navigation to EmployeeProfile
-    public EmployeeProfile? Profile  { get; set; }
+    public EmployeeProfile? Profile { get; set; }
 
     // collection navigation to Employee
     public List<Skill> Skills { get; set; } = new();
@@ -30,21 +30,21 @@ public class Employee
 
 public class EmployeeProfile
 {
-    public int Id { get; set;}
-    public string Phone  { get;set;   }
-    public string Email {   get;set;  }
+    public int Id { get; set; }
+    public string Phone { get; set; }
+    public string Email { get; set; }
 
     // Required foreign key property
-    public int EmployeeId { get; set;}
-    
+    public int EmployeeId { get; set; }
+
     // Required reference navigation to Employee
-    public Employee Employee  { get; set;} = null!;
+    public Employee Employee { get; set; } = null!;
 }
 
 public class Skill
 {
-    public int Id  { get; set; }
-    public required string Title  {   get;set;   }
+    public int Id { get; set; }
+    public required string Title { get; set; }
 
     // collection navigation to Employee
     public List<Employee> Employees { get; set; } = new();

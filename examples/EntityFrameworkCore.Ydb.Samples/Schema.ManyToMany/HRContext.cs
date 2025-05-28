@@ -1,12 +1,9 @@
-// using Microsoft.EntityFrameworkCore;
-
 using EntityFrameworkCore.Ydb.Extensions;
-using ManyToMany;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
-namespace Section_2.ManyToMany;
+namespace Schema.ManyToMany;
 
 public class HRContext(DbContextOptions<HRContext> options) : DbContext(options)
 {

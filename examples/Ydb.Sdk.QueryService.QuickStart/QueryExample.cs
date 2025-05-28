@@ -1,6 +1,4 @@
-using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Auth;
 using Ydb.Sdk.Services.Query;
 using Ydb.Sdk.Value;
 

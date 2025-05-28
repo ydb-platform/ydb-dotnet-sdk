@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
-namespace Section_2.OneToMany;
+namespace Schema.OneToMany;
 
 public class HRContext(DbContextOptions<HRContext> options) : DbContext(options)
 {

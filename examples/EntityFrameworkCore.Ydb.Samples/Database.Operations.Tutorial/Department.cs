@@ -1,4 +1,4 @@
-﻿namespace Section_3.ProjectEF;
+﻿namespace Database.Operations.Tutorial;
 
 public class Department
 {

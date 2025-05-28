@@ -1,4 +1,4 @@
-namespace Section_2.OneToOne;
+namespace Schema.OneToOne;
 
 public class Department
 {

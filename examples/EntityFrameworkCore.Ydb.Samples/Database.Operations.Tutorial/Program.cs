@@ -1,10 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Section_3.ProjectEF;
+using Database.Operations.Tutorial;
 
 var orderingActions = new List<Action>
 {
     Action.ReadCsv,
-    Action.Select, 
+    Action.Select,
     Action.OrderBy,
     Action.QueryLinq,
     Action.Where,
@@ -36,7 +36,7 @@ switch (args.Length)
             actions[result](hrContext);
             break;
         }
-    
+
         throw new InvalidOperationException("Not found argument: " + args[0]);
     }
     case 0:
