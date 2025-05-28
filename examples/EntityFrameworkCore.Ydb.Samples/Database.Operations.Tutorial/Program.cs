@@ -438,7 +438,6 @@ static void ReadCSV(HRContext context)
     var employees = new List<Employee>();
     var skills = new List<Skill>();
     var departments = new List<Department>();
-    var profiles = new List<EmployeeProfile>();
 
     using var reader = new StreamReader("data.csv");
 
@@ -484,7 +483,6 @@ static void ReadCSV(HRContext context)
                 Phone = phone,
                 Email = email
             };
-            profiles.Add(profile);
 
             // Create Employee object
             var employee = new Employee
