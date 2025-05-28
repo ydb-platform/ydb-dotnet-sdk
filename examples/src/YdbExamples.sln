@@ -3,23 +3,29 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31205.134
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Common", "Common\Common.csproj", "{59F508A9-5EE0-4A6C-9580-89FC8C6CD4CE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.QueryService.QuickStart", "Ydb.Sdk.QueryService.QuickStart\Ydb.Sdk.QueryService.QuickStart.csproj", "{0BA2CD4F-BF38-4C0D-878B-3D0C2C2970D9}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BasicExample", "BasicExample\BasicExample.csproj", "{9DAD5FF3-B7C2-4A9E-B4B2-A0FBD6097727}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.QuickStart", "Ydb.Sdk.AdoNet.QuickStart\Ydb.Sdk.AdoNet.QuickStart.csproj", "{5030F1BC-E974-46BB-9381-C4356E120D96}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QueryExample", "QueryExample\QueryExample.csproj", "{0BA2CD4F-BF38-4C0D-878B-3D0C2C2970D9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.Dapper.QuickStart", "Ydb.Sdk.AdoNet.Dapper.QuickStart\Ydb.Sdk.AdoNet.Dapper.QuickStart.csproj", "{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdoNet", "AdoNet\AdoNet.csproj", "{5030F1BC-E974-46BB-9381-C4356E120D96}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.Yandex.Cloud", "Ydb.Sdk.AdoNet.Yandex.Cloud\Ydb.Sdk.AdoNet.Yandex.Cloud.csproj", "{753E4F33-CB08-47B9-864F-4CC037B278C4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DapperExample", "DapperExample\DapperExample.csproj", "{AC8F1B10-31EB-4A29-BF35-7F49B06E1FA8}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YC", "YC\YC.csproj", "{753E4F33-CB08-47B9-864F-4CC037B278C4}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Topic", "Topic\Topic.csproj", "{0FB9A1C2-4B0C-4AE4-9FA2-E0ED37802A6E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.Topic.QuickStart", "Ydb.Sdk.Topic.QuickStart\Ydb.Sdk.Topic.QuickStart.csproj", "{0FB9A1C2-4B0C-4AE4-9FA2-E0ED37802A6E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EntityFrameworkCore.Ydb.QuickStart", "EntityFrameworkCore.Ydb.QuickStart\EntityFrameworkCore.Ydb.QuickStart.csproj", "{0CE9DF93-1411-4E73-BA88-A66018FAB948}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EntityFrameworkCore.Ydb.Yandex.Cloud", "EntityFrameworkCore.Ydb.Yandex.Cloud\EntityFrameworkCore.Ydb.Yandex.Cloud.csproj", "{8F7266C7-75BB-4753-9FB2-BDF4678AF73B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AddEntity.Sample", "EntityFrameworkCore.Ydb.Samples\AddEntity.Sample\AddEntity.Sample.csproj", "{CFEC4D14-902F-4E27-9F6C-8E150AE00009}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schema.OneToMany", "EntityFrameworkCore.Ydb.Samples\Schema.OneToMany\Schema.OneToMany.csproj", "{5D8A1318-FD60-4BDD-9DB3-BF050CCC9755}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schema.OneToOne", "EntityFrameworkCore.Ydb.Samples\Schema.OneToOne\Schema.OneToOne.csproj", "{DBCEC1B1-FD84-4F9B-84B9-7BDA749C6DF2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schema.ManyToMany", "EntityFrameworkCore.Ydb.Samples\Schema.ManyToMany\Schema.ManyToMany.csproj", "{08439995-062A-497A-9130-0F6429B0219E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Database.Operations.Tutorial", "EntityFrameworkCore.Ydb.Samples\Database.Operations.Tutorial\Database.Operations.Tutorial.csproj", "{B2B0786F-7545-4717-8D04-26DF9C181607}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,14 +33,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{59F508A9-5EE0-4A6C-9580-89FC8C6CD4CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{59F508A9-5EE0-4A6C-9580-89FC8C6CD4CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{59F508A9-5EE0-4A6C-9580-89FC8C6CD4CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{59F508A9-5EE0-4A6C-9580-89FC8C6CD4CE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9DAD5FF3-B7C2-4A9E-B4B2-A0FBD6097727}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9DAD5FF3-B7C2-4A9E-B4B2-A0FBD6097727}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9DAD5FF3-B7C2-4A9E-B4B2-A0FBD6097727}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9DAD5FF3-B7C2-4A9E-B4B2-A0FBD6097727}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0BA2CD4F-BF38-4C0D-878B-3D0C2C2970D9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0BA2CD4F-BF38-4C0D-878B-3D0C2C2970D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0BA2CD4F-BF38-4C0D-878B-3D0C2C2970D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -63,6 +61,26 @@ Global
 		{8F7266C7-75BB-4753-9FB2-BDF4678AF73B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8F7266C7-75BB-4753-9FB2-BDF4678AF73B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8F7266C7-75BB-4753-9FB2-BDF4678AF73B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CFEC4D14-902F-4E27-9F6C-8E150AE00009}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CFEC4D14-902F-4E27-9F6C-8E150AE00009}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CFEC4D14-902F-4E27-9F6C-8E150AE00009}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CFEC4D14-902F-4E27-9F6C-8E150AE00009}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D8A1318-FD60-4BDD-9DB3-BF050CCC9755}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D8A1318-FD60-4BDD-9DB3-BF050CCC9755}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D8A1318-FD60-4BDD-9DB3-BF050CCC9755}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D8A1318-FD60-4BDD-9DB3-BF050CCC9755}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DBCEC1B1-FD84-4F9B-84B9-7BDA749C6DF2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DBCEC1B1-FD84-4F9B-84B9-7BDA749C6DF2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBCEC1B1-FD84-4F9B-84B9-7BDA749C6DF2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DBCEC1B1-FD84-4F9B-84B9-7BDA749C6DF2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08439995-062A-497A-9130-0F6429B0219E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08439995-062A-497A-9130-0F6429B0219E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08439995-062A-497A-9130-0F6429B0219E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08439995-062A-497A-9130-0F6429B0219E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2B0786F-7545-4717-8D04-26DF9C181607}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2B0786F-7545-4717-8D04-26DF9C181607}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2B0786F-7545-4717-8D04-26DF9C181607}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2B0786F-7545-4717-8D04-26DF9C181607}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
