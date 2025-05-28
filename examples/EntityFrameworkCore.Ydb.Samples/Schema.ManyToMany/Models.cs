@@ -6,7 +6,7 @@ public class Department
     public required string Name { get; set; }
 
     // Collection navigation containing children
-    public ICollection<Employee> Employees { get; set; }
+    public required ICollection<Employee> Employees { get; set; }
 }
 
 public class Employee
@@ -31,8 +31,8 @@ public class Employee
 public class EmployeeProfile
 {
     public int Id { get; set; }
-    public string Phone { get; set; }
-    public string Email { get; set; }
+    public required string Phone { get; set; }
+    public required string Email { get; set; }
 
     // Required foreign key property
     public int EmployeeId { get; set; }

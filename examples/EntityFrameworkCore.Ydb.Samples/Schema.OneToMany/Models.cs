@@ -6,7 +6,7 @@ public class Department
     public required string Name { get; set; }
 
     // Collection navigation containing children
-    public ICollection<Employee> Employees { get; set; }
+    public required ICollection<Employee> Employees { get; set; }
 }
 
 public class Employee

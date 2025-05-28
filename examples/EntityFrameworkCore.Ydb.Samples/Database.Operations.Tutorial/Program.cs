@@ -1,5 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Database.Operations.Tutorial;
+﻿using Database.Operations.Tutorial;
+using Microsoft.EntityFrameworkCore;
 
 var orderingActions = new List<Action>
 {

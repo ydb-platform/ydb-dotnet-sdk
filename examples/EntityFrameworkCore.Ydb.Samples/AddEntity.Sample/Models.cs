@@ -3,7 +3,7 @@ namespace Section_1.HR;
 public class Department
 {
     public int Id { get; set; }
-    public string Name { get; set; }
+    public required string Name { get; set; }
 }
 
 public class Employee

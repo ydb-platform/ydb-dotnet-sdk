@@ -3,10 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 namespace Database.Operations.Tutorial;
 
+// ReSharper disable once UnusedType.Global
 internal class HRContextFactory : IDesignTimeDbContextFactory<HRContext>
 {
     public HRContext CreateDbContext(string[] args)
