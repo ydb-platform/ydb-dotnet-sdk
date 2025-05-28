@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Database.Operations.Tutorial;
 
@@ -30,6 +31,7 @@ public class HRContext : DbContext
         var connectionString = configuration.GetConnectionString("Local");
 
         optionsBuilder.UseYdb(connectionString)
+            .LogTo(Console.WriteLine, new[] { DbLoggerCategory.Database.Command.Name }, LogLevel.Information)
             .ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning))
             .EnableSensitiveDataLogging();
     }
