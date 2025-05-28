@@ -18,7 +18,7 @@ internal class HRContextFactory : IDesignTimeDbContextFactory<HRContext>
             .Build();
 
         var connectionString = configuration.GetConnectionString("Local");
-        
+
         // IMPORTANT!
         // Disables retries for the migrations context.
         // Required because migration operations may use suppressed or explicit transactions,

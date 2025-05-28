@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace YcCloud;
+namespace Ydb.Sdk.AdoNet.Yandex.Cloud;
 
 internal class CmdOptions
 {

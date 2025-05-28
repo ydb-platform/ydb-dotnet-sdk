@@ -1,7 +1,7 @@
 ﻿using CommandLine;
 using Microsoft.Extensions.Logging;
-using YcCloud;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.AdoNet.Yandex.Cloud;
 using Ydb.Sdk.Yc;
 
 await Parser.Default.ParseArguments<CmdOptions>(args).WithParsedAsync(async cmd =>

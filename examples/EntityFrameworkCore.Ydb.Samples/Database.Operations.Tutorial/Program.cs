@@ -60,7 +60,7 @@ static void GroupBy(HRContext context)
             .GroupBy(e => e.Department)
             .Select(group => new
             {
-                Name = group.Key.Name,
+                group.Key.Name,
                 Headcount = group.Count()
             })
             .OrderBy(dc => dc.Name)
@@ -76,7 +76,7 @@ static void GroupBy(HRContext context)
             .GroupBy(e => e.Department)
             .Select(group => new
             {
-                Name = group.Key.Name,
+                group.Key.Name,
                 Headcount = group.Count()
             })
             .Where(group => group.Headcount > 11)

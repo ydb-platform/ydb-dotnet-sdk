@@ -14,7 +14,7 @@ static void InsertDepartments()
     {
         new() { Name = "Sales" },
         new() { Name = "Marketing" },
-        new() { Name = "Logistics" },
+        new() { Name = "Logistics" }
     };
 
     using var context = new HRContext();

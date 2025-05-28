@@ -1,6 +1,6 @@
 using CommandLine;
 
-namespace AdoNet;
+namespace Ydb.Sdk.AdoNet.QuickStart;
 
 internal class CmdOptions
 {

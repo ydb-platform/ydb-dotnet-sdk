@@ -1,9 +1,9 @@
 ﻿using System.Data;
-using AdoNet;
 using CommandLine;
 using Microsoft.Extensions.Logging;
 using Polly;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.AdoNet.QuickStart;
 
 using var factory = LoggerFactory.Create(builder => builder.AddConsole());
 

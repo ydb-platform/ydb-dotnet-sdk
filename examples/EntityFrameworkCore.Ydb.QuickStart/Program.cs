@@ -27,33 +27,6 @@ Console.WriteLine("Delete the blog");
 db.Remove(blog);
 await db.SaveChangesAsync();
 
-var strategy = db.Database.CreateExecutionStrategy();
-await strategy.ExecuteAsync(
-    async () =>
-    {
-        await using var context = new BloggingContext();
-        await using var transaction = await context.Database.BeginTransactionAsync();
-
-        context.Blogs.Add(new Blog { Url = "http://blogs.msdn.com/dotnet" });
-        await context.SaveChangesAsync();
-
-        context.Blogs.Add(new Blog { Url = "http://blogs.msdn.com/visualstudio" });
-        await context.SaveChangesAsync();
-
-        await transaction.CommitAsync();
-    });
-         // await using var context = new BloggingContext();
-         // await using var transaction = await context.Database.BeginTransactionAsync();
-         //
-         // context.Blogs.Add(new Blog { Url = "http://blogs.msdn.com/dotnet" });
-         // await context.SaveChangesAsync();
-         //
-         // context.Blogs.Add(new Blog { Url = "http://blogs.msdn.com/visualstudio" });
-         // await context.SaveChangesAsync();
-         //
-         // await transaction.CommitAsync();
-
-
 internal class BloggingContextFactory : IDesignTimeDbContextFactory<BloggingContext>
 {
     public BloggingContext CreateDbContext(string[] args)
