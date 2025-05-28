@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        solutionPath: ["./src/YdbSdk.sln", "./examples/src/YdbExamples.sln", "./slo/src/src.sln"]
+        solutionPath: ["./src/YdbSdk.sln", "./examples/YdbExamples.sln", "./slo/src/src.sln"]
     runs-on: ubuntu-latest
     name: Inspection
     steps:
