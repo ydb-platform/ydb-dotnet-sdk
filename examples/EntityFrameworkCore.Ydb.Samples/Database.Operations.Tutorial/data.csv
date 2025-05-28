@@ -1,0 +1,61 @@
+﻿First Name,Last Name,Salary,Joined Date,Phone,Email,Department,Skills
+John,Doe,89475,1/15/2023,(415) 555-1234,john.doe@test.com,Sales,Sales Strategy;Client Management
+Jane,Smith,194669,2/10/2023,(408) 555-5678,jane.smith@test.com,Marketing,Market Research;Digital Marketing
+Michael,Johnson,229772,3/5/2023,(650) 555-9876,michael.johnson@test.com,Finance,Financial Analysis;Budgeting
+Emily,Brown,190682,4/20/2023,(213) 555-2468,emily.brown@test.com,Sales,Client Relationship;Sales Planning
+William,Taylor,242917,5/3/2023,(714) 555-1357,william.taylor@test.com,Marketing,Content Creation;Social Media Marketing
+Olivia,Anderson,83995,6/8/2023,(909) 555-7890,olivia.anderson@test.com,Finance,Financial Reporting;Risk Management
+Benjamin,Lee,142247,7/11/2023,(925) 555-3698,benjamin.lee@test.com,Engineering,Software Development;Database Management
+Sophia,Wilson,237992,8/17/2023,(562) 555-2580,sophia.wilson@test.com,Operations,Process Improvement;Supply Chain Management
+Daniel,Clark,218336,9/25/2023,(650) 555-7410,daniel.clark@test.com,Marketing,Market Analysis;Campaign Management
+Isabella,Walker,119856,10/30/2023,(916) 555-9632,isabella.walker@test.com,Finance,Financial Planning;Investment Analysis
+Ethan,Hall,172377,11/12/2023,(818) 555-7531,ethan.hall@test.com,Engineering,Software Engineering;Systems Architecture
+Mia,Lopez,203546,12/5/2023,(619) 555-4876,mia.lopez@test.com,Sales,Sales Operations;Lead Generation
+James,Green,248710,1/1/2023,(408) 555-9517,james.green@test.com,Operations,Logistics Management;Inventory Control
+Ava,Hernandez,190830,2/14/2023,(213) 555-3698,ava.hernandez@test.com,Marketing,Brand Management;Product Launch
+Alexander,Young,97092,3/18/2023,(714) 555-8025,alexander.young@test.com,Finance,Financial Modeling;Cost Analysis
+Charlotte,King,117417,4/22/2023,(925) 555-6479,charlotte.king@test.com,Engineering,Product Design;Quality Assurance
+Logan,Hill,225291,5/27/2023,(562) 555-3216,logan.hill@test.com,Sales,Account Management;Negotiation
+Amelia,Scott,183392,6/30/2023,(650) 555-4567,amelia.scott@test.com,Operations,Process Optimization;Facilities Management
+Daniel,Lewis,103561,7/5/2023,(916) 555-7890,daniel.lewis@test.com,Engineering,Hardware Development;Embedded Systems
+Abigail,Adams,225228,8/9/2023,(818) 555-8524,abigail.adams@test.com,Marketing,Marketing Strategy;Market Segmentation
+Oliver,Allen,161033,9/13/2023,(619) 555-9632,oliver.allen@test.com,Finance,Financial Forecasting;Tax Planning
+Sophia,Lee,248627,10/18/2023,(415) 555-1478,sophia.lee@test.com,Operations,Supply Chain Optimization;Process Automation
+Emily,Harris,208887,11/21/2023,(408) 555-3698,emily.harris@test.com,Sales,Business Development;Key Account Management
+Jacob,Turner,182322,12/25/2023,(213) 555-7531,jacob.turner@test.com,Marketing,SEO;Content Marketing
+Madison,Wright,80164,1/29/2023,(714) 555-2580,madison.wright@test.com,Finance,Financial Compliance;Auditing
+Lucas,Hill,223297,2/23/2023,(925) 555-9517,lucas.hill@test.com,Engineering,Network Engineering;Cloud Computing
+Sofia,Thomas,127653,3/17/2023,(562) 555-3698,sofia.thomas@test.com,Operations,Project Management;Quality Management
+Henry,Lopez,141701,4/10/2023,(650) 555-7410,henry.lopez@test.com,Sales,Inside Sales;Sales Forecasting
+Avery,Adams,82895,5/4/2023,(916) 555-9632,avery.adams@test.com,Marketing,Influencer Marketing;Event Planning
+Alexander,Green,215160,6/28/2023,(818) 555-7890,alexander.green@test.com,Finance,Financial Risk Management;Investment Banking
+Ella,Baker,120032,7/22/2023,(619) 555-4567,ella.baker@test.com,Engineering,Data Science;Machine Learning
+Jackson,Evans,139075,8/16/2023,(415) 555-8025,jackson.evans@test.com,Operations,Continuous Improvement;Lean Manufacturing
+Scarlett,Gonzalez,175443,9/10/2023,(408) 555-3698,scarlett.gonzalez@test.com,Sales,Outside Sales;Sales Presentations
+Aiden,Wright,154326,10/4/2023,(213) 555-9632,aiden.wright@test.com,Marketing,Market Trend Analysis;Brand Development
+Penelope,Lee,230399,11/28/2023,(714) 555-1478,penelope.lee@test.com,Finance,Financial Valuation;Mergers and Acquisitions
+Mason,Hernandez,178930,12/22/2023,(925) 555-3698,mason.hernandez@test.com,Engineering,Software Testing;Quality Assurance
+Lily,Turner,160080,1/16/2023,(562) 555-8524,lily.turner@test.com,Operations,Inventory Management;Supplier Relationship Management
+Liam,Scott,108406,2/9/2023,(650) 555-7410,liam.scott@test.com,Sales,Strategic Account Management;Sales Analytics
+Chloe,Young,248731,3/5/2023,(916) 555-8524,chloe.young@test.com,Marketing,Content Strategy;Social Media Management
+Jacob,Lopez,219674,4/29/2023,(818) 555-2580,jacob.lopez@test.com,Finance,Financial Planning;Financial Reporting
+Grace,Allen,216574,5/23/2023,(619) 555-9517,grace.allen@test.com,Engineering,Software Development;Systems Engineering
+Zoe,Hill,203918,6/17/2023,(415) 555-3698,zoe.hill@test.com,Operations,Logistics Planning;Process Standardization
+Elijah,Harris,184617,7/11/2023,(408) 555-7531,elijah.harris@test.com,Sales,Lead Generation;Account Development
+Aurora,King,230678,8/5/2023,(213) 555-8524,aurora.king@test.com,Marketing,Email Marketing;Digital Advertising
+Carter,Adams,113398,9/29/2023,(714) 555-1478,carter.adams@test.com,Finance,Financial Analysis;Risk Assessment
+Aria,Johnson,191577,10/24/2023,(925) 555-3698,aria.johnson@test.com,Engineering,Hardware Design;Embedded Systems
+Luke,Walker,118605,11/18/2023,(562) 555-7410,luke.walker@test.com,Operations,Process Optimization;Supply Chain Analysis
+Ruby,Thomas,143820,12/12/2023,(650) 555-9632,ruby.thomas@test.com,Sales,Sales Operations;Customer Relationship Management
+Ethan,Brown,219040,1/5/2023,(916) 555-8524,ethan.brown@test.com,Marketing,Market Research;Product Management
+Hannah,Evans,171432,2/28/2023,(818) 555-4567,hannah.evans@test.com,Finance,Financial Forecasting;Budgeting
+Levi,Gonzalez,227072,3/24/2023,(619) 555-7410,levi.gonzalez@test.com,Engineering,Network Security;Database Management
+Nora,Baker,195789,4/18/2023,(415) 555-9632,nora.baker@test.com,Operations,Project Planning;Facilities Planning
+Jack,Wright,157791,5/12/2023,(408) 555-8524,jack.wright@test.com,Sales,Sales Strategy;Negotiation
+Aubrey,Clark,176029,6/5/2023,(213) 555-3698,aubrey.clark@test.com,Marketing,Brand Strategy;Content Creation
+Wyatt,Allen,125464,7/30/2023,(714) 555-7410,wyatt.allen@test.com,Finance,Financial Modeling;Investment Analysis
+Addison,Hill,126447,8/24/2023,(925) 555-8524,addison.hill@test.com,Engineering,Product Design;Quality Assurance
+Harper,Scott,147482,9/17/2023,(562) 555-9632,harper.scott@test.com,Operations,Process Improvement;Supply Chain Management
+Thomas,Lopez,215337,10/11/2023,(650) 555-3698,thomas.lopez@test.com,Sales,Client Relationship;Sales Planning
+Samantha,Green,85362,11/4/2023,(916) 555-7410,samantha.green@test.com,Marketing,Market Analysis;Campaign Management
+Henry,Adams,238372,12/28/2023,(818) 555-8524,henry.adams@test.com,Finance,Financial Planning;Investment Analysis

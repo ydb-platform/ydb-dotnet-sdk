@@ -11,14 +11,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        source-dir: ["./src/", "./examples/src/", "./slo/src/"]
+        source-dir: ["./src/", "./examples/", "./slo/src/"]
         include:
           - source-dir: "./src/"
             solutionFile: "YdbSdk.sln"
-          - source-dir: "./examples/src/"
+          - source-dir: "./examples/"
             solutionFile: "YdbExamples.sln"
           - source-dir: "./slo/src/"
-            solutionFile: "src.sln"            
+            solutionFile: "src.sln"
     name: autoformat check
     runs-on: ubuntu-latest
     steps:
@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        solutionPath: ["./src/YdbSdk.sln", "./examples/src/YdbExamples.sln", "./slo/src/src.sln"]
+        solutionPath: ["./src/YdbSdk.sln", "./examples/YdbExamples.sln", "./slo/src/src.sln"]
     runs-on: ubuntu-latest
     name: Inspection
     steps:
