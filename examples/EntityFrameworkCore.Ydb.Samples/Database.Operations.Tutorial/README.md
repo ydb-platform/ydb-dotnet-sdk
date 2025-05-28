@@ -6,11 +6,24 @@ Based on the [tutorial](https://www.csharptutorial.net/entity-framework-core-tut
 
 ## Running
 
-Run all operations sequentially with:
+1. Set up [YDB local](https://ydb.tech/docs/en/reference/docker/start).
 
-```bash
-dotnet run
-```
+2. Install the EF Core CLI tool and dependencies (if needed):
+    ```bash
+    dotnet tool install --global dotnet-ef
+    dotnet add package Microsoft.EntityFrameworkCore.Design
+    ```
+
+3. Create the database and apply migrations:
+    ```bash
+    dotnet ef migrations add InitialCreate
+    dotnet ef database update
+    ```
+
+4. Run all operations sequentially with:
+    ```bash
+    dotnet run
+    ```
 
 ## Available Operations
 
