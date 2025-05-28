@@ -2,8 +2,6 @@
 
 using Section_1.HR;
 
-await new HRContext().Database.EnsureDeletedAsync();
-
 InsertDepartments();
 SelectDepartments();
 

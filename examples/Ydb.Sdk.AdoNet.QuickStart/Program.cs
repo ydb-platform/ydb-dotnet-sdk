@@ -396,7 +396,7 @@ internal class AppContext
         {
             Host = _cmdOptions.Host,
             Port = _cmdOptions.Port,
-            LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug))
+            LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information))
         };
         await using var ydbConnection = new YdbConnection(connectionStringBuilder);
         await ydbConnection.OpenAsync();

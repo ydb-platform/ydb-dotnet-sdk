@@ -1,0 +1,64 @@
+info: AppContext[0]
+      Start app example
+info: AppContext[0]
+      Created tables
+info: AppContext[0]
+      Loaded data
+info: AppContext[0]
+      Selected rows:
+info: AppContext[0]
+      series_id: 1, season_id: 2, episode_id: 1, air_date: 08/24/2006 00:00:00, title: The Work Outing
+info: AppContext[0]
+      series_id: 1, season_id: 2, episode_id: 2, air_date: 08/31/2007 00:00:00, title: Return of the Golden Child
+info: AppContext[0]
+      series_id: 1, season_id: 2, episode_id: 3, air_date: 09/07/2007 00:00:00, title: Moss and the German
+info: AppContext[0]
+      series_id: 1, season_id: 1, cnt: 6
+info: AppContext[0]
+      series_id: 1, season_id: 2, cnt: 6
+info: AppContext[0]
+      series_id: 1, season_id: 3, cnt: 6
+info: AppContext[0]
+      series_id: 1, season_id: 4, cnt: 6
+info: AppContext[0]
+      series_id: 2, season_id: 1, cnt: 8
+info: AppContext[0]
+      series_id: 2, season_id: 2, cnt: 10
+info: AppContext[0]
+      series_id: 2, season_id: 3, cnt: 10
+info: AppContext[0]
+      series_id: 2, season_id: 4, cnt: 10
+info: AppContext[0]
+      series_id: 2, season_id: 5, cnt: 8
+info: AppContext[0]
+      Creating user with password: [user, password]
+info: AppContext[0]
+      Created user
+info: AppContext[0]
+      Clearing all pools...
+info: AppContext[0]
+      Cleared all pools
+info: AppContext[0]
+      Commit transaction
+info: AppContext[0]
+      New episode title: Test 21
+info: AppContext[0]
+      New episode title: Test 22
+info: AppContext[0]
+      New episode title: Test 21
+info: AppContext[0]
+      Updated episode title: Test Episode
+info: AppContext[0]
+      Tls example was ignored
+info: AppContext[0]
+      Iterate by resultSets: 2
+info: AppContext[0]
+      Iterate by resultSets: 3
+info: Ydb.Sdk.Driver[0]
+      Started initial endpoint discovery
+info: AppContext[0]
+      Dropping tables of examples
+info: AppContext[0]
+      Dropped tables of examples
+info: AppContext[0]
+      Finish app example

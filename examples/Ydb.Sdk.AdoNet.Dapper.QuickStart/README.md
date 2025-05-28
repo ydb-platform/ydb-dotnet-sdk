@@ -6,6 +6,7 @@ Shows how to perform basic database queries and map results to C# objects using 
 ## Running QuickStart
 
 1. Set up [YDB local](https://ydb.tech/docs/en/reference/docker/start).
+
 2. Run the app:
     ```bash
     dotnet run
