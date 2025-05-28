@@ -11,11 +11,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        source-dir: ["./src/", "./examples/src/", "./slo/src/"]
+        source-dir: ["./src/", "./examples", "./slo/src/"]
         include:
           - source-dir: "./src/"
             solutionFile: "YdbSdk.sln"
-          - source-dir: "./examples/src/"
+          - source-dir: "./examples/"
             solutionFile: "YdbExamples.sln"
           - source-dir: "./slo/src/"
             solutionFile: "src.sln"            

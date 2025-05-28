@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\..\src\EFCore.Ydb\src\EntityFrameworkCore.Ydb.csproj" />
+        <ProjectReference Include="..\..\..\src\EFCore.Ydb\src\EntityFrameworkCore.Ydb.csproj" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="7.0.0" />
     </ItemGroup>
 

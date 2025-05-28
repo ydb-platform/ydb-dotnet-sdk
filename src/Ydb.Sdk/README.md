@@ -59,7 +59,7 @@ while (await ydbDataReader.ReadAsync())
 
 ## More examples
 
-- [AdoNet simple guide](./../../examples/src/AdoNet)
-- [AdoNet connect to Yandex Cloud](./../../examples/src/YC)
-- [Dapper example](./../../examples/src/DapperExample)
-- [Topic client](./../../examples/src/Topic)
+- [AdoNet simple guide](./../../examples/Ydb.Sdk.AdoNet.QuickStart)
+- [AdoNet connect to Yandex Cloud](./../../examples/Ydb.Sdk.AdoNet.Yandex.Cloud)
+- [Dapper example](./../../examples/Ydb.Sdk.AdoNet.Dapper.QuickStart)
+- [Topic client](./../../examples/Ydb.Sdk.Topic.QuickStart)

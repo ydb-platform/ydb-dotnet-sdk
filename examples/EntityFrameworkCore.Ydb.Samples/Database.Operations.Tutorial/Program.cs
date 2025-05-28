@@ -177,8 +177,6 @@ static void Like(HRContext context)
         {
             Console.WriteLine($"{e.FirstName} {e.LastName}");
         }
-
-        ;
     }
 }
 

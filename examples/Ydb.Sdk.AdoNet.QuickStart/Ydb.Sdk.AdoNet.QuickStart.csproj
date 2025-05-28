@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\src\Ydb.Sdk\src\Ydb.Sdk.csproj"/>
+        <ProjectReference Include="..\..\src\Ydb.Sdk\src\Ydb.Sdk.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
