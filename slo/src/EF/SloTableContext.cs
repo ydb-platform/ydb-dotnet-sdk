@@ -16,7 +16,7 @@ public class SloTableContext(PooledDbContextFactory<TableDbContext> client) : Sl
     {
         await using var dbContext = await client.CreateDbContextAsync();
         await dbContext.Database.EnsureCreatedAsync();
-        await dbContext.Database.MigrateAsync();
+        await dbContext.Database.ExecuteSqlRawAsync(SloTable.Options);
     }
 
     protected override async Task<(int, StatusCode)> Save(
@@ -47,6 +47,6 @@ public class SloTableContext(PooledDbContextFactory<TableDbContext> client) : Sl
     {
         await using var dbContext = await client.CreateDbContextAsync();
 
-        return await dbContext.Database.SqlQuery<int>($"SELECT COUNT(*) FROM {SloTable.Name}").SingleAsync();
+        return await dbContext.Database.SqlQueryRaw<int>($"SELECT COUNT(*) FROM {SloTable.Name}").SingleAsync();
     }
 }
