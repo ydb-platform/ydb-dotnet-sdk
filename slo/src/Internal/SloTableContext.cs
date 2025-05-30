@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Prometheus;
@@ -24,7 +25,7 @@ public interface ISloContext
     public Task Run(RunConfig runConfig);
 }
 
-public abstract class SloTableContext<T> : ISloContext where T : IDisposable
+public abstract class SloTableContext<T> : ISloContext
 {
     protected static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContext<T>>();
 
@@ -36,33 +37,15 @@ public abstract class SloTableContext<T> : ISloContext where T : IDisposable
     {
         const int maxCreateAttempts = 10;
 
-        using var client = await CreateClient(config);
+        var client = CreateClient(config.ConnectionString);
         for (var attempt = 0; attempt < maxCreateAttempts; attempt++)
         {
-            Logger.LogInformation("Creating table {ResourcePathYdb}..", config.ResourcePathYdb);
+            Logger.LogInformation("Creating table {Name}...", SloTable.Name);
             try
             {
-                var createTableSql = $"""
-                                      CREATE TABLE `{config.ResourcePathYdb}` (
-                                          hash              Uint64,
-                                          id                Int32,
-                                          payload_str       Text,
-                                          payload_double    Double,
-                                          payload_timestamp Timestamp,
-                                          payload_hash      Uint64,
-                                          PRIMARY KEY (hash, id)
-                                      ) WITH (
-                                          AUTO_PARTITIONING_BY_SIZE = ENABLED,
-                                          AUTO_PARTITIONING_BY_LOAD = ENABLED,
-                                          AUTO_PARTITIONING_MIN_PARTITIONS_COUNT = {config.MinPartitionsCount},
-                                          AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = {config.MaxPartitionsCount}
-                                      );
-                                      """;
-                Logger.LogInformation("YQL script: {sql}", createTableSql);
+                await Create(client, config.WriteTimeout);
 
-                await Create(client, createTableSql, config.WriteTimeout);
-
-                Logger.LogInformation("Created table {ResourcePathYdb}", config.ResourcePathYdb);
+                Logger.LogInformation("Created table {Name}", SloTable.Name);
 
                 break;
             }
@@ -82,7 +65,7 @@ public abstract class SloTableContext<T> : ISloContext where T : IDisposable
         var tasks = new Task[config.InitialDataCount];
         for (var i = 0; i < config.InitialDataCount; i++)
         {
-            tasks[i] = Upsert(client, config);
+            tasks[i] = Save(client, config);
         }
 
         try
@@ -99,21 +82,19 @@ public abstract class SloTableContext<T> : ISloContext where T : IDisposable
         }
     }
 
-    protected abstract Task Create(T client, string createTableSql, int operationTimeout);
+    protected abstract Task Create(T client, int operationTimeout);
 
     public async Task Run(RunConfig runConfig)
     {
         // Trace.Listeners.Add(new ConsoleTraceListener()); debug meterPusher
 
         var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
-        var client = await CreateClient(runConfig);
+        var client = CreateClient(runConfig.ConnectionString);
         using var prometheus = new MetricPusher(promPgwEndpoint, "workload-" + Job,
             intervalMilliseconds: runConfig.ReportPeriod);
         prometheus.Start();
 
-        var (_, _, maxId) = await Select(client, $"SELECT MAX(id) as max_id FROM `{runConfig.ResourcePathYdb}`;",
-            new Dictionary<string, YdbValue>(), runConfig.ReadTimeout);
-        _maxId = (int)maxId!;
+        _maxId = await SelectCount(client, $"SELECT MAX(id) as max_id FROM `{SloTable.Name}`;");
 
         Logger.LogInformation("Init row count: {MaxId}", _maxId);
 
@@ -129,7 +110,7 @@ public abstract class SloTableContext<T> : ISloContext where T : IDisposable
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(runConfig.Time));
 
-        var writeTask = ShootingTask(writeLimiter, "write", Upsert);
+        var writeTask = ShootingTask(writeLimiter, "write", Save);
         var readTask = ShootingTask(readLimiter, "read", Select);
 
         Logger.LogInformation("Started write / read shooting..");
@@ -261,55 +242,52 @@ public abstract class SloTableContext<T> : ISloContext where T : IDisposable
     }
 
     // return attempt count & StatusCode operation
-    protected abstract Task<(int, StatusCode)> Upsert(T client, string upsertSql,
-        Dictionary<string, YdbValue> parameters,
-        int writeTimeout, Counter? errorsTotal = null);
+    protected abstract Task<(int, StatusCode)> Save(T client, SloTable sloTable, int writeTimeout,
+        Counter? errorsTotal = null);
 
-    protected abstract Task<(int, StatusCode, object?)> Select(T client, string selectSql,
-        Dictionary<string, YdbValue> parameters, int readTimeout, Counter? errorsTotal = null);
+    protected abstract Task<(int, StatusCode, object?)> Select(T client, dynamic select, int readTimeout,
+        Counter? errorsTotal = null);
 
-    private Task<(int, StatusCode)> Upsert(T client, Config config, Counter? errorsTotal = null)
+    protected abstract Task<int> SelectCount(T client, string sql);
+
+    private Task<(int, StatusCode)> Save(T client, Config config, Counter? errorsTotal = null)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
 
-        return Upsert(client,
-            $"""
-             DECLARE $id AS Int32;
-             DECLARE $payload_str AS Utf8;
-             DECLARE $payload_double AS Double;
-             DECLARE $payload_timestamp AS Timestamp;
-             UPSERT INTO `{config.ResourcePathYdb}` (id, hash, payload_str, payload_double, payload_timestamp)
-             VALUES ($id, Digest::NumericHash($id), $payload_str, $payload_double, $payload_timestamp)
-             """, new Dictionary<string, YdbValue>
-            {
-                { "$id", YdbValue.MakeInt32(Interlocked.Increment(ref _maxId)) },
-                {
-                    "$payload_str", YdbValue.MakeUtf8(string.Join(string.Empty, Enumerable
-                        .Repeat(0, Random.Shared.Next(minSizeStr, maxSizeStr))
-                        .Select(_ => (char)Random.Shared.Next(127))))
-                },
-                { "$payload_double", YdbValue.MakeDouble(Random.Shared.NextDouble()) },
-                { "$payload_timestamp", YdbValue.MakeTimestamp(DateTime.Now) }
-            }, config.WriteTimeout, errorsTotal);
+        var id = Interlocked.Increment(ref _maxId);
+        var sloTable = new SloTable
+        {
+            Guid = GuidFromInt(id),
+            Id = id,
+            PayloadStr = string.Join(string.Empty, Enumerable
+                .Repeat(0, Random.Shared.Next(minSizeStr, maxSizeStr))
+                .Select(_ => (char)Random.Shared.Next(127))),
+            PayloadDouble = Random.Shared.NextDouble(),
+            PayloadTimestamp = DateTime.Now
+        };
+
+        return Save(client, sloTable, config.WriteTimeout, errorsTotal);
     }
 
-    protected abstract Task<T> CreateClient(Config config);
+    protected abstract T CreateClient(string connectionString);
 
     private async Task<(int, StatusCode)> Select(T client, RunConfig config, Counter? errorsTotal = null)
     {
-        var (attempts, code, _) = await Select(client,
-            $"""
-             DECLARE $id AS Int32;
-             SELECT id, payload_str, payload_double, payload_timestamp, payload_hash
-             FROM `{config.ResourcePathYdb}` WHERE id = $id AND hash = Digest::NumericHash($id)
-             """,
-            new Dictionary<string, YdbValue>
-            {
-                { "$id", YdbValue.MakeInt32(Random.Shared.Next(_maxId)) }
-            }, config.ReadTimeout, errorsTotal);
+        var id = Random.Shared.Next(_maxId);
+        var (attempts, code, _) = await Select(client, new { Guid = GuidFromInt(id), Id = id },
+            config.ReadTimeout, errorsTotal);
 
         return (attempts, code);
+    }
+
+    private static Guid GuidFromInt(int value)
+    {
+        var intBytes = BitConverter.GetBytes(value);
+        var hash = SHA1.HashData(intBytes);
+        var guidBytes = new byte[16];
+        Array.Copy(hash, guidBytes, 16);
+        return new Guid(guidBytes);
     }
 }
 

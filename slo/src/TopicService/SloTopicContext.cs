@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using Internal;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Reader;
 using Ydb.Sdk.Services.Topic.Writer;
@@ -19,8 +20,13 @@ public class SloTopicContext : ISloContext
 
     public async Task Create(CreateConfig config)
     {
+        var connectionStringBuilder = new YdbConnectionStringBuilder(config.ConnectionString);
+
         var topicClient = new TopicClient(await Driver.CreateInitialized(
-            new DriverConfig(config.Endpoint, config.Db), ISloContext.Factory)
+            new DriverConfig(
+                $"grpc://{connectionStringBuilder.Host}:{connectionStringBuilder.Port}",
+                connectionStringBuilder.Database
+            ), ISloContext.Factory)
         );
 
         await topicClient.CreateTopic(
@@ -46,9 +52,15 @@ public class SloTopicContext : ISloContext
 
     public async Task Run(RunConfig config)
     {
+        var connectionStringBuilder = new YdbConnectionStringBuilder(config.ConnectionString);
+
         Logger.LogInformation("Started Run topic slo test");
         var driver = await Driver.CreateInitialized(
-            new DriverConfig(config.Endpoint, config.Db), ISloContext.Factory);
+            new DriverConfig(
+                $"grpc://{connectionStringBuilder.Host}:{connectionStringBuilder.Port}",
+                connectionStringBuilder.Database
+            ), ISloContext.Factory
+        );
 
         Logger.LogInformation("Driver is initialized!");
 

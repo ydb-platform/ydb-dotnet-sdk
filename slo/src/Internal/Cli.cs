@@ -4,22 +4,13 @@ namespace Internal;
 
 public static class Cli
 {
-    private static readonly Argument<string> EndpointArgument = new(
-        "endpoint",
-        "YDB endpoint to connect to");
-
-    private static readonly Argument<string> DbArgument = new(
-        "db",
-        "YDB database to connect to");
+    private static readonly Argument<string> ConnectionStringArgument = new(
+        "connectionString",
+        "YDB connection string ADO NET format");
 
     private static readonly Option<string> PromPgwOption = new(
         "--prom-pgw",
         "prometheus push gateway");
-
-    private static readonly Option<string> ResourceYdbPath = new(
-        new[] { "-t", "--resource-ydb-path" },
-        () => "test-resource",
-        "resource ydb path to create\n ");
 
     private static readonly Option<int> WriteTimeoutOption = new(
         "--write-timeout",
@@ -51,16 +42,6 @@ public static class Cli
         () => 600,
         "run time in seconds");
 
-    private static readonly Option<int> MinPartitionsCountOption = new(
-        "--min-partitions-count",
-        () => 5,
-        "minimum amount of partitions in table");
-
-    private static readonly Option<int> MaxPartitionsCountOption = new(
-        "--max-partitions-count",
-        () => 10,
-        "maximum amount of partitions in table");
-
     private static readonly Option<int> InitialDataCountOption = new(
         new[] { "-c", "--initial-data-count" },
         () => 1000,
@@ -70,11 +51,7 @@ public static class Cli
         "create",
         "creates table in database")
     {
-        EndpointArgument,
-        DbArgument,
-        ResourceYdbPath,
-        MinPartitionsCountOption,
-        MaxPartitionsCountOption,
+        ConnectionStringArgument,
         InitialDataCountOption,
         WriteTimeoutOption
     };
@@ -83,9 +60,7 @@ public static class Cli
         "run",
         "runs workload (read and write to table with sets RPS)")
     {
-        EndpointArgument,
-        DbArgument,
-        ResourceYdbPath,
+        ConnectionStringArgument,
         InitialDataCountOption,
         PromPgwOption,
         ReportPeriodOption,
@@ -103,13 +78,28 @@ public static class Cli
 
     public static async Task<int> Run(ISloContext sloContext, string[] args)
     {
-        CreateCommand.SetHandler(async createConfig => { await sloContext.Create(createConfig); },
-            new CreateConfigBinder(EndpointArgument, DbArgument, ResourceYdbPath, MinPartitionsCountOption,
-                MaxPartitionsCountOption, InitialDataCountOption, WriteTimeoutOption));
+        CreateCommand.SetHandler(
+            async createConfig => { await sloContext.Create(createConfig); },
+            new CreateConfigBinder(
+                ConnectionStringArgument,
+                InitialDataCountOption,
+                WriteTimeoutOption
+            )
+        );
 
-        RunCommand.SetHandler(async runConfig => { await sloContext.Run(runConfig); },
-            new RunConfigBinder(EndpointArgument, DbArgument, ResourceYdbPath, PromPgwOption, ReportPeriodOption,
-                ReadRpsOption, ReadTimeoutOption, WriteRpsOption, WriteTimeoutOption, TimeOption));
+        RunCommand.SetHandler(
+            async runConfig => { await sloContext.Run(runConfig); },
+            new RunConfigBinder(
+                ConnectionStringArgument,
+                PromPgwOption,
+                ReportPeriodOption,
+                ReadRpsOption,
+                ReadTimeoutOption,
+                WriteRpsOption,
+                WriteTimeoutOption,
+                TimeOption
+            )
+        );
 
         return await RootCommand.InvokeAsync(args);
     }
