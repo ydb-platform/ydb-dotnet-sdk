@@ -17,7 +17,7 @@ public class SloTable
     public Guid Guid { get; set; }
     public int Id { get; set; }
 
-    public string PayloadStr { get; set; }
+    public required string PayloadStr { get; set; }
     public double PayloadDouble { get; set; }
     public DateTime PayloadTimestamp { get; set; }
 }
