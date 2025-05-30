@@ -11,10 +11,10 @@ await Cli.Run((mode, config) =>
     return mode switch
     {
         CliMode.Create => new SloTableContext(new PooledDbContextFactory<TableDbContext>(
-                new DbContextOptionsBuilder<TableDbContext>()
-                    .UseYdb(config.ConnectionString, builder => builder.DisableRetryOnFailure())
-                    .UseLoggerFactory(ISloContext.Factory)
-                    .Options)),
+            new DbContextOptionsBuilder<TableDbContext>()
+                .UseYdb(config.ConnectionString, builder => builder.DisableRetryOnFailure())
+                .UseLoggerFactory(ISloContext.Factory)
+                .Options)),
         CliMode.Run => new SloTableContext(new PooledDbContextFactory<TableDbContext>(
             new DbContextOptionsBuilder<TableDbContext>()
                 .UseYdb(config.ConnectionString)
