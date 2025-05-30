@@ -8,7 +8,7 @@ using Ydb.Sdk.Ado;
 
 namespace AdoNet;
 
-public class SloTableContext : SloTableContext<YdbDataSource>
+public class SloTableContext(YdbDataSource client) : SloTableContextBase
 {
     private readonly AsyncPolicy _policy = Policy.Handle<YdbException>(exception => exception.IsTransient)
         .WaitAndRetryAsync(10, attempt => TimeSpan.FromMilliseconds(attempt * 10),
@@ -22,7 +22,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
 
     protected override string Job => "AdoNet";
 
-    protected override async Task Create(YdbDataSource client, int operationTimeout)
+    protected override async Task Create(int operationTimeout)
     {
         await using var ydbConnection = await client.OpenConnectionAsync();
         await new YdbCommand(ydbConnection)
@@ -34,15 +34,15 @@ public class SloTableContext : SloTableContext<YdbDataSource>
                                PayloadStr       Text,
                                PayloadDouble    Double,
                                PayloadTimestamp Timestamp,
-                               PRIMARY KEY (hash, id)
-                           )
+                               PRIMARY KEY (Guid, Id)
+                           );
+                           {SloTable.Options}
                            """,
             CommandTimeout = operationTimeout
         }.ExecuteNonQueryAsync();
     }
 
     protected override async Task<(int, StatusCode)> Save(
-        YdbDataSource dataSource,
         SloTable sloTable,
         int writeTimeout,
         Counter? errorsTotal = null
@@ -56,7 +56,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
 
         var policyResult = await _policy.ExecuteAndCaptureAsync(async _ =>
         {
-            await using var ydbConnection = await dataSource.OpenConnectionAsync();
+            await using var ydbConnection = await client.OpenConnectionAsync();
 
             var ydbCommand = new YdbCommand(ydbConnection)
             {
@@ -68,15 +68,35 @@ public class SloTableContext : SloTableContext<YdbDataSource>
                 Parameters =
                 {
                     new YdbParameter
-                        { DbType = DbType.Guid, ParameterName = "Guid", Value = sloTable.Guid },
+                    {
+                        DbType = DbType.Guid,
+                        ParameterName = "Guid",
+                        Value = sloTable.Guid
+                    },
                     new YdbParameter
-                        { DbType = DbType.Int32, ParameterName = "Id", Value = sloTable.Id },
+                    {
+                        DbType = DbType.Int32,
+                        ParameterName = "Id",
+                        Value = sloTable.Id
+                    },
                     new YdbParameter
-                        { DbType = DbType.String, ParameterName = "PayloadStr", Value = sloTable.PayloadStr },
+                    {
+                        DbType = DbType.String,
+                        ParameterName = "PayloadStr",
+                        Value = sloTable.PayloadStr
+                    },
                     new YdbParameter
-                        { DbType = DbType.Double, ParameterName = "PayloadDouble", Value = sloTable.PayloadDouble },
+                    {
+                        DbType = DbType.Double,
+                        ParameterName = "PayloadDouble",
+                        Value = sloTable.PayloadDouble
+                    },
                     new YdbParameter
-                        { DbType = DbType.Guid, ParameterName = "PayloadTimestamp", Value = sloTable.PayloadTimestamp }
+                    {
+                        DbType = DbType.DateTime2,
+                        ParameterName = "PayloadTimestamp",
+                        Value = sloTable.PayloadTimestamp
+                    }
                 }
             };
 
@@ -89,7 +109,6 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     }
 
     protected override async Task<(int, StatusCode, object?)> Select(
-        YdbDataSource dataSource,
         dynamic select,
         int readTimeout,
         Counter? errorsTotal = null
@@ -105,7 +124,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         var policyResult = await _policy.ExecuteAndCaptureAsync(async _ =>
         {
             attempts++;
-            await using var ydbConnection = await dataSource.OpenConnectionAsync();
+            await using var ydbConnection = await client.OpenConnectionAsync();
 
             var ydbCommand = new YdbCommand(ydbConnection)
             {
@@ -127,13 +146,10 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         return (attempts, ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success, policyResult.Result);
     }
 
-    protected override async Task<int> SelectCount(YdbDataSource client, string sql)
+    protected override async Task<int> SelectCount(string sql)
     {
         await using var ydbConnection = await client.OpenConnectionAsync();
 
         return (int)(await new YdbCommand(ydbConnection) { CommandText = sql }.ExecuteScalarAsync())!;
     }
-
-    protected override YdbDataSource CreateClient(string connectionString) =>
-        new(new YdbConnectionStringBuilder(connectionString) { LoggerFactory = ISloContext.Factory });
 }
