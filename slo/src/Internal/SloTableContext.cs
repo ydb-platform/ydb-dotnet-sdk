@@ -91,7 +91,7 @@ public abstract class SloTableContextBase : ISloContext
             intervalMilliseconds: runConfig.ReportPeriod);
         prometheus.Start();
 
-        _maxId = await SelectCount($"SELECT MAX(id) as max_id FROM `{SloTable.Name}`;");
+        _maxId = await SelectCount() + 1;
 
         Logger.LogInformation("Init row count: {MaxId}", _maxId);
 
@@ -110,7 +110,7 @@ public abstract class SloTableContextBase : ISloContext
         var writeTask = ShootingTask(writeLimiter, "write", Save);
         var readTask = ShootingTask(readLimiter, "read", Select);
 
-        Logger.LogInformation("Started write / read shooting..");
+        Logger.LogInformation("Started write / read shooting...");
 
         try
         {
@@ -210,25 +210,32 @@ public abstract class SloTableContextBase : ISloContext
 
                     _ = Task.Run(async () =>
                     {
-                        pendingOperations.Inc();
-                        var sw = Stopwatch.StartNew();
-                        var (attempts, statusCode) = await action(runConfig, errorsTotal);
-                        sw.Stop();
-
-                        retryAttempts.Set(attempts);
-                        operationsTotal.Inc();
-                        pendingOperations.Dec();
-
-                        if (statusCode != StatusCode.Success)
+                        try
                         {
-                            errorsTotal.WithLabels(statusCode.StatusName()).Inc();
-                            operationsFailureTotal.Inc();
-                            operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
+                            pendingOperations.Inc();
+                            var sw = Stopwatch.StartNew();
+                            var (attempts, statusCode) = await action(runConfig, errorsTotal);
+                            sw.Stop();
+
+                            retryAttempts.Set(attempts);
+                            operationsTotal.Inc();
+                            pendingOperations.Dec();
+
+                            if (statusCode != StatusCode.Success)
+                            {
+                                errorsTotal.WithLabels(statusCode.StatusName()).Inc();
+                                operationsFailureTotal.Inc();
+                                operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
+                            }
+                            else
+                            {
+                                operationsSuccessTotal.Inc();
+                                operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
+                            }
                         }
-                        else
+                        catch (Exception e)
                         {
-                            operationsSuccessTotal.Inc();
-                            operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
+                            Console.WriteLine(e);
                         }
                     }, cancellationTokenSource.Token);
                 }
@@ -242,10 +249,10 @@ public abstract class SloTableContextBase : ISloContext
     protected abstract Task<(int, StatusCode)> Save(SloTable sloTable, int writeTimeout,
         Counter? errorsTotal = null);
 
-    protected abstract Task<(int, StatusCode, object?)> Select(dynamic select, int readTimeout,
+    protected abstract Task<(int, StatusCode, object?)> Select((Guid Guid, int Id) select, int readTimeout,
         Counter? errorsTotal = null);
 
-    protected abstract Task<int> SelectCount(string sql);
+    protected abstract Task<int> SelectCount();
 
     private Task<(int, StatusCode)> Save(Config config, Counter? errorsTotal = null)
     {
@@ -271,7 +278,7 @@ public abstract class SloTableContextBase : ISloContext
     {
         var id = Random.Shared.Next(_maxId);
         var (attempts, code, _) =
-            await Select(new { Guid = GuidFromInt(id), Id = id }, config.ReadTimeout, errorsTotal);
+            await Select(new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout, errorsTotal);
 
         return (attempts, code);
     }

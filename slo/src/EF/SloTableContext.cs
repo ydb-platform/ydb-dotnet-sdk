@@ -32,7 +32,7 @@ public class SloTableContext(PooledDbContextFactory<TableDbContext> client) : Sl
     }
 
     protected override async Task<(int, StatusCode, object?)> Select(
-        dynamic select,
+        (Guid Guid, int Id) select,
         int readTimeout,
         Counter? errorsTotal = null
     )
@@ -43,10 +43,10 @@ public class SloTableContext(PooledDbContextFactory<TableDbContext> client) : Sl
         return (0, StatusCode.Success, null);
     }
 
-    protected override async Task<int> SelectCount(string sql)
+    protected override async Task<int> SelectCount()
     {
         await using var dbContext = await client.CreateDbContextAsync();
 
-        return await dbContext.Database.SqlQueryRaw<int>($"SELECT COUNT(*) FROM {SloTable.Name}").SingleAsync();
+        return await dbContext.SloEntities.CountAsync();
     }
 }

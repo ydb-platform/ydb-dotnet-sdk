@@ -109,7 +109,7 @@ public class SloTableContext(YdbDataSource client) : SloTableContextBase
     }
 
     protected override async Task<(int, StatusCode, object?)> Select(
-        dynamic select,
+        (Guid Guid, int Id) select,
         int readTimeout,
         Counter? errorsTotal = null
     )
@@ -146,10 +146,10 @@ public class SloTableContext(YdbDataSource client) : SloTableContextBase
         return (attempts, ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success, policyResult.Result);
     }
 
-    protected override async Task<int> SelectCount(string sql)
+    protected override async Task<int> SelectCount()
     {
         await using var ydbConnection = await client.OpenConnectionAsync();
 
-        return (int)(await new YdbCommand(ydbConnection) { CommandText = sql }.ExecuteScalarAsync())!;
+        return (int)(await new YdbCommand(ydbConnection) { CommandText = $"SELECT MAX(Id) FROM {SloTable.Name}" }.ExecuteScalarAsync())!;
     }
 }

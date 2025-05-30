@@ -18,7 +18,6 @@ await Cli.Run((mode, config) =>
         CliMode.Run => new SloTableContext(new PooledDbContextFactory<TableDbContext>(
             new DbContextOptionsBuilder<TableDbContext>()
                 .UseYdb(config.ConnectionString)
-                .UseLoggerFactory(ISloContext.Factory)
                 .Options)),
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
     };
