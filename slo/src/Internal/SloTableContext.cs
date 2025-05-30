@@ -19,29 +19,32 @@ public interface ISloContext
         });
 
 
-    public Task Create(CreateConfig config);
+    public Task Create(CreateConfig createConfig);
 
     public Task Run(RunConfig runConfig);
 }
 
-public abstract class SloTableContextBase : ISloContext
+public abstract class SloTableContext<T> : ISloContext
 {
-    protected static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContextBase>();
+    protected static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContext<T>>();
 
     private volatile int _maxId;
 
     protected abstract string Job { get; }
 
-    public async Task Create(CreateConfig config)
+    protected abstract T CreateClient(Config config);
+
+    public async Task Create(CreateConfig createConfig)
     {
         const int maxCreateAttempts = 10;
+        var client = CreateClient(createConfig);
 
         for (var attempt = 0; attempt < maxCreateAttempts; attempt++)
         {
             Logger.LogInformation("Creating table {Name}...", SloTable.Name);
             try
             {
-                await Create(config.WriteTimeout);
+                await Create(client, createConfig.WriteTimeout);
 
                 Logger.LogInformation("Created table {Name}", SloTable.Name);
 
@@ -60,10 +63,10 @@ public abstract class SloTableContextBase : ISloContext
             }
         }
 
-        var tasks = new Task[config.InitialDataCount];
-        for (var i = 0; i < config.InitialDataCount; i++)
+        var tasks = new Task[createConfig.InitialDataCount];
+        for (var i = 0; i < createConfig.InitialDataCount; i++)
         {
-            tasks[i] = Save(config);
+            tasks[i] = Save(client, createConfig);
         }
 
         try
@@ -80,7 +83,7 @@ public abstract class SloTableContextBase : ISloContext
         }
     }
 
-    protected abstract Task Create(int operationTimeout);
+    protected abstract Task Create(T client, int operationTimeout);
 
     public async Task Run(RunConfig runConfig)
     {
@@ -91,7 +94,9 @@ public abstract class SloTableContextBase : ISloContext
             intervalMilliseconds: runConfig.ReportPeriod);
         prometheus.Start();
 
-        _maxId = await SelectCount() + 1;
+        var client = CreateClient(runConfig);
+
+        _maxId = await SelectCount(client) + 1;
 
         Logger.LogInformation("Init row count: {MaxId}", _maxId);
 
@@ -127,7 +132,7 @@ public abstract class SloTableContextBase : ISloContext
         return;
 
         Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
-            Func<RunConfig, Counter?, Task<(int, StatusCode)>> action)
+            Func<T, RunConfig, Counter?, Task<(int, StatusCode)>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
                 {
@@ -214,7 +219,7 @@ public abstract class SloTableContextBase : ISloContext
                         {
                             pendingOperations.Inc();
                             var sw = Stopwatch.StartNew();
-                            var (attempts, statusCode) = await action(runConfig, errorsTotal);
+                            var (attempts, statusCode) = await action(client, runConfig, errorsTotal);
                             sw.Stop();
 
                             retryAttempts.Set(attempts);
@@ -235,7 +240,7 @@ public abstract class SloTableContextBase : ISloContext
                         }
                         catch (Exception e)
                         {
-                            Console.WriteLine(e);
+                            Logger.LogError(e, "Fail operation!");
                         }
                     }, cancellationTokenSource.Token);
                 }
@@ -246,15 +251,15 @@ public abstract class SloTableContextBase : ISloContext
     }
 
     // return attempt count & StatusCode operation
-    protected abstract Task<(int, StatusCode)> Save(SloTable sloTable, int writeTimeout,
+    protected abstract Task<(int, StatusCode)> Save(T client, SloTable sloTable, int writeTimeout,
         Counter? errorsTotal = null);
 
-    protected abstract Task<(int, StatusCode, object?)> Select((Guid Guid, int Id) select, int readTimeout,
+    protected abstract Task<(int, StatusCode, object?)> Select(T client, (Guid Guid, int Id) select, int readTimeout,
         Counter? errorsTotal = null);
 
-    protected abstract Task<int> SelectCount();
+    protected abstract Task<int> SelectCount(T client);
 
-    private Task<(int, StatusCode)> Save(Config config, Counter? errorsTotal = null)
+    private Task<(int, StatusCode)> Save(T client, Config config, Counter? errorsTotal = null)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
@@ -271,14 +276,14 @@ public abstract class SloTableContextBase : ISloContext
             PayloadTimestamp = DateTime.Now
         };
 
-        return Save(sloTable, config.WriteTimeout, errorsTotal);
+        return Save(client, sloTable, config.WriteTimeout, errorsTotal);
     }
 
-    private async Task<(int, StatusCode)> Select(RunConfig config, Counter? errorsTotal = null)
+    private async Task<(int, StatusCode)> Select(T client, RunConfig config, Counter? errorsTotal = null)
     {
         var id = Random.Shared.Next(_maxId);
         var (attempts, code, _) =
-            await Select(new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout, errorsTotal);
+            await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout, errorsTotal);
 
         return (attempts, code);
     }

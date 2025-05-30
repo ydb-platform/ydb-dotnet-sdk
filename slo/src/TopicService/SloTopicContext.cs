@@ -18,9 +18,9 @@ public class SloTopicContext : ISloContext
 
     private static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTopicContext>();
 
-    public async Task Create(CreateConfig config)
+    public async Task Create(CreateConfig createConfig)
     {
-        var connectionStringBuilder = new YdbConnectionStringBuilder(config.ConnectionString);
+        var connectionStringBuilder = new YdbConnectionStringBuilder(createConfig.ConnectionString);
 
         var topicClient = new TopicClient(await Driver.CreateInitialized(
             new DriverConfig(

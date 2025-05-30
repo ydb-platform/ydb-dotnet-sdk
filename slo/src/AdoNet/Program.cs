@@ -2,7 +2,5 @@
 
 using AdoNet;
 using Internal;
-using Ydb.Sdk.Ado;
 
-await Cli.Run((_, config) => new SloTableContext(new YdbDataSource(
-    new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory })), args);
+await Cli.Run(new SloTableContext(), args);

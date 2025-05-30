@@ -76,10 +76,10 @@ public static class Cli
         CreateCommand, RunCommand
     };
 
-    public static async Task<int> Run(Func<CliMode, Config, ISloContext> sloContext, string[] args)
+    public static async Task<int> Run(ISloContext sloContext, string[] args)
     {
         CreateCommand.SetHandler(
-            async createConfig => { await sloContext.Invoke(CliMode.Create, createConfig).Create(createConfig); },
+            async createConfig => { await sloContext.Create(createConfig); },
             new CreateConfigBinder(
                 ConnectionStringArgument,
                 InitialDataCountOption,
@@ -88,7 +88,7 @@ public static class Cli
         );
 
         RunCommand.SetHandler(
-            async runConfig => { await sloContext.Invoke(CliMode.Run, runConfig).Run(runConfig); },
+            async runConfig => { await sloContext.Run(runConfig); },
             new RunConfigBinder(
                 ConnectionStringArgument,
                 PromPgwOption,
@@ -103,10 +103,4 @@ public static class Cli
 
         return await RootCommand.InvokeAsync(args);
     }
-}
-
-public enum CliMode
-{
-    Create,
-    Run
 }

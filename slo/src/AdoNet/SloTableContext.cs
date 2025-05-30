@@ -8,7 +8,7 @@ using Ydb.Sdk.Ado;
 
 namespace AdoNet;
 
-public class SloTableContext(YdbDataSource client) : SloTableContextBase
+public class SloTableContext : SloTableContext<YdbDataSource>
 {
     private readonly AsyncPolicy _policy = Policy.Handle<YdbException>(exception => exception.IsTransient)
         .WaitAndRetryAsync(10, attempt => TimeSpan.FromMilliseconds(attempt * 10),
@@ -22,7 +22,11 @@ public class SloTableContext(YdbDataSource client) : SloTableContextBase
 
     protected override string Job => "AdoNet";
 
-    protected override async Task Create(int operationTimeout)
+    protected override YdbDataSource CreateClient(Config config) => new(
+        new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
+    );
+
+    protected override async Task Create(YdbDataSource client, int operationTimeout)
     {
         await using var ydbConnection = await client.OpenConnectionAsync();
         await new YdbCommand(ydbConnection)
@@ -43,6 +47,7 @@ public class SloTableContext(YdbDataSource client) : SloTableContextBase
     }
 
     protected override async Task<(int, StatusCode)> Save(
+        YdbDataSource client,
         SloTable sloTable,
         int writeTimeout,
         Counter? errorsTotal = null
@@ -109,6 +114,7 @@ public class SloTableContext(YdbDataSource client) : SloTableContextBase
     }
 
     protected override async Task<(int, StatusCode, object?)> Select(
+        YdbDataSource client,
         (Guid Guid, int Id) select,
         int readTimeout,
         Counter? errorsTotal = null
@@ -146,10 +152,11 @@ public class SloTableContext(YdbDataSource client) : SloTableContextBase
         return (attempts, ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success, policyResult.Result);
     }
 
-    protected override async Task<int> SelectCount()
+    protected override async Task<int> SelectCount(YdbDataSource client)
     {
         await using var ydbConnection = await client.OpenConnectionAsync();
 
-        return (int)(await new YdbCommand(ydbConnection) { CommandText = $"SELECT MAX(Id) FROM {SloTable.Name}" }.ExecuteScalarAsync())!;
+        return (int)(await new YdbCommand(ydbConnection) { CommandText = $"SELECT MAX(Id) FROM {SloTable.Name}" }
+            .ExecuteScalarAsync())!;
     }
 }
