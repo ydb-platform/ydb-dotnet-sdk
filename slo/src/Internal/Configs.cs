@@ -1,24 +1,18 @@
 namespace Internal;
 
 public record CreateConfig(
-    string Endpoint,
-    string Db,
-    string ResourcePathYdb,
-    int MinPartitionsCount,
-    int MaxPartitionsCount,
+    string ConnectionString,
     int InitialDataCount,
-    int WriteTimeout) : Config(Endpoint, Db, ResourcePathYdb, WriteTimeout);
+    int WriteTimeout) : Config(ConnectionString, WriteTimeout);
 
 public record RunConfig(
-    string Endpoint,
-    string Db,
-    string ResourcePathYdb,
+    string ConnectionString,
     string PromPgw,
     int ReportPeriod,
     int ReadRps,
     int ReadTimeout,
     int WriteRps,
     int WriteTimeout,
-    int Time) : Config(Endpoint, Db, ResourcePathYdb, WriteTimeout);
+    int Time) : Config(ConnectionString, WriteTimeout);
 
-public record Config(string Endpoint, string Db, string ResourcePathYdb, int WriteTimeout);
+public record Config(string ConnectionString, int WriteTimeout);

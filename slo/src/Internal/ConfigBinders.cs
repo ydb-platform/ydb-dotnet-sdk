@@ -4,45 +4,33 @@ using System.CommandLine.Binding;
 namespace Internal;
 
 public class CreateConfigBinder(
-    Argument<string> endpointArgument,
-    Argument<string> dbArgument,
-    Option<string> resourceYdbPath,
-    Option<int> minPartitionsCountOption,
-    Option<int> maxPartitionsCountOption,
+    Argument<string> connectionString,
     Option<int> initialDataCountOption,
-    Option<int> writeTimeoutOption)
-    : BinderBase<CreateConfig>
+    Option<int> writeTimeoutOption
+) : BinderBase<CreateConfig>
 {
     protected override CreateConfig GetBoundValue(BindingContext bindingContext) =>
         new(
-            bindingContext.ParseResult.GetValueForArgument(endpointArgument),
-            bindingContext.ParseResult.GetValueForArgument(dbArgument),
-            bindingContext.ParseResult.GetValueForOption(resourceYdbPath)!,
-            bindingContext.ParseResult.GetValueForOption(minPartitionsCountOption),
-            bindingContext.ParseResult.GetValueForOption(maxPartitionsCountOption),
+            bindingContext.ParseResult.GetValueForArgument(connectionString),
             bindingContext.ParseResult.GetValueForOption(initialDataCountOption),
             bindingContext.ParseResult.GetValueForOption(writeTimeoutOption)
         );
 }
 
 internal class RunConfigBinder(
-    Argument<string> endpointArgument,
-    Argument<string> dbArgument,
-    Option<string> resourceYdbPath,
+    Argument<string> connectionString,
     Option<string> promPgwOption,
     Option<int> reportPeriodOption,
     Option<int> readRpsOption,
     Option<int> readTimeoutOption,
     Option<int> writeRpsOption,
     Option<int> writeTimeoutOption,
-    Option<int> timeOption)
-    : BinderBase<RunConfig>
+    Option<int> timeOption
+) : BinderBase<RunConfig>
 {
     protected override RunConfig GetBoundValue(BindingContext bindingContext) =>
         new(
-            bindingContext.ParseResult.GetValueForArgument(endpointArgument),
-            bindingContext.ParseResult.GetValueForArgument(dbArgument),
-            bindingContext.ParseResult.GetValueForOption(resourceYdbPath)!,
+            bindingContext.ParseResult.GetValueForArgument(connectionString),
             bindingContext.ParseResult.GetValueForOption(promPgwOption)!,
             bindingContext.ParseResult.GetValueForOption(reportPeriodOption),
             bindingContext.ParseResult.GetValueForOption(readRpsOption),

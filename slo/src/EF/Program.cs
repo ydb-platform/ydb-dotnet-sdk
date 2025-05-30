@@ -1,6 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
+using EF;
 using Internal;
-using TableService;
 
-return await Cli.Run(new SloTableContext(), args);
+await Cli.Run(new SloTableContext(), args);
