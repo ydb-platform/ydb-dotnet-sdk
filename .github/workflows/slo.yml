@@ -47,7 +47,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Initialize YDB SLO
-        uses: ydb-platform/ydb-slo-action/init@9eab163aa60ea7dd9ba8fa5c31dace5da5e7637a
+        uses: ydb-platform/ydb-slo-action/init@978d413d872a70b777e70638b4f5494e25af7f24
         with:
           github_pull_request_number: ${{ github.event.inputs.github_pull_request_number }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
