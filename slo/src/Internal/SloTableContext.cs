@@ -132,7 +132,7 @@ public abstract class SloTableContext<T> : ISloContext
         return;
 
         Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
-            Func<T, RunConfig, Counter?, Task<(int, StatusCode)>> action)
+            Func<T, RunConfig, Task<(int, StatusCode)>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
                 {
@@ -219,7 +219,7 @@ public abstract class SloTableContext<T> : ISloContext
                         {
                             pendingOperations.Inc();
                             var sw = Stopwatch.StartNew();
-                            var (attempts, statusCode) = await action(client, runConfig, errorsTotal);
+                            var (attempts, statusCode) = await action(client, runConfig);
                             sw.Stop();
 
                             retryAttempts.Set(attempts);
@@ -251,15 +251,13 @@ public abstract class SloTableContext<T> : ISloContext
     }
 
     // return attempt count & StatusCode operation
-    protected abstract Task<(int, StatusCode)> Save(T client, SloTable sloTable, int writeTimeout,
-        Counter? errorsTotal = null);
+    protected abstract Task<(int, StatusCode)> Save(T client, SloTable sloTable, int writeTimeout);
 
-    protected abstract Task<(int, StatusCode, object?)> Select(T client, (Guid Guid, int Id) select, int readTimeout,
-        Counter? errorsTotal = null);
+    protected abstract Task<(int, StatusCode, object?)> Select(T client, (Guid Guid, int Id) select, int readTimeout);
 
     protected abstract Task<int> SelectCount(T client);
 
-    private Task<(int, StatusCode)> Save(T client, Config config, Counter? errorsTotal = null)
+    private Task<(int, StatusCode)> Save(T client, Config config)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
@@ -276,14 +274,14 @@ public abstract class SloTableContext<T> : ISloContext
             PayloadTimestamp = DateTime.Now
         };
 
-        return Save(client, sloTable, config.WriteTimeout, errorsTotal);
+        return Save(client, sloTable, config.WriteTimeout);
     }
 
-    private async Task<(int, StatusCode)> Select(T client, RunConfig config, Counter? errorsTotal = null)
+    private async Task<(int, StatusCode)> Select(T client, RunConfig config)
     {
         var id = Random.Shared.Next(_maxId);
         var (attempts, code, _) =
-            await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout, errorsTotal);
+            await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);
 
         return (attempts, code);
     }

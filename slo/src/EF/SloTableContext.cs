@@ -2,7 +2,6 @@ using EntityFrameworkCore.Ydb.Extensions;
 using Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Prometheus;
 using Ydb.Sdk;
 
 namespace EF;
@@ -27,8 +26,8 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
     protected override async Task<(int, StatusCode)> Save(
         PooledDbContextFactory<TableDbContext> client,
         SloTable sloTable,
-        int writeTimeout,
-        Counter? errorsTotal = null)
+        int writeTimeout
+    )
     {
         await using var dbContext = await client.CreateDbContextAsync();
         dbContext.SloEntities.Add(sloTable);
@@ -40,8 +39,7 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
     protected override async Task<(int, StatusCode, object?)> Select(
         PooledDbContextFactory<TableDbContext> client,
         (Guid Guid, int Id) select,
-        int readTimeout,
-        Counter? errorsTotal = null
+        int readTimeout
     )
     {
         await using var dbContext = await client.CreateDbContextAsync();
