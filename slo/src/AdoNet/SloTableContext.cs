@@ -33,7 +33,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         {
             CommandText = $"""
                            CREATE TABLE `{SloTable.Name}` (
-                               Guid             UUID,
+                               Guid             Uuid,
                                Id               Int32,
                                PayloadStr       Text,
                                PayloadDouble    Double,
