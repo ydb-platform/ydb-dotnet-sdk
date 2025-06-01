@@ -17,7 +17,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
                 var errorsTotal = (Counter)context["errorsTotal"];
 
                 Logger.LogWarning(e, "Failed read / write operation");
-                errorsTotal?.WithLabels(((YdbException)e).Code.StatusName(), "retried").Inc();
+                errorsTotal?.WithLabels(((YdbException)e).Code.StatusName()).Inc();
             });
 
     protected override string Job => "AdoNet";
@@ -66,7 +66,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
             var ydbCommand = new YdbCommand(ydbConnection)
             {
                 CommandText = $"""
-                               INSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
+                               UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
                                VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)
                                """,
                 CommandTimeout = writeTimeout,
