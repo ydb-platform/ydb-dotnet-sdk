@@ -60,7 +60,7 @@ public class YdbConnectionStringBuilderTests
                      "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
                      "EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-                     "DisableDiscovery=true", connectionString.ConnectionString);
+                     "DisableDiscovery=True", connectionString.ConnectionString);
         Assert.True(connectionString.DisableDiscovery);
     }
 
