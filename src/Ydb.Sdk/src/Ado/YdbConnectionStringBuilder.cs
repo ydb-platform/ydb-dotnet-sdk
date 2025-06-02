@@ -2,7 +2,9 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Transport;
 
 namespace Ydb.Sdk.Ado;
 
@@ -32,6 +34,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _enableMultipleHttp2Connections = false;
         _maxSendMessageSize = GrpcDefaultSettings.MaxSendMessageSize;
         _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
+        _disableDiscovery = false;
     }
 
     public string Host
@@ -213,6 +216,18 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private int _maxReceiveMessageSize;
 
+    public bool DisableDiscovery
+    {
+        get => _disableDiscovery;
+        set
+        {
+            _disableDiscovery = value;
+            SaveValue(nameof(DisableDiscovery), value);
+        }
+    }
+
+    private bool _disableDiscovery;
+
     public ILoggerFactory? LoggerFactory { get; init; }
 
     public ICredentialsProvider? CredentialsProvider { get; init; }
@@ -257,33 +272,34 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private string Endpoint => $"{(UseTls ? "grpcs" : "grpc")}://{Host}:{Port}";
 
-    internal Task<Driver> BuildDriver()
+    internal async Task<IDriver> BuildDriver()
     {
         var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
+        var driverConfig = new DriverConfig(
+            endpoint: Endpoint,
+            database: Database,
+            credentials: CredentialsProvider,
+            customServerCertificate: cert,
+            customServerCertificates: ServerCertificates
+        )
+        {
+            KeepAlivePingDelay = KeepAlivePingDelay == 0
+                ? Timeout.InfiniteTimeSpan
+                : TimeSpan.FromSeconds(KeepAlivePingDelay),
+            KeepAlivePingTimeout = KeepAlivePingTimeout == 0
+                ? Timeout.InfiniteTimeSpan
+                : TimeSpan.FromSeconds(KeepAlivePingTimeout),
+            User = User,
+            Password = Password,
+            EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
+            MaxSendMessageSize = MaxSendMessageSize,
+            MaxReceiveMessageSize = MaxReceiveMessageSize
+        };
+        var loggerFactory = LoggerFactory ?? NullLoggerFactory.Instance;
 
-        return Driver.CreateInitialized(
-            new DriverConfig(
-                endpoint: Endpoint,
-                database: Database,
-                credentials: CredentialsProvider,
-                customServerCertificate: cert,
-                customServerCertificates: ServerCertificates
-            )
-            {
-                KeepAlivePingDelay = KeepAlivePingDelay == 0
-                    ? Timeout.InfiniteTimeSpan
-                    : TimeSpan.FromSeconds(KeepAlivePingDelay),
-                KeepAlivePingTimeout = KeepAlivePingTimeout == 0
-                    ? Timeout.InfiniteTimeSpan
-                    : TimeSpan.FromSeconds(KeepAlivePingTimeout),
-                User = User,
-                Password = Password,
-                EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
-                MaxSendMessageSize = MaxSendMessageSize,
-                MaxReceiveMessageSize = MaxReceiveMessageSize
-            },
-            LoggerFactory
-        );
+        return DisableDiscovery
+            ? new DirectGrpcChannelDriver(driverConfig, loggerFactory)
+            : await Driver.CreateInitialized(driverConfig, loggerFactory);
     }
 
     public override void Clear()
@@ -369,6 +385,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, maxReceiveMessageSize) =>
                     builder.MaxReceiveMessageSize = maxReceiveMessageSize),
                 "MaxReceiveMessageSize", "Max Receive Message Size");
+            AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, disableDiscovery) =>
+                builder.DisableDiscovery = disableDiscovery), "DisableDiscovery", "Disable Discovery");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)

@@ -6,11 +6,11 @@ using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Transport;
 
-internal class AuthGrpcChannelDriver : BaseDriver
+internal class DirectGrpcChannelDriver : BaseDriver
 {
     private readonly GrpcChannel _channel;
 
-    public AuthGrpcChannelDriver(
+    public DirectGrpcChannelDriver(
         DriverConfig driverConfig,
         GrpcChannelFactory grpcChannelFactory,
         ILoggerFactory loggerFactory
@@ -19,9 +19,14 @@ internal class AuthGrpcChannelDriver : BaseDriver
             endpoint: driverConfig.Endpoint,
             database: driverConfig.Database,
             customServerCertificates: driverConfig.CustomServerCertificates
-        ), loggerFactory, loggerFactory.CreateLogger<AuthGrpcChannelDriver>())
+        ), loggerFactory, loggerFactory.CreateLogger<DirectGrpcChannelDriver>())
     {
         _channel = grpcChannelFactory.CreateChannel(Config.Endpoint);
+    }
+
+    public DirectGrpcChannelDriver(DriverConfig driverConfig, ILoggerFactory loggerFactory) : 
+        this(driverConfig, new GrpcChannelFactory(loggerFactory, driverConfig), loggerFactory)
+    {
     }
 
     protected override (string, GrpcChannel) GetChannel(long nodeId) => (Config.Endpoint, _channel);
