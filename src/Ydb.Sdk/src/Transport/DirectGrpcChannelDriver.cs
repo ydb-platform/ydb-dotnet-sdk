@@ -6,11 +6,11 @@ using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Transport;
 
-internal class DirectGrpcChannelDriver : BaseDriver
+public class DirectGrpcChannelDriver : BaseDriver
 {
     private readonly GrpcChannel _channel;
 
-    public DirectGrpcChannelDriver(
+    internal DirectGrpcChannelDriver(
         DriverConfig driverConfig,
         GrpcChannelFactory grpcChannelFactory,
         ILoggerFactory loggerFactory
@@ -24,7 +24,7 @@ internal class DirectGrpcChannelDriver : BaseDriver
         _channel = grpcChannelFactory.CreateChannel(Config.Endpoint);
     }
 
-    public DirectGrpcChannelDriver(DriverConfig driverConfig, ILoggerFactory loggerFactory) : 
+    public DirectGrpcChannelDriver(DriverConfig driverConfig, ILoggerFactory loggerFactory) :
         this(driverConfig, new GrpcChannelFactory(loggerFactory, driverConfig), loggerFactory)
     {
     }
