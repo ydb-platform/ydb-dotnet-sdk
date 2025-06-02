@@ -1,3 +1,5 @@
+- Disable Discovery mode: skip discovery step and client balancing and use connection to start endpoint ([#420](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/420)).
+
 ## v0.17.0
 
 - Shutdown channels which are removed from the EndpointPool after discovery calls.
