@@ -202,6 +202,16 @@ INSERT INTO {tableName}
         await ydbCommand.ExecuteNonQueryAsync();
     }
 
+    [Fact]
+    public async Task DisableDiscovery_WhenPropertyIsTrue_SimpleWorking()
+    {
+        await using var connection = CreateConnection();
+        connection.ConnectionString += ";DisableDiscovery=true";
+        await connection.OpenAsync();
+        Assert.True((bool)(await new YdbCommand(connection) { CommandText = "SELECT TRUE;" }.ExecuteScalarAsync())!);
+        await YdbConnection.ClearPool(connection);
+    }
+
     private List<Task> GenerateTasks() => Enumerable.Range(0, 100).Select(async i =>
     {
         await using var connection = await CreateOpenConnectionAsync();

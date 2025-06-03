@@ -15,9 +15,9 @@ internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposa
     private readonly ILogger<ChannelPool<T>> _logger;
     private readonly IChannelFactory<T> _channelFactory;
 
-    public ChannelPool(ILogger<ChannelPool<T>> logger, IChannelFactory<T> channelFactory)
+    public ChannelPool(ILoggerFactory loggerFactory, IChannelFactory<T> channelFactory)
     {
-        _logger = logger;
+        _logger = loggerFactory.CreateLogger<ChannelPool<T>>();
         _channelFactory = channelFactory;
     }
 

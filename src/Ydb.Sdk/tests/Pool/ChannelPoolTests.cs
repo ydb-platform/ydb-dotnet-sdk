@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Grpc.Core;
-using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 using Ydb.Sdk.Pool;
@@ -17,8 +16,7 @@ public class ChannelPoolTests
 
     public ChannelPoolTests()
     {
-        _channelPool = new ChannelPool<TestChannel>(Utils.GetLoggerFactory().CreateLogger<ChannelPool<TestChannel>>(),
-            _mockChannelFactory.Object);
+        _channelPool = new ChannelPool<TestChannel>(Utils.GetLoggerFactory(), _mockChannelFactory.Object);
         _mockChannelFactory
             .Setup(channelFactory => channelFactory.CreateChannel(It.IsAny<string>()))
             .Returns<string>(endpoint =>

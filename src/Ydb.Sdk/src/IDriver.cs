@@ -2,6 +2,8 @@ using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Pool;
+using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk;
 
@@ -45,16 +47,35 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 
 public abstract class BaseDriver : IDriver
 {
+    private readonly ICredentialsProvider? _credentialsProvider;
+
     protected readonly DriverConfig Config;
     protected readonly ILogger Logger;
 
+    internal readonly GrpcChannelFactory GrpcChannelFactory;
+    internal readonly ChannelPool<GrpcChannel> ChannelPool;
+
     protected int Disposed;
 
-    protected BaseDriver(DriverConfig config, ILoggerFactory loggerFactory, ILogger logger)
+    internal BaseDriver(
+        DriverConfig config,
+        ILoggerFactory loggerFactory,
+        ILogger logger
+    )
     {
         Config = config;
         Logger = logger;
         LoggerFactory = loggerFactory;
+
+        GrpcChannelFactory = new GrpcChannelFactory(LoggerFactory, Config);
+        ChannelPool = new ChannelPool<GrpcChannel>(LoggerFactory, GrpcChannelFactory);
+
+        _credentialsProvider = Config.User != null
+            ? new CachedCredentialsProvider(
+                new StaticCredentialsAuthClient(Config, GrpcChannelFactory, LoggerFactory),
+                LoggerFactory
+            )
+            : Config.Credentials;
     }
 
     public async Task<TResponse> UnaryCall<TRequest, TResponse>(
@@ -64,7 +85,9 @@ public abstract class BaseDriver : IDriver
         where TRequest : class
         where TResponse : class
     {
-        var (endpoint, channel) = GetChannel(settings.NodeId);
+        var endpoint = GetEndpoint(settings.NodeId);
+        var channel = ChannelPool.GetChannel(endpoint);
+
         var callInvoker = channel.CreateCallInvoker();
 
         Logger.LogTrace("Unary call, method: {MethodName}, endpoint: {Endpoint}", method.Name, endpoint);
@@ -97,7 +120,9 @@ public abstract class BaseDriver : IDriver
         where TRequest : class
         where TResponse : class
     {
-        var (endpoint, channel) = GetChannel(settings.NodeId);
+        var endpoint = GetEndpoint(settings.NodeId);
+        var channel = ChannelPool.GetChannel(endpoint);
+
         var callInvoker = channel.CreateCallInvoker();
 
         var call = callInvoker.AsyncServerStreamingCall(
@@ -115,7 +140,9 @@ public abstract class BaseDriver : IDriver
         where TRequest : class
         where TResponse : class
     {
-        var (endpoint, channel) = GetChannel(settings.NodeId);
+        var endpoint = GetEndpoint(settings.NodeId);
+        var channel = ChannelPool.GetChannel(endpoint);
+
         var callInvoker = channel.CreateCallInvoker();
 
         var call = callInvoker.AsyncDuplexStreamingCall(
@@ -126,25 +153,21 @@ public abstract class BaseDriver : IDriver
         return new BidirectionalStream<TRequest, TResponse>(
             call,
             e => { OnRpcError(endpoint, e); },
-            CredentialsProvider
+            _credentialsProvider
         );
     }
 
-    protected abstract (string, GrpcChannel) GetChannel(long nodeId);
+    protected abstract string GetEndpoint(long nodeId);
 
     protected abstract void OnRpcError(string endpoint, RpcException e);
 
     protected async ValueTask<CallOptions> GetCallOptions(GrpcRequestSettings settings)
     {
-        var meta = new Grpc.Core.Metadata
-        {
-            { Metadata.RpcDatabaseHeader, Config.Database },
-            { Metadata.RpcSdkInfoHeader, Config.SdkVersion }
-        };
+        var meta = Config.GetCallMetadata;
 
-        if (CredentialsProvider != null)
+        if (_credentialsProvider != null)
         {
-            meta.Add(Metadata.RpcAuthHeader, await CredentialsProvider.GetAuthInfoAsync());
+            meta.Add(Metadata.RpcAuthHeader, await _credentialsProvider.GetAuthInfoAsync());
         }
 
         if (settings.TraceId.Length > 0)
@@ -152,10 +175,7 @@ public abstract class BaseDriver : IDriver
             meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
         }
 
-        var options = new CallOptions(
-            headers: meta,
-            cancellationToken: settings.CancellationToken
-        );
+        var options = new CallOptions(headers: meta, cancellationToken: settings.CancellationToken);
 
         if (settings.TransportTimeout != TimeSpan.Zero)
         {
@@ -165,8 +185,6 @@ public abstract class BaseDriver : IDriver
         return options;
     }
 
-    protected abstract ICredentialsProvider? CredentialsProvider { get; }
-
     public ILoggerFactory LoggerFactory { get; }
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -175,11 +193,11 @@ public abstract class BaseDriver : IDriver
     {
         if (Interlocked.CompareExchange(ref Disposed, 1, 0) == 0)
         {
-            await InternalDispose();
+            await ChannelPool.DisposeAsync();
+
+            GC.SuppressFinalize(this);
         }
     }
-
-    protected abstract ValueTask InternalDispose();
 }
 
 public sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
