@@ -48,10 +48,10 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 public abstract class BaseDriver : IDriver
 {
     private readonly ICredentialsProvider? _credentialsProvider;
-    
+
     protected readonly DriverConfig Config;
     protected readonly ILogger Logger;
-    
+
     internal readonly GrpcChannelFactory GrpcChannelFactory;
     internal readonly ChannelPool<GrpcChannel> ChannelPool;
 
@@ -66,10 +66,10 @@ public abstract class BaseDriver : IDriver
         Config = config;
         Logger = logger;
         LoggerFactory = loggerFactory;
-        
+
         GrpcChannelFactory = new GrpcChannelFactory(LoggerFactory, Config);
         ChannelPool = new ChannelPool<GrpcChannel>(LoggerFactory, GrpcChannelFactory);
-        
+
         _credentialsProvider = Config.User != null
             ? new CachedCredentialsProvider(
                 new StaticCredentialsAuthClient(Config, GrpcChannelFactory, LoggerFactory),
