@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 using Ydb.Sdk.Pool;
@@ -24,7 +23,7 @@ public class EndpointPoolTests
 
         public MockRandomUnitTests()
         {
-            _endpointPool = new EndpointPool(Utils.GetLoggerFactory().CreateLogger<EndpointPool>(), _mockRandom.Object);
+            _endpointPool = new EndpointPool(Utils.GetLoggerFactory(), _mockRandom.Object);
             _endpointPool.Reset(EndpointSettingsList);
         }
 
@@ -172,7 +171,7 @@ public class EndpointPoolTests
 
     public class ThreadLocalRandomTests
     {
-        private readonly EndpointPool _endpointPool = new(Utils.GetLoggerFactory().CreateLogger<EndpointPool>());
+        private readonly EndpointPool _endpointPool = new(Utils.GetLoggerFactory());
 
         public ThreadLocalRandomTests()
         {

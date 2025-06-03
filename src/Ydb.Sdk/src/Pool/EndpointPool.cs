@@ -16,9 +16,9 @@ internal class EndpointPool
     private Dictionary<long, string> _nodeIdToEndpoint = new();
     private int _preferredEndpointCount;
 
-    internal EndpointPool(ILogger<EndpointPool> logger, IRandom? random = null)
+    internal EndpointPool(ILoggerFactory loggerFactory, IRandom? random = null)
     {
-        _logger = logger;
+        _logger = loggerFactory.CreateLogger<EndpointPool>();
         _random = random ?? ThreadLocalRandom.Instance;
     }
 

@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Ydb.Auth;
 using Ydb.Auth.V1;
@@ -6,7 +7,6 @@ using Ydb.Sdk.Auth;
 using Ydb.Sdk.Client;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Operations;
-using Ydb.Sdk.Transport;
 
 namespace Ydb.Sdk.Services.Auth;
 
@@ -14,7 +14,6 @@ internal class StaticCredentialsAuthClient : IAuthClient
 {
     private readonly DriverConfig _config;
     private readonly GrpcChannelFactory _grpcChannelFactory;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<StaticCredentialsAuthClient> _logger;
 
     private readonly RetrySettings _retrySettings = new(5);
@@ -27,7 +26,6 @@ internal class StaticCredentialsAuthClient : IAuthClient
     {
         _config = config;
         _grpcChannelFactory = grpcChannelFactory;
-        _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<StaticCredentialsAuthClient>();
     }
 
@@ -76,13 +74,10 @@ internal class StaticCredentialsAuthClient : IAuthClient
 
         try
         {
-            await using var transport = new DirectGrpcChannelDriver(_config, _grpcChannelFactory, _loggerFactory);
+            using var channel = _grpcChannelFactory.CreateChannel(_config.Endpoint);
 
-            var response = await transport.UnaryCall(
-                method: AuthService.LoginMethod,
-                request: request,
-                settings: new GrpcRequestSettings()
-            );
+            var response = await new AuthService.AuthServiceClient(channel)
+                .LoginAsync(request, new CallOptions(_config.GetCallMetadata));
 
             var status = response.Operation.TryUnpack(out LoginResult? resultProto);
 

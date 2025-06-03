@@ -55,6 +55,12 @@ public class DriverConfig
         SdkVersion = $"ydb-dotnet-sdk/{versionStr}";
     }
 
+    internal Grpc.Core.Metadata GetCallMetadata => new()
+    {
+        { Metadata.RpcDatabaseHeader, Database },
+        { Metadata.RpcSdkInfoHeader, SdkVersion }
+    };
+
     private static string FormatEndpoint(string endpoint)
     {
         endpoint = endpoint.ToLower().Trim();

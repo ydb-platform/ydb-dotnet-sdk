@@ -1,13 +1,10 @@
 ﻿using System.Collections.Immutable;
 using Grpc.Core;
-using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
 using Ydb.Discovery.V1;
-using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
-using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk;
 
@@ -15,9 +12,7 @@ public sealed class Driver : BaseDriver
 {
     private const int AttemptDiscovery = 10;
 
-    private readonly GrpcChannelFactory _grpcChannelFactory;
     private readonly EndpointPool _endpointPool;
-    private readonly ChannelPool<GrpcChannel> _channelPool;
 
     internal string Database => Config.Database;
 
@@ -26,19 +21,7 @@ public sealed class Driver : BaseDriver
             (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>()
         )
     {
-        _grpcChannelFactory = new GrpcChannelFactory(LoggerFactory, config);
-        _endpointPool = new EndpointPool(LoggerFactory.CreateLogger<EndpointPool>());
-        _channelPool = new ChannelPool<GrpcChannel>(
-            LoggerFactory.CreateLogger<ChannelPool<GrpcChannel>>(),
-            _grpcChannelFactory
-        );
-
-        CredentialsProvider = Config.User != null
-            ? new CachedCredentialsProvider(
-                new StaticCredentialsAuthClient(config, _grpcChannelFactory, LoggerFactory),
-                LoggerFactory
-            )
-            : Config.Credentials;
+        _endpointPool = new EndpointPool(LoggerFactory);
     }
 
     public static async Task<Driver> CreateInitialized(DriverConfig config, ILoggerFactory? loggerFactory = null)
@@ -47,8 +30,6 @@ public sealed class Driver : BaseDriver
         await driver.Initialize();
         return driver;
     }
-
-    protected override ValueTask InternalDispose() => _channelPool.DisposeAsync();
 
     public async Task Initialize()
     {
@@ -78,18 +59,13 @@ public sealed class Driver : BaseDriver
                 }
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(i * 200)); // await 0 ms, 200 ms, 400ms, .. 1.8 sec
+            await Task.Delay(TimeSpan.FromMilliseconds(i * 200)); // await 0 ms, 200 ms, 400ms, ... 1.8 sec
         }
 
         throw new InitializationFailureException("Error during initial endpoint discovery");
     }
 
-    protected override (string, GrpcChannel) GetChannel(long nodeId)
-    {
-        var endpoint = _endpointPool.GetEndpoint(nodeId);
-
-        return (endpoint, _channelPool.GetChannel(endpoint));
-    }
+    protected override string GetEndpoint(long nodeId) => _endpointPool.GetEndpoint(nodeId);
 
     protected override void OnRpcError(string endpoint, RpcException e)
     {
@@ -114,11 +90,9 @@ public sealed class Driver : BaseDriver
         _ = Task.Run(DiscoverEndpoints);
     }
 
-    protected override ICredentialsProvider? CredentialsProvider { get; }
-
     private async Task<Status> DiscoverEndpoints()
     {
-        using var channel = _grpcChannelFactory.CreateChannel(Config.Endpoint);
+        using var channel = GrpcChannelFactory.CreateChannel(Config.Endpoint);
 
         var client = new DiscoveryService.DiscoveryServiceClient(channel);
 
@@ -167,7 +141,7 @@ public sealed class Driver : BaseDriver
             resultProto.Endpoints.Count, resultProto.SelfLocation, Config.SdkVersion
         );
 
-        await _channelPool.RemoveChannels(
+        await ChannelPool.RemoveChannels(
             _endpointPool.Reset(resultProto.Endpoints
                 .Select(endpointSettings => new EndpointSettings(
                     (int)endpointSettings.NodeId,
