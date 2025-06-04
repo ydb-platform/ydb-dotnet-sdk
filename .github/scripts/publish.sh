@@ -8,7 +8,7 @@ then
   exit 1;
 fi;
 
-LAST_TAG=$(git tag --sort=-creatordate | head -n 1);
+LAST_TAG=$(git tag --sort=-creatordate | sed -E 's/^ef-//' | head -n 1);
 MAJOR=$(echo $LAST_TAG | sed -E 's/v([0-9]+)\..*/\1/');
 MINOR=$(echo $LAST_TAG | sed -E 's/v[0-9]+\.([0-9]+)\..*/\1/');
 PATCH=$(echo $LAST_TAG | sed -E 's/v[0-9]+\.[0-9]+\.([0-9]+)($|-rc[0-9]+)/\1/');

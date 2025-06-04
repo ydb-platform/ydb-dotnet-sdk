@@ -51,5 +51,5 @@ Full Changelog: [$LAST_EF_TAG...$TAG](https://github.com/ydb-platform/ydb-dotnet
 
 cd src/EFCore.Ydb/src
 dotnet pack -c Release -o out /p:Version=$VERSION
-gh release create $TAG -t "ef-$TAG" --notes "$CHANGELOG"
+gh release create "ef-$TAG" -t "ef-$TAG" --notes "$CHANGELOG"
 dotnet nuget push out/EntityFrameworkCore.Ydb.$VERSION.nupkg  --skip-duplicate --api-key $NUGET_TOKEN --source https://api.nuget.org/v3/index.json
