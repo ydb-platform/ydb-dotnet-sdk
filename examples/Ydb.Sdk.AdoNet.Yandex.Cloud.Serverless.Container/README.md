@@ -22,8 +22,10 @@ to [Yandex Cloud Serverless Containers](https://yandex.cloud/en/docs/serverless-
 4. **Create a new revision**. After pushing your image, create a new version of the Serverless Container as described in
    the [official guide](https://yandex.cloud/en/docs/serverless-containers/quickstart/container#create-revision).
    Specify your image and the necessary environment variables and secrets.
+
 5. **Running the Yandex Serverless Container**.
-   After the new revision has been rolled out, you can use your container (e.g., for a health check) by executing the following command:
+   After the new revision has been rolled out, you can use your container (e.g., for a health check) by executing the
+   following command:
    ```bash
    curl --header "Authorization: Bearer $(yc iam create-token)" https://<serverless-container-host>/
    ```
