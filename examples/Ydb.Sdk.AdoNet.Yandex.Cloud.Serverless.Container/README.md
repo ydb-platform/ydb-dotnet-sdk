@@ -5,8 +5,7 @@ to [Yandex Cloud Serverless Containers](https://yandex.cloud/en/docs/serverless-
 
 ## Getting started
 
-1. **Setup
-   ** [Yandex Container Registry](https://yandex.cloud/en/docs/container-registry/operations/registry/registry-create).
+1. **Setup** [Yandex Container Registry](https://yandex.cloud/en/docs/container-registry/operations/registry/registry-create).
 2. **Build and Push Docker Image**
    ```bash 
    docker build . -t cr.yandex/<container-registry-id>/ado-net-app:latest
