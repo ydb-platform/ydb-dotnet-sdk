@@ -20,8 +20,6 @@ internal class CmdOptions
     public bool FallbackAnonymous { get; set; } = false;
 }
 
-// See https://aka.ms/new-console-template for more information
-
 internal static class Program
 {
     private static ServiceProvider GetServiceProvider() =>
