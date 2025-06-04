@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schema.ManyToMany", "Entity
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Database.Operations.Tutorial", "EntityFrameworkCore.Ydb.Samples\Database.Operations.Tutorial\Database.Operations.Tutorial.csproj", "{B2B0786F-7545-4717-8D04-26DF9C181607}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.Yandex.Cloud.Serverless.Container", "Ydb.Sdk.AdoNet.Yandex.Cloud.Serverless.Container\Ydb.Sdk.AdoNet.Yandex.Cloud.Serverless.Container.csproj", "{77625697-498B-4879-BABA-046EE93E7AF7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -81,6 +83,10 @@ Global
 		{B2B0786F-7545-4717-8D04-26DF9C181607}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B2B0786F-7545-4717-8D04-26DF9C181607}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B2B0786F-7545-4717-8D04-26DF9C181607}.Release|Any CPU.Build.0 = Release|Any CPU
+		{77625697-498B-4879-BABA-046EE93E7AF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77625697-498B-4879-BABA-046EE93E7AF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77625697-498B-4879-BABA-046EE93E7AF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77625697-498B-4879-BABA-046EE93E7AF7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
