@@ -1,6 +1,4 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-using Section_1.HR;
+﻿using Section_1.HR;
 
 InsertDepartments();
 SelectDepartments();
