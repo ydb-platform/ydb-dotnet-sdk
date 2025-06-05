@@ -100,10 +100,10 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                     if (e.Status.StatusCode == StatusCode.Cancelled)
                     {
                         Logger.LogDebug("AttachStream is cancelled (possible grpcChannel is closing)");
-                        
+
                         return;
                     }
-                    
+
                     Logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", sessionId);
                 }
             }
