@@ -1,3 +1,5 @@
+- dev: LogLevel `Warning` -> `Debug` on AttachStream has been cancelled.
+
 ## v0.18.0
 
 - Disable Discovery mode: skip discovery step and client balancing and use connection to start endpoint ([#420](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/420)).
