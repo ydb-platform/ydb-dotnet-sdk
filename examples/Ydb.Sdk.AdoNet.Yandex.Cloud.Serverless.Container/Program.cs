@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Yc;
 
@@ -11,8 +12,9 @@ var connectionString = new ConfigurationBuilder()
                            .GetConnectionString("ServerlessYDB") ??
                        throw new InvalidOperationException("ConnectionString.ServerlessYDB is empty.");
 
-var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+var loggerFactory = LoggerFactory.Create(builder => builder.AddNLog());
 var logger = loggerFactory.CreateLogger<Program>();
+
 var stopwatch = Stopwatch.StartNew();
 stopwatch.Start();
 
