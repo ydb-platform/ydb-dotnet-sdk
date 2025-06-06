@@ -9,14 +9,18 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="CommandLineParser" Version="2.8.0" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-        <PackageReference Include="Ydb.Sdk.Yc.Auth" Version="0.2.0" />
-        <PackageReference Include="Ydb.Sdk" Version="0.18.0" />
+        <PackageReference Include="CommandLineParser" Version="2.8.0"/>
+        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0"/>
+        <PackageReference Include="NLog.Extensions.Logging" Version="5.5.0"/>
+        <PackageReference Include="Ydb.Sdk.Yc.Auth" Version="0.2.0"/>
+        <PackageReference Include="Ydb.Sdk" Version="0.18.0"/>
 
         <None Update="appsettings.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+        <None Update="nlog.config">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
     </ItemGroup>
