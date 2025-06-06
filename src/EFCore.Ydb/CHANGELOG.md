@@ -1,3 +1,5 @@
+- Fixed bug: Decimal type forces EF migrator to create migrations again and again ([#434](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/434)).
+
 ## v0.0.1
 
 - Supported migration tools: initial implementation of EF Core migration tool support.
