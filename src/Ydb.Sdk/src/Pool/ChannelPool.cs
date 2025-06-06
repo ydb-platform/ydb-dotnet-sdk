@@ -4,7 +4,6 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using Grpc.Core;
 using Grpc.Net.Client;
-using Grpc.Net.Client.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Pool;
@@ -98,11 +97,7 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
             LoggerFactory = _loggerFactory,
             DisposeHttpClient = true,
             MaxSendMessageSize = _config.MaxSendMessageSize,
-            MaxReceiveMessageSize = _config.MaxReceiveMessageSize,
-            ServiceConfig = new ServiceConfig
-            {
-                LoadBalancingConfigs = { new RoundRobinConfig() }
-            }
+            MaxReceiveMessageSize = _config.MaxReceiveMessageSize
         };
 
         var httpHandler = new SocketsHttpHandler
@@ -115,13 +110,13 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
         };
 
         // https://github.com/grpc/grpc-dotnet/issues/2312#issuecomment-1790661801
-        // httpHandler.Properties["__GrpcLoadBalancingDisabled"] = true;
+        httpHandler.Properties["__GrpcLoadBalancingDisabled"] = true;
 
         channelOptions.HttpHandler = httpHandler;
 
         if (ServerCertificates.Count == 0)
         {
-            return GrpcChannel.ForAddress(new Uri(endpoint) { }, channelOptions);
+            return GrpcChannel.ForAddress(endpoint, channelOptions);
         }
 
         httpHandler.SslOptions.RemoteCertificateValidationCallback +=
