@@ -362,7 +362,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
         catch (Exception e)
         {
-            Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Write", SessionId);
+            Logger.LogError(e, "ReaderSession[{SessionId}] have error on Write", SessionId);
 
             ReconnectSession();
 

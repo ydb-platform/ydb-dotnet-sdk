@@ -495,7 +495,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         }
         catch (Exception e)
         {
-            Logger.LogError(e, "WriterSession[{SessionId}] have transport error on Write, last SeqNo={SeqNo}",
+            Logger.LogError(e, "WriterSession[{SessionId}] have error on Write, last SeqNo={SeqNo}",
                 SessionId, Volatile.Read(ref _seqNum));
 
             ReconnectSession();
