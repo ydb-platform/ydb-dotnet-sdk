@@ -198,9 +198,9 @@ internal class Reader<TValue> : IReader<TValue>
                 _deserializer
             );
         }
-        catch (Driver.TransportException e)
+        catch (Exception e)
         {
-            _logger.LogError(e, "Transport error on executing ReaderSession");
+            _logger.LogError(e, "Error on executing ReaderSession");
 
             _ = Task.Run(Initialize, _disposeCts.Token);
         }
@@ -338,9 +338,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
             Logger.LogInformation("ReaderSession[{SessionId}]: ResponseStream is closed", SessionId);
         }
-        catch (Driver.TransportException e)
+        catch (Exception e)
         {
-            Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on processing server messages",
+            Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages",
                 SessionId);
         }
         finally
@@ -360,9 +360,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 await SendMessage(messageFromClient);
             }
         }
-        catch (Driver.TransportException e)
+        catch (Exception e)
         {
-            Logger.LogError(e, "ReaderSession[{SessionId}] have transport error on Write", SessionId);
+            Logger.LogError(e, "ReaderSession[{SessionId}] have error on Write", SessionId);
 
             ReconnectSession();
 
