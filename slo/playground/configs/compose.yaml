@@ -2,7 +2,6 @@ x-runtime: &runtime
   hostname: localhost
   platform: linux/amd64
   privileged: true
-  network_mode: host
 
 x-ydb-node: &ydb-node
   image: cr.yandex/crptqonuodf51kdj7a7d/ydb:24.4.4.12
@@ -10,8 +9,6 @@ x-ydb-node: &ydb-node
   <<: *runtime
   volumes:
     - ./ydb.yaml:/opt/ydb/cfg/config.yaml
-
-name: ydb
 
 services:
   static-0:
