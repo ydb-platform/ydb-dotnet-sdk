@@ -314,15 +314,15 @@ internal class Writer<TValue> : IWriter<TValue>
                 _sendInFlightMessagesSemaphoreSlim.Release();
             }
         }
-        catch (Driver.TransportException e)
-        {
-            _logger.LogError(e, "Transport error on creating WriterSession");
-
-            _ = Task.Run(Initialize);
-        }
         catch (OperationCanceledException)
         {
             _logger.LogInformation("Initialize writer is canceled because it has been disposed");
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Error on creating WriterSession");
+
+            _ = Task.Run(Initialize);
         }
     }
 
@@ -493,7 +493,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
             Volatile.Write(ref _seqNum, currentSeqNum);
             await SendMessage(new MessageFromClient { WriteRequest = writeMessage });
         }
-        catch (Driver.TransportException e)
+        catch (Exception e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have transport error on Write, last SeqNo={SeqNo}",
                 SessionId, Volatile.Read(ref _seqNum));
@@ -564,7 +564,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
 
             Logger.LogInformation("WriterSession[{SessionId}]: ResponseStream is closed", SessionId);
         }
-        catch (Driver.TransportException e)
+        catch (Exception e)
         {
             Logger.LogError(e, "WriterSession[{SessionId}] have error on processing writeAck", SessionId);
         }
