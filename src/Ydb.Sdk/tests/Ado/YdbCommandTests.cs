@@ -463,4 +463,18 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
 
         Assert.Equal(guid.ToLower(), actualGuidText); // Guid.ToString() method represents lowercase
     }
+
+    [Fact]
+    public async Task Date_WhenSetDateOnly_ReturnDateTime()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ydbCommand = new YdbCommand(ydbConnection) { CommandText = "SELECT @dateOnly;" };
+        ydbCommand.Parameters.AddWithValue("dateOnly", new DateOnly(2002, 2, 24));
+
+        Assert.Equal(new DateTime(2002, 2, 24), await ydbCommand.ExecuteScalarAsync());
+
+        ydbCommand.Parameters.Clear();
+        ydbCommand.Parameters.AddWithValue("dateOnly", DbType.Date, new DateOnly(2102, 2, 24));
+        Assert.Equal(new DateTime(2102, 2, 24), await ydbCommand.ExecuteScalarAsync());
+    }
 }
