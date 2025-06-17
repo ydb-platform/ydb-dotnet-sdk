@@ -1,3 +1,4 @@
+- Fixed bug: 'System.DateOnly' is not supported by YdbParameter ([#449](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/449)).
 - Fixed bug: Unhandled exception.
   System.Net.Http.HttpIOException ([#452](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/451)).
 - dev: LogLevel `Warning` -> `Debug` on AttachStream has been cancelled.

@@ -109,6 +109,8 @@ public sealed class YdbParameter : DbParameter
         },
         DateTimeOffset dateTimeOffset when DbType is DbType.DateTimeOffset or DbType.Object =>
             YdbValue.MakeTimestamp(dateTimeOffset.UtcDateTime),
+        DateOnly dateOnlyValue when DbType is DbType.Date or DbType.Object =>
+            YdbValue.MakeDate(dateOnlyValue.ToDateTime(TimeOnly.MinValue)),
         float floatValue => DbType switch
         {
             DbType.Single or DbType.Object => YdbValue.MakeFloat(floatValue),
