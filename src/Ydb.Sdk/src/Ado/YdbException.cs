@@ -9,7 +9,7 @@ public class YdbException : DbException
     }
 
     internal YdbException(Driver.TransportException transportException)
-        : this(transportException.Status, transportException.InnerException)
+        : this(transportException.Status, transportException)
     {
     }
 
