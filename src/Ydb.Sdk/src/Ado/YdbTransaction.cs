@@ -110,7 +110,7 @@ public sealed class YdbTransaction : DbTransaction
 
             DbConnection.OnStatus(e.Status);
 
-            throw new YdbException(e.Status);
+            throw new YdbException(e);
         }
         finally
         {

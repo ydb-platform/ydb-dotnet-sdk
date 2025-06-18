@@ -4,15 +4,17 @@ namespace Ydb.Sdk.Ado;
 
 public class YdbException : DbException
 {
-    public YdbException(string message) : base(message)
+    internal YdbException(string message) : base(message)
     {
     }
 
-    public YdbException(string message, Exception e) : base(message, e)
+    internal YdbException(Driver.TransportException transportException)
+        : this(transportException.Status, transportException.InnerException)
     {
     }
 
-    public YdbException(Status status) : base(status.ToString())
+    internal YdbException(Status status, Exception? innerException = null)
+        : base(status.ToString(), innerException)
     {
         Code = status.StatusCode;
         var policy = RetrySettings.DefaultInstance.GetRetryRule(status.StatusCode).Policy;

@@ -50,11 +50,11 @@ public class YdbExceptionTests : YdbAdoNetFixture
 
         ydbCommand.CommandText = $"UPDATE {bankTable} SET amount = amount + @var WHERE id = 1";
         ydbCommand.Parameters.AddWithValue("var", DbType.Int32, select);
-        Assert.True(Assert.Throws<YdbException>(() =>
+        Assert.True((await Assert.ThrowsAsync<YdbException>(async () =>
         {
-            ydbCommand.ExecuteNonQuery();
-            ydbCommand.Transaction.Commit();
-        }).IsTransient);
+            await ydbCommand.ExecuteNonQueryAsync();
+            await ydbCommand.Transaction.CommitAsync();
+        })).IsTransient);
         await new YdbCommand(anotherConnection)
         {
             CommandText = $"DROP TABLE {bankTable}"
