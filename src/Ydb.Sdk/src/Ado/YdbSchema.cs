@@ -40,7 +40,7 @@ internal static class YdbSchema
         };
     }
 
-    internal static Task<IReadOnlyCollection<YdbObject>> SchemaObjects(
+    private static Task<IReadOnlyCollection<YdbObject>> SchemaObjects(
         YdbConnection ydbConnection,
         CancellationToken cancellationToken = default
     )
@@ -50,7 +50,7 @@ internal static class YdbSchema
         return SchemaObjects(ydbConnection, WithSuffix(database), database, cancellationToken);
     }
 
-    internal static async Task<YdbTable> DescribeTable(
+    private static async Task<YdbTable> DescribeTable(
         YdbConnection ydbConnection,
         string tableName,
         DescribeTableSettings? describeTableSettings = null
@@ -78,7 +78,7 @@ internal static class YdbSchema
         {
             ydbConnection.OnStatus(e.Status);
 
-            throw new YdbException("Transport error on DescribeTable", e);
+            throw new YdbException(e);
         }
     }
 
@@ -461,7 +461,7 @@ internal static class YdbSchema
         }
         catch (Driver.TransportException e)
         {
-            throw new YdbException("Transport error on ListDirectory", e);
+            throw new YdbException(e);
         }
     }
 

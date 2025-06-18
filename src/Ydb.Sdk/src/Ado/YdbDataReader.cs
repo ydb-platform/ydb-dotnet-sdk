@@ -596,7 +596,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             _onNotSuccessStatus(e.Status);
 
-            throw new YdbException(e.Status);
+            throw new YdbException(e);
         }
     }
 

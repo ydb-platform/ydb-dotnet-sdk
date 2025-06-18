@@ -100,7 +100,7 @@ public sealed class YdbConnection : DbConnection
         {
             throw e switch
             {
-                Driver.TransportException transportException => new YdbException(transportException.Status),
+                Driver.TransportException transportException => new YdbException(transportException),
                 StatusUnsuccessfulException unsuccessfulException => new YdbException(unsuccessfulException.Status),
                 _ => e
             };
