@@ -15,4 +15,6 @@ internal static class GrpcDefaultSettings
     internal const int MaxSendMessageSize = 64 * 1024 * 1024; // 64 Mb
 
     internal const int MaxReceiveMessageSize = 64 * 1024 * 1024; // 64 Mb
+
+    internal const int ConnectTimeoutSeconds = 5;
 }

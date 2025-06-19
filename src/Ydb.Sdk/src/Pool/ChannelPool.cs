@@ -102,6 +102,7 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 
         var httpHandler = new SocketsHttpHandler
         {
+            ConnectTimeout = _config.ConnectTimeout,
             // https://github.com/grpc/proposal/blob/master/A8-client-side-keepalive.md
             KeepAlivePingDelay = _config.KeepAlivePingDelay,
             KeepAlivePingTimeout = _config.KeepAlivePingTimeout,

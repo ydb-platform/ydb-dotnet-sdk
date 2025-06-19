@@ -29,6 +29,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _database = "/local";
         _maxSessionPool = 100;
         _useTls = false;
+        _connectTimeout = GrpcDefaultSettings.ConnectTimeoutSeconds;
         _keepAlivePingDelay = GrpcDefaultSettings.DefaultKeepAlivePingSeconds;
         _keepAlivePingTimeout = GrpcDefaultSettings.DefaultKeepAlivePingTimeoutSeconds;
         _enableMultipleHttp2Connections = false;
@@ -144,6 +145,23 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     private string? _rootCertificate;
+
+    public int ConnectTimeout
+    {
+        get => _connectTimeout;
+        set
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid connect timeout: " + value);
+            }
+
+            _connectTimeout = value;
+            SaveValue(nameof(ConnectTimeout), value);
+        }
+    }
+
+    private int _connectTimeout;
 
     public int KeepAlivePingDelay
     {
@@ -283,6 +301,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             customServerCertificates: ServerCertificates
         )
         {
+            ConnectTimeout = ConnectTimeout == 0
+                ? Timeout.InfiniteTimeSpan
+                : TimeSpan.FromSeconds(ConnectTimeout),
             KeepAlivePingDelay = KeepAlivePingDelay == 0
                 ? Timeout.InfiniteTimeSpan
                 : TimeSpan.FromSeconds(KeepAlivePingDelay),
@@ -367,10 +388,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 "MaxSessionPool", "Max Session Pool", "Maximum Pool Size", "Max Pool Size", "MaximumPoolSize");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, useTls) => builder.UseTls = useTls),
                 "UseTls", "Use Tls");
-            AddOption(
-                new YdbConnectionOption<string>(StringExtractor,
+            AddOption(new YdbConnectionOption<string>(StringExtractor,
                     (builder, rootCertificate) => builder.RootCertificate = rootCertificate),
                 "RootCertificate", "Root Certificate");
+            AddOption(new YdbConnectionOption<int>(IntExtractor,
+                    (builder, connectTimeout) => builder.ConnectTimeout = connectTimeout),
+                "ConnectTimeout", "Connect Timeout");
             AddOption(new YdbConnectionOption<int>(IntExtractor,
                     (builder, keepAlivePingDelay) => builder.KeepAlivePingDelay = keepAlivePingDelay),
                 "KeepAlivePingDelay", "Keep Alive Ping Delay");

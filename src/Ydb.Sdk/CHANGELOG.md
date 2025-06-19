@@ -1,3 +1,5 @@
+- Added `ConnectTimeout`: time to wait (in seconds) while trying to establish a connection.
+
 ## v0.18.2
 
 - Fixed YdbException: propagate inner exception.
