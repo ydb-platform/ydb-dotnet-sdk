@@ -10,6 +10,9 @@ public class DriverConfig
     public string Database { get; }
     public ICredentialsProvider? Credentials { get; }
 
+    public TimeSpan ConnectTimeout { get; init; } =
+        TimeSpan.FromSeconds(GrpcDefaultSettings.ConnectTimeoutSeconds);
+
     public TimeSpan KeepAlivePingDelay { get; init; } =
         TimeSpan.FromSeconds(GrpcDefaultSettings.DefaultKeepAlivePingSeconds);
 
