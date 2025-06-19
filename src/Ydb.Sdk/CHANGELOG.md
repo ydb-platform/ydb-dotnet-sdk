@@ -1,3 +1,5 @@
+## v0.18.2
+
 - Fixed YdbException: propagate inner exception.
 
 ## v0.18.1
