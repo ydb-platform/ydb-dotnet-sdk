@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
 
@@ -13,9 +14,10 @@ public interface ISloContext
     public static readonly ILoggerFactory Factory =
         LoggerFactory.Create(builder =>
         {
-            builder.AddConsole().SetMinimumLevel(LogLevel.Information);
-            builder.AddFilter("Ydb.Sdk.Ado", LogLevel.Debug);
-            builder.AddFilter("Ydb.Sdk.Services.Query", LogLevel.Debug);
+            builder.AddNLog()
+                .SetMinimumLevel(LogLevel.Information)
+                .AddFilter("Ydb.Sdk.Ado", LogLevel.Debug)
+                .AddFilter("Ydb.Sdk.Services.Query", LogLevel.Debug);
         });
 
 
