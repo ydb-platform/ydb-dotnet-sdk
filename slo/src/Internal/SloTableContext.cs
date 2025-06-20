@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
 
@@ -9,15 +10,7 @@ namespace Internal;
 
 public interface ISloContext
 {
-    // ReSharper disable once StaticMemberInGenericType
-    public static readonly ILoggerFactory Factory =
-        LoggerFactory.Create(builder =>
-        {
-            builder.AddConsole().SetMinimumLevel(LogLevel.Information);
-            builder.AddFilter("Ydb.Sdk.Ado", LogLevel.Debug);
-            builder.AddFilter("Ydb.Sdk.Services.Query", LogLevel.Debug);
-        });
-
+    public static readonly ILoggerFactory Factory = LoggerFactory.Create(builder => builder.AddNLog());
 
     public Task Create(CreateConfig createConfig);
 

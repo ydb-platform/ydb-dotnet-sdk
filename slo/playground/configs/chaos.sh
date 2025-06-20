@@ -24,7 +24,7 @@ echo "Start CHAOS YDB cluster!"
 
 for i in $(seq 1 5)
 do
-  echo "docker stop/start iteration $i"
+  echo "[$(date)]: docker stop/start iteration $i"
   
   get_random_container
   
@@ -36,7 +36,7 @@ done
 
 for i in $(seq 1 3)
 do
-  echo "docker restart iteration $i"
+  echo "[$(date)]: docker restart iteration $i"
   
   get_random_container
   
@@ -46,5 +46,7 @@ do
 done
 
 get_random_container
+
+echo "[$(date)]: docker kill -s SIGKILL ${nodeForChaos}"
 
 sh -c "docker kill -s SIGKILL ${nodeForChaos}"

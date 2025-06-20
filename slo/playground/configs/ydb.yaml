@@ -15,6 +15,11 @@ blob_storage_config:
                   - node_id: 1
                     path: SectorMap:1:64
                     pdisk_category: SSD
+# enable grpc server logs
+#log_config:
+#  entry:
+#    - component: GRPC_SERVER
+#      level: 8
 channel_profile_config:
   profile:
     - channel:
