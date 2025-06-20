@@ -10,16 +10,7 @@ namespace Internal;
 
 public interface ISloContext
 {
-    // ReSharper disable once StaticMemberInGenericType
-    public static readonly ILoggerFactory Factory =
-        LoggerFactory.Create(builder =>
-        {
-            builder.AddNLog()
-                .SetMinimumLevel(LogLevel.Information)
-                .AddFilter("Ydb.Sdk.Ado", LogLevel.Debug)
-                .AddFilter("Ydb.Sdk.Services.Query", LogLevel.Debug);
-        });
-
+    public static readonly ILoggerFactory Factory = LoggerFactory.Create(builder => builder.AddNLog());
 
     public Task Create(CreateConfig createConfig);
 
