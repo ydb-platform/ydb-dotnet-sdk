@@ -100,6 +100,12 @@ public sealed class YdbConnection : DbConnection
         {
             throw e switch
             {
+                Driver.TransportException { Status.StatusCode: StatusCode.Cancelled } or OperationCanceledException =>
+                    throw new YdbException(
+                        $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
+                        $"(currently {ConnectionStringBuilder.MaxSessionPool}) or 'CreateSessionTimeout' " +
+                        $"(currently {ConnectionStringBuilder.CreateSessionTimeout} seconds) in your connection string."
+                    ),
                 Driver.TransportException transportException => new YdbException(transportException),
                 StatusUnsuccessfulException unsuccessfulException => new YdbException(unsuccessfulException.Status),
                 _ => e

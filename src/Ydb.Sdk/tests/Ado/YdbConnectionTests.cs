@@ -212,6 +212,18 @@ INSERT INTO {tableName}
         await YdbConnection.ClearPool(connection);
     }
 
+    [Fact]
+    public async Task OpenAsync_WhenCancelTokenIsCanceled_ThrowYdbException()
+    {
+        await using var connection = CreateConnection();
+        connection.ConnectionString = ConnectionString;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.Equal("The connection pool has been exhausted, either raise 'MaxSessionPool' (currently 10) " +
+                     "or 'CreateSessionTimeout' (currently 5 seconds) in your connection string.",
+            (await Assert.ThrowsAsync<YdbException>(async () => await connection.OpenAsync(cts.Token))).Message);
+    }
+
     private List<Task> GenerateTasks() => Enumerable.Range(0, 100).Select(async i =>
     {
         await using var connection = await CreateOpenConnectionAsync();

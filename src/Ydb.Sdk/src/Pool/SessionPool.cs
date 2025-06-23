@@ -42,40 +42,29 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             throw new YdbException("Session pool is closed");
         }
 
+        await _semaphore.WaitAsync(finalCancellationToken);
+        Interlocked.Decrement(ref _waitingCount);
+
+        if (_idleSessions.TryDequeue(out var session) && session.IsActive)
+        {
+            return session;
+        }
+
+        if (session != null) // not active
+        {
+            Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
+        }
+
         try
         {
-            await _semaphore.WaitAsync(finalCancellationToken);
-            Interlocked.Decrement(ref _waitingCount);
-
-            if (_idleSessions.TryDequeue(out var session) && session.IsActive)
-            {
-                return session;
-            }
-
-            if (session != null) // not active
-            {
-                Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
-            }
-
-            try
-            {
-                return await CreateSession(finalCancellationToken);
-            }
-            catch (Exception e)
-            {
-                Release();
-
-                Logger.LogError(e, "Failed to create a session");
-                throw;
-            }
+            return await CreateSession(finalCancellationToken);
         }
-        catch (Exception e) when (
-            e is Driver.TransportException { Status.StatusCode: StatusCode.Cancelled } or OperationCanceledException
-        )
+        catch (Exception e)
         {
-            throw new YdbException($"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
-                                   $"(currently {_size}) or 'CreateSessionTimeout' " +
-                                   $"(currently {_createSessionTimeoutMs / 1000} seconds) in your connection string.");
+            Release();
+
+            Logger.LogError(e, "Failed to create a session");
+            throw;
         }
     }
 
