@@ -32,6 +32,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             ctsGetSession.CancelAfter(_createSessionTimeoutMs);
         }
+
         var finalCancellationToken = ctsGetSession.Token;
 
         Interlocked.Increment(ref _waitingCount);
