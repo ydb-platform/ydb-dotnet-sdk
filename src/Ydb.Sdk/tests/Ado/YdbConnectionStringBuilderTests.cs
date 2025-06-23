@@ -43,7 +43,7 @@ public class YdbConnectionStringBuilderTests
         var connectionString = new YdbConnectionStringBuilder(
             "Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true;" +
             "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
-            "EnableMultipleHttp2Connections=true;CreateTimeoutSession=30;" +
+            "EnableMultipleHttp2Connections=true;CreateSessionTimeout=30;" +
             "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
             "DisableDiscovery=true"
         );
@@ -62,7 +62,7 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(1000000, connectionString.MaxReceiveMessageSize);
         Assert.Equal("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=True;" +
                      "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
-                     "EnableMultipleHttp2Connections=True;CreateTimeoutSession=30;" +
+                     "EnableMultipleHttp2Connections=True;CreateSessionTimeout=30;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
                      "DisableDiscovery=True", connectionString.ConnectionString);
         Assert.True(connectionString.DisableDiscovery);

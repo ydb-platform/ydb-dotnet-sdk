@@ -9,7 +9,7 @@ public class QueryClientConfig
     public int MaxSessionPool
     {
         get => _masSessionPool;
-        set
+        init
         {
             if (value <= 0)
             {
@@ -20,18 +20,40 @@ public class QueryClientConfig
         }
     }
 
-    private int _masSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
+    private readonly int _masSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
+
+    public int CreateSessionTimeout
+    {
+        get => _createSessionTimeout;
+        init
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value,
+                    "Invalid create session timeout: " + value);
+            }
+
+            _createSessionTimeout = value;
+        }
+    }
+
+    private readonly int _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
 }
 
 public class QueryClient : IAsyncDisposable
 {
     private readonly SessionPool _sessionPool;
 
-    public QueryClient(Driver driver, QueryClientConfig? config = null)
+    public QueryClient(IDriver driver, QueryClientConfig? config = null)
     {
         config ??= new QueryClientConfig();
 
-        _sessionPool = new SessionPool(driver, new SessionPoolConfig(MaxSessionPool: config.MaxSessionPool));
+        _sessionPool = new SessionPool(driver,
+            new SessionPoolConfig(
+                CreateSessionTimeout: config.CreateSessionTimeout,
+                MaxSessionPool: config.MaxSessionPool
+            )
+        );
     }
 
     public Task<T> Stream<T>(string query, Func<ExecuteQueryStream, Task<T>> onStream,

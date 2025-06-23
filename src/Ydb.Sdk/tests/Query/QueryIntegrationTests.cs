@@ -7,15 +7,17 @@ namespace Ydb.Sdk.Tests.Query;
 
 [Collection("Integration QueryService test")]
 [Trait("Category", "Integration")]
-public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLifetime
+public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IClassFixture<DriverFixture>, IAsyncLifetime
 {
     private static readonly TemporaryTables<QueryIntegrationTests> Tables = new();
 
     private readonly QueryClient _queryClient;
+    private readonly IDriver _driver;
 
-    public QueryIntegrationTests(QueryClientFixture queryClientFixture)
+    public QueryIntegrationTests(QueryClientFixture queryClientFixture, DriverFixture driverFixture)
     {
         _queryClient = queryClientFixture.QueryClient;
+        _driver = driverFixture.Driver;
     }
 
     [Fact]
@@ -216,12 +218,13 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
     [Fact]
     public async Task Stream_ReadingMore1000RowsFromChannel_ReturnChannelExecuteParts()
     {
+        await using var queryService = new QueryClient(_driver, new QueryClientConfig { CreateSessionTimeout = 0 });
         const int sizeSeasons = 10_000;
         var tasks = new Task[sizeSeasons];
 
         for (uint i = 0; i < sizeSeasons; i++)
         {
-            tasks[i] = _queryClient.Exec(
+            tasks[i] = queryService.Exec(
                 $"DECLARE $season_id AS Uint64; DECLARE $title AS Text;" +
                 $"INSERT INTO {Tables.Seasons} (series_id, season_id, title) VALUES (3, $season_id, $title)",
                 new Dictionary<string, YdbValue>
@@ -235,7 +238,7 @@ public class QueryIntegrationTests : IClassFixture<QueryClientFixture>, IAsyncLi
 
         var currentSeason = 0;
 
-        await _queryClient.Stream(
+        await queryService.Stream(
             $"SELECT title FROM {Tables.Seasons} ORDER BY series_id, season_id LIMIT {sizeSeasons} OFFSET 9",
             async stream =>
             {
