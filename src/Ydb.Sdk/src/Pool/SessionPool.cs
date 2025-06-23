@@ -9,6 +9,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 {
     private readonly SemaphoreSlim _semaphore;
     private readonly ConcurrentQueue<TSession> _idleSessions = new();
+    private readonly int _createSessionTimeoutMs;
     private readonly int _size;
 
     protected readonly ILogger<SessionPool<TSession>> Logger;
@@ -16,15 +17,23 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private volatile int _waitingCount;
     private volatile bool _disposed;
 
-    protected SessionPool(ILogger<SessionPool<TSession>> logger, int? maxSessionPool = null)
+    protected SessionPool(ILogger<SessionPool<TSession>> logger, SessionPoolConfig sessionPoolConfig)
     {
         Logger = logger;
-        _size = maxSessionPool ?? 100;
+        _size = sessionPoolConfig.MaxSessionPool;
+        _createSessionTimeoutMs = sessionPoolConfig.CreateSessionTimeout * 1000;
         _semaphore = new SemaphoreSlim(_size);
     }
 
-    internal async Task<TSession> GetSession()
+    internal async Task<TSession> GetSession(CancellationToken cancellationToken = default)
     {
+        using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        if (_createSessionTimeoutMs > 0)
+        {
+            ctsGetSession.CancelAfter(_createSessionTimeoutMs);
+        }
+        var finalCancellationToken = ctsGetSession.Token;
+
         Interlocked.Increment(ref _waitingCount);
 
         if (_disposed)
@@ -32,33 +41,44 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             throw new YdbException("Session pool is closed");
         }
 
-        await _semaphore.WaitAsync();
-        Interlocked.Decrement(ref _waitingCount);
-
-        if (_idleSessions.TryDequeue(out var session) && session.IsActive)
-        {
-            return session;
-        }
-
-        if (session != null) // not active
-        {
-            Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
-        }
-
         try
         {
-            return await CreateSession();
-        }
-        catch (Exception e)
-        {
-            Release();
+            await _semaphore.WaitAsync(finalCancellationToken);
+            Interlocked.Decrement(ref _waitingCount);
 
-            Logger.LogError(e, "Failed to create a session");
-            throw;
+            if (_idleSessions.TryDequeue(out var session) && session.IsActive)
+            {
+                return session;
+            }
+
+            if (session != null) // not active
+            {
+                Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
+            }
+
+            try
+            {
+                return await CreateSession(finalCancellationToken);
+            }
+            catch (Exception e)
+            {
+                Release();
+
+                Logger.LogError(e, "Failed to create a session");
+                throw;
+            }
+        }
+        catch (Exception e) when (
+            e is Driver.TransportException { Status.StatusCode: StatusCode.Cancelled } or OperationCanceledException
+        )
+        {
+            throw new YdbException($"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
+                                   $"(currently {_size}) or 'CreateSessionTimeout' " +
+                                   $"(currently {_createSessionTimeoutMs / 1000} seconds) in your connection string.");
         }
     }
 
-    protected abstract Task<TSession> CreateSession();
+    protected abstract Task<TSession> CreateSession(CancellationToken cancellationToken = default);
 
     // TODO Retry policy and may be move to SessionPool method
     internal async Task<T> ExecOnSession<T>(Func<TSession, Task<T>> onSession, RetrySettings? retrySettings = null)
@@ -237,4 +257,17 @@ public abstract class SessionBase<T> where T : SessionBase<T>
     }
 
     internal abstract Task<Status> DeleteSession();
+}
+
+internal record SessionPoolConfig(
+    int MaxSessionPool = SessionPoolDefaultSettings.MaxSessionPool,
+    int CreateSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds,
+    bool DisposeDriver = false
+);
+
+internal static class SessionPoolDefaultSettings
+{
+    internal const int MaxSessionPool = 100;
+
+    internal const int CreateSessionTimeoutSeconds = 5;
 }

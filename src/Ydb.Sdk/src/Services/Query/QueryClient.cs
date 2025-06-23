@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Ydb.Sdk.Pool;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
@@ -19,7 +20,7 @@ public class QueryClientConfig
         }
     }
 
-    private int _masSessionPool = 100;
+    private int _masSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
 }
 
 public class QueryClient : IAsyncDisposable
@@ -30,7 +31,7 @@ public class QueryClient : IAsyncDisposable
     {
         config ??= new QueryClientConfig();
 
-        _sessionPool = new SessionPool(driver, config.MaxSessionPool);
+        _sessionPool = new SessionPool(driver, new SessionPoolConfig(MaxSessionPool: config.MaxSessionPool));
     }
 
     public Task<T> Stream<T>(string query, Func<ExecuteQueryStream, Task<T>> onStream,

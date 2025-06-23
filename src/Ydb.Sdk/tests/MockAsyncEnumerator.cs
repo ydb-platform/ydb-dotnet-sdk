@@ -1,10 +1,8 @@
 namespace Ydb.Sdk.Tests;
 
-public class MockAsyncEnumerator<T> : IAsyncEnumerator<T>
+public class MockAsyncEnumerator<T> : IServerStream<T>
 {
     private readonly IEnumerator<T> _inner;
-
-    public int Delay { private get; set; }
 
     public MockAsyncEnumerator(IEnumerable<T> items)
     {
@@ -13,17 +11,12 @@ public class MockAsyncEnumerator<T> : IAsyncEnumerator<T>
 
     public T Current => _inner.Current;
 
-    public async ValueTask<bool> MoveNextAsync()
-    {
-        await Task.Delay(Delay);
-        return _inner.MoveNext();
-    }
+    public ValueTask<bool> MoveNextAsync(CancellationToken cancellationToken) => new(_inner.MoveNext());
 
-    public ValueTask DisposeAsync()
+    public void Dispose()
     {
         GC.SuppressFinalize(this);
 
         _inner.Dispose();
-        return new ValueTask();
     }
 }

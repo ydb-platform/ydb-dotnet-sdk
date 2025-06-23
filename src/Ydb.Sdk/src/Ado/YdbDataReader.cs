@@ -8,7 +8,7 @@ namespace Ydb.Sdk.Ado;
 
 public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord>
 {
-    private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
+    private readonly IServerStream<ExecuteQueryResponsePart> _stream;
     private readonly YdbTransaction? _ydbTransaction;
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Action<Status> _onNotSuccessStatus;
@@ -53,7 +53,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     internal bool IsOpen => ReaderState is State.NewResultSet or State.ReadResultSet;
 
     private YdbDataReader(
-        IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
+        IServerStream<ExecuteQueryResponsePart> resultSetStream,
         Action<Status> onNotSuccessStatus,
         YdbTransaction? ydbTransaction)
     {
@@ -63,7 +63,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     }
 
     internal static async Task<YdbDataReader> CreateYdbDataReader(
-        IAsyncEnumerator<ExecuteQueryResponsePart> resultSetStream,
+        IServerStream<ExecuteQueryResponsePart> resultSetStream,
         Action<Status> onStatus,
         YdbTransaction? ydbTransaction = null)
     {
@@ -75,7 +75,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private async Task Init()
     {
-        if (State.IsConsumed == await NextExecPart())
+        if (State.IsConsumed == await NextExecPart(CancellationToken.None))
         {
             throw new YdbException("YDB server closed the stream");
         }
@@ -448,7 +448,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             State.ReadResultSet => await new Func<Task<State>>(async () =>
             {
                 State state;
-                while ((state = await NextExecPart()) == State.ReadResultSet)
+                while ((state = await NextExecPart(cancellationToken)) == State.ReadResultSet)
                 {
                 }
 
@@ -475,7 +475,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return true;
         }
 
-        while ((ReaderState = await NextExecPart()) == State.ReadResultSet) // reset _currentRowIndex
+        while ((ReaderState = await NextExecPart(cancellationToken)) == State.ReadResultSet) // reset _currentRowIndex
         {
             if (++_currentRowIndex < RowsCount)
             {
@@ -521,7 +521,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
 
         _onNotSuccessStatus(new Status(StatusCode.SessionBusy));
-        await _stream.DisposeAsync();
+        _stream.Dispose();
 
         if (_ydbTransaction != null)
         {
@@ -542,13 +542,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             : ydbValue;
     }
 
-    private async ValueTask<State> NextExecPart()
+    private async ValueTask<State> NextExecPart(CancellationToken cancellationToken)
     {
         try
         {
             _currentRowIndex = -1;
 
-            if (!await _stream.MoveNextAsync())
+            if (!await _stream.MoveNextAsync(cancellationToken))
             {
                 return State.IsConsumed;
             }
@@ -561,7 +561,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             {
                 OnFailReadStream();
 
-                while (await _stream.MoveNextAsync())
+                while (await _stream.MoveNextAsync(cancellationToken))
                 {
                     _issueMessagesInStream.AddRange(_stream.Current.Issues);
                 }

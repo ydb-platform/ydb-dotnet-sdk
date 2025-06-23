@@ -14,15 +14,15 @@ public class DriverConfig
         TimeSpan.FromSeconds(GrpcDefaultSettings.ConnectTimeoutSeconds);
 
     public TimeSpan KeepAlivePingDelay { get; init; } =
-        TimeSpan.FromSeconds(GrpcDefaultSettings.DefaultKeepAlivePingSeconds);
+        TimeSpan.FromSeconds(GrpcDefaultSettings.KeepAlivePingSeconds);
 
     public TimeSpan KeepAlivePingTimeout { get; init; } =
-        TimeSpan.FromSeconds(GrpcDefaultSettings.DefaultKeepAlivePingTimeoutSeconds);
+        TimeSpan.FromSeconds(GrpcDefaultSettings.KeepAlivePingTimeoutSeconds);
 
     public string? User { get; init; }
     public string? Password { get; init; }
 
-    public bool EnableMultipleHttp2Connections { get; init; }
+    public bool EnableMultipleHttp2Connections { get; init; } = GrpcDefaultSettings.EnableMultipleHttp2Connections;
 
     public int MaxSendMessageSize { get; init; } = GrpcDefaultSettings.MaxSendMessageSize;
     public int MaxReceiveMessageSize { get; init; } = GrpcDefaultSettings.MaxReceiveMessageSize;

@@ -1,3 +1,8 @@
+- `YdbCommand`: Cancellation token propagation in `Execute*` methods
+- `YdbConnection`: Cancellation token propagation in `OpenAsync` method.
+- `YdbDataReader`: Cancellation token propagation in `ReadAsync` and `NextResultAsync` methods.
+- Added `CreateSessionTimeout` to ADO.NET when creating a session. (Default 5 seconds.)
+
 ## v0.18.3
 
 - Added `ConnectTimeout`: time to wait (in seconds) while trying to establish a connection.
