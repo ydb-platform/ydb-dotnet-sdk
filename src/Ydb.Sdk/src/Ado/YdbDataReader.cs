@@ -65,17 +65,19 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         Action<Status> onStatus,
-        YdbTransaction? ydbTransaction = null)
+        YdbTransaction? ydbTransaction = null,
+        CancellationToken cancellationToken = default
+    )
     {
         var ydbDataReader = new YdbDataReader(resultSetStream, onStatus, ydbTransaction);
-        await ydbDataReader.Init();
+        await ydbDataReader.Init(cancellationToken);
 
         return ydbDataReader;
     }
 
-    private async Task Init()
+    private async Task Init(CancellationToken cancellationToken)
     {
-        if (State.IsConsumed == await NextExecPart(CancellationToken.None))
+        if (State.IsConsumed == await NextExecPart(cancellationToken))
         {
             throw new YdbException("YDB server closed the stream");
         }

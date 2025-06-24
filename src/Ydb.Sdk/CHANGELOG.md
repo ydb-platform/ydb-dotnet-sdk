@@ -1,3 +1,4 @@
+- `YdbCommand`: `Execute*` methods don't propagate cancellation token to the server stream, there is used only for initializing the `YdbDataReader`.
 - `YdbCommand`: Cancellation token propagation in `Execute*` methods
 - `YdbConnection`: Cancellation token propagation in `OpenAsync` method.
 - `YdbDataReader`: Cancellation token propagation in `ReadAsync` and `NextResultAsync` methods.

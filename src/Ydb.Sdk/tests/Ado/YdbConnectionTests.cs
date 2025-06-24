@@ -261,6 +261,24 @@ INSERT INTO {tableName}
         Assert.True(ydbDataReader.IsClosed);
     }
 
+    [Fact]
+    public async Task ExecuteMethods_WhenExecutedYdbDataReaderThenCancelTokenIsCanceled_ReturnValues()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var ydbCommand = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; "};
+        var cts = new CancellationTokenSource();
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync(cts.Token);
+        
+        await ydbDataReader.ReadAsync(cts.Token);
+        Assert.Equal(1, ydbDataReader.GetValue(0));
+        Assert.True(await ydbDataReader.NextResultAsync(cts.Token));
+        cts.Cancel();
+        await ydbDataReader.ReadAsync(cts.Token);
+        Assert.Equal(1, ydbDataReader.GetValue(0));
+        // ReSharper disable once MethodSupportsCancellation
+        Assert.False(await ydbDataReader.NextResultAsync());
+    }
+
     private List<Task> GenerateTasks() => Enumerable.Range(0, 100).Select(async i =>
     {
         await using var connection = await CreateOpenConnectionAsync();
