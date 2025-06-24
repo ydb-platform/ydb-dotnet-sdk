@@ -224,6 +224,43 @@ INSERT INTO {tableName}
             (await Assert.ThrowsAsync<YdbException>(async () => await connection.OpenAsync(cts.Token))).Message);
     }
 
+    [Fact]
+    public async Task YdbCommand_WhenCancelTokenIsCanceled_ThrowYdbException()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
+        var ydbDataReader = await command.ExecuteReaderAsync();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await ydbDataReader.ReadAsync(cts.Token); // first part in memory
+        Assert.False(ydbDataReader.IsClosed);
+        Assert.Equal(1, ydbDataReader.GetValue(0));
+
+        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
+            async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
+        Assert.True(ydbDataReader.IsClosed);
+        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
+            async () => await command.ExecuteReaderAsync(cts.Token))).Code);
+        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
+            async () => await command.ExecuteScalarAsync(cts.Token))).Code);
+        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
+            async () => await command.ExecuteNonQueryAsync(cts.Token))).Code);
+
+        // ReSharper disable once MethodSupportsCancellation
+        ydbDataReader = await command.ExecuteReaderAsync();
+        // ReSharper disable once MethodSupportsCancellation 
+        await ydbDataReader.NextResultAsync();
+        await ydbDataReader.ReadAsync(cts.Token);
+        Assert.False(ydbDataReader.IsClosed);
+        Assert.Equal(1, ydbDataReader.GetValue(0));
+        Assert.False(ydbDataReader.IsClosed);
+
+        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
+            async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
+        Assert.True(ydbDataReader.IsClosed);
+    }
+
     private List<Task> GenerateTasks() => Enumerable.Range(0, 100).Select(async i =>
     {
         await using var connection = await CreateOpenConnectionAsync();
