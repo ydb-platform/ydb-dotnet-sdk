@@ -19,29 +19,26 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 {
     private static readonly CreateSessionRequest CreateSessionRequest = new();
 
-    private static readonly GrpcRequestSettings CreateSessionSettings = new()
-    {
-        TransportTimeout = TimeSpan.FromMinutes(2)
-    };
-
     private readonly IDriver _driver;
     private readonly bool _disposingDriver;
     private readonly ILogger<Session> _loggerSession;
 
-    internal SessionPool(IDriver driver, int? maxSessionPool = null, bool disposingDriver = false)
-        : base(driver.LoggerFactory.CreateLogger<SessionPool>(), maxSessionPool)
+    internal SessionPool(IDriver driver, SessionPoolConfig sessionPoolConfig)
+        : base(driver.LoggerFactory.CreateLogger<SessionPool>(), sessionPoolConfig)
     {
         _driver = driver;
-        _disposingDriver = disposingDriver;
+        _disposingDriver = sessionPoolConfig.DisposeDriver;
         _loggerSession = driver.LoggerFactory.CreateLogger<Session>();
     }
 
-    protected override async Task<Session> CreateSession()
+    protected override async Task<Session> CreateSession(
+        CancellationToken cancellationToken = default
+    )
     {
         var response = await _driver.UnaryCall(
             QueryService.CreateSessionMethod,
             CreateSessionRequest,
-            CreateSessionSettings
+            new GrpcRequestSettings { CancellationToken = cancellationToken }
         );
 
         Status.FromProto(response.Status, response.Issues).EnsureSuccess();
@@ -57,13 +54,13 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         {
             try
             {
-                await using var stream = await _driver.ServerStreamCall(
+                using var stream = await _driver.ServerStreamCall(
                     QueryService.AttachSessionMethod,
                     new AttachSessionRequest { SessionId = sessionId },
                     new GrpcRequestSettings { NodeId = nodeId }
                 );
 
-                if (!await stream.MoveNextAsync())
+                if (!await stream.MoveNextAsync(cancellationToken))
                 {
                     // Session wasn't started!
                     completeTask.SetResult(new Status(StatusCode.Cancelled, "Attach stream is not started!"));
@@ -75,8 +72,10 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
                 try
                 {
-                    await foreach (var sessionState in stream) // watch attach stream session cycle life
+                    // ReSharper disable once MethodSupportsCancellation
+                    while (await stream.MoveNextAsync())
                     {
+                        var sessionState = stream.Current;
                         var sessionStateStatus = Status.FromProto(sessionState.Status, sessionState.Issues);
 
                         Logger.LogDebug("Session[{SessionId}] was received the status from the attach stream: {Status}",
@@ -107,7 +106,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                     Logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", sessionId);
                 }
             }
-            catch (Driver.TransportException e)
+            catch (Exception e)
             {
                 completeTask.SetException(e);
             }
@@ -115,7 +114,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             {
                 session.IsActive = false;
             }
-        });
+        }, cancellationToken);
 
         (await completeTask.Task).EnsureSuccess();
 

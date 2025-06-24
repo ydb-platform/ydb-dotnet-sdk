@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Pool;
 using Ydb.Sdk.Transport;
 
 namespace Ydb.Sdk.Ado;
@@ -24,18 +25,19 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     // Init default connection string
     private void InitDefaultValues()
     {
-        _host = "localhost";
-        _port = 2136;
-        _database = "/local";
-        _maxSessionPool = 100;
-        _useTls = false;
+        _host = YdbAdoDefaultSettings.Host;
+        _port = YdbAdoDefaultSettings.Port;
+        _database = YdbAdoDefaultSettings.Database;
+        _maxSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
+        _useTls = YdbAdoDefaultSettings.UseTls;
         _connectTimeout = GrpcDefaultSettings.ConnectTimeoutSeconds;
-        _keepAlivePingDelay = GrpcDefaultSettings.DefaultKeepAlivePingSeconds;
-        _keepAlivePingTimeout = GrpcDefaultSettings.DefaultKeepAlivePingTimeoutSeconds;
-        _enableMultipleHttp2Connections = false;
+        _keepAlivePingDelay = GrpcDefaultSettings.KeepAlivePingSeconds;
+        _keepAlivePingTimeout = GrpcDefaultSettings.KeepAlivePingTimeoutSeconds;
+        _enableMultipleHttp2Connections = GrpcDefaultSettings.EnableMultipleHttp2Connections;
         _maxSendMessageSize = GrpcDefaultSettings.MaxSendMessageSize;
         _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
-        _disableDiscovery = false;
+        _disableDiscovery = GrpcDefaultSettings.DisableDiscovery;
+        _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
     }
 
     public string Host
@@ -246,6 +248,24 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private bool _disableDiscovery;
 
+    public int CreateSessionTimeout
+    {
+        get => _createSessionTimeout;
+        set
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value,
+                    "Invalid create session timeout: " + value);
+            }
+
+            _createSessionTimeout = value;
+            SaveValue(nameof(CreateSessionTimeout), value);
+        }
+    }
+
+    private int _createSessionTimeout;
+
     public ILoggerFactory? LoggerFactory { get; init; }
 
     public ICredentialsProvider? CredentialsProvider { get; init; }
@@ -410,6 +430,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 "MaxReceiveMessageSize", "Max Receive Message Size");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, disableDiscovery) =>
                 builder.DisableDiscovery = disableDiscovery), "DisableDiscovery", "Disable Discovery");
+            AddOption(new YdbConnectionOption<int>(IntExtractor,
+                    (builder, createSessionTimeout) => builder.CreateSessionTimeout = createSessionTimeout),
+                "CreateSessionTimeout", "Create Session Timeout");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)

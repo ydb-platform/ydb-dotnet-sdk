@@ -86,16 +86,21 @@ public class ExecuteQueryPart
 
 public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAsyncEnumerable<ExecuteQueryPart>
 {
-    private readonly IAsyncEnumerator<ExecuteQueryResponsePart> _stream;
+    private readonly ServerStream<ExecuteQueryResponsePart> _stream;
     private readonly Action<string?> _onTxId;
 
-    internal ExecuteQueryStream(IAsyncEnumerator<ExecuteQueryResponsePart> stream, Action<string?>? onTx = null)
+    internal ExecuteQueryStream(ServerStream<ExecuteQueryResponsePart> stream, Action<string?>? onTx = null)
     {
         _stream = stream;
         _onTxId = onTx ?? (_ => { });
     }
 
-    public ValueTask DisposeAsync() => _stream.DisposeAsync();
+    public ValueTask DisposeAsync()
+    {
+        _stream.Dispose();
+
+        return default;
+    }
 
     public async ValueTask<bool> MoveNextAsync()
     {

@@ -45,6 +45,13 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
     public Task RequestStreamComplete();
 }
 
+public interface IServerStream<out TResponse> : IDisposable
+{
+    public ValueTask<bool> MoveNextAsync(CancellationToken cancellationToken = default);
+
+    public TResponse Current { get; }
+}
+
 public abstract class BaseDriver : IDriver
 {
     private readonly ICredentialsProvider? _credentialsProvider;
@@ -200,7 +207,7 @@ public abstract class BaseDriver : IDriver
     }
 }
 
-public sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyncEnumerable<TResponse>
+public sealed class ServerStream<TResponse> : IServerStream<TResponse>
 {
     private readonly AsyncServerStreamingCall<TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;
@@ -211,18 +218,11 @@ public sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyn
         _rpcErrorAction = rpcErrorAction;
     }
 
-    public ValueTask DisposeAsync()
-    {
-        _stream.Dispose();
-
-        return default;
-    }
-
-    public async ValueTask<bool> MoveNextAsync()
+    public async ValueTask<bool> MoveNextAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            return await _stream.ResponseStream.MoveNext(CancellationToken.None);
+            return await _stream.ResponseStream.MoveNext(cancellationToken);
         }
         catch (RpcException e)
         {
@@ -234,7 +234,7 @@ public sealed class ServerStream<TResponse> : IAsyncEnumerator<TResponse>, IAsyn
 
     public TResponse Current => _stream.ResponseStream.Current;
 
-    public IAsyncEnumerator<TResponse> GetAsyncEnumerator(CancellationToken cancellationToken = new()) => this;
+    public void Dispose() => _stream.Dispose();
 }
 
 internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<TRequest, TResponse>

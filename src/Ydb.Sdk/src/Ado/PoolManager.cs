@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Query;
 
 namespace Ydb.Sdk.Ado;
@@ -15,7 +16,7 @@ internal static class PoolManager
     {
         if (Pools.TryGetValue(connectionString.ConnectionString, out var sessionPool))
         {
-            return await sessionPool.GetSession();
+            return await sessionPool.GetSession(cancellationToken);
         }
 
         try
@@ -24,15 +25,21 @@ internal static class PoolManager
 
             if (Pools.TryGetValue(connectionString.ConnectionString, out var pool))
             {
-                return await pool.GetSession();
+                return await pool.GetSession(cancellationToken);
             }
 
-            var newSessionPool = new SessionPool(await connectionString.BuildDriver(), connectionString.MaxSessionPool,
-                disposingDriver: true);
+            var newSessionPool = new SessionPool(
+                await connectionString.BuildDriver(),
+                new SessionPoolConfig(
+                    MaxSessionPool: connectionString.MaxSessionPool,
+                    CreateSessionTimeout: connectionString.CreateSessionTimeout,
+                    DisposeDriver: true
+                )
+            );
 
             Pools[connectionString.ConnectionString] = newSessionPool;
 
-            return await newSessionPool.GetSession();
+            return await newSessionPool.GetSession(cancellationToken);
         }
         finally
         {

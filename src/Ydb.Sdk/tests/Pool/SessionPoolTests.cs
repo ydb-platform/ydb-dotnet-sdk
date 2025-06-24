@@ -10,7 +10,7 @@ namespace Ydb.Sdk.Tests.Pool;
 [Trait("Category", "Unit")]
 public class SessionPoolTests
 {
-    public const int TestSessionPoolSize = 50;
+    internal const int TestSessionPoolSize = 50;
 
     private readonly TestSessionPool _testSessionPool = new();
 
@@ -82,11 +82,12 @@ internal class TestSessionPool : SessionPool<TestSession>
 
     public Status CreatedStatus { get; set; } = Status.Success;
 
-    public TestSessionPool() : base(NullLogger<TestSessionPool>.Instance, SessionPoolTests.TestSessionPoolSize)
+    public TestSessionPool() : base(NullLogger<TestSessionPool>.Instance,
+        new SessionPoolConfig(MaxSessionPool: SessionPoolTests.TestSessionPoolSize, CreateSessionTimeout: 0))
     {
     }
 
-    protected override Task<TestSession> CreateSession()
+    protected override Task<TestSession> CreateSession(CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref InvokedCreateSession);
 

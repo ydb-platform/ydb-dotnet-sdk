@@ -174,7 +174,7 @@ public sealed class YdbCommand : DbCommand
             throw new YdbOperationInProgressException(YdbConnection);
         }
 
-        YdbConnection.EnsureConnectionOpen();
+        YdbConnection.ThrowIfConnectionClosed();
 
         var ydbParameters = DbParameterCollection.YdbParameters;
         var (sql, paramNames) = SqlParser.Parse(
@@ -201,7 +201,6 @@ public sealed class YdbCommand : DbCommand
         var execSettings = CommandTimeout > 0
             ? new ExecuteQuerySettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
             : new ExecuteQuerySettings();
-        execSettings.CancellationToken = cancellationToken;
 
         var transaction = YdbConnection.CurrentTransaction;
 
@@ -211,9 +210,9 @@ public sealed class YdbCommand : DbCommand
         }
 
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(
-            await YdbConnection.Session.ExecuteQuery(
-                preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl
-            ), YdbConnection.OnStatus, transaction
+            await YdbConnection.Session
+                .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl),
+            YdbConnection.OnStatus, transaction, cancellationToken
         );
 
         YdbConnection.LastReader = ydbDataReader;

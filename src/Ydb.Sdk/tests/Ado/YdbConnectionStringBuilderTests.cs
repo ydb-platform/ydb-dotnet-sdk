@@ -24,6 +24,7 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(64 * 1024 * 1024, ydbConnectionStringBuilder.MaxSendMessageSize);
         Assert.Equal(64 * 1024 * 1024, ydbConnectionStringBuilder.MaxReceiveMessageSize);
         Assert.False(ydbConnectionStringBuilder.DisableDiscovery);
+        Assert.Equal(5, ydbConnectionStringBuilder.CreateSessionTimeout);
     }
 
     [Fact]
@@ -39,12 +40,13 @@ public class YdbConnectionStringBuilderTests
     [Fact]
     public void InitConnectionStringBuilder_WhenExpectedKeys_ReturnUpdatedConnectionString()
     {
-        var connectionString =
-            new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true;" +
-                                           "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
-                                           "EnableMultipleHttp2Connections=true;" +
-                                           "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-                                           "DisableDiscovery=true");
+        var connectionString = new YdbConnectionStringBuilder(
+            "Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true;" +
+            "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
+            "EnableMultipleHttp2Connections=true;CreateSessionTimeout=30;" +
+            "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
+            "DisableDiscovery=true"
+        );
 
         Assert.Equal(2135, connectionString.Port);
         Assert.Equal("server", connectionString.Host);
@@ -60,10 +62,11 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(1000000, connectionString.MaxReceiveMessageSize);
         Assert.Equal("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=True;" +
                      "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
-                     "EnableMultipleHttp2Connections=True;" +
+                     "EnableMultipleHttp2Connections=True;CreateSessionTimeout=30;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
                      "DisableDiscovery=True", connectionString.ConnectionString);
         Assert.True(connectionString.DisableDiscovery);
+        Assert.Equal(30, connectionString.CreateSessionTimeout);
     }
 
     [Fact]

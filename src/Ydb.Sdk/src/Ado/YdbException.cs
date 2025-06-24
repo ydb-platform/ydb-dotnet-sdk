@@ -14,10 +14,15 @@ public class YdbException : DbException
     }
 
     internal YdbException(Status status, Exception? innerException = null)
-        : base(status.ToString(), innerException)
+        : this(status.StatusCode, status.ToString(), innerException)
     {
-        Code = status.StatusCode;
-        var policy = RetrySettings.DefaultInstance.GetRetryRule(status.StatusCode).Policy;
+    }
+
+    internal YdbException(StatusCode statusCode, string message, Exception? innerException = null)
+        : base(message, innerException)
+    {
+        Code = statusCode;
+        var policy = RetrySettings.DefaultInstance.GetRetryRule(statusCode).Policy;
 
         IsTransient = policy == RetryPolicy.Unconditional;
         IsTransientWhenIdempotent = policy != RetryPolicy.None;
