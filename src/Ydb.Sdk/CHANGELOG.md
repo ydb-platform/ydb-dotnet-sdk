@@ -1,3 +1,5 @@
+## v0.19.0
+
 - ADO.NET: session is now deactivated when cancelled.
 - Fixed bug ADO.NET: throws an `InvalidOperationException` if the connection is broken during the next invocation.
 - Fixed bug `YdbCommand`: `Execute*` methods now propagate the cancellation token only for initializing YdbDataReader; the token is not passed to the server stream.
