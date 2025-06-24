@@ -28,7 +28,7 @@ public sealed class YdbConnection : DbConnection
     {
         get
         {
-            EnsureConnectionOpen();
+            ThrowIfConnectionClosed();
 
             return _session;
         }
@@ -53,7 +53,7 @@ public sealed class YdbConnection : DbConnection
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
     {
-        EnsureConnectionOpen();
+        ThrowIfConnectionClosed();
 
         return BeginTransaction(isolationLevel switch
         {
@@ -66,7 +66,7 @@ public sealed class YdbConnection : DbConnection
 
     public YdbTransaction BeginTransaction(TxMode txMode = TxMode.SerializableRw)
     {
-        EnsureConnectionOpen();
+        ThrowIfConnectionClosed();
 
         if (CurrentTransaction is { Completed: false })
         {
@@ -90,7 +90,7 @@ public sealed class YdbConnection : DbConnection
 
     public override async Task OpenAsync(CancellationToken cancellationToken)
     {
-        EnsureConnectionClosed();
+        ThrowIfConnectionOpen();
 
         try
         {
@@ -152,7 +152,7 @@ public sealed class YdbConnection : DbConnection
         set
 #pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
         {
-            EnsureConnectionClosed();
+            ThrowIfConnectionOpen();
 
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
             _connectionStringBuilder = value != null ? new YdbConnectionStringBuilder(value) : null;
@@ -186,7 +186,7 @@ public sealed class YdbConnection : DbConnection
     {
         get
         {
-            EnsureConnectionOpen();
+            ThrowIfConnectionClosed();
 
             return string.Empty; // TODO ServerVersion
         }
@@ -217,17 +217,17 @@ public sealed class YdbConnection : DbConnection
         CancellationToken cancellationToken = default
     ) => YdbSchema.GetSchemaAsync(this, collectionName, restrictionValues, cancellationToken);
 
-    internal void EnsureConnectionOpen()
+    internal void ThrowIfConnectionClosed()
     {
-        if (ConnectionState == ConnectionState.Closed)
+        if (ConnectionState is ConnectionState.Closed or ConnectionState.Broken)
         {
             throw new InvalidOperationException("Connection is closed");
         }
     }
 
-    private void EnsureConnectionClosed()
+    private void ThrowIfConnectionOpen()
     {
-        if (ConnectionState != ConnectionState.Closed)
+        if (ConnectionState == ConnectionState.Open)
         {
             throw new InvalidOperationException("Connection already open");
         }

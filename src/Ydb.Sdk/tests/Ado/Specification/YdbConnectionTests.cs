@@ -1,5 +1,6 @@
 using AdoNet.Specification.Tests;
 using Xunit;
+using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tests.Ado.Specification;
 
@@ -33,11 +34,12 @@ public class YdbConnectionTests : ConnectionTestBase<YdbFactoryFixture>
         base.ServerVersion_returns_value();
     }
 
-#pragma warning disable xUnit1004
-    [Fact(Skip = "TODO Supported cancel OpenAsync.")]
-#pragma warning restore xUnit1004
-    public override Task OpenAsync_is_canceled()
+    public override async Task OpenAsync_is_canceled()
     {
-        return base.OpenAsync_is_canceled();
+        await using var connection = CreateConnection();
+        connection.ConnectionString = ConnectionString;
+        var task = connection.OpenAsync(CanceledToken);
+        await Assert.ThrowsAnyAsync<YdbException>(() => task);
+        Assert.True(task.IsFaulted);
     }
 }

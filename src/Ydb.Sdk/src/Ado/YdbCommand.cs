@@ -174,7 +174,7 @@ public sealed class YdbCommand : DbCommand
             throw new YdbOperationInProgressException(YdbConnection);
         }
 
-        YdbConnection.EnsureConnectionOpen();
+        YdbConnection.ThrowIfConnectionClosed();
 
         var ydbParameters = DbParameterCollection.YdbParameters;
         var (sql, paramNames) = SqlParser.Parse(

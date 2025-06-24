@@ -222,10 +222,11 @@ INSERT INTO {tableName}
         Assert.Equal("The connection pool has been exhausted, either raise 'MaxSessionPool' (currently 10) " +
                      "or 'CreateSessionTimeout' (currently 5 seconds) in your connection string.",
             (await Assert.ThrowsAsync<YdbException>(async () => await connection.OpenAsync(cts.Token))).Message);
+        Assert.Equal(ConnectionState.Closed, connection.State);
     }
 
     [Fact]
-    public async Task YdbCommand_WhenCancelTokenIsCanceled_ThrowYdbException()
+    public async Task YdbDataReader_WhenCancelTokenIsCanceled_ThrowYdbException()
     {
         await using var connection = await CreateOpenConnectionAsync();
         var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
@@ -236,16 +237,13 @@ INSERT INTO {tableName}
         await ydbDataReader.ReadAsync(cts.Token); // first part in memory
         Assert.False(ydbDataReader.IsClosed);
         Assert.Equal(1, ydbDataReader.GetValue(0));
-
+        Assert.Equal(ConnectionState.Open, connection.State);
         Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
             async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
         Assert.True(ydbDataReader.IsClosed);
-        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
-            async () => await command.ExecuteReaderAsync(cts.Token))).Code);
-        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
-            async () => await command.ExecuteScalarAsync(cts.Token))).Code);
-        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
-            async () => await command.ExecuteNonQueryAsync(cts.Token))).Code);
+        Assert.Equal(ConnectionState.Broken, connection.State);
+        // ReSharper disable once MethodSupportsCancellation
+        await connection.OpenAsync();
 
         // ReSharper disable once MethodSupportsCancellation
         ydbDataReader = await command.ExecuteReaderAsync();
@@ -259,16 +257,40 @@ INSERT INTO {tableName}
         Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
             async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
         Assert.True(ydbDataReader.IsClosed);
+        Assert.Equal(ConnectionState.Broken, connection.State);
     }
 
     [Fact]
-    public async Task ExecuteMethods_WhenExecutedYdbDataReaderThenCancelTokenIsCanceled_ReturnValues()
+    public async Task ExecuteMethods_WhenCancelTokenIsCanceled_ConnectionIsBroken()
     {
         await using var connection = await CreateOpenConnectionAsync();
-        var ydbCommand = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; "};
+        var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
+            async () => await command.ExecuteReaderAsync(cts.Token))).Code);
+        Assert.Equal(ConnectionState.Broken, connection.State);
+        // ReSharper disable once MethodSupportsCancellation
+        await connection.OpenAsync();
+        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
+            async () => await command.ExecuteScalarAsync(cts.Token))).Code);
+        Assert.Equal(ConnectionState.Broken, connection.State);
+        // ReSharper disable once MethodSupportsCancellation
+        await connection.OpenAsync();
+        Assert.Equal(StatusCode.Cancelled, (await Assert.ThrowsAsync<YdbException>(
+            async () => await command.ExecuteNonQueryAsync(cts.Token))).Code);
+        Assert.Equal(ConnectionState.Broken, connection.State);
+    }
+
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenExecutedYdbDataReaderThenCancelTokenIsCanceled_ReturnValues()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var ydbCommand = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; " };
         var cts = new CancellationTokenSource();
         var ydbDataReader = await ydbCommand.ExecuteReaderAsync(cts.Token);
-        
+
         await ydbDataReader.ReadAsync(cts.Token);
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.True(await ydbDataReader.NextResultAsync(cts.Token));
