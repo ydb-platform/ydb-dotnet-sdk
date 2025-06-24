@@ -1,8 +1,10 @@
-- `YdbCommand`: `Execute*` methods don't propagate cancellation token to the server stream, there is used only for initializing the `YdbDataReader`.
-- `YdbCommand`: Cancellation token propagation in `Execute*` methods
-- `YdbConnection`: Cancellation token propagation in `OpenAsync` method.
-- `YdbDataReader`: Cancellation token propagation in `ReadAsync` and `NextResultAsync` methods.
-- Added `CreateSessionTimeout` to ADO.NET when creating a session. (Default 5 seconds.)
+- ADO.NET: session is now deactivated when cancelled.
+- Fixed bug ADO.NET: throws an `InvalidOperationException` if the connection is broken during the next invocation.
+- Fixed bug `YdbCommand`: `Execute*` methods now propagate the cancellation token only for initializing YdbDataReader; the token is not passed to the server stream.
+- `YdbCommand`: Improved cancellation token propagation in `Execute*` methods.
+- `YdbConnection`: Added cancellation token propagation support in `OpenAsync`.
+- `YdbDataReader`: Added cancellation token propagation support in `ReadAsync` and `NextResultAsync`.
+- Added `CreateSessionTimeout` option to ADO.NET session creation; default is 5 seconds.
 
 ## v0.18.3
 
