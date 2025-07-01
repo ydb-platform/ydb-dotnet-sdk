@@ -4,12 +4,14 @@ namespace Ydb.Sdk.Ado.Internal;
 
 internal interface ISqlParam
 {
+    bool IsNative { get; }
+
     string Name { get; }
 
     YdbValue YdbValueFetch(Dictionary<string, YdbValue> ydbParameters);
 }
 
-internal record PrimitiveParam(string Name) : ISqlParam
+internal record PrimitiveParam(string Name, bool IsNative) : ISqlParam
 {
     public YdbValue YdbValueFetch(Dictionary<string, YdbValue> ydbParameters) =>
         ydbParameters.Get(Name);
@@ -27,6 +29,7 @@ internal class ListPrimitiveParam : ISqlParam
         Name = $"{PrefixParamName}_{globalNumber}";
     }
 
+    public bool IsNative => false;
     public string Name { get; }
 
     public YdbValue YdbValueFetch(Dictionary<string, YdbValue> ydbParameters) => YdbValue

@@ -45,12 +45,20 @@ internal static class SqlParser
                         break;
                     }
 
-                    var (name, nextToken) = ParseNameParam(sql, curToken);
+                    var parsedParam = ParseNameParam(sql, curToken);
 
-                    newYql.Append(sql[fragmentToken .. curToken]).Append(name);
-                    sqlParamsBuilder.AddPrimitiveParam(name);
-                    fragmentToken = nextToken;
-                    curToken = nextToken;
+                    newYql.Append(sql[fragmentToken .. curToken]).Append(parsedParam.Name);
+                    sqlParamsBuilder.AddPrimitiveParam(parsedParam.Name, false);
+                    fragmentToken = parsedParam.NextToken;
+                    curToken = parsedParam.NextToken;
+                    break;
+                case '$':
+                    var parsedNativeParam = ParseNameParam(sql, curToken);
+
+                    newYql.Append(sql[fragmentToken .. curToken]).Append(parsedNativeParam.Name);
+                    sqlParamsBuilder.AddPrimitiveParam(parsedNativeParam.Name, true);
+                    fragmentToken = parsedNativeParam.NextToken;
+                    curToken = parsedNativeParam.NextToken;
                     break;
                 case var _ when ParseInKeyWord(sql, curToken):
                     curToken += 2; // skip IN keyword
@@ -96,7 +104,7 @@ internal static class SqlParser
             return curToken + 1;
         }
 
-        for (; sql[curToken] != '\r' && sql[curToken] != '\n'; curToken++)
+        for (; curToken < sql.Length && sql[curToken] != '\r' && sql[curToken] != '\n'; curToken++)
         {
         }
 
@@ -157,7 +165,8 @@ internal static class SqlParser
     }
 
     private static bool ParseInKeyWord(string sql, int keyWordStart) => sql.Length - keyWordStart >= 2 &&
-        (sql[keyWordStart] | 0x20) == 'i' && (sql[keyWordStart + 1] | 0x20) == 'n';
+                                                                        (sql[keyWordStart] | 0x20) == 'i' &&
+                                                                        (sql[keyWordStart + 1] | 0x20) == 'n';
 
 
     private static int ParseInListParameters(
@@ -266,14 +275,14 @@ internal static class SqlParser
 
         private int _globalNumberListPrimitiveParam;
 
-        internal void AddPrimitiveParam(string paramName)
+        internal void AddPrimitiveParam(string paramName, bool isNative)
         {
             if (_foundParamNames.Contains(paramName))
             {
                 return;
             }
 
-            _sqlParams.Add(new PrimitiveParam(paramName));
+            _sqlParams.Add(new PrimitiveParam(paramName, isNative));
             _foundParamNames.Add(paramName);
         }
 

@@ -53,7 +53,7 @@ internal class AppContext
 
         var ydbCommand = connection.CreateCommand();
         ydbCommand.CommandText = """
-                                 CREATE TABLE series
+                                 CREATE TABLE IF NOT EXISTS series
                                  (
                                      series_id Uint64,
                                      title Text,
@@ -62,7 +62,7 @@ internal class AppContext
                                      PRIMARY KEY (series_id)
                                  );
 
-                                 CREATE TABLE seasons
+                                 CREATE TABLE IF NOT EXISTS seasons
                                  (
                                      series_id Uint64,
                                      season_id Uint64,
@@ -72,7 +72,7 @@ internal class AppContext
                                      PRIMARY KEY (series_id, season_id)
                                  );
 
-                                 CREATE TABLE episodes
+                                 CREATE TABLE IF NOT EXISTS episodes
                                  (
                                      series_id Uint64,
                                      season_id Uint64,

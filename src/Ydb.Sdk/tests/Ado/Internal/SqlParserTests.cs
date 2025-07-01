@@ -12,7 +12,16 @@ public class SqlParserTests
         var (sql, sqlParams) = SqlParser.Parse("SELECT @p; SELECT @p2; SELECT @p_3;");
 
         Assert.Equal("SELECT $p; SELECT $p2; SELECT $p_3;", sql);
-        Assert.Equal(new PrimitiveParam[] { new("$p"), new("$p2"), new("$p_3") }, sqlParams);
+        Assert.Equal(new PrimitiveParam[] { new("$p", false), new("$p2", false), new("$p_3", false) }, sqlParams);
+    }
+
+    [Fact]
+    public void Parse_WhenNativeParameterInQuery_ReturnParsedSql()
+    {
+        var (sql, sqlParams) = SqlParser.Parse("DECLARE $p2 AS Text; SELECT @p; SELECT $p2; SELECT @p_3;");
+
+        Assert.Equal("DECLARE $p2 AS Text; SELECT $p; SELECT $p2; SELECT $p_3;", sql);
+        Assert.Equal(new PrimitiveParam[] { new("$p2", true), new("$p", false), new("$p_3", false) }, sqlParams);
     }
 
     [Fact]
@@ -39,7 +48,7 @@ SELECT @param; SELECT @p2; SELECT @p_3;");
 
         Assert.Equal(@"-- Comment with params @param, @p2, @p_3
 SELECT $param; SELECT $p2; SELECT $p_3;", sql);
-        Assert.Equal(new PrimitiveParam[] { new("$param"), new("$p2"), new("$p_3") }, sqlParams);
+        Assert.Equal(new PrimitiveParam[] { new("$param", false), new("$p2", false), new("$p_3", false) }, sqlParams);
     }
 
     [Fact]
@@ -76,10 +85,13 @@ INSERT INTO Table
  $name15, $name16, $name17, $name18, $name19, $name20);", sql);
         Assert.Equal(new PrimitiveParam[]
         {
-            new("$name1"), new("$name2"), new("$name3"), new("$name4"), new("$name5"),
-            new("$name6"), new("$name7"), new("$name8"), new("$name9"), new("$name10"),
-            new("$name11"), new("$name12"), new("$name13"), new("$name14"), new("$name15"),
-            new("$name16"), new("$name17"), new("$name18"), new("$name19"), new("$name20")
+            new("$name1", false), new("$name2", false), new("$name3", false),
+            new("$name4", false), new("$name5", false), new("$name6", false),
+            new("$name7", false), new("$name8", false), new("$name9", false),
+            new("$name10", false), new("$name11", false), new("$name12", false),
+            new("$name13", false), new("$name14", false), new("$name15", false),
+            new("$name16", false), new("$name17", false), new("$name18", false),
+            new("$name19", false), new("$name20", false)
         }, sqlParams);
     }
 
@@ -130,7 +142,7 @@ COMMIT;
 -- View result:
 SELECT * FROM episodes WHERE series_id = ""123 @ \"" @ @"" AND season_id = $param;
 ;", sql);
-        Assert.Equal(new PrimitiveParam[] { new("$air_date"), new("$param") }, sqlParams);
+        Assert.Equal(new PrimitiveParam[] { new("$air_date", false), new("$param", false) }, sqlParams);
     }
 
     [Fact]
@@ -180,7 +192,7 @@ COMMIT;
 
 -- View result:
 SELECT * FROM episodes WHERE series_id = '123 @ \' @ @' AND season_id = $param;", sql);
-        Assert.Equal(new PrimitiveParam[] { new("$air_date"), new("$param") }, sqlParams);
+        Assert.Equal(new PrimitiveParam[] { new("$air_date", false), new("$param", false) }, sqlParams);
     }
 
     [Fact]
@@ -231,7 +243,7 @@ COMMIT;
 
 -- View result:
 SELECT * FROM episodes WHERE series_id = '123 @ \' @ @' AND season_id = $param;", sql);
-        Assert.Equal(new PrimitiveParam[] { new("$air_date"), new("$param") }, sqlParams);
+        Assert.Equal(new PrimitiveParam[] { new("$air_date", false), new("$param", false) }, sqlParams);
     }
 
     [Fact]
@@ -250,7 +262,7 @@ text@@;
 SELECT $text;
 -- Comment with params @param, @p2, @p_3
 SELECT $param; SELECT $p2; SELECT $p_3;", sql);
-        Assert.Equal(new PrimitiveParam[] { new("$param"), new("$p2"), new("$p_3") }, sqlParams);
+        Assert.Equal(new PrimitiveParam[] { new("$param", false), new("$p2", false), new("$p_3", false) }, sqlParams);
     }
 
     [Fact]
@@ -259,7 +271,7 @@ SELECT $param; SELECT $p2; SELECT $p_3;", sql);
         var (sql, sqlParams) = SqlParser.Parse("SELECT @a, @a, @a;");
 
         Assert.Equal("SELECT $a, $a, $a;", sql);
-        Assert.Equal(new PrimitiveParam[] { new("$a") }, sqlParams);
+        Assert.Equal(new PrimitiveParam[] { new("$a", false) }, sqlParams);
     }
 
     [Fact]
@@ -268,7 +280,7 @@ SELECT $param; SELECT $p2; SELECT $p_3;", sql);
         var (sql, sqlParams) = SqlParser.Parse("SELECT @a/* this comment @ */");
 
         Assert.Equal("SELECT $a/* this comment @ */", sql);
-        Assert.Equal(new PrimitiveParam[] { new("$a") }, sqlParams);
+        Assert.Equal(new PrimitiveParam[] { new("$a", false) }, sqlParams);
     }
 
     [Theory]
@@ -358,17 +370,17 @@ SELECT $simple_param_second;
         Assert.Equal(5, listPrimitive1.Count);
         for (var i = 0; i < 5; i++)
         {
-            Assert.Equal(i + 1, listPrimitive1[i].GetInt32());    
+            Assert.Equal(i + 1, listPrimitive1[i].GetInt32());
         }
-        
+
         Assert.Equal("$Gen_List_Primitive_2", sqlParams[2].Name);
         var listPrimitive2 = sqlParams[2].YdbValueFetch(ydbParameters).GetList();
         Assert.Equal(4, listPrimitive2.Count);
         for (var i = 0; i < 4; i++)
         {
-            Assert.Equal(i + 1, listPrimitive2[i].GetInt32());    
+            Assert.Equal(i + 1, listPrimitive2[i].GetInt32());
         }
-        
+
         Assert.Equal("first", sqlParams[1].YdbValueFetch(ydbParameters).GetUtf8());
         Assert.Equal("second", sqlParams[5].YdbValueFetch(ydbParameters).GetUtf8());
         Assert.Equal(1, sqlParams[3].YdbValueFetch(ydbParameters).GetInt32());

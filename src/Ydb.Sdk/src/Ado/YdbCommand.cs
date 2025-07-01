@@ -185,12 +185,16 @@ public sealed class YdbCommand : DbCommand
         );
         var preparedSql = new StringBuilder();
         var ydbParameters = new Dictionary<string, YdbValue>();
-        
+
         foreach (var sqlParam in sqlParams)
         {
             var ydbValue = sqlParam.YdbValueFetch(ydbParameterCollection);
-            
-            preparedSql.Append($"DECLARE {sqlParam.Name} AS {ydbValue.ToYql()};\n");
+
+            if (!sqlParam.IsNative)
+            {
+                preparedSql.Append($"DECLARE {sqlParam.Name} AS {ydbValue.ToYql()};\n");
+            }
+
             ydbParameters[sqlParam.Name] = ydbValue;
         }
 
