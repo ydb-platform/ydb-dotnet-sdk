@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Services.Query;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
@@ -176,24 +177,21 @@ public sealed class YdbCommand : DbCommand
 
         YdbConnection.ThrowIfConnectionClosed();
 
-        var ydbParameters = DbParameterCollection.YdbParameters;
-        var (sql, paramNames) = SqlParser.Parse(
+        var ydbParameterCollection = DbParameterCollection.YdbParameters;
+        var (sql, sqlParams) = SqlParser.Parse(
             CommandText.Length > 0
                 ? CommandText
                 : throw new InvalidOperationException("CommandText property has not been initialized")
         );
         var preparedSql = new StringBuilder();
-
-        foreach (var paramName in paramNames)
+        var ydbParameters = new Dictionary<string, YdbValue>();
+        
+        foreach (var sqlParam in sqlParams)
         {
-            if (ydbParameters.TryGetValue(paramName, out var ydbValue))
-            {
-                preparedSql.Append($"DECLARE {paramName} AS {ydbValue.ToYql()};\n");
-            }
-            else
-            {
-                throw new YdbException($"Not found YDB parameter [name: {paramName}]");
-            }
+            var ydbValue = sqlParam.YdbValueFetch(ydbParameterCollection);
+            
+            preparedSql.Append($"DECLARE {sqlParam.Name} AS {ydbValue.ToYql()};\n");
+            ydbParameters[sqlParam.Name] = ydbValue;
         }
 
         preparedSql.Append(sql);
