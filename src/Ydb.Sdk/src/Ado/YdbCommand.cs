@@ -188,6 +188,11 @@ public sealed class YdbCommand : DbCommand
 
         foreach (var sqlParam in sqlParams)
         {
+            if (sqlParam.IsNative && !ydbParameterCollection.ContainsKey(sqlParam.Name))
+            {
+                continue;
+            }
+            
             var ydbValue = sqlParam.YdbValueFetch(ydbParameterCollection);
 
             if (!sqlParam.IsNative)

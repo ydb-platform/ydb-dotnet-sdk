@@ -262,7 +262,11 @@ text@@;
 SELECT $text;
 -- Comment with params @param, @p2, @p_3
 SELECT $param; SELECT $p2; SELECT $p_3;", sql);
-        Assert.Equal(new PrimitiveParam[] { new("$param", false), new("$p2", false), new("$p_3", false) }, sqlParams);
+        Assert.Equal(new PrimitiveParam[]
+        {
+            new("$text", true), new("$param", false),
+            new("$p2", false), new("$p_3", false)
+        }, sqlParams);
     }
 
     [Fact]

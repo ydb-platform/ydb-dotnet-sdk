@@ -164,10 +164,10 @@ internal static class SqlParser
         return curToken + 2;
     }
 
-    private static bool ParseInKeyWord(string sql, int keyWordStart) => sql.Length - keyWordStart >= 2 &&
+    private static bool ParseInKeyWord(string sql, int keyWordStart) => sql.Length - keyWordStart >= 3 &&
                                                                         (sql[keyWordStart] | 0x20) == 'i' &&
-                                                                        (sql[keyWordStart + 1] | 0x20) == 'n';
-
+                                                                        (sql[keyWordStart + 1] | 0x20) == 'n' &&
+                                                                        !sql[keyWordStart + 2].IsSqlIdentifierChar();
 
     private static int ParseInListParameters(
         string sql,
@@ -255,7 +255,7 @@ internal static class SqlParser
         var prevToken = ++curToken;
 
         for (;
-             curToken < sql.Length && (char.IsLetterOrDigit(sql[curToken]) || sql[curToken] == '_');
+             curToken < sql.Length && sql[curToken].IsSqlIdentifierChar();
              curToken++)
         {
         }
@@ -266,6 +266,11 @@ internal static class SqlParser
         }
 
         return ($"${sql[prevToken .. curToken]}", curToken);
+    }
+
+    public static bool IsSqlIdentifierChar(this char c)
+    {
+        return char.IsLetterOrDigit(c) || c == '_';
     }
 
     private class SqlParamsBuilder
