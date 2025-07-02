@@ -16,12 +16,11 @@ internal static class SqlParser
         }
 
         var newYql = new StringBuilder();
-        var paramNames = new List<string>();
-        var foundParamNames = new HashSet<string>();
+        var sqlParamsBuilder = new SqlParamsBuilder();
+        var fragmentToken = 0;
+        var inKeyWord = false;
 
-        var prevToken = 0;
-
-        for (var curToken = 0; curToken < sql.Length; curToken++)
+        for (var curToken = 0; curToken < sql.Length;)
         {
             switch (sql[curToken])
             {
@@ -35,102 +34,55 @@ internal static class SqlParser
                     curToken = SkipTerminals(sql, '\'', curToken);
                     break;
                 case '-':
-                    if (curToken + 1 < sql.Length && sql[curToken + 1] == '-')
-                    {
-                        while (curToken + 1 < sql.Length)
-                        {
-                            curToken++;
-                            if (sql[curToken] == '\r' || sql[curToken] == '\n')
-                            {
-                                break;
-                            }
-                        }
-                    }
-
+                    curToken = ParseLineComment(sql, curToken);
                     break;
                 case '/':
-                    if (curToken + 1 < sql.Length && sql[curToken + 1] == '*')
-                    {
-                        // /* /* */ */ nest, according to SQL spec
-                        var level = 1;
-                        for (curToken += 2; curToken < sql.Length; curToken++)
-                        {
-                            switch (sql[curToken - 1])
-                            {
-                                case '*':
-                                    if (sql[curToken] == '/')
-                                    {
-                                        --level;
-                                        ++curToken; // don't parse / in */* twice
-                                    }
-
-                                    break;
-                                case '/':
-                                    if (sql[curToken] == '*')
-                                    {
-                                        ++level;
-                                        ++curToken; // don't parse * in /*/ twice
-                                    }
-
-                                    break;
-                            }
-
-                            if (level == 0)
-                            {
-                                break;
-                            }
-                        }
-                    }
-
+                    curToken = ParseBlockComment(sql, curToken);
                     break;
                 case '@':
-                    if (curToken + 1 < sql.Length && sql[curToken + 1] == '@') // $text = @@ a b c @ @@ 
+                    if (curToken + 1 < sql.Length && sql[curToken + 1] == '@')
                     {
-                        for (curToken += 2; curToken + 1 < sql.Length; curToken++)
-                        {
-                            if (sql[curToken] == '@' && sql[curToken + 1] == '@')
-                            {
-                                curToken++;
-                                break;
-                            }
-                        }
-
+                        curToken = ParseMultilineStringLiterals(sql, curToken);
                         break;
                     }
 
-                    // Parse params
-                    newYql.Append(sql[prevToken .. curToken]);
-                    prevToken = ++curToken;
+                    var parsedParam = ParseNameParam(sql, curToken);
 
-                    for (;
-                         curToken < sql.Length && (char.IsLetterOrDigit(sql[curToken]) || sql[curToken] == '_');
-                         curToken++)
+                    newYql.Append(sql[fragmentToken .. curToken]).Append(parsedParam.Name);
+                    sqlParamsBuilder.AddPrimitiveParam(parsedParam.Name, false);
+                    fragmentToken = parsedParam.NextToken;
+                    curToken = parsedParam.NextToken;
+                    break;
+                case '$':
+                    var parsedNativeParam = ParseNameParam(sql, curToken);
+
+                    newYql.Append(sql[fragmentToken .. curToken]).Append(parsedNativeParam.Name);
+                    sqlParamsBuilder.AddPrimitiveParam(parsedNativeParam.Name, true);
+                    fragmentToken = parsedNativeParam.NextToken;
+                    curToken = parsedNativeParam.NextToken;
+                    break;
+                case var _ when !inKeyWord && ParseInKeyWord(sql, curToken):
+                    curToken += 2; // skip IN keyword
+                    newYql.Append(sql[fragmentToken .. curToken]);
+                    curToken = ParseInListParameters(sql, curToken, sqlParamsBuilder, newYql);
+                    fragmentToken = curToken;
+                    break;
+                default:
+                    if (sql[curToken++].IsSqlIdentifierChar())
                     {
+                        inKeyWord = true;
+                        continue;
                     }
-
-                    if (curToken - prevToken == 0)
-                    {
-                        throw new YdbException($"Have empty name parameter, invalid SQL [position: {prevToken}]");
-                    }
-
-                    var originalParamName = $"${sql[prevToken .. curToken]}";
-
-                    if (!foundParamNames.Contains(originalParamName))
-                    {
-                        paramNames.Add(originalParamName);
-                    }
-
-                    foundParamNames.Add(originalParamName);
-                    newYql.Append(originalParamName);
-                    prevToken = curToken;
 
                     break;
             }
+
+            inKeyWord = false;
         }
 
-        newYql.Append(sql.AsSpan(prevToken, sql.Length - prevToken));
+        newYql.Append(sql.AsSpan(fragmentToken, sql.Length - fragmentToken));
 
-        return CacheQueries[sql] = new ParsedResult(newYql.ToString(), paramNames.ToArray());
+        return CacheQueries[sql] = new ParsedResult(newYql.ToString(), sqlParamsBuilder.ToSqlParams);
     }
 
     private static int SkipTerminals(string sql, char stopSymbol, int curToken)
@@ -145,12 +97,216 @@ internal static class SqlParser
 
             if (sql[curToken] == stopSymbol)
             {
-                return curToken;
+                return ++curToken;
             }
         }
 
-        return sql.Length;
+        return curToken;
+    }
+
+    // invariant sql[curToken] == '-'
+    private static int ParseLineComment(string sql, int curToken)
+    {
+        if (curToken + 1 >= sql.Length || sql[curToken + 1] != '-')
+        {
+            return curToken + 1;
+        }
+
+        for (; curToken < sql.Length && sql[curToken] != '\r' && sql[curToken] != '\n'; curToken++)
+        {
+        }
+
+        return curToken;
+    }
+
+    // invariant sql[curToken] == '/'
+    private static int ParseBlockComment(string sql, int curToken)
+    {
+        if (curToken + 1 >= sql.Length || sql[curToken + 1] != '*')
+        {
+            return curToken + 1;
+        }
+
+        // /* /* */ */ nest, according to SQL spec
+        var level = 1;
+        for (curToken += 2; curToken < sql.Length; curToken++)
+        {
+            switch (sql[curToken - 1])
+            {
+                case '*':
+                    if (sql[curToken] == '/')
+                    {
+                        --level;
+                        ++curToken; // don't parse / in */* twice
+                    }
+
+                    break;
+                case '/':
+                    if (sql[curToken] == '*')
+                    {
+                        ++level;
+                        ++curToken; // don't parse * in /*/ twice
+                    }
+
+                    break;
+            }
+
+            if (level == 0)
+            {
+                break;
+            }
+        }
+
+        return curToken;
+    }
+
+    // invariant sql[curToken] == '@' && curToken + 1 < sql.Length && sql[curToken + 1] == '@'
+    // https://ydb.tech/docs/en/yql/reference/syntax/lexer#multiline-string-literals
+    private static int ParseMultilineStringLiterals(string sql, int curToken)
+    {
+        for (curToken += 2; curToken + 1 < sql.Length && (sql[curToken] != '@' || sql[curToken + 1] != '@'); curToken++)
+        {
+        }
+
+        // sql[curToken] == '@' && sql[curToken + 1] == '@'
+        return curToken + 2;
+    }
+
+    private static bool ParseInKeyWord(string sql, int keyWordStart) => sql.Length - keyWordStart >= 3 &&
+                                                                        (sql[keyWordStart] | 0x20) == 'i' &&
+                                                                        (sql[keyWordStart + 1] | 0x20) == 'n' &&
+                                                                        !sql[keyWordStart + 2].IsSqlIdentifierChar();
+
+    private static int ParseInListParameters(
+        string sql,
+        int curToken,
+        SqlParamsBuilder sqlParamsBuilder,
+        StringBuilder yql
+    )
+    {
+        var startToken = curToken;
+        var listStartToken = -1;
+        var findNameParams = new List<string>();
+        var waitParam = false;
+
+        while (curToken < sql.Length)
+        {
+            switch (sql[curToken])
+            {
+                case ',':
+                    if (listStartToken < 0 || waitParam)
+                    {
+                        return startToken; // rollback parse IN LIST
+                    }
+
+                    waitParam = true;
+                    curToken++;
+
+                    break;
+                case '@':
+                    if (!waitParam || (curToken + 1 < sql.Length && sql[curToken + 1] == '@'))
+                    {
+                        return startToken;
+                    }
+
+                    var parsedParam = ParseNameParam(sql, curToken);
+
+                    findNameParams.Add(parsedParam.Name);
+                    curToken = parsedParam.NextToken;
+                    waitParam = false;
+
+                    break; // curToken
+                case '(':
+                    if (listStartToken >= 0)
+                    {
+                        return startToken; // rollback parse IN LIST
+                    }
+
+                    listStartToken = curToken;
+                    waitParam = true;
+                    curToken++;
+                    break;
+                case ')':
+                    if (waitParam || findNameParams.Count == 0 || listStartToken < 0)
+                    {
+                        return startToken; // rollback parse IN LIST
+                    }
+
+                    yql.Append(listStartToken > startToken ? sql[startToken .. listStartToken] : ' ');
+                    var paramListName = sqlParamsBuilder.AddListPrimitiveParams(findNameParams);
+                    yql.Append(paramListName);
+
+                    return curToken + 1;
+                case '-':
+                    curToken = ParseLineComment(sql, curToken);
+                    break;
+                case '/':
+                    curToken = ParseBlockComment(sql, curToken);
+                    break;
+                default:
+                    if (!char.IsWhiteSpace(sql[curToken]))
+                    {
+                        return startToken; // rollback parse IN LIST
+                    }
+
+                    curToken++;
+                    break;
+            }
+        }
+
+        return startToken;
+    }
+
+    // invariant sql[curToken] == '@'
+    private static (string Name, int NextToken) ParseNameParam(string sql, int curToken)
+    {
+        var prevToken = ++curToken;
+
+        for (;
+             curToken < sql.Length && sql[curToken].IsSqlIdentifierChar();
+             curToken++)
+        {
+        }
+
+        if (curToken - prevToken == 0)
+        {
+            throw new YdbException($"Have empty name parameter, invalid SQL [position: {prevToken}]");
+        }
+
+        return ($"${sql[prevToken .. curToken]}", curToken);
+    }
+
+    private static bool IsSqlIdentifierChar(this char c) => char.IsLetterOrDigit(c) || c == '_';
+
+    private class SqlParamsBuilder
+    {
+        private readonly HashSet<string> _foundParamNames = new();
+        private readonly List<ISqlParam> _sqlParams = new();
+
+        private int _globalNumberListPrimitiveParam;
+
+        internal void AddPrimitiveParam(string paramName, bool isNative)
+        {
+            if (_foundParamNames.Contains(paramName))
+            {
+                return;
+            }
+
+            _sqlParams.Add(new PrimitiveParam(paramName, isNative));
+            _foundParamNames.Add(paramName);
+        }
+
+        internal string AddListPrimitiveParams(IReadOnlyList<string> paramNames)
+        {
+            var listPrimitiveParam = new ListPrimitiveParam(paramNames, ++_globalNumberListPrimitiveParam);
+
+            _sqlParams.Add(listPrimitiveParam);
+
+            return listPrimitiveParam.Name;
+        }
+
+        internal IReadOnlyList<ISqlParam> ToSqlParams => _sqlParams;
     }
 }
 
-internal record ParsedResult(string ParsedSql, IReadOnlyList<string> ParamNames);
+internal record ParsedResult(string ParsedSql, IReadOnlyList<ISqlParam> SqlParams);
