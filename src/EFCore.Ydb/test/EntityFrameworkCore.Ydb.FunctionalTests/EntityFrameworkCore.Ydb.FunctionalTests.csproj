@@ -25,6 +25,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\EntityFrameworkCore.Ydb.csproj" />
+        <ProjectReference Include="..\..\..\Ydb.Sdk\src\Ydb.Sdk.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
