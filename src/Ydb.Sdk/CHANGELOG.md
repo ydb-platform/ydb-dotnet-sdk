@@ -1,3 +1,5 @@
+## v0.20.0
+
 - Fixed bug: SQL parser skips token after param. 
 - ADO.NET: Added support for conversion from IN (?, ?, ?) to IN $list ([#447](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/447)).
 
