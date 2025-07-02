@@ -18,6 +18,7 @@ internal static class SqlParser
         var newYql = new StringBuilder();
         var sqlParamsBuilder = new SqlParamsBuilder();
         var fragmentToken = 0;
+        var inKeyWord = false;
 
         for (var curToken = 0; curToken < sql.Length;)
         {
@@ -60,16 +61,23 @@ internal static class SqlParser
                     fragmentToken = parsedNativeParam.NextToken;
                     curToken = parsedNativeParam.NextToken;
                     break;
-                case var _ when ParseInKeyWord(sql, curToken):
+                case var _ when !inKeyWord && ParseInKeyWord(sql, curToken):
                     curToken += 2; // skip IN keyword
                     newYql.Append(sql[fragmentToken .. curToken]);
                     curToken = ParseInListParameters(sql, curToken, sqlParamsBuilder, newYql);
                     fragmentToken = curToken;
                     break;
                 default:
-                    curToken++;
+                    if (sql[curToken++].IsSqlIdentifierChar())
+                    {
+                        inKeyWord = true;
+                        continue;
+                    }
+
                     break;
             }
+
+            inKeyWord = false;
         }
 
         newYql.Append(sql.AsSpan(fragmentToken, sql.Length - fragmentToken));

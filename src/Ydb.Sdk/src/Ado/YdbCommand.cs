@@ -192,7 +192,7 @@ public sealed class YdbCommand : DbCommand
             {
                 continue;
             }
-            
+
             var ydbValue = sqlParam.YdbValueFetch(ydbParameterCollection);
 
             if (!sqlParam.IsNative)
