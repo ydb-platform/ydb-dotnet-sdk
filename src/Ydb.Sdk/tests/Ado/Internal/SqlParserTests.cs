@@ -295,12 +295,18 @@ SELECT $param; SELECT $p2; SELECT $p_3;", sql);
         "SELECT a FROM Table WHERE b IN (/* comment in list parameters */ @id1, @id2, @id3, @id4)", 4)]
     [InlineData("SELECT a FROM Table WHERE b IN $Gen_List_Primitive_1;",
         "SELECT a FROM Table WHERE b IN (    @id1, @id2,   @id3, -- asdasdaksld\n @id4   );", 4)]
-    [InlineData("SELECT a FROM Table WHERE b IN " +
+    [InlineData("SELECT a FROM Table WHERE b /* comment in list parameters */IN" +
                 "/* comment in list parameters */$Gen_List_Primitive_1/* comment in list parameters */;",
-        "SELECT a FROM Table WHERE b IN /* comment in list parameters */(" +
+        "SELECT a FROM Table WHERE b /* comment in list parameters */IN/* comment in list parameters */(" +
         "/* comment in list parameters */@id1,/* comment in list parameters */@id2," +
         "/* comment in list parameters */@id3/* comment in list parameters */)" +
         "/* comment in list parameters */;", 3)]
+    [InlineData("SELECT a FROM Table WHERE b -- comment in list parameters \nIN" +
+                "-- comment in list parameters \n$Gen_List_Primitive_1-- comment in list parameters \n;",
+        "SELECT a FROM Table WHERE b -- comment in list parameters \nIN-- comment in list parameters \n(" +
+        "-- comment in list parameters \n@id1,-- comment in list parameters \n@id2," +
+        "-- comment in list parameters \n@id3-- comment in list parameters \n)" +
+        "-- comment in list parameters \n;", 3)]
     public void Parse_WhenInListParameters_ReturnSqlWithListParam(string expectedSql, string actualSql, int listSize)
     {
         var (sql, sqlParams) = SqlParser.Parse(actualSql);
@@ -334,6 +340,12 @@ SELECT $param; SELECT $p2; SELECT $p_3;", sql);
         "SELECT a FROM Table WHERE b IN (@id1, 'abacaba',  $id2)")]
     [InlineData("SELECT a FROM Table WHERE b IN ($id1, @@asdasd@@,  $id2)",
         "SELECT a FROM Table WHERE b IN (@id1, @@asdasd@@,  $id2)")]
+    [InlineData("DECLARE $id1 AS Int32; SELECT a FROM Table WHERE b IN (@@asdasd@@,$id1,@@asdasd@@,$id2,@@asdasd@@)",
+        "DECLARE $id1 AS Int32; SELECT a FROM Table WHERE b IN (@@asdasd@@,$id1,@@asdasd@@,$id2,@@asdasd@@)")]
+    [InlineData("Select fun_in($ids1, $ids2)", "Select fun_in(@ids1, @ids2)")]
+    [InlineData("Select in_fun($ids1, $ids2)", "Select in_fun(@ids1, @ids2)")]
+    [InlineData("Select funin($ids1, $ids2)", "Select funin(@ids1, @ids2)")]
+    [InlineData("Select infun($ids1, $ids2)", "Select infun(@ids1, @ids2)")]
     public void Parse_WhenListParametersWithPrimitives_ReturnSqlWithoutListParam(string expectedSql, string actualSql)
     {
         var (sql, sqlParams) = SqlParser.Parse(actualSql);
