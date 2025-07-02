@@ -51,7 +51,8 @@ internal static class YdbSchema
         return SchemaObjects(ydbConnection, WithSuffix(database), database, cancellationToken);
     }
 
-    private static async Task<YdbTable> DescribeTable(
+    // public for EntityFrameworkCore.Ydb
+    public static async Task<YdbTable> DescribeTable(
         YdbConnection ydbConnection,
         string tableName,
         DescribeTableSettings? describeTableSettings = null
