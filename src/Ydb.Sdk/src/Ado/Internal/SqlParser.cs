@@ -204,7 +204,7 @@ internal static class SqlParser
 
                     break;
                 case '@':
-                    if (!waitParam || curToken + 1 < sql.Length && sql[curToken + 1] == '@')
+                    if (!waitParam || (curToken + 1 < sql.Length && sql[curToken + 1] == '@'))
                     {
                         return startToken;
                     }
