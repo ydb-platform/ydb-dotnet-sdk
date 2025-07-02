@@ -1,3 +1,5 @@
+## v0.20.1
+
 - Fixed bug ADO.NET: `YdbSchema.SchemaObjects` and `Ydb.DescribeTable`methods are public for `EntityFrameworkCore.Ydb`.
 
 ## v0.20.0
