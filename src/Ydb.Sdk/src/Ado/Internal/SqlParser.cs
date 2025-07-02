@@ -276,10 +276,7 @@ internal static class SqlParser
         return ($"${sql[prevToken .. curToken]}", curToken);
     }
 
-    public static bool IsSqlIdentifierChar(this char c)
-    {
-        return char.IsLetterOrDigit(c) || c == '_';
-    }
+    private static bool IsSqlIdentifierChar(this char c) => char.IsLetterOrDigit(c) || c == '_';
 
     private class SqlParamsBuilder
     {
