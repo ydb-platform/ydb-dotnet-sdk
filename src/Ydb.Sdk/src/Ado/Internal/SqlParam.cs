@@ -29,8 +29,9 @@ internal class ListPrimitiveParam : ISqlParam
         Name = $"{PrefixParamName}_{globalNumber}";
     }
 
-    public bool IsNative => false;
     public string Name { get; }
+
+    public bool IsNative => false;
 
     public YdbValue YdbValueFetch(Dictionary<string, YdbValue> ydbParameters) => YdbValue
         .MakeList(_paramNames.Select(ydbParameters.Get).ToArray());
