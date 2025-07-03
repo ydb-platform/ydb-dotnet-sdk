@@ -23,11 +23,18 @@ internal sealed class SessionPool : SessionPoolBase<Session>
 
     private protected override async Task<GetSessionResponse> CreateSession()
     {
-        var createSessionResponse = await _tableClient.CreateSession(new CreateSessionSettings
+        var createSessionSettings = new CreateSessionSettings
         {
             TransportTimeout = Config.CreateSessionTimeout,
-            OperationTimeout = Config.CreateSessionTimeout
-        });
+            OperationTimeout = Config.CreateSessionTimeout,
+        };
+
+        if (!Config.DisableServerBalancer)
+        {
+            createSessionSettings.List.Add("session-balancer");
+        }
+
+        var createSessionResponse = await _tableClient.CreateSession(createSessionSettings);
 
         lock (Lock)
         {

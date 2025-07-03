@@ -181,8 +181,8 @@ public abstract class BaseDriver : IDriver
         {
             meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
         }
-
-        if (!Config.DisableServerBalancer)
+        
+        if (!settings.List.Contains("session-balancer"))
         {
             meta.Add(Metadata.RpcClientCapabilitiesHeader, "session-balancer");
         }

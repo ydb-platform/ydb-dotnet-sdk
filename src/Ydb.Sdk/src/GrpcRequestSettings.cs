@@ -8,7 +8,7 @@ public class GrpcRequestSettings
 {
     public string TraceId { get; set; } = string.Empty;
     public TimeSpan TransportTimeout { get; set; } = TimeSpan.Zero;
-    public ImmutableArray<string> CustomClientHeaders { get; } = new();
+    public List<string> List { get; } = new();
     public CancellationToken CancellationToken = default;
 
     internal long NodeId { get; set; }
