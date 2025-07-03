@@ -236,6 +236,18 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private int _maxReceiveMessageSize;
 
+    public bool DisableServerBalancer
+    {  
+        get => _disableServerBalancer;
+        set
+        {
+            _disableServerBalancer = value;
+            SaveValue(nameof(DisableServerBalancer), value);
+        }
+    }
+
+    private bool _disableServerBalancer;
+
     public bool DisableDiscovery
     {
         get => _disableDiscovery;
@@ -334,7 +346,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             Password = Password,
             EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
             MaxSendMessageSize = MaxSendMessageSize,
-            MaxReceiveMessageSize = MaxReceiveMessageSize
+            MaxReceiveMessageSize = MaxReceiveMessageSize,
+            DisableServerBalancer = DisableServerBalancer
         };
         var loggerFactory = LoggerFactory ?? NullLoggerFactory.Instance;
 
@@ -433,6 +446,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<int>(IntExtractor,
                     (builder, createSessionTimeout) => builder.CreateSessionTimeout = createSessionTimeout),
                 "CreateSessionTimeout", "Create Session Timeout");
+            AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, disableServerBalancer) =>
+                    builder.DisableServerBalancer = disableServerBalancer),
+                "DisableServerBalancer", "Disable Server Balancer");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)
