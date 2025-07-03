@@ -21,4 +21,6 @@ internal static class GrpcDefaultSettings
     internal const bool EnableMultipleHttp2Connections = false;
 
     internal const bool DisableDiscovery = false;
+
+    internal const bool DisableServerBalancer = false;
 }

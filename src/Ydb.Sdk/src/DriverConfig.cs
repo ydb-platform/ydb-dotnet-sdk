@@ -28,6 +28,7 @@ public class DriverConfig
 
     public int MaxSendMessageSize { get; init; } = GrpcDefaultSettings.MaxSendMessageSize;
     public int MaxReceiveMessageSize { get; init; } = GrpcDefaultSettings.MaxReceiveMessageSize;
+    public bool DisableServerBalancer { get; init; } = GrpcDefaultSettings.DisableServerBalancer;
 
     internal X509Certificate2Collection CustomServerCertificates { get; } = new();
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
