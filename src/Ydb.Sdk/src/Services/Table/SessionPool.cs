@@ -26,7 +26,7 @@ internal sealed class SessionPool : SessionPoolBase<Session>
         var createSessionSettings = new CreateSessionSettings
         {
             TransportTimeout = Config.CreateSessionTimeout,
-            OperationTimeout = Config.CreateSessionTimeout,
+            OperationTimeout = Config.CreateSessionTimeout
         };
 
         if (!Config.DisableServerBalancer)

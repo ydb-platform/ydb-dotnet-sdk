@@ -11,6 +11,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private readonly ConcurrentQueue<TSession> _idleSessions = new();
     private readonly int _createSessionTimeoutMs;
     private readonly int _size;
+    private protected readonly SessionPoolConfig Config;
 
     protected readonly ILogger<SessionPool<TSession>> Logger;
 
@@ -253,7 +254,8 @@ public abstract class SessionBase<T> where T : SessionBase<T>
 internal record SessionPoolConfig(
     int MaxSessionPool = SessionPoolDefaultSettings.MaxSessionPool,
     int CreateSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds,
-    bool DisposeDriver = false
+    bool DisposeDriver = false,
+    bool DisableServerBalancer = SessionPoolDefaultSettings.DisableServerBalancer
 );
 
 internal static class SessionPoolDefaultSettings
@@ -261,4 +263,6 @@ internal static class SessionPoolDefaultSettings
     internal const int MaxSessionPool = 100;
 
     internal const int CreateSessionTimeoutSeconds = 5;
+
+    internal const bool DisableServerBalancer = false;
 }

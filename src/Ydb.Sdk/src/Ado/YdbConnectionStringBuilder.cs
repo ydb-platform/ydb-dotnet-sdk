@@ -38,6 +38,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
         _disableDiscovery = GrpcDefaultSettings.DisableDiscovery;
         _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
+        _disableServerBalancer = false;
     }
 
     public string Host
