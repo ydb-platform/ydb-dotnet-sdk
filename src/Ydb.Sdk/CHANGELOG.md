@@ -1,3 +1,5 @@
+- Added DisableServerBalancer option to ADO.NET session creation; default false.
+
 ## v0.20.1
 
 - Fixed bug ADO.NET: `YdbSchema.SchemaObjects` and `Ydb.DescribeTable`methods are public for `EntityFrameworkCore.Ydb`.
