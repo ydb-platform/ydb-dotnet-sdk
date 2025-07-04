@@ -347,8 +347,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             Password = Password,
             EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
             MaxSendMessageSize = MaxSendMessageSize,
-            MaxReceiveMessageSize = MaxReceiveMessageSize,
-            DisableServerBalancer = DisableServerBalancer
+            MaxReceiveMessageSize = MaxReceiveMessageSize
         };
         var loggerFactory = LoggerFactory ?? NullLoggerFactory.Instance;
 

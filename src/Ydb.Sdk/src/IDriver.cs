@@ -182,7 +182,7 @@ public abstract class BaseDriver : IDriver
             meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
         }
         
-        foreach (var setting in settings.List) {
+        foreach (var setting in settings.ClientCapabilities) {
             meta.Add(Metadata.RpcClientCapabilitiesHeader, "session-balancer");
         }
         

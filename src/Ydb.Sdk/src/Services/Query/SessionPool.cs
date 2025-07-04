@@ -42,7 +42,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
         if (!Config.DisableServerBalancer)
         {
-            requestSettings.List.Add("session-balancer");
+            requestSettings.ClientCapabilities.Add("session-balancer");
         }
 
         var response = await _driver.UnaryCall(

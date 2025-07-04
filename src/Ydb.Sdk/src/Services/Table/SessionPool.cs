@@ -31,7 +31,7 @@ internal sealed class SessionPool : SessionPoolBase<Session>
 
         if (!Config.DisableServerBalancer)
         {
-            createSessionSettings.List.Add("session-balancer");
+            createSessionSettings.ClientCapabilities.Add("session-balancer");
         }
 
         var createSessionResponse = await _tableClient.CreateSession(createSessionSettings);

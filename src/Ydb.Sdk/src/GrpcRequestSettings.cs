@@ -8,9 +8,9 @@ public class GrpcRequestSettings
 {
     public string TraceId { get; set; } = string.Empty;
     public TimeSpan TransportTimeout { get; set; } = TimeSpan.Zero;
-    public List<string> List { get; } = new();
     public CancellationToken CancellationToken = default;
-
+    
+    internal List<string> ClientCapabilities { get; } = new();
     internal long NodeId { get; set; }
     internal Action<Grpc.Core.Metadata> TrailersHandler { get; set; } = _ => { };
 }
