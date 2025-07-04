@@ -8,6 +8,7 @@ internal static class Metadata
     public const string RpcTraceIdHeader = "x-ydb-trace-id";
     public const string RpcSdkInfoHeader = "x-ydb-sdk-build-info";
     public const string RpcServerHintsHeader = "x-ydb-server-hints";
+    public const string RpcClientCapabilitiesHeader = "x-ydb-client-capabilities";
 
     public const string GracefulShutdownHint = "session-close";
 }
