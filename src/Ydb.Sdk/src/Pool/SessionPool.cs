@@ -18,11 +18,12 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private volatile int _waitingCount;
     private volatile bool _disposed;
 
-    protected SessionPool(ILogger<SessionPool<TSession>> logger, SessionPoolConfig sessionPoolConfig)
+    protected SessionPool(ILogger<SessionPool<TSession>> logger, SessionPoolConfig config)
     {
         Logger = logger;
-        _size = sessionPoolConfig.MaxSessionPool;
-        _createSessionTimeoutMs = sessionPoolConfig.CreateSessionTimeout * 1000;
+        Config = config;
+        _size = config.MaxSessionPool;
+        _createSessionTimeoutMs = config.CreateSessionTimeout * 1000;
         _semaphore = new SemaphoreSlim(_size);
     }
 
