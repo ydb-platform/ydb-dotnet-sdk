@@ -63,7 +63,7 @@ public class DriverConfig
     {
         { Metadata.RpcDatabaseHeader, Database },
         { Metadata.RpcSdkInfoHeader, SdkVersion },
-        { Metadata.RpcClientPid , _pid }
+        { Metadata.RpcClientPid, _pid }
     };
 
     private static string FormatEndpoint(string endpoint)
