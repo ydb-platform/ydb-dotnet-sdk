@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics;
+using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
 
@@ -31,6 +32,7 @@ public class DriverConfig
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
     internal string SdkVersion { get; }
+    private readonly string _pid = Environment.ProcessId.ToString();
 
     public DriverConfig(
         string endpoint,
@@ -61,7 +63,8 @@ public class DriverConfig
     internal Grpc.Core.Metadata GetCallMetadata => new()
     {
         { Metadata.RpcDatabaseHeader, Database },
-        { Metadata.RpcSdkInfoHeader, SdkVersion }
+        { Metadata.RpcSdkInfoHeader, SdkVersion },
+        { Metadata.RpcClientPid , _pid }
     };
 
     private static string FormatEndpoint(string endpoint)
