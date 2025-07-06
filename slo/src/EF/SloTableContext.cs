@@ -30,41 +30,45 @@ public class SloTableContext : SloTableContext<Func<TableDbContext>>
         int writeTimeout
     )
     {
-        await using var dbContext = client();
-        var executeStrategy = dbContext.Database.CreateExecutionStrategy();
-        await executeStrategy.ExecuteAsync(async () => await dbContext.Database.ExecuteSqlRawAsync(
-            $"UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp) " +
-            "VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)",
-            new YdbParameter
-            {
-                DbType = DbType.String,
-                ParameterName = "Guid",
-                Value = sloTable.Guid.ToString()
-            },
-            new YdbParameter
-            {
-                DbType = DbType.Int32,
-                ParameterName = "Id",
-                Value = sloTable.Id
-            },
-            new YdbParameter
-            {
-                DbType = DbType.String,
-                ParameterName = "PayloadStr",
-                Value = sloTable.PayloadStr
-            },
-            new YdbParameter
-            {
-                DbType = DbType.Double,
-                ParameterName = "PayloadDouble",
-                Value = sloTable.PayloadDouble
-            },
-            new YdbParameter
-            {
-                DbType = DbType.DateTime2,
-                ParameterName = "PayloadTimestamp",
-                Value = sloTable.PayloadTimestamp
-            }));
+        await using var context = client();
+        var executeStrategy = context.Database.CreateExecutionStrategy();
+        await executeStrategy.ExecuteAsync(async () =>
+        {
+            await using var dbContext = client();
+            return await dbContext.Database.ExecuteSqlRawAsync(
+                $"UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp) " +
+                "VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)",
+                new YdbParameter
+                {
+                    DbType = DbType.String,
+                    ParameterName = "Guid",
+                    Value = sloTable.Guid.ToString()
+                },
+                new YdbParameter
+                {
+                    DbType = DbType.Int32,
+                    ParameterName = "Id",
+                    Value = sloTable.Id
+                },
+                new YdbParameter
+                {
+                    DbType = DbType.String,
+                    ParameterName = "PayloadStr",
+                    Value = sloTable.PayloadStr
+                },
+                new YdbParameter
+                {
+                    DbType = DbType.Double,
+                    ParameterName = "PayloadDouble",
+                    Value = sloTable.PayloadDouble
+                },
+                new YdbParameter
+                {
+                    DbType = DbType.DateTime2,
+                    ParameterName = "PayloadTimestamp",
+                    Value = sloTable.PayloadTimestamp
+                });
+        });
 
         return (1, StatusCode.Success);
     }
@@ -75,9 +79,9 @@ public class SloTableContext : SloTableContext<Func<TableDbContext>>
         int readTimeout
     )
     {
-        await using var dbContext = client();
-        await dbContext.SloEntities
-            .FirstAsync(table => table.Guid == select.Guid && table.Id == select.Id);
+        // await using var dbContext = client();
+        // await dbContext.SloEntities
+        //     .FirstAsync(table => table.Guid == select.Guid && table.Id == select.Id);
 
         return (0, StatusCode.Success, null);
     }
