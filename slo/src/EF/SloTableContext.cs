@@ -77,7 +77,7 @@ public class SloTableContext : SloTableContext<Func<TableDbContext>>
     {
         await using var dbContext = client();
         await dbContext.SloEntities
-            .SingleAsync(table => table.Guid == select.Guid && table.Id == select.Id);
+            .FirstAsync(table => table.Guid == select.Guid && table.Id == select.Id);
 
         return (0, StatusCode.Success, null);
     }
