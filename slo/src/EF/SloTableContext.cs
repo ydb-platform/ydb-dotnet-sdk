@@ -12,8 +12,7 @@ public class SloTableContext : SloTableContext<Func<TableDbContext>>
     protected override string Job => "EF";
 
     protected override Func<TableDbContext> CreateClient(Config config) =>
-        () => new TableDbContext(new DbContextOptionsBuilder<TableDbContext>().UseYdb(config.ConnectionString)
-            .UseLoggerFactory(ISloContext.Factory).Options);
+        () => new TableDbContext(new DbContextOptionsBuilder<TableDbContext>().UseYdb(config.ConnectionString).Options);
 
     protected override async Task Create(
         Func<TableDbContext> client,
