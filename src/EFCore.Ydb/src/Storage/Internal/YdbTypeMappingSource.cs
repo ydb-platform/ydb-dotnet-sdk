@@ -67,6 +67,7 @@ public sealed class YdbTypeMappingSource(
             { "Double", [Double] },
 
             { "Decimal", [Decimal] },
+
             { "Guid", [Guid] },
 
             { "Date", [Date] },

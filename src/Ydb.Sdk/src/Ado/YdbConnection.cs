@@ -92,12 +92,15 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
+        ConnectionState = ConnectionState.Connecting;
         try
         {
             Session = await PoolManager.GetSession(ConnectionStringBuilder, cancellationToken);
         }
         catch (Exception e)
         {
+            ConnectionState = ConnectionState.Closed;
+
             throw e switch
             {
                 OperationCanceledException => throw new YdbException(StatusCode.Cancelled,
