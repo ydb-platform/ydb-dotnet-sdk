@@ -9,7 +9,7 @@ namespace AdoNet;
 
 public class SloTableContext : SloTableContext<YdbDataSource>
 {
-    private readonly AsyncPolicy _policy = Policy.Handle<YdbException>(exception => exception.IsTransient)
+    private static readonly AsyncPolicy Policy = Polly.Policy.Handle<YdbException>(exception => exception.IsTransient)
         .WaitAndRetryAsync(10, attempt => TimeSpan.FromMilliseconds(attempt * 10),
             (e, _, _, _) => { Logger.LogWarning(e, "Failed read / write operation"); });
 
@@ -45,8 +45,10 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         int writeTimeout
     )
     {
-        var policyResult = await _policy.ExecuteAndCaptureAsync(async _ =>
+        var attempts = 0;
+        var policyResult = await Policy.ExecuteAndCaptureAsync(async _ =>
         {
+            attempts++;
             await using var ydbConnection = await client.OpenConnectionAsync();
 
             var ydbCommand = new YdbCommand(ydbConnection)
@@ -95,8 +97,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         }, new Context());
 
 
-        return (policyResult.Context.TryGetValue("RetryCount", out var countAttempts) ? (int)countAttempts : 1,
-            ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success);
+        return (attempts, ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success);
     }
 
     protected override async Task<(int, StatusCode, object?)> Select(
@@ -106,7 +107,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     )
     {
         var attempts = 0;
-        var policyResult = await _policy.ExecuteAndCaptureAsync(async _ =>
+        var policyResult = await Policy.ExecuteAndCaptureAsync(async _ =>
         {
             attempts++;
             await using var ydbConnection = await client.OpenConnectionAsync();
