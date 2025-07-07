@@ -6,6 +6,7 @@ namespace Ydb.Sdk;
 
 public class DriverConfig
 {
+    private readonly string _pid = Environment.ProcessId.ToString();
     public string Endpoint { get; }
     public string Database { get; }
     public ICredentialsProvider? Credentials { get; }
@@ -31,8 +32,6 @@ public class DriverConfig
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
     internal string SdkVersion { get; }
-    private readonly string _pid = Environment.ProcessId.ToString();
-
     public DriverConfig(
         string endpoint,
         string database,
