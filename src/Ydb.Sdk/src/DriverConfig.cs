@@ -7,6 +7,7 @@ namespace Ydb.Sdk;
 public class DriverConfig
 {
     private readonly string _pid = Environment.ProcessId.ToString();
+
     public string Endpoint { get; }
     public string Database { get; }
     public ICredentialsProvider? Credentials { get; }
