@@ -16,9 +16,9 @@ public class QuerySessionTests : YdbAdoNetFixture
         await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = "SELECT ClientPID FROM `.sys/query_sessions` LIMIT 1;";
-        
+
         var expectedPid = Environment.ProcessId.ToString();
-        
+
         await dbCommand.ExecuteNonQueryAsync();
         await using var reader = await dbCommand.ExecuteReaderAsync();
 
