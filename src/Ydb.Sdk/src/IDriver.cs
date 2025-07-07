@@ -182,9 +182,9 @@ public abstract class BaseDriver : IDriver
             meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
         }
 
-        foreach (var unused in settings.ClientCapabilities)
+        foreach (var clientCapabilitiesHeader in settings.ClientCapabilities)
         {
-            meta.Add(Metadata.RpcClientCapabilitiesHeader, "session-balancer");
+            meta.Add(Metadata.RpcClientCapabilitiesHeader, clientCapabilitiesHeader);
         }
 
         var options = new CallOptions(headers: meta, cancellationToken: settings.CancellationToken);
