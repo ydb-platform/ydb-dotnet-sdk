@@ -1,5 +1,4 @@
 using Xunit;
-using Ydb.Sdk.Services.Query;
 using Ydb.Sdk.Tests.Ado.Specification;
 using Ydb.Sdk.Tests.Fixture;
 
