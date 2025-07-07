@@ -1,8 +1,10 @@
+using System.Data;
 using EntityFrameworkCore.Ydb.Extensions;
 using Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Ydb.Sdk;
+using Ydb.Sdk.Ado;
 
 namespace EF;
 
@@ -30,8 +32,45 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
     )
     {
         await using var context = await client.CreateDbContextAsync();
-        context.SloEntities.Add(sloTable);
-        await context.SaveChangesAsync();
+        var executeStrategy = context.Database.CreateExecutionStrategy();
+        await executeStrategy.ExecuteAsync(async () =>
+        {
+            var dbContext = await client.CreateDbContextAsync();
+
+            return await dbContext.Database.ExecuteSqlRawAsync(
+                $"UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp) " +
+                "VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)",
+                new YdbParameter
+                {
+                    DbType = DbType.String,
+                    ParameterName = "Guid",
+                    Value = sloTable.Guid.ToString()
+                },
+                new YdbParameter
+                {
+                    DbType = DbType.Int32,
+                    ParameterName = "Id",
+                    Value = sloTable.Id
+                },
+                new YdbParameter
+                {
+                    DbType = DbType.String,
+                    ParameterName = "PayloadStr",
+                    Value = sloTable.PayloadStr
+                },
+                new YdbParameter
+                {
+                    DbType = DbType.Double,
+                    ParameterName = "PayloadDouble",
+                    Value = sloTable.PayloadDouble
+                },
+                new YdbParameter
+                {
+                    DbType = DbType.DateTime2,
+                    ParameterName = "PayloadTimestamp",
+                    Value = sloTable.PayloadTimestamp
+                });
+        });
 
         return (1, StatusCode.Success);
     }
