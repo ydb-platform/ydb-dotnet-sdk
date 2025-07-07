@@ -38,6 +38,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
         _disableDiscovery = GrpcDefaultSettings.DisableDiscovery;
         _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
+        _disableServerBalancer = false;
     }
 
     public string Host
@@ -236,6 +237,18 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private int _maxReceiveMessageSize;
 
+    public bool DisableServerBalancer
+    {
+        get => _disableServerBalancer;
+        set
+        {
+            _disableServerBalancer = value;
+            SaveValue(nameof(DisableServerBalancer), value);
+        }
+    }
+
+    private bool _disableServerBalancer;
+
     public bool DisableDiscovery
     {
         get => _disableDiscovery;
@@ -433,6 +446,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<int>(IntExtractor,
                     (builder, createSessionTimeout) => builder.CreateSessionTimeout = createSessionTimeout),
                 "CreateSessionTimeout", "Create Session Timeout");
+            AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, disableServerBalancer) =>
+                    builder.DisableServerBalancer = disableServerBalancer),
+                "DisableServerBalancer", "Disable Server Balancer");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)
