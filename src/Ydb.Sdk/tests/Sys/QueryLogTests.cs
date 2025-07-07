@@ -4,7 +4,6 @@ using Ydb.Sdk.Tests.Fixture;
 
 namespace Ydb.Sdk.Tests.Sys;
 
-[Trait("Category", "Integration")]
 public class QueryLogTests : IClassFixture<QueryClientFixture>
 {
     private readonly QueryClient _queryClient;
@@ -15,15 +14,15 @@ public class QueryLogTests : IClassFixture<QueryClientFixture>
     }
 
     [Fact]
-    public async Task QueryLogPidCheck()
+    public async Task QuerySessionPidTest()
     {
-        const string sql = @"SELECT * FROM `.sys/query_sessions`";
+        const string sql = @"SELECT * FROM `.sys/query_sessions` LIMIT 1";
         var expectedPid = Environment.ProcessId.ToString();
         
         await _queryClient.Exec(sql);
-        var selectAllQueries = await _queryClient.ReadAllRows(sql);
+        var sessionRow = await _queryClient.ReadRow(sql);
 
-        Assert.NotEmpty(selectAllQueries);
-        Assert.Equal(selectAllQueries[0]["ClientPID"].GetOptionalUtf8(), expectedPid);
+        Assert.NotNull(sessionRow);
+        Assert.Equal(sessionRow["ClientPID"].GetOptionalUtf8(), expectedPid);
     }
 }
