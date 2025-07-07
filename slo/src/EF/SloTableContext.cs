@@ -44,7 +44,7 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
                 {
                     DbType = DbType.String,
                     ParameterName = "Guid",
-                    Value = sloTable.Guid.ToString()
+                    Value = sloTable.Guid
                 },
                 new YdbParameter
                 {
