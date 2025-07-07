@@ -24,6 +24,7 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(64 * 1024 * 1024, ydbConnectionStringBuilder.MaxSendMessageSize);
         Assert.Equal(64 * 1024 * 1024, ydbConnectionStringBuilder.MaxReceiveMessageSize);
         Assert.False(ydbConnectionStringBuilder.DisableDiscovery);
+        Assert.False(ydbConnectionStringBuilder.DisableServerBalancer);
         Assert.Equal(5, ydbConnectionStringBuilder.CreateSessionTimeout);
     }
 
@@ -45,7 +46,7 @@ public class YdbConnectionStringBuilderTests
             "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
             "EnableMultipleHttp2Connections=true;CreateSessionTimeout=30;" +
             "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-            "DisableDiscovery=true"
+            "DisableDiscovery=true;DisableServerBalancer=true"
         );
 
         Assert.Equal(2135, connectionString.Port);
@@ -64,8 +65,9 @@ public class YdbConnectionStringBuilderTests
                      "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
                      "EnableMultipleHttp2Connections=True;CreateSessionTimeout=30;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-                     "DisableDiscovery=True", connectionString.ConnectionString);
+                     "DisableDiscovery=True;DisableServerBalancer=True", connectionString.ConnectionString);
         Assert.True(connectionString.DisableDiscovery);
+        Assert.True(connectionString.DisableServerBalancer);
         Assert.Equal(30, connectionString.CreateSessionTimeout);
     }
 

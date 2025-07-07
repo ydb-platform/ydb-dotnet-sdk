@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Client;
+using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Services.Sessions;
 
@@ -16,6 +17,8 @@ public class SessionPoolConfig
     public TimeSpan PeriodicCheckInterval { get; set; } = TimeSpan.FromSeconds(10);
     public TimeSpan KeepAliveTimeout { get; set; } = TimeSpan.FromSeconds(1);
     public TimeSpan CreateSessionTimeout { get; set; } = TimeSpan.FromSeconds(1);
+
+    public bool DisableServerBalancer { get; set; } = SessionPoolDefaultSettings.DisableServerBalancer;
 }
 
 public class GetSessionResponse<TSession> : ResponseWithResultBase<TSession>, IDisposable where TSession : SessionBase

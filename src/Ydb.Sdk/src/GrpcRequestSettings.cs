@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using Google.Protobuf.WellKnownTypes;
+﻿using Google.Protobuf.WellKnownTypes;
 using Ydb.Operations;
 
 namespace Ydb.Sdk;
@@ -8,9 +7,9 @@ public class GrpcRequestSettings
 {
     public string TraceId { get; set; } = string.Empty;
     public TimeSpan TransportTimeout { get; set; } = TimeSpan.Zero;
-    public ImmutableArray<string> CustomClientHeaders { get; } = new();
     public CancellationToken CancellationToken = default;
 
+    internal List<string> ClientCapabilities { get; } = new();
     internal long NodeId { get; set; }
     internal Action<Grpc.Core.Metadata> TrailersHandler { get; set; } = _ => { };
 }

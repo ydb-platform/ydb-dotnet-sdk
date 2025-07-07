@@ -35,10 +35,20 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         CancellationToken cancellationToken = default
     )
     {
+        var requestSettings = new GrpcRequestSettings
+        {
+            CancellationToken = cancellationToken
+        };
+
+        if (!Config.DisableServerBalancer)
+        {
+            requestSettings.ClientCapabilities.Add("session-balancer");
+        }
+
         var response = await _driver.UnaryCall(
             QueryService.CreateSessionMethod,
             CreateSessionRequest,
-            new GrpcRequestSettings { CancellationToken = cancellationToken }
+            requestSettings
         );
 
         Status.FromProto(response.Status, response.Issues).EnsureSuccess();

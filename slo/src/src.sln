@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TopicService", "TopicServic
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EF", "EF\EF.csproj", "{291A2C64-8A20-40AA-B68A-B9E2A730B66C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdoNet.Dapper", "Dapper\AdoNet.Dapper.csproj", "{A6B9B4F1-4C7C-42C1-A212-B71A9B0D67F7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{291A2C64-8A20-40AA-B68A-B9E2A730B66C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{291A2C64-8A20-40AA-B68A-B9E2A730B66C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{291A2C64-8A20-40AA-B68A-B9E2A730B66C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6B9B4F1-4C7C-42C1-A212-B71A9B0D67F7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6B9B4F1-4C7C-42C1-A212-B71A9B0D67F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6B9B4F1-4C7C-42C1-A212-B71A9B0D67F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6B9B4F1-4C7C-42C1-A212-B71A9B0D67F7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -12,16 +12,18 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private readonly int _createSessionTimeoutMs;
     private readonly int _size;
 
+    protected readonly SessionPoolConfig Config;
     protected readonly ILogger<SessionPool<TSession>> Logger;
 
     private volatile int _waitingCount;
     private volatile bool _disposed;
 
-    protected SessionPool(ILogger<SessionPool<TSession>> logger, SessionPoolConfig sessionPoolConfig)
+    protected SessionPool(ILogger<SessionPool<TSession>> logger, SessionPoolConfig config)
     {
         Logger = logger;
-        _size = sessionPoolConfig.MaxSessionPool;
-        _createSessionTimeoutMs = sessionPoolConfig.CreateSessionTimeout * 1000;
+        Config = config;
+        _size = config.MaxSessionPool;
+        _createSessionTimeoutMs = config.CreateSessionTimeout * 1000;
         _semaphore = new SemaphoreSlim(_size);
     }
 
@@ -253,7 +255,8 @@ public abstract class SessionBase<T> where T : SessionBase<T>
 internal record SessionPoolConfig(
     int MaxSessionPool = SessionPoolDefaultSettings.MaxSessionPool,
     int CreateSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds,
-    bool DisposeDriver = false
+    bool DisposeDriver = false,
+    bool DisableServerBalancer = SessionPoolDefaultSettings.DisableServerBalancer
 );
 
 internal static class SessionPoolDefaultSettings
@@ -261,4 +264,6 @@ internal static class SessionPoolDefaultSettings
     internal const int MaxSessionPool = 100;
 
     internal const int CreateSessionTimeoutSeconds = 5;
+
+    internal const bool DisableServerBalancer = false;
 }

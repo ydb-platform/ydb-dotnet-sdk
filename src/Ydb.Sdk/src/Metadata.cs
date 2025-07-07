@@ -12,6 +12,7 @@ internal static class Metadata
 
     // Incoming headers
     public const string RpcServerHintsHeader = "x-ydb-server-hints";
+    public const string RpcClientCapabilitiesHeader = "x-ydb-client-capabilities";
 
     //Incoming hints
     public const string GracefulShutdownHint = "session-close";
