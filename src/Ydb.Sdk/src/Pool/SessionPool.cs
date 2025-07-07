@@ -11,8 +11,8 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     private readonly ConcurrentQueue<TSession> _idleSessions = new();
     private readonly int _createSessionTimeoutMs;
     private readonly int _size;
-    private protected readonly SessionPoolConfig Config;
-
+    
+    protected readonly SessionPoolConfig Config;
     protected readonly ILogger<SessionPool<TSession>> Logger;
 
     private volatile int _waitingCount;
