@@ -31,7 +31,8 @@ jobs:
       matrix:
         workload:
           - AdoNet
-          - EF
+          - Dapper
+#          - EF
     
     concurrency:
       group: slo-${{ github.ref }}-${{ matrix.workload }}
