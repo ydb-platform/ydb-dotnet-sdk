@@ -42,7 +42,7 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
                 "VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)",
                 new YdbParameter
                 {
-                    DbType = DbType.String,
+                    DbType = DbType.Guid,
                     ParameterName = "Guid",
                     Value = sloTable.Guid
                 },
