@@ -32,6 +32,7 @@ public class DriverConfig
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
     internal string SdkVersion { get; }
+    
     public DriverConfig(
         string endpoint,
         string database,
