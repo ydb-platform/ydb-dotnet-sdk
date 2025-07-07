@@ -1,3 +1,4 @@
+- Added 'x-ydb-client-pid' header to any RPC calls
 - Added DisableServerBalancer option to ADO.NET session creation; default false.
 
 ## v0.20.1

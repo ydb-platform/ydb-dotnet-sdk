@@ -6,6 +6,8 @@ namespace Ydb.Sdk;
 
 public class DriverConfig
 {
+    private readonly string _pid = Environment.ProcessId.ToString();
+
     public string Endpoint { get; }
     public string Database { get; }
     public ICredentialsProvider? Credentials { get; }
@@ -61,7 +63,8 @@ public class DriverConfig
     internal Grpc.Core.Metadata GetCallMetadata => new()
     {
         { Metadata.RpcDatabaseHeader, Database },
-        { Metadata.RpcSdkInfoHeader, SdkVersion }
+        { Metadata.RpcSdkInfoHeader, SdkVersion },
+        { Metadata.RpcClientPid, _pid }
     };
 
     private static string FormatEndpoint(string endpoint)
