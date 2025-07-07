@@ -238,7 +238,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     private int _maxReceiveMessageSize;
 
     public bool DisableServerBalancer
-    {  
+    {
         get => _disableServerBalancer;
         set
         {

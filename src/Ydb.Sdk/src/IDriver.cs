@@ -181,11 +181,12 @@ public abstract class BaseDriver : IDriver
         {
             meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
         }
-        
-        foreach (var unused in settings.ClientCapabilities) {
+
+        foreach (var unused in settings.ClientCapabilities)
+        {
             meta.Add(Metadata.RpcClientCapabilitiesHeader, "session-balancer");
         }
-        
+
         var options = new CallOptions(headers: meta, cancellationToken: settings.CancellationToken);
 
         if (settings.TransportTimeout != TimeSpan.Zero)
