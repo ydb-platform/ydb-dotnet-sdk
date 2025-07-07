@@ -40,9 +40,9 @@ public class SloTableContext : SloTableContext<Func<TableDbContext>>
                 "VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)",
                 new YdbParameter
                 {
-                    DbType = DbType.String,
+                    DbType = DbType.Guid,
                     ParameterName = "Guid",
-                    Value = sloTable.Guid.ToString()
+                    Value = sloTable.Guid
                 },
                 new YdbParameter
                 {
@@ -79,11 +79,9 @@ public class SloTableContext : SloTableContext<Func<TableDbContext>>
         int readTimeout
     )
     {
-        // await using var dbContext = client();
-        // await dbContext.SloEntities
-        //     .FirstAsync(table => table.Guid == select.Guid && table.Id == select.Id);
-
-        return (0, StatusCode.Success, null);
+        await using var dbContext = client();
+        return (0, StatusCode.Success, await dbContext.SloEntities.FirstOrDefaultAsync(
+            table => table.Guid == select.Guid && table.Id == select.Id));
     }
 
     protected override async Task<int> SelectCount(Func<TableDbContext> client)
