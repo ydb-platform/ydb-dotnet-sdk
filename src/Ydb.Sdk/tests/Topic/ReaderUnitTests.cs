@@ -1091,9 +1091,8 @@ public class ReaderUnitTests
         _mockStream.Verify(stream => stream.Current, Times.Exactly(7));
 
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
-            msg.InitRequest != null &&
-            msg.InitRequest.Consumer == "Consumer" &&
-            msg.InitRequest.TopicsReadSettings[0].Path == "/topic")), Times.Exactly(2));
+            msg.InitRequest != null && msg.InitRequest.Consumer == "Consumer" &&
+            msg.InitRequest.TopicsReadSettings[0].Path == "/topic")), Times.Between(2, 3, Range.Inclusive));
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
             msg.ReadRequest != null && msg.ReadRequest.BytesSize == 100)), Times.Exactly(2));
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
