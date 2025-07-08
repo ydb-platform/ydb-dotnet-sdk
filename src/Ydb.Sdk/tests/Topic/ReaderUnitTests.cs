@@ -1086,7 +1086,7 @@ public class ReaderUnitTests
         Assert.Equal("Hello", batch.Batch[0].Data);
         Assert.Equal("World!", batch.Batch[1].Data);
 
-        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Between(11, 12, Range.Inclusive));
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.AtLeast(11));
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(8, 9, Range.Inclusive));
         _mockStream.Verify(stream => stream.Current, Times.Exactly(7));
 

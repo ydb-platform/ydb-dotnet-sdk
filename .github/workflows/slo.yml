@@ -28,8 +28,8 @@ jobs:
             read_rps: 1000
             write_rps: 1000
           - workload: EF
-            read_rps: 200
-            write_rps: 200
+            read_rps: 400
+            write_rps: 400
     
     concurrency:
       group: slo-${{ github.ref }}-${{ matrix.workload }}

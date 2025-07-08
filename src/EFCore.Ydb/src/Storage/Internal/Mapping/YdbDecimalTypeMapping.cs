@@ -8,7 +8,7 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
     private const byte DefaultScale = 9;
 
     public new static YdbDecimalTypeMapping Default => new();
-    
+
     public YdbDecimalTypeMapping() : this(
         new RelationalTypeMappingParameters(
             new CoreTypeMappingParameters(typeof(decimal)),
