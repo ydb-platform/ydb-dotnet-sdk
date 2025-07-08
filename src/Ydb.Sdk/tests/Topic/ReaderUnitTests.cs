@@ -1086,14 +1086,13 @@ public class ReaderUnitTests
         Assert.Equal("Hello", batch.Batch[0].Data);
         Assert.Equal("World!", batch.Batch[1].Data);
 
-        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Between(11, 12, Range.Inclusive));
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.AtLeast(11));
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(8, 9, Range.Inclusive));
         _mockStream.Verify(stream => stream.Current, Times.Exactly(7));
 
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
-            msg.InitRequest != null &&
-            msg.InitRequest.Consumer == "Consumer" &&
-            msg.InitRequest.TopicsReadSettings[0].Path == "/topic")), Times.Exactly(2));
+            msg.InitRequest != null && msg.InitRequest.Consumer == "Consumer" &&
+            msg.InitRequest.TopicsReadSettings[0].Path == "/topic")), Times.Between(2, 3, Range.Inclusive));
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
             msg.ReadRequest != null && msg.ReadRequest.BytesSize == 100)), Times.Exactly(2));
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>

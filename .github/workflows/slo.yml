@@ -7,19 +7,6 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      github_pull_request_number:
-        required: true
-      slo_workload_duration_seconds:
-        default: '600'
-        required: false
-      slo_workload_read_max_rps:
-        default: '1000'
-        required: false
-      slo_workload_write_max_rps:
-        default: '1000'
-        required: false
 
 jobs:
   ydb-slo-action:
@@ -32,7 +19,17 @@ jobs:
         workload:
           - AdoNet
           - Dapper
-#          - EF
+          - EF
+        include:
+          - workload: AdoNet
+            read_rps: 1000
+            write_rps: 1000
+          - workload: Dapper
+            read_rps: 1000
+            write_rps: 1000
+          - workload: EF
+            read_rps: 400
+            write_rps: 400
     
     concurrency:
       group: slo-${{ github.ref }}-${{ matrix.workload }}
@@ -66,9 +63,9 @@ jobs:
           dotnet run run "Host=localhost;Port=2135;Database=/Root/testdb" \
             --prom-pgw http://localhost:9091  \
             --report-period 250 \
-            --time ${{inputs.slo_workload_duration_seconds || 600 }} \
-            --read-rps ${{inputs.slo_workload_read_max_rps || 1000 }} \
-            --write-rps ${{inputs.slo_workload_write_max_rps || 1000 }} \
+            --time 600 \
+            --read-rps ${{matrix.read_rps || 1000 }} \
+            --write-rps ${{matrix.write_rps || 1000 }} \
             --read-timeout 1000 \
             --write-timeout 1000
 
