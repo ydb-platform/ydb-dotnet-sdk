@@ -30,7 +30,9 @@ public sealed class YdbTypeMappingSource(
     private static readonly FloatTypeMapping Float = new("Float", DbType.Single);
     private static readonly DoubleTypeMapping Double = new("Double", DbType.Double);
 
-    private static readonly YdbDecimalTypeMapping Decimal = new(typeof(decimal));
+    private static readonly YdbDecimalTypeMapping Decimal = YdbDecimalTypeMapping.Default;
+
+    private static readonly GuidTypeMapping Guid = YdbGuidTypeMapping.Default;
 
     private static readonly YdbTextTypeMapping Text = YdbTextTypeMapping.Default;
     private static readonly YdbBytesTypeMapping Bytes = YdbBytesTypeMapping.Default;
@@ -64,6 +66,10 @@ public sealed class YdbTypeMappingSource(
             { "Float", [Float] },
             { "Double", [Double] },
 
+            { "Decimal", [Decimal] },
+
+            { "Guid", [Guid] },
+
             { "Date", [Date] },
             { "DateTime", [DateTime] },
             { "Timestamp", [Timestamp] },
@@ -71,8 +77,6 @@ public sealed class YdbTypeMappingSource(
 
             { "Text", [Text] },
             { "Bytes", [Bytes] },
-
-            { "Decimal", [Decimal] },
 
             { "Json", [Json] }
         };
@@ -94,6 +98,8 @@ public sealed class YdbTypeMappingSource(
         { typeof(float), Float },
         { typeof(double), Double },
         { typeof(decimal), Decimal },
+
+        { typeof(Guid), Guid },
 
         { typeof(string), Text },
         { typeof(byte[]), Bytes },
