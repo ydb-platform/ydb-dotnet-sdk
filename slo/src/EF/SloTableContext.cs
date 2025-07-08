@@ -83,8 +83,8 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
     {
         await using var dbContext = await client.CreateDbContextAsync();
         return (0, StatusCode.Success,
-            await dbContext.SloEntities.FirstOrDefaultAsync(
-                table => table.Guid == select.Guid && table.Id == select.Id));
+            await dbContext.SloEntities.FirstOrDefaultAsync(table =>
+                table.Guid == select.Guid && table.Id == select.Id));
     }
 
     protected override async Task<int> SelectCount(PooledDbContextFactory<TableDbContext> client)
