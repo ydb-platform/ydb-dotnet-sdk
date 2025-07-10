@@ -124,7 +124,7 @@ public class BasicUnitTests
         const short valueInt16 = -200;
         Assert.Equal(valueInt16, YdbValue.MakeOptionalInt16(valueInt16).GetOptionalInt16());
 
-        const ushort valueUint16 = (ushort)40_000;
+        const ushort valueUint16 = 40_000;
         Assert.Equal(valueUint16, YdbValue.MakeOptionalUint16(valueUint16).GetOptionalUint16());
 
         const int valueInt32 = -40000;
