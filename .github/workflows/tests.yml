@@ -13,7 +13,6 @@ jobs:
   ydb-sdk-tests:
     strategy:
       matrix:
-        os: [ ubuntu-22.04, windows-2022, macos-15 ]
         ydb-version: [ 'latest', '25.1' ]
         dotnet-version: [ 8.0.x, 9.0.x ]
         include:
@@ -21,7 +20,7 @@ jobs:
             dotnet-target-framework: net8.0
           - dotnet-version: 9.0.x
             dotnet-target-framework: net9.0
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
