@@ -5,11 +5,12 @@ namespace Ydb.Sdk.Ado.Tests;
 public class YdbAdoUserPasswordTests : TestBase
 {
     private const string User = "kurdyukovkirya";
-    
+
     [Fact]
     public async Task Authentication_WhenUserAndPassword_ReturnValidConnection()
     {
-        await using var userPasswordConnection = new YdbConnection($"{ConnectionString};User={User};Password=password;");
+        await using var userPasswordConnection =
+            new YdbConnection($"{ConnectionString};User={User};Password=password;");
         await userPasswordConnection.OpenAsync();
         Assert.Equal(3, await new YdbCommand(userPasswordConnection)
             { CommandText = "SELECT 1 + 2" }.ExecuteScalarAsync());

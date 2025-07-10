@@ -329,7 +329,7 @@ public class YdbDataReaderTests(YdbSelectValueFixture fixture) : DataReaderTestB
         connection.ConnectionString = ConnectionString;
         await connection.OpenAsync();
 
-        await new YdbCommand { Connection = connection, CommandText = $"DROP TABLE `select_value`" }
+        await new YdbCommand { Connection = connection, CommandText = "DROP TABLE `select_value`" }
             .ExecuteNonQueryAsync();
     }
 

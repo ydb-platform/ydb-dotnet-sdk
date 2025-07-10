@@ -35,9 +35,9 @@ public class YdbSelectValueFixture : YdbFactoryFixture, ISelectValueFixture, IDe
     });
 
 
-    public string SelectNoRows => $"SELECT 1 FROM `select_value` WHERE 0 = 1;";
+    public string SelectNoRows => "SELECT 1 FROM `select_value` WHERE 0 = 1;";
 
     public System.Type NullValueExceptionType => typeof(InvalidCastException);
 
-    public string DeleteNoRows => $"DELETE FROM `select_value` WHERE 0 = 1;";
+    public string DeleteNoRows => "DELETE FROM `select_value` WHERE 0 = 1;";
 }

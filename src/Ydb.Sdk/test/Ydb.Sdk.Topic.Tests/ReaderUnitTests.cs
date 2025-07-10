@@ -2,7 +2,6 @@ using System.Text;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
-using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 using Ydb.Issue;
