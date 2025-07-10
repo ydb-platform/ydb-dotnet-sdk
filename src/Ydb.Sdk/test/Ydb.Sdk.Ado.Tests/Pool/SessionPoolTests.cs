@@ -6,9 +6,8 @@ using Ydb.Issue;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Pool;
 
-namespace Ydb.Sdk.Tests.Pool;
+namespace Ydb.Sdk.Ado.Tests.Pool;
 
-[Trait("Category", "Unit")]
 public class SessionPoolTests
 {
     internal const int TestSessionPoolSize = 50;
@@ -77,16 +76,12 @@ public class SessionPoolTests
     }
 }
 
-internal class TestSessionPool : SessionPool<TestSession>
+internal class TestSessionPool() : SessionPool<TestSession>(NullLogger<TestSessionPool>.Instance,
+    new SessionPoolConfig(MaxSessionPool: SessionPoolTests.TestSessionPoolSize, CreateSessionTimeout: 0))
 {
     public volatile int InvokedCreateSession;
 
     public Status CreatedStatus { get; set; } = Status.Success;
-
-    public TestSessionPool() : base(NullLogger<TestSessionPool>.Instance,
-        new SessionPoolConfig(MaxSessionPool: SessionPoolTests.TestSessionPoolSize, CreateSessionTimeout: 0))
-    {
-    }
 
     protected override Task<TestSession> CreateSession(CancellationToken cancellationToken = default)
     {

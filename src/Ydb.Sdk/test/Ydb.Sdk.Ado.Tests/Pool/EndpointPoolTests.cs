@@ -4,9 +4,8 @@ using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Pool;
 
-namespace Ydb.Sdk.Tests.Pool;
+namespace Ydb.Sdk.Ado.Tests.Pool;
 
-[Trait("Category", "Unit")]
 public class EndpointPoolTests
 {
     private static readonly ImmutableArray<EndpointSettings> EndpointSettingsList = ImmutableArray.Create(
