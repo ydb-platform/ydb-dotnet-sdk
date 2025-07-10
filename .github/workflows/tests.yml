@@ -15,11 +15,6 @@ jobs:
       matrix:
         ydb-version: [ 'latest', '25.1' ]
         dotnet-version: [ 8.0.x, 9.0.x ]
-        include:
-          - dotnet-version: 8.0.x
-            dotnet-target-framework: net8.0
-          - dotnet-version: 9.0.x
-            dotnet-target-framework: net9.0
     runs-on: ubuntu-22.04
     services:
       ydb:
@@ -42,16 +37,16 @@ jobs:
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test -f ${{ matrix.dotnet-target-framework }}
+          dotnet test
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
-        run: dotnet test -f ${{ matrix.dotnet-target-framework }}
+        run: dotnet test
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
-        run: dotnet test -f ${{ matrix.dotnet-target-framework }}
+        run: dotnet test
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
-        run: dotnet test -f ${{ matrix.dotnet-target-framework }}
+        run: dotnet test
   efcore-tests:
     runs-on: ubuntu-22.04
     strategy:
@@ -85,11 +80,6 @@ jobs:
       matrix:
         ydb-version: [ 'latest', 'trunk' ]
         dotnet-version: [ 8.0.x, 9.0.x ]
-        include:
-          - dotnet-version: 8.0.x
-            dotnet-target-framework: net8.0
-          - dotnet-version: 9.0.x
-            dotnet-target-framework: net9.0
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
