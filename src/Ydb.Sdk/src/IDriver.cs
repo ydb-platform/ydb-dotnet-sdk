@@ -1,9 +1,9 @@
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Ado.Pool;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
-using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk;

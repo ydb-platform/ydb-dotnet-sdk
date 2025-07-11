@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Transport;
@@ -29,6 +30,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _port = YdbAdoDefaultSettings.Port;
         _database = YdbAdoDefaultSettings.Database;
         _maxSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
+        _minSessionPool = 0;
+        _sessionIdleTimeout = 300;
         _useTls = YdbAdoDefaultSettings.UseTls;
         _connectTimeout = GrpcDefaultSettings.ConnectTimeoutSeconds;
         _keepAlivePingDelay = GrpcDefaultSettings.KeepAlivePingSeconds;
@@ -122,6 +125,40 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     private int _maxSessionPool;
+
+    public int MinSessionPool
+    {
+        get => _minSessionPool;
+        set
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid min session pool: " + value);
+            }
+
+            _minSessionPool = value;
+            SaveValue(nameof(MinSessionPool), value);
+        }
+    }
+
+    private int _minSessionPool;
+
+    public int SessionIdleTimeout
+    {
+        get => _sessionIdleTimeout;
+        set
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid session idle timeout: " + value);
+            }
+
+            _sessionIdleTimeout = value;
+            SaveValue(nameof(SessionIdleTimeout), value);
+        }
+    }
+
+    private int _sessionIdleTimeout;
 
     public bool UseTls
     {

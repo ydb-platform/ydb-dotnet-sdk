@@ -1,8 +1,8 @@
 using System.Collections.Immutable;
 using Moq;
 using Xunit;
+using Ydb.Sdk.Ado.Pool;
 using Ydb.Sdk.Ado.Tests.Utils;
-using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Ado.Tests.Pool;
 

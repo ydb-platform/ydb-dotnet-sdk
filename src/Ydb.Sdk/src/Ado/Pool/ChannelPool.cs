@@ -6,7 +6,7 @@ using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 
-namespace Ydb.Sdk.Pool;
+namespace Ydb.Sdk.Ado.Pool;
 
 internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposable
 {
