@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 
@@ -146,37 +147,44 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private async void StartWriteWorker()
     {
-        await Initialize();
-
         try
         {
-            while (!_disposeCts.Token.IsCancellationRequested)
+            await Initialize();
+
+            try
             {
-                await _tcsWakeUp.Task.WaitAsync(_disposeCts.Token);
-                _tcsWakeUp = new TaskCompletionSource();
-
-                if (_toSendBuffer.IsEmpty)
+                while (!_disposeCts.Token.IsCancellationRequested)
                 {
-                    continue;
-                }
+                    await _tcsWakeUp.Task.WaitAsync(_disposeCts.Token);
+                    _tcsWakeUp = new TaskCompletionSource();
 
-                await _sendInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
-                try
-                {
-                    if (_session.IsActive)
+                    if (_toSendBuffer.IsEmpty)
                     {
-                        await _session.Write(_toSendBuffer);
+                        continue;
+                    }
+
+                    await _sendInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
+                    try
+                    {
+                        if (_session.IsActive)
+                        {
+                            await _session.Write(_toSendBuffer);
+                        }
+                    }
+                    finally
+                    {
+                        _sendInFlightMessagesSemaphoreSlim.Release();
                     }
                 }
-                finally
-                {
-                    _sendInFlightMessagesSemaphoreSlim.Release();
-                }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("WriteWorker[{WriterConfig}] is disposed", _config);
             }
         }
-        catch (OperationCanceledException)
+        catch (Exception e)
         {
-            _logger.LogInformation("WriteWorker[{WriterConfig}] is disposed", _config);
+            _logger.LogCritical(e, "WriteWorker[{WriterConfig}] has unhandled exception! Bug report!", _config);
         }
     }
 
@@ -226,21 +234,22 @@ internal class Writer<TValue> : IWriter<TValue>
 
             var receivedInitMessage = stream.Current;
 
-            var status = Status.FromProto(receivedInitMessage.Status, receivedInitMessage.Issues);
-
-            if (status.IsNotSuccess)
+            if (receivedInitMessage.Status.IsNotSuccess())
             {
-                if (RetrySettings.DefaultInstance.GetRetryRule(status.StatusCode).Policy != RetryPolicy.None)
+                var statusCode = receivedInitMessage.Status.Code();
+                var statusMessage = statusCode.ToMessage(receivedInitMessage.Issues);
+
+                if (RetrySettings.DefaultInstance.GetRetryRule(statusCode).Policy != RetryPolicy.None)
                 {
-                    _logger.LogError("Writer initialization failed to start. Reason: {Status}", status);
+                    _logger.LogError("Writer initialization failed to start. Reason: {Status}", statusMessage);
 
                     _ = Task.Run(Initialize);
                 }
                 else
                 {
-                    _logger.LogCritical("Writer initialization failed to start. Reason: {Status}", status);
+                    _logger.LogCritical("Writer initialization failed to start. Reason: {Status}", statusMessage);
 
-                    _session = new NotStartedWriterSession("Initialization failed", status);
+                    _session = new NotStartedWriterSession($"Initialization failed! Reason: {statusMessage}");
                 }
 
                 return;
@@ -390,11 +399,6 @@ internal class NotStartedWriterSession : IWriteSession
         _reasonException = new WriterException(reasonExceptionMessage);
     }
 
-    public NotStartedWriterSession(string reasonExceptionMessage, Status status)
-    {
-        _reasonException = new WriterException(reasonExceptionMessage, status);
-    }
-
     public Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
     {
         while (toSendBuffer.TryDequeue(out var messageSending))
@@ -481,7 +485,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
                 var messageData = sendData.MessageData;
 
-                if (messageData.SeqNo == default)
+                if (messageData.SeqNo == 0)
                 {
                     messageData.SeqNo = ++currentSeqNum;
                 }
@@ -511,13 +515,12 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
             while (await Stream.MoveNextAsync())
             {
                 var messageFromServer = Stream.Current;
-                var status = Status.FromProto(messageFromServer.Status, messageFromServer.Issues);
 
-                if (status.IsNotSuccess)
+                if (messageFromServer.Status.IsNotSuccess())
                 {
                     Logger.LogError(
                         "WriterSession[{SessionId}] received unsuccessful status while processing writeAck: {Status}",
-                        SessionId, status);
+                        SessionId, messageFromServer.Status.Code().ToMessage(messageFromServer.Issues));
                     return;
                 }
 

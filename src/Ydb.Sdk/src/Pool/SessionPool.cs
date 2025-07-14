@@ -9,7 +9,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 {
     private readonly SemaphoreSlim _semaphore;
     private readonly ConcurrentQueue<TSession> _idleSessions = new();
-    private readonly int _createSessionTimeoutMs;
+    private readonly int _createSessionTimeout;
     private readonly int _size;
 
     protected readonly SessionPoolConfig Config;
@@ -23,7 +23,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         Logger = logger;
         Config = config;
         _size = config.MaxSessionPool;
-        _createSessionTimeoutMs = config.CreateSessionTimeout * 1000;
+        _createSessionTimeout = config.CreateSessionTimeout;
         _semaphore = new SemaphoreSlim(_size);
     }
 
@@ -32,9 +32,9 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         try
         {
             using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            if (_createSessionTimeoutMs > 0)
+            if (_createSessionTimeout > 0)
             {
-                ctsGetSession.CancelAfter(_createSessionTimeoutMs);
+                ctsGetSession.CancelAfter(TimeSpan.FromSeconds(_createSessionTimeout));
             }
 
             var finalCancellationToken = ctsGetSession.Token;
@@ -76,7 +76,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             throw new YdbException(StatusCode.Cancelled,
                 $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
                 $"(currently {_size}) or 'CreateSessionTimeout' " +
-                $"(currently {_createSessionTimeoutMs} seconds) in your connection string.", e
+                $"(currently {_createSessionTimeout} seconds) in your connection string.", e
             );
         }
     }

@@ -7,12 +7,10 @@ internal static class IssueMessageUtils
 {
     internal static string IssuesToString(this IReadOnlyList<IssueMessage> issues) => IssuesToString(issues, 0, 4);
 
-    private static string IssuesToString(IEnumerable<IssueMessage> issueMessages, int currentIndent, int indent)
-    {
-        var sb = new StringBuilder();
-
-        foreach (var message in issueMessages)
+    private static string IssuesToString(IEnumerable<IssueMessage> issueMessages, int currentIndent, int indent) =>
+        string.Join(Environment.NewLine, issueMessages.Select(message =>
         {
+            var sb = new StringBuilder();
             sb.Append(' ', currentIndent);
             sb.Append($"[{message.IssueCode}] ");
 
@@ -23,12 +21,15 @@ internal static class IssueMessageUtils
 
             sb.Append($"{message.Severity.SeverityToString()}: ");
             sb.Append(message.Message);
-            sb.Append(IssuesToString(message.Issues, currentIndent + indent, indent));
-            sb.Append(Environment.NewLine);
-        }
 
-        return sb.ToString();
-    }
+            if (message.Issues.Count > 0)
+            {
+                sb.AppendLine();
+                sb.Append(IssuesToString(message.Issues, currentIndent + indent, indent));
+            }
+            
+            return sb.ToString();
+        }));
 
     private static string SeverityToString(this uint severity) => severity switch
     {
@@ -36,7 +37,7 @@ internal static class IssueMessageUtils
         1 => "Error",
         2 => "Warning",
         3 => "Info",
-        _ => $"Unknown severity {severity}"
+        _ => $"Unknown SeverityCode {severity}"
     };
 
     private static string PositionToString(this IssueMessage.Types.Position position)
@@ -44,14 +45,14 @@ internal static class IssueMessageUtils
         var sb = new StringBuilder();
         sb.Append('(');
 
-        if (position.File != null)
+        if (!string.IsNullOrEmpty(position.File))
         {
             sb.Append(position.File);
             sb.Append(':');
         }
 
         sb.Append($"{position.Row}:{position.Column}");
-        sb.Append(')');
+        sb.Append(") ");
         return sb.ToString();
     }
 }

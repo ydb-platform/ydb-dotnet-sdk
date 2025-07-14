@@ -149,7 +149,7 @@ public class Issue
         foreach (var issue in issues)
         {
             sb.Append(issue.ToString(currentIndent, indent));
-            sb.Append(Environment.NewLine);
+            sb.AppendLine();
         }
 
         return sb.ToString();
@@ -199,7 +199,7 @@ public class Status
         }
 
         sb.Append(", Issues:");
-        sb.Append(Environment.NewLine);
+        sb.AppendLine();
         sb.Append(Issue.IssuesToString(Issues));
 
         return sb.ToString();

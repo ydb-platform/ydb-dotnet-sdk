@@ -29,7 +29,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
 
     public bool IsActive => Volatile.Read(ref _isActive) == 1;
 
-    protected async void ReconnectSession()
+    protected void ReconnectSession()
     {
         if (Interlocked.CompareExchange(ref _isActive, 0, 1) == 0)
         {
@@ -40,7 +40,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
 
         Logger.LogDebug("TopicSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
 
-        await _initialize();
+        _ = Task.Run(() => _initialize());
     }
 
     protected async Task SendMessage(TFromClient fromClient)
