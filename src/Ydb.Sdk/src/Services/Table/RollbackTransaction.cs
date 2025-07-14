@@ -32,18 +32,11 @@ public partial class Session
             OperationParams = settings.MakeOperationParams()
         };
 
-        try
-        {
-            var response = await UnaryCall(TableService.RollbackTransactionMethod, request, settings);
+        var response = await UnaryCall(TableService.RollbackTransactionMethod, request, settings);
 
-            var status = response.Operation.Unpack();
-            OnResponseStatus(status);
+        var status = response.Operation.Unpack();
+        OnResponseStatus(status);
 
-            return new RollbackTransactionResponse(status);
-        }
-        catch (Driver.TransportException e)
-        {
-            return new RollbackTransactionResponse(e.Status);
-        }
+        return new RollbackTransactionResponse(status);
     }
 }

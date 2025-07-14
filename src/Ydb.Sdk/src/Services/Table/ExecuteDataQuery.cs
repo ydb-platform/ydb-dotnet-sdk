@@ -79,44 +79,37 @@ public partial class Session
 
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        try
+        var response = await UnaryCall(
+            method: TableService.ExecuteDataQueryMethod,
+            request: request,
+            settings: settings
+        );
+
+        var status = response.Operation.TryUnpack(out ExecuteQueryResult? resultProto);
+        OnResponseStatus(status);
+
+        var txState = TransactionState.Unknown;
+        Transaction? tx = null;
+        if (resultProto?.TxMeta != null)
         {
-            var response = await UnaryCall(
-                method: TableService.ExecuteDataQueryMethod,
-                request: request,
-                settings: settings
-            );
+            txState = resultProto.TxMeta.Id.Length > 0
+                ? TransactionState.Active
+                : TransactionState.Void;
 
-            var status = response.Operation.TryUnpack(out ExecuteQueryResult? resultProto);
-            OnResponseStatus(status);
-
-            var txState = TransactionState.Unknown;
-            Transaction? tx = null;
-            if (resultProto?.TxMeta != null)
-            {
-                txState = resultProto.TxMeta.Id.Length > 0
-                    ? TransactionState.Active
-                    : TransactionState.Void;
-
-                tx = Transaction.FromProto(resultProto.TxMeta, Logger);
-            }
-
-            ExecuteDataQueryResponse.ResultData? result = null;
-            if (status.IsSuccess && resultProto != null)
-            {
-                result = ExecuteDataQueryResponse.ResultData.FromProto(resultProto);
-                if (!settings.AllowTruncated && result.ResultSets.Any(set => set.Truncated))
-                {
-                    throw new TruncateException();
-                }
-            }
-
-            return new ExecuteDataQueryResponse(status, txState, tx, result);
+            tx = Transaction.FromProto(resultProto.TxMeta, Logger);
         }
-        catch (Driver.TransportException e)
+
+        ExecuteDataQueryResponse.ResultData? result = null;
+        if (status.IsSuccess && resultProto != null)
         {
-            return new ExecuteDataQueryResponse(e.Status, TransactionState.Unknown);
+            result = ExecuteDataQueryResponse.ResultData.FromProto(resultProto);
+            if (!settings.AllowTruncated && result.ResultSets.Any(set => set.Truncated))
+            {
+                throw new TruncateException();
+            }
         }
+
+        return new ExecuteDataQueryResponse(status, txState, tx, result);
     }
 
     public async Task<ExecuteDataQueryResponse> ExecuteDataQuery(

@@ -15,18 +15,11 @@ public partial class OperationsClient
             Id = id
         };
 
-        try
-        {
-            var response = await _driver.UnaryCall(
-                method: OperationService.GetOperationMethod,
-                request: request,
-                settings: settings);
+        var response = await _driver.UnaryCall(
+            method: OperationService.GetOperationMethod,
+            request: request,
+            settings: settings);
 
-            return ClientOperation.FromProto(response.Operation);
-        }
-        catch (Driver.TransportException e)
-        {
-            return new ClientOperation(e.Status);
-        }
+        return ClientOperation.FromProto(response.Operation);
     }
 }

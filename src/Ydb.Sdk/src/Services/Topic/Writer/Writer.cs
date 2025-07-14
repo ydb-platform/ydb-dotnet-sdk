@@ -585,11 +585,20 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
 
     public override async ValueTask DisposeAsync()
     {
-        Logger.LogDebug("WriterSession[{SessionId}]: start dispose process", SessionId);
+        try
+        {
+            Logger.LogDebug("WriterSession[{SessionId}]: start dispose process", SessionId);
 
-        await Stream.RequestStreamComplete();
-        await _processingResponseStream;
-
-        Stream.Dispose();
+            await Stream.RequestStreamComplete();
+            await _processingResponseStream;
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "WriterSession[{SessionId}]: error on disposing", SessionId);
+        }
+        finally
+        {
+            Stream.Dispose();
+        }
     }
 }

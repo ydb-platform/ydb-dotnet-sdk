@@ -53,27 +53,20 @@ public partial class TableClient
             OperationParams = settings.MakeOperationParams()
         };
 
-        try
+        var response = await _driver.UnaryCall(
+            method: TableService.CreateSessionMethod,
+            request: request,
+            settings: settings
+        );
+
+        var status = response.Operation.TryUnpack(out CreateSessionResult? resultProto);
+
+        CreateSessionResponse.ResultData? result = null;
+        if (status.IsSuccess && resultProto != null)
         {
-            var response = await _driver.UnaryCall(
-                method: TableService.CreateSessionMethod,
-                request: request,
-                settings: settings
-            );
-
-            var status = response.Operation.TryUnpack(out CreateSessionResult? resultProto);
-
-            CreateSessionResponse.ResultData? result = null;
-            if (status.IsSuccess && resultProto != null)
-            {
-                result = CreateSessionResponse.ResultData.FromProto(resultProto, _driver);
-            }
-
-            return new CreateSessionResponse(status, result);
+            result = CreateSessionResponse.ResultData.FromProto(resultProto, _driver);
         }
-        catch (Driver.TransportException e)
-        {
-            return new CreateSessionResponse(e.Status);
-        }
+
+        return new CreateSessionResponse(status, result);
     }
 }

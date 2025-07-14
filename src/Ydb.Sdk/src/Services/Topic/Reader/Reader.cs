@@ -582,8 +582,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             Logger.LogInformation("ReaderSession[{SessionId}]: RequestStream is closed", SessionId);
 
             await _runProcessingStreamResponse; // waiting all ack's commits
-
-            _lifecycleReaderSessionCts.Cancel();
         }
         catch (Exception e)
         {
@@ -591,6 +589,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
         finally
         {
+            _lifecycleReaderSessionCts.Cancel();
             Stream.Dispose();
         }
     }

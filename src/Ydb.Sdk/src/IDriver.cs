@@ -1,6 +1,7 @@
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
@@ -116,7 +117,12 @@ public abstract class BaseDriver : IDriver
         catch (RpcException e)
         {
             OnRpcError(endpoint, e);
-            throw new Driver.TransportException(e);
+
+            throw new YdbException(e);
+        }
+        catch (Exception e)
+        {
+            throw new YdbException(StatusCode.ClientTransportUnknown, "Unexpected transport exception", e);
         }
     }
 
@@ -233,7 +239,11 @@ public sealed class ServerStream<TResponse> : IServerStream<TResponse>
         {
             _rpcErrorAction(e);
 
-            throw new Driver.TransportException(e);
+            throw new YdbException(e);
+        }
+        catch (Exception e)
+        {
+            throw new YdbException(StatusCode.ClientTransportUnknown, "Unexpected transport exception", e);
         }
     }
 
@@ -268,7 +278,11 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
         {
             _rpcErrorAction(e);
 
-            throw new Driver.TransportException(e);
+            throw new YdbException(e);
+        }
+        catch (Exception e)
+        {
+            throw new YdbException(StatusCode.ClientTransportUnknown, "Unexpected transport exception", e);
         }
     }
 
@@ -282,7 +296,11 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
         {
             _rpcErrorAction(e);
 
-            throw new Driver.TransportException(e);
+            throw new YdbException(e);
+        }
+        catch (Exception e)
+        {
+            throw new YdbException(StatusCode.ClientTransportUnknown, "Unexpected transport exception", e);
         }
     }
 

@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
+using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
@@ -9,7 +11,6 @@ using Ydb.Table.V1;
 using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 using CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 using DeleteSessionRequest = Ydb.Query.DeleteSessionRequest;
-using DescribeTableResponse = Ydb.Table.DescribeTableResponse;
 using RollbackTransactionRequest = Ydb.Query.RollbackTransactionRequest;
 using TransactionControl = Ydb.Query.TransactionControl;
 
@@ -86,12 +87,13 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                     while (await stream.MoveNextAsync())
                     {
                         var sessionState = stream.Current;
-                        var sessionStateStatus = Status.FromProto(sessionState.Status, sessionState.Issues);
 
-                        Logger.LogDebug("Session[{SessionId}] was received the status from the attach stream: {Status}",
-                            sessionId, sessionStateStatus);
+                        var statusCode = sessionState.Status.Code();
 
-                        session.OnStatus(sessionStateStatus);
+                        Logger.LogDebug("Session[{SessionId}] was received the status from the attach stream: {Code}",
+                            sessionId, statusCode);
+
+                        session.OnNotSuccessStatusCode(statusCode);
 
                         // ReSharper disable once InvertIf
                         if (!session.IsActive)
@@ -104,9 +106,9 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
                     // attach stream is closed
                 }
-                catch (Driver.TransportException e)
+                catch (YdbException e)
                 {
-                    if (e.Status.StatusCode == StatusCode.Cancelled)
+                    if (e.Code == StatusCode.Cancelled)
                     {
                         Logger.LogDebug("AttachStream is cancelled (possible grpcChannel is closing)");
 
@@ -172,31 +174,37 @@ internal class Session : SessionBase<Session>
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    internal async Task<Status> CommitTransaction(string txId, GrpcRequestSettings? settings = null)
+    internal async Task CommitTransaction(string txId, CancellationToken cancellationToken = default)
     {
-        settings = MakeGrpcRequestSettings(settings ?? new GrpcRequestSettings());
+        var settings = MakeGrpcRequestSettings(new GrpcRequestSettings { CancellationToken = cancellationToken });
 
         var response = await Driver.UnaryCall(QueryService.CommitTransactionMethod,
             new CommitTransactionRequest { SessionId = SessionId, TxId = txId }, settings);
 
-        return Status.FromProto(response.Status, response.Issues);
+        if (response.Status.IsNotSuccess())
+        {
+            throw YdbException.FromServer(response.Status, response.Issues);
+        }
     }
 
-    internal async Task<Status> RollbackTransaction(string txId, GrpcRequestSettings? settings = null)
+    internal async Task RollbackTransaction(string txId, CancellationToken cancellationToken = default)
     {
-        settings = MakeGrpcRequestSettings(settings ?? new GrpcRequestSettings());
+        var settings = MakeGrpcRequestSettings(new GrpcRequestSettings { CancellationToken = cancellationToken });
 
         var response = await Driver.UnaryCall(QueryService.RollbackTransactionMethod,
             new RollbackTransactionRequest { SessionId = SessionId, TxId = txId }, settings);
 
-        return Status.FromProto(response.Status, response.Issues);
+        if (response.Status.IsNotSuccess())
+        {
+            throw YdbException.FromServer(response.Status, response.Issues);
+        }
     }
 
-    internal async Task<DescribeTableResponse> DescribeTable(string path, DescribeTableSettings? settings = null)
+    internal async Task<DescribeTableResult> DescribeTable(string path, DescribeTableSettings? settings = null)
     {
         settings = MakeGrpcRequestSettings(settings ?? new DescribeTableSettings());
 
-        return await Driver.UnaryCall(
+        var response = await Driver.UnaryCall(
             TableService.DescribeTableMethod,
             new DescribeTableRequest
             {
@@ -207,28 +215,28 @@ internal class Session : SessionBase<Session>
             },
             settings
         );
+
+        if (response.Operation.Status.IsNotSuccess())
+        {
+            throw YdbException.FromServer(response.Operation.Status, response.Operation.Issues);
+        }
+
+        return response.Operation.Result.Unpack<DescribeTableResult>();
     }
 
     internal override async Task<Status> DeleteSession()
     {
-        try
-        {
-            IsActive = false;
+        IsActive = false;
 
-            var settings = MakeGrpcRequestSettings(new GrpcRequestSettings
-                { TransportTimeout = TimeSpan.FromSeconds(5) });
+        var settings = MakeGrpcRequestSettings(new GrpcRequestSettings
+            { TransportTimeout = TimeSpan.FromSeconds(5) });
 
-            var deleteSessionResponse = await Driver.UnaryCall(
-                QueryService.DeleteSessionMethod,
-                new DeleteSessionRequest { SessionId = SessionId },
-                settings
-            );
+        var deleteSessionResponse = await Driver.UnaryCall(
+            QueryService.DeleteSessionMethod,
+            new DeleteSessionRequest { SessionId = SessionId },
+            settings
+        );
 
-            return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
-        }
-        catch (Driver.TransportException e)
-        {
-            return e.Status;
-        }
+        return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
     }
 }

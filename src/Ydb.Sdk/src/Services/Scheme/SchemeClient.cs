@@ -133,27 +133,20 @@ public class SchemeClient
             Path = path
         };
 
-        try
+        var response = await _driver.UnaryCall(
+            method: SchemeService.ListDirectoryMethod,
+            request: request,
+            settings: settings
+        );
+
+        var status = response.Operation.TryUnpack(out ListDirectoryResult? resultProto);
+
+        ListDirectoryResponse.ResultData? result = null;
+        if (status.IsSuccess && resultProto != null)
         {
-            var response = await _driver.UnaryCall(
-                method: SchemeService.ListDirectoryMethod,
-                request: request,
-                settings: settings
-            );
-
-            var status = response.Operation.TryUnpack(out ListDirectoryResult? resultProto);
-
-            ListDirectoryResponse.ResultData? result = null;
-            if (status.IsSuccess && resultProto != null)
-            {
-                result = ListDirectoryResponse.ResultData.FromProto(resultProto);
-            }
-
-            return new ListDirectoryResponse(status, result);
+            result = ListDirectoryResponse.ResultData.FromProto(resultProto);
         }
-        catch (Driver.TransportException e)
-        {
-            return new ListDirectoryResponse(e.Status);
-        }
+
+        return new ListDirectoryResponse(status, result);
     }
 }

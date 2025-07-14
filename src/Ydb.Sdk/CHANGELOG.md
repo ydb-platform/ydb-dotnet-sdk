@@ -1,4 +1,7 @@
-- Added 'x-ydb-client-pid' header to any RPC calls
+- `YdbException`: Added cancellation token propagation support in `CommitAsync` and `RollbackAsync`.
+- Delete legacy exceptions: Driver.TransportException and StatusUnsuccessfulException.
+- Fixed bug: Unhandled exception System.Net.Http.HttpIOException convert to YdbException ([grpc-dotnet issue](https://github.com/grpc/grpc-dotnet/issues/2638)).
+- Added 'x-ydb-client-pid' header to any RPC calls.
 - Added DisableServerBalancer option to ADO.NET session creation; default false.
 
 ## v0.20.1

@@ -76,8 +76,7 @@ public class QueryTx
 
         Commited = true;
 
-        var status = await _session.RollbackTransaction(TxId!);
-        status.EnsureSuccess();
+        await _session.RollbackTransaction(TxId!);
     }
 
     internal async Task Commit()

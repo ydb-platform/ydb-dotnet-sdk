@@ -182,14 +182,4 @@ public sealed class Driver : BaseDriver
         {
         }
     }
-
-    public class TransportException : IOException
-    {
-        internal TransportException(RpcException e) : base("Transport RPC call error", e)
-        {
-            Status = e.Status.ConvertStatus();
-        }
-
-        public Status Status { get; }
-    }
 }

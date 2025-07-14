@@ -29,44 +29,55 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     internal async Task<TSession> GetSession(CancellationToken cancellationToken = default)
     {
-        using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        if (_createSessionTimeoutMs > 0)
-        {
-            ctsGetSession.CancelAfter(_createSessionTimeoutMs);
-        }
-
-        var finalCancellationToken = ctsGetSession.Token;
-
-        Interlocked.Increment(ref _waitingCount);
-
-        if (_disposed)
-        {
-            throw new YdbException("Session pool is closed");
-        }
-
-        await _semaphore.WaitAsync(finalCancellationToken);
-        Interlocked.Decrement(ref _waitingCount);
-
-        if (_idleSessions.TryDequeue(out var session) && session.IsActive)
-        {
-            return session;
-        }
-
-        if (session != null) // not active
-        {
-            Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
-        }
-
         try
         {
-            return await CreateSession(finalCancellationToken);
-        }
-        catch (Exception e)
-        {
-            Release();
+            using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (_createSessionTimeoutMs > 0)
+            {
+                ctsGetSession.CancelAfter(_createSessionTimeoutMs);
+            }
 
-            Logger.LogError(e, "Failed to create a session");
-            throw;
+            var finalCancellationToken = ctsGetSession.Token;
+
+            Interlocked.Increment(ref _waitingCount);
+
+            if (_disposed)
+            {
+                throw new YdbException("Session pool is closed");
+            }
+
+            await _semaphore.WaitAsync(finalCancellationToken);
+            Interlocked.Decrement(ref _waitingCount);
+
+            if (_idleSessions.TryDequeue(out var session) && session.IsActive)
+            {
+                return session;
+            }
+
+            if (session != null) // not active
+            {
+                Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
+            }
+
+            try
+            {
+                return await CreateSession(finalCancellationToken);
+            }
+            catch (Exception e)
+            {
+                Release();
+
+                Logger.LogError(e, "Failed to create a session");
+                throw;
+            }
+        }
+        catch (OperationCanceledException e)
+        {
+            throw new YdbException(StatusCode.Cancelled,
+                $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
+                $"(currently {_size}) or 'CreateSessionTimeout' " +
+                $"(currently {_createSessionTimeoutMs} seconds) in your connection string.", e
+            );
         }
     }
 
@@ -86,47 +97,29 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
                 return await onSession(session);
             }
-            catch (Exception e)
+            catch (YdbException e)
             {
-                var statusErr = e switch
-                {
-                    Driver.TransportException transportException => transportException.Status,
-                    StatusUnsuccessfulException unsuccessfulException => unsuccessfulException.Status,
-                    _ => null
-                };
-
                 if (attempt == retrySettings.MaxAttempts - 1)
                 {
-                    if (statusErr != null)
-                    {
-                        session?.OnStatus(statusErr);
-                    }
+                    session?.OnNotSuccessStatusCode(e.Code);
 
                     throw;
                 }
 
-                if (statusErr != null)
-                {
-                    session?.OnStatus(statusErr);
-                    var retryRule = retrySettings.GetRetryRule(statusErr.StatusCode);
+                session?.OnNotSuccessStatusCode(e.Code);
+                var retryRule = retrySettings.GetRetryRule(e.Code);
 
-                    if (retryRule.Policy == RetryPolicy.None ||
-                        (retryRule.Policy == RetryPolicy.IdempotentOnly && !retrySettings.IsIdempotent))
-                    {
-                        throw;
-                    }
-
-                    Logger.LogTrace(
-                        "Retry: attempt {attempt}, Session ${session.SessionId}, idempotent error {status} retrying",
-                        attempt, session?.SessionId, statusErr);
-
-
-                    await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
-                }
-                else
+                if (retryRule.Policy == RetryPolicy.None ||
+                    (retryRule.Policy == RetryPolicy.IdempotentOnly && !retrySettings.IsIdempotent))
                 {
                     throw;
                 }
+
+                Logger.LogTrace(e, "Retry: attempt {attempt}, Session ${session.SessionId}, idempotent error retrying",
+                    attempt, session?.SessionId);
+
+
+                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
             }
             finally
             {
@@ -223,10 +216,10 @@ public abstract class SessionBase<T> where T : SessionBase<T>
         _logger = logger;
     }
 
-    internal void OnStatus(Status status)
+    internal void OnNotSuccessStatusCode(StatusCode code)
     {
         // ReSharper disable once InvertIf
-        if (status.StatusCode is
+        if (code is
             StatusCode.Cancelled or
             StatusCode.BadSession or
             StatusCode.SessionBusy or
@@ -235,7 +228,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
             StatusCode.Unavailable or
             StatusCode.ClientTransportUnavailable)
         {
-            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason: {Status}", SessionId, status);
+            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason StatusCode: {Code}", SessionId, code);
 
             IsActive = false;
         }
