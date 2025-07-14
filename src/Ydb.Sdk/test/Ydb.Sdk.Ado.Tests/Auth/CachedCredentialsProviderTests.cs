@@ -11,21 +11,18 @@ public class CachedCredentialsProviderTests
     private readonly Mock<IAuthClient> _mockAuthClient = new();
     private readonly Mock<IClock> _mockClock = new();
 
-
     [Fact]
     public async Task SyncState_To_ErrorState_To_SyncState_To_ActiveState()
     {
         var now = DateTime.UtcNow;
 
         _mockAuthClient.SetupSequence(authClient => authClient.FetchToken())
-            .ThrowsAsync(new StatusUnsuccessfulException(
-                new Status(StatusCode.Unavailable, new List<Issue> { new(":(") }))
-            )
+            .ThrowsAsync(new YdbException(StatusCode.Unavailable, "Mock Unavailable"))
             .ReturnsAsync(new TokenResponse(Token, now.Add(TimeSpan.FromSeconds(2))));
         _mockClock.Setup(clock => clock.UtcNow).Returns(now);
         var credentialsProvider = new CachedCredentialsProvider(_mockAuthClient.Object, _mockClock.Object);
 
-        await Assert.ThrowsAsync<StatusUnsuccessfulException>(() => credentialsProvider.GetAuthInfoAsync().AsTask());
+        await Assert.ThrowsAsync<YdbException>(() => credentialsProvider.GetAuthInfoAsync().AsTask());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
@@ -136,8 +133,8 @@ public class CachedCredentialsProviderTests
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         var taskOnError = credentialsProvider.GetAuthInfoAsync();
-        tcsTokenResponse.SetException(new StatusUnsuccessfulException(new Status(StatusCode.Unavailable)));
-        await Assert.ThrowsAsync<StatusUnsuccessfulException>(async () => await taskOnError);
+        tcsTokenResponse.SetException(new YdbException(StatusCode.Unavailable, "Mock Unavailable"));
+        await Assert.ThrowsAsync<YdbException>(async () => await taskOnError);
         Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
         _mockAuthClient.Verify(authClient => authClient.FetchToken(), Times.Exactly(3));
@@ -192,7 +189,7 @@ public class CachedCredentialsProviderTests
 
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
-        tcsTokenResponse.SetException(new StatusUnsuccessfulException(new Status(StatusCode.Unavailable)));
+        tcsTokenResponse.SetException(new YdbException(StatusCode.Unavailable, "Mock Unavailable"));
         var taskOnBackground = credentialsProvider.GetAuthInfoAsync();
         Assert.Equal(Token + Token, await taskOnBackground);
         Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());
@@ -248,7 +245,7 @@ public class CachedCredentialsProviderTests
 
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
         Assert.Equal(Token, await credentialsProvider.GetAuthInfoAsync());
-        tcsTokenResponse.SetException(new StatusUnsuccessfulException(new Status(StatusCode.Unavailable)));
+        tcsTokenResponse.SetException(new YdbException(StatusCode.Unavailable, "Mock Unavailable"));
         var taskOnBackground = credentialsProvider.GetAuthInfoAsync();
         Assert.Equal(Token, await taskOnBackground);
         Assert.Equal(Token + Token, await credentialsProvider.GetAuthInfoAsync());

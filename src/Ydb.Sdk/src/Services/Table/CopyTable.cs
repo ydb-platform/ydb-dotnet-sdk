@@ -62,21 +62,14 @@ public partial class TableClient
             DestinationPath = MakeTablePath(destinationPath)
         };
 
-        try
-        {
-            var response = await _driver.UnaryCall(
-                method: TableService.CopyTableMethod,
-                request: request,
-                settings: settings
-            );
+        var response = await _driver.UnaryCall(
+            method: TableService.CopyTableMethod,
+            request: request,
+            settings: settings
+        );
 
-            var status = response.Operation.Unpack();
-            return new CopyTableResponse(status);
-        }
-        catch (Driver.TransportException e)
-        {
-            return new CopyTableResponse(e.Status);
-        }
+        var status = response.Operation.Unpack();
+        return new CopyTableResponse(status);
     }
 
     public async Task<CopyTablesResponse> CopyTables(List<CopyTableItem> tableItems,
@@ -89,19 +82,12 @@ public partial class TableClient
         };
         request.Tables.AddRange(tableItems.Select(item => item.GetProto(this)));
 
-        try
-        {
-            var response = await _driver.UnaryCall(
-                method: TableService.CopyTablesMethod,
-                request: request,
-                settings: settings);
+        var response = await _driver.UnaryCall(
+            method: TableService.CopyTablesMethod,
+            request: request,
+            settings: settings);
 
-            var status = response.Operation.Unpack();
-            return new CopyTablesResponse(status);
-        }
-        catch (Driver.TransportException e)
-        {
-            return new CopyTablesResponse(e.Status);
-        }
+        var status = response.Operation.Unpack();
+        return new CopyTablesResponse(status);
     }
 }

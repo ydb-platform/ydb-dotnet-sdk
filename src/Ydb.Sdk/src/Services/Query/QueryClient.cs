@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Value;
 
@@ -130,11 +131,7 @@ public class QueryClient : IAsyncDisposable
 
                 return result;
             }
-            catch (StatusUnsuccessfulException)
-            {
-                throw;
-            }
-            catch (Driver.TransportException)
+            catch (YdbException)
             {
                 throw;
             }

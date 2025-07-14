@@ -38,14 +38,14 @@ internal class InternalBatchMessages<TValue>
     {
         if (!IsActive)
         {
-            message = default;
+            message = null;
             return false;
         }
 
         var index = _startMessageDataIndex++;
         var messageData = _batch.MessageData[index];
-        _readerSession.TryReadRequestBytes(Utils
-            .CalculateApproximatelyBytesSize(_approximatelyBatchSize, OriginalMessageCount, index));
+        _ = _readerSession.TryReadRequestBytes(
+            Utils.CalculateApproximatelyBytesSize(_approximatelyBatchSize, OriginalMessageCount, index));
 
         TValue value;
         try
@@ -82,7 +82,7 @@ internal class InternalBatchMessages<TValue>
     {
         if (!IsActive)
         {
-            batchMessages = default;
+            batchMessages = null;
             return false;
         }
 

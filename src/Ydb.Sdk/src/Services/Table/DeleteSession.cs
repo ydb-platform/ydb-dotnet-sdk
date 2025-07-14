@@ -28,20 +28,13 @@ public partial class TableClient
             SessionId = sessionId
         };
 
-        try
-        {
-            var response = await _driver.UnaryCall(
-                method: TableService.DeleteSessionMethod,
-                request: request,
-                settings: settings);
+        var response = await _driver.UnaryCall(
+            method: TableService.DeleteSessionMethod,
+            request: request,
+            settings: settings);
 
-            var status = response.Operation.Unpack();
+        var status = response.Operation.Unpack();
 
-            return new DeleteSessionResponse(status);
-        }
-        catch (Driver.TransportException e)
-        {
-            return new DeleteSessionResponse(e.Status);
-        }
+        return new DeleteSessionResponse(status);
     }
 }

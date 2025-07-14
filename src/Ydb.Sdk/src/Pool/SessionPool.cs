@@ -9,7 +9,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 {
     private readonly SemaphoreSlim _semaphore;
     private readonly ConcurrentQueue<TSession> _idleSessions = new();
-    private readonly int _createSessionTimeoutMs;
+    private readonly int _createSessionTimeout;
     private readonly int _size;
 
     protected readonly SessionPoolConfig Config;
@@ -23,50 +23,61 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         Logger = logger;
         Config = config;
         _size = config.MaxSessionPool;
-        _createSessionTimeoutMs = config.CreateSessionTimeout * 1000;
+        _createSessionTimeout = config.CreateSessionTimeout;
         _semaphore = new SemaphoreSlim(_size);
     }
 
     internal async Task<TSession> GetSession(CancellationToken cancellationToken = default)
     {
-        using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        if (_createSessionTimeoutMs > 0)
-        {
-            ctsGetSession.CancelAfter(_createSessionTimeoutMs);
-        }
-
-        var finalCancellationToken = ctsGetSession.Token;
-
-        Interlocked.Increment(ref _waitingCount);
-
-        if (_disposed)
-        {
-            throw new YdbException("Session pool is closed");
-        }
-
-        await _semaphore.WaitAsync(finalCancellationToken);
-        Interlocked.Decrement(ref _waitingCount);
-
-        if (_idleSessions.TryDequeue(out var session) && session.IsActive)
-        {
-            return session;
-        }
-
-        if (session != null) // not active
-        {
-            Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
-        }
-
         try
         {
-            return await CreateSession(finalCancellationToken);
-        }
-        catch (Exception e)
-        {
-            Release();
+            using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (_createSessionTimeout > 0)
+            {
+                ctsGetSession.CancelAfter(TimeSpan.FromSeconds(_createSessionTimeout));
+            }
 
-            Logger.LogError(e, "Failed to create a session");
-            throw;
+            var finalCancellationToken = ctsGetSession.Token;
+
+            Interlocked.Increment(ref _waitingCount);
+
+            if (_disposed)
+            {
+                throw new YdbException("Session pool is closed");
+            }
+
+            await _semaphore.WaitAsync(finalCancellationToken);
+            Interlocked.Decrement(ref _waitingCount);
+
+            if (_idleSessions.TryDequeue(out var session) && session.IsActive)
+            {
+                return session;
+            }
+
+            if (session != null) // not active
+            {
+                Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
+            }
+
+            try
+            {
+                return await CreateSession(finalCancellationToken);
+            }
+            catch (Exception e)
+            {
+                Release();
+
+                Logger.LogError(e, "Failed to create a session");
+                throw;
+            }
+        }
+        catch (OperationCanceledException e)
+        {
+            throw new YdbException(StatusCode.Cancelled,
+                $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
+                $"(currently {_size}) or 'CreateSessionTimeout' " +
+                $"(currently {_createSessionTimeout} seconds) in your connection string.", e
+            );
         }
     }
 
@@ -86,47 +97,29 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
                 return await onSession(session);
             }
-            catch (Exception e)
+            catch (YdbException e)
             {
-                var statusErr = e switch
-                {
-                    Driver.TransportException transportException => transportException.Status,
-                    StatusUnsuccessfulException unsuccessfulException => unsuccessfulException.Status,
-                    _ => null
-                };
-
                 if (attempt == retrySettings.MaxAttempts - 1)
                 {
-                    if (statusErr != null)
-                    {
-                        session?.OnStatus(statusErr);
-                    }
+                    session?.OnNotSuccessStatusCode(e.Code);
 
                     throw;
                 }
 
-                if (statusErr != null)
-                {
-                    session?.OnStatus(statusErr);
-                    var retryRule = retrySettings.GetRetryRule(statusErr.StatusCode);
+                session?.OnNotSuccessStatusCode(e.Code);
+                var retryRule = retrySettings.GetRetryRule(e.Code);
 
-                    if (retryRule.Policy == RetryPolicy.None ||
-                        (retryRule.Policy == RetryPolicy.IdempotentOnly && !retrySettings.IsIdempotent))
-                    {
-                        throw;
-                    }
-
-                    Logger.LogTrace(
-                        "Retry: attempt {attempt}, Session ${session.SessionId}, idempotent error {status} retrying",
-                        attempt, session?.SessionId, statusErr);
-
-
-                    await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
-                }
-                else
+                if (retryRule.Policy == RetryPolicy.None ||
+                    (retryRule.Policy == RetryPolicy.IdempotentOnly && !retrySettings.IsIdempotent))
                 {
                     throw;
                 }
+
+                Logger.LogTrace(e, "Retry: attempt {attempt}, Session ${session.SessionId}, idempotent error retrying",
+                    attempt, session?.SessionId);
+
+
+                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
             }
             finally
             {
@@ -156,10 +149,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             {
                 _idleSessions.Enqueue(session);
             }
-            else
-            {
-                _ = DeleteSession(session);
-            }
         }
         finally
         {
@@ -169,11 +158,20 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     private void Release() => _semaphore.Release();
 
-    private Task DeleteSession(TSession session) =>
-        session.DeleteSession().ContinueWith(s =>
+    private async Task DeleteSession(TSession session)
+    {
+        try
         {
-            Logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
-        });
+            if (session.IsActive)
+            {
+                await session.DeleteSession();
+            }
+        }
+        catch (YdbException e)
+        {
+            Logger.LogError(e, "Failed to delete session");
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -223,10 +221,10 @@ public abstract class SessionBase<T> where T : SessionBase<T>
         _logger = logger;
     }
 
-    internal void OnStatus(Status status)
+    internal void OnNotSuccessStatusCode(StatusCode code)
     {
         // ReSharper disable once InvertIf
-        if (status.StatusCode is
+        if (code is
             StatusCode.Cancelled or
             StatusCode.BadSession or
             StatusCode.SessionBusy or
@@ -235,7 +233,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
             StatusCode.Unavailable or
             StatusCode.ClientTransportUnavailable)
         {
-            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason: {Status}", SessionId, status);
+            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason StatusCode: {Code}", SessionId, code);
 
             IsActive = false;
         }
@@ -249,7 +247,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
         return settings;
     }
 
-    internal abstract Task<Status> DeleteSession();
+    internal abstract Task DeleteSession();
 }
 
 internal record SessionPoolConfig(

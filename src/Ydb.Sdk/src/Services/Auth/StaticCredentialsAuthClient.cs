@@ -3,10 +3,10 @@ using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Ydb.Auth;
 using Ydb.Auth.V1;
+using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Auth;
-using Ydb.Sdk.Client;
 using Ydb.Sdk.Pool;
-using Ydb.Sdk.Services.Operations;
 
 namespace Ydb.Sdk.Services.Auth;
 
@@ -34,72 +34,48 @@ internal class StaticCredentialsAuthClient : IAuthClient
         uint attempt = 0;
         while (true)
         {
-            var loginResponse = await Login();
-            var status = loginResponse.Status;
-
-            if (status.IsSuccess)
+            try
             {
-                return new TokenResponse(loginResponse.Result, new JwtSecurityToken(loginResponse.Result).ValidTo);
+                var token = await Login();
+
+                return new TokenResponse(token, new JwtSecurityToken(token).ValidTo);
             }
-
-            _logger.LogError("Login request get wrong status {Status}", status);
-
-            var retryRule = _retrySettings.GetRetryRule(status.StatusCode);
-
-            if (retryRule.Policy == RetryPolicy.None)
+            catch (YdbException e)
             {
-                throw new StatusUnsuccessfulException(status);
-            }
+                _logger.LogError(e, "Login request get wrong status");
 
-            if (++attempt >= _retrySettings.MaxAttempts)
-            {
-                throw new StatusUnsuccessfulException(status);
-            }
+                var retryRule = _retrySettings.GetRetryRule(e.Code);
 
-            await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
+                if (retryRule.Policy == RetryPolicy.None || ++attempt >= _retrySettings.MaxAttempts)
+                {
+                    throw;
+                }
+
+                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
+            }
         }
     }
 
-    private async Task<LoginResponse> Login()
+    private async Task<string> Login()
     {
-        var request = new LoginRequest
-        {
-            User = _config.User
-        };
+        var request = new LoginRequest { User = _config.User };
 
         if (_config.Password is not null)
         {
             request.Password = _config.Password;
         }
 
-        try
+        using var channel = _grpcChannelFactory.CreateChannel(_config.Endpoint);
+
+        var response = await new AuthService.AuthServiceClient(channel)
+            .LoginAsync(request, new CallOptions(_config.GetCallMetadata));
+
+        var operation = response.Operation;
+        if (operation.Status.IsNotSuccess())
         {
-            using var channel = _grpcChannelFactory.CreateChannel(_config.Endpoint);
-
-            var response = await new AuthService.AuthServiceClient(channel)
-                .LoginAsync(request, new CallOptions(_config.GetCallMetadata));
-
-            var status = response.Operation.TryUnpack(out LoginResult? resultProto);
-
-            string? result = null;
-
-            if (status.IsSuccess && resultProto is not null)
-            {
-                result = resultProto.Token;
-            }
-
-            return new LoginResponse(status, result);
+            throw YdbException.FromServer(operation.Status, operation.Issues);
         }
-        catch (Driver.TransportException e)
-        {
-            return new LoginResponse(e.Status);
-        }
-    }
 
-    private class LoginResponse : ResponseWithResultBase<string>
-    {
-        internal LoginResponse(Status status, string? token = null) : base(status, token)
-        {
-        }
+        return operation.Result.Unpack<LoginResult>().Token;
     }
 }

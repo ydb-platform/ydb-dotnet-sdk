@@ -50,20 +50,13 @@ public partial class TableClient
         };
         request.Tables.AddRange(tableItems.Select(item => item.GetProto(this)));
 
-        try
-        {
-            var response = await _driver.UnaryCall(
-                method: TableService.RenameTablesMethod,
-                request: request,
-                settings: settings
-            );
+        var response = await _driver.UnaryCall(
+            method: TableService.RenameTablesMethod,
+            request: request,
+            settings: settings
+        );
 
-            var status = response.Operation.Unpack();
-            return new RenameTablesResponse(status);
-        }
-        catch (Driver.TransportException e)
-        {
-            return new RenameTablesResponse(e.Status);
-        }
+        var status = response.Operation.Unpack();
+        return new RenameTablesResponse(status);
     }
 }

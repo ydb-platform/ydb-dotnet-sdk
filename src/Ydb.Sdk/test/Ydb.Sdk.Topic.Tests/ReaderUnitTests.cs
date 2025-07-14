@@ -5,6 +5,7 @@ using Grpc.Core;
 using Moq;
 using Xunit;
 using Ydb.Issue;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Reader;
 using Ydb.Topic;
@@ -76,7 +77,7 @@ public class ReaderUnitTests
         var tcsCommitMessage = new TaskCompletionSource<bool>();
 
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
-            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .Returns(Task.CompletedTask)
             .Returns(Task.CompletedTask)
             .Returns(() =>
@@ -186,7 +187,7 @@ public class ReaderUnitTests
             });
 
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
-            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
@@ -374,9 +375,9 @@ public class ReaderUnitTests
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
 
-        Assert.Equal("Initialization failed: Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
+        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found",
             (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadAsync())).Message);
-        Assert.Equal("Initialization failed: Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
+        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found",
             (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadBatchAsync())).Message);
 
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
@@ -441,7 +442,7 @@ public class ReaderUnitTests
 
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsMoveNext.Task))
@@ -550,7 +551,7 @@ public class ReaderUnitTests
             {
                 tcsMoveNextFirst.SetResult(false);
 
-                return new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+                return new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled));
             })
             .Returns(Task.CompletedTask)
             .Returns(Task.CompletedTask)
@@ -715,7 +716,7 @@ public class ReaderUnitTests
             })
             .Throws(() =>
             {
-                var error = new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+                var error = new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled));
                 tcsMoveNextSecond.TrySetException(error);
 
                 return error;
@@ -850,7 +851,7 @@ public class ReaderUnitTests
             .Returns(Task.CompletedTask)
             .Throws(() =>
             {
-                var error = new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+                var error = new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled));
                 tcsMoveNextSecond.TrySetException(error);
 
                 return error;
@@ -1027,7 +1028,7 @@ public class ReaderUnitTests
             .Returns(() =>
             {
                 tcsMoveNextSecond.TrySetException(
-                    new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
+                    new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
 
                 return Task.CompletedTask;
             })
@@ -1162,7 +1163,7 @@ public class ReaderUnitTests
             .Returns(() =>
             {
                 tcsMoveNextSecond.TrySetException(
-                    new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
+                    new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
 
                 return Task.CompletedTask;
             })
@@ -1369,7 +1370,7 @@ public class ReaderUnitTests
         var tcsMoveNext = new TaskCompletionSource<bool>();
 
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
-            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .Returns(Task.CompletedTask)
             .Returns(Task.CompletedTask)
             .Returns(() =>

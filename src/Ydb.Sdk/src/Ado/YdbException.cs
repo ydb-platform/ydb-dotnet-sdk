@@ -1,4 +1,7 @@
 using System.Data.Common;
+using Grpc.Core;
+using Ydb.Issue;
+using Ydb.Sdk.Ado.Internal;
 
 namespace Ydb.Sdk.Ado;
 
@@ -8,14 +11,17 @@ public class YdbException : DbException
     {
     }
 
-    internal YdbException(Driver.TransportException transportException)
-        : this(transportException.Status, transportException)
+    internal YdbException(RpcException e) : this(e.Status.Code(), "Transport RPC call error", e)
     {
     }
 
-    internal YdbException(Status status, Exception? innerException = null)
-        : this(status.StatusCode, status.ToString(), innerException)
+    internal static YdbException FromServer(StatusIds.Types.StatusCode statusCode, IReadOnlyList<IssueMessage> issues)
     {
+        var code = statusCode.Code();
+
+        var message = code.ToMessage(issues);
+
+        return new YdbException(code, message);
     }
 
     internal YdbException(StatusCode statusCode, string message, Exception? innerException = null)

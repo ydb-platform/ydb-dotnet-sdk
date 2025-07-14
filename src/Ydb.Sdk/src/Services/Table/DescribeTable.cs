@@ -530,27 +530,20 @@ public partial class TableClient
             IncludePartitionStats = settings.IncludePartitionStats
         };
 
-        try
+        var response = await _driver.UnaryCall(
+            method: TableService.DescribeTableMethod,
+            request: request,
+            settings: settings
+        );
+
+        var status = response.Operation.TryUnpack(out DescribeTableResult? resultProto);
+        DescribeTableResponse.ResultData? result = null;
+
+        if (status.IsSuccess && resultProto is not null)
         {
-            var response = await _driver.UnaryCall(
-                method: TableService.DescribeTableMethod,
-                request: request,
-                settings: settings
-            );
-
-            var status = response.Operation.TryUnpack(out DescribeTableResult? resultProto);
-            DescribeTableResponse.ResultData? result = null;
-
-            if (status.IsSuccess && resultProto is not null)
-            {
-                result = DescribeTableResponse.ResultData.FromProto(resultProto);
-            }
-
-            return new DescribeTableResponse(status, result);
+            result = DescribeTableResponse.ResultData.FromProto(resultProto);
         }
-        catch (Driver.TransportException e)
-        {
-            return new DescribeTableResponse(e.Status);
-        }
+
+        return new DescribeTableResponse(status, result);
     }
 }

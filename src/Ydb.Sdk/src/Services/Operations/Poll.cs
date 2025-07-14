@@ -6,7 +6,7 @@ public partial class OperationsClient
 {
     public async Task<ClientOperation> PollReady(
         string id,
-        TimeSpan? delay = default,
+        TimeSpan? delay = null,
         CancellationToken cancellationToken = default)
     {
         delay ??= TimeSpan.FromSeconds(10);

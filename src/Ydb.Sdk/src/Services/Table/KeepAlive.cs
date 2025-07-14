@@ -61,27 +61,20 @@ public partial class TableClient
             SessionId = sessionId
         };
 
-        try
+        var response = await _driver.UnaryCall(
+            method: TableService.KeepAliveMethod,
+            request: request,
+            settings: settings
+        );
+
+        var status = response.Operation.TryUnpack(out KeepAliveResult? resultProto);
+
+        KeepAliveResponse.ResultData? result = null;
+        if (status.IsSuccess && resultProto != null)
         {
-            var response = await _driver.UnaryCall(
-                method: TableService.KeepAliveMethod,
-                request: request,
-                settings: settings
-            );
-
-            var status = response.Operation.TryUnpack(out KeepAliveResult? resultProto);
-
-            KeepAliveResponse.ResultData? result = null;
-            if (status.IsSuccess && resultProto != null)
-            {
-                result = KeepAliveResponse.ResultData.FromProto(resultProto);
-            }
-
-            return new KeepAliveResponse(status, result);
+            result = KeepAliveResponse.ResultData.FromProto(resultProto);
         }
-        catch (Driver.TransportException e)
-        {
-            return new KeepAliveResponse(e.Status);
-        }
+
+        return new KeepAliveResponse(status, result);
     }
 }

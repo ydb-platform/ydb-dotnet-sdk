@@ -24,9 +24,9 @@ public class SessionPoolTests
         _testSessionPool.CreatedStatus = Status
             .FromProto(StatusIds.Types.StatusCode.Unavailable, new RepeatedField<IssueMessage>());
 
-        var e = await Assert.ThrowsAsync<StatusUnsuccessfulException>(async () => await _testSessionPool.GetSession());
+        var e = await Assert.ThrowsAsync<YdbException>(async () => await _testSessionPool.GetSession());
 
-        Assert.Equal(StatusCode.Unavailable, e.Status.StatusCode);
+        Assert.Equal(StatusCode.Unavailable, e.Code);
 
         _testSessionPool.CreatedStatus = Status.Success;
 
@@ -34,18 +34,15 @@ public class SessionPoolTests
     }
 
     [Theory]
-    [InlineData(StatusIds.Types.StatusCode.Unavailable)]
-    [InlineData(StatusIds.Types.StatusCode.BadSession)]
-    [InlineData(StatusIds.Types.StatusCode.SessionBusy)]
-    [InlineData(StatusIds.Types.StatusCode.InternalError)]
+    [InlineData(StatusCode.Unavailable)]
+    [InlineData(StatusCode.BadSession)]
+    [InlineData(StatusCode.SessionBusy)]
+    [InlineData(StatusCode.InternalError)]
     public void GetSession_WhenCreatedSessionIsInvalidated_ExpectedRecreatedSession(
-        StatusIds.Types.StatusCode statusCode)
+        StatusCode statusCode)
     {
         StressTestSessionPoolAndCheckCreatedSessions(100, TestSessionPoolSize);
-
-        StressTestSessionPoolAndCheckCreatedSessions(70, 70,
-            session => session.OnStatus(Status.FromProto(statusCode, new RepeatedField<IssueMessage>())));
-
+        StressTestSessionPoolAndCheckCreatedSessions(70, 70, session => session.OnNotSuccessStatusCode(statusCode));
         StressTestSessionPoolAndCheckCreatedSessions(100, 120);
     }
 
