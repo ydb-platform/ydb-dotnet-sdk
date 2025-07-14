@@ -1,3 +1,4 @@
+- Fixed bug `Reader`: unhandled exception in `TryReadRequestBytes(long bytes)`.
 - Handle `YdbException` on `DeleteSession`.
 - Do not invoke `DeleteSession` if the session is not active.
 - `YdbException`: Added cancellation token propagation support in `CommitAsync` and `RollbackAsync`.

@@ -49,7 +49,7 @@ public sealed class Driver : BaseDriver
             }
             catch (YdbException e)
             {
-                Logger.LogError(e, "RPC error during initial endpoint discovery: {e.Status}", e.Code);
+                Logger.LogError(e, "Error during initial endpoint discovery: {e.Status}", e.Code);
 
                 if (i == AttemptDiscovery - 1)
                 {
@@ -60,7 +60,7 @@ public sealed class Driver : BaseDriver
             await Task.Delay(TimeSpan.FromMilliseconds(i * 200)); // await 0 ms, 200 ms, 400ms, ... 1.8 sec
         }
 
-        throw new YdbException("Error during initial endpoint discovery");
+        throw new YdbException("Error initial endpoint discovery");
     }
 
     protected override string GetEndpoint(long nodeId) => _endpointPool.GetEndpoint(nodeId);
