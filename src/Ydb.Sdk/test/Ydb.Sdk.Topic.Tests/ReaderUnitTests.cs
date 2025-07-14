@@ -375,9 +375,9 @@ public class ReaderUnitTests
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
 
-        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
+        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found",
             (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadAsync())).Message);
-        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
+        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found",
             (await Assert.ThrowsAsync<ReaderException>(async () => await reader.ReadBatchAsync())).Message);
 
         _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>

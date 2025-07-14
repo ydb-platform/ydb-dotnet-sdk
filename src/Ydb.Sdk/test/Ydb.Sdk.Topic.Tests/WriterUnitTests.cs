@@ -295,9 +295,9 @@ public class WriterUnitTests
         await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-6")
             { ProducerId = "producerId" }.Build();
 
-        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
+        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123L))).Message);
-        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
+        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(1L))).Message);
 
         // check not attempt repeated!!!
