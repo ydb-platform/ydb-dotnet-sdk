@@ -44,7 +44,7 @@ public sealed class Driver : BaseDriver
                 await DiscoverEndpoints();
 
                 _ = Task.Run(PeriodicDiscovery);
-                
+
                 return;
             }
             catch (YdbException e)

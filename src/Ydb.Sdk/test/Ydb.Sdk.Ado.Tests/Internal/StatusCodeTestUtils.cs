@@ -1,4 +1,3 @@
-using Google.Protobuf.Collections;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Sdk.Ado.Internal;

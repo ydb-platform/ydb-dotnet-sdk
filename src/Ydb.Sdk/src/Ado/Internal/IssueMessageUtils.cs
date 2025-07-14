@@ -27,7 +27,7 @@ internal static class IssueMessageUtils
                 sb.AppendLine();
                 sb.Append(IssuesToString(message.Issues, currentIndent + indent, indent));
             }
-            
+
             return sb.ToString();
         }));
 
