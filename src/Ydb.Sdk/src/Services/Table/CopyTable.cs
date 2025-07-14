@@ -1,4 +1,3 @@
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.Client;
 using Ydb.Sdk.Services.Operations;
 using Ydb.Table;

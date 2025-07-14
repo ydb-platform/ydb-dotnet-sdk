@@ -20,7 +20,7 @@ public class YdbException : DbException
         var code = statusCode.Code();
 
         var message = code.ToMessage(issues);
-        
+
         return new YdbException(code, message);
     }
 

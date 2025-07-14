@@ -14,16 +14,8 @@ public static class StatusCodeUtils
         _ => StatusCode.ClientTransportUnknown
     };
 
-    internal static StatusCode Code(this StatusIds.Types.StatusCode statusCode)
-    {
-        var value = (uint)statusCode;
-        if (Enum.IsDefined(typeof(StatusCode), value))
-        {
-            return (StatusCode)value;
-        }
-
-        return StatusCode.Unspecified;
-    }
+    internal static StatusCode Code(this StatusIds.Types.StatusCode statusCode) =>
+        Enum.IsDefined(typeof(StatusCode), (int)statusCode) ? (StatusCode)statusCode : StatusCode.Unavailable;
 
     internal static bool IsNotSuccess(this StatusIds.Types.StatusCode code) =>
         code != StatusIds.Types.StatusCode.Success;

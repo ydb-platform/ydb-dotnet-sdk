@@ -207,10 +207,9 @@ public class Status
 
     private static StatusCode ConvertStatusCode(StatusIds.Types.StatusCode statusCode)
     {
-        var value = (uint)statusCode;
-        if (Enum.IsDefined(typeof(StatusCode), value))
+        if (Enum.IsDefined(typeof(StatusCode), (int)statusCode))
         {
-            return (StatusCode)value;
+            return (StatusCode)statusCode;
         }
 
         return StatusCode.Unspecified;

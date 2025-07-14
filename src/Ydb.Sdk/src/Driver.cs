@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
 using Ydb.Discovery.V1;
+using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk;
@@ -39,19 +41,15 @@ public sealed class Driver : BaseDriver
         {
             try
             {
-                var status = await DiscoverEndpoints();
-                if (status.IsSuccess)
-                {
-                    _ = Task.Run(PeriodicDiscovery);
+                await DiscoverEndpoints();
 
-                    return;
-                }
-
-                Logger.LogCritical("Error during initial endpoint discovery: {status}", status);
+                _ = Task.Run(PeriodicDiscovery);
+                
+                return;
             }
-            catch (RpcException e)
+            catch (YdbException e)
             {
-                Logger.LogCritical("RPC error during initial endpoint discovery: {e.Status}", e.Status);
+                Logger.LogError(e, "RPC error during initial endpoint discovery: {e.Status}", e.Code);
 
                 if (i == AttemptDiscovery - 1)
                 {
@@ -62,7 +60,7 @@ public sealed class Driver : BaseDriver
             await Task.Delay(TimeSpan.FromMilliseconds(i * 200)); // await 0 ms, 200 ms, 400ms, ... 1.8 sec
         }
 
-        throw new InitializationFailureException("Error during initial endpoint discovery");
+        throw new YdbException("Error during initial endpoint discovery");
     }
 
     protected override string GetEndpoint(long nodeId) => _endpointPool.GetEndpoint(nodeId);
@@ -90,7 +88,7 @@ public sealed class Driver : BaseDriver
         _ = Task.Run(DiscoverEndpoints);
     }
 
-    private async Task<Status> DiscoverEndpoints()
+    private async Task DiscoverEndpoints()
     {
         using var channel = GrpcChannelFactory.CreateChannel(Config.Endpoint);
 
@@ -111,30 +109,13 @@ public sealed class Driver : BaseDriver
             options: await GetCallOptions(requestSettings)
         );
 
-        if (!response.Operation.Ready)
+        var operation = response.Operation;
+        if (operation.Status.IsNotSuccess())
         {
-            const string error = "Unexpected non-ready endpoint discovery operation.";
-            Logger.LogError($"Endpoint discovery internal error: {error}");
-
-            return new Status(StatusCode.ClientInternalError, error);
+            throw YdbException.FromServer(operation.Status, operation.Issues);
         }
 
-        var status = Status.FromProto(response.Operation.Status, response.Operation.Issues);
-        if (status.IsNotSuccess)
-        {
-            Logger.LogWarning("Unsuccessful endpoint discovery: {Status}", status);
-            return status;
-        }
-
-        if (response.Operation.Result is null)
-        {
-            const string error = "Unexpected empty endpoint discovery result.";
-            Logger.LogError($"Endpoint discovery internal error: {error}");
-
-            return new Status(StatusCode.ClientInternalError, error);
-        }
-
-        var resultProto = response.Operation.Result.Unpack<ListEndpointsResult>();
+        var resultProto = operation.Result.Unpack<ListEndpointsResult>();
 
         Logger.LogDebug(
             "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, sdk info: {SdkInfo}",
@@ -151,8 +132,6 @@ public sealed class Driver : BaseDriver
                 .ToImmutableArray()
             )
         );
-
-        return new Status(StatusCode.Success);
     }
 
     private async Task PeriodicDiscovery()
@@ -163,23 +142,16 @@ public sealed class Driver : BaseDriver
             {
                 await Task.Delay(Config.EndpointDiscoveryInterval);
 
-                _ = await DiscoverEndpoints();
+                await DiscoverEndpoints();
             }
-            catch (RpcException e)
+            catch (YdbException e)
             {
-                Logger.LogWarning("RPC error during endpoint discovery: {Status}", e.Status);
+                Logger.LogWarning(e, "Error during endpoint discovery");
             }
             catch (Exception e)
             {
                 Logger.LogError(e, "Unexpected exception during session pool periodic check");
             }
-        }
-    }
-
-    public class InitializationFailureException : Exception
-    {
-        internal InitializationFailureException(string message) : base(message)
-        {
         }
     }
 }
