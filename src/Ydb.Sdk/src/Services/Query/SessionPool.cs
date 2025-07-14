@@ -224,7 +224,7 @@ internal class Session : SessionBase<Session>
         return response.Operation.Result.Unpack<DescribeTableResult>();
     }
 
-    internal override async Task<Status> DeleteSession()
+    internal override async Task DeleteSession()
     {
         IsActive = false;
 
@@ -237,6 +237,9 @@ internal class Session : SessionBase<Session>
             settings
         );
 
-        return Status.FromProto(deleteSessionResponse.Status, deleteSessionResponse.Issues);
+        if (deleteSessionResponse.Status.IsNotSuccess())
+        {
+            throw YdbException.FromServer(deleteSessionResponse.Status, deleteSessionResponse.Issues);
+        }
     }
 }

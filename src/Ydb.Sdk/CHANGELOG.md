@@ -1,3 +1,5 @@
+- Handle `YdbException` on `DeleteSession`.
+- Do not invoke `DeleteSession` if the session is not active.
 - `YdbException`: Added cancellation token propagation support in `CommitAsync` and `RollbackAsync`.
 - Deleted legacy exceptions: Driver.TransportException, StatusUnsuccessfulException and InitializationFailureException.
 - Fixed bug: Unhandled exception System.Net.Http.HttpIOException has now been converted to YdbException ([grpc-dotnet issue](https://github.com/grpc/grpc-dotnet/issues/2638)).

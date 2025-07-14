@@ -149,10 +149,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             {
                 _idleSessions.Enqueue(session);
             }
-            else
-            {
-                _ = DeleteSession(session);
-            }
         }
         finally
         {
@@ -162,11 +158,20 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     private void Release() => _semaphore.Release();
 
-    private Task DeleteSession(TSession session) =>
-        session.DeleteSession().ContinueWith(s =>
+    private async Task DeleteSession(TSession session)
+    {
+        try
         {
-            Logger.LogDebug("Session[{id}] removed with status {status}", session.SessionId, s.Result);
-        });
+            if (session.IsActive)
+            {
+                await session.DeleteSession();    
+            }
+        }
+        catch (YdbException e)
+        {
+            Logger.LogError(e, "Failed to delete session");
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -242,7 +247,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
         return settings;
     }
 
-    internal abstract Task<Status> DeleteSession();
+    internal abstract Task DeleteSession();
 }
 
 internal record SessionPoolConfig(

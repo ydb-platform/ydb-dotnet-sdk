@@ -65,12 +65,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
-        Action<StatusCode> onStatus,
+        Action<StatusCode> onNotSuccessStatusCode,
         YdbTransaction? ydbTransaction = null,
         CancellationToken cancellationToken = default
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, onStatus, ydbTransaction);
+        var ydbDataReader = new YdbDataReader(resultSetStream, onNotSuccessStatusCode, ydbTransaction);
         await ydbDataReader.Init(cancellationToken);
 
         return ydbDataReader;
