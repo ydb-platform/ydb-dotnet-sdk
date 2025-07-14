@@ -1,6 +1,6 @@
 ﻿namespace Ydb.Sdk.Value;
 
-public enum YdbTypeId : uint
+public enum YdbTypeId
 {
     Unknown = 0,
 
@@ -45,7 +45,7 @@ public enum YdbTypeId : uint
 
 internal static class YdbTypeIdRanges
 {
-    public const uint ComplexTypesFirst = 0xffff;
+    public const int ComplexTypesFirst = 0xffff;
 }
 
 public sealed partial class YdbValue
@@ -85,7 +85,7 @@ public sealed partial class YdbValue
     internal static YdbTypeId GetYdbTypeId(Type protoType) =>
         protoType.TypeCase switch
         {
-            Type.TypeOneofCase.TypeId => Enum.IsDefined(typeof(YdbTypeId), (uint)protoType.TypeId)
+            Type.TypeOneofCase.TypeId => Enum.IsDefined(typeof(YdbTypeId), (int)protoType.TypeId)
                 ? (YdbTypeId)protoType.TypeId
                 : YdbTypeId.Unknown,
             Type.TypeOneofCase.DecimalType => YdbTypeId.DecimalType,

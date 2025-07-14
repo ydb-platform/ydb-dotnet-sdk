@@ -219,7 +219,7 @@ public sealed class YdbCommand : DbCommand
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(
             await YdbConnection.Session
                 .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl),
-            YdbConnection.OnStatus, transaction, cancellationToken
+            YdbConnection.OnNotSuccessStatusCode, transaction, cancellationToken
         );
 
         YdbConnection.LastReader = ydbDataReader;

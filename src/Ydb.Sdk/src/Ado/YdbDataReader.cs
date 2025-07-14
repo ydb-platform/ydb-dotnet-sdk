@@ -2,6 +2,7 @@ using System.Data.Common;
 using Google.Protobuf.Collections;
 using Ydb.Issue;
 using Ydb.Query;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
@@ -11,7 +12,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly IServerStream<ExecuteQueryResponsePart> _stream;
     private readonly YdbTransaction? _ydbTransaction;
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
-    private readonly Action<Status> _onNotSuccessStatus;
+    private readonly Action<StatusCode> _onNotSuccessStatusCode;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -54,22 +55,22 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private YdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
-        Action<Status> onNotSuccessStatus,
+        Action<StatusCode> onNotSuccessStatusCode,
         YdbTransaction? ydbTransaction)
     {
         _stream = resultSetStream;
-        _onNotSuccessStatus = onNotSuccessStatus;
+        _onNotSuccessStatusCode = onNotSuccessStatusCode;
         _ydbTransaction = ydbTransaction;
     }
 
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
-        Action<Status> onStatus,
+        Action<StatusCode> onNotSuccessStatusCode,
         YdbTransaction? ydbTransaction = null,
         CancellationToken cancellationToken = default
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, onStatus, ydbTransaction);
+        var ydbDataReader = new YdbDataReader(resultSetStream, onNotSuccessStatusCode, ydbTransaction);
         await ydbDataReader.Init(cancellationToken);
 
         return ydbDataReader;
@@ -522,7 +523,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        _onNotSuccessStatus(new Status(StatusCode.SessionBusy));
+        _onNotSuccessStatusCode(StatusCode.SessionBusy);
         _stream.Dispose();
 
         if (_ydbTransaction != null)
@@ -559,20 +560,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             _issueMessagesInStream.AddRange(part.Issues);
 
-            if (part.Status != StatusIds.Types.StatusCode.Success)
+            if (part.Status.IsNotSuccess())
             {
-                OnFailReadStream();
-
                 while (await _stream.MoveNextAsync(cancellationToken))
                 {
                     _issueMessagesInStream.AddRange(_stream.Current.Issues);
                 }
 
-                var status = Status.FromProto(part.Status, _issueMessagesInStream);
-
-                _onNotSuccessStatus(status);
-
-                throw new YdbException(status);
+                throw YdbException.FromServer(part.Status, _issueMessagesInStream);
             }
 
             _currentResultSet = part.ResultSet?.FromProto();
@@ -592,13 +587,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             return State.NewResultSet;
         }
-        catch (Driver.TransportException e)
+        catch (YdbException e)
         {
             OnFailReadStream();
 
-            _onNotSuccessStatus(e.Status);
+            _onNotSuccessStatusCode(e.Code);
 
-            throw new YdbException(e);
+            throw;
         }
     }
 

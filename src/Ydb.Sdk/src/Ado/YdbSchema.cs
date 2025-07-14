@@ -5,7 +5,6 @@ using Ydb.Scheme;
 using Ydb.Scheme.V1;
 using Ydb.Sdk.Ado.Schema;
 using Ydb.Sdk.Services.Table;
-using Ydb.Table;
 
 namespace Ydb.Sdk.Ado;
 
@@ -63,24 +62,13 @@ internal static class YdbSchema
             var describeResponse = await ydbConnection.Session
                 .DescribeTable(WithSuffix(ydbConnection.Database) + tableName, describeTableSettings);
 
-            var status = Status.FromProto(describeResponse.Operation.Status, describeResponse.Operation.Issues);
-
-            if (status.IsNotSuccess)
-            {
-                ydbConnection.OnStatus(status);
-
-                throw new YdbException(status);
-            }
-
-            var describeRes = describeResponse.Operation.Result.Unpack<DescribeTableResult>();
-
-            return new YdbTable(tableName, describeRes);
+            return new YdbTable(tableName, describeResponse);
         }
-        catch (Driver.TransportException e)
+        catch (YdbException e)
         {
-            ydbConnection.OnStatus(e.Status);
+            ydbConnection.OnNotSuccessStatusCode(e.Code);
 
-            throw new YdbException(e);
+            throw;
         }
     }
 
@@ -253,19 +241,31 @@ internal static class YdbSchema
         string? tableType,
         Action<YdbTable, string> appendInTable)
     {
-        var ydbTable = await DescribeTable(ydbConnection, tableName, describeTableSettings);
-        var type = ydbTable.IsSystem
-            ? "SYSTEM_TABLE"
-            : ydbTable.Type switch
-            {
-                YdbTable.TableType.Table => "TABLE",
-                YdbTable.TableType.ColumnTable => "COLUMN_TABLE",
-                YdbTable.TableType.ExternalTable => "EXTERNAL_TABLE",
-                _ => throw new ArgumentOutOfRangeException(nameof(tableType))
-            };
-        if (type.IsPattern(tableType))
+        try
         {
-            appendInTable(ydbTable, type);
+            var describeResponse = await ydbConnection.Session
+                .DescribeTable(WithSuffix(ydbConnection.Database) + tableName, describeTableSettings);
+            var ydbTable = new YdbTable(tableName, describeResponse);
+
+            var type = ydbTable.IsSystem
+                ? "SYSTEM_TABLE"
+                : ydbTable.Type switch
+                {
+                    YdbTable.TableType.Table => "TABLE",
+                    YdbTable.TableType.ColumnTable => "COLUMN_TABLE",
+                    YdbTable.TableType.ExternalTable => "EXTERNAL_TABLE",
+                    _ => throw new ArgumentOutOfRangeException(nameof(tableType))
+                };
+            if (type.IsPattern(tableType))
+            {
+                appendInTable(ydbTable, type);
+            }
+        }
+        catch (YdbException e)
+        {
+            ydbConnection.OnNotSuccessStatusCode(e.Code);
+
+            throw;
         }
     }
 
@@ -417,7 +417,7 @@ internal static class YdbSchema
 
             if (status.IsNotSuccess)
             {
-                throw new YdbException(status);
+                throw YdbException.FromServer(operation.Status, operation.Issues);
             }
 
             foreach (var entry in operation.Result.Unpack<ListDirectoryResult>().Children)
@@ -461,9 +461,11 @@ internal static class YdbSchema
 
             return ydbSchemaObjects;
         }
-        catch (Driver.TransportException e)
+        catch (YdbException e)
         {
-            throw new YdbException(e);
+            ydbConnection.OnNotSuccessStatusCode(e.Code);
+
+            throw;
         }
     }
 

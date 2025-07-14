@@ -33,22 +33,15 @@ public partial class Session
             YqlText = query
         };
 
-        try
-        {
-            var response = await UnaryCall(
-                method: TableService.ExecuteSchemeQueryMethod,
-                request: request,
-                settings: settings
-            );
+        var response = await UnaryCall(
+            method: TableService.ExecuteSchemeQueryMethod,
+            request: request,
+            settings: settings
+        );
 
-            var status = response.Operation.Unpack();
-            OnResponseStatus(status);
+        var status = response.Operation.Unpack();
+        OnResponseStatus(status);
 
-            return new ExecuteSchemeQueryResponse(status);
-        }
-        catch (Driver.TransportException e)
-        {
-            return new ExecuteSchemeQueryResponse(e.Status);
-        }
+        return new ExecuteSchemeQueryResponse(status);
     }
 }

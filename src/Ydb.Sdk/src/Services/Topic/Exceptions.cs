@@ -6,10 +6,6 @@ public class WriterException : Exception
     {
     }
 
-    public WriterException(string message, Status status) : base(message + ": " + status)
-    {
-    }
-
     public WriterException(string message, Exception inner) : base(message, inner)
     {
     }
@@ -18,10 +14,6 @@ public class WriterException : Exception
 public class ReaderException : Exception
 {
     public ReaderException(string message) : base(message)
-    {
-    }
-
-    public ReaderException(string message, Status status) : base(message + ": " + status)
     {
     }
 

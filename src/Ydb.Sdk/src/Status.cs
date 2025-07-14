@@ -1,16 +1,17 @@
 ﻿using System.Text;
 using Google.Protobuf.Collections;
 using Ydb.Issue;
+using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk;
 
 internal static class StatusRanges
 {
-    public const uint ClientFirst = 500000;
-    public const uint ClientTransportFirst = 600000;
+    public const int ClientFirst = 500000;
+    public const int ClientTransportFirst = 600000;
 }
 
-public enum StatusCode : uint
+public enum StatusCode
 {
     Unspecified = 0,
     Success = 400000,
@@ -148,7 +149,7 @@ public class Issue
         foreach (var issue in issues)
         {
             sb.Append(issue.ToString(currentIndent, indent));
-            sb.Append(Environment.NewLine);
+            sb.AppendLine();
         }
 
         return sb.ToString();
@@ -183,7 +184,7 @@ public class Status
     {
         if (!IsSuccess)
         {
-            throw new StatusUnsuccessfulException(this);
+            throw new YdbException(StatusCode, Issue.IssuesToString(Issues));
         }
     }
 
@@ -198,7 +199,7 @@ public class Status
         }
 
         sb.Append(", Issues:");
-        sb.Append(Environment.NewLine);
+        sb.AppendLine();
         sb.Append(Issue.IssuesToString(Issues));
 
         return sb.ToString();
@@ -206,10 +207,9 @@ public class Status
 
     private static StatusCode ConvertStatusCode(StatusIds.Types.StatusCode statusCode)
     {
-        var value = (uint)statusCode;
-        if (Enum.IsDefined(typeof(StatusCode), value))
+        if (Enum.IsDefined(typeof(StatusCode), (int)statusCode))
         {
-            return (StatusCode)value;
+            return (StatusCode)statusCode;
         }
 
         return StatusCode.Unspecified;
@@ -217,31 +217,4 @@ public class Status
 
     public static Status FromProto(StatusIds.Types.StatusCode statusCode, RepeatedField<IssueMessage> issues) =>
         new(ConvertStatusCode(statusCode), issues.Select(i => new Issue(i)).ToList());
-}
-
-public class StatusUnsuccessfulException : Exception
-{
-    public StatusUnsuccessfulException(Status status) : base(status.ToString())
-    {
-        Status = status;
-    }
-
-    public Status Status { get; }
-}
-
-internal static class StatusExtensions
-{
-    internal static Status ConvertStatus(this Grpc.Core.Status rpcStatus) =>
-        new(
-            rpcStatus.StatusCode switch
-            {
-                Grpc.Core.StatusCode.Unavailable => StatusCode.ClientTransportUnavailable,
-                Grpc.Core.StatusCode.DeadlineExceeded => StatusCode.ClientTransportTimeout,
-                Grpc.Core.StatusCode.ResourceExhausted => StatusCode.ClientTransportResourceExhausted,
-                Grpc.Core.StatusCode.Unimplemented => StatusCode.ClientTransportUnimplemented,
-                Grpc.Core.StatusCode.Cancelled => StatusCode.Cancelled,
-                _ => StatusCode.ClientTransportUnknown
-            },
-            new List<Issue> { new(rpcStatus.Detail) }
-        );
 }

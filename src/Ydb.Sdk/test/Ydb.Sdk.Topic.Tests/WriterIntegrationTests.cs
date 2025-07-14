@@ -39,7 +39,7 @@ public class WriterIntegrationTests(DriverFixture driverFixture) : IClassFixture
             { ProducerId = "producerId" }.Build();
 
         Assert.Contains(
-            $"Initialization failed: Status: SchemeError, Issues:\n[500017] Error: no path 'local/{_topicName + "_not_found"}'",
+            $"Initialization failed! Status: SchemeError, Issues:\n[500017] Error: no path 'local/{_topicName + "_not_found"}'",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync("hello world"))).Message
         );
     }

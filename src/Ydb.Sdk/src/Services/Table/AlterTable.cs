@@ -52,10 +52,9 @@ public sealed class AlterTableOperation : OperationResponse<EmptyResult, AlterTa
 
     public async Task<AlterTableOperation> Poll() => new(_operationsClient, await _operationsClient.GetOperation(Id));
 
-    public async Task<AlterTableOperation> PollReady(TimeSpan? delay = default,
+    public async Task<AlterTableOperation> PollReady(TimeSpan? delay = null,
         CancellationToken cancellationToken = default) =>
-        new(_operationsClient,
-            await _operationsClient.PollReady(Id, delay, cancellationToken));
+        new(_operationsClient, await _operationsClient.PollReady(Id, delay, cancellationToken));
 }
 
 public class AddIndexSettings : OperationSettings
@@ -85,22 +84,15 @@ public partial class TableClient
             }
         };
 
-        try
-        {
-            var response = await _driver.UnaryCall(
-                method: TableService.AlterTableMethod,
-                request: request,
-                settings: settings
-            );
+        var response = await _driver.UnaryCall(
+            method: TableService.AlterTableMethod,
+            request: request,
+            settings: settings
+        );
 
-            return new AlterTableOperation(
-                new OperationsClient(_driver),
-                ClientOperation.FromProto(response.Operation)
-            );
-        }
-        catch (Driver.TransportException e)
-        {
-            return new AlterTableOperation(new OperationsClient(_driver), e.Status);
-        }
+        return new AlterTableOperation(
+            new OperationsClient(_driver),
+            ClientOperation.FromProto(response.Operation)
+        );
     }
 }

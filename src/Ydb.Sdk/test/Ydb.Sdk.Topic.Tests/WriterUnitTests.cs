@@ -3,6 +3,7 @@ using Moq;
 using Moq.Language;
 using Xunit;
 using Ydb.Issue;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Services.Topic;
 using Ydb.Sdk.Services.Topic.Writer;
 using Ydb.Topic;
@@ -112,7 +113,7 @@ public class WriterUnitTests
 
        Mock<IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>:1> (stream):
 
-          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-3", "producerId": "producerId" } }) <- Driver.TransportException
+          IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-3", "producerId": "producerId" } }) <- YdbException
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Write({ "initRequest": { "path": "/topic-3", "producerId": "producerId" } })
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.MoveNextAsync() <- return true
           IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>.Current
@@ -126,7 +127,7 @@ public class WriterUnitTests
     {
         var taskNextComplete = new TaskCompletionSource<bool>();
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
-            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .Returns(Task.CompletedTask)
             .Returns(() =>
             {
@@ -180,7 +181,7 @@ public class WriterUnitTests
                 return Task.CompletedTask;
             });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
-            .ThrowsAsync(new Driver.TransportException(
+            .ThrowsAsync(new YdbException(
                 new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))))
             .ReturnsAsync(true)
             .Returns(() => new ValueTask<bool>(taskNextComplete.Task))
@@ -294,9 +295,9 @@ public class WriterUnitTests
         await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-6")
             { ProducerId = "producerId" }.Build();
 
-        Assert.Equal("Initialization failed: Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
+        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123L))).Message);
-        Assert.Equal("Initialization failed: Status: SchemeError, Issues:\n[0] Fatal: Topic not found\n",
+        Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(1L))).Message);
 
         // check not attempt repeated!!!
@@ -362,7 +363,7 @@ public class WriterUnitTests
             .Throws(() =>
             {
                 moveTcs.SetResult(false);
-                return new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+                return new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled));
             })
             .Returns(Task.CompletedTask)
             .Returns(() =>
@@ -447,7 +448,7 @@ public class WriterUnitTests
             });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .ThrowsAsync(new Driver.TransportException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .Returns(() => new ValueTask<bool>(moveTcs.Task)) // retry init writer session
             .Returns(_lastMoveNext);
@@ -930,7 +931,7 @@ public class WriterUnitTests
 
         Assert.False(writeTask1.IsCompleted);
         Assert.False(disposedTask.IsCompleted);
-        writeTcs1.TrySetException(new Driver.TransportException(
+        writeTcs1.TrySetException(new YdbException(
             new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))));
         Assert.Equal("Writer[TopicPath: /topic-16, ProducerId: producerId, Codec: Raw] is disposed",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(12))).Message);

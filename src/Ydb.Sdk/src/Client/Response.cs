@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Client;
 
@@ -99,9 +100,9 @@ public abstract class StreamResponse<TProtoResponse, TResponse>
 
             return result;
         }
-        catch (Driver.TransportException e)
+        catch (YdbException e)
         {
-            _response = MakeResponse(e.Status);
+            _response = MakeResponse(new Status(e.Code, e.Message));
             _transportError = true;
             return true;
         }

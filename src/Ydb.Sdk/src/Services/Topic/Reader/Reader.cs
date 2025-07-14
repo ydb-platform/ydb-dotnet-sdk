@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 using static Ydb.Topic.StreamReadMessage.Types.FromServer;
@@ -157,21 +158,23 @@ internal class Reader<TValue> : IReader<TValue>
 
             var receivedInitMessage = stream.Current;
 
-            var status = Status.FromProto(receivedInitMessage.Status, receivedInitMessage.Issues);
-
-            if (status.IsNotSuccess)
+            if (receivedInitMessage.Status.IsNotSuccess())
             {
-                if (RetrySettings.DefaultInstance.GetRetryRule(status.StatusCode).Policy != RetryPolicy.None)
+                var statusCode = receivedInitMessage.Status.Code();
+                var statusMessage = statusCode.ToMessage(receivedInitMessage.Issues);
+
+                if (RetrySettings.DefaultInstance.GetRetryRule(statusCode).Policy != RetryPolicy.None)
                 {
-                    _logger.LogError("Reader initialization failed to start. Reason: {Status}", status);
+                    _logger.LogError("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
                     _ = Task.Run(Initialize, _disposeCts.Token);
                 }
                 else
                 {
-                    _logger.LogCritical("Reader initialization failed to start. Reason: {Status}", status);
+                    _logger.LogCritical("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
-                    _receivedMessagesChannel.Writer.Complete(new ReaderException("Initialization failed", status));
+                    _receivedMessagesChannel.Writer.Complete(
+                        new ReaderException($"Initialization failed! {statusMessage}"));
                 }
 
                 return;
@@ -300,13 +303,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             {
                 var messageFromServer = Stream.Current;
 
-                var status = Status.FromProto(messageFromServer.Status, messageFromServer.Issues);
-
-                if (status.IsNotSuccess)
+                if (messageFromServer.Status.IsNotSuccess())
                 {
                     Logger.LogError(
                         "ReaderSession[{SessionId}] received unsuccessful status while processing readAck: {Status}",
-                        SessionId, status);
+                        SessionId, messageFromServer.Status.Code().ToMessage(messageFromServer.Issues));
                     return;
                 }
 
@@ -340,8 +341,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
         catch (Exception e)
         {
-            Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages",
-                SessionId);
+            Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages", SessionId);
         }
         finally
         {
@@ -370,7 +370,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
     }
 
-    internal async void TryReadRequestBytes(long bytes)
+    // Avoid using 'async' for method with the 'void' return type or catch all exceptions in it:
+    // any exceptions unhandled by the method might lead to the process crash
+    internal async Task TryReadRequestBytes(long bytes)
     {
         var readRequestBytes = Interlocked.Add(ref _readRequestBytes, bytes);
 
@@ -582,8 +584,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             Logger.LogInformation("ReaderSession[{SessionId}]: RequestStream is closed", SessionId);
 
             await _runProcessingStreamResponse; // waiting all ack's commits
-
-            _lifecycleReaderSessionCts.Cancel();
         }
         catch (Exception e)
         {
@@ -591,6 +591,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
         finally
         {
+            _lifecycleReaderSessionCts.Cancel();
             Stream.Dispose();
         }
     }

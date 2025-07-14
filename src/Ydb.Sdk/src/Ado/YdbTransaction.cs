@@ -40,13 +40,11 @@ public sealed class YdbTransaction : DbTransaction
 
     public override void Commit() => CommitAsync().GetAwaiter().GetResult();
 
-    // TODO propagate cancellation token
     public override async Task CommitAsync(CancellationToken cancellationToken = new()) =>
-        await FinishTransaction(txId => DbConnection!.Session.CommitTransaction(txId));
+        await FinishTransaction(txId => DbConnection!.Session.CommitTransaction(txId, cancellationToken));
 
     public override void Rollback() => RollbackAsync().GetAwaiter().GetResult();
 
-    // TODO propagate cancellation token
     public override async Task RollbackAsync(CancellationToken cancellationToken = new())
     {
         if (Failed)
@@ -56,7 +54,7 @@ public sealed class YdbTransaction : DbTransaction
             return;
         }
 
-        await FinishTransaction(txId => DbConnection!.Session.RollbackTransaction(txId));
+        await FinishTransaction(txId => DbConnection!.Session.RollbackTransaction(txId, cancellationToken));
     }
 
     protected override YdbConnection? DbConnection
@@ -72,7 +70,7 @@ public sealed class YdbTransaction : DbTransaction
         ? IsolationLevel.Serializable
         : IsolationLevel.Unspecified;
 
-    private async Task FinishTransaction(Func<string, Task<Status>> finishMethod)
+    private async Task FinishTransaction(Func<string, Task> finishMethod)
     {
         if (DbConnection?.State == ConnectionState.Closed || Completed)
         {
@@ -93,24 +91,15 @@ public sealed class YdbTransaction : DbTransaction
                 return; // transaction isn't started
             }
 
-            var status = await finishMethod(TxId); // Commit or Rollback
-
-            if (status.IsNotSuccess)
-            {
-                Failed = true;
-
-                DbConnection.OnStatus(status);
-
-                throw new YdbException(status);
-            }
+            await finishMethod(TxId); // Commit or Rollback
         }
-        catch (Driver.TransportException e)
+        catch (YdbException e)
         {
             Failed = true;
 
-            DbConnection.OnStatus(e.Status);
+            DbConnection.OnNotSuccessStatusCode(e.Code);
 
-            throw new YdbException(e);
+            throw;
         }
         finally
         {

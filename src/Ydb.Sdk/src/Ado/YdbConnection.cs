@@ -92,24 +92,7 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        try
-        {
-            Session = await PoolManager.GetSession(ConnectionStringBuilder, cancellationToken);
-        }
-        catch (Exception e)
-        {
-            throw e switch
-            {
-                OperationCanceledException => throw new YdbException(StatusCode.Cancelled,
-                    $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
-                    $"(currently {ConnectionStringBuilder.MaxSessionPool}) or 'CreateSessionTimeout' " +
-                    $"(currently {ConnectionStringBuilder.CreateSessionTimeout} seconds) in your connection string.", e
-                ),
-                Driver.TransportException transportException => new YdbException(transportException),
-                StatusUnsuccessfulException unsuccessfulException => new YdbException(unsuccessfulException.Status),
-                _ => e
-            };
-        }
+        Session = await PoolManager.GetSession(ConnectionStringBuilder, cancellationToken);
 
         OnStateChange(ClosedToOpenEventArgs);
 
@@ -165,9 +148,9 @@ public sealed class YdbConnection : DbConnection
 
     private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
 
-    internal void OnStatus(Status status)
+    internal void OnNotSuccessStatusCode(StatusCode code)
     {
-        _session.OnStatus(status);
+        _session.OnNotSuccessStatusCode(code);
 
         if (!_session.IsActive)
         {
