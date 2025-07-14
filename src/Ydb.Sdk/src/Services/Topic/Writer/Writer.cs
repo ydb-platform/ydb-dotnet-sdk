@@ -241,15 +241,15 @@ internal class Writer<TValue> : IWriter<TValue>
 
                 if (RetrySettings.DefaultInstance.GetRetryRule(statusCode).Policy != RetryPolicy.None)
                 {
-                    _logger.LogError("Writer initialization failed to start. Reason: {Status}", statusMessage);
+                    _logger.LogError("Writer initialization failed to start. {StatusMessage}", statusMessage);
 
                     _ = Task.Run(Initialize);
                 }
                 else
                 {
-                    _logger.LogCritical("Writer initialization failed to start. Reason: {Status}", statusMessage);
+                    _logger.LogCritical("Writer initialization failed to start. {StatusMessage}", statusMessage);
 
-                    _session = new NotStartedWriterSession($"Initialization failed! Reason: {statusMessage}");
+                    _session = new NotStartedWriterSession($"Initialization failed! {statusMessage}");
                 }
 
                 return;

@@ -166,16 +166,16 @@ internal class Reader<TValue> : IReader<TValue>
 
                 if (RetrySettings.DefaultInstance.GetRetryRule(statusCode).Policy != RetryPolicy.None)
                 {
-                    _logger.LogError("Reader initialization failed to start. Reason: {Status}", statusMessage);
+                    _logger.LogError("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
                     _ = Task.Run(Initialize, _disposeCts.Token);
                 }
                 else
                 {
-                    _logger.LogCritical("Reader initialization failed to start. Reason: {Status}", statusMessage);
+                    _logger.LogCritical("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
                     _receivedMessagesChannel.Writer.Complete(
-                        new ReaderException($"Initialization failed! Reason: {statusMessage}"));
+                        new ReaderException($"Initialization failed! {statusMessage}"));
                 }
 
                 return;
@@ -342,8 +342,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
         catch (Exception e)
         {
-            Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages",
-                SessionId);
+            Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages", SessionId);
         }
         finally
         {
