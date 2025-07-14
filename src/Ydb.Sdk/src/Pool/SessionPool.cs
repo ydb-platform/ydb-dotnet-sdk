@@ -164,7 +164,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         {
             if (session.IsActive)
             {
-                await session.DeleteSession();    
+                await session.DeleteSession();
             }
         }
         catch (YdbException e)
