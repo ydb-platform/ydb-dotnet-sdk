@@ -47,7 +47,7 @@ public class YdbConnectionStringBuilderTests
             "EnableMultipleHttp2Connections=true;CreateSessionTimeout=30;" +
             "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
             "DisableDiscovery=true;DisableServerBalancer=true;" +
-            "SessionIdleTimeout=240;MinSessionPool=10;MaxSessionPool=50"
+            "MaxSessionPool=50"
         );
 
         Assert.Equal(2135, connectionString.Port);
