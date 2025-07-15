@@ -9,7 +9,7 @@ internal static class PoolManager
     private static readonly SemaphoreSlim SemaphoreSlim = new(1); // async mutex
     private static readonly ConcurrentDictionary<string, SessionPool> Pools = new();
 
-    internal static async Task<Session> GetSession(
+    internal static async Task<Services.Query.Session> GetSession(
         YdbConnectionStringBuilder connectionString,
         CancellationToken cancellationToken
     )

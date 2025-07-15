@@ -36,7 +36,7 @@ public class ReadTablePart : ResponseWithResultBase<ReadTablePart.ResultData>
 
 public class ReadTableStream : StreamResponse<ReadTableResponse, ReadTablePart>
 {
-    internal ReadTableStream(ServerStream<ReadTableResponse> iterator)
+    internal ReadTableStream(IServerStream<ReadTableResponse> iterator)
         : base(iterator)
     {
     }

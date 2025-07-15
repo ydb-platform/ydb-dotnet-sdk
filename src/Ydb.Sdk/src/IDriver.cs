@@ -17,7 +17,7 @@ public interface IDriver : IAsyncDisposable, IDisposable
         where TRequest : class
         where TResponse : class;
 
-    public ValueTask<ServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
+    public ValueTask<IServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
@@ -126,7 +126,7 @@ public abstract class BaseDriver : IDriver
         }
     }
 
-    public async ValueTask<ServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
+    public async ValueTask<IServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
