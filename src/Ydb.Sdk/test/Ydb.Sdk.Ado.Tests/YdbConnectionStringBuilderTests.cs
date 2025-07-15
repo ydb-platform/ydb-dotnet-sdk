@@ -53,7 +53,7 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(2135, connectionString.Port);
         Assert.Equal("server", connectionString.Host);
         Assert.Equal("/my/path", connectionString.Database);
-        Assert.Equal(100, connectionString.MaxSessionPool);
+        Assert.Equal(50, connectionString.MaxSessionPool);
         Assert.Equal("Kirill", connectionString.User);
         Assert.Equal(30, connectionString.ConnectTimeout);
         Assert.Equal(30, connectionString.KeepAlivePingDelay);
@@ -66,8 +66,8 @@ public class YdbConnectionStringBuilderTests
                      "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
                      "EnableMultipleHttp2Connections=True;CreateSessionTimeout=30;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-                     "DisableDiscovery=True;DisableServerBalancer=True" +
-                     "SessionIdleTimeout=240;MinSessionPool=10;MaxSessionPool=50", connectionString.ConnectionString);
+                     "DisableDiscovery=True;DisableServerBalancer=True;" +
+                     "MaxSessionPool=50", connectionString.ConnectionString);
         Assert.True(connectionString.DisableDiscovery);
         Assert.True(connectionString.DisableServerBalancer);
         Assert.Equal(30, connectionString.CreateSessionTimeout);
