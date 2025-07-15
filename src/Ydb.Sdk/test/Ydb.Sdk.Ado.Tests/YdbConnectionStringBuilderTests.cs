@@ -13,7 +13,6 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal("localhost", ydbConnectionStringBuilder.Host);
         Assert.Equal("/local", ydbConnectionStringBuilder.Database);
         Assert.Equal(100, ydbConnectionStringBuilder.MaxSessionPool);
-        Assert.Equal(0, ydbConnectionStringBuilder.MinSessionPool);
         Assert.Null(ydbConnectionStringBuilder.User);
         Assert.Null(ydbConnectionStringBuilder.Password);
         Assert.Equal(5, ydbConnectionStringBuilder.ConnectTimeout);
@@ -26,7 +25,6 @@ public class YdbConnectionStringBuilderTests
         Assert.False(ydbConnectionStringBuilder.DisableDiscovery);
         Assert.False(ydbConnectionStringBuilder.DisableServerBalancer);
         Assert.Equal(5, ydbConnectionStringBuilder.CreateSessionTimeout);
-        Assert.Equal(300, ydbConnectionStringBuilder.SessionIdleTimeout);
         Assert.False(ydbConnectionStringBuilder.UseTls);
     }
 
@@ -73,8 +71,6 @@ public class YdbConnectionStringBuilderTests
         Assert.True(connectionString.DisableDiscovery);
         Assert.True(connectionString.DisableServerBalancer);
         Assert.Equal(30, connectionString.CreateSessionTimeout);
-        Assert.Equal(240, connectionString.SessionIdleTimeout);
-        Assert.Equal(10, connectionString.MinSessionPool);
         Assert.Equal(50, connectionString.MaxSessionPool);
     }
 

@@ -81,9 +81,9 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
                 if (stream.Current.Status.IsNotSuccess())
                 {
-                    completeTask.SetException(YdbException.FromServer(stream.Current.Status, stream.Current.Issues));    
+                    completeTask.SetException(YdbException.FromServer(stream.Current.Status, stream.Current.Issues));
                 }
-                
+
                 completeTask.SetResult();
 
                 try

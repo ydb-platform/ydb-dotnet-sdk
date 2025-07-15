@@ -186,23 +186,23 @@ public class YdbSchemaTests : TestBase
 
         void CheckAllColumns(DataTable pDataTable, bool isNullableTable)
         {
-            CheckColumn(pDataTable.Rows[0], "TimestampColumn", 0, isNullableTable);
-            CheckColumn(pDataTable.Rows[1], "Int32Column", 1, isNullableTable);
-            CheckColumn(pDataTable.Rows[2], "BoolColumn", 2, isNullableTable);
-            CheckColumn(pDataTable.Rows[3], "Int64Column", 3, isNullableTable);
-            CheckColumn(pDataTable.Rows[4], "Int16Column", 4, isNullableTable);
-            CheckColumn(pDataTable.Rows[5], "Int8Column", 5, isNullableTable);
-            CheckColumn(pDataTable.Rows[6], "FloatColumn", 6, isNullableTable);
-            CheckColumn(pDataTable.Rows[7], "DoubleColumn", 7, isNullableTable);
-            CheckColumn(pDataTable.Rows[8], "DefaultDecimalColumn", 8, isNullableTable, "Decimal(22, 9)");
-            CheckColumn(pDataTable.Rows[9], "Uint8Column", 9, isNullableTable);
-            CheckColumn(pDataTable.Rows[10], "Uint16Column", 10, isNullableTable);
-            CheckColumn(pDataTable.Rows[11], "Uint32Column", 11, isNullableTable);
-            CheckColumn(pDataTable.Rows[12], "Uint64Column", 12, isNullableTable);
-            CheckColumn(pDataTable.Rows[13], "TextColumn", 13, isNullableTable);
-            CheckColumn(pDataTable.Rows[14], "BytesColumn", 14, isNullableTable);
-            CheckColumn(pDataTable.Rows[15], "DateColumn", 15, isNullableTable);
-            CheckColumn(pDataTable.Rows[16], "DatetimeColumn", 16, isNullableTable);
+            CheckColumn(pDataTable.Rows[0], "Int32Column", 0, isNullableTable);
+            CheckColumn(pDataTable.Rows[1], "BoolColumn", 1, isNullableTable);
+            CheckColumn(pDataTable.Rows[2], "Int64Column", 2, isNullableTable);
+            CheckColumn(pDataTable.Rows[3], "Int16Column", 3, isNullableTable);
+            CheckColumn(pDataTable.Rows[4], "Int8Column", 4, isNullableTable);
+            CheckColumn(pDataTable.Rows[5], "FloatColumn", 5, isNullableTable);
+            CheckColumn(pDataTable.Rows[6], "DoubleColumn", 6, isNullableTable);
+            CheckColumn(pDataTable.Rows[7], "DefaultDecimalColumn", 7, isNullableTable, "Decimal(22, 9)");
+            CheckColumn(pDataTable.Rows[8], "Uint8Column", 8, isNullableTable);
+            CheckColumn(pDataTable.Rows[9], "Uint16Column", 9, isNullableTable);
+            CheckColumn(pDataTable.Rows[10], "Uint32Column", 10, isNullableTable);
+            CheckColumn(pDataTable.Rows[11], "Uint64Column", 11, isNullableTable);
+            CheckColumn(pDataTable.Rows[12], "TextColumn", 12, isNullableTable);
+            CheckColumn(pDataTable.Rows[13], "BytesColumn", 13, isNullableTable);
+            CheckColumn(pDataTable.Rows[14], "DateColumn", 14, isNullableTable);
+            CheckColumn(pDataTable.Rows[15], "DatetimeColumn", 15, isNullableTable);
+            CheckColumn(pDataTable.Rows[16], "TimestampColumn", 16, isNullableTable);
         }
 
         void CheckColumn(DataRow column, string columnName, int ordinal, bool isNullable, string? dataType = null)
