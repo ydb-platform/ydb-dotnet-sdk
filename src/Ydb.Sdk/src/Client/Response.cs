@@ -61,11 +61,11 @@ public abstract class StreamResponse<TProtoResponse, TResponse>
     where TProtoResponse : class
     where TResponse : class
 {
-    private readonly ServerStream<TProtoResponse> _iterator;
+    private readonly IServerStream<TProtoResponse> _iterator;
     private TResponse? _response;
     private bool _transportError;
 
-    internal StreamResponse(ServerStream<TProtoResponse> iterator)
+    internal StreamResponse(IServerStream<TProtoResponse> iterator)
     {
         _iterator = iterator;
     }

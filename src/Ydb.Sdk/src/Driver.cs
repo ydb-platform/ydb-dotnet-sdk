@@ -5,7 +5,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Discovery;
 using Ydb.Discovery.V1;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Ado.Pool;
+using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk;
 

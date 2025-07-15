@@ -3,10 +3,10 @@ using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Ydb.Auth;
 using Ydb.Auth.V1;
-using Ydb.Sdk.Ado.Pool;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Services.Auth;
 

@@ -1,20 +1,21 @@
 using System.Collections.Immutable;
 using Moq;
 using Xunit;
-using Ydb.Sdk.Ado.Pool;
 using Ydb.Sdk.Ado.Tests.Utils;
+using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Ado.Tests.Pool;
 
 public class EndpointPoolTests
 {
-    private static readonly ImmutableArray<EndpointSettings> EndpointSettingsList = ImmutableArray.Create(
+    private static readonly ImmutableArray<EndpointSettings> EndpointSettingsList =
+    [
         new EndpointSettings(1, "n1.ydb.tech", "MAN"),
         new EndpointSettings(2, "n2.ydb.tech", "VLA"),
         new EndpointSettings(3, "n3.ydb.tech", "SAS"),
         new EndpointSettings(4, "n4.ydb.tech", "SAS"),
         new EndpointSettings(5, "n5.ydb.tech", "VLA")
-    );
+    ];
 
     public class MockRandomUnitTests
     {

@@ -1,9 +1,9 @@
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Ado.Pool;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk;
@@ -17,7 +17,7 @@ public interface IDriver : IAsyncDisposable, IDisposable
         where TRequest : class
         where TResponse : class;
 
-    public ValueTask<ServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
+    public ValueTask<IServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)
@@ -126,7 +126,7 @@ public abstract class BaseDriver : IDriver
         }
     }
 
-    public async ValueTask<ServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
+    public async ValueTask<IServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
         GrpcRequestSettings settings)

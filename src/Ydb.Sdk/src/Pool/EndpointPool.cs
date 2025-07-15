@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 
-namespace Ydb.Sdk.Ado.Pool;
+namespace Ydb.Sdk.Pool;
 
 internal class EndpointPool
 {
