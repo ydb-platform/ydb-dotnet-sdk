@@ -392,11 +392,6 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
         }, model => Assert.Collection(
             Assert.Single(model.Tables, t => t.Name == "Contacts").Columns,
             // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
-            c =>
-            {
-                Assert.Equal("MyComplex_MyNestedComplex_Foo", c.Name);
-                Assert.True(c.IsNullable);
-            },
             c => Assert.Equal("Id", c.Name),
             c => Assert.Equal("Discriminator", c.Name),
             c => Assert.Equal("Name", c.Name),
@@ -411,6 +406,11 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             c =>
             {
                 Assert.Equal("MyComplex_MyNestedComplex_Bar", c.Name);
+                Assert.True(c.IsNullable);
+            },
+            c =>
+            {
+                Assert.Equal("MyComplex_MyNestedComplex_Foo", c.Name);
                 Assert.True(c.IsNullable);
             }));
 
