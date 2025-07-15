@@ -24,7 +24,7 @@ public sealed class YdbConnection : DbConnection
         [param: AllowNull] init => _connectionStringBuilder = value;
     }
 
-    internal Session Session
+    internal Services.Query.Session Session
     {
         get
         {
@@ -35,7 +35,7 @@ public sealed class YdbConnection : DbConnection
         private set => _session = value;
     }
 
-    private Session _session = null!;
+    private Services.Query.Session _session = null!;
 
     public YdbConnection()
     {

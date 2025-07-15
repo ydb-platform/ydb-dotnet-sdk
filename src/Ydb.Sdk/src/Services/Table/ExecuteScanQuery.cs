@@ -32,7 +32,7 @@ public class ExecuteScanQueryPart : ResponseWithResultBase<ExecuteScanQueryPart.
 
 public class ExecuteScanQueryStream : StreamResponse<ExecuteScanQueryPartialResponse, ExecuteScanQueryPart>
 {
-    internal ExecuteScanQueryStream(ServerStream<ExecuteScanQueryPartialResponse> iterator)
+    internal ExecuteScanQueryStream(IServerStream<ExecuteScanQueryPartialResponse> iterator)
         : base(iterator)
     {
     }

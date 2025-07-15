@@ -86,10 +86,10 @@ public class ExecuteQueryPart
 
 public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAsyncEnumerable<ExecuteQueryPart>
 {
-    private readonly ServerStream<ExecuteQueryResponsePart> _stream;
+    private readonly IServerStream<ExecuteQueryResponsePart> _stream;
     private readonly Action<string?> _onTxId;
 
-    internal ExecuteQueryStream(ServerStream<ExecuteQueryResponsePart> stream, Action<string?>? onTx = null)
+    internal ExecuteQueryStream(IServerStream<ExecuteQueryResponsePart> stream, Action<string?>? onTx = null)
     {
         _stream = stream;
         _onTxId = onTx ?? (_ => { });

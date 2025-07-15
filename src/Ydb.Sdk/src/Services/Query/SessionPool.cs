@@ -54,7 +54,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 
         Status.FromProto(response.Status, response.Issues).EnsureSuccess();
 
-        TaskCompletionSource<Status> completeTask = new();
+        TaskCompletionSource completeTask = new();
 
         var sessionId = response.SessionId;
         var nodeId = response.NodeId;
@@ -74,12 +74,17 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                 if (!await stream.MoveNextAsync(cancellationToken))
                 {
                     // Session wasn't started!
-                    completeTask.SetResult(new Status(StatusCode.Cancelled, "Attach stream is not started!"));
+                    completeTask.SetException(new YdbException(StatusCode.Cancelled, "Attach stream is not started!"));
 
                     return;
                 }
 
-                completeTask.SetResult(Status.FromProto(stream.Current.Status, stream.Current.Issues));
+                if (stream.Current.Status.IsNotSuccess())
+                {
+                    completeTask.SetException(YdbException.FromServer(stream.Current.Status, stream.Current.Issues));
+                }
+
+                completeTask.SetResult();
 
                 try
                 {
@@ -128,7 +133,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             }
         }, cancellationToken);
 
-        (await completeTask.Task).EnsureSuccess();
+        await completeTask.Task;
 
         return session;
     }
@@ -151,7 +156,7 @@ internal class Session : SessionBase<Session>
         Driver = driver;
     }
 
-    internal ValueTask<ServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
+    internal ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue>? parameters,
         ExecuteQuerySettings? settings,
