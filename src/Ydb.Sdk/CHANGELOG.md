@@ -1,6 +1,6 @@
 - Added new ADO.NET options:
   - `MinSessionPool`: The minimum connection pool size.
-  - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all connections exceeds `MinSessionPool`.
+  - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all sessions exceeds `MinSessionPool`.
   - `SessionPruningInterval`: How many seconds the pool waits before attempting to prune idle sessions (see `SessionIdleTimeout`).
 - Fixed bug `Reader`: unhandled exception in `TryReadRequestBytes(long bytes)`.
 - Handle `YdbException` on `DeleteSession`.
