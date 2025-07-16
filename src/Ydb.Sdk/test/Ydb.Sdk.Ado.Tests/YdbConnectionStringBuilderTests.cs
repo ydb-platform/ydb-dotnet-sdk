@@ -71,13 +71,12 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(1000000, connectionString.MaxSendMessageSize);
         Assert.Equal(1000000, connectionString.MaxReceiveMessageSize);
         Assert.Equal("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=True;" +
-                     "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
                      "MinSessionPool=10;MaxSessionPool=50;CreateSessionTimeout=30;" +
                      "SessionIdleTimeout=600;SessionPruningInterval=20;" +
+                     "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
                      "EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-                     "DisableDiscovery=True;DisableServerBalancer=True;" +
-                     "MaxSessionPool=50", connectionString.ConnectionString);
+                     "DisableDiscovery=True;DisableServerBalancer=True", connectionString.ConnectionString);
         Assert.True(connectionString.DisableDiscovery);
         Assert.True(connectionString.DisableServerBalancer);
     }
