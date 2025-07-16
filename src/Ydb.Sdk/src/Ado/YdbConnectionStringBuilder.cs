@@ -28,7 +28,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _host = YdbAdoDefaultSettings.Host;
         _port = YdbAdoDefaultSettings.Port;
         _database = YdbAdoDefaultSettings.Database;
+        _minSessionPool = 0;
         _maxSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
+        _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
+        _sessionIdleTimeout = 300;
+        _sessionPruningInterval = 10;
         _useTls = YdbAdoDefaultSettings.UseTls;
         _connectTimeout = GrpcDefaultSettings.ConnectTimeoutSeconds;
         _keepAlivePingDelay = GrpcDefaultSettings.KeepAlivePingSeconds;
@@ -37,7 +41,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _maxSendMessageSize = GrpcDefaultSettings.MaxSendMessageSize;
         _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
         _disableDiscovery = GrpcDefaultSettings.DisableDiscovery;
-        _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
         _disableServerBalancer = false;
     }
 
@@ -122,6 +125,58 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     private int _maxSessionPool;
+
+    public int MinSessionPool
+    {
+        get => _minSessionPool;
+        set
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid min session pool: " + value);
+            }
+
+            _minSessionPool = value;
+            SaveValue(nameof(MinSessionPool), value);
+        }
+    }
+
+    private int _minSessionPool;
+
+    public int SessionIdleTimeout
+    {
+        get => _sessionIdleTimeout;
+        set
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid session idle timeout: " + value);
+            }
+
+            _sessionIdleTimeout = value;
+            SaveValue(nameof(SessionIdleTimeout), value);
+        }
+    }
+
+    private int _sessionIdleTimeout;
+
+    public int SessionPruningInterval
+    {
+        get => _sessionPruningInterval;
+        set
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value,
+                    "Invalid session pruning interval: " + value);
+            }
+
+            _sessionPruningInterval = value;
+            SaveValue(nameof(SessionPruningInterval), value);
+        }
+    }
+
+    private int _sessionPruningInterval;
 
     public bool UseTls
     {
@@ -416,9 +471,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 (builder, user) => builder.User = user), "User", "Username", "UserId", "User Id");
             AddOption(new YdbConnectionOption<string>(StringExtractor,
                 (builder, password) => builder.Password = password), "Password", "PWD", "PSW");
-            AddOption(new YdbConnectionOption<int>(IntExtractor,
-                    (builder, maxSessionPool) => builder.MaxSessionPool = maxSessionPool),
-                "MaxSessionPool", "Max Session Pool", "Maximum Pool Size", "Max Pool Size", "MaximumPoolSize");
+            AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, maxSessionPool) =>
+                    builder.MaxSessionPool = maxSessionPool), "MaxSessionPool", "Max Session Pool", "Maximum Pool Size",
+                "MaximumPoolSize", "Max Pool Size", "MaxPoolSize");
+            AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, minSessionSize) =>
+                    builder.MinSessionPool = minSessionSize), "MinSessionPool", "Min Session Pool", "Minimum Pool Size",
+                "MinimumPoolSize", "Min Pool Size", "MinPoolSize");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, useTls) => builder.UseTls = useTls),
                 "UseTls", "Use Tls");
             AddOption(new YdbConnectionOption<string>(StringExtractor,
@@ -446,8 +504,14 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<int>(IntExtractor,
                     (builder, createSessionTimeout) => builder.CreateSessionTimeout = createSessionTimeout),
                 "CreateSessionTimeout", "Create Session Timeout");
-            AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, disableServerBalancer) =>
-                    builder.DisableServerBalancer = disableServerBalancer),
+            AddOption(new YdbConnectionOption<int>(IntExtractor,
+                    (builder, sessionIdleTimeout) => builder.SessionIdleTimeout = sessionIdleTimeout),
+                "SessionIdleTimeout", "Session Idle Timeout");
+            AddOption(new YdbConnectionOption<int>(IntExtractor,
+                    (builder, sessionPruningInterval) => builder.SessionPruningInterval = sessionPruningInterval),
+                "SessionPruningInterval", "Session Pruning Interval");
+            AddOption(new YdbConnectionOption<bool>(BoolExtractor,
+                    (builder, disableServerBalancer) => builder.DisableServerBalancer = disableServerBalancer),
                 "DisableServerBalancer", "Disable Server Balancer");
         }
 
