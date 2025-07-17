@@ -13,6 +13,8 @@ internal class ImplicitSession : ISession
         _driver = driver;
     }
 
+    public bool IsBroken => false;
+
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue> parameters,

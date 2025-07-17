@@ -6,6 +6,8 @@ namespace Ydb.Sdk.Ado.Session;
 
 internal interface ISession
 {
+    bool IsBroken { get; }
+
     ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue> parameters,
