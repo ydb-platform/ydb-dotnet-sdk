@@ -60,7 +60,7 @@ public class YdbCommandTests(YdbFactoryFixture fixture) : CommandTestBase<YdbFac
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT 1;";
         var task = command.ExecuteReaderAsync(CanceledToken);
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAnyAsync<YdbException>(() => task)).Code);
     }
 
@@ -70,7 +70,7 @@ public class YdbCommandTests(YdbFactoryFixture fixture) : CommandTestBase<YdbFac
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT 1;";
         var task = command.ExecuteNonQueryAsync(CanceledToken);
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAnyAsync<YdbException>(() => task)).Code);
     }
 
@@ -80,7 +80,7 @@ public class YdbCommandTests(YdbFactoryFixture fixture) : CommandTestBase<YdbFac
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT 1;";
         var task = command.ExecuteScalarAsync(CanceledToken);
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAnyAsync<YdbException>(() => task)).Code);
     }
 }

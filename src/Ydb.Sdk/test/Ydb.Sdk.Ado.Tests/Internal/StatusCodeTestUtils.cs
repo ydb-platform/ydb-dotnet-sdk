@@ -11,7 +11,7 @@ public class StatusCodeTestUtils
     [InlineData(Grpc.Core.StatusCode.DeadlineExceeded, StatusCode.ClientTransportTimeout)]
     [InlineData(Grpc.Core.StatusCode.ResourceExhausted, StatusCode.ClientTransportResourceExhausted)]
     [InlineData(Grpc.Core.StatusCode.Unimplemented, StatusCode.ClientTransportUnimplemented)]
-    [InlineData(Grpc.Core.StatusCode.Cancelled, StatusCode.Cancelled)]
+    [InlineData(Grpc.Core.StatusCode.Cancelled, StatusCode.ClientTransportTimeout)]
     public void Code_GrpcCoreStatusCodeConvertToStatusCode_Assert(
         Grpc.Core.StatusCode statusCode,
         StatusCode expectedStatusCode

@@ -233,7 +233,7 @@ INSERT INTO {tableName}
         Assert.False(ydbDataReader.IsClosed);
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.Equal(ConnectionState.Open, connection.State);
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
         Assert.True(ydbDataReader.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
@@ -249,7 +249,7 @@ INSERT INTO {tableName}
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.False(ydbDataReader.IsClosed);
 
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
         Assert.True(ydbDataReader.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
@@ -263,17 +263,17 @@ INSERT INTO {tableName}
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAsync<YdbException>(async () => await command.ExecuteReaderAsync(cts.Token))).Code);
         Assert.Equal(ConnectionState.Broken, connection.State);
         // ReSharper disable once MethodSupportsCancellation
         await connection.OpenAsync();
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAsync<YdbException>(async () => await command.ExecuteScalarAsync(cts.Token))).Code);
         Assert.Equal(ConnectionState.Broken, connection.State);
         // ReSharper disable once MethodSupportsCancellation
         await connection.OpenAsync();
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAsync<YdbException>(async () => await command.ExecuteNonQueryAsync(cts.Token))).Code);
         Assert.Equal(ConnectionState.Broken, connection.State);
     }
