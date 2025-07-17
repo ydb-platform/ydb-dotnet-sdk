@@ -1,3 +1,8 @@
+// This file contains session pooling algorithms adapted from Npgsql
+// Original source: https://github.com/npgsql/npgsql
+// Copyright (c) 2002-2025, Npgsql
+// Licence https://github.com/npgsql/npgsql?tab=PostgreSQL-1-ov-file
+
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
@@ -8,7 +13,7 @@ using TransactionControl = Ydb.Query.TransactionControl;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal class Session : IPoolingSession
+internal class PoolingSession : IPoolingSession
 {
     private const string SessionBalancer = "session-balancer";
 
@@ -18,20 +23,20 @@ internal class Session : IPoolingSession
     private readonly IDriver _driver;
     private readonly PoolingSessionSource _poolingSessionSource;
     private readonly YdbConnectionStringBuilder _settings;
-    private readonly ILogger<Session> _logger;
+    private readonly ILogger<PoolingSession> _logger;
 
-    private volatile bool _isActive;
+    private volatile bool _isBroken;
 
     private string SessionId { get; set; } = string.Empty;
     private long NodeId { get; set; }
 
-    public bool IsActive => _isActive;
+    public bool IsBroken => _isBroken;
 
-    internal Session(
+    internal PoolingSession(
         IDriver driver,
         PoolingSessionSource poolingSessionSource,
         YdbConnectionStringBuilder settings,
-        ILogger<Session> logger
+        ILogger<PoolingSession> logger
     )
     {
         _driver = driver;
@@ -109,7 +114,7 @@ internal class Session : IPoolingSession
         {
             _logger.LogWarning("Session[{SessionId}] is deactivated. Reason StatusCode: {Code}", SessionId, code);
 
-            _isActive = false;
+            _isBroken = true;
         }
     }
 
@@ -176,7 +181,7 @@ internal class Session : IPoolingSession
 
                         OnNotSuccessStatusCode(statusCode);
 
-                        if (!IsActive)
+                        if (IsBroken)
                         {
                             return;
                         }
@@ -204,7 +209,7 @@ internal class Session : IPoolingSession
             }
             finally
             {
-                _isActive = false;
+                _isBroken = true;
             }
         }, cancellationToken);
 
@@ -215,7 +220,12 @@ internal class Session : IPoolingSession
     {
         try
         {
-            _isActive = false;
+            if (_isBroken)
+            {
+                return;
+            }
+
+            _isBroken = true;
 
             var deleteSessionResponse = await _driver.UnaryCall(
                 QueryService.DeleteSessionMethod,
