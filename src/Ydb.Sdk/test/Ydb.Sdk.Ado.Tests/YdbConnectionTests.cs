@@ -268,12 +268,12 @@ INSERT INTO {tableName}
         Assert.Equal(ConnectionState.Broken, connection.State);
         // ReSharper disable once MethodSupportsCancellation
         await connection.OpenAsync();
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAsync<YdbException>(async () => await command.ExecuteScalarAsync(cts.Token))).Code);
         Assert.Equal(ConnectionState.Broken, connection.State);
         // ReSharper disable once MethodSupportsCancellation
         await connection.OpenAsync();
-        Assert.Equal(StatusCode.Cancelled,
+        Assert.Equal(StatusCode.ClientTransportTimeout,
             (await Assert.ThrowsAsync<YdbException>(async () => await command.ExecuteNonQueryAsync(cts.Token))).Code);
         Assert.Equal(ConnectionState.Broken, connection.State);
     }
