@@ -225,12 +225,10 @@ public abstract class SessionBase<T> where T : SessionBase<T>
     {
         // ReSharper disable once InvertIf
         if (code is
-            StatusCode.Cancelled or
             StatusCode.BadSession or
             StatusCode.SessionBusy or
-            StatusCode.InternalError or
+            StatusCode.SessionExpired or
             StatusCode.ClientTransportTimeout or
-            StatusCode.Unavailable or
             StatusCode.ClientTransportUnavailable)
         {
             _logger.LogWarning("Session[{SessionId}] is deactivated. Reason StatusCode: {Code}", SessionId, code);
