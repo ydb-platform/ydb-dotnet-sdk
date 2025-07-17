@@ -1,3 +1,8 @@
+// This file contains session pooling algorithms adapted from Npgsql
+// Original source: https://github.com/npgsql/npgsql
+// Copyright (c) 2002-2025, Npgsql
+// Licence https://github.com/npgsql/npgsql?tab=PostgreSQL-1-ov-file
+
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
