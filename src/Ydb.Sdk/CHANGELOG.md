@@ -1,3 +1,4 @@
+- ADO.NET: PoolingSessionSource 2.0 based on Npgsql pooling algorithm.
 - Added new ADO.NET options:
   - `MinSessionPool`: The minimum connection pool size.
   - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all sessions exceeds `MinSessionPool`.
