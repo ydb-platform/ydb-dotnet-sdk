@@ -1,25 +1,7 @@
 // This file contains session pooling algorithms adapted from Npgsql
 // Original source: https://github.com/npgsql/npgsql
-// Copyright (c) 2002-2023, Npgsql
-// 
-// Permission to use, copy, modify, and distribute this software and its
-// documentation for any purpose, without fee, and without a written agreement
-// is hereby granted, provided that the above copyright notice and this
-// paragraph and the following two paragraphs appear in all copies.
-//
-// IN NO EVENT SHALL NPGSQL BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
-// SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
-// ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
-// NPGSQL HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// NPGSQL SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-// THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
-// THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND NPGSQL HAS NO
-// OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
-// MODIFICATIONS.
-//
-// Adapted for YDB .NET SDK with modifications for IPoolingSession interface
-// and YDB-specific session management requirements.
+// Copyright (c) 2002-2025, Npgsql
+// Licence https://github.com/npgsql/npgsql?tab=PostgreSQL-1-ov-file
 
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -111,6 +93,7 @@ internal sealed class PoolingSessionSource : ISessionSource<IPoolingSession>
         {
             ctsGetSession.CancelAfter(TimeSpan.FromSeconds(_createSessionTimeout));
         }
+
         var finalToken = ctsGetSession.Token;
 
         try
@@ -299,7 +282,6 @@ internal sealed class PoolingSessionSource : ISessionSource<IPoolingSession>
 
         if (pool._logger.IsEnabled(LogLevel.Debug))
         {
-
         }
 
         while (toPrune > 0 &&
