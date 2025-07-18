@@ -97,16 +97,16 @@ internal class PoolingSession : IPoolingSession
         }
     }
 
-    public void OnNotSuccessStatusCode(StatusCode code)
+    public void OnNotSuccessStatusCode(StatusCode statusCode)
     {
-        if (code is
+        if (statusCode is
             StatusCode.BadSession or
             StatusCode.SessionBusy or
             StatusCode.SessionExpired or
             StatusCode.ClientTransportTimeout or
             StatusCode.ClientTransportUnavailable)
         {
-            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason StatusCode: {Code}", SessionId, code);
+            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason Status: {Status}", SessionId, statusCode);
 
             _isBroken = true;
         }

@@ -1,4 +1,3 @@
-- Changed error message on unsuccessful status code from YDB server: `Status:` -> `StatusCode:`.
 - Fixed bug: Grpc.Core.StatusCode.Cancelled was mapped to server's Canceled status.
 - ADO.NET: PoolingSessionSource 2.0 based on Npgsql pooling algorithm.
 - Added new ADO.NET options:
