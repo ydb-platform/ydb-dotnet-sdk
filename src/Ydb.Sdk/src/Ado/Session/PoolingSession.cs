@@ -17,10 +17,11 @@ internal class PoolingSession : IPoolingSession
 
     private readonly IDriver _driver;
     private readonly PoolingSessionSource _poolingSessionSource;
-    private readonly YdbConnectionStringBuilder _settings;
     private readonly ILogger<PoolingSession> _logger;
 
-    private volatile bool _isBroken;
+    private volatile bool _isBroken = true;
+
+    private readonly bool _disableServerBalancer;
 
     private string SessionId { get; set; } = string.Empty;
     private long NodeId { get; set; }
@@ -30,13 +31,13 @@ internal class PoolingSession : IPoolingSession
     internal PoolingSession(
         IDriver driver,
         PoolingSessionSource poolingSessionSource,
-        YdbConnectionStringBuilder settings,
+        bool disableServerBalancer,
         ILogger<PoolingSession> logger
     )
     {
         _driver = driver;
         _poolingSessionSource = poolingSessionSource;
-        _settings = settings;
+        _disableServerBalancer = disableServerBalancer;
         _logger = logger;
     }
 
@@ -99,12 +100,10 @@ internal class PoolingSession : IPoolingSession
     public void OnNotSuccessStatusCode(StatusCode code)
     {
         if (code is
-            StatusCode.Cancelled or
             StatusCode.BadSession or
             StatusCode.SessionBusy or
-            StatusCode.InternalError or
+            StatusCode.SessionExpired or
             StatusCode.ClientTransportTimeout or
-            StatusCode.Unavailable or
             StatusCode.ClientTransportUnavailable)
         {
             _logger.LogWarning("Session[{SessionId}] is deactivated. Reason StatusCode: {Code}", SessionId, code);
@@ -117,7 +116,7 @@ internal class PoolingSession : IPoolingSession
     {
         var requestSettings = new GrpcRequestSettings { CancellationToken = cancellationToken };
 
-        if (!_settings.DisableServerBalancer)
+        if (!_disableServerBalancer)
         {
             requestSettings.ClientCapabilities.Add(SessionBalancer);
         }
@@ -133,6 +132,7 @@ internal class PoolingSession : IPoolingSession
 
         SessionId = response.SessionId;
         NodeId = response.NodeId;
+        _isBroken = false;
 
         _ = Task.Run(async () =>
         {
@@ -188,7 +188,7 @@ internal class PoolingSession : IPoolingSession
                 }
                 catch (YdbException e)
                 {
-                    if (e.Code == StatusCode.Cancelled)
+                    if (e.Code == StatusCode.ClientTransportTimeout)
                     {
                         _logger.LogDebug("AttachStream is cancelled (possible grpcChannel is closing)");
 

@@ -21,6 +21,6 @@ public static class StatusCodeUtils
 
     internal static string ToMessage(this StatusCode statusCode, IReadOnlyList<IssueMessage> issueMessages) =>
         issueMessages.Count == 0
-            ? $"Status: {statusCode}"
-            : $"Status: {statusCode}, Issues:{Environment.NewLine}{issueMessages.IssuesToString()}";
+            ? $"StatusCode: {statusCode}"
+            : $"StatusCode: {statusCode}, Issues:{Environment.NewLine}{issueMessages.IssuesToString()}";
 }
