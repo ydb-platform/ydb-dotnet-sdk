@@ -5,16 +5,16 @@ namespace Ydb.Sdk.Ado.Session;
 internal class PoolingSessionFactory : IPoolingSessionFactory
 {
     private readonly IDriver _driver;
-    private readonly YdbConnectionStringBuilder _settings;
+    private readonly bool _disableServerBalancer;
     private readonly ILogger<PoolingSession> _logger;
 
-    public PoolingSessionFactory(IDriver driver, YdbConnectionStringBuilder settings, ILogger<PoolingSession> logger)
+    public PoolingSessionFactory(IDriver driver, YdbConnectionStringBuilder settings, ILoggerFactory loggerFactory)
     {
         _driver = driver;
-        _settings = settings;
-        _logger = logger;
+        _disableServerBalancer = settings.DisableServerBalancer;
+        _logger = loggerFactory.CreateLogger<PoolingSession>();
     }
 
     public IPoolingSession NewSession(PoolingSessionSource source) =>
-        new PoolingSession(_driver, source, _settings, _logger);
+        new PoolingSession(_driver, source, _disableServerBalancer, _logger);
 }
