@@ -92,7 +92,7 @@ public class PoolingSessionTests
             );
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
-        Assert.Equal("StatusCode: BadRequest, Issues:\n[0] Fatal: Mock Issue Message", ydbException.Message);
+        Assert.Equal("Status: BadRequest, Issues:\n[0] Fatal: Mock Issue Message", ydbException.Message);
         Assert.Equal(StatusCode.BadRequest, ydbException.Code);
         Assert.True(session.IsBroken);
     }
@@ -137,7 +137,7 @@ public class PoolingSessionTests
             });
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
-        Assert.Equal("StatusCode: BadSession, Issues:\n[1] Error: Ouch BadSession!", ydbException.Message);
+        Assert.Equal("Status: BadSession, Issues:\n[1] Error: Ouch BadSession!", ydbException.Message);
         Assert.Equal(StatusCode.BadSession, ydbException.Code);
         Assert.True(session.IsBroken);
     }
