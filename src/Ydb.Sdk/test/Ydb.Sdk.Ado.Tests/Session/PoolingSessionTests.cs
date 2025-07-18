@@ -242,7 +242,7 @@ public class PoolingSessionTests
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.CommitTransaction(txId));
         Assert.Equal(StatusCode.Aborted, ydbException.Code);
         Assert.Equal("Status: Aborted", ydbException.Message);
-        tcsSecondMoveAttachStream.TrySetResult(true);
+        tcsSecondMoveAttachStream.TrySetResult(false);
     }
 
     [Fact]
@@ -263,7 +263,7 @@ public class PoolingSessionTests
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.RollbackTransaction(txId));
         Assert.Equal(StatusCode.NotFound, ydbException.Code);
         Assert.Equal("Status: NotFound", ydbException.Message);
-        tcsSecondMoveAttachStream.TrySetResult(true);
+        tcsSecondMoveAttachStream.TrySetResult(false);
     }
 
     private TaskCompletionSource<bool> SetupAttachStream()
