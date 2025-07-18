@@ -231,7 +231,7 @@ public abstract class SessionBase<T> where T : SessionBase<T>
             StatusCode.ClientTransportTimeout or
             StatusCode.ClientTransportUnavailable)
         {
-            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason StatusCode: {Code}", SessionId, code);
+            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason Status: {Status}", SessionId, code);
 
             IsActive = false;
         }
