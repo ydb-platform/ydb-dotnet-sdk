@@ -1,7 +1,6 @@
 using Grpc.Core;
 using Moq;
 using Xunit;
-using Xunit.Sdk;
 using Ydb.Issue;
 using Ydb.Query;
 using Ydb.Query.V1;
