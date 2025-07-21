@@ -6,13 +6,11 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
-using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Ado.Session;
 
 internal sealed class PoolingSessionSource : ISessionSource<IPoolingSession>
 {
-    private readonly ILogger<PoolingSessionSource> _logger;
     private readonly IPoolingSessionFactory _sessionFactory;
 
     private readonly int _minSessionSize;
@@ -35,12 +33,10 @@ internal sealed class PoolingSessionSource : ISessionSource<IPoolingSession>
     private volatile int _idleCount;
 
     public PoolingSessionSource(
-        IDriver driver,
         IPoolingSessionFactory sessionFactory,
         YdbConnectionStringBuilder settings
     )
     {
-        _logger = driver.LoggerFactory.CreateLogger<PoolingSessionSource>();
         _sessionFactory = sessionFactory;
 
         _minSessionSize = settings.MinSessionPool;
@@ -71,7 +67,7 @@ internal sealed class PoolingSessionSource : ISessionSource<IPoolingSession>
         _pruningTimerEnabled = false;
     }
 
-    public ValueTask<IPoolingSession> OpenSession(CancellationToken cancellationToken) =>
+    public ValueTask<IPoolingSession> OpenSession(CancellationToken cancellationToken = default) =>
         TryGetIdleSession(out var session) ? new ValueTask<IPoolingSession>(session) : RentAsync(cancellationToken);
 
     public void Return(IPoolingSession session)
@@ -153,7 +149,7 @@ internal sealed class PoolingSessionSource : ISessionSource<IPoolingSession>
 
                 // Only start pruning if we've incremented open count past _min.
                 // Note that we don't do it only once, on equality, because the thread which incremented open count past _min might get exception
-                // on NpgsqlSession.Open due to timeout, CancellationToken or other reasons.
+                // on Session.Open due to timeout, CancellationToken or other reasons.
                 if (numSessions >= _minSessionSize)
                 {
                     UpdatePruningTimer();
@@ -278,10 +274,6 @@ internal sealed class PoolingSessionSource : ISessionSource<IPoolingSession>
             toPrune = samples[pool._pruningMedianIndex];
             pool._pruningSampleIndex = 0;
             pool._pruningTimer.Change(pool._pruningSamplingInterval, Timeout.InfiniteTimeSpan);
-        }
-
-        if (pool._logger.IsEnabled(LogLevel.Debug))
-        {
         }
 
         while (toPrune > 0 &&

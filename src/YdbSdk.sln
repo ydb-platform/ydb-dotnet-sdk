@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.Ado.Dapper.Tests", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.Ado.Benchmarks", "Ydb.Sdk\test\Ydb.Sdk.Ado.Benchmarks\Ydb.Sdk.Ado.Benchmarks.csproj", "{3C20B44A-9649-4927-9D4A-8605CC1D1271}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.Ado.Stress.Loader", "Ydb.Sdk\test\Ydb.Sdk.Ado.Stress.Loader\Ydb.Sdk.Ado.Stress.Loader.csproj", "{22436AE0-178B-40B4-BD20-50F801C80B98}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -75,6 +77,10 @@ Global
 		{3C20B44A-9649-4927-9D4A-8605CC1D1271}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3C20B44A-9649-4927-9D4A-8605CC1D1271}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3C20B44A-9649-4927-9D4A-8605CC1D1271}.Release|Any CPU.Build.0 = Release|Any CPU
+		{22436AE0-178B-40B4-BD20-50F801C80B98}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22436AE0-178B-40B4-BD20-50F801C80B98}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22436AE0-178B-40B4-BD20-50F801C80B98}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22436AE0-178B-40B4-BD20-50F801C80B98}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -92,6 +98,7 @@ Global
 		{0FF9D790-72A9-46DC-96DA-7EF1BE685A08} = {316B82EF-019D-4267-95A9-5E243086B240}
 		{AABFEDAE-1AEE-4ACF-804F-7F3C4D610CD8} = {316B82EF-019D-4267-95A9-5E243086B240}
 		{3C20B44A-9649-4927-9D4A-8605CC1D1271} = {316B82EF-019D-4267-95A9-5E243086B240}
+		{22436AE0-178B-40B4-BD20-50F801C80B98} = {316B82EF-019D-4267-95A9-5E243086B240}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0AB27123-0C66-4E43-A75F-D9EAB9ED0849}
