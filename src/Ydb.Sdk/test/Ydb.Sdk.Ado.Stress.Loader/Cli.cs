@@ -9,7 +9,7 @@ public static class Cli
         "connectionString",
         "YDB connection string ADO NET format"
     );
-    
+
     private static readonly Option<int> PeakRps = new("--peak-rps", () => 1000,
         "Peak RPS load (top of the step)");
 
@@ -19,16 +19,16 @@ public static class Cli
     private static readonly Option<int> MinRps = new("--min-rps", () => 1,
         "Minimum RPS load (bottom of the step, 1-2 RPS)");
 
-    private static readonly Option<int> PeakDurationSeconds = new("--peak-duration", () => 60,
+    private static readonly Option<int> PeakDurationSeconds = new("--peak-duration", () => 600,
         "Duration of peak load in seconds");
 
-    private static readonly Option<int> MediumDurationSeconds = new("--medium-duration", () => 30,
+    private static readonly Option<int> MediumDurationSeconds = new("--medium-duration", () => 1800,
         "Duration of medium load in seconds");
 
-    private static readonly Option<int> MinDurationSeconds = new("--min-duration", () => 30,
+    private static readonly Option<int> MinDurationSeconds = new("--min-duration", () => 1800,
         "Duration of minimum load in seconds");
 
-    private static readonly Option<int> TotalTestTimeSeconds = new("--total-time", () => 600,
+    private static readonly Option<int> TotalTestTimeSeconds = new("--total-time", () => 14400,
         "Total test duration in seconds");
 
     private static readonly Option<string?> SaFilePath = new("--sa-file-path",

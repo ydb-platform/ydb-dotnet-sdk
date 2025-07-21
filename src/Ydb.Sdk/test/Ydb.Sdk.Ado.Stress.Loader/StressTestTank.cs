@@ -18,7 +18,6 @@ public class StressTestTank
         _logger = loggerFactory.CreateLogger<StressTestTank>();
         _settings = new YdbConnectionStringBuilder(config.ConnectionString)
         {
-            LoggerFactory = loggerFactory,
             CredentialsProvider =
                 config.SaFilePath != null ? new ServiceAccountProvider(config.SaFilePath, loggerFactory) : null
         };
@@ -67,22 +66,19 @@ public class StressTestTank
     private async Task RunLoadPatternAsync(LoadPattern loadPattern, CancellationToken cancellationToken)
     {
         var currentRpsSource = new CancellationTokenSource();
-        var workerTasks = new List<Task>();
-
-        // Start background task to update RPS based on load pattern
         var rpsControllerTask = Task.Run(async () =>
         {
+            // ReSharper disable once PossiblyMistakenUseOfCancellationToken
             await foreach (var targetRps in loadPattern.GetLoadStepsAsync(cancellationToken))
             {
                 await currentRpsSource.CancelAsync();
-                await Task.WhenAll(workerTasks);
-                workerTasks.Clear();
 
                 currentRpsSource = new CancellationTokenSource();
                 var combinedToken = CancellationTokenSource
                     .CreateLinkedTokenSource(cancellationToken, currentRpsSource.Token).Token;
-                await StartWorkersForRpsAsync(targetRps, workerTasks, combinedToken);
+                _ = StartWorkersForRpsAsync(targetRps, combinedToken);
             }
+            // ReSharper disable once PossiblyMistakenUseOfCancellationToken
         }, cancellationToken);
 
         try
@@ -92,12 +88,10 @@ public class StressTestTank
         finally
         {
             await currentRpsSource.CancelAsync();
-            await Task.WhenAll(workerTasks);
         }
     }
 
-    private async Task StartWorkersForRpsAsync(int targetRps, List<Task> workerTasks,
-        CancellationToken cancellationToken)
+    private async Task StartWorkersForRpsAsync(int targetRps, CancellationToken cancellationToken)
     {
         if (targetRps <= 0) return;
 
@@ -120,22 +114,25 @@ public class StressTestTank
                 continue;
             }
 
-            workerTasks.Add(
-                Task.Run(async () =>
+            _ = Task.Run(async () =>
+            {
+                try
                 {
-                    try
+                    await using var ydbConnection = new YdbConnection(_settings);
+                    await ydbConnection.OpenAsync(cancellationToken);
+                    await new YdbCommand(ydbConnection) { CommandText = _config.TestQuery }
+                        .ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (YdbException e)
+                {
+                    if (e.Code == StatusCode.ClientTransportTimeout)
                     {
-                        await using var ydbConnection = new YdbConnection(_settings);
-                        await ydbConnection.OpenAsync(cancellationToken);
-                        await new YdbCommand(ydbConnection) { CommandText = _config.TestQuery }
-                            .ExecuteNonQueryAsync(cancellationToken);
+                        return;
                     }
-                    catch (Exception e)
-                    {
-                        _logger.LogError(e, "Fail operation");
-                    }
-                }, cancellationToken)
-            );
+
+                    _logger.LogError(e, "Fail operation");
+                }
+            }, cancellationToken);
         }
     }
 
