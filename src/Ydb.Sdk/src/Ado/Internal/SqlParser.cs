@@ -232,7 +232,7 @@ internal static class SqlParser
                         return startToken; // rollback parse IN LIST
                     }
 
-                    yql.Append(listStartToken > startToken ? sql[startToken..listStartToken] : ' ');
+                    yql.Append(listStartToken > startToken ? sql[startToken .. listStartToken] : ' ');
                     var paramListName = sqlParamsBuilder.AddListPrimitiveParams(findNameParams);
                     yql.Append(paramListName);
 
@@ -273,7 +273,7 @@ internal static class SqlParser
             throw new YdbException($"Have empty name parameter, invalid SQL [position: {prevToken}]");
         }
 
-        return ($"${sql[prevToken..curToken]}", curToken);
+        return ($"${sql[prevToken .. curToken]}", curToken);
     }
 
     private static bool IsSqlIdentifierChar(this char c) => char.IsLetterOrDigit(c) || c == '_';
