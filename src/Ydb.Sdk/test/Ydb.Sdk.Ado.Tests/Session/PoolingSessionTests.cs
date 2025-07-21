@@ -32,7 +32,7 @@ public class PoolingSessionTests
         ).ReturnsAsync(_mockAttachStream.Object);
         _mockAttachStream.Setup(stream => stream.Dispose());
         _poolingSessionFactory = new PoolingSessionFactory(_mockIDriver.Object, settings, TestUtils.LoggerFactory);
-        _poolingSessionSource = new PoolingSessionSource(_mockIDriver.Object, _poolingSessionFactory, settings);
+        _poolingSessionSource = new PoolingSessionSource(_poolingSessionFactory, settings);
     }
 
     [Theory]
