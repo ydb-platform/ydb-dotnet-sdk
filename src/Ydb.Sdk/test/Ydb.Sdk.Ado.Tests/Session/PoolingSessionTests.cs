@@ -47,13 +47,7 @@ public class PoolingSessionTests
         bool isError)
     {
         SetupSuccessCreateSession();
-        var tcsSecondMoveAttachStream = new TaskCompletionSource<bool>();
-
-        _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(CancellationToken.None))
-            .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsSecondMoveAttachStream.Task));
-        _mockAttachStream.SetupSequence(attachStream => attachStream.Current)
-            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success });
+        var tcsSecondMoveAttachStream = SetupAttachStream();
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         Assert.True(session.IsBroken);
         await session.Open(CancellationToken.None);
@@ -269,7 +263,7 @@ public class PoolingSessionTests
     {
         var tcsSecondMoveAttachStream = new TaskCompletionSource<bool>();
 
-        _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(CancellationToken.None))
+        _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsSecondMoveAttachStream.Task));
         _mockAttachStream.SetupSequence(attachStream => attachStream.Current)

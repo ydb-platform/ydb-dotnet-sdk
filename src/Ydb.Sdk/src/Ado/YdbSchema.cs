@@ -3,8 +3,11 @@ using System.Data.Common;
 using System.Globalization;
 using Ydb.Scheme;
 using Ydb.Scheme.V1;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Schema;
 using Ydb.Sdk.Services.Table;
+using Ydb.Table;
+using Ydb.Table.V1;
 
 namespace Ydb.Sdk.Ado;
 
@@ -59,10 +62,28 @@ internal static class YdbSchema
     {
         try
         {
-            var describeResponse = await ydbConnection.Session
-                .DescribeTable(WithSuffix(ydbConnection.Database) + tableName, describeTableSettings);
+            describeTableSettings ??= new DescribeTableSettings();
 
-            return new YdbTable(tableName, describeResponse);
+            var describeResponse = await ydbConnection.Session.Driver.UnaryCall(
+                TableService.DescribeTableMethod,
+                new DescribeTableRequest
+                {
+                    Path = WithSuffix(ydbConnection.Database) + tableName,
+                    IncludeTableStats = describeTableSettings.IncludeTableStats,
+                    IncludePartitionStats = describeTableSettings.IncludePartitionStats,
+                    IncludeShardKeyBounds = describeTableSettings.IncludeShardKeyBounds
+                },
+                describeTableSettings
+            );
+
+            if (describeResponse.Operation.Status.IsNotSuccess())
+            {
+                throw YdbException.FromServer(describeResponse.Operation.Status, describeResponse.Operation.Issues);
+            }
+
+            var describeResult = describeResponse.Operation.Result.Unpack<DescribeTableResult>();
+
+            return new YdbTable(tableName, describeResult);
         }
         catch (YdbException e)
         {
@@ -241,31 +262,20 @@ internal static class YdbSchema
         string? tableType,
         Action<YdbTable, string> appendInTable)
     {
-        try
-        {
-            var describeResponse = await ydbConnection.Session
-                .DescribeTable(WithSuffix(ydbConnection.Database) + tableName, describeTableSettings);
-            var ydbTable = new YdbTable(tableName, describeResponse);
+        var ydbTable = await DescribeTable(ydbConnection, tableName, describeTableSettings);
 
-            var type = ydbTable.IsSystem
-                ? "SYSTEM_TABLE"
-                : ydbTable.Type switch
-                {
-                    YdbTable.TableType.Table => "TABLE",
-                    YdbTable.TableType.ColumnTable => "COLUMN_TABLE",
-                    YdbTable.TableType.ExternalTable => "EXTERNAL_TABLE",
-                    _ => throw new ArgumentOutOfRangeException(nameof(tableType))
-                };
-            if (type.IsPattern(tableType))
+        var type = ydbTable.IsSystem
+            ? "SYSTEM_TABLE"
+            : ydbTable.Type switch
             {
-                appendInTable(ydbTable, type);
-            }
-        }
-        catch (YdbException e)
+                YdbTable.TableType.Table => "TABLE",
+                YdbTable.TableType.ColumnTable => "COLUMN_TABLE",
+                YdbTable.TableType.ExternalTable => "EXTERNAL_TABLE",
+                _ => throw new ArgumentOutOfRangeException(nameof(tableType))
+            };
+        if (type.IsPattern(tableType))
         {
-            ydbConnection.OnNotSuccessStatusCode(e.Code);
-
-            throw;
+            appendInTable(ydbTable, type);
         }
     }
 
