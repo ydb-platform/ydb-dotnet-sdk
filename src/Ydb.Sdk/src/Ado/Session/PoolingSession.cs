@@ -20,7 +20,7 @@ internal class PoolingSession : IPoolingSession
     private readonly CancellationTokenSource _attachStreamLifecycleCts = new();
 
     private volatile bool _isBroken = true;
-    private volatile bool _isBadSession = false;
+    private volatile bool _isBadSession;
 
     private readonly bool _disableServerBalancer;
 
