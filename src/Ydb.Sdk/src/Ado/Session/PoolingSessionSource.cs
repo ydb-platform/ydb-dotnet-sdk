@@ -1,8 +1,3 @@
-// This file contains session pooling algorithms adapted from Npgsql
-// Original source: https://github.com/npgsql/npgsql
-// Copyright (c) 2002-2025, Npgsql
-// Licence https://github.com/npgsql/npgsql?tab=PostgreSQL-1-ov-file
-
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
@@ -92,44 +87,33 @@ internal sealed class PoolingSessionSource : ISessionSource<IPoolingSession>
 
         var finalToken = ctsGetSession.Token;
 
-        try
-        {
-            var session = await OpenNewSession(finalToken).ConfigureAwait(false);
-            if (session != null)
-                return session;
+        var session = await OpenNewSession(finalToken).ConfigureAwait(false);
+        if (session != null)
+            return session;
 
-            while (true)
+        while (true)
+        {
+            session = await _idleSessionReader.ReadAsync(finalToken).ConfigureAwait(false);
+
+            if (CheckIdleSession(session))
             {
-                session = await _idleSessionReader.ReadAsync(finalToken).ConfigureAwait(false);
-
-                if (CheckIdleSession(session))
-                {
-                    return session;
-                }
-
-                // If we're here, our waiting attempt on the idle session channel was released with a null
-                // (or bad session), or we're in sync mode. Check again if a new idle session has appeared since we last checked.
-                if (TryGetIdleSession(out session))
-                {
-                    return session;
-                }
-
-                // We might have closed a session in the meantime and no longer be at max capacity
-                // so try to open a new session and if that fails, loop again.
-                session = await OpenNewSession(finalToken).ConfigureAwait(false);
-                if (session != null)
-                {
-                    return session;
-                }
+                return session;
             }
-        }
-        catch (OperationCanceledException e)
-        {
-            throw new YdbException(StatusCode.Cancelled,
-                $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
-                $"(currently {_maxSessionSize}) or 'CreateSessionTimeout' " +
-                $"(currently {_createSessionTimeout} seconds) in your connection string.", e
-            );
+
+            // If we're here, our waiting attempt on the idle session channel was released with a null
+            // (or bad session), or we're in sync mode. Check again if a new idle session has appeared since we last checked.
+            if (TryGetIdleSession(out session))
+            {
+                return session;
+            }
+
+            // We might have closed a session in the meantime and no longer be at max capacity
+            // so try to open a new session and if that fails, loop again.
+            session = await OpenNewSession(finalToken).ConfigureAwait(false);
+            if (session != null)
+            {
+                return session;
+            }
         }
     }
 

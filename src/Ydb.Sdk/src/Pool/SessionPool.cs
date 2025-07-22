@@ -57,6 +57,8 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             if (session != null) // not active
             {
                 Logger.LogDebug("Session[{Id}] isn't active, creating new session", session.SessionId);
+
+                _ = DeleteSession(session);
             }
 
             try
@@ -149,6 +151,10 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             {
                 _idleSessions.Enqueue(session);
             }
+            else
+            {
+                _ = DeleteSession(session);
+            }
         }
         finally
         {
@@ -162,10 +168,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
     {
         try
         {
-            if (session.IsActive)
-            {
-                await session.DeleteSession();
-            }
+            await session.DeleteSession();
         }
         catch (YdbException e)
         {

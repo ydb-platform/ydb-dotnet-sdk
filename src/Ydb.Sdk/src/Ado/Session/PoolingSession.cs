@@ -15,17 +15,19 @@ internal class PoolingSession : IPoolingSession
     private static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(5);
     private static readonly CreateSessionRequest CreateSessionRequest = new();
 
-    private readonly IDriver _driver;
     private readonly PoolingSessionSource _poolingSessionSource;
     private readonly ILogger<PoolingSession> _logger;
+    private readonly CancellationTokenSource _attachStreamLifecycleCts = new();
 
     private volatile bool _isBroken = true;
+    private volatile bool _isBadSession;
 
     private readonly bool _disableServerBalancer;
 
     private string SessionId { get; set; } = string.Empty;
     private long NodeId { get; set; }
 
+    public IDriver Driver { get; }
     public bool IsBroken => _isBroken;
 
     internal PoolingSession(
@@ -35,10 +37,10 @@ internal class PoolingSession : IPoolingSession
         ILogger<PoolingSession> logger
     )
     {
-        _driver = driver;
         _poolingSessionSource = poolingSessionSource;
         _disableServerBalancer = disableServerBalancer;
         _logger = logger;
+        Driver = driver;
     }
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
@@ -60,7 +62,7 @@ internal class PoolingSession : IPoolingSession
         };
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        return _driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
+        return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
     public async Task CommitTransaction(
@@ -68,7 +70,7 @@ internal class PoolingSession : IPoolingSession
         CancellationToken cancellationToken = default
     )
     {
-        var response = await _driver.UnaryCall(
+        var response = await Driver.UnaryCall(
             QueryService.CommitTransactionMethod,
             new CommitTransactionRequest { SessionId = SessionId, TxId = txId },
             new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId }
@@ -85,7 +87,7 @@ internal class PoolingSession : IPoolingSession
         CancellationToken cancellationToken = default
     )
     {
-        var response = await _driver.UnaryCall(
+        var response = await Driver.UnaryCall(
             QueryService.RollbackTransactionMethod,
             new RollbackTransactionRequest { SessionId = SessionId, TxId = txId },
             new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId }
@@ -99,6 +101,8 @@ internal class PoolingSession : IPoolingSession
 
     public void OnNotSuccessStatusCode(StatusCode statusCode)
     {
+        _isBadSession = _isBadSession || statusCode is StatusCode.BadSession;
+
         if (statusCode is
             StatusCode.BadSession or
             StatusCode.SessionBusy or
@@ -121,7 +125,7 @@ internal class PoolingSession : IPoolingSession
             requestSettings.ClientCapabilities.Add(SessionBalancer);
         }
 
-        var response = await _driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest, requestSettings);
+        var response = await Driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest, requestSettings);
 
         if (response.Status.IsNotSuccess())
         {
@@ -138,7 +142,7 @@ internal class PoolingSession : IPoolingSession
         {
             try
             {
-                using var stream = await _driver.ServerStreamCall(
+                using var stream = await Driver.ServerStreamCall(
                     QueryService.AttachSessionMethod,
                     new AttachSessionRequest { SessionId = SessionId },
                     new GrpcRequestSettings { NodeId = NodeId }
@@ -161,10 +165,12 @@ internal class PoolingSession : IPoolingSession
 
                 completeTask.SetResult();
 
+                var lifecycleAttachToken = _attachStreamLifecycleCts.Token;
+
                 try
                 {
                     // ReSharper disable once MethodSupportsCancellation
-                    while (await stream.MoveNextAsync())
+                    while (await stream.MoveNextAsync(lifecycleAttachToken))
                     {
                         var sessionState = stream.Current;
 
@@ -215,14 +221,16 @@ internal class PoolingSession : IPoolingSession
     {
         try
         {
-            if (_isBroken)
+            _isBroken = true;
+            _attachStreamLifecycleCts.CancelAfter(DeleteSessionTimeout);
+
+            if (_isBadSession)
             {
                 return;
             }
 
-            _isBroken = true;
-
-            var deleteSessionResponse = await _driver.UnaryCall(
+            _isBadSession = true;
+            var deleteSessionResponse = await Driver.UnaryCall(
                 QueryService.DeleteSessionMethod,
                 new DeleteSessionRequest { SessionId = SessionId },
                 new GrpcRequestSettings { TransportTimeout = DeleteSessionTimeout, NodeId = NodeId }

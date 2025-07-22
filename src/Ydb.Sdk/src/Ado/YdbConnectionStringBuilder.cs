@@ -25,15 +25,15 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     // Init default connection string
     private void InitDefaultValues()
     {
-        _host = YdbAdoDefaultSettings.Host;
-        _port = YdbAdoDefaultSettings.Port;
-        _database = YdbAdoDefaultSettings.Database;
+        _host = "localhost";
+        _port = 2136;
+        _database = "/local";
         _minSessionPool = 0;
         _maxSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
         _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
         _sessionIdleTimeout = 300;
         _sessionPruningInterval = 10;
-        _useTls = YdbAdoDefaultSettings.UseTls;
+        _useTls = false;
         _connectTimeout = GrpcDefaultSettings.ConnectTimeoutSeconds;
         _keepAlivePingDelay = GrpcDefaultSettings.KeepAlivePingSeconds;
         _keepAlivePingTimeout = GrpcDefaultSettings.KeepAlivePingTimeoutSeconds;

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Query;
 
@@ -9,7 +10,7 @@ internal static class PoolManager
     private static readonly SemaphoreSlim SemaphoreSlim = new(1); // async mutex
     private static readonly ConcurrentDictionary<string, SessionPool> Pools = new();
 
-    internal static async Task<Services.Query.Session> GetSession(
+    internal static async Task<ISession> GetSession(
         YdbConnectionStringBuilder connectionString,
         CancellationToken cancellationToken
     )

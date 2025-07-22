@@ -3,11 +3,9 @@ using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Pool;
-using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
-using Ydb.Table;
-using Ydb.Table.V1;
 using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 using CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 using DeleteSessionRequest = Ydb.Query.DeleteSessionRequest;
@@ -141,10 +139,8 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
     protected override ValueTask DisposeDriver() => _disposingDriver ? _driver.DisposeAsync() : default;
 }
 
-internal class Session : SessionBase<Session>
+internal class Session : SessionBase<Session>, ISession
 {
-    internal IDriver Driver { get; }
-
     internal Session(
         IDriver driver,
         SessionPool<Session> sessionPool,
@@ -156,20 +152,21 @@ internal class Session : SessionBase<Session>
         Driver = driver;
     }
 
-    internal ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
+    public IDriver Driver { get; }
+
+    public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
-        Dictionary<string, YdbValue>? parameters,
-        ExecuteQuerySettings? settings,
+        Dictionary<string, YdbValue> parameters,
+        GrpcRequestSettings settings,
         TransactionControl? txControl)
     {
-        parameters ??= new Dictionary<string, YdbValue>();
-        settings = MakeGrpcRequestSettings(settings ?? new ExecuteQuerySettings());
+        settings = MakeGrpcRequestSettings(settings);
 
         var request = new ExecuteQueryRequest
         {
             SessionId = SessionId,
             ExecMode = ExecMode.Execute,
-            QueryContent = new QueryContent { Text = query, Syntax = (Ydb.Query.Syntax)settings.Syntax },
+            QueryContent = new QueryContent { Text = query, Syntax = Ydb.Query.Syntax.YqlV1 },
             StatsMode = StatsMode.None,
             TxControl = txControl
         };
@@ -179,7 +176,13 @@ internal class Session : SessionBase<Session>
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    internal async Task CommitTransaction(string txId, CancellationToken cancellationToken = default)
+    public bool IsBroken => !IsActive;
+
+    public new void OnNotSuccessStatusCode(StatusCode code) => base.OnNotSuccessStatusCode(code);
+
+    public void Close() => Release();
+
+    public async Task CommitTransaction(string txId, CancellationToken cancellationToken = default)
     {
         var settings = MakeGrpcRequestSettings(new GrpcRequestSettings { CancellationToken = cancellationToken });
 
@@ -192,7 +195,7 @@ internal class Session : SessionBase<Session>
         }
     }
 
-    internal async Task RollbackTransaction(string txId, CancellationToken cancellationToken = default)
+    public async Task RollbackTransaction(string txId, CancellationToken cancellationToken = default)
     {
         var settings = MakeGrpcRequestSettings(new GrpcRequestSettings { CancellationToken = cancellationToken });
 
@@ -203,30 +206,6 @@ internal class Session : SessionBase<Session>
         {
             throw YdbException.FromServer(response.Status, response.Issues);
         }
-    }
-
-    internal async Task<DescribeTableResult> DescribeTable(string path, DescribeTableSettings? settings = null)
-    {
-        settings = MakeGrpcRequestSettings(settings ?? new DescribeTableSettings());
-
-        var response = await Driver.UnaryCall(
-            TableService.DescribeTableMethod,
-            new DescribeTableRequest
-            {
-                Path = path,
-                IncludeTableStats = settings.IncludeTableStats,
-                IncludePartitionStats = settings.IncludePartitionStats,
-                IncludeShardKeyBounds = settings.IncludeShardKeyBounds
-            },
-            settings
-        );
-
-        if (response.Operation.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(response.Operation.Status, response.Operation.Issues);
-        }
-
-        return response.Operation.Result.Unpack<DescribeTableResult>();
     }
 
     internal override async Task DeleteSession()

@@ -1,3 +1,6 @@
+- Optimization: On BadSession, do not invoke the `DeleteSession()` method.
+- Canceling AttachStream after calling the `DeleteSession` method.
+- Fixed bug: fixed issue where session was not deleted (`ClientTransportTimeout`).
 - Fixed bug: Grpc.Core.StatusCode.Cancelled was mapped to server's Canceled status.
 - ADO.NET: PoolingSessionSource 2.0 based on Npgsql pooling algorithm.
 - Added new ADO.NET options:

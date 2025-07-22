@@ -6,13 +6,12 @@ namespace Ydb.Sdk.Ado.Session;
 
 internal class ImplicitSession : ISession
 {
-    private readonly IDriver _driver;
-
     public ImplicitSession(IDriver driver)
     {
-        _driver = driver;
+        Driver = driver;
     }
 
+    public IDriver Driver { get; }
     public bool IsBroken => false;
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
@@ -36,7 +35,7 @@ internal class ImplicitSession : ISession
         };
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
-        return _driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
+        return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
     public Task CommitTransaction(string txId, CancellationToken cancellationToken = default) =>
