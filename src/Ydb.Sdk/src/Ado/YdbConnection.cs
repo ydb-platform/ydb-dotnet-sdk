@@ -92,8 +92,18 @@ public sealed class YdbConnection : DbConnection
     public override async Task OpenAsync(CancellationToken cancellationToken)
     {
         ThrowIfConnectionOpen();
-
-        Session = await PoolManager.GetSession(ConnectionStringBuilder, cancellationToken);
+        try
+        {
+            Session = await PoolManager.GetSession(ConnectionStringBuilder, cancellationToken);
+        }
+        catch (OperationCanceledException e)
+        {
+            throw new YdbException(StatusCode.Cancelled,
+                $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
+                $"(currently {ConnectionStringBuilder.MaxSessionPool}) or 'CreateSessionTimeout' " +
+                $"(currently {ConnectionStringBuilder.CreateSessionTimeout} seconds) in your connection string.", e
+            );
+        }
 
         OnStateChange(ClosedToOpenEventArgs);
 
