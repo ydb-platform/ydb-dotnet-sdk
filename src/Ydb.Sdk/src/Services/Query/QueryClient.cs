@@ -61,7 +61,8 @@ public class QueryClient : IAsyncDisposable
         Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
         ExecuteQuerySettings? settings = null) =>
         _sessionPool.ExecOnSession(async session => await onStream(new ExecuteQueryStream(
-            await session.ExecuteQuery(query, parameters, settings, txMode.TransactionControl())))
+            await session.ExecuteQuery(query, parameters ?? new Dictionary<string, YdbValue>(),
+                settings ?? new GrpcRequestSettings(), txMode.TransactionControl())))
         );
 
     public Task Stream(string query, Func<ExecuteQueryStream, Task> onStream,

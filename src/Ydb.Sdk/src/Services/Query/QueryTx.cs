@@ -28,10 +28,13 @@ public class QueryTx
     }
 
     public async ValueTask<ExecuteQueryStream> Stream(string query, Dictionary<string, YdbValue>? parameters = null,
-        bool commit = false, ExecuteQuerySettings? settings = null) =>
-        new(
-            await _session.ExecuteQuery(query, parameters, settings, TxControl(commit)), txId => TxId = txId
-        );
+        bool commit = false, ExecuteQuerySettings? settings = null) => new(await _session.ExecuteQuery(
+            query,
+            parameters ?? new Dictionary<string, YdbValue>(),
+            settings ?? new GrpcRequestSettings(),
+            TxControl(commit)
+        ), txId => TxId = txId
+    );
 
     public async Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRows(string query,
         Dictionary<string, YdbValue>? parameters = null, bool commit = false, ExecuteQuerySettings? settings = null)

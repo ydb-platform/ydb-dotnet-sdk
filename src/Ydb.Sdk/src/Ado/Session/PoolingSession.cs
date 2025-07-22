@@ -1,8 +1,3 @@
-// This file contains session pooling algorithms adapted from Npgsql
-// Original source: https://github.com/npgsql/npgsql
-// Copyright (c) 2002-2025, Npgsql
-// Licence https://github.com/npgsql/npgsql?tab=PostgreSQL-1-ov-file
-
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
@@ -25,6 +20,7 @@ internal class PoolingSession : IPoolingSession
     private readonly CancellationTokenSource _attachStreamLifecycleCts = new();
 
     private volatile bool _isBroken = true;
+    private volatile bool _isBadSession = false;
 
     private readonly bool _disableServerBalancer;
 
@@ -105,6 +101,8 @@ internal class PoolingSession : IPoolingSession
 
     public void OnNotSuccessStatusCode(StatusCode statusCode)
     {
+        _isBadSession = _isBadSession || statusCode is StatusCode.BadSession;
+
         if (statusCode is
             StatusCode.BadSession or
             StatusCode.SessionBusy or
@@ -226,6 +224,12 @@ internal class PoolingSession : IPoolingSession
             _isBroken = true;
             _attachStreamLifecycleCts.CancelAfter(DeleteSessionTimeout);
 
+            if (_isBadSession)
+            {
+                return;
+            }
+
+            _isBadSession = true;
             var deleteSessionResponse = await Driver.UnaryCall(
                 QueryService.DeleteSessionMethod,
                 new DeleteSessionRequest { SessionId = SessionId },

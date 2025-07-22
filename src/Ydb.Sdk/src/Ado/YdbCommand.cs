@@ -3,7 +3,6 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Ydb.Sdk.Ado.Internal;
-using Ydb.Sdk.Services.Query;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;

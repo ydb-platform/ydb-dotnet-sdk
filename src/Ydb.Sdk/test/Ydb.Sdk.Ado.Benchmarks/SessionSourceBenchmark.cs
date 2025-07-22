@@ -93,7 +93,7 @@ internal class MockSessionFactory : IPoolingSessionFactory
 internal class PoolingMockSession(PoolingSessionSource source) : IPoolingSession
 {
     public IDriver Driver => throw new NotImplementedException();
-    
+
     public bool IsBroken => false;
 
     public void Close() => source.Return(this);

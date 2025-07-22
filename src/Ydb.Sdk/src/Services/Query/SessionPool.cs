@@ -18,15 +18,14 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 {
     private static readonly CreateSessionRequest CreateSessionRequest = new();
 
+    private readonly IDriver _driver;
     private readonly bool _disposingDriver;
     private readonly ILogger<Session> _loggerSession;
-
-    internal readonly IDriver Driver;
 
     internal SessionPool(IDriver driver, SessionPoolConfig sessionPoolConfig)
         : base(driver.LoggerFactory.CreateLogger<SessionPool>(), sessionPoolConfig)
     {
-        Driver = driver;
+        _driver = driver;
         _disposingDriver = sessionPoolConfig.DisposeDriver;
         _loggerSession = driver.LoggerFactory.CreateLogger<Session>();
     }
@@ -45,7 +44,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             requestSettings.ClientCapabilities.Add("session-balancer");
         }
 
-        var response = await Driver.UnaryCall(
+        var response = await _driver.UnaryCall(
             QueryService.CreateSessionMethod,
             CreateSessionRequest,
             requestSettings
@@ -58,13 +57,13 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         var sessionId = response.SessionId;
         var nodeId = response.NodeId;
 
-        var session = new Session(Driver, this, sessionId, nodeId, _loggerSession);
+        var session = new Session(_driver, this, sessionId, nodeId, _loggerSession);
 
         _ = Task.Run(async () =>
         {
             try
             {
-                using var stream = await Driver.ServerStreamCall(
+                using var stream = await _driver.ServerStreamCall(
                     QueryService.AttachSessionMethod,
                     new AttachSessionRequest { SessionId = sessionId },
                     new GrpcRequestSettings { NodeId = nodeId }
@@ -137,7 +136,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
         return session;
     }
 
-    protected override ValueTask DisposeDriver() => _disposingDriver ? Driver.DisposeAsync() : default;
+    protected override ValueTask DisposeDriver() => _disposingDriver ? _driver.DisposeAsync() : default;
 }
 
 internal class Session : SessionBase<Session>, ISession
@@ -156,8 +155,8 @@ internal class Session : SessionBase<Session>, ISession
     public IDriver Driver { get; }
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
-        string query, 
-        Dictionary<string, YdbValue> parameters, 
+        string query,
+        Dictionary<string, YdbValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl)
     {

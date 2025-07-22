@@ -269,7 +269,7 @@ public class PoolingSessionTests
     {
         var tcsSecondMoveAttachStream = new TaskCompletionSource<bool>();
 
-        _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(CancellationToken.None))
+        _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true)
             .Returns(new ValueTask<bool>(tcsSecondMoveAttachStream.Task));
         _mockAttachStream.SetupSequence(attachStream => attachStream.Current)
