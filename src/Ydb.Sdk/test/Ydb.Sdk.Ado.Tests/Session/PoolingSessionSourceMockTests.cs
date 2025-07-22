@@ -39,21 +39,14 @@ internal class MockPoolingSessionFactory : IPoolingSessionFactory
         new MockPoolingSession(source, Interlocked.Increment(ref _sessionNum));
 }
 
-internal class MockPoolingSession : IPoolingSession
+internal class MockPoolingSession(PoolingSessionSource source, int sessionNum) : IPoolingSession
 {
-    private readonly PoolingSessionSource _source;
+    internal string SessionId { get; } = $"session_{sessionNum}";
 
-    internal string SessionId { get; }
-
-    public MockPoolingSession(PoolingSessionSource source, int sessionNum)
-    {
-        _source = source;
-        SessionId = $"session_{sessionNum}";
-    }
-
+    public IDriver Driver => throw new NotImplementedException();
     public bool IsBroken { get; set; }
 
-    public void Close() => _source.Return(this);
+    public void Close() => source.Return(this);
 
     public Task Open(CancellationToken cancellationToken) => Task.CompletedTask;
 

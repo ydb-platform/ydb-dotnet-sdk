@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Services.Query;
 using static System.Data.IsolationLevel;
 
@@ -24,7 +25,7 @@ public sealed class YdbConnection : DbConnection
         [param: AllowNull] init => _connectionStringBuilder = value;
     }
 
-    internal Services.Query.Session Session
+    internal ISession Session
     {
         get
         {
@@ -35,7 +36,7 @@ public sealed class YdbConnection : DbConnection
         private set => _session = value;
     }
 
-    private Services.Query.Session _session = null!;
+    private ISession _session = null!;
 
     public YdbConnection()
     {
@@ -124,7 +125,7 @@ public sealed class YdbConnection : DbConnection
         }
         finally
         {
-            await _session.Release();
+            _session.Close();
         }
     }
 
@@ -152,7 +153,7 @@ public sealed class YdbConnection : DbConnection
     {
         _session.OnNotSuccessStatusCode(code);
 
-        if (!_session.IsActive)
+        if (_session.IsBroken)
         {
             ConnectionState = ConnectionState.Broken;
         }

@@ -18,8 +18,11 @@ public class StressTestTank
         _logger = loggerFactory.CreateLogger<StressTestTank>();
         _settings = new YdbConnectionStringBuilder(config.ConnectionString)
         {
-            CredentialsProvider =
-                config.SaFilePath != null ? new ServiceAccountProvider(config.SaFilePath, loggerFactory) : null
+            LoggerFactory = loggerFactory,
+            CredentialsProvider = config.SaFilePath != null
+                ? new ServiceAccountProvider(config.SaFilePath, loggerFactory)
+                : new MetadataProvider(loggerFactory),
+            ServerCertificates = YcCerts.GetYcServerCertificates()
         };
 
         ValidateConfig();
