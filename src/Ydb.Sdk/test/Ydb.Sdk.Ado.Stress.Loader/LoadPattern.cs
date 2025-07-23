@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Ado.Stress.Loader;
 
-public class LoadPattern(StressTestConfig config, ILogger logger)
+public class LoadPattern(StressConfig config, ILogger logger)
 {
     public async IAsyncEnumerable<int> GetLoadStepsAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default

@@ -39,7 +39,10 @@ public static class Cli
         "SQL query to execute during stress test"
     );
 
-    public static readonly RootCommand RootCommand = new("YDB ADO.NET Stress Test Tank - Variable Load Generator")
+    private static readonly Command StressLoadCommand = new(
+        "cycle",
+        "runs workload (read and write to table with sets RPS)"
+    )
     {
         ConnectionString,
         PeakRps,
@@ -53,14 +56,30 @@ public static class Cli
         TestQuery
     };
 
+    private static readonly Command LoadCommand = new(
+        "load",
+        "Load Mode (With PoolingSessionSource) vs (Without PoolingSessionSource)")
+    {
+        TotalTestTimeSeconds,
+        ConnectionString,
+        SaFilePath,
+        TestQuery
+    };
+
+    public static readonly RootCommand RootCommand = new("YDB ADO.NET Stress Test Tank - Variable Load Generator")
+    {
+        StressLoadCommand,
+        LoadCommand
+    };
+
     static Cli()
     {
-        RootCommand.SetHandler(async config =>
+        StressLoadCommand.SetHandler(async config =>
             {
-                var stressLoader = new StressTestTank(config);
-                await stressLoader.RunAsync();
+                var stressLoader = new StressLoadTank(config);
+                await stressLoader.Run();
             },
-            new ConfigBinder(
+            new StressConfigBinder(
                 ConnectionString,
                 PeakRps,
                 MediumRps,
@@ -73,10 +92,23 @@ public static class Cli
                 TestQuery
             )
         );
+
+        LoadCommand.SetHandler(async config =>
+            {
+                var loader = new LoadTank(config);
+                await loader.Run();
+            },
+            new LoadConfigBinder(
+                ConnectionString,
+                TotalTestTimeSeconds,
+                SaFilePath,
+                TestQuery
+            )
+        );
     }
 }
 
-public class ConfigBinder(
+public class StressConfigBinder(
     Argument<string> connectionString,
     Option<int> peakRps,
     Option<int> mediumRps,
@@ -87,9 +119,9 @@ public class ConfigBinder(
     Option<int> totalTestTimeSeconds,
     Option<string?> saFilePath,
     Option<string> testQuery
-) : BinderBase<StressTestConfig>
+) : BinderBase<StressConfig>
 {
-    protected override StressTestConfig GetBoundValue(BindingContext bindingContext) => new(
+    protected override StressConfig GetBoundValue(BindingContext bindingContext) => new(
         ConnectionString: bindingContext.ParseResult.GetValueForArgument(connectionString),
         PeakRps: bindingContext.ParseResult.GetValueForOption(peakRps),
         MediumRps: bindingContext.ParseResult.GetValueForOption(mediumRps),
@@ -103,7 +135,22 @@ public class ConfigBinder(
     );
 }
 
-public record StressTestConfig(
+public class LoadConfigBinder(
+    Argument<string> connectionString,
+    Option<int> totalTestTimeSeconds,
+    Option<string?> saFilePath,
+    Option<string> testQuery
+) : BinderBase<LoadConfig>
+{
+    protected override LoadConfig GetBoundValue(BindingContext bindingContext) => new(
+        bindingContext.ParseResult.GetValueForArgument(connectionString),
+        bindingContext.ParseResult.GetValueForOption(totalTestTimeSeconds),
+        bindingContext.ParseResult.GetValueForOption(saFilePath),
+        bindingContext.ParseResult.GetValueForOption(testQuery)!
+    );
+}
+
+public record StressConfig(
     string ConnectionString,
     int PeakRps,
     int MediumRps,
@@ -111,6 +158,13 @@ public record StressTestConfig(
     int PeakDurationSeconds,
     int MediumDurationSeconds,
     int MinDurationSeconds,
+    int TotalTestTimeSeconds,
+    string? SaFilePath,
+    string TestQuery
+);
+
+public record LoadConfig(
+    string ConnectionString,
     int TotalTestTimeSeconds,
     string? SaFilePath,
     string TestQuery
