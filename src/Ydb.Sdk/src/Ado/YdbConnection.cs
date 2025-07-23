@@ -1,7 +1,12 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Google.Protobuf;
+using Ydb.Formats;
+using Ydb.Operations;
+using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Services.Query;
+using Ydb.Table;
 using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;
@@ -49,6 +54,34 @@ public sealed class YdbConnection : DbConnection
     public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
     {
         ConnectionStringBuilder = connectionStringBuilder;
+    }
+    
+    public YdbBulkUpsertImporter<T> BeginBulkUpsert<T>(
+        string tablePath,
+        BulkUpsertOptions? options = null,
+        int maxBatchSizeBytes = 64 * 1024 * 1024) //64мб
+    {
+        return new YdbBulkUpsertImporter<T>(this, tablePath, options, maxBatchSizeBytes);
+    }
+
+    internal async Task BulkUpsertInternalAsync<T>(
+        string tablePath,
+        IReadOnlyCollection<T> rows,
+        BulkUpsertOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (CurrentTransaction is { Completed: false })
+            throw new InvalidOperationException("BulkUpsert does not support working within a transaction");
+        var req = new BulkUpsertRequest
+        {
+            Table = tablePath,
+            OperationParams = new OperationParams(),
+            Rows = TypedValueFactory.FromObjects(rows)
+        };
+
+        var resp = await Session.BulkUpsertAsync(req, cancellationToken).ConfigureAwait(false);
+        var status = Status.FromProto(resp.Operation.Status, resp.Operation.Issues);
+        status.EnsureSuccess();
     }
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)

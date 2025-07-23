@@ -231,4 +231,10 @@ internal class Session : SessionBase<Session>
             return e.Status;
         }
     }
+    
+    internal async Task<BulkUpsertResponse> BulkUpsertAsync(BulkUpsertRequest req, CancellationToken ct = default)
+    {
+        var settings = MakeGrpcRequestSettings(new GrpcRequestSettings { CancellationToken = ct });
+        return await Driver.UnaryCall(TableService.BulkUpsertMethod, req, settings);
+    }
 }

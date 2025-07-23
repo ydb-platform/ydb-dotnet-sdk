@@ -1,5 +1,6 @@
 #if NET7_0_OR_GREATER
 using System.Data.Common;
+using Ydb.Sdk.Ado.BulkUpsert;
 
 namespace Ydb.Sdk.Ado;
 
@@ -57,6 +58,19 @@ public class YdbDataSource : DbDataSource
             await ydbConnection.CloseAsync();
             throw;
         }
+    }
+    
+    /// <summary>
+    /// Асинхронно начинает потоковый bulk upsert через импортёр.
+    /// </summary>
+    public async Task<YdbBulkUpsertImporter<T>> BeginBulkUpsertAsync<T>(
+        string tablePath,
+        BulkUpsertOptions? options = null,
+        int maxBatchSizeBytes = 64 * 1024 * 1024,
+        CancellationToken cancellationToken = default)
+    {
+        var conn = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        return new YdbBulkUpsertImporter<T>(conn, tablePath, options, maxBatchSizeBytes);
     }
 
     public override string ConnectionString => _ydbConnectionStringBuilder.ConnectionString;
