@@ -142,7 +142,7 @@ public class LoadConfigBinder(
     Option<string> testQuery
 ) : BinderBase<LoadConfig>
 {
-    protected override LoadConfig GetBoundValue(BindingContext bindingContext) => new LoadConfig(
+    protected override LoadConfig GetBoundValue(BindingContext bindingContext) => new(
         bindingContext.ParseResult.GetValueForArgument(connectionString),
         bindingContext.ParseResult.GetValueForOption(totalTestTimeSeconds),
         bindingContext.ParseResult.GetValueForOption(saFilePath),
