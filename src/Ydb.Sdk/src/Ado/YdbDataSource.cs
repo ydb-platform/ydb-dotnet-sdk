@@ -60,9 +60,6 @@ public class YdbDataSource : DbDataSource
         }
     }
     
-    /// <summary>
-    /// Асинхронно начинает потоковый bulk upsert через импортёр.
-    /// </summary>
     public async Task<YdbBulkUpsertImporter<T>> BeginBulkUpsertAsync<T>(
         string tablePath,
         BulkUpsertOptions? options = null,

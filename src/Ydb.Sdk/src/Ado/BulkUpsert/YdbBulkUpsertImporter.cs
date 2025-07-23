@@ -28,9 +28,6 @@ namespace Ydb.Sdk.Ado
             _maxBatchSizeBytes = maxBatchSizeBytes;
         }
 
-        /// <summary>
-        /// Записывает одну строку. При достижении лимита буфера — автоматически отправляет батч.
-        /// </summary>
         public async Task WriteRowAsync(T row, CancellationToken cancellationToken = default)
         {
             if (_isCompleted)
@@ -38,7 +35,6 @@ namespace Ydb.Sdk.Ado
 
             _buffer.Add(row);
 
-            // Быстро оцениваем размер через сериализацию одного row в TypedValue
             var rowProto = TypedValueFactory.FromObjects(new[] { row });
             var rowSize = rowProto.CalculateSize();
 
@@ -50,9 +46,6 @@ namespace Ydb.Sdk.Ado
             }
         }
 
-        /// <summary>
-        /// Отправляет накопленные строки в YDB.
-        /// </summary>
         public async Task FlushAsync(CancellationToken cancellationToken = default)
         {
             if (_buffer.Count == 0)
@@ -64,9 +57,6 @@ namespace Ydb.Sdk.Ado
             _bufferSizeBytes = 0;
         }
 
-        /// <summary>
-        /// Завершает импорт: отправляет оставшиеся строки.
-        /// </summary>
         public async Task CompleteAsync(CancellationToken cancellationToken = default)
         {
             if (_isCompleted) return;

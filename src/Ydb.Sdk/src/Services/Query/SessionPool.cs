@@ -6,6 +6,8 @@ using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Value;
+using Ydb.Table;
+using Ydb.Table.V1;
 using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 using CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 using DeleteSessionRequest = Ydb.Query.DeleteSessionRequest;
