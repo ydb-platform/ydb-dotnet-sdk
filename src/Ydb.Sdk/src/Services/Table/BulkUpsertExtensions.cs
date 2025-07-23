@@ -1,5 +1,5 @@
-using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Operations;
+using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Client;
 using Ydb.Table;
 
@@ -11,9 +11,8 @@ public static class BulkUpsertExtensions
         this TableClient tableClient,
         string tablePath,
         IReadOnlyCollection<T> rows,
-        RetrySettings? retrySettings = null)
-    {
-        return await tableClient.SessionExec(
+        RetrySettings? retrySettings = null) =>
+        await tableClient.SessionExec(
             async session =>
             {
                 var req = new BulkUpsertRequest
@@ -27,5 +26,4 @@ public static class BulkUpsertExtensions
             },
             retrySettings
         );
-    }
 }

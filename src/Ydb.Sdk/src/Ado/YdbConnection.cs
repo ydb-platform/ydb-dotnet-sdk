@@ -82,7 +82,7 @@ public sealed class YdbConnection : DbConnection
             throw new InvalidOperationException("Underlying session does not support BulkUpsertAsync");
         }
     }
-    
+
     public YdbBulkUpsertImporter<T> BeginBulkUpsert<T>(
         string tablePath,
         BulkUpsertOptions? options = null,

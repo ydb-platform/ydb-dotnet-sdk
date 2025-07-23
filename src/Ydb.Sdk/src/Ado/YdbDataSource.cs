@@ -67,7 +67,7 @@ public class YdbDataSource : DbDataSource
         await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString);
 
     protected override void Dispose(bool disposing) => DisposeAsyncCore().AsTask().GetAwaiter().GetResult();
-    
+
     public async Task<YdbBulkUpsertImporter<T>> BeginBulkUpsertAsync<T>(
         string tablePath,
         BulkUpsertOptions? options = null,

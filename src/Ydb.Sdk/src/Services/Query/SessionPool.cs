@@ -228,7 +228,7 @@ internal class Session : SessionBase<Session>, ISession
             throw YdbException.FromServer(deleteSessionResponse.Status, deleteSessionResponse.Issues);
         }
     }
-    
+
     internal async Task<BulkUpsertResponse> BulkUpsertAsync(BulkUpsertRequest req, CancellationToken ct = default)
     {
         var settings = MakeGrpcRequestSettings(new GrpcRequestSettings { CancellationToken = ct });

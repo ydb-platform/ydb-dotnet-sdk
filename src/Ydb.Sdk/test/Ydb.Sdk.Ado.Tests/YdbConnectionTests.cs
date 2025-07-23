@@ -308,8 +308,8 @@ INSERT INTO {tableName}
 
     protected override async Task OnDisposeAsync() =>
         await YdbConnection.ClearPool(new YdbConnection(_connectionStringTls));
-    
-    public class TestEntity
+
+    private class TestEntity
     {
         public int Id { get; set; }
         public string Name { get; set; }
@@ -325,7 +325,7 @@ INSERT INTO {tableName}
         await using var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
 
-        using (var createCmd = conn.CreateCommand())
+        await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
 CREATE TABLE {tableName} (
@@ -348,14 +348,14 @@ CREATE TABLE {tableName} (
                 await importer.WriteRowAsync(row);
         }
 
-        using (var checkCmd = conn.CreateCommand())
+        await using (var checkCmd = conn.CreateCommand())
         {
             checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
             var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
             Assert.Equal(rows.Count, count);
         }
 
-        using (var dropCmd = conn.CreateCommand())
+        await using (var dropCmd = conn.CreateCommand())
         {
             dropCmd.CommandText = $"DROP TABLE {tableName}";
             await dropCmd.ExecuteNonQueryAsync();
@@ -372,7 +372,7 @@ CREATE TABLE {tableName} (
         await using var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
 
-        using (var createCmd = conn.CreateCommand())
+        await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
     CREATE TABLE {tableName} (
@@ -387,8 +387,8 @@ CREATE TABLE {tableName} (
 
         var firstRows = new List<TestEntity>
         {
-            new TestEntity { Id = 1, Name = "Alice" },
-            new TestEntity { Id = 2, Name = "Bob" }
+            new() { Id = 1, Name = "Alice" },
+            new() { Id = 2, Name = "Bob" }
         };
         await using (var importer = conn.BeginBulkUpsert<TestEntity>(absTablePath))
         {
@@ -398,8 +398,8 @@ CREATE TABLE {tableName} (
 
         var newRows = new List<TestEntity>
         {
-            new TestEntity { Id = 3, Name = "Charlie" },
-            new TestEntity { Id = 4, Name = "Diana" }
+            new() { Id = 3, Name = "Charlie" },
+            new() { Id = 4, Name = "Diana" }
         };
         await using (var importer = conn.BeginBulkUpsert<TestEntity>(absTablePath))
         {
@@ -407,11 +407,11 @@ CREATE TABLE {tableName} (
                 await importer.WriteRowAsync(row);
         }
 
-        using (var selectCmd = conn.CreateCommand())
+        await using (var selectCmd = conn.CreateCommand())
         {
             selectCmd.CommandText = $"SELECT Id, Name FROM {tableName}";
             var results = new Dictionary<int, string>();
-            using var reader = await selectCmd.ExecuteReaderAsync();
+            await using var reader = await selectCmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
                 results[reader.GetInt32(0)] = reader.GetString(1);
@@ -424,7 +424,7 @@ CREATE TABLE {tableName} (
             Assert.Equal("Diana", results[4]);
         }
 
-        using (var dropCmd = conn.CreateCommand())
+        await using (var dropCmd = conn.CreateCommand())
         {
             dropCmd.CommandText = $"DROP TABLE {tableName};";
             await dropCmd.ExecuteNonQueryAsync();
@@ -441,7 +441,7 @@ CREATE TABLE {tableName} (
         await using var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
 
-        using (var createCmd = conn.CreateCommand())
+        await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
 CREATE TABLE {tableName} (
@@ -466,14 +466,14 @@ CREATE TABLE {tableName} (
             await importer.WriteRowAsync(updated);
         }
 
-        using (var selectCmd = conn.CreateCommand())
+        await using (var selectCmd = conn.CreateCommand())
         {
             selectCmd.CommandText = $"SELECT Name FROM {tableName} WHERE Id = 1;";
             var name = (string)await selectCmd.ExecuteScalarAsync();
             Assert.Equal("Alice Updated", name);
         }
 
-        using (var dropCmd = conn.CreateCommand())
+        await using (var dropCmd = conn.CreateCommand())
         {
             dropCmd.CommandText = $"DROP TABLE {tableName};";
             await dropCmd.ExecuteNonQueryAsync();

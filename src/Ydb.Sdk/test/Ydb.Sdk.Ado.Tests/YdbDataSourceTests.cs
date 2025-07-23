@@ -56,7 +56,7 @@ public class YdbDataSourceTests : TestBase
         using var ydbConnection = _dataSource.OpenConnection();
         Assert.Equal(1, new YdbCommand(ydbConnection) { CommandText = "SELECT 1" }.ExecuteScalar());
     }
-    
+
     public class TestEntity
     {
         public int Id { get; set; }
@@ -68,7 +68,7 @@ public class YdbDataSourceTests : TestBase
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
         var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database.TrimEnd('/');
-        
+
         await using var conn = await _dataSource.OpenConnectionAsync();
 
         using (var createCmd = conn.CreateCommand())
@@ -136,8 +136,8 @@ CREATE TABLE {tableName} (
 
         var firstRows = new List<TestEntity>
         {
-            new TestEntity { Id = 1, Name = "Alice" },
-            new TestEntity { Id = 2, Name = "Bob" }
+            new() { Id = 1, Name = "Alice" },
+            new() { Id = 2, Name = "Bob" }
         };
 
         await using (var importer = await _dataSource.BeginBulkUpsertAsync<TestEntity>(absTablePath))
@@ -148,8 +148,8 @@ CREATE TABLE {tableName} (
 
         var newRows = new List<TestEntity>
         {
-            new TestEntity { Id = 3, Name = "Charlie" },
-            new TestEntity { Id = 4, Name = "Diana" }
+            new() { Id = 3, Name = "Charlie" },
+            new() { Id = 4, Name = "Diana" }
         };
 
         await using (var importer = await _dataSource.BeginBulkUpsertAsync<TestEntity>(absTablePath))

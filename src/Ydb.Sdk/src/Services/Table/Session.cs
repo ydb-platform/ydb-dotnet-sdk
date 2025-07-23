@@ -82,7 +82,7 @@ public partial class Session : SessionBase
             settings: settings
         );
     }
-    
+
     public Task<BulkUpsertResponse> BulkUpsertAsync(BulkUpsertRequest req, CancellationToken ct = default)
         => Driver.UnaryCall(TableService.BulkUpsertMethod, req, new GrpcRequestSettings { CancellationToken = ct });
 }
