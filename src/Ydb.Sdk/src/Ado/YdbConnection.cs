@@ -1,16 +1,18 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
-using Google.Protobuf;
-using Ydb.Formats;
 using Ydb.Operations;
 using Ydb.Sdk.Ado.BulkUpsert;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Services.Query;
 using Ydb.Table;
 using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;
 
+/// <summary>
+/// YDB database connection implementation.
+/// </summary>
 public sealed class YdbConnection : DbConnection
 {
     private static readonly StateChangeEventArgs ClosedToOpenEventArgs =
@@ -29,22 +31,20 @@ public sealed class YdbConnection : DbConnection
         [param: AllowNull] init => _connectionStringBuilder = value;
     }
 
-    internal Services.Query.Session Session
+    // ISession для абстракции!
+    internal ISession Session
     {
         get
         {
             ThrowIfConnectionClosed();
-
             return _session;
         }
         private set => _session = value;
     }
 
-    private Services.Query.Session _session = null!;
+    private ISession _session = null!;
 
-    public YdbConnection()
-    {
-    }
+    public YdbConnection() { }
 
     public YdbConnection(string connectionString)
     {
@@ -55,11 +55,11 @@ public sealed class YdbConnection : DbConnection
     {
         ConnectionStringBuilder = connectionStringBuilder;
     }
-    
+
     public YdbBulkUpsertImporter<T> BeginBulkUpsert<T>(
         string tablePath,
         BulkUpsertOptions? options = null,
-        int maxBatchSizeBytes = 64 * 1024 * 1024) //64мб
+        int maxBatchSizeBytes = 64 * 1024 * 1024) // 64 МБ
     {
         return new YdbBulkUpsertImporter<T>(this, tablePath, options, maxBatchSizeBytes);
     }
@@ -79,7 +79,11 @@ public sealed class YdbConnection : DbConnection
             Rows = TypedValueFactory.FromObjects(rows)
         };
 
-        var resp = await Session.BulkUpsertAsync(req, cancellationToken).ConfigureAwait(false);
+        // Важно: cast к Services.Query.Session, иначе BulkUpsertAsync не найдётся!
+        var sessionImpl = Session as Services.Query.Session
+                          ?? throw new InvalidOperationException("Underlying session does not support BulkUpsertAsync");
+
+        var resp = await sessionImpl.BulkUpsertAsync(req, cancellationToken).ConfigureAwait(false);
         var status = Status.FromProto(resp.Operation.Status, resp.Operation.Issues);
         status.EnsureSuccess();
     }
@@ -125,10 +129,10 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
+        // Получаем сессию через PoolManager, приводим к ISession (интерфейс)
         Session = await PoolManager.GetSession(ConnectionStringBuilder, cancellationToken);
 
         OnStateChange(ClosedToOpenEventArgs);
-
         ConnectionState = ConnectionState.Open;
     }
 
@@ -152,12 +156,14 @@ public sealed class YdbConnection : DbConnection
             }
 
             OnStateChange(OpenToClosedEventArgs);
-
             ConnectionState = ConnectionState.Closed;
         }
         finally
         {
-            await _session.Release();
+            if (_session is Services.Query.Session realSession)
+                await realSession.Release();
+            else
+                _session.Close();
         }
     }
 
@@ -166,11 +172,9 @@ public sealed class YdbConnection : DbConnection
         get => _connectionStringBuilder?.ConnectionString ?? string.Empty;
 #pragma warning disable CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
         set
-#pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
+#pragma warning restore CS8765
         {
             ThrowIfConnectionOpen();
-
-            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
             _connectionStringBuilder = value != null ? new YdbConnectionStringBuilder(value) : null;
         }
     }
@@ -185,7 +189,13 @@ public sealed class YdbConnection : DbConnection
     {
         _session.OnNotSuccessStatusCode(code);
 
-        if (!_session.IsActive)
+        // Проверяем статус сессии: если есть IsActive или IsBroken — корректно переключаем состояние подключения
+        if (_session is Services.Query.Session sessionImpl)
+        {
+            if (!sessionImpl.IsActive)
+                ConnectionState = ConnectionState.Broken;
+        }
+        else if (_session.IsBroken)
         {
             ConnectionState = ConnectionState.Broken;
         }
@@ -196,15 +206,14 @@ public sealed class YdbConnection : DbConnection
     internal bool IsBusy => LastReader is { IsOpen: true };
     internal YdbTransaction? CurrentTransaction { get; private set; }
 
-    public override string DataSource => string.Empty; // TODO
+    public override string DataSource => string.Empty; // TODO: указать DataSource
 
     public override string ServerVersion
     {
         get
         {
             ThrowIfConnectionClosed();
-
-            return string.Empty; // TODO ServerVersion
+            return string.Empty; // TODO: реализовать ServerVersion
         }
     }
 

@@ -1,37 +1,32 @@
 using System.Data;
 using Xunit;
-using Ydb.Sdk.Ado;
-using Ydb.Sdk.Tests.Ado.Specification;
-using Ydb.Sdk.Tests.Fixture;
+using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Value;
 
-namespace Ydb.Sdk.Tests.Ado;
+namespace Ydb.Sdk.Ado.Tests;
 
-public sealed class YdbConnectionTests : YdbAdoNetFixture
+public sealed class YdbConnectionTests : TestBase
 {
     private static readonly TemporaryTables<YdbConnectionTests> Tables = new();
 
-    private readonly string _connectionString;
+    private readonly string _connectionStringTls =
+        "Host=localhost;Port=2135;Database=/local;MaxSessionPool=10;RootCertificate=" +
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem");
 
     private volatile int _counter;
 
-    public YdbConnectionTests(YdbFactoryFixture fixture) : base(fixture)
-    {
-        _connectionString = "Host=localhost;Port=2135;Database=/local;MaxSessionPool=10;RootCertificate=" +
-                            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem");
-    }
 
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
         var tasks = GenerateTasks();
-        tasks.Add(YdbConnection.ClearPool(new YdbConnection(ConnectionString)));
+        tasks.Add(YdbConnection.ClearPool(CreateConnection()));
         tasks.AddRange(GenerateTasks());
         await Task.WhenAll(tasks);
         Assert.Equal(9900, _counter);
 
         tasks = GenerateTasks();
-        tasks.Add(YdbConnection.ClearPool(new YdbConnection(ConnectionString)));
+        tasks.Add(YdbConnection.ClearPool(CreateConnection()));
         await Task.WhenAll(tasks);
         Assert.Equal(14850, _counter);
     }
@@ -55,7 +50,7 @@ public sealed class YdbConnectionTests : YdbAdoNetFixture
     [Fact]
     public async Task TlsSettings_WhenUseGrpcs_ReturnValidConnection()
     {
-        await using var ydbConnection = new YdbConnection(_connectionString);
+        await using var ydbConnection = new YdbConnection(_connectionStringTls);
         await ydbConnection.OpenAsync();
         var command = ydbConnection.CreateCommand();
         command.CommandText = Tables.CreateTables;
@@ -312,22 +307,22 @@ INSERT INTO {tableName}
     }).ToList();
 
     protected override async Task OnDisposeAsync() =>
-        await YdbConnection.ClearPool(new YdbConnection(_connectionString));
+        await YdbConnection.ClearPool(new YdbConnection(_connectionStringTls));
     
     public class TestEntity
     {
         public int Id { get; set; }
         public string Name { get; set; }
     }
-    
+
     [Fact]
-    public async Task BulkUpsertImporter_HappyPath_Works_WithYdbConnection()
+    public async Task BulkUpsertImporter_HappyPath_Works()
     {
         var tableName = $"BulkTest_{Guid.NewGuid():N}";
-        var database = new YdbConnectionStringBuilder(_connectionString).Database?.TrimEnd('/');
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database?.TrimEnd('/');
         var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
-        await using var conn = new YdbConnection(_connectionString);
+        await using var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
 
         using (var createCmd = conn.CreateCommand())
@@ -366,15 +361,15 @@ CREATE TABLE {tableName} (
             await dropCmd.ExecuteNonQueryAsync();
         }
     }
-    
+
     [Fact]
-    public async Task BulkUpsert_InsertsNewRows_WithYdbConnection()
+    public async Task BulkUpsert_InsertsNewRows()
     {
         var tableName = $"BulkTest_{Guid.NewGuid():N}";
-        var database = new YdbConnectionStringBuilder(_connectionString).Database?.TrimEnd('/');
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database?.TrimEnd('/');
         var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
-        await using var conn = new YdbConnection(_connectionString);
+        await using var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
 
         using (var createCmd = conn.CreateCommand())
@@ -437,13 +432,13 @@ CREATE TABLE {tableName} (
     }
 
     [Fact]
-    public async Task BulkUpsert_UpdatesExistingRows_WithYdbConnection()
+    public async Task BulkUpsert_UpdatesExistingRows()
     {
         var tableName = $"BulkTest_{Guid.NewGuid():N}";
-        var database = new YdbConnectionStringBuilder(_connectionString).Database?.TrimEnd('/');
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database?.TrimEnd('/');
         var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
-        
-        await using var conn = new YdbConnection(_connectionString);
+
+        await using var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
 
         using (var createCmd = conn.CreateCommand())

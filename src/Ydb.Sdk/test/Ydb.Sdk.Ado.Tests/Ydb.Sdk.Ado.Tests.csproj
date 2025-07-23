@@ -9,6 +9,7 @@
 
     <ItemGroup>
         <ProjectReference Include="../../src/Ydb.Sdk.csproj"/>
+        <ProjectReference Include="..\Ydb.Sdk.Ado.Specification.Tests\Ydb.Sdk.Ado.Specification.Tests.csproj" />
     </ItemGroup>
 
     <ItemGroup>

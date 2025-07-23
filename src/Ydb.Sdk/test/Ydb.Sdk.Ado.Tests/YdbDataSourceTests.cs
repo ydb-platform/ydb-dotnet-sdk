@@ -64,7 +64,7 @@ public class YdbDataSourceTests : TestBase
     }
     
     [Fact]
-    public async Task BulkUpsertImporter_HappyPath_Works()
+    public async Task BulkUpsertImporter_HappyPath_Works_DS()
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
         var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database?.TrimEnd('/');
@@ -112,7 +112,7 @@ CREATE TABLE {tableName} (
     }
     
     [Fact]
-    public async Task BulkUpsertImporter_InsertsNewRows()
+    public async Task BulkUpsertImporter_InsertsNewRows_DS()
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
         var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database?.TrimEnd('/');
@@ -184,7 +184,7 @@ CREATE TABLE {tableName} (
     }
     
     [Fact]
-    public async Task BulkUpsertImporter_UpdatesExistingRows()
+    public async Task BulkUpsertImporter_UpdatesExistingRows_DS()
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
         var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database?.TrimEnd('/');
