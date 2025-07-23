@@ -1,8 +1,12 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Ydb.Operations;
+using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Services.Query;
+using Ydb.Sdk.Services.Table;
+using Ydb.Table;
 using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;
@@ -50,6 +54,53 @@ public sealed class YdbConnection : DbConnection
     public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
     {
         ConnectionStringBuilder = connectionStringBuilder;
+    }
+
+    internal async Task BulkUpsertInternalAsync<T>(
+        string tablePath,
+        IReadOnlyCollection<T> rows,
+        BulkUpsertOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (CurrentTransaction is { Completed: false })
+            throw new InvalidOperationException("BulkUpsert does not support working within a transaction");
+        var req = new BulkUpsertRequest
+        {
+            Table = tablePath,
+            OperationParams = new OperationParams(),
+            Rows = TypedValueFactory.FromObjects(rows)
+        };
+
+        if (Session is Ydb.Sdk.Services.Query.Session sessionImpl)
+        {
+            var resp = await sessionImpl.BulkUpsertAsync(req, cancellationToken).ConfigureAwait(false);
+            var status = Status.FromProto(resp.Operation.Status, resp.Operation.Issues);
+            status.EnsureSuccess();
+        }
+        else
+        {
+            throw new InvalidOperationException("Underlying session does not support BulkUpsertAsync");
+        }
+    }
+    
+    public YdbBulkUpsertImporter<T> BeginBulkUpsert<T>(
+        string tablePath,
+        BulkUpsertOptions? options = null,
+        RetrySettings? retrySettings = null,
+        int maxRowsInBatch = 1000)
+    {
+        ThrowIfConnectionClosed();
+        if (CurrentTransaction is { Completed: false })
+            throw new InvalidOperationException("BulkUpsert does not support working within a transaction");
+
+        var realSession = Session as Ydb.Sdk.Services.Query.Session
+                          ?? throw new InvalidOperationException("Underlying session does not support bulk upsert");
+
+        var driver = realSession.Driver as Ydb.Sdk.Driver
+                     ?? throw new InvalidOperationException("Session driver is not of expected type 'Ydb.Sdk.Driver'");
+
+        var tableClient = new TableClient(driver);
+        return new YdbBulkUpsertImporter<T>(tableClient, tablePath, options, retrySettings, maxRowsInBatch);
     }
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
