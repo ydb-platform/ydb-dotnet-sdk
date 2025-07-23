@@ -42,7 +42,7 @@ public class LoadTank
         var ctsStep1 = new CancellationTokenSource();
         var workers = new List<Task>();
         ctsStep1.CancelAfter(_config.TotalTestTimeSeconds * 500);
-        
+
         for (var i = 0; i < _settings.MaxSessionPool; i++)
         {
             workers.Add(Task.Run(async () =>
@@ -68,7 +68,7 @@ public class LoadTank
         workers.Clear();
         _logger.LogInformation("Phase 1 stopped shooting");
         await Task.Delay(10_000);
-        
+
         _logger.LogInformation("[{Now}] Starting shooting without PoolingSessionSource...", DateTime.Now);
         var ctsStep2 = new CancellationTokenSource();
         ctsStep2.CancelAfter(_config.TotalTestTimeSeconds * 500);
@@ -86,7 +86,7 @@ public class LoadTank
                         {
                             await ydbConnection.OpenAsync(ctsStep2.Token);
                         }
-                        
+
                         await new YdbCommand(ydbConnection) { CommandText = _config.TestQuery }
                             .ExecuteNonQueryAsync(ctsStep2.Token);
                     }
@@ -97,6 +97,7 @@ public class LoadTank
                 }
             }, ctsStep2.Token));
         }
+
         await Task.WhenAll(workers);
         _logger.LogInformation("Phase 2 stopped shooting");
     }
