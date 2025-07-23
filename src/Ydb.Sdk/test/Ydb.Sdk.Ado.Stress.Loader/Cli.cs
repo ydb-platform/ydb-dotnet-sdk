@@ -58,7 +58,7 @@ public static class Cli
 
     private static readonly Command LoadCommand = new(
         "load",
-        "runs workload (read and write to table with sets RPS)")
+        "Load Mode (With PoolingSessionSource) vs (Without PoolingSessionSource)")
     {
         TotalTestTimeSeconds,
         ConnectionString,
