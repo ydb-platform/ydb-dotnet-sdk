@@ -28,7 +28,7 @@ internal static class TypedValueFactory
         return list.GetProto();
     }
 
-    private static YdbValue ToYdbValue(object? value, global::System.Type clr)
+    private static YdbValue ToYdbValue(object? value, System.Type clr)
     {
         if (value is null) return MakeOptional(clr);
 
@@ -53,7 +53,7 @@ internal static class TypedValueFactory
         throw new NotSupportedException($"Type '{clr.FullName}' is not supported.");
     }
 
-    private static YdbValue MakeOptional(global::System.Type clr)
+    private static YdbValue MakeOptional(System.Type clr)
     {
         var t = Nullable.GetUnderlyingType(clr) ?? clr;
 

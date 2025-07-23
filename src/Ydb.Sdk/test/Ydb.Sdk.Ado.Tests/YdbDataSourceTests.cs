@@ -67,7 +67,7 @@ public class YdbDataSourceTests : TestBase
     public async Task BulkUpsertImporter_HappyPath_Works_DS()
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
-        var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database?.TrimEnd('/');
+        var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database.TrimEnd('/');
         
         await using var conn = await _dataSource.OpenConnectionAsync();
 
@@ -115,7 +115,7 @@ CREATE TABLE {tableName} (
     public async Task BulkUpsertImporter_InsertsNewRows_DS()
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
-        var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database?.TrimEnd('/');
+        var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database.TrimEnd('/');
 
         await using var conn = await _dataSource.OpenConnectionAsync();
 
@@ -187,7 +187,7 @@ CREATE TABLE {tableName} (
     public async Task BulkUpsertImporter_UpdatesExistingRows_DS()
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
-        var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database?.TrimEnd('/');
+        var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database.TrimEnd('/');
 
         await using var conn = await _dataSource.OpenConnectionAsync();
 

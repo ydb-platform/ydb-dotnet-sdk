@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using Ydb.Sdk.Client;
 using Ydb.Sdk.Services.Table;
 
 namespace Ydb.Sdk.Ado.BulkUpsert;

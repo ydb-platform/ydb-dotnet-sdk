@@ -319,7 +319,7 @@ INSERT INTO {tableName}
     public async Task BulkUpsertImporter_HappyPath_С()
     {
         var tableName = $"BulkTest_{Guid.NewGuid():N}";
-        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database?.TrimEnd('/');
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
         var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
         await using var conn = new YdbConnection(_connectionStringTls);
@@ -366,7 +366,7 @@ CREATE TABLE {tableName} (
     public async Task BulkUpsert_InsertsNewRows_С()
     {
         var tableName = $"BulkTest_{Guid.NewGuid():N}";
-        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database?.TrimEnd('/');
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
         var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
         await using var conn = new YdbConnection(_connectionStringTls);
@@ -435,7 +435,7 @@ CREATE TABLE {tableName} (
     public async Task BulkUpsert_UpdatesExistingRows_С()
     {
         var tableName = $"BulkTest_{Guid.NewGuid():N}";
-        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database?.TrimEnd('/');
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
         var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
         await using var conn = new YdbConnection(_connectionStringTls);

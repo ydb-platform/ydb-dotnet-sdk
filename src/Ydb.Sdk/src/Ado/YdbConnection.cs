@@ -71,7 +71,7 @@ public sealed class YdbConnection : DbConnection
             Rows = TypedValueFactory.FromObjects(rows)
         };
 
-        if (Session is Ydb.Sdk.Services.Query.Session sessionImpl)
+        if (Session is Services.Query.Session sessionImpl)
         {
             var resp = await sessionImpl.BulkUpsertAsync(req, cancellationToken).ConfigureAwait(false);
             var status = Status.FromProto(resp.Operation.Status, resp.Operation.Issues);
@@ -93,10 +93,10 @@ public sealed class YdbConnection : DbConnection
         if (CurrentTransaction is { Completed: false })
             throw new InvalidOperationException("BulkUpsert does not support working within a transaction");
 
-        var realSession = Session as Ydb.Sdk.Services.Query.Session
+        var realSession = Session as Services.Query.Session
                           ?? throw new InvalidOperationException("Underlying session does not support bulk upsert");
 
-        var driver = realSession.Driver as Ydb.Sdk.Driver
+        var driver = realSession.Driver as Driver
                      ?? throw new InvalidOperationException("Session driver is not of expected type 'Ydb.Sdk.Driver'");
 
         var tableClient = new TableClient(driver);

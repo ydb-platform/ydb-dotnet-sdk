@@ -77,10 +77,10 @@ public class YdbDataSource : DbDataSource
     {
         var conn = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
-        var realSession = conn.Session as Ydb.Sdk.Services.Query.Session
+        var realSession = conn.Session as Services.Query.Session
                           ?? throw new InvalidOperationException("Underlying session does not support bulk upsert");
 
-        var driver = realSession.Driver as Ydb.Sdk.Driver
+        var driver = realSession.Driver as Driver
                      ?? throw new InvalidOperationException("Session driver is not of expected type 'Ydb.Sdk.Driver'");
 
         var tableClient = new TableClient(driver);
