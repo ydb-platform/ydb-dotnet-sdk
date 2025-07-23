@@ -59,7 +59,7 @@ public sealed class YdbConnection : DbConnection
     public YdbBulkUpsertImporter<T> BeginBulkUpsert<T>(
         string tablePath,
         BulkUpsertOptions? options = null,
-        int maxBatchSizeBytes = 64 * 1024 * 1024) // 64 МБ
+        int maxBatchSizeBytes = 64 * 1024 * 1024) // 64 Mb
     {
         return new YdbBulkUpsertImporter<T>(this, tablePath, options, maxBatchSizeBytes);
     }
@@ -78,8 +78,7 @@ public sealed class YdbConnection : DbConnection
             OperationParams = new OperationParams(),
             Rows = TypedValueFactory.FromObjects(rows)
         };
-
-        // Важно: cast к Services.Query.Session, иначе BulkUpsertAsync не найдётся!
+        
         var sessionImpl = Session as Services.Query.Session
                           ?? throw new InvalidOperationException("Underlying session does not support BulkUpsertAsync");
 
@@ -206,14 +205,14 @@ public sealed class YdbConnection : DbConnection
     internal bool IsBusy => LastReader is { IsOpen: true };
     internal YdbTransaction? CurrentTransaction { get; private set; }
 
-    public override string DataSource => string.Empty; // TODO: указать DataSource
+    public override string DataSource => string.Empty; // TODO: DataSource
 
     public override string ServerVersion
     {
         get
         {
             ThrowIfConnectionClosed();
-            return string.Empty; // TODO: реализовать ServerVersion
+            return string.Empty; // TODO: ServerVersion
         }
     }
 
