@@ -2,7 +2,7 @@
 
 Variable load generator for testing YDB ADO.NET driver performance with step-like pattern.
 
-## Description
+## Description Cycle Mode
 
 The stress test "tank" generates cyclical load using a step-like pattern:
 
@@ -16,4 +16,14 @@ Peak RPS (1000) ─┐
                                                         └─ Medium RPS (100) ─┐
                                                                              │ Medium Duration
                                                                              └─ (cycle repeats)
+```
+
+## Description Load Mode
+
+```
+Loading With PoolingSourceSession
+
+sleep 10s
+
+Loading Without PoolingSourceSession
 ```

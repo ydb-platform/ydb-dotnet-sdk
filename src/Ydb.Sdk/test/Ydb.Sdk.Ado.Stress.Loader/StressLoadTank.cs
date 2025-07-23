@@ -4,18 +4,18 @@ using Ydb.Sdk.Yc;
 
 namespace Ydb.Sdk.Ado.Stress.Loader;
 
-public class StressTestTank
+public class StressLoadTank
 {
-    private readonly StressTestConfig _config;
-    private readonly ILogger<StressTestTank> _logger;
+    private readonly StressConfig _config;
+    private readonly ILogger<StressLoadTank> _logger;
     private readonly YdbConnectionStringBuilder _settings;
 
-    public StressTestTank(StressTestConfig config)
+    public StressLoadTank(StressConfig config)
     {
         var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
 
         _config = config;
-        _logger = loggerFactory.CreateLogger<StressTestTank>();
+        _logger = loggerFactory.CreateLogger<StressLoadTank>();
         _settings = new YdbConnectionStringBuilder(config.ConnectionString)
         {
             LoggerFactory = loggerFactory,
@@ -28,7 +28,7 @@ public class StressTestTank
         ValidateConfig();
     }
 
-    public async Task RunAsync()
+    public async Task Run()
     {
         _logger.LogInformation(
             """
@@ -98,9 +98,11 @@ public class StressTestTank
     {
         if (targetRps <= 0) return;
 
+        targetRps = targetRps / 10 + targetRps % 10;
+
         await using var rateLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromSeconds(1),
+            Window = TimeSpan.FromMilliseconds(100),
             PermitLimit = targetRps,
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
             QueueLimit = targetRps * 2
