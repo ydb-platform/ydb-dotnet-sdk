@@ -1,7 +1,7 @@
 #if NET7_0_OR_GREATER
 using System.Data.Common;
 using Ydb.Sdk.Ado.BulkUpsert;
-using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
@@ -70,22 +70,20 @@ public class YdbDataSource : DbDataSource
 
     public async Task<YdbBulkUpsertImporter<T>> BeginBulkUpsertAsync<T>(
         string tablePath,
-        BulkUpsertOptions? options = null,
-        RetrySettings? retrySettings = null,
-        int maxBatchSizeBytes = 64 * 1024 * 1024,
+        IReadOnlyList<string> columns,
+        IReadOnlyList<Func<T, YdbValue>> selectors,
+        int maxRowsInBatch = 1000,
         CancellationToken cancellationToken = default)
     {
         var conn = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 
-        var realSession = conn.Session as Services.Query.Session
-                          ?? throw new InvalidOperationException("Underlying session does not support bulk upsert");
-
-        var driver = realSession.Driver as Driver
-                     ?? throw new InvalidOperationException("Session driver is not of expected type 'Ydb.Sdk.Driver'");
-
-        var tableClient = new TableClient(driver);
-
-        return new YdbBulkUpsertImporter<T>(tableClient, tablePath, options, retrySettings, maxBatchSizeBytes);
+        return new YdbBulkUpsertImporter<T>(
+            conn,
+            tablePath,
+            columns,
+            selectors,
+            maxRowsInBatch
+        );
     }
 }
 

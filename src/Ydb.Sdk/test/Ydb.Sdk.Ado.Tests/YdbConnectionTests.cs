@@ -1,6 +1,7 @@
 using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
+using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -316,7 +317,7 @@ INSERT INTO {tableName}
     }
 
     [Fact]
-    public async Task BulkUpsertImporter_HappyPath_С()
+    public async Task BulkUpsert_HappyPath_C()
     {
         var tableName = $"BulkTest_{Guid.NewGuid():N}";
         var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
@@ -328,11 +329,11 @@ INSERT INTO {tableName}
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-CREATE TABLE {tableName} (
-    Id Int32,
-    Name Utf8,
-    PRIMARY KEY (Id)
-)";
+    CREATE TABLE {tableName} (
+        Id Int32,
+        Name Utf8,
+        PRIMARY KEY (Id)
+    )";
             await createCmd.ExecuteNonQueryAsync();
         }
 
@@ -342,11 +343,14 @@ CREATE TABLE {tableName} (
             .Select(i => new TestEntity { Id = i, Name = $"Name {i}" })
             .ToList();
 
-        await using (var importer = conn.BeginBulkUpsert<TestEntity>(absTablePath))
+        var columns = new[] { "Id", "Name" };
+        var selectors = new Func<TestEntity, YdbValue>[]
         {
-            foreach (var row in rows)
-                await importer.WriteRowAsync(row);
-        }
+            x => YdbValue.MakeInt32(x.Id),
+            x => YdbValue.MakeUtf8(x.Name)
+        };
+
+        await conn.BulkUpsertWithRetry(absTablePath, rows, columns, selectors, default);
 
         await using (var checkCmd = conn.CreateCommand())
         {
@@ -376,36 +380,35 @@ CREATE TABLE {tableName} (
         {
             createCmd.CommandText = $@"
     CREATE TABLE {tableName} (
-                Id Int32,
-                Name Utf8,
-                PRIMARY KEY (Id)
-            )";
+        Id Int32,
+        Name Utf8,
+        PRIMARY KEY (Id)
+    )";
             await createCmd.ExecuteNonQueryAsync();
         }
 
         await Task.Delay(500);
+
+        var columns = new[] { "Id", "Name" };
+        var selectors = new Func<TestEntity, YdbValue>[]
+        {
+            x => YdbValue.MakeInt32(x.Id),
+            x => YdbValue.MakeUtf8(x.Name)
+        };
 
         var firstRows = new List<TestEntity>
         {
             new() { Id = 1, Name = "Alice" },
             new() { Id = 2, Name = "Bob" }
         };
-        await using (var importer = conn.BeginBulkUpsert<TestEntity>(absTablePath))
-        {
-            foreach (var row in firstRows)
-                await importer.WriteRowAsync(row);
-        }
+        await conn.BulkUpsertWithRetry(absTablePath, firstRows, columns, selectors, default);
 
         var newRows = new List<TestEntity>
         {
             new() { Id = 3, Name = "Charlie" },
             new() { Id = 4, Name = "Diana" }
         };
-        await using (var importer = conn.BeginBulkUpsert<TestEntity>(absTablePath))
-        {
-            foreach (var row in newRows)
-                await importer.WriteRowAsync(row);
-        }
+        await conn.BulkUpsertWithRetry(absTablePath, newRows, columns, selectors, default);
 
         await using (var selectCmd = conn.CreateCommand())
         {
@@ -444,32 +447,33 @@ CREATE TABLE {tableName} (
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-CREATE TABLE {tableName} (
-            Id Int32,
-            Name Utf8,
-            PRIMARY KEY (Id)
-        )";
+    CREATE TABLE {tableName} (
+        Id Int32,
+        Name Utf8,
+        PRIMARY KEY (Id)
+    )";
             await createCmd.ExecuteNonQueryAsync();
         }
 
         await Task.Delay(500);
 
-        var row = new TestEntity { Id = 1, Name = "Alice" };
-        await using (var importer = conn.BeginBulkUpsert<TestEntity>(absTablePath))
+        var columns = new[] { "Id", "Name" };
+        var selectors = new Func<TestEntity, YdbValue>[]
         {
-            await importer.WriteRowAsync(row);
-        }
+            x => YdbValue.MakeInt32(x.Id),
+            x => YdbValue.MakeUtf8(x.Name)
+        };
+
+        var row = new TestEntity { Id = 1, Name = "Alice" };
+        await conn.BulkUpsertWithRetry(absTablePath, [row], columns, selectors, default);
 
         var updated = new TestEntity { Id = 1, Name = "Alice Updated" };
-        await using (var importer = conn.BeginBulkUpsert<TestEntity>(absTablePath))
-        {
-            await importer.WriteRowAsync(updated);
-        }
+        await conn.BulkUpsertWithRetry(absTablePath, [updated], columns, selectors, default);
 
         await using (var selectCmd = conn.CreateCommand())
         {
             selectCmd.CommandText = $"SELECT Name FROM {tableName} WHERE Id = 1;";
-            var name = (string)await selectCmd.ExecuteScalarAsync();
+            var name = (string)(await selectCmd.ExecuteScalarAsync())!;
             Assert.Equal("Alice Updated", name);
         }
 

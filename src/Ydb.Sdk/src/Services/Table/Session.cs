@@ -1,8 +1,6 @@
 ﻿using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Services.Sessions;
-using Ydb.Table;
-using Ydb.Table.V1;
 
 namespace Ydb.Sdk.Services.Table;
 
@@ -82,7 +80,4 @@ public partial class Session : SessionBase
             settings: settings
         );
     }
-
-    public Task<BulkUpsertResponse> BulkUpsertAsync(BulkUpsertRequest req, CancellationToken ct = default)
-        => Driver.UnaryCall(TableService.BulkUpsertMethod, req, new GrpcRequestSettings { CancellationToken = ct });
 }

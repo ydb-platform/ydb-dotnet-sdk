@@ -1,28 +1,29 @@
 using Ydb.Sdk.Services.Table;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.BulkUpsert;
 
 public sealed class YdbBulkUpsertImporter<T> : IAsyncDisposable
 {
-    private readonly TableClient _tableClient;
+    private readonly YdbConnection _connection;
     private readonly string _tablePath;
-    private readonly BulkUpsertOptions _options;
-    private readonly RetrySettings? _retrySettings;
+    private readonly IReadOnlyList<string> _columns;
+    private readonly IReadOnlyList<Func<T, YdbValue>> _selectors;
     private readonly int _maxRowsInBatch;
     private readonly List<T> _buffer = new();
     private bool _isCompleted;
 
     public YdbBulkUpsertImporter(
-        TableClient tableClient,
+        YdbConnection connection,
         string tablePath,
-        BulkUpsertOptions? options = null,
-        RetrySettings? retrySettings = null,
+        IReadOnlyList<string> columns,
+        IReadOnlyList<Func<T, YdbValue>> selectors,
         int maxRowsInBatch = 1000)
     {
-        _tableClient = tableClient ?? throw new ArgumentNullException(nameof(tableClient));
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _tablePath = tablePath ?? throw new ArgumentNullException(nameof(tablePath));
-        _options = options ?? new BulkUpsertOptions();
-        _retrySettings = retrySettings;
+        _columns = columns ?? throw new ArgumentNullException(nameof(columns));
+        _selectors = selectors ?? throw new ArgumentNullException(nameof(selectors));
         _maxRowsInBatch = maxRowsInBatch;
     }
 
@@ -44,10 +45,12 @@ public sealed class YdbBulkUpsertImporter<T> : IAsyncDisposable
         if (_buffer.Count == 0)
             return;
 
-        await _tableClient.BulkUpsertWithRetry(
+        await _connection.BulkUpsertWithRetry(
             _tablePath,
             _buffer,
-            _retrySettings
+            _columns,
+            _selectors,
+            cancellationToken
         ).ConfigureAwait(false);
 
         _buffer.Clear();
