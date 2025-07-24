@@ -1,5 +1,4 @@
 using Ydb.Sdk.Services.Table;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.BulkUpsert;
 
@@ -8,23 +7,27 @@ public sealed class YdbBulkUpsertImporter<T> : IAsyncDisposable
     private readonly YdbConnection _connection;
     private readonly string _tablePath;
     private readonly IReadOnlyList<string> _columns;
-    private readonly IReadOnlyList<Func<T, YdbValue>> _selectors;
-    private readonly int _maxRowsInBatch;
+    private readonly Func<T, object?>[] _selectors;
     private readonly List<T> _buffer = new();
     private bool _isCompleted;
+    private readonly int _maxRowsInBatch;
 
     public YdbBulkUpsertImporter(
         YdbConnection connection,
         string tablePath,
         IReadOnlyList<string> columns,
-        IReadOnlyList<Func<T, YdbValue>> selectors,
         int maxRowsInBatch = 1000)
     {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
-        _tablePath = tablePath ?? throw new ArgumentNullException(nameof(tablePath));
-        _columns = columns ?? throw new ArgumentNullException(nameof(columns));
-        _selectors = selectors ?? throw new ArgumentNullException(nameof(selectors));
+        _connection = connection;
+        _tablePath = tablePath;
+        _columns = columns;
         _maxRowsInBatch = maxRowsInBatch;
+
+        var props = columns.Select(name =>
+            typeof(T).GetProperty(name) ??
+            throw new ArgumentException($"Type {typeof(T).Name} does not have a property '{name}'")
+        ).ToArray();
+        _selectors = props.Select(p => (Func<T, object?>)(x => p.GetValue(x))).ToArray();
     }
 
     public async Task WriteRowAsync(T row, CancellationToken cancellationToken = default)
@@ -35,12 +38,10 @@ public sealed class YdbBulkUpsertImporter<T> : IAsyncDisposable
         _buffer.Add(row);
 
         if (_buffer.Count >= _maxRowsInBatch)
-        {
             await FlushAsync(cancellationToken).ConfigureAwait(false);
-        }
     }
 
-    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    private async Task FlushAsync(CancellationToken cancellationToken = default)
     {
         if (_buffer.Count == 0)
             return;
@@ -49,14 +50,13 @@ public sealed class YdbBulkUpsertImporter<T> : IAsyncDisposable
             _tablePath,
             _buffer,
             _columns,
-            _selectors,
             cancellationToken
         ).ConfigureAwait(false);
 
         _buffer.Clear();
     }
 
-    public async Task CompleteAsync(CancellationToken cancellationToken = default)
+    private async Task CompleteAsync(CancellationToken cancellationToken = default)
     {
         if (_isCompleted) return;
         await FlushAsync(cancellationToken).ConfigureAwait(false);

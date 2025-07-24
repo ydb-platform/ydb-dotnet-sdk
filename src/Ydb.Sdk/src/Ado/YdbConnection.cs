@@ -5,7 +5,6 @@ using Ydb.Operations;
 using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Services.Query;
-using Ydb.Sdk.Value;
 using Ydb.Table;
 using Ydb.Table.V1;
 using static System.Data.IsolationLevel;
@@ -61,7 +60,7 @@ public sealed class YdbConnection : DbConnection
         string tablePath,
         IReadOnlyCollection<T> rows,
         IReadOnlyList<string> columns,
-        IReadOnlyList<Func<T, YdbValue>> selectors,
+        IReadOnlyList<Func<T, object?>> selectors,
         CancellationToken cancellationToken)
     {
         if (CurrentTransaction is { Completed: false })

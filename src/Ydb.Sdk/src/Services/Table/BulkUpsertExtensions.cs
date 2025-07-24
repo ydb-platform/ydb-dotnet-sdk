@@ -1,5 +1,5 @@
+using System.Reflection;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Table;
 
@@ -10,8 +10,18 @@ public static class BulkUpsertExtensions
         string tablePath,
         IReadOnlyCollection<T> rows,
         IReadOnlyList<string> columns,
-        IReadOnlyList<Func<T, YdbValue>> selectors,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default)
+    {
+        var type = typeof(T);
+        var props = columns
+            .Select(col => type.GetProperty(col) ??
+                           throw new ArgumentException($"Type {typeof(T).Name} does not have a property '{col}'"))
+            .ToArray();
+
+        var selectors = props
+            .Select<PropertyInfo, Func<T, object?>>(p => x => p.GetValue(x))
+            .ToArray();
+
         await connection.BulkUpsertInternalAsync(
             tablePath,
             rows,
@@ -19,4 +29,5 @@ public static class BulkUpsertExtensions
             selectors,
             cancellationToken
         );
+    }
 }

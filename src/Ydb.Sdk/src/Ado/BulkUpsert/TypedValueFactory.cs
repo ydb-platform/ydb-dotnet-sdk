@@ -7,22 +7,17 @@ internal static class TypedValueFactory
     public static TypedValue FromObjects<T>(
         IReadOnlyCollection<T> rows,
         IReadOnlyList<string> columnNames,
-        IReadOnlyList<Func<T, YdbValue>> columnSelectors)
+        IReadOnlyList<Func<T, object?>> columnSelectors)
     {
-        if (rows.Count == 0)
-            throw new ArgumentException("Rows collection is empty.", nameof(rows));
-        if (columnNames.Count != columnSelectors.Count)
-            throw new ArgumentException("Column names count must match selectors count.");
-
         var structs = new List<YdbValue>(rows.Count);
 
         foreach (var row in rows)
         {
             var members = new Dictionary<string, YdbValue>(columnNames.Count);
-            for (int i = 0; i < columnNames.Count; i++)
+            for (var i = 0; i < columnNames.Count; i++)
             {
-                var value = columnSelectors[i](row);
-                members[columnNames[i]] = value;
+                var val = columnSelectors[i](row);
+                members[columnNames[i]] = new YdbParameter { Value = val }.YdbValue;
             }
 
             structs.Add(YdbValue.MakeStruct(members));

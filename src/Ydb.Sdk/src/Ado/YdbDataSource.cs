@@ -81,7 +81,6 @@ public class YdbDataSource : DbDataSource
             conn,
             tablePath,
             columns,
-            selectors,
             maxRowsInBatch
         );
     }

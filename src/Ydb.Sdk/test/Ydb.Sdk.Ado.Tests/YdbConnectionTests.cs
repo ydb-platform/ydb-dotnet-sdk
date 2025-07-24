@@ -329,11 +329,11 @@ INSERT INTO {tableName}
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-    CREATE TABLE {tableName} (
-        Id Int32,
-        Name Utf8,
-        PRIMARY KEY (Id)
-    )";
+CREATE TABLE {tableName} (
+    Id Int32,
+    Name Utf8,
+    PRIMARY KEY (Id)
+)";
             await createCmd.ExecuteNonQueryAsync();
         }
 
@@ -344,13 +344,8 @@ INSERT INTO {tableName}
             .ToList();
 
         var columns = new[] { "Id", "Name" };
-        var selectors = new Func<TestEntity, YdbValue>[]
-        {
-            x => YdbValue.MakeInt32(x.Id),
-            x => YdbValue.MakeUtf8(x.Name)
-        };
 
-        await conn.BulkUpsertWithRetry(absTablePath, rows, columns, selectors, default);
+        await conn.BulkUpsertWithRetry(absTablePath, rows, columns, default);
 
         await using (var checkCmd = conn.CreateCommand())
         {
@@ -379,36 +374,31 @@ INSERT INTO {tableName}
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-    CREATE TABLE {tableName} (
-        Id Int32,
-        Name Utf8,
-        PRIMARY KEY (Id)
-    )";
+CREATE TABLE {tableName} (
+    Id Int32,
+    Name Utf8,
+    PRIMARY KEY (Id)
+)";
             await createCmd.ExecuteNonQueryAsync();
         }
 
         await Task.Delay(500);
 
         var columns = new[] { "Id", "Name" };
-        var selectors = new Func<TestEntity, YdbValue>[]
-        {
-            x => YdbValue.MakeInt32(x.Id),
-            x => YdbValue.MakeUtf8(x.Name)
-        };
 
         var firstRows = new List<TestEntity>
         {
             new() { Id = 1, Name = "Alice" },
             new() { Id = 2, Name = "Bob" }
         };
-        await conn.BulkUpsertWithRetry(absTablePath, firstRows, columns, selectors, default);
+        await conn.BulkUpsertWithRetry(absTablePath, firstRows, columns, default);
 
         var newRows = new List<TestEntity>
         {
             new() { Id = 3, Name = "Charlie" },
             new() { Id = 4, Name = "Diana" }
         };
-        await conn.BulkUpsertWithRetry(absTablePath, newRows, columns, selectors, default);
+        await conn.BulkUpsertWithRetry(absTablePath, newRows, columns, default);
 
         await using (var selectCmd = conn.CreateCommand())
         {
@@ -447,28 +437,23 @@ INSERT INTO {tableName}
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-    CREATE TABLE {tableName} (
-        Id Int32,
-        Name Utf8,
-        PRIMARY KEY (Id)
-    )";
+CREATE TABLE {tableName} (
+    Id Int32,
+    Name Utf8,
+    PRIMARY KEY (Id)
+)";
             await createCmd.ExecuteNonQueryAsync();
         }
 
         await Task.Delay(500);
 
         var columns = new[] { "Id", "Name" };
-        var selectors = new Func<TestEntity, YdbValue>[]
-        {
-            x => YdbValue.MakeInt32(x.Id),
-            x => YdbValue.MakeUtf8(x.Name)
-        };
 
         var row = new TestEntity { Id = 1, Name = "Alice" };
-        await conn.BulkUpsertWithRetry(absTablePath, [row], columns, selectors, default);
+        await conn.BulkUpsertWithRetry(absTablePath, new[] { row }, columns, default);
 
         var updated = new TestEntity { Id = 1, Name = "Alice Updated" };
-        await conn.BulkUpsertWithRetry(absTablePath, [updated], columns, selectors, default);
+        await conn.BulkUpsertWithRetry(absTablePath, new[] { updated }, columns, default);
 
         await using (var selectCmd = conn.CreateCommand())
         {
@@ -483,4 +468,5 @@ INSERT INTO {tableName}
             await dropCmd.ExecuteNonQueryAsync();
         }
     }
+
 }
