@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Operations;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Services.Query;
 using Ydb.Sdk.Value;
@@ -83,8 +84,7 @@ public sealed class YdbConnection : DbConnection
         var req = new BulkUpsertRequest
         {
             Table = tablePath,
-            Rows = list.GetProto(),
-            OperationParams = new OperationParams()
+            Rows = list.GetProto()
         };
 
         if (Session is Services.Query.Session sessionImpl)
@@ -94,8 +94,12 @@ public sealed class YdbConnection : DbConnection
                 req,
                 new GrpcRequestSettings { CancellationToken = cancellationToken }
             ).ConfigureAwait(false);
-            var status = Status.FromProto(resp.Operation.Status, resp.Operation.Issues);
-            status.EnsureSuccess();
+
+            var operation = resp.Operation;
+            if (operation.Status.IsNotSuccess())
+            {
+                throw YdbException.FromServer(operation.Status, operation.Issues);
+            }
         }
         else
         {
