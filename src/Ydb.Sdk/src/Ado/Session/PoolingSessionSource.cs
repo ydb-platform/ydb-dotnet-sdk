@@ -6,18 +6,15 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
+internal sealed class PoolingSessionSource<T> : ISessionSource where T : PoolingSessionBase<T>
 {
-    private readonly ConcurrentStack<PoolingSessionBase> _idleSessions = new();
-    private readonly ConcurrentQueue<TaskCompletionSource<PoolingSessionBase?>> _waiters = new();
+    private readonly ConcurrentStack<T> _idleSessions = new();
+    private readonly ConcurrentQueue<TaskCompletionSource<T?>> _waiters = new();
 
-    private readonly IPoolingSessionFactory _sessionFactory;
-
+    private readonly IPoolingSessionFactory<T> _sessionFactory;
     private readonly int _minSessionSize;
     private readonly int _maxSessionSize;
-
-    private readonly PoolingSessionBase?[] _sessions;
-
+    private readonly T?[] _sessions;
     private readonly int _createSessionTimeout;
     private readonly TimeSpan _sessionIdleTimeout;
     private readonly Timer _cleanerTimer;
@@ -25,7 +22,7 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
     private volatile int _numSessions;
 
     public PoolingSessionSource(
-        IPoolingSessionFactory sessionFactory,
+        IPoolingSessionFactory<T> sessionFactory,
         YdbConnectionStringBuilder settings
     )
     {
@@ -39,19 +36,19 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
                 $"Connection can't have 'Max Session Pool' {_maxSessionSize} under 'Min Session Pool' {_minSessionSize}");
         }
 
-        _sessions = new PoolingSessionBase?[_maxSessionSize];
+        _sessions = new T?[_maxSessionSize];
         _createSessionTimeout = settings.CreateSessionTimeout;
         _sessionIdleTimeout = TimeSpan.FromSeconds(settings.SessionIdleTimeout);
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
     }
 
-    public ValueTask<PoolingSessionBase> OpenSession(CancellationToken cancellationToken = default) =>
+    public ValueTask<ISession> OpenSession(CancellationToken cancellationToken = default) =>
         TryGetIdleSession(out var session)
-            ? new ValueTask<PoolingSessionBase>(session)
+            ? new ValueTask<ISession>(session)
             : RentAsync(cancellationToken);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool TryGetIdleSession([NotNullWhen(true)] out PoolingSessionBase? session)
+    private bool TryGetIdleSession([NotNullWhen(true)] out T? session)
     {
         while (_idleSessions.TryPop(out session))
         {
@@ -65,7 +62,7 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool CheckIdleSession([NotNullWhen(true)] PoolingSessionBase? session)
+    private bool CheckIdleSession([NotNullWhen(true)] T? session)
     {
         if (session == null || session.State == PoolingSessionState.Clean)
         {
@@ -82,7 +79,7 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
         return session.CompareAndSet(PoolingSessionState.In, PoolingSessionState.Out);
     }
 
-    private async ValueTask<PoolingSessionBase> RentAsync(CancellationToken cancellationToken)
+    private async ValueTask<ISession> RentAsync(CancellationToken cancellationToken)
     {
         using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         if (_createSessionTimeout > 0)
@@ -96,8 +93,7 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
 
         while (true)
         {
-            var waiterTcs =
-                new TaskCompletionSource<PoolingSessionBase?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var waiterTcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
             _waiters.Enqueue(waiterTcs);
             await using var _ = finalToken.Register(() => waiterTcs.TrySetCanceled(), useSynchronizationContext: false);
             session = await waiterTcs.Task.ConfigureAwait(false);
@@ -111,9 +107,8 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
         }
     }
 
-    private async ValueTask<PoolingSessionBase?> OpenNewSession(CancellationToken cancellationToken)
+    private async ValueTask<T?> OpenNewSession(CancellationToken cancellationToken)
     {
-        // As long as we're under max capacity, attempt to increase the session count and open a new session.
         for (var numSessions = _numSessions; numSessions < _maxSessionSize; numSessions = _numSessions)
         {
             if (Interlocked.CompareExchange(ref _numSessions, numSessions + 1, numSessions) != numSessions)
@@ -135,12 +130,8 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
             }
             catch
             {
-                // RPC open failed, decrement the open and busy counter back down.
                 Interlocked.Decrement(ref _numSessions);
 
-                // In case there's a waiting attempt on the waiters queue, we write a null to the idle connector channel
-                // to wake it up, so it will try opening (and probably throw immediately)
-                // Statement order is important since we have synchronous completions on the channel.
                 WakeUpWaiter();
 
                 throw;
@@ -156,7 +147,7 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
             waiter.TrySetResult(null); // wake up waiter!
     }
 
-    public void Return(PoolingSessionBase session)
+    public void Return(T session)
     {
         if (session.IsBroken)
         {
@@ -181,7 +172,7 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
         WakeUpWaiter();
     }
 
-    private void CloseSession(PoolingSessionBase session)
+    private void CloseSession(T session)
     {
         var i = 0;
         for (; i < _maxSessionSize; i++)
@@ -202,7 +193,7 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
 
     private static void CleanIdleSessions(object? state)
     {
-        var pool = (PoolingSessionSource)state!;
+        var pool = (PoolingSessionSource<T>)state!;
         var now = DateTime.Now;
 
         for (var i = 0; i < pool._maxSessionSize; i++)
@@ -222,9 +213,9 @@ internal sealed class PoolingSessionSource : ISessionSource<PoolingSessionBase>
     }
 }
 
-internal interface IPoolingSessionFactory
+internal interface IPoolingSessionFactory<T> where T : PoolingSessionBase<T>
 {
-    PoolingSessionBase NewSession(PoolingSessionSource source);
+    T NewSession(PoolingSessionSource<T> source);
 }
 
 internal enum PoolingSessionState
@@ -234,13 +225,13 @@ internal enum PoolingSessionState
     Clean
 }
 
-internal abstract class PoolingSessionBase : ISession
+internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessionBase<T>
 {
-    private readonly PoolingSessionSource _source;
+    private readonly PoolingSessionSource<T> _source;
 
     private int _state = (int)PoolingSessionState.In;
 
-    protected PoolingSessionBase(PoolingSessionSource source)
+    protected PoolingSessionBase(PoolingSessionSource<T> source)
     {
         _source = source;
     }
@@ -272,5 +263,5 @@ internal abstract class PoolingSessionBase : ISession
 
     public abstract void OnNotSuccessStatusCode(StatusCode code);
 
-    public void Close() => _source.Return(this);
+    public void Close() => _source.Return((T)this);
 }

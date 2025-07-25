@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal class PoolingSessionFactory : IPoolingSessionFactory
+internal class PoolingSessionFactory : IPoolingSessionFactory<PoolingSession>
 {
     private readonly IDriver _driver;
     private readonly bool _disableServerBalancer;
@@ -15,6 +15,6 @@ internal class PoolingSessionFactory : IPoolingSessionFactory
         _logger = loggerFactory.CreateLogger<PoolingSession>();
     }
 
-    public PoolingSessionBase NewSession(PoolingSessionSource source) =>
-        new PoolingSession(_driver, source, _disableServerBalancer, _logger);
+    public PoolingSession NewSession(PoolingSessionSource<PoolingSession> source) =>
+        new(_driver, source, _disableServerBalancer, _logger);
 }
