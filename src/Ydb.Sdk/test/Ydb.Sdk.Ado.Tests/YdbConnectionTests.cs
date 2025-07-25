@@ -316,6 +316,13 @@ INSERT INTO {tableName}
         public string Name { get; set; }
     }
 
+    private static IReadOnlyList<IReadOnlyDictionary<string, object?>> ToDicts(IEnumerable<TestEntity> rows)
+        => rows.Select(x => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
+        {
+            ["Id"] = x.Id,
+            ["Name"] = x.Name
+        }).ToList();
+
     [Fact]
     public async Task BulkUpsert_HappyPath_C()
     {
@@ -329,11 +336,11 @@ INSERT INTO {tableName}
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-CREATE TABLE {tableName} (
-    Id Int32,
-    Name Utf8,
-    PRIMARY KEY (Id)
-)";
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
             await createCmd.ExecuteNonQueryAsync();
         }
 
@@ -344,8 +351,7 @@ CREATE TABLE {tableName} (
             .ToList();
 
         var columns = new[] { "Id", "Name" };
-
-        await conn.BulkUpsertWithRetry(absTablePath, rows, columns, default);
+        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts(rows));
 
         await using (var checkCmd = conn.CreateCommand())
         {
@@ -374,11 +380,11 @@ CREATE TABLE {tableName} (
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-CREATE TABLE {tableName} (
-    Id Int32,
-    Name Utf8,
-    PRIMARY KEY (Id)
-)";
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
             await createCmd.ExecuteNonQueryAsync();
         }
 
@@ -391,14 +397,14 @@ CREATE TABLE {tableName} (
             new() { Id = 1, Name = "Alice" },
             new() { Id = 2, Name = "Bob" }
         };
-        await conn.BulkUpsertWithRetry(absTablePath, firstRows, columns, default);
+        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts(firstRows));
 
         var newRows = new List<TestEntity>
         {
             new() { Id = 3, Name = "Charlie" },
             new() { Id = 4, Name = "Diana" }
         };
-        await conn.BulkUpsertWithRetry(absTablePath, newRows, columns, default);
+        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts(newRows));
 
         await using (var selectCmd = conn.CreateCommand())
         {
@@ -437,11 +443,11 @@ CREATE TABLE {tableName} (
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-CREATE TABLE {tableName} (
-    Id Int32,
-    Name Utf8,
-    PRIMARY KEY (Id)
-)";
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
             await createCmd.ExecuteNonQueryAsync();
         }
 
@@ -450,15 +456,15 @@ CREATE TABLE {tableName} (
         var columns = new[] { "Id", "Name" };
 
         var row = new TestEntity { Id = 1, Name = "Alice" };
-        await conn.BulkUpsertWithRetry(absTablePath, new[] { row }, columns, default);
+        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts([row]));
 
         var updated = new TestEntity { Id = 1, Name = "Alice Updated" };
-        await conn.BulkUpsertWithRetry(absTablePath, new[] { updated }, columns, default);
+        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts([updated]));
 
         await using (var selectCmd = conn.CreateCommand())
         {
             selectCmd.CommandText = $"SELECT Name FROM {tableName} WHERE Id = 1;";
-            var name = (string)(await selectCmd.ExecuteScalarAsync())!;
+            var name = await selectCmd.ExecuteScalarAsync() as string;
             Assert.Equal("Alice Updated", name);
         }
 
@@ -468,5 +474,4 @@ CREATE TABLE {tableName} (
             await dropCmd.ExecuteNonQueryAsync();
         }
     }
-
 }

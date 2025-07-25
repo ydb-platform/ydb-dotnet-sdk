@@ -1,4 +1,5 @@
 using Xunit;
+using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -64,8 +65,15 @@ public class YdbDataSourceTests : TestBase
         public string Name { get; set; }
     }
 
+    private static IReadOnlyList<IReadOnlyDictionary<string, object?>> ToDicts(IEnumerable<TestEntity> rows)
+        => rows.Select(x => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
+        {
+            ["Id"] = x.Id,
+            ["Name"] = x.Name
+        }).ToList();
+
     [Fact]
-    public async Task BulkUpsertImporter_HappyPath_Works_DS()
+    public async Task BulkUpsert_HappyPath_DS()
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
         var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database.TrimEnd('/');
@@ -91,23 +99,10 @@ public class YdbDataSourceTests : TestBase
             .ToList();
 
         var columns = new[] { "Id", "Name" };
-        var selectors = new Func<TestEntity, YdbValue>[]
-        {
-            x => YdbValue.MakeInt32(x.Id),
-            x => YdbValue.MakeUtf8(x.Name)
-        };
-
-        await using (var importer = await _dataSource.BeginBulkUpsertAsync<TestEntity>(
-            absTablePath,
-            columns,
-            selectors
-        ))
-        {
-            foreach (var row in rows)
-                await importer.WriteRowAsync(row);
-        }
 
         await using var conn2 = await _dataSource.OpenConnectionAsync();
+        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts(rows));
+
         await using (var checkCmd = conn2.CreateCommand())
         {
             checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
@@ -123,7 +118,7 @@ public class YdbDataSourceTests : TestBase
     }
 
     [Fact]
-    public async Task BulkUpsertImporter_InsertsNewRows_DS()
+    public async Task BulkUpsert_InsertsNewRows_DS()
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
         var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database.TrimEnd('/');
@@ -145,11 +140,6 @@ public class YdbDataSourceTests : TestBase
         await conn.CloseAsync();
 
         var columns = new[] { "Id", "Name" };
-        var selectors = new Func<TestEntity, YdbValue>[]
-        {
-            x => YdbValue.MakeInt32(x.Id),
-            x => YdbValue.MakeUtf8(x.Name)
-        };
 
         var firstRows = new List<TestEntity>
         {
@@ -157,15 +147,8 @@ public class YdbDataSourceTests : TestBase
             new() { Id = 2, Name = "Bob" }
         };
 
-        await using (var importer = await _dataSource.BeginBulkUpsertAsync<TestEntity>(
-            absTablePath,
-            columns,
-            selectors
-        ))
-        {
-            foreach (var row in firstRows)
-                await importer.WriteRowAsync(row);
-        }
+        await using var conn2 = await _dataSource.OpenConnectionAsync();
+        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts(firstRows));
 
         var newRows = new List<TestEntity>
         {
@@ -173,22 +156,13 @@ public class YdbDataSourceTests : TestBase
             new() { Id = 4, Name = "Diana" }
         };
 
-        await using (var importer = await _dataSource.BeginBulkUpsertAsync<TestEntity>(
-            absTablePath,
-            columns,
-            selectors
-        ))
-        {
-            foreach (var row in newRows)
-                await importer.WriteRowAsync(row);
-        }
+        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts(newRows));
 
-        await using var conn2 = await _dataSource.OpenConnectionAsync();
         await using (var checkCmd = conn2.CreateCommand())
         {
             checkCmd.CommandText = $"SELECT Id, Name FROM {tableName}";
             var results = new Dictionary<int, string>();
-            using var reader = await checkCmd.ExecuteReaderAsync();
+            await using var reader = await checkCmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
                 results[reader.GetInt32(0)] = reader.GetString(1);
@@ -209,7 +183,7 @@ public class YdbDataSourceTests : TestBase
     }
 
     [Fact]
-    public async Task BulkUpsertImporter_UpdatesExistingRows_DS()
+    public async Task BulkUpsert_UpdatesExistingRows_DS()
     {
         var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
         var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database.TrimEnd('/');
@@ -231,38 +205,67 @@ public class YdbDataSourceTests : TestBase
         await conn.CloseAsync();
 
         var columns = new[] { "Id", "Name" };
-        var selectors = new Func<TestEntity, YdbValue>[]
-        {
-            x => YdbValue.MakeInt32(x.Id),
-            x => YdbValue.MakeUtf8(x.Name)
-        };
 
         var originalRow = new TestEntity { Id = 1, Name = "Alice" };
-        await using (var importer = await _dataSource.BeginBulkUpsertAsync<TestEntity>(
-            absTablePath,
-            columns,
-            selectors
-        ))
-        {
-            await importer.WriteRowAsync(originalRow);
-        }
-
-        var updatedRow = new TestEntity { Id = 1, Name = "Alice Updated" };
-        await using (var importer = await _dataSource.BeginBulkUpsertAsync<TestEntity>(
-            absTablePath,
-            columns,
-            selectors
-        ))
-        {
-            await importer.WriteRowAsync(updatedRow);
-        }
 
         await using var conn2 = await _dataSource.OpenConnectionAsync();
+        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts([originalRow]));
+
+        var updatedRow = new TestEntity { Id = 1, Name = "Alice Updated" };
+        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts([updatedRow]));
+
         await using (var selectCmd = conn2.CreateCommand())
         {
             selectCmd.CommandText = $"SELECT Name FROM {tableName} WHERE Id = 1;";
-            var name = (string)await selectCmd.ExecuteScalarAsync();
+            var name = await selectCmd.ExecuteScalarAsync() as string;
             Assert.Equal("Alice Updated", name);
+        }
+
+        await using (var dropCmd = conn2.CreateCommand())
+        {
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
+    
+    [Fact]
+    public async Task BulkUpsert_DirectlyOnDataSource_Works()
+    {
+        var tableName = "BulkTest_" + Guid.NewGuid().ToString("N");
+        var database = new YdbConnectionStringBuilder(_dataSource.ConnectionString).Database.TrimEnd('/');
+        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using (var createCmd = conn.CreateCommand())
+        {
+            createCmd.CommandText = $@"
+CREATE TABLE {tableName} (
+    Id Int32,
+    Name Utf8,
+    PRIMARY KEY (Id)
+)";
+            await createCmd.ExecuteNonQueryAsync();
+        }
+        await conn.CloseAsync();
+
+        var rows = Enumerable.Range(1, 5)
+            .Select(i => new Dictionary<string, object?>
+            {
+                ["Id"] = i,
+                ["Name"] = $"Name {i}"
+            })
+            .ToList();
+
+        var columns = new[] { "Id", "Name" };
+
+        await _dataSource.BulkUpsertAsync(absTablePath, columns, rows);
+
+        await using var conn2 = await _dataSource.OpenConnectionAsync();
+        await using (var checkCmd = conn2.CreateCommand())
+        {
+            checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
+            var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+            Assert.Equal(rows.Count, count);
         }
 
         await using (var dropCmd = conn2.CreateCommand())

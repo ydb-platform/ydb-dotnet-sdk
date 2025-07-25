@@ -1,6 +1,5 @@
 #if NET7_0_OR_GREATER
 using System.Data.Common;
-using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
@@ -68,21 +67,14 @@ public class YdbDataSource : DbDataSource
 
     protected override void Dispose(bool disposing) => DisposeAsyncCore().AsTask().GetAwaiter().GetResult();
 
-    public async Task<YdbBulkUpsertImporter<T>> BeginBulkUpsertAsync<T>(
+    public async Task BulkUpsertAsync(
         string tablePath,
         IReadOnlyList<string> columns,
-        IReadOnlyList<Func<T, YdbValue>> selectors,
-        int maxRowsInBatch = 1000,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> rows,
         CancellationToken cancellationToken = default)
     {
-        var conn = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-
-        return new YdbBulkUpsertImporter<T>(
-            conn,
-            tablePath,
-            columns,
-            maxRowsInBatch
-        );
+        await using var conn = await OpenConnectionAsync(cancellationToken);
+        await conn.BulkUpsertAsync(tablePath, columns, rows, cancellationToken);
     }
 }
 

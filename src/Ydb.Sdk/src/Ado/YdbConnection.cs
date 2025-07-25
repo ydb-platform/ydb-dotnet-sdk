@@ -2,9 +2,9 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Operations;
-using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Services.Query;
+using Ydb.Sdk.Value;
 using Ydb.Table;
 using Ydb.Table.V1;
 using static System.Data.IsolationLevel;
@@ -56,20 +56,26 @@ public sealed class YdbConnection : DbConnection
         ConnectionStringBuilder = connectionStringBuilder;
     }
 
-    internal async Task BulkUpsertInternalAsync<T>(
+    public async Task BulkUpsertAsync(
         string tablePath,
-        IReadOnlyCollection<T> rows,
         IReadOnlyList<string> columns,
-        IReadOnlyList<Func<T, object?>> selectors,
-        CancellationToken cancellationToken)
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> rows,
+        CancellationToken cancellationToken = default)
     {
-        if (CurrentTransaction is { Completed: false })
-            throw new InvalidOperationException("BulkUpsert does not support working within a transaction");
+        var structs = rows.Select(dict =>
+            YdbValue.MakeStruct(
+                columns.ToDictionary(
+                    col => col,
+                    col => new YdbParameter { Value = dict[col] }.YdbValue
+                ))).ToList();
+
+        var list = YdbValue.MakeList(structs);
+
         var req = new BulkUpsertRequest
         {
             Table = tablePath,
-            OperationParams = new OperationParams(),
-            Rows = TypedValueFactory.FromObjects(rows, columns, selectors)
+            Rows = list.GetProto(),
+            OperationParams = new OperationParams()
         };
 
         if (Session is Services.Query.Session sessionImpl)
