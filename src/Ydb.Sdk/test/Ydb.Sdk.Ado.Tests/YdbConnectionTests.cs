@@ -380,15 +380,15 @@ INSERT INTO {tableName}
 
         var firstRows = new List<object[]>
         {
-            new object?[] { 1, "Alice" },
-            new object?[] { 2, "Bob" }
+            new object[] { 1, "Alice" },
+            new object[] { 2, "Bob" }
         };
         await conn.BulkUpsertAsync(absTablePath, columns, firstRows);
 
         var newRows = new List<object[]>
         {
-            new object?[] { 3, "Charlie" },
-            new object?[] { 4, "Diana" }
+            new object[] { 3, "Charlie" },
+            new object[] { 4, "Diana" }
         };
         await conn.BulkUpsertAsync(absTablePath, columns, newRows);
 
