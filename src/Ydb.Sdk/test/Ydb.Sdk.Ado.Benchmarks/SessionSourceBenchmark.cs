@@ -9,7 +9,7 @@ namespace Ydb.Sdk.Ado.Benchmarks;
 [ThreadingDiagnoser]
 public class SessionSourceBenchmark
 {
-    private PoolingSessionSource _poolingSessionSource = null!;
+    private PoolingSessionSource<MockPoolingSession> _poolingSessionSource = null!;
     private const int SessionPoolSize = 50;
     private const int ConcurrentTasks = 20;
 
@@ -18,7 +18,7 @@ public class SessionSourceBenchmark
     {
         var settings = new YdbConnectionStringBuilder { MaxSessionPool = SessionPoolSize };
 
-        _poolingSessionSource = new PoolingSessionSource(new MockSessionFactory(), settings);
+        _poolingSessionSource = new PoolingSessionSource<MockPoolingSession>(new MockSessionFactory(), settings);
     }
 
     [Benchmark]
@@ -85,12 +85,13 @@ public class SessionSourceBenchmark
     }
 }
 
-internal class MockSessionFactory : IPoolingSessionFactory
+internal class MockSessionFactory : IPoolingSessionFactory<MockPoolingSession>
 {
-    public PoolingSessionBase NewSession(PoolingSessionSource source) => new MockPoolingSession(source);
+    public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) => new(source);
 }
 
-internal class MockPoolingSession(PoolingSessionSource source) : PoolingSessionBase(source)
+internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> source)
+    : PoolingSessionBase<MockPoolingSession>(source)
 {
     public override IDriver Driver => null!;
     public override bool IsBroken => false;

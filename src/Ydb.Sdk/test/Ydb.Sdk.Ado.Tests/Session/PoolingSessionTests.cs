@@ -17,7 +17,7 @@ public class PoolingSessionTests
     private readonly Mock<IDriver> _mockIDriver;
     private readonly Mock<IServerStream<SessionState>> _mockAttachStream = new(MockBehavior.Strict);
     private readonly PoolingSessionFactory _poolingSessionFactory;
-    private readonly PoolingSessionSource _poolingSessionSource;
+    private readonly PoolingSessionSource<PoolingSession> _poolingSessionSource;
 
     public PoolingSessionTests()
     {
@@ -32,7 +32,7 @@ public class PoolingSessionTests
         ).ReturnsAsync(_mockAttachStream.Object);
         _mockAttachStream.Setup(stream => stream.Dispose());
         _poolingSessionFactory = new PoolingSessionFactory(_mockIDriver.Object, settings, TestUtils.LoggerFactory);
-        _poolingSessionSource = new PoolingSessionSource(_poolingSessionFactory, settings);
+        _poolingSessionSource = new PoolingSessionSource<PoolingSession>(_poolingSessionFactory, settings);
     }
 
     [Theory]

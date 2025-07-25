@@ -9,31 +9,44 @@ public class PoolingSessionSourceMockTests
 {
     [Fact]
     public void MinSessionPool_bigger_than_MaxSessionPool_throws() => Assert.Throws<ArgumentException>(() =>
-        new PoolingSessionSource(new MockPoolingSessionFactory(),
+        new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(),
             new YdbConnectionStringBuilder { MaxSessionPool = 1, MinSessionPool = 2 })
     );
 
     [Fact]
     public async Task Reuse_Session_Before_Creating_new()
     {
-        var sessionSource = new PoolingSessionSource(new MockPoolingSessionFactory(), new YdbConnectionStringBuilder());
-        var session = (MockPoolingSession)await sessionSource.OpenSession();
-        var sessionId = session.SessionId;
+        var sessionSource =
+            new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(),
+                new YdbConnectionStringBuilder());
+        var session = await sessionSource.OpenSession();
+        var sessionId = session.SessionId();
         session.Close();
-        session = (MockPoolingSession)await sessionSource.OpenSession();
-        Assert.Equal(sessionId, session.SessionId);
+        session = await sessionSource.OpenSession();
+        Assert.Equal(sessionId, session.SessionId());
+    }
+
+    [Fact]
+    public async Task Creating_Session_Throw_Exception()
+    {
     }
 }
 
-internal class MockPoolingSessionFactory : IPoolingSessionFactory
+internal static class ISessionExtension
+{
+    internal static string SessionId(this ISession session) => ((MockPoolingSession)session).SessionId;
+}
+
+internal class MockPoolingSessionFactory : IPoolingSessionFactory<MockPoolingSession>
 {
     private int _sessionNum;
 
-    public PoolingSessionBase NewSession(PoolingSessionSource source) =>
-        new MockPoolingSession(source, Interlocked.Increment(ref _sessionNum));
+    public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
+        new(source, Interlocked.Increment(ref _sessionNum));
 }
 
-internal class MockPoolingSession(PoolingSessionSource source, int sessionNum) : PoolingSessionBase(source)
+internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> source, int sessionNum)
+    : PoolingSessionBase<MockPoolingSession>(source)
 {
     public string SessionId => $"session_{sessionNum}";
     public override IDriver Driver => null!;
@@ -44,7 +57,8 @@ internal class MockPoolingSession(PoolingSessionSource source, int sessionNum) :
 
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
-        Dictionary<string, YdbValue> parameters, GrpcRequestSettings settings,
+        Dictionary<string, YdbValue> parameters,
+        GrpcRequestSettings settings,
         TransactionControl? txControl
     ) => throw new NotImplementedException();
 
