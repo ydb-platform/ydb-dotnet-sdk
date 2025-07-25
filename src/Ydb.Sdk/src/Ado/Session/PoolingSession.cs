@@ -13,40 +13,53 @@ using TransactionControl = Ydb.Query.TransactionControl;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal class PoolingSession : PoolingSessionBase<PoolingSession>
+internal class PoolingSession : ISession
 {
     private const string SessionBalancer = "session-balancer";
 
     private static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(5);
     private static readonly CreateSessionRequest CreateSessionRequest = new();
 
+    private readonly PoolingSessionSource _poolingSessionSource;
     private readonly ILogger<PoolingSession> _logger;
-    private readonly bool _disableServerBalancer;
-
     private readonly CancellationTokenSource _attachStreamLifecycleCts = new();
 
     private volatile bool _isBroken = true;
     private volatile bool _isBadSession;
 
+    private readonly bool _disableServerBalancer;
+
     private string SessionId { get; set; } = string.Empty;
     private long NodeId { get; set; }
 
-    public override IDriver Driver { get; }
-    public override bool IsBroken => _isBroken;
+    private int _state = (int)PoolingSessionState.In;
+
+    public IDriver Driver { get; }
+    public bool IsBroken => _isBroken;
 
     internal PoolingSession(
         IDriver driver,
-        PoolingSessionSource<PoolingSession> poolingSessionSource,
+        PoolingSessionSource poolingSessionSource,
         bool disableServerBalancer,
         ILogger<PoolingSession> logger
-    ) : base(poolingSessionSource)
+    )
     {
+        _poolingSessionSource = poolingSessionSource;
         _disableServerBalancer = disableServerBalancer;
         _logger = logger;
         Driver = driver;
     }
 
-    public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
+    internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>
+        Interlocked.CompareExchange(ref _state, (int)expected, (int)actual) == (int)expected;
+
+    internal void Set(PoolingSessionState state) => Interlocked.Exchange(ref _state, (int)state);
+
+    internal PoolingSessionState State => (PoolingSessionState)Volatile.Read(ref _state);
+
+    internal DateTime IdleStartTime { get; set; }
+
+    public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue> parameters,
         GrpcRequestSettings settings,
@@ -68,7 +81,10 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public override async Task CommitTransaction(string txId, CancellationToken cancellationToken = default)
+    public async Task CommitTransaction(
+        string txId,
+        CancellationToken cancellationToken = default
+    )
     {
         var response = await Driver.UnaryCall(
             QueryService.CommitTransactionMethod,
@@ -82,7 +98,10 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         }
     }
 
-    public override async Task RollbackTransaction(string txId, CancellationToken cancellationToken = default)
+    public async Task RollbackTransaction(
+        string txId,
+        CancellationToken cancellationToken = default
+    )
     {
         var response = await Driver.UnaryCall(
             QueryService.RollbackTransactionMethod,
@@ -96,7 +115,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         }
     }
 
-    public override void OnNotSuccessStatusCode(StatusCode statusCode)
+    public void OnNotSuccessStatusCode(StatusCode statusCode)
     {
         _isBadSession = _isBadSession || statusCode is StatusCode.BadSession;
 
@@ -113,7 +132,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         }
     }
 
-    internal override async Task Open(CancellationToken cancellationToken)
+    public async Task Open(CancellationToken cancellationToken)
     {
         var requestSettings = new GrpcRequestSettings { CancellationToken = cancellationToken };
 
@@ -214,7 +233,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         await completeTask.Task;
     }
 
-    internal override async Task DeleteSession()
+    public async Task DeleteSession()
     {
         try
         {
@@ -245,4 +264,6 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 SessionId, NodeId);
         }
     }
+
+    public void Close() => _poolingSessionSource.Return(this);
 }

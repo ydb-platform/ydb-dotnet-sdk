@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Ado.Session;
 
 namespace Ydb.Sdk.Ado;
@@ -6,7 +7,7 @@ namespace Ydb.Sdk.Ado;
 internal static class PoolManager
 {
     private static readonly SemaphoreSlim SemaphoreSlim = new(1); // async mutex
-    private static readonly ConcurrentDictionary<string, ISessionSource> Pools = new();
+    private static readonly ConcurrentDictionary<string, PoolingSessionSource> Pools = new();
 
     internal static async Task<ISession> GetSession(
         YdbConnectionStringBuilder settings,
@@ -27,8 +28,13 @@ internal static class PoolManager
                 return await pool.OpenSession(cancellationToken);
             }
 
-            var newSessionPool = new PoolingSessionSource<PoolingSession>(
-                await PoolingSessionFactory.Create(settings), settings
+            var newSessionPool = new PoolingSessionSource(
+                new PoolingSessionFactory(
+                    await settings.BuildDriver(),
+                    settings,
+                    settings.LoggerFactory ?? NullLoggerFactory.Instance
+                ),
+                settings
             );
 
             Pools[settings.ConnectionString] = newSessionPool;
@@ -48,8 +54,8 @@ internal static class PoolManager
             try
             {
                 await SemaphoreSlim.WaitAsync();
-
-                await sessionPool.DisposeAsync();
+                //
+                // await sessionPool.DisposeAsync();
             }
             finally
             {
