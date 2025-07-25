@@ -110,35 +110,43 @@ public class StressLoadTank
 
         _logger.LogInformation("Starting shooting for {TargetRps} RPS", targetRps);
 
-        while (!cancellationToken.IsCancellationRequested)
+        var workers = new List<Task>();
+        for (var i = 0; i < _config.WorkerCount; i++)
         {
-            using var lease = await rateLimiter.AcquireAsync(1, cancellationToken);
-
-            if (!lease.IsAcquired)
+            workers.Add(Task.Run(async () =>
             {
-                continue;
-            }
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    using var lease = await rateLimiter.AcquireAsync(1, cancellationToken);
+                    await Task.Delay(Random.Shared.Next(_config.ThrottlingInterval), cancellationToken);
 
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await using var ydbConnection = new YdbConnection(_settings);
-                    await ydbConnection.OpenAsync(cancellationToken);
-                    await new YdbCommand(ydbConnection) { CommandText = _config.TestQuery }
-                        .ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (YdbException e)
-                {
-                    if (e.Code == StatusCode.ClientTransportTimeout)
+                    if (!lease.IsAcquired)
                     {
-                        return;
+                        await Task.Delay(10, cancellationToken);
+                        continue;
                     }
 
-                    _logger.LogError(e, "Fail operation");
+                    try
+                    {
+                        await using var ydbConnection = new YdbConnection(_settings);
+                        await ydbConnection.OpenAsync(cancellationToken);
+                        await new YdbCommand(ydbConnection) { CommandText = _config.TestQuery }
+                            .ExecuteNonQueryAsync(cancellationToken);
+                    }
+                    catch (YdbException e)
+                    {
+                        if (e.Code == StatusCode.ClientTransportTimeout)
+                        {
+                            return;
+                        }
+
+                        _logger.LogError(e, "Fail operation");
+                    }
                 }
-            }, cancellationToken);
+            }, cancellationToken));
         }
+
+        await Task.WhenAll(workers);
     }
 
     private void ValidateConfig()
