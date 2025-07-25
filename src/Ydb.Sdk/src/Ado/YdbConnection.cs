@@ -62,6 +62,9 @@ public sealed class YdbConnection : DbConnection
         IReadOnlyList<IReadOnlyList<object?>> rows,
         CancellationToken cancellationToken = default)
     {
+        if (CurrentTransaction is { Completed: false })
+            throw new InvalidOperationException("BulkUpsert cannot be used inside an active transaction.");
+
         if (columns == null || columns.Count == 0)
             throw new ArgumentException("Columns must not be empty", nameof(columns));
         if (rows == null || rows.Count == 0)

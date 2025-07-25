@@ -460,4 +460,52 @@ INSERT INTO {tableName}
             await dropCmd.ExecuteNonQueryAsync();
         }
     }
+    
+    [Fact]
+    public async Task BulkUpsert_Throws_WhenTransactionIsOpen()
+    {
+        var tableName = $"BulkTest_{Guid.NewGuid():N}";
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
+        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
+
+        await using var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+
+        await using (var createCmd = conn.CreateCommand())
+        {
+            createCmd.CommandText = $@"
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
+            await createCmd.ExecuteNonQueryAsync();
+        }
+
+        await Task.Delay(500);
+
+        var columns = new[] { "Id", "Name" };
+        var rows = new List<IReadOnlyList<object?>>
+        {
+            new object?[] { 1, "Alice" },
+            new object?[] { 2, "Bob" }
+        };
+
+        await conn.BeginTransactionAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await conn.BulkUpsertAsync(absTablePath, columns, rows);
+        });
+
+        Assert.Contains("BulkUpsert cannot be used inside an active transaction", ex.Message);
+
+        await conn.CurrentTransaction.RollbackAsync();
+
+        await using (var dropCmd = conn.CreateCommand())
+        {
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
 }
