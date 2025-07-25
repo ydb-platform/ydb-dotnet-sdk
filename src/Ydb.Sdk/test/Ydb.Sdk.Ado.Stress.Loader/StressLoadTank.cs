@@ -117,6 +117,7 @@ public class StressLoadTank
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
+                    // ReSharper disable once AccessToDisposedClosure
                     using var lease = await rateLimiter.AcquireAsync(1, cancellationToken);
                     await Task.Delay(Random.Shared.Next(_config.ThrottlingInterval), cancellationToken);
 
