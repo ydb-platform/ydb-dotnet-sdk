@@ -31,13 +31,17 @@ public static class Cli
     private static readonly Option<int> TotalTestTimeSeconds = new("--total-time", () => 14400,
         "Total test duration in seconds");
 
-    private static readonly Option<string?> SaFilePath = new("--sa-file-path",
-        "Path to Service Account file for authentication");
+    private static readonly Option<string?> SaFilePath =
+        new("--sa-file-path", "Path to Service Account file for authentication");
 
-    private static readonly Option<string> TestQuery = new("--test-query",
-        () => "SELECT 1 as test_column",
-        "SQL query to execute during stress test"
-    );
+    private static readonly Option<string> TestQuery =
+        new("--test-query", () => "SELECT 1 as test_column", "SQL query to execute during stress test");
+
+    private static readonly Option<int> ThrottlingInterval =
+        new("--throttling-interval", () => 100, "Throttling interval in seconds");
+
+    private static readonly Option<int> WorkerCount =
+        new("--worker-count", () => 100, "Worker count");
 
     private static readonly Command StressLoadCommand = new(
         "cycle",
@@ -53,7 +57,9 @@ public static class Cli
         MinDurationSeconds,
         TotalTestTimeSeconds,
         SaFilePath,
-        TestQuery
+        TestQuery,
+        ThrottlingInterval,
+        WorkerCount
     };
 
     private static readonly Command LoadCommand = new(
@@ -63,7 +69,8 @@ public static class Cli
         TotalTestTimeSeconds,
         ConnectionString,
         SaFilePath,
-        TestQuery
+        TestQuery,
+        WorkerCount
     };
 
     public static readonly RootCommand RootCommand = new("YDB ADO.NET Stress Test Tank - Variable Load Generator")
@@ -89,7 +96,9 @@ public static class Cli
                 MinDurationSeconds,
                 TotalTestTimeSeconds,
                 SaFilePath,
-                TestQuery
+                TestQuery,
+                ThrottlingInterval,
+                WorkerCount
             )
         );
 
@@ -102,7 +111,8 @@ public static class Cli
                 ConnectionString,
                 TotalTestTimeSeconds,
                 SaFilePath,
-                TestQuery
+                TestQuery,
+                WorkerCount
             )
         );
     }
@@ -118,7 +128,9 @@ public class StressConfigBinder(
     Option<int> minDurationSeconds,
     Option<int> totalTestTimeSeconds,
     Option<string?> saFilePath,
-    Option<string> testQuery
+    Option<string> testQuery,
+    Option<int> throttlingInterval,
+    Option<int> workerCount
 ) : BinderBase<StressConfig>
 {
     protected override StressConfig GetBoundValue(BindingContext bindingContext) => new(
@@ -131,7 +143,9 @@ public class StressConfigBinder(
         MinDurationSeconds: bindingContext.ParseResult.GetValueForOption(minDurationSeconds),
         TotalTestTimeSeconds: bindingContext.ParseResult.GetValueForOption(totalTestTimeSeconds),
         SaFilePath: bindingContext.ParseResult.GetValueForOption(saFilePath),
-        TestQuery: bindingContext.ParseResult.GetValueForOption(testQuery)!
+        TestQuery: bindingContext.ParseResult.GetValueForOption(testQuery)!,
+        ThrottlingInterval: bindingContext.ParseResult.GetValueForOption(throttlingInterval),
+        WorkerCount: bindingContext.ParseResult.GetValueForOption(workerCount)
     );
 }
 
@@ -139,14 +153,16 @@ public class LoadConfigBinder(
     Argument<string> connectionString,
     Option<int> totalTestTimeSeconds,
     Option<string?> saFilePath,
-    Option<string> testQuery
+    Option<string> testQuery,
+    Option<int> workerCount
 ) : BinderBase<LoadConfig>
 {
     protected override LoadConfig GetBoundValue(BindingContext bindingContext) => new(
         bindingContext.ParseResult.GetValueForArgument(connectionString),
         bindingContext.ParseResult.GetValueForOption(totalTestTimeSeconds),
         bindingContext.ParseResult.GetValueForOption(saFilePath),
-        bindingContext.ParseResult.GetValueForOption(testQuery)!
+        bindingContext.ParseResult.GetValueForOption(testQuery)!,
+        bindingContext.ParseResult.GetValueForOption(workerCount)
     );
 }
 
@@ -160,12 +176,15 @@ public record StressConfig(
     int MinDurationSeconds,
     int TotalTestTimeSeconds,
     string? SaFilePath,
-    string TestQuery
+    string TestQuery,
+    int ThrottlingInterval,
+    int WorkerCount
 );
 
 public record LoadConfig(
     string ConnectionString,
     int TotalTestTimeSeconds,
     string? SaFilePath,
-    string TestQuery
+    string TestQuery,
+    int WorkerCount
 );
