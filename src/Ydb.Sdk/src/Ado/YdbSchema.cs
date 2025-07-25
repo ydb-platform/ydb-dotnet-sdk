@@ -423,9 +423,7 @@ internal static class YdbSchema
             );
 
             var operation = response.Operation;
-            var status = Status.FromProto(operation.Status, operation.Issues);
-
-            if (status.IsNotSuccess)
+            if (operation.Status.IsNotSuccess())
             {
                 throw YdbException.FromServer(operation.Status, operation.Issues);
             }
