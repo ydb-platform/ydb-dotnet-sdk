@@ -460,7 +460,7 @@ INSERT INTO {tableName}
             await dropCmd.ExecuteNonQueryAsync();
         }
     }
-    
+
     [Fact]
     public async Task BulkUpsert_Throws_WhenTransactionIsOpen()
     {
@@ -500,7 +500,7 @@ INSERT INTO {tableName}
 
         Assert.Contains("BulkUpsert cannot be used inside an active transaction", ex.Message);
 
-        await conn.CurrentTransaction.RollbackAsync();
+        await conn.CurrentTransaction?.RollbackAsync()!;
 
         await using (var dropCmd = conn.CreateCommand())
         {
