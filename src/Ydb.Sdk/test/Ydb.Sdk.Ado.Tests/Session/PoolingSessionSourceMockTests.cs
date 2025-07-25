@@ -14,12 +14,6 @@ public class PoolingSessionSourceMockTests
     );
 
     [Fact]
-    public void SessionPruningInterval_bigger_than_SessionIdleTimeout_throws() => Assert.Throws<ArgumentException>(() =>
-        new PoolingSessionSource(new MockPoolingSessionFactory(), new YdbConnectionStringBuilder
-            { SessionPruningInterval = 5, SessionIdleTimeout = 1 })
-    );
-
-    [Fact]
     public async Task Reuse_Session_Before_Creating_new()
     {
         var sessionSource = new PoolingSessionSource(new MockPoolingSessionFactory(), new YdbConnectionStringBuilder());
@@ -35,11 +29,11 @@ internal class MockPoolingSessionFactory : IPoolingSessionFactory
 {
     private int _sessionNum;
 
-    public IPoolingSession NewSession(PoolingSessionSource source) =>
+    public PoolingSession NewSession(PoolingSessionSource source) =>
         new MockPoolingSession(source, Interlocked.Increment(ref _sessionNum));
 }
 
-internal class MockPoolingSession(PoolingSessionSource source, int sessionNum) : IPoolingSession
+internal class MockPoolingSession(PoolingSessionSource source, int sessionNum) : PoolingSession(null, null, true, null)
 {
     internal string SessionId { get; } = $"session_{sessionNum}";
 

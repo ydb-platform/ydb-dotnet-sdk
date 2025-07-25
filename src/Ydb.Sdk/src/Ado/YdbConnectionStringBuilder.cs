@@ -32,7 +32,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _maxSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
         _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
         _sessionIdleTimeout = 300;
-        _sessionPruningInterval = 10;
         _useTls = false;
         _connectTimeout = GrpcDefaultSettings.ConnectTimeoutSeconds;
         _keepAlivePingDelay = GrpcDefaultSettings.KeepAlivePingSeconds;
@@ -159,24 +158,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     private int _sessionIdleTimeout;
-
-    public int SessionPruningInterval
-    {
-        get => _sessionPruningInterval;
-        set
-        {
-            if (value <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value), value,
-                    "Invalid session pruning interval: " + value);
-            }
-
-            _sessionPruningInterval = value;
-            SaveValue(nameof(SessionPruningInterval), value);
-        }
-    }
-
-    private int _sessionPruningInterval;
 
     public bool UseTls
     {
@@ -507,9 +488,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<int>(IntExtractor,
                     (builder, sessionIdleTimeout) => builder.SessionIdleTimeout = sessionIdleTimeout),
                 "SessionIdleTimeout", "Session Idle Timeout");
-            AddOption(new YdbConnectionOption<int>(IntExtractor,
-                    (builder, sessionPruningInterval) => builder.SessionPruningInterval = sessionPruningInterval),
-                "SessionPruningInterval", "Session Pruning Interval");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor,
                     (builder, disableServerBalancer) => builder.DisableServerBalancer = disableServerBalancer),
                 "DisableServerBalancer", "Disable Server Balancer");
