@@ -13,7 +13,7 @@ using TransactionControl = Ydb.Query.TransactionControl;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal class PoolingSession : IPoolingSession
+internal class PoolingSession : ISession
 {
     private const string SessionBalancer = "session-balancer";
 
@@ -32,6 +32,8 @@ internal class PoolingSession : IPoolingSession
     private string SessionId { get; set; } = string.Empty;
     private long NodeId { get; set; }
 
+    private int _state = (int)PoolingSessionState.In;
+
     public IDriver Driver { get; }
     public bool IsBroken => _isBroken;
 
@@ -47,6 +49,15 @@ internal class PoolingSession : IPoolingSession
         _logger = logger;
         Driver = driver;
     }
+
+    internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>
+        Interlocked.CompareExchange(ref _state, (int)expected, (int)actual) == (int)expected;
+
+    internal void Set(PoolingSessionState state) => Interlocked.Exchange(ref _state, (int)state);
+
+    internal PoolingSessionState State => (PoolingSessionState)Volatile.Read(ref _state);
+
+    internal DateTime IdleStartTime { get; set; }
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,

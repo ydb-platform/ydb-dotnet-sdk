@@ -1,46 +1,45 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Pool;
-using Ydb.Sdk.Services.Query;
 
 namespace Ydb.Sdk.Ado;
 
 internal static class PoolManager
 {
     private static readonly SemaphoreSlim SemaphoreSlim = new(1); // async mutex
-    private static readonly ConcurrentDictionary<string, SessionPool> Pools = new();
+    private static readonly ConcurrentDictionary<string, PoolingSessionSource> Pools = new();
 
     internal static async Task<ISession> GetSession(
-        YdbConnectionStringBuilder connectionString,
+        YdbConnectionStringBuilder settings,
         CancellationToken cancellationToken
     )
     {
-        if (Pools.TryGetValue(connectionString.ConnectionString, out var sessionPool))
+        if (Pools.TryGetValue(settings.ConnectionString, out var sessionPool))
         {
-            return await sessionPool.GetSession(cancellationToken);
+            return await sessionPool.OpenSession(cancellationToken);
         }
 
         try
         {
             await SemaphoreSlim.WaitAsync(cancellationToken);
 
-            if (Pools.TryGetValue(connectionString.ConnectionString, out var pool))
+            if (Pools.TryGetValue(settings.ConnectionString, out var pool))
             {
-                return await pool.GetSession(cancellationToken);
+                return await pool.OpenSession(cancellationToken);
             }
 
-            var newSessionPool = new SessionPool(
-                await connectionString.BuildDriver(),
-                new SessionPoolConfig(
-                    MaxSessionPool: connectionString.MaxSessionPool,
-                    CreateSessionTimeout: connectionString.CreateSessionTimeout,
-                    DisposeDriver: true
-                )
+            var newSessionPool = new PoolingSessionSource(
+                new PoolingSessionFactory(
+                    await settings.BuildDriver(),
+                    settings,
+                    settings.LoggerFactory ?? NullLoggerFactory.Instance
+                ),
+                settings
             );
 
-            Pools[connectionString.ConnectionString] = newSessionPool;
+            Pools[settings.ConnectionString] = newSessionPool;
 
-            return await newSessionPool.GetSession(cancellationToken);
+            return await newSessionPool.OpenSession(cancellationToken);
         }
         finally
         {
@@ -55,8 +54,8 @@ internal static class PoolManager
             try
             {
                 await SemaphoreSlim.WaitAsync();
-
-                await sessionPool.DisposeAsync();
+                //
+                // await sessionPool.DisposeAsync();
             }
             finally
             {
