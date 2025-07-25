@@ -72,7 +72,8 @@ public sealed class YdbConnection : DbConnection
             if (row.Count != columns.Count)
                 throw new ArgumentException("Each row must have the same number of elements as columns");
             var members = columns
-                .Select((col, i) => new KeyValuePair<string, YdbValue>(col, new YdbParameter { Value = row[i] }.YdbValue))
+                .Select((col, i) =>
+                    new KeyValuePair<string, YdbValue>(col, new YdbParameter { Value = row[i] }.YdbValue))
                 .ToDictionary(x => x.Key, x => x.Value);
             return YdbValue.MakeStruct(members);
         }).ToList();

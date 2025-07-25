@@ -75,6 +75,7 @@ public class YdbDataSourceTests : TestBase
             )";
             await createCmd.ExecuteNonQueryAsync();
         }
+
         await conn.CloseAsync();
 
         var columns = new[] { "Id", "Name" };
@@ -117,6 +118,7 @@ public class YdbDataSourceTests : TestBase
             )";
             await createCmd.ExecuteNonQueryAsync();
         }
+
         await conn.CloseAsync();
 
         var columns = new[] { "Id", "Name" };
@@ -178,6 +180,7 @@ public class YdbDataSourceTests : TestBase
             )";
             await createCmd.ExecuteNonQueryAsync();
         }
+
         await conn.CloseAsync();
 
         var columns = new[] { "Id", "Name" };
@@ -221,6 +224,7 @@ public class YdbDataSourceTests : TestBase
             )";
             await createCmd.ExecuteNonQueryAsync();
         }
+
         await conn.CloseAsync();
 
         var columns = new[] { "Id", "Name" };
