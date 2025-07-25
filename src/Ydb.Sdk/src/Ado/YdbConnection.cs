@@ -1,7 +1,6 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
-using Ydb.Operations;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Services.Query;
