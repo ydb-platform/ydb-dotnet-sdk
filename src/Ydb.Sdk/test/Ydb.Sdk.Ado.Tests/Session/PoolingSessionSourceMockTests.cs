@@ -29,33 +29,32 @@ internal class MockPoolingSessionFactory : IPoolingSessionFactory
 {
     private int _sessionNum;
 
-    public PoolingSession NewSession(PoolingSessionSource source) =>
+    public PoolingSessionBase NewSession(PoolingSessionSource source) =>
         new MockPoolingSession(source, Interlocked.Increment(ref _sessionNum));
 }
 
-internal class MockPoolingSession(PoolingSessionSource source, int sessionNum) : PoolingSession(null, null, true, null)
+internal class MockPoolingSession(PoolingSessionSource source, int sessionNum) : PoolingSessionBase(source)
 {
-    internal string SessionId { get; } = $"session_{sessionNum}";
+    public string SessionId => $"session_{sessionNum}";
+    public override IDriver Driver => null!;
+    public override bool IsBroken => false;
 
-    public IDriver Driver => throw new NotImplementedException();
-    public bool IsBroken { get; set; }
+    internal override Task Open(CancellationToken cancellationToken) => Task.CompletedTask;
+    internal override Task DeleteSession() => Task.CompletedTask;
 
-    public void Close() => source.Return(this);
-
-    public Task Open(CancellationToken cancellationToken) => Task.CompletedTask;
-
-    public Task DeleteSession() => Task.CompletedTask;
-
-    public Task CommitTransaction(string txId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
-
-    public Task RollbackTransaction(string txId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
-
-    public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(string query,
+    public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
+        string query,
         Dictionary<string, YdbValue> parameters, GrpcRequestSettings settings,
-        TransactionControl? txControl) =>
+        TransactionControl? txControl
+    ) => throw new NotImplementedException();
+
+    public override Task CommitTransaction(string txId, CancellationToken cancellationToken = default) =>
         throw new NotImplementedException();
 
-    public void OnNotSuccessStatusCode(StatusCode code) => throw new NotImplementedException();
+    public override Task RollbackTransaction(string txId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    public override void OnNotSuccessStatusCode(StatusCode code)
+    {
+    }
 }

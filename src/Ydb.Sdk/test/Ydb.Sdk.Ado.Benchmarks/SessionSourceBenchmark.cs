@@ -87,5 +87,30 @@ public class SessionSourceBenchmark
 
 internal class MockSessionFactory : IPoolingSessionFactory
 {
-    public PoolingSession NewSession(PoolingSessionSource source) => new PoolingSession(null, null, false, null);
+    public PoolingSessionBase NewSession(PoolingSessionSource source) => new MockPoolingSession(source);
+}
+
+internal class MockPoolingSession(PoolingSessionSource source) : PoolingSessionBase(source)
+{
+    public override IDriver Driver => null!;
+    public override bool IsBroken => false;
+
+    internal override Task Open(CancellationToken cancellationToken) => Task.CompletedTask;
+    internal override Task DeleteSession() => Task.CompletedTask;
+
+    public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
+        string query,
+        Dictionary<string, YdbValue> parameters, GrpcRequestSettings settings,
+        TransactionControl? txControl
+    ) => throw new NotImplementedException();
+
+    public override Task CommitTransaction(string txId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    public override Task RollbackTransaction(string txId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    public override void OnNotSuccessStatusCode(StatusCode code)
+    {
+    }
 }
