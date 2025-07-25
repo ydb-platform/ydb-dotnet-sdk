@@ -87,23 +87,16 @@ public sealed class YdbConnection : DbConnection
             Rows = list.GetProto()
         };
 
-        if (Session is Services.Query.Session sessionImpl)
-        {
-            var resp = await sessionImpl.Driver.UnaryCall(
-                TableService.BulkUpsertMethod,
-                req,
-                new GrpcRequestSettings { CancellationToken = cancellationToken }
-            ).ConfigureAwait(false);
+        var resp = await Session.Driver.UnaryCall(
+            TableService.BulkUpsertMethod,
+            req,
+            new GrpcRequestSettings { CancellationToken = cancellationToken }
+        ).ConfigureAwait(false);
 
-            var operation = resp.Operation;
-            if (operation.Status.IsNotSuccess())
-            {
-                throw YdbException.FromServer(operation.Status, operation.Issues);
-            }
-        }
-        else
+        var operation = resp.Operation;
+        if (operation.Status.IsNotSuccess())
         {
-            throw new InvalidOperationException("Underlying session does not support BulkUpsertAsync");
+            throw YdbException.FromServer(operation.Status, operation.Issues);
         }
     }
 
