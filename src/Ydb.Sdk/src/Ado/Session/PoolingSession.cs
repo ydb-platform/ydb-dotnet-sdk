@@ -8,42 +8,40 @@ using TransactionControl = Ydb.Query.TransactionControl;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal class PoolingSession : IPoolingSession
+internal class PoolingSession : PoolingSessionBase<PoolingSession>
 {
     private const string SessionBalancer = "session-balancer";
 
     private static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(5);
     private static readonly CreateSessionRequest CreateSessionRequest = new();
 
-    private readonly PoolingSessionSource _poolingSessionSource;
     private readonly ILogger<PoolingSession> _logger;
+    private readonly bool _disableServerBalancer;
+
     private readonly CancellationTokenSource _attachStreamLifecycleCts = new();
 
     private volatile bool _isBroken = true;
     private volatile bool _isBadSession;
 
-    private readonly bool _disableServerBalancer;
-
     private string SessionId { get; set; } = string.Empty;
     private long NodeId { get; set; }
 
-    public IDriver Driver { get; }
-    public bool IsBroken => _isBroken;
+    public override IDriver Driver { get; }
+    public override bool IsBroken => _isBroken;
 
     internal PoolingSession(
         IDriver driver,
-        PoolingSessionSource poolingSessionSource,
+        PoolingSessionSource<PoolingSession> poolingSessionSource,
         bool disableServerBalancer,
         ILogger<PoolingSession> logger
-    )
+    ) : base(poolingSessionSource)
     {
-        _poolingSessionSource = poolingSessionSource;
         _disableServerBalancer = disableServerBalancer;
         _logger = logger;
         Driver = driver;
     }
 
-    public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
+    public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue> parameters,
         GrpcRequestSettings settings,
@@ -65,10 +63,7 @@ internal class PoolingSession : IPoolingSession
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public async Task CommitTransaction(
-        string txId,
-        CancellationToken cancellationToken = default
-    )
+    public override async Task CommitTransaction(string txId, CancellationToken cancellationToken = default)
     {
         var response = await Driver.UnaryCall(
             QueryService.CommitTransactionMethod,
@@ -82,10 +77,7 @@ internal class PoolingSession : IPoolingSession
         }
     }
 
-    public async Task RollbackTransaction(
-        string txId,
-        CancellationToken cancellationToken = default
-    )
+    public override async Task RollbackTransaction(string txId, CancellationToken cancellationToken = default)
     {
         var response = await Driver.UnaryCall(
             QueryService.RollbackTransactionMethod,
@@ -99,7 +91,7 @@ internal class PoolingSession : IPoolingSession
         }
     }
 
-    public void OnNotSuccessStatusCode(StatusCode statusCode)
+    public override void OnNotSuccessStatusCode(StatusCode statusCode)
     {
         _isBadSession = _isBadSession || statusCode is StatusCode.BadSession;
 
@@ -116,7 +108,7 @@ internal class PoolingSession : IPoolingSession
         }
     }
 
-    public async Task Open(CancellationToken cancellationToken)
+    internal override async Task Open(CancellationToken cancellationToken)
     {
         var requestSettings = new GrpcRequestSettings { CancellationToken = cancellationToken };
 
@@ -217,7 +209,7 @@ internal class PoolingSession : IPoolingSession
         await completeTask.Task;
     }
 
-    public async Task DeleteSession()
+    internal override async Task DeleteSession()
     {
         try
         {
@@ -248,6 +240,4 @@ internal class PoolingSession : IPoolingSession
                 SessionId, NodeId);
         }
     }
-
-    public void Close() => _poolingSessionSource.Return(this);
 }
