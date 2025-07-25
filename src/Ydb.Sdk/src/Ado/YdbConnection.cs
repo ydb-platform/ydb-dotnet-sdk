@@ -1,8 +1,12 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Services.Query;
+using Ydb.Sdk.Value;
+using Ydb.Table;
+using Ydb.Table.V1;
 using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;
@@ -50,6 +54,52 @@ public sealed class YdbConnection : DbConnection
     public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
     {
         ConnectionStringBuilder = connectionStringBuilder;
+    }
+
+    public async Task BulkUpsertAsync(
+        string tablePath,
+        IReadOnlyList<string> columns,
+        IReadOnlyList<IReadOnlyList<object?>> rows,
+        CancellationToken cancellationToken = default)
+    {
+        if (CurrentTransaction is { Completed: false })
+            throw new InvalidOperationException("BulkUpsert cannot be used inside an active transaction.");
+
+        if (columns == null || columns.Count == 0)
+            throw new ArgumentException("Columns must not be empty", nameof(columns));
+        if (rows == null || rows.Count == 0)
+            throw new ArgumentException("Rows collection is empty", nameof(rows));
+
+        var structs = rows.Select(row =>
+        {
+            if (row.Count != columns.Count)
+                throw new ArgumentException("Each row must have the same number of elements as columns");
+            var members = columns
+                .Select((col, i) =>
+                    new KeyValuePair<string, YdbValue>(col, new YdbParameter { Value = row[i] }.YdbValue))
+                .ToDictionary(x => x.Key, x => x.Value);
+            return YdbValue.MakeStruct(members);
+        }).ToList();
+
+        var list = YdbValue.MakeList(structs);
+
+        var req = new BulkUpsertRequest
+        {
+            Table = tablePath,
+            Rows = list.GetProto()
+        };
+
+        var resp = await Session.Driver.UnaryCall(
+            TableService.BulkUpsertMethod,
+            req,
+            new GrpcRequestSettings { CancellationToken = cancellationToken }
+        ).ConfigureAwait(false);
+
+        var operation = resp.Operation;
+        if (operation.Status.IsNotSuccess())
+        {
+            throw YdbException.FromServer(operation.Status, operation.Issues);
+        }
     }
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)

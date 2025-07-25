@@ -308,4 +308,204 @@ INSERT INTO {tableName}
 
     protected override async Task OnDisposeAsync() =>
         await YdbConnection.ClearPool(new YdbConnection(_connectionStringTls));
+
+    [Fact]
+    public async Task BulkUpsert_HappyPath_C()
+    {
+        var tableName = $"BulkTest_{Guid.NewGuid():N}";
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
+        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
+
+        await using var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+
+        await using (var createCmd = conn.CreateCommand())
+        {
+            createCmd.CommandText = $@"
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
+            await createCmd.ExecuteNonQueryAsync();
+        }
+
+        await Task.Delay(500);
+
+        var columns = new[] { "Id", "Name" };
+        var rows = Enumerable.Range(1, 10)
+            .Select(i => new object?[] { i, $"Name {i}" })
+            .ToList();
+
+        await conn.BulkUpsertAsync(absTablePath, columns, rows);
+
+        await using (var checkCmd = conn.CreateCommand())
+        {
+            checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
+            var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+            Assert.Equal(rows.Count, count);
+        }
+
+        await using (var dropCmd = conn.CreateCommand())
+        {
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BulkUpsert_InsertsNewRows_C()
+    {
+        var tableName = $"BulkTest_{Guid.NewGuid():N}";
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
+        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
+
+        await using var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+
+        await using (var createCmd = conn.CreateCommand())
+        {
+            createCmd.CommandText = $@"
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
+            await createCmd.ExecuteNonQueryAsync();
+        }
+
+        await Task.Delay(500);
+
+        var columns = new[] { "Id", "Name" };
+
+        var firstRows = new List<object[]>
+        {
+            new object[] { 1, "Alice" },
+            new object[] { 2, "Bob" }
+        };
+        await conn.BulkUpsertAsync(absTablePath, columns, firstRows);
+
+        var newRows = new List<object[]>
+        {
+            new object[] { 3, "Charlie" },
+            new object[] { 4, "Diana" }
+        };
+        await conn.BulkUpsertAsync(absTablePath, columns, newRows);
+
+        await using (var selectCmd = conn.CreateCommand())
+        {
+            selectCmd.CommandText = $"SELECT Id, Name FROM {tableName}";
+            var results = new Dictionary<int, string>();
+            await using var reader = await selectCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                results[reader.GetInt32(0)] = reader.GetString(1);
+            }
+
+            Assert.Equal(4, results.Count);
+            Assert.Equal("Alice", results[1]);
+            Assert.Equal("Bob", results[2]);
+            Assert.Equal("Charlie", results[3]);
+            Assert.Equal("Diana", results[4]);
+        }
+
+        await using (var dropCmd = conn.CreateCommand())
+        {
+            dropCmd.CommandText = $"DROP TABLE {tableName};";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BulkUpsert_UpdatesExistingRows_C()
+    {
+        var tableName = $"BulkTest_{Guid.NewGuid():N}";
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
+        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
+
+        await using var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+
+        await using (var createCmd = conn.CreateCommand())
+        {
+            createCmd.CommandText = $@"
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
+            await createCmd.ExecuteNonQueryAsync();
+        }
+
+        await Task.Delay(500);
+
+        var columns = new[] { "Id", "Name" };
+
+        var row = new object?[] { 1, "Alice" };
+        await conn.BulkUpsertAsync(absTablePath, columns, new[] { row });
+
+        var updated = new object?[] { 1, "Alice Updated" };
+        await conn.BulkUpsertAsync(absTablePath, columns, new[] { updated });
+
+        await using (var selectCmd = conn.CreateCommand())
+        {
+            selectCmd.CommandText = $"SELECT Name FROM {tableName} WHERE Id = 1;";
+            var name = (string)(await selectCmd.ExecuteScalarAsync())!;
+            Assert.Equal("Alice Updated", name);
+        }
+
+        await using (var dropCmd = conn.CreateCommand())
+        {
+            dropCmd.CommandText = $"DROP TABLE {tableName};";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BulkUpsert_Throws_WhenTransactionIsOpen()
+    {
+        var tableName = $"BulkTest_{Guid.NewGuid():N}";
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
+        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
+
+        await using var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+
+        await using (var createCmd = conn.CreateCommand())
+        {
+            createCmd.CommandText = $@"
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
+            await createCmd.ExecuteNonQueryAsync();
+        }
+
+        await Task.Delay(500);
+
+        var columns = new[] { "Id", "Name" };
+        var rows = new List<IReadOnlyList<object?>>
+        {
+            new object?[] { 1, "Alice" },
+            new object?[] { 2, "Bob" }
+        };
+
+        await conn.BeginTransactionAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await conn.BulkUpsertAsync(absTablePath, columns, rows);
+        });
+
+        Assert.Contains("BulkUpsert cannot be used inside an active transaction", ex.Message);
+
+        await conn.CurrentTransaction?.RollbackAsync()!;
+
+        await using (var dropCmd = conn.CreateCommand())
+        {
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
 }
