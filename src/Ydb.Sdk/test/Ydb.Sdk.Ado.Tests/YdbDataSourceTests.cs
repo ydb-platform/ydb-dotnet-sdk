@@ -1,6 +1,4 @@
 using Xunit;
-using Ydb.Sdk.Services.Table;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -59,19 +57,6 @@ public class YdbDataSourceTests : TestBase
         Assert.Equal(1, new YdbCommand(ydbConnection) { CommandText = "SELECT 1" }.ExecuteScalar());
     }
 
-    private class TestEntity
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-    }
-
-    private static IReadOnlyList<IReadOnlyDictionary<string, object?>> ToDicts(IEnumerable<TestEntity> rows)
-        => rows.Select(x => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
-        {
-            ["Id"] = x.Id,
-            ["Name"] = x.Name
-        }).ToList();
-
     [Fact]
     public async Task BulkUpsert_HappyPath_DS()
     {
@@ -80,28 +65,25 @@ public class YdbDataSourceTests : TestBase
         var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
         await using var conn = await _dataSource.OpenConnectionAsync();
-
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-    CREATE TABLE {tableName} (
-        Id Int32,
-        Name Utf8,
-        PRIMARY KEY (Id)
-    )";
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
             await createCmd.ExecuteNonQueryAsync();
         }
-
         await conn.CloseAsync();
 
+        var columns = new[] { "Id", "Name" };
         var rows = Enumerable.Range(1, 20)
-            .Select(i => new TestEntity { Id = i, Name = $"Name {i}" })
+            .Select(i => new object?[] { i, $"Name {i}" })
             .ToList();
 
-        var columns = new[] { "Id", "Name" };
-
         await using var conn2 = await _dataSource.OpenConnectionAsync();
-        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts(rows));
+        await conn2.BulkUpsertAsync(absTablePath, columns, rows);
 
         await using (var checkCmd = conn2.CreateCommand())
         {
@@ -125,38 +107,34 @@ public class YdbDataSourceTests : TestBase
         var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
         await using var conn = await _dataSource.OpenConnectionAsync();
-
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-    CREATE TABLE {tableName} (
-        Id Int32,
-        Name Utf8,
-        PRIMARY KEY (Id)
-    )";
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
             await createCmd.ExecuteNonQueryAsync();
         }
-
         await conn.CloseAsync();
 
         var columns = new[] { "Id", "Name" };
-
-        var firstRows = new List<TestEntity>
+        var firstRows = new List<object[]>
         {
-            new() { Id = 1, Name = "Alice" },
-            new() { Id = 2, Name = "Bob" }
+            new object[] { 1, "Alice" },
+            new object[] { 2, "Bob" }
         };
 
         await using var conn2 = await _dataSource.OpenConnectionAsync();
-        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts(firstRows));
+        await conn2.BulkUpsertAsync(absTablePath, columns, firstRows);
 
-        var newRows = new List<TestEntity>
+        var newRows = new List<object[]>
         {
-            new() { Id = 3, Name = "Charlie" },
-            new() { Id = 4, Name = "Diana" }
+            new object[] { 3, "Charlie" },
+            new object[] { 4, "Diana" }
         };
-
-        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts(newRows));
+        await conn2.BulkUpsertAsync(absTablePath, columns, newRows);
 
         await using (var checkCmd = conn2.CreateCommand())
         {
@@ -190,29 +168,26 @@ public class YdbDataSourceTests : TestBase
         var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
         await using var conn = await _dataSource.OpenConnectionAsync();
-
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-    CREATE TABLE {tableName} (
-        Id Int32,
-        Name Utf8,
-        PRIMARY KEY (Id)
-    )";
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
             await createCmd.ExecuteNonQueryAsync();
         }
-
         await conn.CloseAsync();
 
         var columns = new[] { "Id", "Name" };
-
-        var originalRow = new TestEntity { Id = 1, Name = "Alice" };
+        var originalRow = new object?[] { 1, "Alice" };
 
         await using var conn2 = await _dataSource.OpenConnectionAsync();
-        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts([originalRow]));
+        await conn2.BulkUpsertAsync(absTablePath, columns, [originalRow]);
 
-        var updatedRow = new TestEntity { Id = 1, Name = "Alice Updated" };
-        await conn2.BulkUpsertAsync(absTablePath, columns, ToDicts([updatedRow]));
+        var updatedRow = new object?[] { 1, "Alice Updated" };
+        await conn2.BulkUpsertAsync(absTablePath, columns, [updatedRow]);
 
         await using (var selectCmd = conn2.CreateCommand())
         {
@@ -227,7 +202,7 @@ public class YdbDataSourceTests : TestBase
             await dropCmd.ExecuteNonQueryAsync();
         }
     }
-    
+
     [Fact]
     public async Task BulkUpsert_DirectlyOnDataSource_Works()
     {
@@ -239,24 +214,19 @@ public class YdbDataSourceTests : TestBase
         await using (var createCmd = conn.CreateCommand())
         {
             createCmd.CommandText = $@"
-CREATE TABLE {tableName} (
-    Id Int32,
-    Name Utf8,
-    PRIMARY KEY (Id)
-)";
+            CREATE TABLE {tableName} (
+                Id Int32,
+                Name Utf8,
+                PRIMARY KEY (Id)
+            )";
             await createCmd.ExecuteNonQueryAsync();
         }
         await conn.CloseAsync();
 
-        var rows = Enumerable.Range(1, 5)
-            .Select(i => new Dictionary<string, object?>
-            {
-                ["Id"] = i,
-                ["Name"] = $"Name {i}"
-            })
-            .ToList();
-
         var columns = new[] { "Id", "Name" };
+        var rows = Enumerable.Range(1, 5)
+            .Select(i => new object?[] { i, $"Name {i}" })
+            .ToList();
 
         await _dataSource.BulkUpsertAsync(absTablePath, columns, rows);
 

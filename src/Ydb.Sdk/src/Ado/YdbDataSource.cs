@@ -1,6 +1,5 @@
 #if NET7_0_OR_GREATER
 using System.Data.Common;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
@@ -70,7 +69,7 @@ public class YdbDataSource : DbDataSource
     public async Task BulkUpsertAsync(
         string tablePath,
         IReadOnlyList<string> columns,
-        IReadOnlyList<IReadOnlyDictionary<string, object?>> rows,
+        IReadOnlyList<IReadOnlyList<object?>> rows,
         CancellationToken cancellationToken = default)
     {
         await using var conn = await OpenConnectionAsync(cancellationToken);

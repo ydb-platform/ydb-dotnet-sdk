@@ -59,15 +59,23 @@ public sealed class YdbConnection : DbConnection
     public async Task BulkUpsertAsync(
         string tablePath,
         IReadOnlyList<string> columns,
-        IReadOnlyList<IReadOnlyDictionary<string, object?>> rows,
+        IReadOnlyList<IReadOnlyList<object?>> rows,
         CancellationToken cancellationToken = default)
     {
-        var structs = rows.Select(dict =>
-            YdbValue.MakeStruct(
-                columns.ToDictionary(
-                    col => col,
-                    col => new YdbParameter { Value = dict[col] }.YdbValue
-                ))).ToList();
+        if (columns == null || columns.Count == 0)
+            throw new ArgumentException("Columns must not be empty", nameof(columns));
+        if (rows == null || rows.Count == 0)
+            throw new ArgumentException("Rows collection is empty", nameof(rows));
+
+        var structs = rows.Select(row =>
+        {
+            if (row.Count != columns.Count)
+                throw new ArgumentException("Each row must have the same number of elements as columns");
+            var members = columns
+                .Select((col, i) => new KeyValuePair<string, YdbValue>(col, new YdbParameter { Value = row[i] }.YdbValue))
+                .ToDictionary(x => x.Key, x => x.Value);
+            return YdbValue.MakeStruct(members);
+        }).ToList();
 
         var list = YdbValue.MakeList(structs);
 

@@ -6,8 +6,6 @@ using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Value;
-using Ydb.Table;
-using Ydb.Table.V1;
 using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 using CreateSessionRequest = Ydb.Query.CreateSessionRequest;
 using DeleteSessionRequest = Ydb.Query.DeleteSessionRequest;
@@ -227,11 +225,5 @@ internal class Session : SessionBase<Session>, ISession
         {
             throw YdbException.FromServer(deleteSessionResponse.Status, deleteSessionResponse.Issues);
         }
-    }
-
-    internal async Task<BulkUpsertResponse> BulkUpsertAsync(BulkUpsertRequest req, CancellationToken ct = default)
-    {
-        var settings = MakeGrpcRequestSettings(new GrpcRequestSettings { CancellationToken = ct });
-        return await Driver.UnaryCall(TableService.BulkUpsertMethod, req, settings);
     }
 }

@@ -1,7 +1,6 @@
 using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
-using Ydb.Sdk.Services.Table;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -310,19 +309,6 @@ INSERT INTO {tableName}
     protected override async Task OnDisposeAsync() =>
         await YdbConnection.ClearPool(new YdbConnection(_connectionStringTls));
 
-    private class TestEntity
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-    }
-
-    private static IReadOnlyList<IReadOnlyDictionary<string, object?>> ToDicts(IEnumerable<TestEntity> rows)
-        => rows.Select(x => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
-        {
-            ["Id"] = x.Id,
-            ["Name"] = x.Name
-        }).ToList();
-
     [Fact]
     public async Task BulkUpsert_HappyPath_C()
     {
@@ -346,12 +332,12 @@ INSERT INTO {tableName}
 
         await Task.Delay(500);
 
+        var columns = new[] { "Id", "Name" };
         var rows = Enumerable.Range(1, 10)
-            .Select(i => new TestEntity { Id = i, Name = $"Name {i}" })
+            .Select(i => new object?[] { i, $"Name {i}" })
             .ToList();
 
-        var columns = new[] { "Id", "Name" };
-        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts(rows));
+        await conn.BulkUpsertAsync(absTablePath, columns, rows);
 
         await using (var checkCmd = conn.CreateCommand())
         {
@@ -368,7 +354,7 @@ INSERT INTO {tableName}
     }
 
     [Fact]
-    public async Task BulkUpsert_InsertsNewRows_С()
+    public async Task BulkUpsert_InsertsNewRows_C()
     {
         var tableName = $"BulkTest_{Guid.NewGuid():N}";
         var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
@@ -392,19 +378,19 @@ INSERT INTO {tableName}
 
         var columns = new[] { "Id", "Name" };
 
-        var firstRows = new List<TestEntity>
+        var firstRows = new List<object[]>
         {
-            new() { Id = 1, Name = "Alice" },
-            new() { Id = 2, Name = "Bob" }
+            new object?[] { 1, "Alice" },
+            new object?[] { 2, "Bob" }
         };
-        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts(firstRows));
+        await conn.BulkUpsertAsync(absTablePath, columns, firstRows);
 
-        var newRows = new List<TestEntity>
+        var newRows = new List<object[]>
         {
-            new() { Id = 3, Name = "Charlie" },
-            new() { Id = 4, Name = "Diana" }
+            new object?[] { 3, "Charlie" },
+            new object?[] { 4, "Diana" }
         };
-        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts(newRows));
+        await conn.BulkUpsertAsync(absTablePath, columns, newRows);
 
         await using (var selectCmd = conn.CreateCommand())
         {
@@ -431,7 +417,7 @@ INSERT INTO {tableName}
     }
 
     [Fact]
-    public async Task BulkUpsert_UpdatesExistingRows_С()
+    public async Task BulkUpsert_UpdatesExistingRows_C()
     {
         var tableName = $"BulkTest_{Guid.NewGuid():N}";
         var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
@@ -455,16 +441,16 @@ INSERT INTO {tableName}
 
         var columns = new[] { "Id", "Name" };
 
-        var row = new TestEntity { Id = 1, Name = "Alice" };
-        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts([row]));
+        var row = new object?[] { 1, "Alice" };
+        await conn.BulkUpsertAsync(absTablePath, columns, new[] { row });
 
-        var updated = new TestEntity { Id = 1, Name = "Alice Updated" };
-        await conn.BulkUpsertAsync(absTablePath, columns, ToDicts([updated]));
+        var updated = new object?[] { 1, "Alice Updated" };
+        await conn.BulkUpsertAsync(absTablePath, columns, new[] { updated });
 
         await using (var selectCmd = conn.CreateCommand())
         {
             selectCmd.CommandText = $"SELECT Name FROM {tableName} WHERE Id = 1;";
-            var name = await selectCmd.ExecuteScalarAsync() as string;
+            var name = (string)(await selectCmd.ExecuteScalarAsync())!;
             Assert.Equal("Alice Updated", name);
         }
 
