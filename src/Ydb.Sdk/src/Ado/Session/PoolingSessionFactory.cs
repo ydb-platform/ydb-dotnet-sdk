@@ -15,6 +15,6 @@ internal class PoolingSessionFactory : IPoolingSessionFactory
         _logger = loggerFactory.CreateLogger<PoolingSession>();
     }
 
-    public PoolingSession NewSession(PoolingSessionSource source) =>
-        new(_driver, source, _disableServerBalancer, _logger);
+    public PoolingSessionBase NewSession(PoolingSessionSource source) =>
+        new PoolingSession(_driver, source, _disableServerBalancer, _logger);
 }
