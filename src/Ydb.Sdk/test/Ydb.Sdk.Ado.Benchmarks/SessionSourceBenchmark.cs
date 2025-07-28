@@ -9,7 +9,7 @@ namespace Ydb.Sdk.Ado.Benchmarks;
 [ThreadingDiagnoser]
 public class SessionSourceBenchmark
 {
-    private PoolingSessionSource _poolingSessionSource = null!;
+    private PoolingSessionSource<MockPoolingSession> _poolingSessionSource = null!;
     private const int SessionPoolSize = 50;
     private const int ConcurrentTasks = 20;
 
@@ -18,7 +18,7 @@ public class SessionSourceBenchmark
     {
         var settings = new YdbConnectionStringBuilder { MaxSessionPool = SessionPoolSize };
 
-        _poolingSessionSource = new PoolingSessionSource(new MockSessionFactory(), settings);
+        _poolingSessionSource = new PoolingSessionSource<MockPoolingSession>(new MockSessionFactory(), settings);
     }
 
     [Benchmark]
@@ -133,34 +133,33 @@ public class SessionSourceBenchmark
     }
 }
 
-internal class MockSessionFactory : IPoolingSessionFactory
+internal class MockSessionFactory : IPoolingSessionFactory<MockPoolingSession>
 {
-    public IPoolingSession NewSession(PoolingSessionSource source) => new PoolingMockSession(source);
+    public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) => new(source);
 }
 
-internal class PoolingMockSession(PoolingSessionSource source) : IPoolingSession
+internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> source)
+    : PoolingSessionBase<MockPoolingSession>(source)
 {
-    public IDriver Driver => throw new NotImplementedException();
+    public override IDriver Driver => null!;
+    public override bool IsBroken => false;
 
-    public bool IsBroken => false;
+    internal override async Task Open(CancellationToken cancellationToken) => await Task.Yield();
+    internal override Task DeleteSession() => Task.CompletedTask;
 
-    public void Close() => source.Return(this);
-
-    public async Task Open(CancellationToken cancellationToken) => await Task.Yield();
-
-    public Task DeleteSession() => Task.CompletedTask;
-
-    public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(string query,
+    public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
+        string query,
         Dictionary<string, YdbValue> parameters, GrpcRequestSettings settings,
-        TransactionControl? txControl) => throw new NotImplementedException();
+        TransactionControl? txControl
+    ) => throw new NotImplementedException();
 
-    public Task CommitTransaction(string txId, CancellationToken cancellationToken = default) =>
+    public override Task CommitTransaction(string txId, CancellationToken cancellationToken = default) =>
         throw new NotImplementedException();
 
-    public Task RollbackTransaction(string txId, CancellationToken cancellationToken = default) =>
+    public override Task RollbackTransaction(string txId, CancellationToken cancellationToken = default) =>
         throw new NotImplementedException();
 
-    public void OnNotSuccessStatusCode(StatusCode code)
+    public override void OnNotSuccessStatusCode(StatusCode code)
     {
     }
 }
