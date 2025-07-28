@@ -43,6 +43,7 @@ public class SessionPoolBenchmark
             tasks[i] = Task.Run(async () =>
             {
                 var session = await _sessionPool.GetSession();
+                await Task.Yield();
                 await session.Release();
             });
         }
@@ -61,6 +62,7 @@ public class SessionPoolBenchmark
             tasks[i] = Task.Run(async () =>
             {
                 var session = await _sessionPool.GetSession();
+                await Task.Yield();
                 await session.Release();
             });
         }
@@ -81,6 +83,29 @@ public class SessionPoolBenchmark
                 for (var j = 0; j < iterations; j++)
                 {
                     var session = await _sessionPool.GetSession();
+                    await Task.Yield();
+                    await session.Release();
+                }
+            });
+        }
+
+        await Task.WhenAll(tasks);
+    }
+
+    [Benchmark]
+    public async Task SessionReuse_HighIterations_Pattern()
+    {
+        const int iterations = 10_000;
+        var tasks = new Task[ConcurrentTasks];
+
+        for (var i = 0; i < ConcurrentTasks; i++)
+        {
+            tasks[i] = Task.Run(async () =>
+            {
+                for (var j = 0; j < iterations; j++)
+                {
+                    var session = await _sessionPool.GetSession();
+                    await Task.Yield();
                     await session.Release();
                 }
             });
@@ -95,11 +120,12 @@ internal class TestSessionPool(ILogger<TestSessionPool> logger, SessionPoolConfi
 {
     private volatile int _sessionIdCounter;
 
-    protected override Task<TestSession> CreateSession(CancellationToken cancellationToken = default)
+    protected override async Task<TestSession> CreateSession(CancellationToken cancellationToken = default)
     {
         var sessionId = $"test-session-{Interlocked.Increment(ref _sessionIdCounter)}";
         var session = new TestSession(this, sessionId, nodeId: 1);
-        return Task.FromResult(session);
+        await Task.Yield();
+        return session;
     }
 }
 
