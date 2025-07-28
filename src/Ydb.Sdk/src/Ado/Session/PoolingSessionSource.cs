@@ -20,6 +20,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     private readonly Timer _cleanerTimer;
 
     private volatile int _numSessions;
+    private volatile int _waiterSize;
 
     public PoolingSessionSource(
         IPoolingSessionFactory<T> sessionFactory,
@@ -93,8 +94,24 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
         while (true)
         {
+            // Statement order is important
             var waiterTcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
             _waiters.Enqueue(waiterTcs);
+            if (TryGetIdleSession(out session))
+            {
+                if (!waiterTcs.TrySetResult(null))
+                {
+                    var raceSession = await waiterTcs.Task;
+
+                    if (CheckIdleSession(raceSession))
+                    {
+                        _idleSessions.Push(raceSession);
+                    }
+                }
+
+                return session;
+            }
+
             await using var _ = finalToken.Register(() => waiterTcs.TrySetCanceled(), useSynchronizationContext: false);
             session = await waiterTcs.Task.ConfigureAwait(false);
 
@@ -143,8 +160,9 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
     private void WakeUpWaiter()
     {
-        if (_waiters.TryDequeue(out var waiter))
-            waiter.TrySetResult(null); // wake up waiter!
+        if (_waiters.TryDequeue(out var waiter) && waiter.TrySetResult(null))
+        {
+        } // wake up waiter!
     }
 
     public void Return(T session)
@@ -160,11 +178,12 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         session.IdleStartTime = DateTime.Now;
         session.Set(PoolingSessionState.In);
 
-        if (_waiters.TryDequeue(out var waiter))
+        while (_waiters.TryDequeue(out var waiter))
         {
-            waiter.TrySetResult(session);
-
-            return;
+            if (waiter.TrySetResult(session))
+            {
+                return;
+            }
         }
 
         _idleSessions.Push(session);

@@ -28,50 +28,84 @@ public class PoolingSessionSourceMockTests
     [Fact]
     public async Task Creating_Session_Throw_Exception()
     {
-        const string errorMessage = "Error on open session";
-        const int maxSessionSize = 200;
+        for (var it = 0; it < 100_000; it++)
+        {
+            const string errorMessage = "Error on open session";
+            const int maxSessionSize = 200;
 
+            var mockPoolingSessionFactory = new MockPoolingSessionFactory
+            {
+                Open = sessionNum =>
+                    sessionNum <= maxSessionSize * 2
+                        ? Task.FromException(new YdbException(errorMessage))
+                        : Task.CompletedTask
+            };
+
+            var sessionSource = new PoolingSessionSource<MockPoolingSession>(
+                mockPoolingSessionFactory, new YdbConnectionStringBuilder { MaxSessionPool = maxSessionSize }
+            );
+
+            var tasks = new List<Task>();
+            var countSuccess = 0;
+
+            for (var i = 0; i < maxSessionSize * 4; i++)
+            {
+                tasks.Add(Task.Run(async () =>
+                {
+                    try
+                    {
+                        var session = await sessionSource.OpenSession();
+                        // ReSharper disable once AccessToModifiedClosure
+                        Interlocked.Increment(ref countSuccess);
+                        Assert.True(session.SessionId() > maxSessionSize * 2);
+                        session.Close();
+                    }
+                    catch (YdbException e)
+                    {
+                        Assert.Equal(errorMessage, e.Message);
+                    }
+                }));
+            }
+
+            await Task.WhenAll(tasks);
+            Assert.Equal(maxSessionSize * 2, Volatile.Read(ref countSuccess));
+            Assert.True(maxSessionSize * 3 >= mockPoolingSessionFactory.SessionNum);
+            Assert.True(maxSessionSize * 2 < mockPoolingSessionFactory.SessionNum);
+        }
+    }
+
+    [Fact]
+    public async Task HighContention_OpenClose_NotCanceledException()
+    {
         var mockPoolingSessionFactory = new MockPoolingSessionFactory
         {
-            Open = sessionNum =>
-                sessionNum <= maxSessionSize * 2
-                    ? Task.FromException(new YdbException(errorMessage))
-                    : Task.CompletedTask
+            Open = async _ => await Task.Yield()
         };
+        const int highContentionTasks = 100;
+        const int maxSessionSize = highContentionTasks / 2;
 
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(
             mockPoolingSessionFactory, new YdbConnectionStringBuilder { MaxSessionPool = maxSessionSize }
         );
 
-        var tasks = new List<Task>();
-        var countSuccess = 0;
-
-        for (var i = 0; i < maxSessionSize * 4; i++)
+        for (var it = 0; it < 100_000; it++)
         {
-            tasks.Add(Task.Run(async () =>
+            var tasks = new Task[highContentionTasks];
+
+            for (var i = 0; i < highContentionTasks; i++)
             {
-                try
+                tasks[i] = Task.Run(async () =>
                 {
                     var session = await sessionSource.OpenSession();
-                    // ReSharper disable once AccessToModifiedClosure
-                    Interlocked.Increment(ref countSuccess);
-                    Assert.True(session.SessionId() > maxSessionSize * 2);
+                    Assert.True(session.SessionId() <= maxSessionSize);
+                    await Task.Yield();
                     session.Close();
-                }
-                catch (YdbException e)
-                {
-                    Assert.Equal(errorMessage, e.Message);
-                }
-            }));
-        }
+                });
+            }
 
-        await Task.WhenAll(tasks);
-        Assert.Equal(maxSessionSize * 2, Volatile.Read(ref countSuccess));
-        Assert.True(maxSessionSize * 3 >= mockPoolingSessionFactory.SessionNum);
-        Assert.True(maxSessionSize * 2 < mockPoolingSessionFactory.SessionNum);
+            await Task.WhenAll(tasks);
+        }
     }
-    
-    
 }
 
 internal static class ISessionExtension
