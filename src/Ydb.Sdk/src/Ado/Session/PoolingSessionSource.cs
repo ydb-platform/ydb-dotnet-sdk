@@ -97,19 +97,26 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             // Statement order is important
             var waiterTcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
             _waiters.Enqueue(waiterTcs);
-            if (TryGetIdleSession(out session))
+            if (_idleSessions.TryPop(out session))
             {
-                if (!waiterTcs.TrySetResult(null))
+                if (!waiterTcs.TrySetResult(null) && waiterTcs.Task.IsCompleted)
                 {
-                    var raceSession = await waiterTcs.Task;
+                    var sessionFromRace = waiterTcs.Task.Result;
 
-                    if (CheckIdleSession(raceSession))
+                    if (CheckIdleSession(sessionFromRace))
                     {
-                        _idleSessions.Push(raceSession);
+                        _idleSessions.Push(sessionFromRace);
                     }
                 }
 
-                return session;
+                if (CheckIdleSession(session))
+                    return session;
+
+                session = await OpenNewSession(finalToken).ConfigureAwait(false);
+                if (session != null)
+                    return session;
+
+                continue;
             }
 
             await using var _ = finalToken.Register(() => waiterTcs.TrySetCanceled(), useSynchronizationContext: false);
