@@ -38,6 +38,7 @@ public class SessionSourceBenchmark
             tasks[i] = Task.Run(async () =>
             {
                 var session = await _poolingSessionSource.OpenSession();
+                await Task.Yield();
                 session.Close();
             });
         }
@@ -56,6 +57,7 @@ public class SessionSourceBenchmark
             tasks[i] = Task.Run(async () =>
             {
                 var session = await _poolingSessionSource.OpenSession();
+                await Task.Yield();
                 session.Close();
             });
         }
@@ -76,6 +78,29 @@ public class SessionSourceBenchmark
                 for (var j = 0; j < iterations; j++)
                 {
                     var session = await _poolingSessionSource.OpenSession();
+                    await Task.Yield();
+                    session.Close();
+                }
+            });
+        }
+
+        await Task.WhenAll(tasks);
+    }
+
+    [Benchmark]
+    public async Task SessionReuse_HighIterations_Pattern()
+    {
+        const int iterations = 10_000;
+        var tasks = new Task[ConcurrentTasks];
+
+        for (var i = 0; i < ConcurrentTasks; i++)
+        {
+            tasks[i] = Task.Run(async () =>
+            {
+                for (var j = 0; j < iterations; j++)
+                {
+                    var session = await _poolingSessionSource.OpenSession();
+                    await Task.Yield();
                     session.Close();
                 }
             });
@@ -98,7 +123,7 @@ internal class PoolingMockSession(PoolingSessionSource source) : IPoolingSession
 
     public void Close() => source.Return(this);
 
-    public Task Open(CancellationToken cancellationToken) => Task.CompletedTask;
+    public async Task Open(CancellationToken cancellationToken) => await Task.Yield();
 
     public Task DeleteSession() => Task.CompletedTask;
 
