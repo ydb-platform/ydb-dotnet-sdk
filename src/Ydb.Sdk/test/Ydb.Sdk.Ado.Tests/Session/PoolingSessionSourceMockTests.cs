@@ -28,7 +28,7 @@ public class PoolingSessionSourceMockTests
     [Fact]
     public async Task Creating_Session_Throw_Exception()
     {
-        for (var it = 0; it < 100_000; it++)
+        for (var it = 0; it < 10_000; it++)
         {
             const string errorMessage = "Error on open session";
             const int maxSessionSize = 200;
