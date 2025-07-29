@@ -65,16 +65,6 @@ public class YdbDataSource : DbDataSource
         await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString);
 
     protected override void Dispose(bool disposing) => DisposeAsyncCore().AsTask().GetAwaiter().GetResult();
-
-    public async Task BulkUpsertAsync(
-        string tablePath,
-        IReadOnlyList<string> columns,
-        IReadOnlyList<IReadOnlyList<object?>> rows,
-        CancellationToken cancellationToken = default)
-    {
-        await using var conn = await OpenConnectionAsync(cancellationToken);
-        await conn.BulkUpsertAsync(tablePath, columns, rows, cancellationToken);
-    }
 }
 
 #endif
