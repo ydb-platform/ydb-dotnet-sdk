@@ -27,22 +27,13 @@ Allocated            : Allocated memory per single operation (managed only, incl
 | SessionReuse_Pattern                |     203,350.5 ns |     2,675.74 ns |     2,371.97 ns |             220.0027 |           5.5349 |    5.8594 |      - |    50511 B |
 | SessionReuse_HighIterations_Pattern | 145,221,373.7 ns | 1,843,163.83 ns | 1,724,096.59 ns |          200020.2500 |        1764.5000 | 5000.0000 |      - | 43209728 B |
 
-# YDB .NET SDK Session Pool Benchmarks
+# YDB .NET SDK Session Pool Benchmarks (Npgsql)
 
-| Method                              |             Mean |          Error |         StdDev | Completed Work Items | Lock Contentions |   Gen0 | Allocated |
-|-------------------------------------|-----------------:|---------------:|---------------:|---------------------:|-----------------:|-------:|----------:|
-| SingleThreaded_OpenClose            |         25.35 ns |       0.258 ns |       0.241 ns |                    - |                - |      - |         - |                                                                            
-| MultiThreaded_OpenClose             |     30,650.91 ns |     601.279 ns |   1,281.374 ns |              40.0031 |           0.5160 | 0.8545 |    7249 B |
-| HighContention_OpenClose            |    142,804.56 ns |   2,845.384 ns |   7,138.512 ns |             205.9829 |           4.6663 | 4.6387 |   38864 B |
-| SessionReuse_Pattern                |    153,983.59 ns |   2,272.104 ns |   2,014.161 ns |             220.0000 |           5.6296 | 0.7324 |    7303 B |
-| SessionReuse_HighIterations_Pattern | 82,351,234.51 ns | 694,703.573 ns | 649,826.153 ns |          200020.0000 |         540.0000 |      - |    7458 B |
-
-# YDB .NET SDK Session Source Benchmarks (Npgsql)
-
-| Method                   |          Mean |        Error |       StdDev |        Median | Completed Work Items | Lock Contentions |   Gen0 | Allocated |
-|--------------------------|--------------:|-------------:|-------------:|--------------:|---------------------:|-----------------:|-------:|----------:|
-| SingleThreaded_OpenClose |      25.82 ns |     0.141 ns |     0.125 ns |      25.78 ns |                    - |                - |      - |         - |                                                                              
-| MultiThreaded_OpenClose  |  20,893.61 ns |   829.087 ns | 2,431.569 ns |  19,694.30 ns |              20.0033 |           0.0303 | 0.5188 |    4526 B |
-| HighContention_OpenClose | 108,688.27 ns | 2,160.177 ns | 3,298.819 ns | 108,755.99 ns |             100.0017 |           3.8002 | 2.5635 |   21839 B |
-| SessionReuse_Pattern     | 130,849.34 ns | 2,616.397 ns | 4,977.967 ns | 129,920.39 ns |              20.0000 |           5.4443 | 0.4883 |    4588 B |
- 
+| Method                              |             Mean |          Error |         StdDev | Completed Work Items | Lock Contentions |     Gen0 |    Gen1 | Allocated |
+|-------------------------------------|-----------------:|---------------:|---------------:|---------------------:|-----------------:|---------:|--------:|----------:|
+| SingleThreaded_OpenClose            |         26.34 ns |       0.476 ns |       0.422 ns |                    - |                - |        - |       - |         - |                                       
+| MultiThreaded_OpenClose             |     32,578.44 ns |     650.578 ns |   1,583.596 ns |              40.0028 |           0.4411 |   0.8545 |       - |    7251 B |
+| HighContention_OpenClose            |    138,930.59 ns |   2,729.363 ns |   4,990.795 ns |             209.1182 |           3.5857 |   4.8828 |       - |   40566 B |
+| SessionReuse_Pattern                |    159,954.05 ns |   2,820.324 ns |   4,044.825 ns |             220.0000 |           6.0381 |   0.7324 |       - |    7307 B |
+| SessionReuse_HighContention_Pattern |  8,914,529.81 ns |  46,900.448 ns |  41,576.026 ns |           19756.6563 |         149.0469 | 625.0000 | 93.7500 | 5289794 B |
+| SessionReuse_HighIterations_Pattern | 81,211,792.96 ns | 749,115.160 ns | 664,071.077 ns |          200020.0000 |         614.8571 |        - |       - |    7458 B |
