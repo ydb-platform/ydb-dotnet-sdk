@@ -19,13 +19,14 @@ Allocated            : Allocated memory per single operation (managed only, incl
 
 # YDB .NET SDK Session Pool V1 On Semaphore-Based
 
-| Method                              |             Mean |           Error |          StdDev | Completed Work Items | Lock Contentions |      Gen0 |   Gen1 |  Allocated |
-|-------------------------------------|-----------------:|----------------:|----------------:|---------------------:|-----------------:|----------:|-------:|-----------:|
-| SingleThreaded_OpenClose            |         126.0 ns |         0.85 ns |         0.71 ns |               0.0000 |                - |    0.0257 |      - |      216 B |                                                             
-| MultiThreaded_OpenClose             |      36,028.4 ns |       710.14 ns |     1,146.75 ns |              40.0003 |           0.5005 |    1.4038 |      - |    11582 B |
-| HighContention_OpenClose            |     155,614.4 ns |     3,083.73 ns |     5,400.90 ns |             230.8015 |           5.5818 |    8.7891 | 0.4883 |    74780 B |
-| SessionReuse_Pattern                |     203,350.5 ns |     2,675.74 ns |     2,371.97 ns |             220.0027 |           5.5349 |    5.8594 |      - |    50511 B |
-| SessionReuse_HighIterations_Pattern | 145,221,373.7 ns | 1,843,163.83 ns | 1,724,096.59 ns |          200020.2500 |        1764.5000 | 5000.0000 |      - | 43209728 B |
+| Method                              |             Mean |           Error |          StdDev | Completed Work Items | Lock Contentions |      Gen0 |     Gen1 |  Allocated |
+|-------------------------------------|-----------------:|----------------:|----------------:|---------------------:|-----------------:|----------:|---------:|-----------:|
+| SingleThreaded_OpenClose            |         125.1 ns |         2.54 ns |         2.37 ns |                    - |                - |    0.0257 |        - |      216 B |
+| MultiThreaded_OpenClose             |      30,893.8 ns |       610.63 ns |       895.06 ns |              40.0002 |           0.3741 |    1.4038 |        - |    11573 B |
+| HighContention_OpenClose            |     159,192.9 ns |     3,168.43 ns |     6,752.19 ns |             230.7124 |           5.6448 |    8.7891 |   0.4883 |    74723 B |
+| SessionReuse_Pattern                |     202,559.0 ns |     2,181.67 ns |     1,934.00 ns |             220.0027 |           5.4810 |    5.8594 |        - |    50510 B |
+| SessionReuse_HighContention_Pattern |  10,016,874.4 ns |    58,462.60 ns |    54,685.95 ns |           19707.6719 |         165.5469 |  921.8750 | 140.6250 |  7729448 B |
+| SessionReuse_HighIterations_Pattern | 152,765,644.4 ns | 1,570,755.95 ns | 1,469,286.09 ns |          200020.0000 |        1751.2500 | 5000.0000 |        - | 43207568 B |
 
 # YDB .NET SDK Session Pool Benchmarks (Npgsql)
 
