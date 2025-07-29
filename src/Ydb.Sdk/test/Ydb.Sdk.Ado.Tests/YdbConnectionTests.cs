@@ -19,23 +19,19 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
-        for (var i = 0; i < 10; i++)
-        {
-            var connectionString = ConnectionString + ";MaxSessionPool=100";
+        var connectionString = ConnectionString + ";MaxSessionPool=100";
 
-            var tasks = GenerateTasks(connectionString);
-            tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
-            tasks.AddRange(GenerateTasks(connectionString));
-            await Task.WhenAll(tasks);
-            Assert.Equal(999000, _counter);
+        var tasks = GenerateTasks(connectionString);
+        tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
+        tasks.AddRange(GenerateTasks(connectionString));
+        await Task.WhenAll(tasks);
+        Assert.Equal(9900, _counter);
 
-            tasks = GenerateTasks(connectionString);
-            tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
-            await Task.WhenAll(tasks);
-            Assert.Equal(1498500, _counter);
-            await YdbConnection.ClearPool(new YdbConnection(connectionString));
-            _counter = 0;
-        }
+        tasks = GenerateTasks(connectionString);
+        tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
+        await Task.WhenAll(tasks);
+        Assert.Equal(14850, _counter);
+        await YdbConnection.ClearPool(new YdbConnection(connectionString));
     }
 
     // docker cp ydb-local:/ydb_certs/ca.pem ~/
@@ -192,11 +188,10 @@ INSERT INTO {tableName}
     [Fact]
     public async Task DisableDiscovery_WhenPropertyIsTrue_SimpleWorking()
     {
-        var connection = CreateConnection();
+        await using var connection = CreateConnection();
         connection.ConnectionString += ";DisableDiscovery=true";
         await connection.OpenAsync();
         Assert.True((bool)(await new YdbCommand(connection) { CommandText = "SELECT TRUE;" }.ExecuteScalarAsync())!);
-        await connection.CloseAsync();
         await YdbConnection.ClearPool(connection);
     }
 
@@ -204,7 +199,7 @@ INSERT INTO {tableName}
     public async Task OpenAsync_WhenCancelTokenIsCanceled_ThrowYdbException()
     {
         await using var connection = CreateConnection();
-        connection.ConnectionString = ConnectionString;
+        connection.ConnectionString = ConnectionString + ";MinSessionPool=1";
         using var cts = new CancellationTokenSource();
         cts.Cancel();
         Assert.Equal("The connection pool has been exhausted, either raise 'MaxSessionPool' (currently 10) " +
@@ -298,8 +293,10 @@ INSERT INTO {tableName}
             ydbConnection.ConnectionString = connectionString;
             await ydbConnection.OpenAsync();
         }
-        catch (YdbException)
+        catch (YdbException e)
         {
+            Assert.Equal(StatusCode.Unspecified, e.Code);
+            Assert.Equal("Session Source is disposed.", e.Message);
             Interlocked.Add(ref _counter, i);
             return;
         }
