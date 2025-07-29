@@ -38,3 +38,15 @@ Allocated            : Allocated memory per single operation (managed only, incl
 | SessionReuse_Pattern                |    159,954.05 ns |   2,820.324 ns |   4,044.825 ns |             220.0000 |           6.0381 |   0.7324 |       - |    7307 B |
 | SessionReuse_HighContention_Pattern |  8,914,529.81 ns |  46,900.448 ns |  41,576.026 ns |           19756.6563 |         149.0469 | 625.0000 | 93.7500 | 5289794 B |
 | SessionReuse_HighIterations_Pattern | 81,211,792.96 ns | 749,115.160 ns | 664,071.077 ns |          200020.0000 |         614.8571 |        - |       - |    7458 B |
+
+# YDB .NET SDK Session Pool Benchmarks (FIFO lock-free)
+
+| Method                              |             Mean |            Error |           StdDev |           Median | Completed Work Items | Lock Contentions |     Gen0 |     Gen1 | Allocated |
+|-------------------------------------|-----------------:|-----------------:|-----------------:|-----------------:|---------------------:|-----------------:|---------:|---------:|----------:|
+| SingleThreaded_OpenClose            |         64.75 ns |         1.004 ns |         0.986 ns |         64.31 ns |                    - |                - |   0.0038 |        - |      32 B |                                        
+| MultiThreaded_OpenClose             |     22,547.55 ns |       443.931 ns |       511.232 ns |     22,613.77 ns |              40.0020 |                - |   0.9460 |        - |    7888 B |
+| HighContention_OpenClose            |     83,230.11 ns |     1,642.445 ns |     1,536.344 ns |     83,232.22 ns |             205.5402 |           0.0016 |   5.0049 |        - |   42337 B |
+| SessionReuse_Pattern                |    102,998.59 ns |     1,990.337 ns |     2,854.481 ns |    103,245.75 ns |             220.0000 |           0.0002 |   1.5869 |        - |   13678 B |
+| SessionReuse_HighContention_Pattern |  3,735,379.14 ns |    73,499.927 ns |   116,578.682 ns |  3,694,595.05 ns |           19845.2422 |           5.7344 | 812.5000 | 132.8125 | 6750890 B |
+| SessionReuse_HighIterations_Pattern | 69,402,122.32 ns | 1,382,232.565 ns | 4,075,544.202 ns | 70,535,363.07 ns |          200020.0000 |                - | 714.2857 |        - | 6407458 B |
+

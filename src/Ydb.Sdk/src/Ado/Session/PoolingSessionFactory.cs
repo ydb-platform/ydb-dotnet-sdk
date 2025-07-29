@@ -9,7 +9,7 @@ internal class PoolingSessionFactory : IPoolingSessionFactory<PoolingSession>
     private readonly bool _disableServerBalancer;
     private readonly ILogger<PoolingSession> _logger;
 
-    private PoolingSessionFactory(IDriver driver, YdbConnectionStringBuilder settings, ILoggerFactory loggerFactory)
+    internal PoolingSessionFactory(IDriver driver, YdbConnectionStringBuilder settings, ILoggerFactory loggerFactory)
     {
         _driver = driver;
         _disableServerBalancer = settings.DisableServerBalancer;
@@ -21,4 +21,6 @@ internal class PoolingSessionFactory : IPoolingSessionFactory<PoolingSession>
 
     public PoolingSession NewSession(PoolingSessionSource<PoolingSession> source) =>
         new(_driver, source, _disableServerBalancer, _logger);
+
+    public ValueTask DisposeAsync() => _driver.DisposeAsync();
 }

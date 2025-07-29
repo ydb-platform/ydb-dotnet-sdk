@@ -10,6 +10,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 {
     private readonly ConcurrentStack<T> _idleSessions = new();
     private readonly ConcurrentQueue<TaskCompletionSource<T?>> _waiters = new();
+    private readonly CancellationTokenSource _disposeCts = new();
 
     private readonly IPoolingSessionFactory<T> _sessionFactory;
     private readonly int _minSessionSize;
@@ -20,7 +21,9 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     private readonly Timer _cleanerTimer;
 
     private volatile int _numSessions;
-    private volatile int _waiterSize;
+    private volatile int _disposed;
+
+    private bool IsDisposed => _disposed == 1;
 
     public PoolingSessionSource(
         IPoolingSessionFactory<T> sessionFactory,
@@ -43,10 +46,15 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
     }
 
-    public ValueTask<ISession> OpenSession(CancellationToken cancellationToken = default) =>
-        TryGetIdleSession(out var session)
+    public ValueTask<ISession> OpenSession(CancellationToken cancellationToken = default)
+    {
+        if (IsDisposed)
+            throw new YdbException("Session Source is disposed.");
+
+        return TryGetIdleSession(out var session)
             ? new ValueTask<ISession>(session)
             : RentAsync(cancellationToken);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetIdleSession([NotNullWhen(true)] out T? session)
@@ -119,7 +127,14 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                 continue;
             }
 
-            await using var _ = finalToken.Register(() => waiterTcs.TrySetCanceled(), useSynchronizationContext: false);
+            await using var _ = finalToken.Register(
+                () => waiterTcs.TrySetCanceled(),
+                useSynchronizationContext: false
+            );
+            await using var disposedCancellationTokenRegistration = _disposeCts.Token.Register(
+                () => waiterTcs.TrySetException(new YdbException("Session Source is disposed.")),
+                useSynchronizationContext: false
+            );
             session = await waiterTcs.Task.ConfigureAwait(false);
 
             if (CheckIdleSession(session) || TryGetIdleSession(out session))
@@ -174,9 +189,14 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
     public void Return(T session)
     {
-        if (session.IsBroken)
+        if (session.IsBroken || IsDisposed)
         {
             CloseSession(session);
+
+            if (IsDisposed)
+            {
+                _ = TryDisposeCore();
+            }
 
             return;
         }
@@ -237,9 +257,27 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             }
         }
     }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
+        {
+            return;
+        }
+
+        await _cleanerTimer.DisposeAsync();
+        _disposeCts.Cancel();
+
+        CleanIdleSessions(_idleSessions);
+
+        await TryDisposeCore();
+    }
+
+    private ValueTask TryDisposeCore() =>
+        _numSessions == 0 ? _sessionFactory.DisposeAsync() : ValueTask.CompletedTask;
 }
 
-internal interface IPoolingSessionFactory<T> where T : PoolingSessionBase<T>
+internal interface IPoolingSessionFactory<T> : IAsyncDisposable where T : PoolingSessionBase<T>
 {
     T NewSession(PoolingSessionSource<T> source);
 }

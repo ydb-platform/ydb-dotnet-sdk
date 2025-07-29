@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Ado.Session;
 
 namespace Ydb.Sdk.Ado;
@@ -49,8 +48,8 @@ internal static class PoolManager
             try
             {
                 await SemaphoreSlim.WaitAsync();
-                //
-                // await sessionPool.DisposeAsync();
+                
+                await sessionPool.DisposeAsync();
             }
             finally
             {
