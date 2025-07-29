@@ -313,8 +313,6 @@ INSERT INTO {tableName}
     public async Task BulkUpsertImporter_HappyPath_AddRows_Flush_Dispose()
     {
         var tableName = $"BulkImporter_{Guid.NewGuid():N}";
-        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
-        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
         var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
@@ -337,7 +335,7 @@ INSERT INTO {tableName}
                 new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
             };
 
-            await using (var importer = conn.BeginBulkUpsertImport(absTablePath, columns, types, maxBytes: 1024))
+            await using (var importer = conn.BeginBulkUpsertImport(tableName, columns, types))
             {
                 await importer.AddRowAsync(YdbValue.MakeInt32(1), YdbValue.MakeUtf8("Alice"));
                 await importer.AddRowAsync(YdbValue.MakeInt32(2), YdbValue.MakeUtf8("Bob"));
@@ -353,7 +351,7 @@ INSERT INTO {tableName}
                 Assert.Equal(2, count);
             }
 
-            await using (var importer = conn.BeginBulkUpsertImport(absTablePath, columns, types, maxBytes: 1))
+            await using (var importer = conn.BeginBulkUpsertImport(tableName, columns, types))
             {
                 var rows = new List<YdbValue[]>
                 {
@@ -409,7 +407,7 @@ INSERT INTO {tableName}
                 new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
             };
 
-            await using (var importer = conn.BeginBulkUpsertImport(tableName, columns, types, maxBytes: 1024))
+            await using (var importer = conn.BeginBulkUpsertImport(tableName, columns, types))
             {
                 await Assert.ThrowsAsync<ArgumentException>(async () =>
                 {
@@ -438,8 +436,6 @@ INSERT INTO {tableName}
     public async Task BulkUpsertImporter_DisposeIsIdempotent()
     {
         var tableName = $"BulkImporter_{Guid.NewGuid():N}";
-        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
-        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
         var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
@@ -462,7 +458,7 @@ INSERT INTO {tableName}
                 new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
             };
 
-            var importer = conn.BeginBulkUpsertImport(absTablePath, columns, types, maxBytes: 1024);
+            var importer = conn.BeginBulkUpsertImport(tableName, columns, types);
             await importer.AddRowAsync(YdbValue.MakeInt32(1), YdbValue.MakeUtf8("A"));
             await importer.DisposeAsync();
 
@@ -475,15 +471,12 @@ INSERT INTO {tableName}
             await dropCmd.ExecuteNonQueryAsync();
         }
     }
-    
+
     [Fact]
     public async Task BulkUpsertImporter_MultipleImporters_Parallel()
     {
         var table1 = $"BulkImporter_{Guid.NewGuid():N}_1";
         var table2 = $"BulkImporter_{Guid.NewGuid():N}_2";
-        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
-        var absTablePath1 = string.IsNullOrEmpty(database) ? table1 : $"{database}/{table1}";
-        var absTablePath2 = string.IsNullOrEmpty(database) ? table2 : $"{database}/{table2}";
 
         var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
@@ -510,13 +503,13 @@ INSERT INTO {tableName}
             await Task.WhenAll(
                 Task.Run(async () =>
                 {
-                    await using var importer = conn.BeginBulkUpsertImport(absTablePath1, columns, types, maxBytes: 1024);
+                    await using var importer = conn.BeginBulkUpsertImport(table1, columns, types);
                     for (int i = 0; i < 20; i++)
                         await importer.AddRowAsync(YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"A{i}"));
                 }),
                 Task.Run(async () =>
                 {
-                    await using var importer = conn.BeginBulkUpsertImport(absTablePath2, columns, types, maxBytes: 1024);
+                    await using var importer = conn.BeginBulkUpsertImport(table2, columns, types);
                     for (int i = 0; i < 20; i++)
                         await importer.AddRowAsync(YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"B{i}"));
                 })
@@ -540,55 +533,36 @@ INSERT INTO {tableName}
             }
         }
     }
-    
-    [Fact]
-    public async Task BulkUpsertImporter_TinyMaxBytes_FlushesEveryRow()
-    {
-        var tableName = $"BulkImporter_{Guid.NewGuid():N}";
-        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
-        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
 
+    [Fact]
+    public async Task BulkUpsertImporter_ThrowsOnNonexistentTable()
+    {
+        var tableName = $"Nonexistent_{Guid.NewGuid():N}";
         var conn = new YdbConnection(_connectionStringTls);
         await conn.OpenAsync();
+
+        var columns = new[] { "Id", "Name" };
+        var types = new[]
+        {
+            new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
+            new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
+        };
+
+        var importer = conn.BeginBulkUpsertImport(tableName, columns, types);
+
+        await Assert.ThrowsAsync<YdbException>(async () =>
+        {
+            await importer.AddRowAsync(YdbValue.MakeInt32(1), YdbValue.MakeUtf8("NotExists"));
+            await importer.FlushAsync();
+        });
+
         try
         {
-            await using (var createCmd = conn.CreateCommand())
-            {
-                createCmd.CommandText = $@"
-            CREATE TABLE {tableName} (
-                Id Int32,
-                Name Utf8,
-                PRIMARY KEY (Id)
-            )";
-                await createCmd.ExecuteNonQueryAsync();
-            }
-
-            var columns = new[] { "Id", "Name" };
-            var types = new[]
-            {
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
-            };
-
-            await using (var importer = conn.BeginBulkUpsertImport(absTablePath, columns, types, maxBytes: 1))
-            {
-                for (int i = 0; i < 10; i++)
-                    await importer.AddRowAsync(YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"Name{i}"));
-                Assert.Empty(importer.GetBufferedRows());
-            }
-
-            await using (var checkCmd = conn.CreateCommand())
-            {
-                checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
-                var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
-                Assert.Equal(10, count);
-            }
+            await importer.DisposeAsync();
         }
-        finally
+        catch (YdbException)
         {
-            await using var dropCmd = conn.CreateCommand();
-            dropCmd.CommandText = $"DROP TABLE {tableName}";
-            await dropCmd.ExecuteNonQueryAsync();
+            // success
         }
     }
 }

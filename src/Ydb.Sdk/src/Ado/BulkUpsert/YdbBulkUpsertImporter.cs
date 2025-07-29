@@ -1,4 +1,7 @@
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Value;
+using Ydb.Table;
+using Ydb.Table.V1;
 
 namespace Ydb.Sdk.Ado.BulkUpsert;
 
@@ -6,8 +9,8 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
 {
     private readonly YdbConnection _connection;
     private readonly string _tablePath;
-    private readonly List<string> _columns;
-    private readonly List<Type> _types;
+    private readonly IReadOnlyList<string> _columns;
+    private readonly IReadOnlyList<Type> _types;
     private readonly int _maxBytes;
     private readonly List<Ydb.Value> _rows = new();
     private bool _disposed;
@@ -17,13 +20,28 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
         string tablePath,
         IReadOnlyList<string> columns,
         IReadOnlyList<Type> types,
-        int maxBytes = 1024 * 1024)
+        int maxBytes = 64 * 1024 * 1024
+    )
     {
         _connection = connection;
         _tablePath = tablePath;
-        _columns = columns.ToList();
-        _types = types.ToList();
+        _columns = columns;
+        _types = types;
         _maxBytes = maxBytes;
+    }
+
+    public async ValueTask AddRowAsync(params object?[] values)
+    {
+        ThrowIfDisposed();
+        if (values.Length != _columns.Count)
+            throw new ArgumentException("Values count must match columns count", nameof(values));
+
+        var ydbValues = values.Select(v =>
+            v is YdbValue yv ? yv :
+            v is YdbParameter param ? param.YdbValue :
+            throw new ArgumentException("All values must be either YdbValue or YdbParameter")).ToArray();
+
+        await AddRowAsync(ydbValues);
     }
 
     public async ValueTask AddRowAsync(params YdbValue[] values)
@@ -43,21 +61,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
             await FlushAsync();
     }
 
-    public async ValueTask AddRowAsync(params object?[] values)
-    {
-        ThrowIfDisposed();
-        if (values.Length != _columns.Count)
-            throw new ArgumentException("Values count must match columns count", nameof(values));
-
-        var ydbValues = new YdbValue[values.Length];
-        for (int i = 0; i < values.Length; i++)
-        {
-            ydbValues[i] = YdbValueFromObject(values[i], _types[i]);
-        }
-        await AddRowAsync(ydbValues);
-    }
-
-    public async ValueTask AddRowsAsync(IEnumerable<YdbValue[]> rows, CancellationToken cancellationToken = default)
+    public async ValueTask AddRowsAsync(IEnumerable<object?[]> rows, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 
@@ -65,7 +69,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
             await AddRowAsync(values);
     }
 
-    public async ValueTask AddRowsAsync(IEnumerable<object?[]> rows, CancellationToken cancellationToken = default)
+    public async ValueTask AddRowsAsync(IEnumerable<YdbValue[]> rows, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 
@@ -78,7 +82,22 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
         ThrowIfDisposed();
         if (_rows.Count == 0) return;
 
-        await _connection.BulkUpsertProtoAsync(_tablePath, GetStructType(), _rows.ToList(), cancellationToken);
+        var listValue = new Ydb.Value();
+        listValue.Items.AddRange(_rows);
+
+        var typedValue = new TypedValue { Type = GetStructType(), Value = listValue };
+        var req = new BulkUpsertRequest { Table = _tablePath, Rows = typedValue };
+
+        var resp = await _connection.Session.Driver.UnaryCall(
+            TableService.BulkUpsertMethod,
+            req,
+            new GrpcRequestSettings { CancellationToken = cancellationToken }
+        ).ConfigureAwait(false);
+
+        var operation = resp.Operation;
+        if (operation.Status.IsNotSuccess())
+            throw YdbException.FromServer(operation.Status, operation.Issues);
+
         _rows.Clear();
     }
 
@@ -103,24 +122,5 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(BulkUpsertImporter));
-    }
-
-    private static YdbValue YdbValueFromObject(object? value, Type columnType)
-    {
-        switch (value)
-        {
-            case YdbValue ydbValue:
-                return ydbValue;
-            default:
-                switch (columnType.TypeId)
-                {
-                    case Type.Types.PrimitiveTypeId.Int32:
-                        return YdbValue.MakeInt32(Convert.ToInt32(value));
-                    case Type.Types.PrimitiveTypeId.Utf8:
-                        return YdbValue.MakeUtf8(value?.ToString()!);
-                    default:
-                        throw new NotSupportedException($"Type '{columnType.TypeId}' not supported in YdbValueFromObject");
-                }
-        }
     }
 }
