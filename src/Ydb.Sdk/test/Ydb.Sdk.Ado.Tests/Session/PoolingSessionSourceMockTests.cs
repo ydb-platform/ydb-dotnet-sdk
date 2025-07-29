@@ -127,6 +127,8 @@ internal class MockPoolingSessionFactory : IPoolingSessionFactory<MockPoolingSes
 
     public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
         new(source, Open, DeleteSession, IsBroken, Interlocked.Increment(ref _sessionNum));
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
 internal class MockPoolingSession(

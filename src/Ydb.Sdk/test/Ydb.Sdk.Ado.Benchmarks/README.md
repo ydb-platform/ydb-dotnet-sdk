@@ -17,13 +17,6 @@ Allocated            : Allocated memory per single operation (managed only, incl
 1024B)                                                                                                                                  
 1 ns                 : 1 Nanosecond (0.000000001 sec)
 
-BenchmarkDotNet v0.15.1, macOS Sequoia 15.5 (24F74) [Darwin 24.5.0]
-Apple M2 Pro, 1 CPU, 12 logical and 12 physical cores
-.NET SDK 9.0.201
-[Host]     : .NET 8.0.2 (8.0.224.6711), Arm64 RyuJIT AdvSIMD
-DefaultJob : .NET 8.0.2 (8.0.224.6711), Arm64 RyuJIT AdvSIMD
-
-
 # YDB .NET SDK Session Pool V1 On Semaphore-Based
 
 | Method                              |             Mean |           Error |          StdDev | Completed Work Items | Lock Contentions |      Gen0 |     Gen1 |  Allocated |
@@ -48,11 +41,12 @@ DefaultJob : .NET 8.0.2 (8.0.224.6711), Arm64 RyuJIT AdvSIMD
 
 # YDB .NET SDK Session Pool Benchmarks (FIFO lock-free)
 
-| Method                              |             Mean |            Error |           StdDev | Completed Work Items | Lock Contentions |     Gen0 |     Gen1 | Allocated |
-|-------------------------------------|-----------------:|-----------------:|-----------------:|---------------------:|-----------------:|---------:|---------:|----------:|
-| SingleThreaded_OpenClose            |         60.71 ns |         0.441 ns |         0.368 ns |                    - |                - |   0.0038 |        - |      32 B |                                                           
-| MultiThreaded_OpenClose             |     23,368.69 ns |       464.175 ns |     1,129.867 ns |              40.0049 |                - |   0.9460 |        - |    7887 B |
-| HighContention_OpenClose            |     91,700.72 ns |     1,803.206 ns |     3,842.780 ns |             204.6633 |           0.0007 |   5.0049 |        - |   41951 B |
-| SessionReuse_Pattern                |    117,545.11 ns |     2,226.365 ns |     4,014.595 ns |             220.0000 |           0.0001 |   1.5869 |        - |   13656 B |
-| SessionReuse_HighContention_Pattern |  7,463,819.00 ns |   148,409.083 ns |   364,050.038 ns |           19044.6172 |           1.1719 | 765.6250 | 125.0000 | 6367528 B |
-| SessionReuse_HighIterations_Pattern | 70,844,972.06 ns | 1,400,128.942 ns | 3,589,066.009 ns |          200020.0000 |                - | 750.0000 |        - | 6407440 B |
+| Method                              |             Mean |            Error |           StdDev |           Median | Completed Work Items | Lock Contentions |     Gen0 |     Gen1 | Allocated |
+|-------------------------------------|-----------------:|-----------------:|-----------------:|-----------------:|---------------------:|-----------------:|---------:|---------:|----------:|
+| SingleThreaded_OpenClose            |         64.75 ns |         1.004 ns |         0.986 ns |         64.31 ns |                    - |                - |   0.0038 |        - |      32 B |                                        
+| MultiThreaded_OpenClose             |     22,547.55 ns |       443.931 ns |       511.232 ns |     22,613.77 ns |              40.0020 |                - |   0.9460 |        - |    7888 B |
+| HighContention_OpenClose            |     83,230.11 ns |     1,642.445 ns |     1,536.344 ns |     83,232.22 ns |             205.5402 |           0.0016 |   5.0049 |        - |   42337 B |
+| SessionReuse_Pattern                |    102,998.59 ns |     1,990.337 ns |     2,854.481 ns |    103,245.75 ns |             220.0000 |           0.0002 |   1.5869 |        - |   13678 B |
+| SessionReuse_HighContention_Pattern |  3,735,379.14 ns |    73,499.927 ns |   116,578.682 ns |  3,694,595.05 ns |           19845.2422 |           5.7344 | 812.5000 | 132.8125 | 6750890 B |
+| SessionReuse_HighIterations_Pattern | 69,402,122.32 ns | 1,382,232.565 ns | 4,075,544.202 ns | 70,535,363.07 ns |          200020.0000 |                - | 714.2857 |        - | 6407458 B |
+

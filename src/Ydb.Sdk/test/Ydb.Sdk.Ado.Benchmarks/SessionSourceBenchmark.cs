@@ -136,6 +136,8 @@ public class SessionSourceBenchmark
 internal class MockSessionFactory : IPoolingSessionFactory<MockPoolingSession>
 {
     public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) => new(source);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
 internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> source)
