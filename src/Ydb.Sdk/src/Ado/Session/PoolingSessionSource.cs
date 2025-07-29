@@ -99,14 +99,14 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             _waiters.Enqueue(waiterTcs);
             if (_idleSessions.TryPop(out session))
             {
-                if (!waiterTcs.TrySetResult(null) && waiterTcs.Task.IsCompleted)
+                if (!waiterTcs.TrySetResult(null))
                 {
-                    var sessionFromRace = waiterTcs.Task.Result;
-
-                    if (CheckIdleSession(sessionFromRace))
+                    if (waiterTcs.Task.IsCompleted && CheckIdleSession(waiterTcs.Task.Result))
                     {
-                        _idleSessions.Push(sessionFromRace);
+                        _idleSessions.Push(waiterTcs.Task.Result);
                     }
+
+                    WakeUpWaiter();
                 }
 
                 if (CheckIdleSession(session))
@@ -167,7 +167,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
     private void WakeUpWaiter()
     {
-        if (_waiters.TryDequeue(out var waiter) && waiter.TrySetResult(null))
+        while (_waiters.TryDequeue(out var waiter) && waiter.TrySetResult(null))
         {
         } // wake up waiter!
     }
