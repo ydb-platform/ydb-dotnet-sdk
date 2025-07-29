@@ -538,7 +538,7 @@ INSERT INTO {tableName}
             new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
         };
 
-        await using (var importer = new YdbBulkUpsertProtoImporter(conn, absTablePath, columns, types, maxBytes: 250))
+        await using (var importer = new YdbBulkUpsertProtoImporter(conn, absTablePath, columns, types, maxBytes: 30))
         {
             await importer.AddRowAsync(
                 YdbValue.MakeInt32(1), YdbValue.MakeUtf8("A"));
@@ -546,8 +546,6 @@ INSERT INTO {tableName}
                 YdbValue.MakeInt32(2), YdbValue.MakeUtf8("B"));
             await importer.AddRowAsync(
                 YdbValue.MakeInt32(3), YdbValue.MakeUtf8("C"));
-
-            await importer.DisposeAsync();
 
             Assert.Empty(importer.GetBufferedRows());
         }

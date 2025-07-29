@@ -101,7 +101,7 @@ public sealed class YdbConnection : DbConnection
             throw YdbException.FromServer(operation.Status, operation.Issues);
         }
     }
-    
+
     public async Task BulkUpsertProtoAsync(
         string tablePath,
         Type structType,
@@ -118,7 +118,7 @@ public sealed class YdbConnection : DbConnection
         var typedValue = new TypedValue { Type = structType, Value = listValue };
         var req = new BulkUpsertRequest { Table = tablePath, Rows = typedValue };
 
-        int attempt = 0;
+        var attempt = 0;
         while (true)
         {
             try

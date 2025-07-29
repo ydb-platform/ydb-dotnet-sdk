@@ -94,7 +94,7 @@ public sealed class YdbBulkUpsertProtoImporter : IAsyncDisposable
     private Type GetStructType()
     {
         var structType = new Type { StructType = new StructType() };
-        for (int i = 0; i < _columns.Count; i++)
+        for (var i = 0; i < _columns.Count; i++)
         {
             structType.StructType.Members.Add(new StructMember
             {
@@ -102,6 +102,7 @@ public sealed class YdbBulkUpsertProtoImporter : IAsyncDisposable
                 Type = _types[i]
             });
         }
+
         return structType;
     }
 
