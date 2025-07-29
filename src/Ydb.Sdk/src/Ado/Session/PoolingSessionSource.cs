@@ -268,7 +268,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         await _cleanerTimer.DisposeAsync();
         _disposeCts.Cancel();
 
-        CleanIdleSessions(_idleSessions);
+        CleanIdleSessions(this);
 
         await TryDisposeCore();
     }
