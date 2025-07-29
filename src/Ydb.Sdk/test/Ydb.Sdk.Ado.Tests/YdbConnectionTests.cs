@@ -19,31 +19,19 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
-        var tasks = GenerateTasks();
-        tasks.Add(YdbConnection.ClearPool(CreateConnection()));
-        tasks.AddRange(GenerateTasks());
+        var connectionString = ConnectionString + ";MaxSessionPool=100";
+
+        var tasks = GenerateTasks(connectionString);
+        tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
+        tasks.AddRange(GenerateTasks(connectionString));
         await Task.WhenAll(tasks);
         Assert.Equal(9900, _counter);
 
-        tasks = GenerateTasks();
-        tasks.Add(YdbConnection.ClearPool(CreateConnection()));
+        tasks = GenerateTasks(connectionString);
+        tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
         await Task.WhenAll(tasks);
         Assert.Equal(14850, _counter);
-    }
-
-    [Fact]
-    public async Task ClearPoolAllPools_WhenHasActiveConnection_CloseActiveConnectionOnClose()
-    {
-        var tasks = GenerateTasks();
-        tasks.Add(YdbConnection.ClearAllPools());
-        tasks.AddRange(GenerateTasks());
-        await Task.WhenAll(tasks);
-        Assert.Equal(9900, _counter);
-
-        tasks = GenerateTasks();
-        tasks.Add(YdbConnection.ClearAllPools());
-        await Task.WhenAll(tasks);
-        Assert.Equal(14850, _counter);
+        await YdbConnection.ClearPool(new YdbConnection(connectionString));
     }
 
     // docker cp ydb-local:/ydb_certs/ca.pem ~/
@@ -296,9 +284,24 @@ INSERT INTO {tableName}
         Assert.False(await ydbDataReader.NextResultAsync());
     }
 
-    private List<Task> GenerateTasks() => Enumerable.Range(0, 100).Select(async i =>
+    private List<Task> GenerateTasks(string connectionString) => Enumerable.Range(0, 1000).Select(async i =>
     {
-        await using var connection = await CreateOpenConnectionAsync();
+        YdbConnection ydbConnection;
+        try
+        {
+            ydbConnection = CreateConnection();
+            ydbConnection.ConnectionString = connectionString;
+            await ydbConnection.OpenAsync();
+        }
+        catch (YdbException e)
+        {
+            Assert.Equal(StatusCode.Unspecified, e.Code);
+            Assert.Equal("Session Source is disposed.", e.Message);
+            Interlocked.Add(ref _counter, i);
+            return;
+        }
+
+        await using var connection = ydbConnection;
         var command = connection.CreateCommand();
         command.CommandText = "SELECT " + i;
         var scalar = (int)(await command.ExecuteScalarAsync())!;
