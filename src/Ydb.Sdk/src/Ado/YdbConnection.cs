@@ -101,6 +101,46 @@ public sealed class YdbConnection : DbConnection
             throw YdbException.FromServer(operation.Status, operation.Issues);
         }
     }
+    
+    public async Task BulkUpsertProtoAsync(
+        string tablePath,
+        Type structType,
+        IReadOnlyList<Ydb.Value> chunk,
+        CancellationToken cancellationToken = default,
+        int retryCount = 3)
+    {
+        if (CurrentTransaction is { Completed: false })
+            throw new InvalidOperationException("BulkUpsertProto cannot be used inside an active transaction.");
+
+        var listValue = new Ydb.Value();
+        listValue.Items.AddRange(chunk);
+
+        var typedValue = new TypedValue { Type = structType, Value = listValue };
+        var req = new BulkUpsertRequest { Table = tablePath, Rows = typedValue };
+
+        int attempt = 0;
+        while (true)
+        {
+            try
+            {
+                var resp = await Session.Driver.UnaryCall(
+                    TableService.BulkUpsertMethod,
+                    req,
+                    new GrpcRequestSettings { CancellationToken = cancellationToken }
+                ).ConfigureAwait(false);
+
+                var operation = resp.Operation;
+                if (operation.Status.IsNotSuccess())
+                    throw YdbException.FromServer(operation.Status, operation.Issues);
+                return;
+            }
+            catch (Exception) when (attempt < retryCount)
+            {
+                attempt++;
+                await Task.Delay(100 * attempt, cancellationToken);
+            }
+        }
+    }
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
     {

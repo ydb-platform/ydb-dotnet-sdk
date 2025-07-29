@@ -1,5 +1,6 @@
 using System.Data;
 using Xunit;
+using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Value;
 
@@ -501,6 +502,118 @@ INSERT INTO {tableName}
         Assert.Contains("BulkUpsert cannot be used inside an active transaction", ex.Message);
 
         await conn.CurrentTransaction?.RollbackAsync()!;
+
+        await using (var dropCmd = conn.CreateCommand())
+        {
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BulkUpsertProtoImporter_Flushes_By_MaxBytes()
+    {
+        var tableName = $"BulkTestProtoImporter_{Guid.NewGuid():N}";
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
+        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
+
+        await using var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+
+        await using (var createCmd = conn.CreateCommand())
+        {
+            createCmd.CommandText = $@"
+        CREATE TABLE {tableName} (
+            Id Int32,
+            Name Utf8,
+            PRIMARY KEY (Id)
+        )";
+            await createCmd.ExecuteNonQueryAsync();
+        }
+
+        var columns = new[] { "Id", "Name" };
+        var types = new[]
+        {
+            new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
+            new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
+        };
+
+        await using (var importer = new YdbBulkUpsertProtoImporter(conn, absTablePath, columns, types, maxBytes: 250))
+        {
+            await importer.AddRowAsync(
+                YdbValue.MakeInt32(1), YdbValue.MakeUtf8("A"));
+            await importer.AddRowAsync(
+                YdbValue.MakeInt32(2), YdbValue.MakeUtf8("B"));
+            await importer.AddRowAsync(
+                YdbValue.MakeInt32(3), YdbValue.MakeUtf8("C"));
+
+            await importer.DisposeAsync();
+
+            Assert.Empty(importer.GetBufferedRows());
+        }
+
+        await using (var checkCmd = conn.CreateCommand())
+        {
+            checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
+            var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+            Assert.Equal(3, count);
+        }
+
+        await using (var dropCmd = conn.CreateCommand())
+        {
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BulkUpsertProtoImporter_AddRowsAsync_Flushes_By_MaxBytes()
+    {
+        var tableName = $"BulkTestProtoImporter_{Guid.NewGuid():N}";
+        var database = new YdbConnectionStringBuilder(_connectionStringTls).Database.TrimEnd('/');
+        var absTablePath = string.IsNullOrEmpty(database) ? tableName : $"{database}/{tableName}";
+
+        await using var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+
+        await using (var createCmd = conn.CreateCommand())
+        {
+            createCmd.CommandText = $@"
+        CREATE TABLE {tableName} (
+            Id Int32,
+            Name Utf8,
+            PRIMARY KEY (Id)
+        )";
+            await createCmd.ExecuteNonQueryAsync();
+        }
+
+        var columns = new[] { "Id", "Name" };
+        var types = new[]
+        {
+            new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
+            new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
+        };
+
+        var values = new List<YdbValue[]>
+        {
+            new[] { YdbValue.MakeInt32(1), YdbValue.MakeUtf8("A") },
+            new[] { YdbValue.MakeInt32(2), YdbValue.MakeUtf8("B") },
+            new[] { YdbValue.MakeInt32(3), YdbValue.MakeUtf8("C") }
+        };
+
+        await using (var importer = new YdbBulkUpsertProtoImporter(conn, absTablePath, columns, types, maxBytes: 30))
+        {
+            await importer.AddRowsAsync(values);
+
+            Assert.True(importer.GetBufferedRows().Count <= 1);
+        }
+
+        await using (var checkCmd = conn.CreateCommand())
+        {
+            checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
+            var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+            Assert.Equal(values.Count, count);
+        }
 
         await using (var dropCmd = conn.CreateCommand())
         {
