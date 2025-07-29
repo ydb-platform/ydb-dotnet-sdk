@@ -29,12 +29,7 @@ internal static class PoolManager
             }
 
             var newSessionPool = new PoolingSessionSource<PoolingSession>(
-                new PoolingSessionFactory(
-                    await settings.BuildDriver(),
-                    settings,
-                    settings.LoggerFactory ?? NullLoggerFactory.Instance
-                ),
-                settings
+                await PoolingSessionFactory.Create(settings), settings
             );
 
             Pools[settings.ConnectionString] = newSessionPool;
