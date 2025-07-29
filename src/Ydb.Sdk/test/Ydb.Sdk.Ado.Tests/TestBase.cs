@@ -20,18 +20,9 @@ public abstract class TestBase : IAsyncLifetime
 
     protected static async Task<YdbConnection> CreateOpenConnectionAsync()
     {
-        try
-        {
-            var connection = CreateConnection();
-            await connection.OpenAsync();
-            return connection;
-        }
-        catch (YdbException e) when (e is { Code: StatusCode.Unspecified, Message: "Session Source is disposed." })
-        {
-            var connection = CreateConnection();
-            await connection.OpenAsync();
-            return connection;
-        }
+        var connection = CreateConnection();
+        await connection.OpenAsync();
+        return connection;
     }
 
     public async Task InitializeAsync() => await OnInitializeAsync().ConfigureAwait(false);
