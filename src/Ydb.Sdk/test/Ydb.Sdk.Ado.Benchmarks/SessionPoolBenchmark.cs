@@ -93,6 +93,29 @@ public class SessionPoolBenchmark
     }
 
     [Benchmark]
+    public async Task SessionReuse_HighContention_Pattern()
+    {
+        const int iterations = 100;
+        const int highContentionTasks = 100;
+        var tasks = new Task[highContentionTasks];
+
+        for (var i = 0; i < highContentionTasks; i++)
+        {
+            tasks[i] = Task.Run(async () =>
+            {
+                for (var j = 0; j < iterations; j++)
+                {
+                    var session = await _sessionPool.GetSession();
+                    await Task.Yield();
+                    await session.Release();
+                }
+            });
+        }
+
+        await Task.WhenAll(tasks);
+    }
+
+    [Benchmark]
     public async Task SessionReuse_HighIterations_Pattern()
     {
         const int iterations = 10_000;
