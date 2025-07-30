@@ -33,7 +33,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
-
       - name: Init test summary table
         run: |
           echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' > $GITHUB_WORKSPACE/summary-table.md
@@ -44,62 +43,62 @@ jobs:
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           dotnet test --logger "trx;LogFileName=ado.trx"
-
       - name: Parse ADO.NET test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
-          passed=$(grep -oP 'passed="\K[0-9]+' ado.trx | head -1)
-          failed=$(grep -oP 'failed="\K[0-9]+' ado.trx | head -1)
-          skipped=$(grep -oP 'skipped="\K[0-9]+' ado.trx | head -1)
-          total=$((passed + failed + skipped))
-          elapsed=$(grep -oP 'duration="\K[0-9\.]+' ado.trx | head -1 | cut -d'"' -f1)
-          [[ -z "$elapsed" ]] && elapsed="-"
-          echo "| ADO.NET | $passed | $failed | $skipped | $total | ${elapsed}s |" >> $GITHUB_WORKSPACE/summary-table.md
+          counters=$(grep '<Counters ' ado.trx | head -1)
+          passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+')
+          failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+')
+          skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+')
+          total=$(echo "$counters" | grep -oP 'total="\K[0-9]+')
+          duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' ado.trx | head -1)
+          [[ -z "$duration" ]] && duration="-"
+          echo "| ADO.NET | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
         run: dotnet test --logger "trx;LogFileName=spec.trx"
-
       - name: Parse Specification test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
         run: |
-          passed=$(grep -oP 'passed="\K[0-9]+' spec.trx | head -1)
-          failed=$(grep -oP 'failed="\K[0-9]+' spec.trx | head -1)
-          skipped=$(grep -oP 'skipped="\K[0-9]+' spec.trx | head -1)
-          total=$((passed + failed + skipped))
-          elapsed=$(grep -oP 'duration="\K[0-9\.]+' spec.trx | head -1 | cut -d'"' -f1)
-          [[ -z "$elapsed" ]] && elapsed="-"
-          echo "| Specification | $passed | $failed | $skipped | $total | ${elapsed}s |" >> $GITHUB_WORKSPACE/summary-table.md
+          counters=$(grep '<Counters ' spec.trx | head -1)
+          passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+')
+          failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+')
+          skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+')
+          total=$(echo "$counters" | grep -oP 'total="\K[0-9]+')
+          duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' spec.trx | head -1)
+          [[ -z "$duration" ]] && duration="-"
+          echo "| Specification | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
         run: dotnet test --logger "trx;LogFileName=dapper.trx"
-
       - name: Parse Dapper test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
         run: |
-          passed=$(grep -oP 'passed="\K[0-9]+' dapper.trx | head -1)
-          failed=$(grep -oP 'failed="\K[0-9]+' dapper.trx | head -1)
-          skipped=$(grep -oP 'skipped="\K[0-9]+' dapper.trx | head -1)
-          total=$((passed + failed + skipped))
-          elapsed=$(grep -oP 'duration="\K[0-9\.]+' dapper.trx | head -1 | cut -d'"' -f1)
-          [[ -z "$elapsed" ]] && elapsed="-"
-          echo "| Dapper | $passed | $failed | $skipped | $total | ${elapsed}s |" >> $GITHUB_WORKSPACE/summary-table.md
+          counters=$(grep '<Counters ' dapper.trx | head -1)
+          passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+')
+          failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+')
+          skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+')
+          total=$(echo "$counters" | grep -oP 'total="\K[0-9]+')
+          duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' dapper.trx | head -1)
+          [[ -z "$duration" ]] && duration="-"
+          echo "| Dapper | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
         run: dotnet test --logger "trx;LogFileName=topic.trx"
-
       - name: Parse Topic test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
         run: |
-          passed=$(grep -oP 'passed="\K[0-9]+' topic.trx | head -1)
-          failed=$(grep -oP 'failed="\K[0-9]+' topic.trx | head -1)
-          skipped=$(grep -oP 'skipped="\K[0-9]+' topic.trx | head -1)
-          total=$((passed + failed + skipped))
-          elapsed=$(grep -oP 'duration="\K[0-9\.]+' topic.trx | head -1 | cut -d'"' -f1)
-          [[ -z "$elapsed" ]] && elapsed="-"
-          echo "| Topic | $passed | $failed | $skipped | $total | ${elapsed}s |" >> $GITHUB_WORKSPACE/summary-table.md
+          counters=$(grep '<Counters ' topic.trx | head -1)
+          passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+')
+          failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+')
+          skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+')
+          total=$(echo "$counters" | grep -oP 'total="\K[0-9]+')
+          duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' topic.trx | head -1)
+          [[ -z "$duration" ]] && duration="-"
+          echo "| Topic | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Publish all test summary as table
         if: always()
@@ -137,16 +136,17 @@ jobs:
         if: always()
         working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests/
         run: |
-          passed=$(grep -oP 'passed="\K[0-9]+' efcore.trx | head -1)
-          failed=$(grep -oP 'failed="\K[0-9]+' efcore.trx | head -1)
-          skipped=$(grep -oP 'skipped="\K[0-9]+' efcore.trx | head -1)
-          total=$((passed + failed + skipped))
-          elapsed=$(grep -oP 'duration="\K[0-9\.]+' efcore.trx | head -1 | cut -d'"' -f1)
-          [[ -z "$elapsed" ]] && elapsed="-"
-          echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' > efcore-summary.md
-          echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> efcore-summary.md
-          echo "| EFCore     | $passed | $failed | $skipped | $total | ${elapsed}s |" >> efcore-summary.md
-          cat efcore-summary.md >> $GITHUB_STEP_SUMMARY
+          counters=$(grep '<Counters ' efcore.trx | head -1)
+          passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+')
+          failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+')
+          skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+')
+          total=$(echo "$counters" | grep -oP 'total="\K[0-9]+')
+          duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' efcore.trx | head -1)
+          [[ -z "$duration" ]] && duration="-"
+          echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' > $GITHUB_WORKSPACE/efcore-summary.md
+          echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> $GITHUB_WORKSPACE/efcore-summary.md
+          echo "| EFCore     | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/efcore-summary.md
+          cat $GITHUB_WORKSPACE/efcore-summary.md >> $GITHUB_STEP_SUMMARY
 
   run-examples:
     runs-on: ubuntu-22.04
