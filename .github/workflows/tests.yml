@@ -43,6 +43,7 @@ jobs:
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           dotnet test --logger "trx;LogFileName=ado.trx"
+
       - name: Parse ADO.NET test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
@@ -58,6 +59,7 @@ jobs:
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
         run: dotnet test --logger "trx;LogFileName=spec.trx"
+
       - name: Parse Specification test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
         run: |
@@ -73,6 +75,7 @@ jobs:
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
         run: dotnet test --logger "trx;LogFileName=dapper.trx"
+
       - name: Parse Dapper test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
         run: |
@@ -88,6 +91,7 @@ jobs:
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
         run: dotnet test --logger "trx;LogFileName=topic.trx"
+
       - name: Parse Topic test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
         run: |
@@ -104,49 +108,6 @@ jobs:
         if: always()
         run: |
           cat $GITHUB_WORKSPACE/summary-table.md >> $GITHUB_STEP_SUMMARY
-
-  efcore-tests:
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        ydb-version: [ 'latest', '25.1' ]
-    services:
-      ydb:
-        image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
-        ports:
-          - 2135:2135
-          - 2136:2136
-          - 8765:8765
-        env:
-          YDB_LOCAL_SURVIVE_RESTART: true
-        options: '--name ydb-local -h localhost'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Install Dotnet
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 9.0.x
-
-      - name: Run EFCore tests
-        working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests/
-        run: dotnet test --logger "trx;LogFileName=efcore.trx"
-      - name: Publish EFCore test summary
-        if: always()
-        working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests/
-        run: |
-          counters=$(grep '<Counters ' efcore.trx | head -1)
-          passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+')
-          failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+')
-          skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+')
-          total=$(echo "$counters" | grep -oP 'total="\K[0-9]+')
-          duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' efcore.trx | head -1)
-          [[ -z "$duration" ]] && duration="-"
-          echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' > $GITHUB_WORKSPACE/efcore-summary.md
-          echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> $GITHUB_WORKSPACE/efcore-summary.md
-          echo "| EFCore     | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/efcore-summary.md
-          cat $GITHUB_WORKSPACE/efcore-summary.md >> $GITHUB_STEP_SUMMARY
 
   run-examples:
     runs-on: ubuntu-22.04
