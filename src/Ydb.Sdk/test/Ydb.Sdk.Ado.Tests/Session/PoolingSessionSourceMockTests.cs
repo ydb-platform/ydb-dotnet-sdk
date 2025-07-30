@@ -79,11 +79,7 @@ public class PoolingSessionSourceMockTests
     {
         const int highContentionTasks = 100;
         const int maxSessionSize = highContentionTasks / 2;
-        var mockPoolingSessionFactory = new MockPoolingSessionFactory(maxSessionSize)
-        {
-            Open = async _ => await Task.Yield()
-        };
-
+        var mockPoolingSessionFactory = new MockPoolingSessionFactory(maxSessionSize);
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(
             mockPoolingSessionFactory, new YdbConnectionStringBuilder { MaxSessionPool = maxSessionSize }
         );
@@ -215,10 +211,7 @@ public class PoolingSessionSourceMockTests
         const int highContentionTasks = maxSessionSize * 5;
 
         var mockFactory = new MockPoolingSessionFactory(maxSessionSize)
-        {
-            Open = async _ => await Task.Yield(),
-            IsBroken = () => Random.Shared.NextDouble() < 0.05
-        };
+            { IsBroken = () => Random.Shared.NextDouble() < 0.05 };
         var settings = new YdbConnectionStringBuilder
             { MaxSessionPool = maxSessionSize, MinSessionPool = minSessionSize };
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
@@ -245,6 +238,88 @@ public class PoolingSessionSourceMockTests
 
         await Task.WhenAll(workers);
     }
+
+    [Fact]
+    public async Task Get_Session_From_Exhausted_Pool()
+    {
+        var mockFactory = new MockPoolingSessionFactory(1);
+        var settings = new YdbConnectionStringBuilder
+        {
+            MaxSessionPool = 1,
+            MinSessionPool = 0
+        };
+
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
+        var session = await sessionSource.OpenSession();
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(500);
+
+        await Assert.ThrowsAsync<TaskCanceledException>(async () => await sessionSource.OpenSession(cts.Token));
+        await session.Close();
+
+        Assert.Equal(1, mockFactory.NumSession);
+        Assert.Equal(1, mockFactory.SessionOpenedCount);
+    }
+
+    [Fact]
+    public async Task Return_IsBroken_Session()
+    {
+        const int maxSessionSize = 10;
+        var mockFactory = new MockPoolingSessionFactory(maxSessionSize) { IsBroken = () => true };
+        var settings = new YdbConnectionStringBuilder
+        {
+            MaxSessionPool = maxSessionSize,
+            MinSessionPool = 0
+        };
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
+
+        for (var it = 0; it < maxSessionSize * 2; it++)
+        {
+            var session = await sessionSource.OpenSession();
+            await session.Close();
+        }
+
+        Assert.Equal(0, mockFactory.NumSession);
+        Assert.Equal(maxSessionSize * 2, mockFactory.SessionOpenedCount);
+    }
+
+    [Fact]
+    public async Task CheckIdleSession_WhenIsBrokenInStack_CreateNewSession()
+    {
+        var isBroken = false;
+        const int maxSessionSize = 10;
+        var mockFactory = new MockPoolingSessionFactory(maxSessionSize) { IsBroken = () => isBroken };
+        var settings = new YdbConnectionStringBuilder
+        {
+            MaxSessionPool = maxSessionSize,
+            MinSessionPool = 0
+        };
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
+
+        var openSessions = new List<ISession>();
+        for (var it = 0; it < maxSessionSize; it++)
+        {
+            openSessions.Add(await sessionSource.OpenSession());
+        }
+
+        foreach (var session in openSessions)
+        {
+            await session.Close();
+        }
+
+        Assert.Equal(maxSessionSize, mockFactory.NumSession);
+
+        isBroken = true;
+        for (var it = 0; it < maxSessionSize; it++)
+        {
+            var session = await sessionSource.OpenSession();
+            isBroken = false;
+            await session.Close();
+        }
+
+        Assert.Equal(1, mockFactory.NumSession);
+        Assert.Equal(maxSessionSize + 1, mockFactory.SessionOpenedCount);
+    }
 }
 
 internal static class ISessionExtension
@@ -261,26 +336,24 @@ internal class MockPoolingSessionFactory(int maxSessionSize) : IPoolingSessionFa
     internal int NumSession => Volatile.Read(ref _numSession);
 
     internal Func<int, Task> Open { private get; init; } = _ => Task.CompletedTask;
-
-    internal Func<int, Task> DeleteSession { private get; init; } = _ => Task.CompletedTask;
-
     internal Func<bool> IsBroken { private get; init; } = () => false;
-
     internal Func<ValueTask> Dispose { private get; init; } = () => ValueTask.CompletedTask;
 
     public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
         new(source,
-            sessionCountOpened =>
+            async sessionCountOpened =>
             {
+                await Open(sessionCountOpened);
+
                 Assert.True(Interlocked.Increment(ref _numSession) <= maxSessionSize);
 
-                return Open(sessionCountOpened);
+                await Task.Yield();
             },
-            sessionCountOpened =>
+            () =>
             {
-                Interlocked.Decrement(ref _numSession);
+                Assert.True(Interlocked.Decrement(ref _numSession) >= 0);
 
-                return DeleteSession(sessionCountOpened);
+                return Task.CompletedTask;
             },
             IsBroken,
             Interlocked.Increment(ref _sessionOpened)
@@ -292,7 +365,7 @@ internal class MockPoolingSessionFactory(int maxSessionSize) : IPoolingSessionFa
 internal class MockPoolingSession(
     PoolingSessionSource<MockPoolingSession> source,
     Func<int, Task> mockOpen,
-    Func<int, Task> mockDeleteSession,
+    Func<Task> mockDeleteSession,
     Func<bool> mockIsBroken,
     int sessionNum
 ) : PoolingSessionBase<MockPoolingSession>(source)
@@ -302,7 +375,7 @@ internal class MockPoolingSession(
     public override bool IsBroken => mockIsBroken();
 
     internal override Task Open(CancellationToken cancellationToken) => mockOpen(sessionNum);
-    internal override Task DeleteSession() => mockDeleteSession(sessionNum);
+    internal override Task DeleteSession() => mockDeleteSession();
 
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
