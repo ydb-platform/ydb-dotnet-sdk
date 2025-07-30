@@ -104,7 +104,52 @@ public class PoolingSessionSourceMockTests
     }
 
     [Fact]
-    public async Task DisposeAsync_Close_Driver()
+    public async Task DisposeAsync_Cancel_WaitersSession()
+    {
+        const int maxSessionSize = 10;
+        var mockFactory = new MockPoolingSessionFactory(maxSessionSize);
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(
+            mockFactory, new YdbConnectionStringBuilder { MaxSessionPool = maxSessionSize }
+        );
+
+        var openSessions = new List<ISession>();
+        var waitingSessionTasks = new List<Task>();
+        for (var i = 0; i < maxSessionSize; i++)
+        {
+            openSessions.Add(await sessionSource.OpenSession());
+        }
+
+        for (var i = 0; i < maxSessionSize; i++)
+        {
+            waitingSessionTasks.Add(Task.Run(async () =>
+            {
+                var session = await sessionSource.OpenSession();
+                await session.Close();
+            }));
+        }
+
+        await sessionSource.DisposeAsync();
+        Assert.Equal(maxSessionSize, mockFactory.NumSession);
+        Assert.Equal("Session Source is disposed.",
+            (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.OpenSession())).Message);
+
+        for (var i = 0; i < maxSessionSize; i++)
+        {
+            await Assert.ThrowsAsync<TaskCanceledException>(() => waitingSessionTasks[i]);
+        }
+
+        for (var i = 0; i < maxSessionSize; i++)
+        {
+            await openSessions[i].Close();
+        }
+
+        Assert.Equal(0, mockFactory.NumSession);
+        Assert.Equal("Session Source is disposed.",
+            (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.OpenSession())).Message);
+    }
+
+    [Fact]
+    public async Task StressTest_DisposeAsync_Close_Driver()
     {
         const int contentionTasks = 200;
         const int maxSessionSize = 100;
@@ -113,7 +158,6 @@ public class PoolingSessionSourceMockTests
             var disposeCalled = false;
             var mockFactory = new MockPoolingSessionFactory(maxSessionSize)
             {
-                Open = async _ => await Task.Yield(),
                 Dispose = () =>
                 {
                     Volatile.Write(ref disposeCalled, true);
@@ -145,6 +189,9 @@ public class PoolingSessionSourceMockTests
                     catch (YdbException e)
                     {
                         Assert.Equal("Session Source is disposed.", e.Message);
+                    }
+                    catch (OperationCanceledException)
+                    {
                     }
                 }));
             }

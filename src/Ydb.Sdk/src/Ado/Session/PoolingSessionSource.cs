@@ -92,7 +92,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
     private async ValueTask<ISession> RentAsync(CancellationToken cancellationToken)
     {
-        using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
         if (_createSessionTimeout > 0)
             ctsGetSession.CancelAfter(TimeSpan.FromSeconds(_createSessionTimeout));
 
@@ -131,10 +131,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
             await using var _ = finalToken.Register(
                 () => waiterTcs.TrySetCanceled(),
-                useSynchronizationContext: false
-            );
-            await using var disposedCancellationTokenRegistration = _disposeCts.Token.Register(
-                () => waiterTcs.TrySetException(new YdbException("Session Source is disposed.")),
                 useSynchronizationContext: false
             );
             session = await waiterTcs.Task.ConfigureAwait(false);
@@ -300,7 +296,7 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
 {
     private readonly PoolingSessionSource<T> _source;
 
-    private int _state = (int)PoolingSessionState.In;
+    private int _state = (int)PoolingSessionState.Out;
 
     protected PoolingSessionBase(PoolingSessionSource<T> source)
     {
