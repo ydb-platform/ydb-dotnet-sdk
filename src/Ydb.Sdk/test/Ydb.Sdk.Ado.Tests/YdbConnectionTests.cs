@@ -330,7 +330,8 @@ INSERT INTO {tableName}
             }
 
             var columns = new[] { "Id", "Name" };
-            var types = new[] {
+            var types = new[]
+            {
                 new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
                 new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
             };
@@ -402,7 +403,8 @@ INSERT INTO {tableName}
             }
 
             var columns = new[] { "Id", "Name" };
-            var types = new[] {
+            var types = new[]
+            {
                 new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
                 new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
             };
@@ -418,10 +420,7 @@ INSERT INTO {tableName}
                 {
                     new[] { YdbValue.MakeInt32(2) }
                 };
-                await Assert.ThrowsAsync<ArgumentException>(async () =>
-                {
-                    await importer.AddRowsAsync(rows);
-                });
+                await Assert.ThrowsAsync<ArgumentException>(async () => { await importer.AddRowsAsync(rows); });
             }
         }
         finally
@@ -453,7 +452,8 @@ INSERT INTO {tableName}
             }
 
             var columns = new[] { "Id", "Name" };
-            var types = new[] {
+            var types = new[]
+            {
                 new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
                 new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
             };
@@ -504,13 +504,13 @@ INSERT INTO {tableName}
                 Task.Run(async () =>
                 {
                     await using var importer = conn.BeginBulkUpsertImport(table1, columns, types);
-                    for (int i = 0; i < 20; i++)
+                    for (var i = 0; i < 20; i++)
                         await importer.AddRowAsync(YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"A{i}"));
                 }),
                 Task.Run(async () =>
                 {
                     await using var importer = conn.BeginBulkUpsertImport(table2, columns, types);
-                    for (int i = 0; i < 20; i++)
+                    for (var i = 0; i < 20; i++)
                         await importer.AddRowAsync(YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"B{i}"));
                 })
             );
