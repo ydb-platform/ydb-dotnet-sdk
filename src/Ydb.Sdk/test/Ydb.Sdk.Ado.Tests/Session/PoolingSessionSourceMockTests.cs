@@ -335,6 +335,7 @@ public class PoolingSessionSourceMockTests
     {
         var isBroken = false;
         const int maxSessionSize = 10;
+        // ReSharper disable once AccessToModifiedClosure
         var mockFactory = new MockPoolingSessionFactory(maxSessionSize) { IsBroken = () => isBroken };
         var settings = new YdbConnectionStringBuilder
         {
