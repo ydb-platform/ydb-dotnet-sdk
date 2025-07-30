@@ -51,6 +51,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         if (IsDisposed)
             throw new YdbException("Session Source is disposed.");
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         return TryGetIdleSession(out var session)
             ? new ValueTask<ISession>(session)
             : RentAsync(cancellationToken);
@@ -187,18 +189,13 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         } // wake up waiter!
     }
 
-    public void Return(T session)
+    public ValueTask Return(T session)
     {
         if (session.IsBroken || IsDisposed)
         {
             CloseSession(session);
 
-            if (IsDisposed)
-            {
-                _ = TryDisposeCore();
-            }
-
-            return;
+            return IsDisposed ? TryDisposeCore() : ValueTask.CompletedTask;
         }
 
         // Statement order is important
@@ -209,13 +206,15 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         {
             if (waiter.TrySetResult(session))
             {
-                return;
+                return ValueTask.CompletedTask;
             }
         }
 
         _idleSessions.Push(session);
 
         WakeUpWaiter();
+
+        return ValueTask.CompletedTask;
     }
 
     private void CloseSession(T session)
@@ -268,7 +267,15 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         await _cleanerTimer.DisposeAsync();
         _disposeCts.Cancel();
 
-        CleanIdleSessions(this);
+        for (var i = 0; i < _maxSessionSize; i++)
+        {
+            var session = Volatile.Read(ref _sessions[i]);
+
+            if (session != null && session.CompareAndSet(PoolingSessionState.In, PoolingSessionState.Clean))
+            {
+                CloseSession(session);
+            }
+        }
 
         await TryDisposeCore();
     }
@@ -327,5 +334,5 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
 
     public abstract void OnNotSuccessStatusCode(StatusCode code);
 
-    public void Close() => _source.Return((T)this);
+    public ValueTask Close() => _source.Return((T)this);
 }

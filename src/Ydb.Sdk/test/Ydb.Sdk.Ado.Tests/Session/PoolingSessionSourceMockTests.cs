@@ -9,18 +9,18 @@ public class PoolingSessionSourceMockTests
 {
     [Fact]
     public void MinSessionPool_bigger_than_MaxSessionPool_throws() => Assert.Throws<ArgumentException>(() =>
-        new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(),
+        new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(1),
             new YdbConnectionStringBuilder { MaxSessionPool = 1, MinSessionPool = 2 })
     );
 
     [Fact]
     public async Task Reuse_Session_Before_Creating_new()
     {
-        var sessionSource = new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(),
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(1),
             new YdbConnectionStringBuilder());
         var session = await sessionSource.OpenSession();
         var sessionId = session.SessionId();
-        session.Close();
+        await session.Close();
         session = await sessionSource.OpenSession();
         Assert.Equal(sessionId, session.SessionId());
     }
@@ -33,7 +33,7 @@ public class PoolingSessionSourceMockTests
             const string errorMessage = "Error on open session";
             const int maxSessionSize = 200;
 
-            var mockPoolingSessionFactory = new MockPoolingSessionFactory
+            var mockPoolingSessionFactory = new MockPoolingSessionFactory(maxSessionSize)
             {
                 Open = sessionNum =>
                     sessionNum <= maxSessionSize * 2
@@ -58,7 +58,7 @@ public class PoolingSessionSourceMockTests
                         // ReSharper disable once AccessToModifiedClosure
                         Interlocked.Increment(ref countSuccess);
                         Assert.True(session.SessionId() > maxSessionSize * 2);
-                        session.Close();
+                        await session.Close();
                     }
                     catch (YdbException e)
                     {
@@ -69,20 +69,20 @@ public class PoolingSessionSourceMockTests
 
             await Task.WhenAll(tasks);
             Assert.Equal(maxSessionSize * 2, Volatile.Read(ref countSuccess));
-            Assert.True(maxSessionSize * 3 >= mockPoolingSessionFactory.SessionNum);
-            Assert.True(maxSessionSize * 2 < mockPoolingSessionFactory.SessionNum);
+            Assert.True(maxSessionSize * 3 >= mockPoolingSessionFactory.SessionOpenedCount);
+            Assert.True(maxSessionSize * 2 < mockPoolingSessionFactory.SessionOpenedCount);
         }
     }
 
     [Fact]
     public async Task HighContention_OpenClose_NotCanceledException()
     {
-        var mockPoolingSessionFactory = new MockPoolingSessionFactory
+        const int highContentionTasks = 100;
+        const int maxSessionSize = highContentionTasks / 2;
+        var mockPoolingSessionFactory = new MockPoolingSessionFactory(maxSessionSize)
         {
             Open = async _ => await Task.Yield()
         };
-        const int highContentionTasks = 100;
-        const int maxSessionSize = highContentionTasks / 2;
 
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(
             mockPoolingSessionFactory, new YdbConnectionStringBuilder { MaxSessionPool = maxSessionSize }
@@ -99,12 +99,151 @@ public class PoolingSessionSourceMockTests
                     var session = await sessionSource.OpenSession();
                     Assert.True(session.SessionId() <= maxSessionSize);
                     await Task.Yield();
-                    session.Close();
+                    await session.Close();
                 });
             }
 
             await Task.WhenAll(tasks);
         }
+    }
+
+    [Fact]
+    public async Task DisposeAsync_Close_Driver()
+    {
+        const int contentionTasks = 200;
+        const int maxSessionSize = 100;
+        for (var it = 0; it < 100_000; it++)
+        {
+            var disposeCalled = false;
+            var mockFactory = new MockPoolingSessionFactory(maxSessionSize)
+            {
+                Open = async _ => await Task.Yield(),
+                Dispose = () =>
+                {
+                    Volatile.Write(ref disposeCalled, true);
+                    return ValueTask.CompletedTask;
+                }
+            };
+            var settings = new YdbConnectionStringBuilder { MaxSessionPool = maxSessionSize };
+            var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
+            var openSessionTasks = new List<Task>();
+            for (var i = 0; i < contentionTasks; i++)
+            {
+                var itCopy = it;
+                var iCopy = i;
+
+                openSessionTasks.Add(Task.Run(async () =>
+                {
+                    if (itCopy % contentionTasks == iCopy)
+                    {
+                        await sessionSource.DisposeAsync();
+                        return;
+                    }
+
+                    try
+                    {
+                        var session = await sessionSource.OpenSession();
+                        await Task.Yield();
+                        await session.Close();
+                    }
+                    catch (YdbException e)
+                    {
+                        Assert.Equal("Session Source is disposed.", e.Message);
+                    }
+                }));
+            }
+
+            await Task.WhenAll(openSessionTasks);
+            Assert.Equal(0, mockFactory.NumSession);
+            Assert.True(disposeCalled);
+        }
+    }
+
+    [Fact]
+    public async Task IdleTimeout_MinSessionSize_CloseNumSessionsMinusMinSessionCount()
+    {
+        const int maxSessionSize = 50;
+        const int minSessionSize = 10;
+        const int idleTimeoutSeconds = 1;
+
+        var mockFactory = new MockPoolingSessionFactory(maxSessionSize);
+        var settings = new YdbConnectionStringBuilder
+        {
+            SessionIdleTimeout = idleTimeoutSeconds,
+            MaxSessionPool = maxSessionSize,
+            MinSessionPool = minSessionSize
+        };
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
+
+        var openSessions = new List<ISession>();
+        for (var it = 0; it < maxSessionSize; it++)
+        {
+            openSessions.Add(await sessionSource.OpenSession());
+        }
+
+        foreach (var it in openSessions)
+        {
+            await it.Close();
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(idleTimeoutSeconds * 5)); // cleaning idle sessions
+        Assert.Equal(minSessionSize, mockFactory.NumSession);
+
+        var openSessionTasks = new List<Task<ISession>>();
+        for (var it = 0; it < minSessionSize; it++)
+        {
+            openSessionTasks.Add(Task.Run(async () => await sessionSource.OpenSession()));
+        }
+
+        foreach (var it in openSessionTasks)
+        {
+            await (await it).Close();
+        }
+
+        Assert.Equal(minSessionSize, mockFactory.NumSession);
+        Assert.Equal(maxSessionSize, mockFactory.SessionOpenedCount);
+    }
+
+    [Fact]
+    public async Task StressTest_HighContention_OpenClose()
+    {
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromMinutes(10));
+
+        const int maxSessionSize = 50;
+        const int minSessionSize = 10;
+        const int highContentionTasks = maxSessionSize * 5;
+
+        var mockFactory = new MockPoolingSessionFactory(maxSessionSize)
+        {
+            Open = async _ => await Task.Yield(),
+            IsBroken = () => Random.Shared.NextDouble() < 0.05
+        };
+        var settings = new YdbConnectionStringBuilder
+            { MaxSessionPool = maxSessionSize, MinSessionPool = minSessionSize };
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
+
+        var workers = new List<Task>();
+        for (var it = 0; it < highContentionTasks; it++)
+        {
+            workers.Add(Task.Run(async () =>
+            {
+                try
+                {
+                    while (!cts.IsCancellationRequested)
+                    {
+                        var session = await sessionSource.OpenSession(cts.Token);
+                        await session.Close();
+                        await Task.Delay(Random.Shared.Next(maxSessionSize), cts.Token);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }, cts.Token));
+        }
+
+        await Task.WhenAll(workers);
     }
 }
 
@@ -113,11 +252,13 @@ internal static class ISessionExtension
     internal static int SessionId(this ISession session) => ((MockPoolingSession)session).SessionId;
 }
 
-internal class MockPoolingSessionFactory : IPoolingSessionFactory<MockPoolingSession>
+internal class MockPoolingSessionFactory(int maxSessionSize) : IPoolingSessionFactory<MockPoolingSession>
 {
-    private int _sessionNum;
+    private int _sessionOpened;
+    private int _numSession;
 
-    internal int SessionNum => Volatile.Read(ref _sessionNum);
+    internal int SessionOpenedCount => Volatile.Read(ref _sessionOpened);
+    internal int NumSession => Volatile.Read(ref _numSession);
 
     internal Func<int, Task> Open { private get; init; } = _ => Task.CompletedTask;
 
@@ -125,10 +266,27 @@ internal class MockPoolingSessionFactory : IPoolingSessionFactory<MockPoolingSes
 
     internal Func<bool> IsBroken { private get; init; } = () => false;
 
-    public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
-        new(source, Open, DeleteSession, IsBroken, Interlocked.Increment(ref _sessionNum));
+    internal Func<ValueTask> Dispose { private get; init; } = () => ValueTask.CompletedTask;
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
+        new(source,
+            sessionCountOpened =>
+            {
+                Assert.True(Interlocked.Increment(ref _numSession) <= maxSessionSize);
+
+                return Open(sessionCountOpened);
+            },
+            sessionCountOpened =>
+            {
+                Interlocked.Decrement(ref _numSession);
+
+                return DeleteSession(sessionCountOpened);
+            },
+            IsBroken,
+            Interlocked.Increment(ref _sessionOpened)
+        );
+
+    public ValueTask DisposeAsync() => Dispose();
 }
 
 internal class MockPoolingSession(

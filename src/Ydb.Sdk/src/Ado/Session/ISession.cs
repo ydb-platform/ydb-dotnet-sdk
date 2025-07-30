@@ -23,5 +23,5 @@ internal interface ISession
 
     void OnNotSuccessStatusCode(StatusCode code);
 
-    void Close();
+    ValueTask Close();
 }
