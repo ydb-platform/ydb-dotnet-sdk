@@ -56,7 +56,8 @@ public sealed class YdbConnection : DbConnection
     public IBulkUpsertImporter BeginBulkUpsertImport(
         string name,
         IReadOnlyList<string> columns,
-        IReadOnlyList<Type> types)
+        CancellationToken cancellationToken = default
+    )
     {
         ThrowIfConnectionClosed();
         if (CurrentTransaction is { Completed: false })
@@ -65,7 +66,7 @@ public sealed class YdbConnection : DbConnection
         var database = ConnectionStringBuilder.Database.TrimEnd('/');
         var tablePath = string.IsNullOrEmpty(database) ? name : $"{database}/{name}";
 
-        return new BulkUpsertImporter(this, tablePath, columns, types);
+        return new BulkUpsertImporter(this, tablePath, columns, cancellationToken);
     }
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
