@@ -10,8 +10,6 @@ namespace Ydb.Sdk.Ado;
 
 public sealed class YdbConnection : DbConnection
 {
-    private const int MaxSendBufferSize = 64 * 1024 * 1024;
-
     private static readonly StateChangeEventArgs ClosedToOpenEventArgs =
         new(ConnectionState.Closed, ConnectionState.Open);
 
