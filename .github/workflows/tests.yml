@@ -33,6 +33,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
+
       - name: Run ADO.NET Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
@@ -46,9 +47,9 @@ jobs:
           failed=$(grep -oP 'failed="\K[0-9]+' ado.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' ado.trx | head -1)
           echo "## YDB SDK ADO.NET" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "- ❌ Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
+          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
+          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
 
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
@@ -61,9 +62,9 @@ jobs:
           failed=$(grep -oP 'failed="\K[0-9]+' spec.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' spec.trx | head -1)
           echo "## YDB SDK Specification" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "- ❌ Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
+          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
+          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
 
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
@@ -76,9 +77,9 @@ jobs:
           failed=$(grep -oP 'failed="\K[0-9]+' dapper.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' dapper.trx | head -1)
           echo "## YDB SDK Dapper" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "- ❌ Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
+          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
+          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
 
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
@@ -91,9 +92,9 @@ jobs:
           failed=$(grep -oP 'failed="\K[0-9]+' topic.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' topic.trx | head -1)
           echo "## YDB SDK Topic" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "- ❌ Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
+          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
+          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
 
   efcore-tests:
     runs-on: ubuntu-22.04
@@ -119,7 +120,6 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
-      # EntityFrameworkCore.Ydb.FunctionalTests из src/EFCore.Ydb:
       - name: Run EFCore tests
         working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests/
         run: dotnet test --logger "trx;LogFileName=efcore.trx"
@@ -131,26 +131,9 @@ jobs:
           failed=$(grep -oP 'failed="\K[0-9]+' efcore.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' efcore.trx | head -1)
           echo "## YDB SDK EFCore" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "- ❌ Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
-
-      # EntityFrameworkCore.Ydb.FunctionalTests из src/Ydb.Sdk (если нужно запускать и второй проект):
-      - name: Run EFCore tests (Ydb.Sdk)
-        working-directory: ./src/Ydb.Sdk/test/EntityFrameworkCore.Ydb.FunctionalTests/
-        run: dotnet test --logger "trx;LogFileName=efcore_sdk.trx"
-        continue-on-error: true
-      - name: Publish EFCore (Ydb.Sdk) test summary
-        if: always()
-        working-directory: ./src/Ydb.Sdk/test/EntityFrameworkCore.Ydb.FunctionalTests/
-        run: |
-          passed=$(grep -oP 'passed="\K[0-9]+' efcore_sdk.trx | head -1 || echo 0)
-          failed=$(grep -oP 'failed="\K[0-9]+' efcore_sdk.trx | head -1 || echo 0)
-          skipped=$(grep -oP 'skipped="\K[0-9]+' efcore_sdk.trx | head -1 || echo 0)
-          echo "## YDB SDK EFCore (Ydb.Sdk)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "- ❌ Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
+          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
+          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
 
   run-examples:
     runs-on: ubuntu-22.04
