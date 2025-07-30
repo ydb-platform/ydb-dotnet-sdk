@@ -48,7 +48,7 @@ internal static class PoolManager
             try
             {
                 await SemaphoreSlim.WaitAsync();
-                
+
                 await sessionPool.DisposeAsync();
             }
             finally
