@@ -109,7 +109,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
-        await FlushAsync();
+        await FlushAsync(_cancellationToken);
         _disposed = true;
     }
 
