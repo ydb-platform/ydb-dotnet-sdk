@@ -34,67 +34,77 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
 
+      - name: Init test summary table
+        run: |
+          echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' > summary-table.md
+          echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> summary-table.md
+
       - name: Run ADO.NET Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           dotnet test --logger "trx;LogFileName=ado.trx"
-      - name: Publish ADO.NET test summary
-        if: always()
+
+      - name: Parse ADO.NET test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           passed=$(grep -oP 'passed="\K[0-9]+' ado.trx | head -1)
           failed=$(grep -oP 'failed="\K[0-9]+' ado.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' ado.trx | head -1)
-          echo "## YDB SDK ADO.NET" >> $GITHUB_STEP_SUMMARY
-          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          total=$((passed + failed + skipped))
+          elapsed=$(grep -oP 'duration="\K[0-9\.]+' ado.trx | head -1 | cut -d'"' -f1)
+          [[ -z "$elapsed" ]] && elapsed="-"
+          echo "| ADO.NET | $passed | $failed | $skipped | $total | ${elapsed}s |" >> ../../../summary-table.md
 
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
         run: dotnet test --logger "trx;LogFileName=spec.trx"
-      - name: Publish Specification test summary
-        if: always()
+
+      - name: Parse Specification test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
         run: |
           passed=$(grep -oP 'passed="\K[0-9]+' spec.trx | head -1)
           failed=$(grep -oP 'failed="\K[0-9]+' spec.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' spec.trx | head -1)
-          echo "## YDB SDK Specification" >> $GITHUB_STEP_SUMMARY
-          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          total=$((passed + failed + skipped))
+          elapsed=$(grep -oP 'duration="\K[0-9\.]+' spec.trx | head -1 | cut -d'"' -f1)
+          [[ -z "$elapsed" ]] && elapsed="-"
+          echo "| Specification | $passed | $failed | $skipped | $total | ${elapsed}s |" >> ../../../summary-table.md
 
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
         run: dotnet test --logger "trx;LogFileName=dapper.trx"
-      - name: Publish Dapper test summary
-        if: always()
+
+      - name: Parse Dapper test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
         run: |
           passed=$(grep -oP 'passed="\K[0-9]+' dapper.trx | head -1)
           failed=$(grep -oP 'failed="\K[0-9]+' dapper.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' dapper.trx | head -1)
-          echo "## YDB SDK Dapper" >> $GITHUB_STEP_SUMMARY
-          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          total=$((passed + failed + skipped))
+          elapsed=$(grep -oP 'duration="\K[0-9\.]+' dapper.trx | head -1 | cut -d'"' -f1)
+          [[ -z "$elapsed" ]] && elapsed="-"
+          echo "| Dapper | $passed | $failed | $skipped | $total | ${elapsed}s |" >> ../../../summary-table.md
 
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
         run: dotnet test --logger "trx;LogFileName=topic.trx"
-      - name: Publish Topic test summary
-        if: always()
+
+      - name: Parse Topic test results
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
         run: |
           passed=$(grep -oP 'passed="\K[0-9]+' topic.trx | head -1)
           failed=$(grep -oP 'failed="\K[0-9]+' topic.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' topic.trx | head -1)
-          echo "## YDB SDK Topic" >> $GITHUB_STEP_SUMMARY
-          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          total=$((passed + failed + skipped))
+          elapsed=$(grep -oP 'duration="\K[0-9\.]+' topic.trx | head -1 | cut -d'"' -f1)
+          [[ -z "$elapsed" ]] && elapsed="-"
+          echo "| Topic | $passed | $failed | $skipped | $total | ${elapsed}s |" >> ../../../summary-table.md
+
+      - name: Publish all test summary as table
+        if: always()
+        run: |
+          cat summary-table.md >> $GITHUB_STEP_SUMMARY
 
   efcore-tests:
     runs-on: ubuntu-22.04
@@ -130,10 +140,13 @@ jobs:
           passed=$(grep -oP 'passed="\K[0-9]+' efcore.trx | head -1)
           failed=$(grep -oP 'failed="\K[0-9]+' efcore.trx | head -1)
           skipped=$(grep -oP 'skipped="\K[0-9]+' efcore.trx | head -1)
-          echo "## YDB SDK EFCore" >> $GITHUB_STEP_SUMMARY
-          echo "Passed: $passed" >> $GITHUB_STEP_SUMMARY
-          echo "Failed: $failed" >> $GITHUB_STEP_SUMMARY
-          echo "Skipped: $skipped" >> $GITHUB_STEP_SUMMARY
+          total=$((passed + failed + skipped))
+          elapsed=$(grep -oP 'duration="\K[0-9\.]+' efcore.trx | head -1 | cut -d'"' -f1)
+          [[ -z "$elapsed" ]] && elapsed="-"
+          echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' > efcore-summary.md
+          echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> efcore-summary.md
+          echo "| EFCore     | $passed | $failed | $skipped | $total | ${elapsed}s |" >> efcore-summary.md
+          cat efcore-summary.md >> $GITHUB_STEP_SUMMARY
 
   run-examples:
     runs-on: ubuntu-22.04
