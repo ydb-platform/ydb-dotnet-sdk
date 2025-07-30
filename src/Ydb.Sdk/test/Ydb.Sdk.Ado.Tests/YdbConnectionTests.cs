@@ -330,11 +330,6 @@ INSERT INTO {tableName}
             }
 
             var columns = new[] { "Id", "Name" };
-            var types = new[]
-            {
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
-            };
 
             await using (var importer = conn.BeginBulkUpsertImport(tableName, columns))
             {
@@ -405,11 +400,6 @@ INSERT INTO {tableName}
             }
 
             var columns = new[] { "Id", "Name" };
-            var types = new[]
-            {
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
-            };
 
             await using (var importer = conn.BeginBulkUpsertImport(tableName, columns))
             {
@@ -452,11 +442,6 @@ INSERT INTO {tableName}
             }
 
             var columns = new[] { "Id", "Name" };
-            var types = new[]
-            {
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
-            };
 
             var importer = conn.BeginBulkUpsertImport(tableName, columns);
             await importer.AddRowsAsync(new[] { new[] { YdbValue.MakeInt32(1), YdbValue.MakeUtf8("A") } });
@@ -494,11 +479,6 @@ INSERT INTO {tableName}
             }
 
             var columns = new[] { "Id", "Name" };
-            var types = new[]
-            {
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
-                new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
-            };
 
             await Task.WhenAll(
                 Task.Run(async () =>
@@ -546,11 +526,6 @@ INSERT INTO {tableName}
         await conn.OpenAsync();
 
         var columns = new[] { "Id", "Name" };
-        var types = new[]
-        {
-            new Type { TypeId = Type.Types.PrimitiveTypeId.Int32 },
-            new Type { TypeId = Type.Types.PrimitiveTypeId.Utf8 }
-        };
 
         var importer = conn.BeginBulkUpsertImport(tableName, columns);
 

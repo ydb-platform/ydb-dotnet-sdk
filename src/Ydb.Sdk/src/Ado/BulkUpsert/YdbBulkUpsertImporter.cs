@@ -1,5 +1,5 @@
-using Ydb.Sdk.Value;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Value;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -87,7 +87,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
 
         var typedValue = new TypedValue
         {
-            Type  = new Type { ListType = new ListType { Item = structType } },
+            Type = new Type { ListType = new ListType { Item = structType } },
             Value = listValue
         };
 
