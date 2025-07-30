@@ -199,7 +199,7 @@ INSERT INTO {tableName}
     public async Task OpenAsync_WhenCancelTokenIsCanceled_ThrowYdbException()
     {
         await using var connection = CreateConnection();
-        connection.ConnectionString = ConnectionString + ";MinSessionPool=1";
+        connection.ConnectionString = ConnectionString;
         using var cts = new CancellationTokenSource();
         cts.Cancel();
         Assert.Equal("The connection pool has been exhausted, either raise 'MaxSessionPool' (currently 10) " +

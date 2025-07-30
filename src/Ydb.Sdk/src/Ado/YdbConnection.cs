@@ -161,7 +161,7 @@ public sealed class YdbConnection : DbConnection
         }
         finally
         {
-            _session.Close();
+            await _session.Close();
         }
     }
 

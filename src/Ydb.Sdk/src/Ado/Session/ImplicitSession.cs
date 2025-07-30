@@ -48,9 +48,7 @@ internal class ImplicitSession : ISession
     {
     }
 
-    public void Close()
-    {
-    }
+    public ValueTask Close() => ValueTask.CompletedTask;
 
     private static YdbException NotSupportedTransaction =>
         new(StatusCode.BadRequest, "Transactions are not supported in implicit sessions");
