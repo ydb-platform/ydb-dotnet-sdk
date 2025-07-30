@@ -36,8 +36,8 @@ jobs:
 
       - name: Init test summary table
         run: |
-          echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' > summary-table.md
-          echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> summary-table.md
+          echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' > $GITHUB_WORKSPACE/summary-table.md
+          echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Run ADO.NET Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
@@ -54,7 +54,7 @@ jobs:
           total=$((passed + failed + skipped))
           elapsed=$(grep -oP 'duration="\K[0-9\.]+' ado.trx | head -1 | cut -d'"' -f1)
           [[ -z "$elapsed" ]] && elapsed="-"
-          echo "| ADO.NET | $passed | $failed | $skipped | $total | ${elapsed}s |" >> ../../../summary-table.md
+          echo "| ADO.NET | $passed | $failed | $skipped | $total | ${elapsed}s |" >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
@@ -69,7 +69,7 @@ jobs:
           total=$((passed + failed + skipped))
           elapsed=$(grep -oP 'duration="\K[0-9\.]+' spec.trx | head -1 | cut -d'"' -f1)
           [[ -z "$elapsed" ]] && elapsed="-"
-          echo "| Specification | $passed | $failed | $skipped | $total | ${elapsed}s |" >> ../../../summary-table.md
+          echo "| Specification | $passed | $failed | $skipped | $total | ${elapsed}s |" >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
@@ -84,7 +84,7 @@ jobs:
           total=$((passed + failed + skipped))
           elapsed=$(grep -oP 'duration="\K[0-9\.]+' dapper.trx | head -1 | cut -d'"' -f1)
           [[ -z "$elapsed" ]] && elapsed="-"
-          echo "| Dapper | $passed | $failed | $skipped | $total | ${elapsed}s |" >> ../../../summary-table.md
+          echo "| Dapper | $passed | $failed | $skipped | $total | ${elapsed}s |" >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
@@ -99,12 +99,12 @@ jobs:
           total=$((passed + failed + skipped))
           elapsed=$(grep -oP 'duration="\K[0-9\.]+' topic.trx | head -1 | cut -d'"' -f1)
           [[ -z "$elapsed" ]] && elapsed="-"
-          echo "| Topic | $passed | $failed | $skipped | $total | ${elapsed}s |" >> ../../../summary-table.md
+          echo "| Topic | $passed | $failed | $skipped | $total | ${elapsed}s |" >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Publish all test summary as table
         if: always()
         run: |
-          cat summary-table.md >> $GITHUB_STEP_SUMMARY
+          cat $GITHUB_WORKSPACE/summary-table.md >> $GITHUB_STEP_SUMMARY
 
   efcore-tests:
     runs-on: ubuntu-22.04
