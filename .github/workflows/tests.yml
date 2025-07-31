@@ -33,7 +33,6 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
 
-      # --- ТЕСТЫ (двойной логгер + TRX в текущую папку проекта) ---
       - name: Run ADO.NET Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
@@ -71,7 +70,6 @@ jobs:
             --results-directory "$PWD"
         continue-on-error: true
 
-      # --- Сводная таблица по всем suite'ам ---
       - name: Publish combined test summary table
         if: always()
         run: |
