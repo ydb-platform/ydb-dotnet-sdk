@@ -185,13 +185,13 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         } // wake up waiter!
     }
 
-    public ValueTask Return(T session)
+    public void Return(T session)
     {
         if (session.IsBroken || IsDisposed)
         {
             CloseSession(session);
 
-            return IsDisposed ? TryDisposeCore() : ValueTask.CompletedTask;
+            return;
         }
 
         // Statement order is important
@@ -202,15 +202,13 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         {
             if (waiter.TrySetResult(session))
             {
-                return ValueTask.CompletedTask;
+                return;
             }
         }
 
         _idleSessions.Push(session);
 
         WakeUpWaiter();
-
-        return ValueTask.CompletedTask;
     }
 
     private void CloseSession(T session)
@@ -273,11 +271,24 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             }
         }
 
-        await TryDisposeCore();
-    }
+        var spinWait = new SpinWait();
+        do
+        {
+            for (var i = 0; i < _maxSessionSize; i++)
+            {
+                var session = Volatile.Read(ref _sessions[i]);
 
-    private ValueTask TryDisposeCore() =>
-        _numSessions == 0 ? _sessionFactory.DisposeAsync() : ValueTask.CompletedTask;
+                if (session != null && session.CompareAndSet(PoolingSessionState.In, PoolingSessionState.Clean))
+                {
+                    CloseSession(session);
+                }
+            }
+
+            spinWait.SpinOnce();
+        } while (_numSessions > 0);
+
+        await _sessionFactory.DisposeAsync();
+    }
 }
 
 internal interface IPoolingSessionFactory<T> : IAsyncDisposable where T : PoolingSessionBase<T>
@@ -330,5 +341,5 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
 
     public abstract void OnNotSuccessStatusCode(StatusCode code);
 
-    public ValueTask Close() => _source.Return((T)this);
+    public void Close() => _source.Return((T)this);
 }
