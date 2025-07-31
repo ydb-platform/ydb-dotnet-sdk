@@ -26,108 +26,37 @@ jobs:
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
         options: '--name ydb-local -h localhost'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
-      - name: Init test summary table
-        run: |
-          echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' > $GITHUB_WORKSPACE/summary-table.md
-          echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> $GITHUB_WORKSPACE/summary-table.md
 
       - name: Run ADO.NET Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test --logger "trx;LogFileName=ado.trx" || true
-
-      - name: Parse ADO.NET test results
-        if: always()
-        working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
-        run: |
-          if [ -f ado.trx ]; then
-            counters=$(grep '<Counters ' ado.trx | head -1)
-            passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+' || echo 0)
-            failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+' || echo 0)
-            skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+' || echo 0)
-            total=$(echo "$counters" | grep -oP 'total="\K[0-9]+' || echo 0)
-            duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' ado.trx | head -1 || echo "-")
-            [[ -z "$duration" ]] && duration="-"
-          else
-            passed=0; failed=0; skipped=0; total=0; duration="-"
-          fi
-          echo "| ADO.NET | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/summary-table.md
+          dotnet test --logger "GitHubActions;report-warnings=false"
+        continue-on-error: true
 
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
-        run: dotnet test --logger "trx;LogFileName=spec.trx" || true
-
-      - name: Parse Specification test results
-        if: always()
-        working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
-        run: |
-          if [ -f spec.trx ]; then
-            counters=$(grep '<Counters ' spec.trx | head -1)
-            passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+' || echo 0)
-            failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+' || echo 0)
-            skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+' || echo 0)
-            total=$(echo "$counters" | grep -oP 'total="\K[0-9]+' || echo 0)
-            duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' spec.trx | head -1 || echo "-")
-            [[ -z "$duration" ]] && duration="-"
-          else
-            passed=0; failed=0; skipped=0; total=0; duration="-"
-          fi
-          echo "| Specification | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/summary-table.md
+        run: dotnet test --logger "GitHubActions;report-warnings=false"
+        continue-on-error: true
 
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
-        run: dotnet test --logger "trx;LogFileName=dapper.trx" || true
-
-      - name: Parse Dapper test results
-        if: always()
-        working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
-        run: |
-          if [ -f dapper.trx ]; then
-            counters=$(grep '<Counters ' dapper.trx | head -1)
-            passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+' || echo 0)
-            failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+' || echo 0)
-            skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+' || echo 0)
-            total=$(echo "$counters" | grep -oP 'total="\K[0-9]+' || echo 0)
-            duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' dapper.trx | head -1 || echo "-")
-            [[ -z "$duration" ]] && duration="-"
-          else
-            passed=0; failed=0; skipped=0; total=0; duration="-"
-          fi
-          echo "| Dapper | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/summary-table.md
+        run: dotnet test --logger "GitHubActions;report-warnings=false"
+        continue-on-error: true
 
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
-        run: dotnet test --logger "trx;LogFileName=topic.trx" || true
-
-      - name: Parse Topic test results
-        if: always()
-        working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
-        run: |
-          if [ -f topic.trx ]; then
-            counters=$(grep '<Counters ' topic.trx | head -1)
-            passed=$(echo "$counters" | grep -oP 'passed="\K[0-9]+' || echo 0)
-            failed=$(echo "$counters" | grep -oP 'failed="\K[0-9]+' || echo 0)
-            skipped=$(echo "$counters" | grep -oP 'skipped="\K[0-9]+' || echo 0)
-            total=$(echo "$counters" | grep -oP 'total="\K[0-9]+' || echo 0)
-            duration=$(grep -oP 'duration="\K[0-9\.]+(?=")' topic.trx | head -1 || echo "-")
-            [[ -z "$duration" ]] && duration="-"
-          else
-            passed=0; failed=0; skipped=0; total=0; duration="-"
-          fi
-          echo "| Topic | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_WORKSPACE/summary-table.md
-
-      - name: Publish all test summary as table
-        if: always()
-        run: |
-          cat $GITHUB_WORKSPACE/summary-table.md >> $GITHUB_STEP_SUMMARY
+        run: dotnet test --logger "GitHubActions;report-warnings=false"
+        continue-on-error: true
 
   run-examples:
     runs-on: ubuntu-22.04
