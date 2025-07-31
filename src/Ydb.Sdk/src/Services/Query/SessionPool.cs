@@ -180,7 +180,7 @@ internal class Session : SessionBase<Session>, ISession
 
     public new void OnNotSuccessStatusCode(StatusCode code) => base.OnNotSuccessStatusCode(code);
 
-    public ValueTask Close() => Release();
+    public void Close() => Release().AsTask().GetAwaiter().GetResult();
 
     public async Task CommitTransaction(string txId, CancellationToken cancellationToken = default)
     {

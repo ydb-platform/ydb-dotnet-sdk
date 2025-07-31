@@ -25,7 +25,7 @@ public class SessionSourceBenchmark
     public async Task SingleThreaded_OpenClose()
     {
         var session = await _poolingSessionSource.OpenSession();
-        await session.Close();
+        session.Close();
     }
 
     [Benchmark]
@@ -39,7 +39,7 @@ public class SessionSourceBenchmark
             {
                 var session = await _poolingSessionSource.OpenSession();
                 await Task.Yield();
-                await session.Close();
+                session.Close();
             });
         }
 
@@ -58,7 +58,7 @@ public class SessionSourceBenchmark
             {
                 var session = await _poolingSessionSource.OpenSession();
                 await Task.Yield();
-                await session.Close();
+                session.Close();
             });
         }
 
@@ -79,7 +79,7 @@ public class SessionSourceBenchmark
                 {
                     var session = await _poolingSessionSource.OpenSession();
                     await Task.Yield();
-                    await session.Close();
+                    session.Close();
                 }
             });
         }
@@ -102,7 +102,7 @@ public class SessionSourceBenchmark
                 {
                     var session = await _poolingSessionSource.OpenSession();
                     await Task.Yield();
-                    await session.Close();
+                    session.Close();
                 }
             });
         }
@@ -124,7 +124,7 @@ public class SessionSourceBenchmark
                 {
                     var session = await _poolingSessionSource.OpenSession();
                     await Task.Yield();
-                    await session.Close();
+                    session.Close();
                 }
             });
         }

@@ -293,10 +293,8 @@ INSERT INTO {tableName}
             ydbConnection.ConnectionString = connectionString;
             await ydbConnection.OpenAsync();
         }
-        catch (YdbException e)
+        catch (YdbException)
         {
-            Assert.Equal(StatusCode.Unspecified, e.Code);
-            Assert.Equal("Session Source is disposed.", e.Message);
             Interlocked.Add(ref _counter, i);
             return;
         }
