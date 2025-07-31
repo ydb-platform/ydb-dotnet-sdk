@@ -92,7 +92,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
     private async ValueTask<ISession> RentAsync(CancellationToken cancellationToken)
     {
-        using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
+        using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         if (_createSessionTimeout > 0)
             ctsGetSession.CancelAfter(TimeSpan.FromSeconds(_createSessionTimeout));
 
@@ -133,6 +133,10 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                 () => waiterTcs.TrySetCanceled(),
                 useSynchronizationContext: false
             );
+            await using var disposeRegistration = _disposeCts.Token.Register(
+                () => waiterTcs.TrySetException(new YdbException("Session Source is disposed.")),
+                useSynchronizationContext: false
+            );
             session = await waiterTcs.Task.ConfigureAwait(false);
 
             if (CheckIdleSession(session) || TryGetIdleSession(out session))
@@ -150,6 +154,11 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         {
             if (Interlocked.CompareExchange(ref _numSessions, numSessions + 1, numSessions) != numSessions)
                 continue;
+
+            if (IsDisposed)
+            {
+                break;
+            }
 
             try
             {
@@ -260,16 +269,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
         await _cleanerTimer.DisposeAsync();
         _disposeCts.Cancel();
-
-        for (var i = 0; i < _maxSessionSize; i++)
-        {
-            var session = Volatile.Read(ref _sessions[i]);
-
-            if (session != null && session.CompareAndSet(PoolingSessionState.In, PoolingSessionState.Clean))
-            {
-                CloseSession(session);
-            }
-        }
 
         var spinWait = new SpinWait();
         do
