@@ -48,7 +48,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
 
         if (_currentBytes + rowSize > _maxBytes && _rows.Count > 0)
         {
-            await FlushAsync(_cancellationToken);
+            await FlushAsync();
         }
 
         _rows.Add(protoStruct);
@@ -67,7 +67,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
         };
     }
 
-    public async ValueTask FlushAsync(CancellationToken cancellationToken = default)
+    public async ValueTask FlushAsync()
     {
         if (_rows.Count == 0) return;
         if (_structType == null)
@@ -84,7 +84,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
         var resp = await _driver.UnaryCall(
             TableService.BulkUpsertMethod,
             req,
-            new GrpcRequestSettings { CancellationToken = cancellationToken }
+            new GrpcRequestSettings { CancellationToken = _cancellationToken }
         ).ConfigureAwait(false);
 
         var operation = resp.Operation;
