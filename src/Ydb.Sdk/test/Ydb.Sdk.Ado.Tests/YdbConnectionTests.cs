@@ -332,11 +332,9 @@ INSERT INTO {tableName}
             var columns = new[] { "Id", "Name" };
 
             var importer = conn.BeginBulkUpsertImport(tableName, columns);
-            await importer.AddRowsAsync(new object?[][]
-            {
-                new object?[] { YdbValue.MakeInt32(1), YdbValue.MakeUtf8("Alice") },
-                new object?[] { YdbValue.MakeInt32(2), YdbValue.MakeUtf8("Bob") }
-            });
+
+            await importer.AddRowAsync([YdbValue.MakeInt32(1), YdbValue.MakeUtf8("Alice")]);
+            await importer.AddRowAsync([YdbValue.MakeInt32(2), YdbValue.MakeUtf8("Bob")]);
             await importer.FlushAsync();
 
             await using (var checkCmd = conn.CreateCommand())
@@ -347,11 +345,8 @@ INSERT INTO {tableName}
             }
 
             importer = conn.BeginBulkUpsertImport(tableName, columns);
-            await importer.AddRowsAsync(new object?[][]
-            {
-                new object?[] { YdbValue.MakeInt32(3), YdbValue.MakeUtf8("Charlie") },
-                new object?[] { YdbValue.MakeInt32(4), YdbValue.MakeUtf8("Diana") }
-            });
+            await importer.AddRowAsync([YdbValue.MakeInt32(3), YdbValue.MakeUtf8("Charlie")]);
+            await importer.AddRowAsync([YdbValue.MakeInt32(4), YdbValue.MakeUtf8("Diana")]);
             await importer.FlushAsync();
 
             await using (var checkCmd = conn.CreateCommand())
@@ -399,14 +394,13 @@ INSERT INTO {tableName}
             var importer = conn.BeginBulkUpsertImport(tableName, columns);
 
             var badRow = new object?[] { YdbValue.MakeInt32(1) };
-            await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowsAsync(new object?[][] { badRow }));
+            await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowAsync([badRow]));
 
             await Assert.ThrowsAsync<ArgumentException>(async () =>
             {
-                await importer.AddRowsAsync(new object?[][]
-                {
+                await importer.AddRowAsync([
                     new object?[] { YdbValue.MakeInt32(2) }
-                });
+                ]);
             });
         }
         finally
@@ -447,7 +441,8 @@ INSERT INTO {tableName}
                     var rows = Enumerable.Range(0, 20)
                         .Select(i => new object?[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"A{i}") })
                         .ToArray();
-                    await importer.AddRowsAsync(rows);
+                    foreach (var row in rows)
+                        await importer.AddRowAsync(row);
                     await importer.FlushAsync();
                 }),
                 Task.Run(async () =>
@@ -456,7 +451,8 @@ INSERT INTO {tableName}
                     var rows = Enumerable.Range(0, 20)
                         .Select(i => new object?[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"B{i}") })
                         .ToArray();
-                    await importer.AddRowsAsync(rows);
+                    foreach (var row in rows)
+                        await importer.AddRowAsync(row);
                     await importer.FlushAsync();
                 })
             );
@@ -491,12 +487,10 @@ INSERT INTO {tableName}
 
         var importer = conn.BeginBulkUpsertImport(tableName, columns);
 
+        await importer.AddRowAsync([YdbValue.MakeInt32(1), YdbValue.MakeUtf8("NotExists")]);
+
         await Assert.ThrowsAsync<YdbException>(async () =>
         {
-            await importer.AddRowsAsync(new object?[][]
-            {
-                new object?[] { YdbValue.MakeInt32(1), YdbValue.MakeUtf8("NotExists") }
-            });
             await importer.FlushAsync();
         });
     }
