@@ -157,9 +157,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
             try
             {
-                if (IsDisposed)
-                    throw new YdbException("Session Source is disposed.");
-
                 var session = _sessionFactory.NewSession(this);
                 await session.Open(cancellationToken);
 
