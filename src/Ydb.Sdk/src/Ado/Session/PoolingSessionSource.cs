@@ -155,15 +155,11 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             if (Interlocked.CompareExchange(ref _numSessions, numSessions + 1, numSessions) != numSessions)
                 continue;
 
-            if (IsDisposed)
-            {
-                Interlocked.Decrement(ref _numSessions);
-
-                break;
-            }
-
             try
             {
+                if (IsDisposed)
+                    throw new YdbException("Session Source is disposed.");
+
                 var session = _sessionFactory.NewSession(this);
                 await session.Open(cancellationToken);
 
