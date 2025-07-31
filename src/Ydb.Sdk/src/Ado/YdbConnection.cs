@@ -65,7 +65,7 @@ public sealed class YdbConnection : DbConnection
         var database = ConnectionStringBuilder.Database.TrimEnd('/');
         var tablePath = string.IsNullOrEmpty(database) ? name : $"{database}/{name}";
 
-        var maxBytes = ConnectionStringBuilder.BulkUpsertMaxBytes;
+        var maxBytes = ConnectionStringBuilder.MaxSendMessageSize;
 
         return new BulkUpsertImporter(Session.Driver, tablePath, columns, maxBytes, cancellationToken);
     }
