@@ -188,10 +188,11 @@ INSERT INTO {tableName}
     [Fact]
     public async Task DisableDiscovery_WhenPropertyIsTrue_SimpleWorking()
     {
-        await using var connection = CreateConnection();
+        var connection = CreateConnection();
         connection.ConnectionString += ";DisableDiscovery=true";
         await connection.OpenAsync();
         Assert.True((bool)(await new YdbCommand(connection) { CommandText = "SELECT TRUE;" }.ExecuteScalarAsync())!);
+        await connection.CloseAsync();
         await YdbConnection.ClearPool(connection);
     }
 
