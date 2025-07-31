@@ -66,7 +66,7 @@ public sealed class YdbConnection : DbConnection
         var database = ConnectionStringBuilder.Database.TrimEnd('/');
         var tablePath = string.IsNullOrEmpty(database) ? name : $"{database}/{name}";
 
-        return new BulkUpsertImporter(this, tablePath, columns, cancellationToken);
+        return new BulkUpsertImporter(Session.Driver, tablePath, columns, cancellationToken);
     }
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
