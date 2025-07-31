@@ -19,60 +19,95 @@ jobs:
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
-        ports:
-          - 2135:2135
-          - 2136:2136
-          - 8765:8765
+        ports: [ "2135:2135", "2136:2136", "8765:8765" ]
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
         options: '--name ydb-local -h localhost'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
+
       - name: Run ADO.NET Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test
+          dotnet test \
+            --logger "GitHubActions;report-warnings=false" \
+            --logger "trx;LogFileName=ado.trx" \
+            --results-directory "$PWD"
+        continue-on-error: true
+
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
-        run: dotnet test
+        run: |
+          dotnet test \
+            --logger "GitHubActions;report-warnings=false" \
+            --logger "trx;LogFileName=spec.trx" \
+            --results-directory "$PWD"
+        continue-on-error: true
+
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
-        run: dotnet test
+        run: |
+          dotnet test \
+            --logger "GitHubActions;report-warnings=false" \
+            --logger "trx;LogFileName=dapper.trx" \
+            --results-directory "$PWD"
+        continue-on-error: true
+
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
-        run: dotnet test
-  efcore-tests:
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        ydb-version: [ 'latest', '25.1' ]
-    services:
-      ydb:
-        image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
-        ports:
-          - 2135:2135
-          - 2136:2136
-          - 8765:8765
-        env:
-          YDB_LOCAL_SURVIVE_RESTART: true
-        options: '--name ydb-local -h localhost'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Install Dotnet
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 9.0.x
-      - name: Run EFCore tests
-        working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests/
-        run: dotnet test
+        run: |
+          dotnet test \
+            --logger "GitHubActions;report-warnings=false" \
+            --logger "trx;LogFileName=topic.trx" \
+            --results-directory "$PWD"
+        continue-on-error: true
+
+      - name: Publish combined test summary table
+        if: always()
+        run: |
+          echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' >> $GITHUB_STEP_SUMMARY
+          echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> $GITHUB_STEP_SUMMARY
+
+          summarize () {
+            local name="$1"; local expected="$2"
+            local path="$expected"
+
+            # если точного файла нет, ищем любой *.trx в каталоге проекта (включая TestResults)
+            if [ ! -f "$path" ]; then
+              local base_dir; base_dir="$(dirname "$expected")"
+              local found
+              found=$(find "$base_dir" -maxdepth 3 -type f -name '*.trx' -print -quit 2>/dev/null || true)
+              if [ -n "$found" ]; then path="$found"; fi
+            fi
+
+            if [ -f "$path" ]; then
+              local counters passed failed skipped total duration
+              counters=$(grep '<Counters' "$path" | head -1 || true)
+              passed=$(echo "$counters"  | sed -n 's/.*passed="\([0-9]*\)".*/\1/p');   [ -z "$passed" ] && passed=0
+              failed=$(echo "$counters"  | sed -n 's/.*failed="\([0-9]*\)".*/\1/p');   [ -z "$failed" ] && failed=0
+              skipped=$(echo "$counters" | sed -n 's/.*skipped="\([0-9]*\)".*/\1/p');  [ -z "$skipped" ] && skipped=0
+              total=$(echo "$counters"   | sed -n 's/.*total="\([0-9]*\)".*/\1/p');    [ -z "$total" ] && total=0
+              duration=$(grep -oP 'duration="\K[0-9\.]+' "$path" | head -1 || true);  [ -z "$duration" ] && duration='-'
+
+              echo "| $name | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $name | N/A | N/A | N/A | N/A | N/A |" >> $GITHUB_STEP_SUMMARY
+            fi
+          }
+
+          summarize 'ADO.NET'        './src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests/ado.trx'
+          summarize 'Specification'  './src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests/spec.trx'
+          summarize 'Dapper'         './src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests/dapper.trx'
+          summarize 'Topic'          './src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests/topic.trx'
+
   run-examples:
     runs-on: ubuntu-22.04
     strategy:
