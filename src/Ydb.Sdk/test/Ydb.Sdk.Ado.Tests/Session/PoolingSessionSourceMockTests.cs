@@ -130,7 +130,7 @@ public class PoolingSessionSourceMockTests
 
         var disposeTask = Task.Run(async () => await sessionSource.DisposeAsync());
         Assert.Equal(maxSessionSize, mockFactory.NumSession);
-
+        await Task.Delay(5_000);
         for (var i = 0; i < maxSessionSize; i++)
         {
             openSessions[i].Close();
@@ -140,7 +140,8 @@ public class PoolingSessionSourceMockTests
         Assert.Equal(0, mockFactory.NumSession);
         for (var i = 0; i < maxSessionSize; i++)
         {
-            await Assert.ThrowsAnyAsync<Exception>(() => waitingSessionTasks[i]);
+            Assert.Equal("Session Source is disposed.",
+                (await Assert.ThrowsAsync<YdbException>(() => waitingSessionTasks[i])).Message);
         }
 
         Assert.Equal("Session Source is disposed.",
