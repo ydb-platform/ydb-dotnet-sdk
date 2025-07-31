@@ -263,7 +263,7 @@ public class PoolingSessionSourceMockTests
         {
             IsBroken = sessionNum =>
             {
-                var isBroken = Random.Shared.NextDouble() < 0.05;
+                var isBroken = Random.Shared.NextDouble() < 0.2;
                 sessionIdIsBroken[sessionNum] = isBroken;
                 return isBroken;
             },
@@ -418,7 +418,7 @@ internal class MockPoolingSessionFactory(int maxSessionSize) : IPoolingSessionFa
 
                 return Task.CompletedTask;
             },
-            () => IsBroken(_numSession),
+            sessionNum => IsBroken(sessionNum),
             Interlocked.Increment(ref _sessionOpened)
         );
 
@@ -429,13 +429,13 @@ internal class MockPoolingSession(
     PoolingSessionSource<MockPoolingSession> source,
     Func<int, Task> mockOpen,
     Func<Task> mockDeleteSession,
-    Func<bool> mockIsBroken,
+    Func<int, bool> mockIsBroken,
     int sessionNum
 ) : PoolingSessionBase<MockPoolingSession>(source)
 {
     public int SessionId => sessionNum;
     public override IDriver Driver => null!;
-    public override bool IsBroken => mockIsBroken();
+    public override bool IsBroken => mockIsBroken(sessionNum);
 
     internal override Task Open(CancellationToken cancellationToken) => mockOpen(sessionNum);
     internal override Task DeleteSession() => mockDeleteSession();
