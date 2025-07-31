@@ -42,6 +42,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
         _disableDiscovery = GrpcDefaultSettings.DisableDiscovery;
         _disableServerBalancer = false;
+        _bulkUpsertMaxBytes = 64 * 1024 * 1024;
     }
 
     public string Host
@@ -291,6 +292,20 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     private int _maxReceiveMessageSize;
+    
+    private int _bulkUpsertMaxBytes;
+    
+    public int BulkUpsertMaxBytes
+    {
+        get => _bulkUpsertMaxBytes;
+        set
+        {
+            if (value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(value), value, "BulkUpsertMaxBytes must be positive.");
+            _bulkUpsertMaxBytes = value;
+            SaveValue(nameof(BulkUpsertMaxBytes), value);
+        }
+    }
 
     public bool DisableServerBalancer
     {

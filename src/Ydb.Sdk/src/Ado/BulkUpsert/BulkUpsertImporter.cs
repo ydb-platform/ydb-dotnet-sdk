@@ -17,19 +17,18 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
     private StructType? _structType;
     private int _currentBytes;
 
-    public BulkUpsertImporter(
+    internal BulkUpsertImporter(
         IDriver driver,
         string tableName,
         IReadOnlyList<string> columns,
-        CancellationToken cancellationToken = default,
-        int maxBytes = 64 * 1024 * 1024)
+        int maxBytes,
+        CancellationToken cancellationToken = default)
     {
         _driver = driver;
         _tablePath = tableName;
         _columns = columns;
-        _maxBytes = maxBytes;
-        _cancellationToken = cancellationToken;
         _maxBytes = maxBytes / 2;
+        _cancellationToken = cancellationToken;
     }
 
     public async ValueTask AddRowAsync(object?[] values)
