@@ -489,9 +489,6 @@ INSERT INTO {tableName}
 
         await importer.AddRowAsync([YdbValue.MakeInt32(1), YdbValue.MakeUtf8("NotExists")]);
 
-        await Assert.ThrowsAsync<YdbException>(async () =>
-        {
-            await importer.FlushAsync();
-        });
+        await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
     }
 }

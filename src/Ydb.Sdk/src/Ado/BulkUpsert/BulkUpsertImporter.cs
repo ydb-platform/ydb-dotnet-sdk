@@ -15,7 +15,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
     private readonly RepeatedField<Ydb.Value> _rows = new();
     private readonly CancellationToken _cancellationToken;
     private StructType? _structType;
-    private int _currentBytes = 0;
+    private int _currentBytes;
 
     public BulkUpsertImporter(
         IDriver driver,
@@ -38,8 +38,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
             throw new ArgumentException("Values count must match columns count", nameof(values));
 
         var ydbValues = values.Select(v =>
-            v as YdbValue ?? (v is YdbParameter param ? param.YdbValue :
-                new YdbParameter { Value = v }.YdbValue)
+            v as YdbValue ?? (v is YdbParameter param ? param.YdbValue : new YdbParameter { Value = v }.YdbValue)
         ).ToArray();
 
         var protoStruct = new Ydb.Value();

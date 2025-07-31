@@ -1,4 +1,4 @@
-- ADO.NET: Added `BulkUpsertAsync` for batch upsert operations with transaction checks and integration tests.
+- ADO.NET: Added `BeginBulkUpsertImport` for batch upsert operations with transaction checks and integration tests.
 - Optimization: On BadSession, do not invoke the `DeleteSession()` method.
 - Canceling AttachStream after calling the `DeleteSession` method.
 - Fixed bug: fixed issue where session was not deleted (`ClientTransportTimeout`).
