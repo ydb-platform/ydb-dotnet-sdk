@@ -6,12 +6,14 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ydb.Sdk", "Ydb.Sdk", "{34D81B90-76BA-430B-B3B1-B830B7206134}"
 	ProjectSection(SolutionItems) = preProject
 		Ydb.Sdk\CHANGELOG.md = Ydb.Sdk\CHANGELOG.md
-		Directory.Build.props = Directory.Build.props
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E21B559D-5E8D-47AE-950E-03435F3066DF}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{316B82EF-019D-4267-95A9-5E243086B240}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ydb.Sdk", "Ydb.Sdk\src\Ydb.Sdk.csproj", "{C91FA8B1-713B-40F4-B07A-EB6CD4106392}"
 EndProject

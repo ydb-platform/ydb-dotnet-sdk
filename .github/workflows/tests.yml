@@ -33,7 +33,7 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
 
-      # --- ТЕСТЫ (двойной логгер + кладём TRX в текущую папку) ---
+      # --- ТЕСТЫ (двойной логгер + TRX в текущую папку проекта) ---
       - name: Run ADO.NET Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
@@ -79,32 +79,29 @@ jobs:
           echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> $GITHUB_STEP_SUMMARY
 
           summarize () {
-            local name="$1"; local path="$2"
+            local name="$1"; local expected="$2"
+            local path="$expected"
+
+            # если точного файла нет, ищем любой *.trx в каталоге проекта (включая TestResults)
+            if [ ! -f "$path" ]; then
+              local base_dir; base_dir="$(dirname "$expected")"
+              local found
+              found=$(find "$base_dir" -maxdepth 3 -type f -name '*.trx' -print -quit 2>/dev/null || true)
+              if [ -n "$found" ]; then path="$found"; fi
+            fi
+
             if [ -f "$path" ]; then
-              local counters
+              local counters passed failed skipped total duration
               counters=$(grep '<Counters' "$path" | head -1 || true)
-              local passed failed skipped total duration
               passed=$(echo "$counters"  | sed -n 's/.*passed="\([0-9]*\)".*/\1/p');   [ -z "$passed" ] && passed=0
               failed=$(echo "$counters"  | sed -n 's/.*failed="\([0-9]*\)".*/\1/p');   [ -z "$failed" ] && failed=0
               skipped=$(echo "$counters" | sed -n 's/.*skipped="\([0-9]*\)".*/\1/p');  [ -z "$skipped" ] && skipped=0
               total=$(echo "$counters"   | sed -n 's/.*total="\([0-9]*\)".*/\1/p');    [ -z "$total" ] && total=0
-
-              # duration может отсутствовать в TRX — тогда оставим '-'
-              duration=$(grep -oP 'duration="\K[0-9\.]+' "$path" | head -1 || true)
-              if [ -z "$duration" ]; then
-                start=$(grep -oP '<Times[^>]*start="\K[^"]+' "$path" | head -1 || true)
-                finish=$(grep -oP '<Times[^>]*finish="\K[^"]+' "$path" | head -1 || true)
-                if [ -n "$start" ] && [ -n "$finish" ]; then
-                  ds=$(date -d "$start" +%s 2>/dev/null || date -u -d "$start" +%s 2>/dev/null || echo "")
-                  df=$(date -d "$finish" +%s 2>/dev/null || date -u -d "$finish" +%s 2>/dev/null || echo "")
-                  if [ -n "$ds" ] && [ -n "$df" ]; then duration=$((df-ds)); fi
-                fi
-              fi
-              [ -z "$duration" ] && duration='-'
+              duration=$(grep -oP 'duration="\K[0-9\.]+' "$path" | head -1 || true);  [ -z "$duration" ] && duration='-'
 
               echo "| $name | $passed | $failed | $skipped | $total | ${duration}s |" >> $GITHUB_STEP_SUMMARY
             else
-              echo "| $name | 0 | 0 | 0 | 0 | - |" >> $GITHUB_STEP_SUMMARY
+              echo "| $name | N/A | N/A | N/A | N/A | N/A |" >> $GITHUB_STEP_SUMMARY
             fi
           }
 

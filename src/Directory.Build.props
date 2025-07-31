@@ -1,7 +1,5 @@
 <Project>
-    <ItemGroup Condition="'$(IsTestProject)' == 'true'">
-        <PackageReference Include="GitHubActionsTestLogger"
-                          Version="2.4.1"
-                          PrivateAssets="all" />
+    <ItemGroup>
+        <PackageReference Include="GitHubActionsTestLogger" Version="2.4.1" PrivateAssets="all" />
     </ItemGroup>
 </Project>
