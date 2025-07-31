@@ -157,6 +157,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
             if (IsDisposed)
             {
+                Interlocked.Decrement(ref _numSessions);
+
                 break;
             }
 
