@@ -75,7 +75,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool CheckIdleSession([NotNullWhen(true)] T? session)
     {
-        if (session == null || session.State == PoolingSessionState.Clean)
+        if (session == null)
         {
             return false;
         }
@@ -312,11 +312,9 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
     }
 
     internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>
-        Interlocked.CompareExchange(ref _state, (int)expected, (int)actual) == (int)expected;
+        Interlocked.CompareExchange(ref _state, (int)actual, (int)expected) == (int)expected;
 
     internal void Set(PoolingSessionState state) => Interlocked.Exchange(ref _state, (int)state);
-
-    internal PoolingSessionState State => (PoolingSessionState)Volatile.Read(ref _state);
 
     internal DateTime IdleStartTime { get; set; }
 

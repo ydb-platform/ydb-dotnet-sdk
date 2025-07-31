@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Xunit;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;
@@ -256,9 +257,22 @@ public class PoolingSessionSourceMockTests
         const int maxSessionSize = 50;
         const int minSessionSize = 10;
         const int highContentionTasks = maxSessionSize * 5;
+        var sessionIdIsBroken = new ConcurrentDictionary<int, bool>();
 
         var mockFactory = new MockPoolingSessionFactory(maxSessionSize)
-            { IsBroken = () => Random.Shared.NextDouble() < 0.05 };
+        {
+            IsBroken = sessionNum =>
+            {
+                var isBroken = Random.Shared.NextDouble() < 0.05;
+                sessionIdIsBroken[sessionNum] = isBroken;
+                return isBroken;
+            },
+            Open = sessionNum =>
+            {
+                sessionIdIsBroken[sessionNum] = false;
+                return Task.CompletedTask;
+            }
+        };
         var settings = new YdbConnectionStringBuilder
             { MaxSessionPool = maxSessionSize, MinSessionPool = minSessionSize };
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
@@ -273,6 +287,7 @@ public class PoolingSessionSourceMockTests
                     while (!cts.IsCancellationRequested)
                     {
                         var session = await sessionSource.OpenSession(cts.Token);
+                        Assert.False(sessionIdIsBroken[session.SessionId()]);
                         session.Close();
                         await Task.Delay(Random.Shared.Next(maxSessionSize), cts.Token);
                     }
@@ -312,7 +327,7 @@ public class PoolingSessionSourceMockTests
     public async Task Return_IsBroken_Session()
     {
         const int maxSessionSize = 10;
-        var mockFactory = new MockPoolingSessionFactory(maxSessionSize) { IsBroken = () => true };
+        var mockFactory = new MockPoolingSessionFactory(maxSessionSize) { IsBroken = _ => true };
         var settings = new YdbConnectionStringBuilder
         {
             MaxSessionPool = maxSessionSize,
@@ -336,7 +351,7 @@ public class PoolingSessionSourceMockTests
         var isBroken = false;
         const int maxSessionSize = 10;
         // ReSharper disable once AccessToModifiedClosure
-        var mockFactory = new MockPoolingSessionFactory(maxSessionSize) { IsBroken = () => isBroken };
+        var mockFactory = new MockPoolingSessionFactory(maxSessionSize) { IsBroken = _ => isBroken };
         var settings = new YdbConnectionStringBuilder
         {
             MaxSessionPool = maxSessionSize,
@@ -384,7 +399,7 @@ internal class MockPoolingSessionFactory(int maxSessionSize) : IPoolingSessionFa
     internal int NumSession => Volatile.Read(ref _numSession);
 
     internal Func<int, Task> Open { private get; init; } = _ => Task.CompletedTask;
-    internal Func<bool> IsBroken { private get; init; } = () => false;
+    internal Func<int, bool> IsBroken { private get; init; } = _ => false;
     internal Func<ValueTask> Dispose { private get; init; } = () => ValueTask.CompletedTask;
 
     public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
@@ -403,7 +418,7 @@ internal class MockPoolingSessionFactory(int maxSessionSize) : IPoolingSessionFa
 
                 return Task.CompletedTask;
             },
-            IsBroken,
+            () => IsBroken(_numSession),
             Interlocked.Increment(ref _sessionOpened)
         );
 

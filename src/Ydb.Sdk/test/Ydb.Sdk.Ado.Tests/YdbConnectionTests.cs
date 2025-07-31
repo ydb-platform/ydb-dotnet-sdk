@@ -19,19 +19,23 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
-        var connectionString = ConnectionString + ";MaxSessionPool=100";
+        for (var i = 0; i < 10; i++)
+        {
+            var connectionString = ConnectionString + ";MaxSessionPool=100";
 
-        var tasks = GenerateTasks(connectionString);
-        tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
-        tasks.AddRange(GenerateTasks(connectionString));
-        await Task.WhenAll(tasks);
-        Assert.Equal(999000, _counter);
+            var tasks = GenerateTasks(connectionString);
+            tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
+            tasks.AddRange(GenerateTasks(connectionString));
+            await Task.WhenAll(tasks);
+            Assert.Equal(999000, _counter);
 
-        tasks = GenerateTasks(connectionString);
-        tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
-        await Task.WhenAll(tasks);
-        Assert.Equal(1498500, _counter);
-        await YdbConnection.ClearPool(new YdbConnection(connectionString));
+            tasks = GenerateTasks(connectionString);
+            tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
+            await Task.WhenAll(tasks);
+            Assert.Equal(1498500, _counter);
+            await YdbConnection.ClearPool(new YdbConnection(connectionString));
+            _counter = 0;
+        }
     }
 
     // docker cp ydb-local:/ydb_certs/ca.pem ~/
