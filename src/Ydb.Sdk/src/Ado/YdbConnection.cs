@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Services.Query;
 using static System.Data.IsolationLevel;
@@ -50,6 +51,23 @@ public sealed class YdbConnection : DbConnection
     public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
     {
         ConnectionStringBuilder = connectionStringBuilder;
+    }
+
+    public IBulkUpsertImporter BeginBulkUpsertImport(
+        string name,
+        IReadOnlyList<string> columns,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfConnectionClosed();
+        if (CurrentTransaction is { Completed: false })
+            throw new InvalidOperationException("BulkUpsert cannot be used inside an active transaction.");
+
+        var database = ConnectionStringBuilder.Database.TrimEnd('/');
+        var tablePath = name.StartsWith(database) ? name : $"{database}/{name}";
+
+        var maxBytes = ConnectionStringBuilder.MaxSendMessageSize;
+
+        return new BulkUpsertImporter(Session.Driver, tablePath, columns, maxBytes, cancellationToken);
     }
 
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)

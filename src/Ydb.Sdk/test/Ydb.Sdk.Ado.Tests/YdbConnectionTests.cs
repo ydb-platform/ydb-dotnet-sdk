@@ -308,4 +308,187 @@ INSERT INTO {tableName}
 
     protected override async Task OnDisposeAsync() =>
         await YdbConnection.ClearPool(new YdbConnection(_connectionStringTls));
+
+    [Fact]
+    public async Task BulkUpsertImporter_HappyPath_Add_Flush()
+    {
+        var tableName = $"BulkImporter_{Guid.NewGuid():N}";
+
+        var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+        try
+        {
+            await using (var createCmd = conn.CreateCommand())
+            {
+                createCmd.CommandText = $@"
+                    CREATE TABLE {tableName} (
+                        Id Int32,
+                        Name Utf8,
+                        PRIMARY KEY (Id)
+                    )";
+                await createCmd.ExecuteNonQueryAsync();
+            }
+
+            var columns = new[] { "Id", "Name" };
+
+            var importer = conn.BeginBulkUpsertImport(tableName, columns);
+
+            await importer.AddRowAsync([YdbValue.MakeInt32(1), YdbValue.MakeUtf8("Alice")]);
+            await importer.AddRowAsync([YdbValue.MakeInt32(2), YdbValue.MakeUtf8("Bob")]);
+            await importer.FlushAsync();
+
+            await using (var checkCmd = conn.CreateCommand())
+            {
+                checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
+                var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+                Assert.Equal(2, count);
+            }
+
+            importer = conn.BeginBulkUpsertImport(tableName, columns);
+            await importer.AddRowAsync([YdbValue.MakeInt32(3), YdbValue.MakeUtf8("Charlie")]);
+            await importer.AddRowAsync([YdbValue.MakeInt32(4), YdbValue.MakeUtf8("Diana")]);
+            await importer.FlushAsync();
+
+            await using (var checkCmd = conn.CreateCommand())
+            {
+                checkCmd.CommandText = $"SELECT Name FROM {tableName} ORDER BY Id";
+                var names = new List<string>();
+                await using var reader = await checkCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                    names.Add(reader.GetString(0));
+                Assert.Contains("Alice", names);
+                Assert.Contains("Bob", names);
+                Assert.Contains("Charlie", names);
+                Assert.Contains("Diana", names);
+            }
+        }
+        finally
+        {
+            await using var dropCmd = conn.CreateCommand();
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BulkUpsertImporter_ThrowsOnInvalidRowCount()
+    {
+        var tableName = $"BulkImporter_{Guid.NewGuid():N}";
+        var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+        try
+        {
+            await using (var createCmd = conn.CreateCommand())
+            {
+                createCmd.CommandText = $@"
+                CREATE TABLE {tableName} (
+                    Id Int32,
+                    Name Utf8,
+                    PRIMARY KEY (Id)
+                )";
+                await createCmd.ExecuteNonQueryAsync();
+            }
+
+            var columns = new[] { "Id", "Name" };
+
+            var importer = conn.BeginBulkUpsertImport(tableName, columns);
+
+            var badRow = new object?[] { YdbValue.MakeInt32(1) };
+            await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowAsync([badRow]));
+
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+            {
+                await importer.AddRowAsync([
+                    new object?[] { YdbValue.MakeInt32(2) }
+                ]);
+            });
+        }
+        finally
+        {
+            await using var dropCmd = conn.CreateCommand();
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BulkUpsertImporter_MultipleImporters_Parallel()
+    {
+        var table1 = $"BulkImporter_{Guid.NewGuid():N}_1";
+        var table2 = $"BulkImporter_{Guid.NewGuid():N}_2";
+
+        var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+        try
+        {
+            foreach (var table in new[] { table1, table2 })
+            {
+                await using var createCmd = conn.CreateCommand();
+                createCmd.CommandText = $@"CREATE TABLE {table} (
+                    Id Int32,
+                    Name Utf8,
+                    PRIMARY KEY (Id)
+                )";
+                await createCmd.ExecuteNonQueryAsync();
+            }
+
+            var columns = new[] { "Id", "Name" };
+
+            await Task.WhenAll(
+                Task.Run(async () =>
+                {
+                    var importer = conn.BeginBulkUpsertImport(table1, columns);
+                    var rows = Enumerable.Range(0, 20)
+                        .Select(i => new object?[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"A{i}") })
+                        .ToArray();
+                    foreach (var row in rows)
+                        await importer.AddRowAsync(row);
+                    await importer.FlushAsync();
+                }),
+                Task.Run(async () =>
+                {
+                    var importer = conn.BeginBulkUpsertImport(table2, columns);
+                    var rows = Enumerable.Range(0, 20)
+                        .Select(i => new object?[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"B{i}") })
+                        .ToArray();
+                    foreach (var row in rows)
+                        await importer.AddRowAsync(row);
+                    await importer.FlushAsync();
+                })
+            );
+
+            foreach (var table in new[] { table1, table2 })
+            {
+                await using var checkCmd = conn.CreateCommand();
+                checkCmd.CommandText = $"SELECT COUNT(*) FROM {table}";
+                var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+                Assert.Equal(20, count);
+            }
+        }
+        finally
+        {
+            foreach (var table in new[] { table1, table2 })
+            {
+                await using var dropCmd = conn.CreateCommand();
+                dropCmd.CommandText = $"DROP TABLE {table}";
+                await dropCmd.ExecuteNonQueryAsync();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BulkUpsertImporter_ThrowsOnNonexistentTable()
+    {
+        var tableName = $"Nonexistent_{Guid.NewGuid():N}";
+        var conn = new YdbConnection(_connectionStringTls);
+        await conn.OpenAsync();
+
+        var columns = new[] { "Id", "Name" };
+
+        var importer = conn.BeginBulkUpsertImport(tableName, columns);
+
+        await importer.AddRowAsync([YdbValue.MakeInt32(1), YdbValue.MakeUtf8("NotExists")]);
+
+        await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
+    }
 }
