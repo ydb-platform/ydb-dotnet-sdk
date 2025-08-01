@@ -186,8 +186,8 @@ public class PoolingSessionTests
         _mockIDriver.Setup(driver => driver.UnaryCall(
             QueryService.DeleteSessionMethod,
             It.Is<DeleteSessionRequest>(request => request.SessionId.Equals(SessionId)),
-            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
-        );
+            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId)
+        )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
         Assert.False(session.IsBroken);
         await session.DeleteSession();
         Assert.True(session.IsBroken);
@@ -206,8 +206,8 @@ public class PoolingSessionTests
         _mockIDriver.Setup(driver => driver.UnaryCall(
             QueryService.DeleteSessionMethod,
             It.Is<DeleteSessionRequest>(request => request.SessionId.Equals(SessionId)),
-            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
-        );
+            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId)
+        )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
         Assert.False(session.IsBroken);
         session.OnNotSuccessStatusCode(StatusCode.BadSession);
         await session.DeleteSession();
