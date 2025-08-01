@@ -30,7 +30,12 @@ internal static class PoolManager
             }
 
             var newSessionPool = new SessionPool(
-                await settings.BuildDriver(), new SessionPoolConfig()
+                await settings.BuildDriver(),
+                new SessionPoolConfig(
+                    MaxSessionPool: settings.MaxSessionPool,
+                    CreateSessionTimeout: settings.CreateSessionTimeout,
+                    DisposeDriver: true
+                )
             );
 
             Pools[settings.ConnectionString] = newSessionPool;

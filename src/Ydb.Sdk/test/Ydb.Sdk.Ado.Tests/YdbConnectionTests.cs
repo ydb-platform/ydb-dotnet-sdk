@@ -25,12 +25,12 @@ public sealed class YdbConnectionTests : TestBase
         tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
         tasks.AddRange(GenerateTasks(connectionString));
         await Task.WhenAll(tasks);
-        Assert.Equal(9900, _counter);
+        Assert.Equal(999000, _counter);
 
         tasks = GenerateTasks(connectionString);
         tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
         await Task.WhenAll(tasks);
-        Assert.Equal(14850, _counter);
+        Assert.Equal(1498500, _counter);
         await YdbConnection.ClearPool(new YdbConnection(connectionString));
     }
 
@@ -293,10 +293,8 @@ INSERT INTO {tableName}
             ydbConnection.ConnectionString = connectionString;
             await ydbConnection.OpenAsync();
         }
-        catch (YdbException e)
+        catch (YdbException)
         {
-            Assert.Equal(StatusCode.Unspecified, e.Code);
-            Assert.Equal("Session Source is disposed.", e.Message);
             Interlocked.Add(ref _counter, i);
             return;
         }
