@@ -37,37 +37,22 @@ jobs:
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test \
-            --logger "GitHubActions;report-warnings=false" \
-            --logger "trx;LogFileName=ado.trx" \
-            --results-directory "$PWD"
+          dotnet test --logger "GitHubActions;report-warnings=false"
         continue-on-error: true
 
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
-        run: |
-          dotnet test \
-            --logger "GitHubActions;report-warnings=false" \
-            --logger "trx;LogFileName=spec.trx" \
-            --results-directory "$PWD"
+        run: dotnet test --logger "GitHubActions;report-warnings=false"
         continue-on-error: true
 
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
-        run: |
-          dotnet test \
-            --logger "GitHubActions;report-warnings=false" \
-            --logger "trx;LogFileName=dapper.trx" \
-            --results-directory "$PWD"
+        run: dotnet test --logger "GitHubActions;report-warnings=false"
         continue-on-error: true
 
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
-        run: |
-          dotnet test \
-            --logger "GitHubActions;report-warnings=false" \
-            --logger "trx;LogFileName=topic.trx" \
-            --results-directory "$PWD"
+        run: dotnet test --logger "GitHubActions;report-warnings=false"
         continue-on-error: true
 
   efcore-tests:
@@ -98,10 +83,7 @@ jobs:
         working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test \
-            --logger "GitHubActions;report-warnings=false" \
-            --logger "trx;LogFileName=efcore.trx" \
-            --results-directory "$PWD"
+          dotnet test --logger "GitHubActions;report-warnings=false"
         continue-on-error: true
 
   run-examples:
@@ -127,19 +109,23 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
+
       - name: Run Ydb.Sdk.AdoNet.QuickStart
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd ./examples/Ydb.Sdk.AdoNet.QuickStart
           dotnet run
+
       - name: Run Ydb.Sdk.AdoNet.Dapper.QuickStart
         run: |
           cd ./examples/Ydb.Sdk.AdoNet.Dapper.QuickStart
           dotnet run
+
       - name: Run Ydb.Sdk.Topic.QuickStart
         run: |
           cd ./examples/Ydb.Sdk.Topic.QuickStart
           dotnet run
+
       - name: Run EntityFrameworkCore.Ydb.QuickStart
         run: |
           cd ./examples/EntityFrameworkCore.Ydb.QuickStart
@@ -148,6 +134,7 @@ jobs:
           dotnet ef migrations add InitialCreate
           dotnet ef database update
           dotnet run
+
       - name: Run EntityFrameworkCore.Ydb.Samples/Database.Operations.Tutorial
         run: |
           cd ./examples/EntityFrameworkCore.Ydb.Samples/Database.Operations.Tutorial
