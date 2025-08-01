@@ -28,18 +28,21 @@ public class YdbDataSourceTests : TestBase
     [Fact]
     public void CreateCommand_FromDataSource_ReturnDbCommand()
     {
+        var dataSource = new YdbDataSource(ConnectionString + ";MaxSessionPool=5");
         for (var i = 0; i < SelectedCount; i++)
         {
-            using var command = _dataSource.CreateCommand("SELECT 1;");
+            using var command = dataSource.CreateCommand("SELECT 1;");
             Assert.Equal(1, command.ExecuteScalar());
         }
 
-        _dataSource.Dispose();
+        dataSource.Dispose();
         for (var i = 0; i < SelectedCount; i++)
         {
-            using var command = _dataSource.CreateCommand("SELECT 1;");
+            using var command = dataSource.CreateCommand("SELECT 1;");
             Assert.Equal(1, command.ExecuteScalar());
         }
+
+        dataSource.Dispose();
     }
 
     [Fact]

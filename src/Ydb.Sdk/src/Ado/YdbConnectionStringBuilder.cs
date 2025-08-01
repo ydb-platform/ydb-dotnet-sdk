@@ -32,7 +32,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _maxSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
         _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
         _sessionIdleTimeout = 300;
-        _sessionPruningInterval = 10;
         _useTls = false;
         _connectTimeout = GrpcDefaultSettings.ConnectTimeoutSeconds;
         _keepAlivePingDelay = GrpcDefaultSettings.KeepAlivePingSeconds;
@@ -159,24 +158,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     private int _sessionIdleTimeout;
-
-    public int SessionPruningInterval
-    {
-        get => _sessionPruningInterval;
-        set
-        {
-            if (value <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value), value,
-                    "Invalid session pruning interval: " + value);
-            }
-
-            _sessionPruningInterval = value;
-            SaveValue(nameof(SessionPruningInterval), value);
-        }
-    }
-
-    private int _sessionPruningInterval;
 
     public bool UseTls
     {
@@ -473,10 +454,10 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 (builder, password) => builder.Password = password), "Password", "PWD", "PSW");
             AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, maxSessionPool) =>
                     builder.MaxSessionPool = maxSessionPool), "MaxSessionPool", "Max Session Pool", "Maximum Pool Size",
-                "MaximumPoolSize", "Max Pool Size", "MaxPoolSize");
+                "MaximumPoolSize", "Max Pool Size", "MaxPoolSize", "MaxSessionSize", "Max Session Size");
             AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, minSessionSize) =>
                     builder.MinSessionPool = minSessionSize), "MinSessionPool", "Min Session Pool", "Minimum Pool Size",
-                "MinimumPoolSize", "Min Pool Size", "MinPoolSize");
+                "MinimumPoolSize", "Min Pool Size", "MinPoolSize", "MinSessionSize", "Min Session Size");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, useTls) => builder.UseTls = useTls),
                 "UseTls", "Use Tls");
             AddOption(new YdbConnectionOption<string>(StringExtractor,
@@ -507,9 +488,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<int>(IntExtractor,
                     (builder, sessionIdleTimeout) => builder.SessionIdleTimeout = sessionIdleTimeout),
                 "SessionIdleTimeout", "Session Idle Timeout");
-            AddOption(new YdbConnectionOption<int>(IntExtractor,
-                    (builder, sessionPruningInterval) => builder.SessionPruningInterval = sessionPruningInterval),
-                "SessionPruningInterval", "Session Pruning Interval");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor,
                     (builder, disableServerBalancer) => builder.DisableServerBalancer = disableServerBalancer),
                 "DisableServerBalancer", "Disable Server Balancer");

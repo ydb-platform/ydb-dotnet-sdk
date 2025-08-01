@@ -116,7 +116,7 @@ public sealed class YdbConnection : DbConnection
         }
         catch (OperationCanceledException e)
         {
-            throw new YdbException(StatusCode.Cancelled,
+            throw new YdbException(StatusCode.ClientTransportTimeout,
                 $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
                 $"(currently {ConnectionStringBuilder.MaxSessionPool}) or 'CreateSessionTimeout' " +
                 $"(currently {ConnectionStringBuilder.CreateSessionTimeout} seconds) in your connection string.", e

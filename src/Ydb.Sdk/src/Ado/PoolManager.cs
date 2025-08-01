@@ -11,11 +11,11 @@ internal static class PoolManager
     private static readonly ConcurrentDictionary<string, SessionPool> Pools = new();
 
     internal static async Task<ISession> GetSession(
-        YdbConnectionStringBuilder connectionString,
+        YdbConnectionStringBuilder settings,
         CancellationToken cancellationToken
     )
     {
-        if (Pools.TryGetValue(connectionString.ConnectionString, out var sessionPool))
+        if (Pools.TryGetValue(settings.ConnectionString, out var sessionPool))
         {
             return await sessionPool.GetSession(cancellationToken);
         }
@@ -24,21 +24,21 @@ internal static class PoolManager
         {
             await SemaphoreSlim.WaitAsync(cancellationToken);
 
-            if (Pools.TryGetValue(connectionString.ConnectionString, out var pool))
+            if (Pools.TryGetValue(settings.ConnectionString, out var pool))
             {
                 return await pool.GetSession(cancellationToken);
             }
 
             var newSessionPool = new SessionPool(
-                await connectionString.BuildDriver(),
+                await settings.BuildDriver(),
                 new SessionPoolConfig(
-                    MaxSessionPool: connectionString.MaxSessionPool,
-                    CreateSessionTimeout: connectionString.CreateSessionTimeout,
+                    MaxSessionPool: settings.MaxSessionPool,
+                    CreateSessionTimeout: settings.CreateSessionTimeout,
                     DisposeDriver: true
                 )
             );
 
-            Pools[connectionString.ConnectionString] = newSessionPool;
+            Pools[settings.ConnectionString] = newSessionPool;
 
             return await newSessionPool.GetSession(cancellationToken);
         }

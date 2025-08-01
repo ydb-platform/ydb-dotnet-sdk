@@ -1,8 +1,6 @@
 namespace Ydb.Sdk.Ado.Session;
 
-internal interface ISessionSource<TSession> where TSession : ISession
+internal interface ISessionSource : IAsyncDisposable
 {
-    ValueTask<TSession> OpenSession(CancellationToken cancellationToken);
-
-    void Return(TSession session);
+    ValueTask<ISession> OpenSession(CancellationToken cancellationToken);
 }

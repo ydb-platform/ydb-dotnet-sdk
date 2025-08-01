@@ -17,7 +17,7 @@ public class PoolingSessionTests
     private readonly Mock<IDriver> _mockIDriver;
     private readonly Mock<IServerStream<SessionState>> _mockAttachStream = new(MockBehavior.Strict);
     private readonly PoolingSessionFactory _poolingSessionFactory;
-    private readonly PoolingSessionSource _poolingSessionSource;
+    private readonly PoolingSessionSource<PoolingSession> _poolingSessionSource;
 
     public PoolingSessionTests()
     {
@@ -32,7 +32,7 @@ public class PoolingSessionTests
         ).ReturnsAsync(_mockAttachStream.Object);
         _mockAttachStream.Setup(stream => stream.Dispose());
         _poolingSessionFactory = new PoolingSessionFactory(_mockIDriver.Object, settings, TestUtils.LoggerFactory);
-        _poolingSessionSource = new PoolingSessionSource(_poolingSessionFactory, settings);
+        _poolingSessionSource = new PoolingSessionSource<PoolingSession>(_poolingSessionFactory, settings);
     }
 
     [Theory]
@@ -186,8 +186,8 @@ public class PoolingSessionTests
         _mockIDriver.Setup(driver => driver.UnaryCall(
             QueryService.DeleteSessionMethod,
             It.Is<DeleteSessionRequest>(request => request.SessionId.Equals(SessionId)),
-            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
-        );
+            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId)
+        )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
         Assert.False(session.IsBroken);
         await session.DeleteSession();
         Assert.True(session.IsBroken);
@@ -206,8 +206,8 @@ public class PoolingSessionTests
         _mockIDriver.Setup(driver => driver.UnaryCall(
             QueryService.DeleteSessionMethod,
             It.Is<DeleteSessionRequest>(request => request.SessionId.Equals(SessionId)),
-            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
-        );
+            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId)
+        )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
         Assert.False(session.IsBroken);
         session.OnNotSuccessStatusCode(StatusCode.BadSession);
         await session.DeleteSession();
