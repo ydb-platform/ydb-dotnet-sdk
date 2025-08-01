@@ -23,7 +23,6 @@ Apple M2 Pro, 1 CPU, 12 logical and 12 physical cores
 [Host]     : .NET 8.0.2 (8.0.224.6711), Arm64 RyuJIT AdvSIMD
 DefaultJob : .NET 8.0.2 (8.0.224.6711), Arm64 RyuJIT AdvSIMD
 
-
 # YDB .NET SDK Session Pool V1 On Semaphore-Based
 
 | Method                              |             Mean |           Error |          StdDev | Completed Work Items | Lock Contentions |      Gen0 |     Gen1 |  Allocated |

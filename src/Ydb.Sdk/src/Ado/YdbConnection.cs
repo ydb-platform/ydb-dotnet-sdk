@@ -122,14 +122,6 @@ public sealed class YdbConnection : DbConnection
                 $"(currently {ConnectionStringBuilder.CreateSessionTimeout} seconds) in your connection string.", e
             );
         }
-        catch (YdbException e) when (e.Code == StatusCode.ClientTransportTimeout)
-        {
-            throw new YdbException(e.Code,
-                $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
-                $"(currently {ConnectionStringBuilder.MaxSessionPool}) or 'CreateSessionTimeout' " +
-                $"(currently {ConnectionStringBuilder.CreateSessionTimeout} seconds) in your connection string.", e
-            );
-        }
 
         OnStateChange(ClosedToOpenEventArgs);
 
