@@ -98,14 +98,16 @@ jobs:
               [ -z "$executed" ] && executed=$((passed+failed))
               skipped=$((total-executed))
 
-              duration=$(grep -oP 'duration="\K[0-9\.]+' "$path" | head -1)
+              local rd
+              rd=$(grep -oP 'runDuration="\K[^"]+' "$path" | head -1)
+              if [ -n "$rd" ]; then
+                duration=$(echo "$rd" | awk -F: '{ sub(/\..*/, "", $3); print $1*3600 + $2*60 + $3 }')
+              fi
 
               if [ -z "$duration" ]; then
-                local rd h m s
-                rd=$(grep -oP 'runDuration="\K[0-9:.]+' "$path" | head -1)
+                rd=$(grep -oP 'duration="\K[^"]+' "$path" | head -1)
                 if [ -n "$rd" ]; then
-                  IFS=: read -r h m s <<<"${rd%%.*}"
-                  duration=$((10#$h*3600 + 10#$m*60 + 10#$s))
+                  duration=$(echo "$rd" | awk -F: '{ sub(/\..*/, "", $3); print $1*3600 + $2*60 + $3 }')
                 fi
               fi
 
