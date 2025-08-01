@@ -37,7 +37,7 @@ jobs:
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test --logger "GitHubActions;report-warnings=false"
+          dotnet test --logger "GitHubActions;report-warnings=false;console;verbosity=detailed"
 
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
