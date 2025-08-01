@@ -76,18 +76,24 @@ jobs:
           echo '| Test Suite | ✓ Passed | ✗ Failed | ↻ Skipped | ∑ Total | ⏱ Elapsed |' >> "$GITHUB_STEP_SUMMARY"
           echo '|:---------- | -------: | -------: | --------: | ------: | --------: |' >> "$GITHUB_STEP_SUMMARY"
 
-          summarize () {
+          iso_to_epoch() {
+            local ts="$1"
+            ts="${ts%%.*}"
+            ts="${ts%Z}"
+            ts=$(echo "$ts" | sed -E 's/[+-][0-9]{2}:[0-9]{2}$//')
+            date -u -d "$ts" +%s 2>/dev/null || echo ""
+          }
+
+          summarize() {
             local name="$1"; local expected="$2"
             local path="$expected"
-
-            [ ! -f "$path" ] && \
-              path=$(find "$(dirname "$expected")" -maxdepth 3 -name '*.trx' -print -quit)
+            [ ! -f "$path" ] && path=$(find "$(dirname "$expected")" -maxdepth 3 -name '*.trx' -print -quit)
 
             if [ -f "$path" ]; then
               local passed failed total executed skipped duration
-              passed=$(grep -oP 'passed="\K\d+'    "$path" | head -1 || echo 0)
-              failed=$(grep -oP 'failed="\K\d+'    "$path" | head -1 || echo 0)
-              total=$(grep  -oP 'total="\K\d+'     "$path" | head -1 || echo 0)
+              passed=$(grep -oP 'passed="\K\d+' "$path" | head -1 || echo 0)
+              failed=$(grep -oP 'failed="\K\d+' "$path" | head -1 || echo 0)
+              total=$(grep -oP 'total="\K\d+' "$path" | head -1 || echo 0)
               executed=$(grep -oP 'executed="\K\d+' "$path" | head -1 || echo 0)
               [ -z "$executed" ] && executed=$((passed+failed))
               skipped=$((total-executed))
@@ -95,14 +101,12 @@ jobs:
               duration=$(grep -oP 'duration="\K[0-9\.]+' "$path" | head -1)
 
               if [ -z "$duration" ]; then
-                local start finish
-                start=$(grep -oP '<Times[^>]*start="\K[^"]+'  "$path" | head -1)
+                local start finish ds df
+                start=$(grep -oP '<Times[^>]*start="\K[^"]+' "$path" | head -1)
                 finish=$(grep -oP '<Times[^>]*finish="\K[^"]+' "$path" | head -1)
                 if [ -n "$start" ] && [ -n "$finish" ]; then
-                  start=${start%%.*}; finish=${finish%%.*}
-                  local ds df
-                  ds=$(date -u -d "$start" +%s 2>/dev/null || true)
-                  df=$(date -u -d "$finish" +%s 2>/dev/null || true)
+                  ds=$(iso_to_epoch "$start")
+                  df=$(iso_to_epoch "$finish")
                   [ -n "$ds" ] && [ -n "$df" ] && duration=$((df-ds))
                 fi
               fi
@@ -137,7 +141,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
