@@ -49,7 +49,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken = default)
     {
         if (IsDisposed)
-            throw new YdbException("Session Source is disposed.");
+            throw new YdbException("The session source has been shut down.");
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -134,7 +134,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                 useSynchronizationContext: false
             );
             await using var disposeRegistration = _disposeCts.Token.Register(
-                () => waiterTcs.TrySetException(new YdbException("Session Source is disposed.")),
+                () => waiterTcs.TrySetException(new YdbException("The session source has been shut down.")),
                 useSynchronizationContext: false
             );
             session = await waiterTcs.Task.ConfigureAwait(false);
@@ -157,6 +157,9 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
             try
             {
+                if (IsDisposed)
+                    throw new YdbException("The session source has been shut down.");
+
                 var session = _sessionFactory.NewSession(this);
                 await session.Open(cancellationToken);
 

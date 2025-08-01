@@ -141,11 +141,11 @@ public class PoolingSessionSourceMockTests
         Assert.Equal(0, mockFactory.NumSession);
         for (var i = 0; i < maxSessionSize; i++)
         {
-            Assert.Equal("Session Source is disposed.",
+            Assert.Equal("The session source has been shut down.",
                 (await Assert.ThrowsAsync<YdbException>(() => waitingSessionTasks[i])).Message);
         }
 
-        Assert.Equal("Session Source is disposed.",
+        Assert.Equal("The session source has been shut down.",
             (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.OpenSession())).Message);
     }
 
@@ -189,7 +189,7 @@ public class PoolingSessionSourceMockTests
                     }
                     catch (YdbException e)
                     {
-                        Assert.Equal("Session Source is disposed.", e.Message);
+                        Assert.Equal("The session source has been shut down.", e.Message);
                     }
                     catch (OperationCanceledException)
                     {
@@ -252,7 +252,7 @@ public class PoolingSessionSourceMockTests
     public async Task StressTest_HighContention_OpenClose()
     {
         var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMinutes(1));
+        cts.CancelAfter(TimeSpan.FromMinutes(10));
 
         const int maxSessionSize = 50;
         const int minSessionSize = 10;
