@@ -63,7 +63,7 @@ public sealed class YdbConnection : DbConnection
             throw new InvalidOperationException("BulkUpsert cannot be used inside an active transaction.");
 
         var database = ConnectionStringBuilder.Database.TrimEnd('/');
-        var tablePath = string.IsNullOrEmpty(database) ? name : $"{database}/{name}";
+        var tablePath = name.StartsWith(database) ? name : $"{database}/{name}";
 
         var maxBytes = ConnectionStringBuilder.MaxSendMessageSize;
 
