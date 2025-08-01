@@ -101,6 +101,15 @@ jobs:
               duration=$(grep -oP 'duration="\K[0-9\.]+' "$path" | head -1)
 
               if [ -z "$duration" ]; then
+                local rd h m s
+                rd=$(grep -oP 'runDuration="\K[0-9:.]+' "$path" | head -1)
+                if [ -n "$rd" ]; then
+                  IFS=: read -r h m s <<<"${rd%%.*}"
+                  duration=$((10#$h*3600 + 10#$m*60 + 10#$s))
+                fi
+              fi
+
+              if [ -z "$duration" ]; then
                 local start finish ds df
                 start=$(grep -oP '<Times[^>]*start="\K[^"]+' "$path" | head -1)
                 finish=$(grep -oP '<Times[^>]*finish="\K[^"]+' "$path" | head -1)
