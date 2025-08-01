@@ -113,8 +113,8 @@ jobs:
 
               if [ -z "$duration" ]; then
                 local start finish ds df
-                start=$(grep -oP '<Times[^>]*start="\K[^"]+' "$path" | head -1)
-                finish=$(grep -oP '<Times[^>]*finish="\K[^"]+' "$path" | head -1)
+                start=$(grep  -oP 'start="\K[^"]+'  "$path" | head -1)
+                finish=$(grep -oP 'finish="\K[^"]+' "$path" | head -1)
                 if [ -n "$start" ] && [ -n "$finish" ]; then
                   ds=$(iso_to_epoch "$start")
                   df=$(iso_to_epoch "$finish")
