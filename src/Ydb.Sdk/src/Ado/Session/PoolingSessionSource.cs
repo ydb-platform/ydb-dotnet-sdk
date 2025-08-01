@@ -111,9 +111,9 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             {
                 if (!waiterTcs.TrySetResult(null))
                 {
-                    if (waiterTcs.Task.IsCompleted && CheckIdleSession(waiterTcs.Task.Result))
+                    if (waiterTcs.Task is { IsCompleted: true, Result: not null } t)
                     {
-                        _idleSessions.Push(waiterTcs.Task.Result);
+                        _idleSessions.Push(t.Result);
                     }
 
                     WakeUpWaiter();

@@ -17,6 +17,13 @@ Allocated            : Allocated memory per single operation (managed only, incl
 1024B)                                                                                                                                  
 1 ns                 : 1 Nanosecond (0.000000001 sec)
 
+BenchmarkDotNet v0.15.1, macOS Sequoia 15.5 (24F74) [Darwin 24.5.0]
+Apple M2 Pro, 1 CPU, 12 logical and 12 physical cores
+.NET SDK 9.0.201
+[Host]     : .NET 8.0.2 (8.0.224.6711), Arm64 RyuJIT AdvSIMD
+DefaultJob : .NET 8.0.2 (8.0.224.6711), Arm64 RyuJIT AdvSIMD
+
+
 # YDB .NET SDK Session Pool V1 On Semaphore-Based
 
 | Method                              |             Mean |           Error |          StdDev | Completed Work Items | Lock Contentions |      Gen0 |     Gen1 |  Allocated |
