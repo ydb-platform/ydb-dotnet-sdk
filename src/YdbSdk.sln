@@ -17,6 +17,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "EFCore.Ydb", "EFCore.Ydb", "{5E7B167B-5FC7-41BD-8819-16B02ED9B961}"
 	ProjectSection(SolutionItems) = preProject
 		EFCore.Ydb\CHANGELOG.md = EFCore.Ydb\CHANGELOG.md
+		Directory.Build.props = Directory.Build.props
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4A4EE5F3-CC9C-4166-A8F5-3ACFDD2A75F3}"

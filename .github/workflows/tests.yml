@@ -19,60 +19,68 @@ jobs:
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
-        ports:
-          - 2135:2135
-          - 2136:2136
-          - 8765:8765
+        ports: [ "2135:2135", "2136:2136", "8765:8765" ]
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
         options: '--name ydb-local -h localhost'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
+
       - name: Run ADO.NET Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test
+          dotnet test --logger "GitHubActions;report-warnings=false"
+
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
-        run: dotnet test
+        run: dotnet test --logger "GitHubActions;report-warnings=false"
+
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
-        run: dotnet test
+        run: dotnet test --logger "GitHubActions;report-warnings=false"
+
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
-        run: dotnet test
+        run: dotnet test --logger "GitHubActions;report-warnings=false"
+
   efcore-tests:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
         ydb-version: [ 'latest', '25.1' ]
+        dotnet-version: [ 8.0.x, 9.0.x ]
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
-        ports:
-          - 2135:2135
-          - 2136:2136
-          - 8765:8765
+        ports: [ "2135:2135", "2136:2136", "8765:8765" ]
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
         options: '--name ydb-local -h localhost'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
-      - name: Run EFCore tests
-        working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests/
-        run: dotnet test
+          dotnet-version: ${{ matrix.dotnet-version }}
+
+      - name: Run EFCore.Ydb functional tests
+        working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests
+        run: |
+          docker cp ydb-local:/ydb_certs/ca.pem ~/
+          dotnet test --logger "GitHubActions;report-warnings=false"
+
   run-examples:
     runs-on: ubuntu-22.04
     strategy:
@@ -83,10 +91,7 @@ jobs:
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
-        ports:
-          - 2135:2135
-          - 2136:2136
-          - 8765:8765
+        ports: [ "2135:2135", "2136:2136", "8765:8765" ]
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
           YDB_USE_IN_MEMORY_PDISKS: true
@@ -94,23 +99,28 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
+
       - name: Run Ydb.Sdk.AdoNet.QuickStart
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
           cd ./examples/Ydb.Sdk.AdoNet.QuickStart
           dotnet run
+
       - name: Run Ydb.Sdk.AdoNet.Dapper.QuickStart
         run: |
           cd ./examples/Ydb.Sdk.AdoNet.Dapper.QuickStart
           dotnet run
+
       - name: Run Ydb.Sdk.Topic.QuickStart
         run: |
           cd ./examples/Ydb.Sdk.Topic.QuickStart
           dotnet run
+
       - name: Run EntityFrameworkCore.Ydb.QuickStart
         run: |
           cd ./examples/EntityFrameworkCore.Ydb.QuickStart
@@ -119,6 +129,7 @@ jobs:
           dotnet ef migrations add InitialCreate
           dotnet ef database update
           dotnet run
+
       - name: Run EntityFrameworkCore.Ydb.Samples/Database.Operations.Tutorial
         run: |
           cd ./examples/EntityFrameworkCore.Ydb.Samples/Database.Operations.Tutorial
