@@ -252,7 +252,7 @@ public class PoolingSessionSourceMockTests
     public async Task StressTest_HighContention_OpenClose()
     {
         var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMinutes(10));
+        cts.CancelAfter(TimeSpan.FromMinutes(1));
 
         const int maxSessionSize = 50;
         const int minSessionSize = 10;
