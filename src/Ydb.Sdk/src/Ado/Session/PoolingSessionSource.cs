@@ -48,6 +48,9 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken = default)
     {
+        if (IsDisposed)
+            throw new YdbException("The session source has been shut down.");
+
         cancellationToken.ThrowIfCancellationRequested();
 
         return TryGetIdleSession(out var session)
