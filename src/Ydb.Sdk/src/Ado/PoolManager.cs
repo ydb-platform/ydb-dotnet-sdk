@@ -1,14 +1,12 @@
 using System.Collections.Concurrent;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Pool;
-using Ydb.Sdk.Services.Query;
 
 namespace Ydb.Sdk.Ado;
 
 internal static class PoolManager
 {
     private static readonly SemaphoreSlim SemaphoreSlim = new(1); // async mutex
-    private static readonly ConcurrentDictionary<string, SessionPool> Pools = new();
+    private static readonly ConcurrentDictionary<string, ISessionSource> Pools = new();
 
     internal static async Task<ISession> GetSession(
         YdbConnectionStringBuilder settings,
@@ -17,7 +15,7 @@ internal static class PoolManager
     {
         if (Pools.TryGetValue(settings.ConnectionString, out var sessionPool))
         {
-            return await sessionPool.GetSession(cancellationToken);
+            return await sessionPool.OpenSession(cancellationToken);
         }
 
         try
@@ -26,21 +24,16 @@ internal static class PoolManager
 
             if (Pools.TryGetValue(settings.ConnectionString, out var pool))
             {
-                return await pool.GetSession(cancellationToken);
+                return await pool.OpenSession(cancellationToken);
             }
 
-            var newSessionPool = new SessionPool(
-                await settings.BuildDriver(),
-                new SessionPoolConfig(
-                    MaxSessionPool: settings.MaxSessionPool,
-                    CreateSessionTimeout: settings.CreateSessionTimeout,
-                    DisposeDriver: true
-                )
+            var newSessionPool = new PoolingSessionSource<PoolingSession>(
+                await PoolingSessionFactory.Create(settings), settings
             );
 
             Pools[settings.ConnectionString] = newSessionPool;
 
-            return await newSessionPool.GetSession(cancellationToken);
+            return await newSessionPool.OpenSession(cancellationToken);
         }
         finally
         {

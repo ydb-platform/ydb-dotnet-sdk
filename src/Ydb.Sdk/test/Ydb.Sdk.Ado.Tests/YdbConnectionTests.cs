@@ -192,7 +192,6 @@ INSERT INTO {tableName}
         connection.ConnectionString += ";DisableDiscovery=true";
         await connection.OpenAsync();
         Assert.True((bool)(await new YdbCommand(connection) { CommandText = "SELECT TRUE;" }.ExecuteScalarAsync())!);
-        await YdbConnection.ClearPool(connection);
     }
 
     [Fact]
@@ -307,16 +306,12 @@ INSERT INTO {tableName}
         Interlocked.Add(ref _counter, scalar);
     }).ToList();
 
-    protected override async Task OnDisposeAsync() =>
-        await YdbConnection.ClearPool(new YdbConnection(_connectionStringTls));
-
     [Fact]
     public async Task BulkUpsertImporter_HappyPath_Add_Flush()
     {
         var tableName = $"BulkImporter_{Guid.NewGuid():N}";
 
-        var conn = new YdbConnection(_connectionStringTls);
-        await conn.OpenAsync();
+        await using var conn = await CreateOpenConnectionAsync();
         try
         {
             await using (var createCmd = conn.CreateCommand())
@@ -375,8 +370,7 @@ INSERT INTO {tableName}
     public async Task BulkUpsertImporter_ThrowsOnInvalidRowCount()
     {
         var tableName = $"BulkImporter_{Guid.NewGuid():N}";
-        var conn = new YdbConnection(_connectionStringTls);
-        await conn.OpenAsync();
+        await using var conn = await CreateOpenConnectionAsync();
         try
         {
             await using (var createCmd = conn.CreateCommand())
@@ -418,8 +412,7 @@ INSERT INTO {tableName}
         var table1 = $"BulkImporter_{Guid.NewGuid():N}_1";
         var table2 = $"BulkImporter_{Guid.NewGuid():N}_2";
 
-        var conn = new YdbConnection(_connectionStringTls);
-        await conn.OpenAsync();
+        var conn = await CreateOpenConnectionAsync();
         try
         {
             foreach (var table in new[] { table1, table2 })
@@ -474,6 +467,8 @@ INSERT INTO {tableName}
                 dropCmd.CommandText = $"DROP TABLE {table}";
                 await dropCmd.ExecuteNonQueryAsync();
             }
+
+            await conn.DisposeAsync();
         }
     }
 
@@ -481,8 +476,7 @@ INSERT INTO {tableName}
     public async Task BulkUpsertImporter_ThrowsOnNonexistentTable()
     {
         var tableName = $"Nonexistent_{Guid.NewGuid():N}";
-        var conn = new YdbConnection(_connectionStringTls);
-        await conn.OpenAsync();
+        await using var conn = await CreateOpenConnectionAsync();
 
         var columns = new[] { "Id", "Name" };
 
