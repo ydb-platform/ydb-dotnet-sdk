@@ -124,7 +124,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             throw YdbException.FromServer(response.Status, response.Issues);
         }
 
-        TaskCompletionSource completeTask = new();
+        TaskCompletionSource completeTask = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         SessionId = response.SessionId;
         NodeId = response.NodeId;
