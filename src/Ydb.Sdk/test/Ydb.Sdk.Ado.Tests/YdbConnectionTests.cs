@@ -412,7 +412,7 @@ INSERT INTO {tableName}
         var table1 = $"BulkImporter_{Guid.NewGuid():N}_1";
         var table2 = $"BulkImporter_{Guid.NewGuid():N}_2";
 
-        await using var conn = await CreateOpenConnectionAsync();
+        var conn = await CreateOpenConnectionAsync();
         try
         {
             foreach (var table in new[] { table1, table2 })
@@ -467,6 +467,8 @@ INSERT INTO {tableName}
                 dropCmd.CommandText = $"DROP TABLE {table}";
                 await dropCmd.ExecuteNonQueryAsync();
             }
+
+            await conn.DisposeAsync();
         }
     }
 
