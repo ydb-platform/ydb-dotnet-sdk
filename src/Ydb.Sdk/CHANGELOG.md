@@ -1,6 +1,6 @@
 - ADO.NET: Added `MinPoolSize` setting to keep a minimum number of sessions ready in the PoolingSessionSource.
 - ADO.NET: Added `SessionIdleTimeout` to remove idle sessions from the PoolingSessionSource automatically.
-- ADO.NET: Made `PoolingSessionSource` faster and more reliable by using a lock-free FIFO stack.
+- ADO.NET: Made `PoolingSessionSource` faster and more reliable by using a lock-free LIFO stack.
 - ADO.NET: Added `BeginBulkUpsertImport` for batch upsert operations with transaction checks and integration tests.
 - Optimization: On BadSession, do not invoke the `DeleteSession()` method.
 - Canceling AttachStream after calling the `DeleteSession` method.
