@@ -101,6 +101,7 @@ public class PoolingSessionTests
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Transport RPC call error", ydbException.Message);
         Assert.Equal(StatusCode.ClientTransportTimeout, ydbException.Code);
+        await Task.Delay(500);
         Assert.True(session.IsBroken);
     }
 
@@ -113,6 +114,7 @@ public class PoolingSessionTests
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Attach stream is not started!", ydbException.Message);
         Assert.Equal(StatusCode.Cancelled, ydbException.Code);
+        await Task.Delay(500);
         Assert.True(session.IsBroken);
     }
 
@@ -133,6 +135,7 @@ public class PoolingSessionTests
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Status: BadSession, Issues:\n[1] Error: Ouch BadSession!", ydbException.Message);
         Assert.Equal(StatusCode.BadSession, ydbException.Code);
+        await Task.Delay(500);
         Assert.True(session.IsBroken);
     }
 
@@ -150,7 +153,7 @@ public class PoolingSessionTests
     }
 
     [Fact]
-    public async Task Open_WhenSuccessOpenThenAttachStreamSendRpcException_IsNotBroken()
+    public async Task Open_WhenSuccessOpenThenAttachStreamSendRpcException_IsBroken()
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
@@ -164,7 +167,7 @@ public class PoolingSessionTests
     }
 
     [Fact]
-    public async Task Open_WhenSuccessOpenThenAttachStreamSendBadSession_IsNotBroken()
+    public async Task Open_WhenSuccessOpenThenAttachStreamSendBadSession_IsBroken()
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
