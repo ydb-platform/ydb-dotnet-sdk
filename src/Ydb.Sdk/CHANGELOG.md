@@ -1,3 +1,5 @@
+## v0.21.0
+
 - ADO.NET: Added `MinPoolSize` setting to keep a minimum number of sessions ready in the PoolingSessionSource.
 - ADO.NET: Added `SessionIdleTimeout` to remove idle sessions from the PoolingSessionSource automatically.
 - ADO.NET: Made `PoolingSessionSource` faster and more reliable by using a lock-free LIFO stack.
