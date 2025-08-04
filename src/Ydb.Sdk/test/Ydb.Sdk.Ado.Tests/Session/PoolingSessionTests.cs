@@ -153,7 +153,7 @@ public class PoolingSessionTests
     }
 
     [Fact]
-    public async Task Open_WhenSuccessOpenThenAttachStreamSendRpcException_IsNotBroken()
+    public async Task Open_WhenSuccessOpenThenAttachStreamSendRpcException_IsBroken()
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
@@ -167,7 +167,7 @@ public class PoolingSessionTests
     }
 
     [Fact]
-    public async Task Open_WhenSuccessOpenThenAttachStreamSendBadSession_IsNotBroken()
+    public async Task Open_WhenSuccessOpenThenAttachStreamSendBadSession_IsBroken()
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
