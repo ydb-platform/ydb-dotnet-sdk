@@ -175,6 +175,8 @@ public class PoolingSessionTests
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
         tcsSecondMoveAttachStream.SetResult(true); // attach stream is closed
+        await Task.Delay(500);
+        Assert.True(session.IsBroken);
     }
 
     [Fact]
