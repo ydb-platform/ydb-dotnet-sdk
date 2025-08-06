@@ -9,24 +9,16 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace EntityFrameworkCore.Ydb.Query.Expressions.Internal;
 
 
-public class YdbILikeExpression : SqlExpression, IEquatable<YdbILikeExpression>
+public class YdbILikeExpression(SqlExpression match,
+    SqlExpression pattern, // expression
+    SqlExpression? escapeChar, // escape char - optional
+    RelationalTypeMapping? typeMapping)
+    : SqlExpression(typeof(bool), typeMapping), IEquatable<YdbILikeExpression>
 {
     private static ConstructorInfo? _quotingConstructor;
-    public virtual SqlExpression Match { get; }
-    public virtual SqlExpression Pattern { get; }
-    public virtual SqlExpression? EscapeChar { get; }
-
-    public YdbILikeExpression(
-        SqlExpression match,
-        SqlExpression pattern,
-        SqlExpression? escapeChar,
-        RelationalTypeMapping? typeMapping)
-        : base(typeof(bool), typeMapping)
-    {
-        Match = match;
-        Pattern = pattern;
-        EscapeChar = escapeChar;
-    }
+    public virtual SqlExpression Match { get; } = match;
+    public virtual SqlExpression Pattern { get; } = pattern;
+    public virtual SqlExpression? EscapeChar { get; } = escapeChar;
 
     protected override Expression VisitChildren(ExpressionVisitor visitor)
         => Update(
