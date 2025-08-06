@@ -11,7 +11,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
     private readonly IDriver _driver;
     private readonly string _tablePath;
     private readonly IReadOnlyList<string> _columns;
-    private readonly int _maxBytes;
+    private readonly int _maxBatchByteSize;
     private readonly RepeatedField<Ydb.Value> _rows = new();
     private readonly CancellationToken _cancellationToken;
     private StructType? _structType;
@@ -21,17 +21,17 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
         IDriver driver,
         string tableName,
         IReadOnlyList<string> columns,
-        int maxBytes,
+        int maxBatchByteSize,
         CancellationToken cancellationToken = default)
     {
         _driver = driver;
         _tablePath = tableName;
         _columns = columns;
-        _maxBytes = maxBytes / 2;
+        _maxBatchByteSize = maxBatchByteSize / 2;
         _cancellationToken = cancellationToken;
     }
 
-    public async ValueTask AddRowAsync(object?[] values)
+    public async ValueTask AddRowAsync(params object[] values)
     {
         if (values.Length != _columns.Count)
             throw new ArgumentException("Values count must match columns count", nameof(values));
@@ -46,7 +46,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
 
         var rowSize = protoStruct.CalculateSize();
 
-        if (_currentBytes + rowSize > _maxBytes && _rows.Count > 0)
+        if (_currentBytes + rowSize > _maxBatchByteSize && _rows.Count > 0)
         {
             await FlushAsync();
         }
