@@ -316,12 +316,13 @@ INSERT INTO {tableName}
         {
             await using (var createCmd = conn.CreateCommand())
             {
-                createCmd.CommandText = $@"
-                    CREATE TABLE {tableName} (
-                        Id Int32,
-                        Name Utf8,
-                        PRIMARY KEY (Id)
-                    )";
+                createCmd.CommandText = $"""
+                                         CREATE TABLE {tableName} (
+                                             Id Int32,
+                                             Name Utf8,
+                                             PRIMARY KEY (Id)
+                                         )
+                                         """;
                 await createCmd.ExecuteNonQueryAsync();
             }
 
@@ -329,8 +330,8 @@ INSERT INTO {tableName}
 
             var importer = conn.BeginBulkUpsertImport(tableName, columns);
 
-            await importer.AddRowAsync([YdbValue.MakeInt32(1), YdbValue.MakeUtf8("Alice")]);
-            await importer.AddRowAsync([YdbValue.MakeInt32(2), YdbValue.MakeUtf8("Bob")]);
+            await importer.AddRowAsync(YdbValue.MakeInt32(1), YdbValue.MakeUtf8("Alice"));
+            await importer.AddRowAsync(YdbValue.MakeInt32(2), YdbValue.MakeUtf8("Bob"));
             await importer.FlushAsync();
 
             await using (var checkCmd = conn.CreateCommand())
@@ -341,8 +342,8 @@ INSERT INTO {tableName}
             }
 
             importer = conn.BeginBulkUpsertImport(tableName, columns);
-            await importer.AddRowAsync([YdbValue.MakeInt32(3), YdbValue.MakeUtf8("Charlie")]);
-            await importer.AddRowAsync([YdbValue.MakeInt32(4), YdbValue.MakeUtf8("Diana")]);
+            await importer.AddRowAsync(YdbValue.MakeInt32(3), YdbValue.MakeUtf8("Charlie"));
+            await importer.AddRowAsync(YdbValue.MakeInt32(4), YdbValue.MakeUtf8("Diana"));
             await importer.FlushAsync();
 
             await using (var checkCmd = conn.CreateCommand())
@@ -375,12 +376,13 @@ INSERT INTO {tableName}
         {
             await using (var createCmd = conn.CreateCommand())
             {
-                createCmd.CommandText = $@"
-                CREATE TABLE {tableName} (
-                    Id Int32,
-                    Name Utf8,
-                    PRIMARY KEY (Id)
-                )";
+                createCmd.CommandText = $"""
+                                         CREATE TABLE {tableName} (
+                                             Id Int32,
+                                             Name Utf8,
+                                             PRIMARY KEY (Id)
+                                         )
+                                         """;
                 await createCmd.ExecuteNonQueryAsync();
             }
 
@@ -388,15 +390,8 @@ INSERT INTO {tableName}
 
             var importer = conn.BeginBulkUpsertImport(tableName, columns);
 
-            var badRow = new object?[] { YdbValue.MakeInt32(1) };
-            await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowAsync([badRow]));
-
-            await Assert.ThrowsAsync<ArgumentException>(async () =>
-            {
-                await importer.AddRowAsync([
-                    new object?[] { YdbValue.MakeInt32(2) }
-                ]);
-            });
+            await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowAsync(1));
+            await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowAsync(2));
         }
         finally
         {
@@ -418,11 +413,13 @@ INSERT INTO {tableName}
             foreach (var table in new[] { table1, table2 })
             {
                 await using var createCmd = conn.CreateCommand();
-                createCmd.CommandText = $@"CREATE TABLE {table} (
-                    Id Int32,
-                    Name Utf8,
-                    PRIMARY KEY (Id)
-                )";
+                createCmd.CommandText = $"""
+                                         CREATE TABLE {table} (
+                                             Id Int32,
+                                             Name Utf8,
+                                             PRIMARY KEY (Id)
+                                         )
+                                         """;
                 await createCmd.ExecuteNonQueryAsync();
             }
 
@@ -433,7 +430,7 @@ INSERT INTO {tableName}
                 {
                     var importer = conn.BeginBulkUpsertImport(table1, columns);
                     var rows = Enumerable.Range(0, 20)
-                        .Select(i => new object?[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"A{i}") })
+                        .Select(i => new object[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"A{i}") })
                         .ToArray();
                     foreach (var row in rows)
                         await importer.AddRowAsync(row);
@@ -443,7 +440,7 @@ INSERT INTO {tableName}
                 {
                     var importer = conn.BeginBulkUpsertImport(table2, columns);
                     var rows = Enumerable.Range(0, 20)
-                        .Select(i => new object?[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"B{i}") })
+                        .Select(i => new object[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"B{i}") })
                         .ToArray();
                     foreach (var row in rows)
                         await importer.AddRowAsync(row);
@@ -482,7 +479,7 @@ INSERT INTO {tableName}
 
         var importer = conn.BeginBulkUpsertImport(tableName, columns);
 
-        await importer.AddRowAsync([YdbValue.MakeInt32(1), YdbValue.MakeUtf8("NotExists")]);
+        await importer.AddRowAsync(YdbValue.MakeInt32(1), YdbValue.MakeUtf8("NotExists"));
 
         await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
     }
