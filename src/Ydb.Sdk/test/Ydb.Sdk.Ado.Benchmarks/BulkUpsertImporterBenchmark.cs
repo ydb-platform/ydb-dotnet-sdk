@@ -33,6 +33,7 @@ public class BulkUpsertImporterBenchmark
         {
             await bulkUpsertImporter.AddRowAsync(row.Guid, row.String, row.Int, row.Double, row.DateTime);
         }
+
         await bulkUpsertImporter.FlushAsync();
     }
 }
@@ -61,5 +62,5 @@ internal class BulkUpsertMockDriver : IDriver
         GrpcRequestSettings settings) where TRequest : class where TResponse : class => throw new
         NotImplementedException();
 
-    public ILoggerFactory LoggerFactory { get; }
+    public ILoggerFactory LoggerFactory => null!;
 }
