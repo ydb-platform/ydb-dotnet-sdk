@@ -1,6 +1,6 @@
 namespace Ydb.Sdk.Retry;
 
-public enum OperationKind
+internal enum OperationKind
 {
     Read,
     Write,
@@ -11,7 +11,7 @@ public enum OperationKind
     Discovery
 }
 
-public enum BackoffTier
+internal enum BackoffTier
 {
     None,
     Instant,
@@ -19,13 +19,13 @@ public enum BackoffTier
     Slow
 }
 
-public readonly record struct Failure(
+internal readonly record struct Failure(
     Exception Exception,
     int? YdbStatusCode = null,
     int? GrpcStatusCode = null
 );
 
-public readonly record struct RetryContext(
+internal readonly record struct RetryContext(
     int Attempt,
     TimeSpan Elapsed,
     TimeSpan? DeadlineLeft,
@@ -34,7 +34,7 @@ public readonly record struct RetryContext(
     Failure? LastFailure
 );
 
-public readonly record struct RetryDecision(
+internal readonly record struct RetryDecision(
     TimeSpan? Delay,
     bool RecreateSession = false,
     bool ResetTransport = false,

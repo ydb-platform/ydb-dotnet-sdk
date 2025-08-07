@@ -1,6 +1,6 @@
 namespace Ydb.Sdk.Retry;
 
-public interface IRetryPolicy
+internal interface IRetryPolicy
 {
     RetryDecision Decide(in RetryContext ctx);
 

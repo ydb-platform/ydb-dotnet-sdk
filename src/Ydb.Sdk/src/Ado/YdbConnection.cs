@@ -238,6 +238,7 @@ public sealed class YdbConnection : DbConnection
             return;
         if (disposing)
             Close();
+        GC.SuppressFinalize(this);
         _disposed = true;
     }
 
@@ -250,6 +251,7 @@ public sealed class YdbConnection : DbConnection
             return;
 
         await CloseAsync();
+        GC.SuppressFinalize(this);
         _disposed = true;
     }
 

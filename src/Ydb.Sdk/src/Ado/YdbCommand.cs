@@ -241,4 +241,9 @@ public sealed class YdbCommand : DbCommand
     public new async Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken) =>
         (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken);
+    
+    internal Task<DbDataReader> InternalExecuteDbDataReaderAsync(
+        CommandBehavior behavior,
+        CancellationToken cancellationToken) =>
+        ExecuteDbDataReaderAsync(behavior, cancellationToken);
 }
