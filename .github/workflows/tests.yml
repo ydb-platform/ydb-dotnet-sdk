@@ -22,6 +22,7 @@ jobs:
         ports: [ "2135:2135", "2136:2136", "8765:8765" ]
         env:
           YDB_LOCAL_SURVIVE_RESTART: true
+          YDB_FEATURE_FLAGS: enable_parameterized_decimal
         options: '--name ydb-local -h localhost'
 
     steps:

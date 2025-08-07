@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Google.Protobuf.WellKnownTypes;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
@@ -30,8 +31,6 @@ public sealed class YdbParameter : DbParameter
         { DbType.Byte, YdbValue.MakeOptionalUint8() },
         { DbType.DateTime2, YdbValue.MakeOptionalTimestamp() },
         { DbType.DateTimeOffset, YdbValue.MakeOptionalTimestamp() },
-        { DbType.Decimal, YdbValue.MakeOptionalDecimal() },
-        { DbType.Currency, YdbValue.MakeOptionalDecimal() },
         { DbType.Guid, YdbValue.MakeOptionalUuid() }
     };
 
@@ -93,10 +92,23 @@ public sealed class YdbParameter : DbParameter
     public override bool SourceColumnNullMapping { get; set; }
     public override int Size { get; set; }
 
+    public override byte Precision { get; set; }
+    public override byte Scale { get; set; }
+
     internal YdbValue YdbValue => Value switch
     {
         YdbValue ydbValue => ydbValue,
         null or DBNull when YdbNullByDbType.TryGetValue(DbType, out var value) => value,
+        null or DBNull when DbType is DbType.Decimal or DbType.Currency => Precision == 0 && Scale == 0
+            ? YdbValue.MakeOptionalDecimal()
+            : new YdbValue(
+                new Type
+                {
+                    OptionalType = new OptionalType
+                        { Item = new Type { DecimalType = new DecimalType { Precision = Precision, Scale = Scale } } }
+                },
+                new Ydb.Value { NullFlagValue = new NullValue() }
+            ),
         string valueString when DbType is DbType.String or DbType.AnsiString or DbType.AnsiStringFixedLength
             or DbType.StringFixedLength or DbType.Object => YdbValue.MakeUtf8(valueString),
         bool boolValue when DbType is DbType.Boolean or DbType.Object => YdbValue.MakeBool(boolValue),
@@ -126,7 +138,9 @@ public sealed class YdbParameter : DbParameter
         },
         long longValue when DbType is DbType.Int64 or DbType.Object => YdbValue.MakeInt64(longValue),
         decimal decimalValue when DbType is DbType.Decimal or DbType.Currency or DbType.Object =>
-            YdbValue.MakeDecimal(decimalValue),
+            Precision == 0 && Scale == 0
+                ? YdbValue.MakeDecimal(decimalValue)
+                : YdbValue.MakeDecimalWithPrecision(decimalValue, precision: Precision, scale: Scale),
         ulong ulongValue when DbType is DbType.UInt64 or DbType.Object => YdbValue.MakeUint64(ulongValue),
         uint uintValue => DbType switch
         {

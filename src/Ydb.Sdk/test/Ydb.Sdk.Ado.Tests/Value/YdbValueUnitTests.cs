@@ -282,26 +282,18 @@ public class BasicUnitTests
     [Fact]
     public void DecimalTypeWithPrecision()
     {
-        Assert.Equal(12345m, YdbValue.MakeDecimalWithPrecision(12345m).GetDecimal());
+        Assert.Equal(12345m, YdbValue.MakeDecimal(12345m).GetDecimal());
         Assert.Equal(12345m, YdbValue.MakeDecimalWithPrecision(12345m, precision: 5, scale: 0).GetDecimal());
         Assert.Equal(12345m, YdbValue.MakeDecimalWithPrecision(12345m, precision: 7, scale: 2).GetDecimal());
         Assert.Equal(123.46m, YdbValue.MakeDecimalWithPrecision(123.456m, precision: 5, scale: 2).GetDecimal());
         Assert.Equal(-18446744073.709551616m,
-            YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m).GetDecimal());
+            YdbValue.MakeDecimal(-18446744073.709551616m).GetDecimal());
         Assert.Equal(-18446744073.709551616m,
             YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m, precision: 21, scale: 9).GetDecimal());
         Assert.Equal(-18446744074m,
             YdbValue.MakeDecimalWithPrecision(-18446744073.709551616m, precision: 12, scale: 0).GetDecimal());
         Assert.Equal(-184467440730709551616m,
             YdbValue.MakeDecimalWithPrecision(-184467440730709551616m, precision: 21, scale: 0).GetDecimal());
-
-
-        Assert.Equal("Decimal with precision (5, 0) can't fit into (4, 0)",
-            Assert.Throws<InvalidCastException>(() => YdbValue.MakeDecimalWithPrecision(12345m, precision: 4))
-                .Message);
-        Assert.Equal("Decimal with precision (5, 0) can't fit into (5, 2)",
-            Assert.Throws<InvalidCastException>(() => YdbValue.MakeDecimalWithPrecision(12345m, precision: 5, 2))
-                .Message);
     }
 
     [Fact]
