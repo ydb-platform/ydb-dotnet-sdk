@@ -150,6 +150,7 @@ public class PoolingSessionTests
         tcsSecondMoveAttachStream.TrySetResult(false); // attach stream is closed
         await Task.Delay(500);
         Assert.True(session.IsBroken);
+        await CheckIsBrokenAndDeleteSessionOneTime(session);
     }
 
     [Fact]
@@ -164,6 +165,7 @@ public class PoolingSessionTests
             new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled))); // attach stream is closed
         await Task.Delay(500);
         Assert.True(session.IsBroken);
+        await CheckIsBrokenAndDeleteSessionOneTime(session);
     }
 
     [Fact]
@@ -176,7 +178,7 @@ public class PoolingSessionTests
         Assert.False(session.IsBroken);
         tcsSecondMoveAttachStream.SetResult(true); // attach stream is closed
         await Task.Delay(500);
-        Assert.True(session.IsBroken);
+        await CheckIsBrokenAndDeleteSessionNeverTimes(session);
     }
 
     [Fact]
@@ -186,16 +188,8 @@ public class PoolingSessionTests
         var tcsSecondMoveAttachStream = SetupAttachStream();
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
-        _mockIDriver.Setup(driver => driver.UnaryCall(
-            QueryService.DeleteSessionMethod,
-            It.Is<DeleteSessionRequest>(request => request.SessionId.Equals(SessionId)),
-            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId)
-        )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
         Assert.False(session.IsBroken);
-        await session.DeleteSession();
-        Assert.True(session.IsBroken);
-        _mockIDriver.Verify(driver => driver.UnaryCall(QueryService.DeleteSessionMethod,
-            It.IsAny<DeleteSessionRequest>(), It.IsAny<GrpcRequestSettings>()));
+        await CheckIsBrokenAndDeleteSessionOneTime(session);
         tcsSecondMoveAttachStream.TrySetResult(false);
     }
 
@@ -206,17 +200,10 @@ public class PoolingSessionTests
         var tcsSecondMoveAttachStream = SetupAttachStream();
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
-        _mockIDriver.Setup(driver => driver.UnaryCall(
-            QueryService.DeleteSessionMethod,
-            It.Is<DeleteSessionRequest>(request => request.SessionId.Equals(SessionId)),
-            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId)
-        )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
         Assert.False(session.IsBroken);
         session.OnNotSuccessStatusCode(StatusCode.BadSession);
-        await session.DeleteSession();
         Assert.True(session.IsBroken);
-        _mockIDriver.Verify(driver => driver.UnaryCall(QueryService.DeleteSessionMethod,
-            It.IsAny<DeleteSessionRequest>(), It.IsAny<GrpcRequestSettings>()), Times.Never);
+        await CheckIsBrokenAndDeleteSessionNeverTimes(session);
         tcsSecondMoveAttachStream.TrySetResult(false);
     }
 
@@ -260,6 +247,32 @@ public class PoolingSessionTests
         Assert.Equal(StatusCode.NotFound, ydbException.Code);
         Assert.Equal("Status: NotFound", ydbException.Message);
         tcsSecondMoveAttachStream.TrySetResult(false);
+    }
+
+    private async Task CheckIsBrokenAndDeleteSessionNeverTimes(PoolingSession session)
+    {
+        _mockIDriver.Setup(driver => driver.UnaryCall(
+            QueryService.DeleteSessionMethod,
+            It.IsAny<DeleteSessionRequest>(),
+            It.IsAny<GrpcRequestSettings>()
+        )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
+        await session.DeleteSession();
+        _mockIDriver.Verify(driver => driver.UnaryCall(QueryService.DeleteSessionMethod,
+            It.IsAny<DeleteSessionRequest>(), It.IsAny<GrpcRequestSettings>()), Times.Never());
+        Assert.True(session.IsBroken);
+    }
+
+    private async Task CheckIsBrokenAndDeleteSessionOneTime(PoolingSession session)
+    {
+        _mockIDriver.Setup(driver => driver.UnaryCall(
+            QueryService.DeleteSessionMethod,
+            It.Is<DeleteSessionRequest>(request => request.SessionId.Equals(SessionId)),
+            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId)
+        )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
+        await session.DeleteSession();
+        _mockIDriver.Verify(driver => driver.UnaryCall(QueryService.DeleteSessionMethod,
+            It.IsAny<DeleteSessionRequest>(), It.IsAny<GrpcRequestSettings>()));
+        Assert.True(session.IsBroken);
     }
 
     private TaskCompletionSource<bool> SetupAttachStream()

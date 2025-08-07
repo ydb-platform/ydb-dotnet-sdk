@@ -55,3 +55,17 @@ DefaultJob : .NET 8.0.2 (8.0.224.6711), Arm64 RyuJIT AdvSIMD
 | SessionReuse_Pattern                |    117,545.11 ns |     2,226.365 ns |     4,014.595 ns |             220.0000 |           0.0001 |   1.5869 |        - |   13656 B |
 | SessionReuse_HighContention_Pattern |  7,463,819.00 ns |   148,409.083 ns |   364,050.038 ns |           19044.6172 |           1.1719 | 765.6250 | 125.0000 | 6367528 B |
 | SessionReuse_HighIterations_Pattern | 70,844,972.06 ns | 1,400,128.942 ns | 3,589,066.009 ns |          200020.0000 |                - | 750.0000 |        - | 6407440 B |
+
+# BulkUpsertImporter Benchmarks
+
+ButchSize = 15_000
+
+| Method                        |     Mean |    Error |   StdDev |
+|-------------------------------|---------:|---------:|---------:|
+| FlushAsync_BulkUpsertImporter | 32.41 ms | 0.546 ms | 0.456 ms | 
+
+ButchSize = 1_000
+
+| Method                        |     Mean |    Error |   StdDev |
+|-------------------------------|---------:|---------:|---------:|
+| FlushAsync_BulkUpsertImporter | 583.3 us | 11.32 us | 13.03 us |

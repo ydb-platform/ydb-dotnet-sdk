@@ -1,9 +1,12 @@
+- Fixed bug: interval value parsing in microseconds and double instead of ticks.
+- ADO.NET: Changed `IBulkUpsertImporter.AddRowAsync` signature: `object?[] row` → `params object[]`.
+
 ## v0.21.0
 
 - ADO.NET: Added `MinPoolSize` setting to keep a minimum number of sessions ready in the PoolingSessionSource.
 - ADO.NET: Added `SessionIdleTimeout` to remove idle sessions from the PoolingSessionSource automatically.
 - ADO.NET: Made `PoolingSessionSource` faster and more reliable by using a lock-free LIFO stack.
-- ADO.NET: Added `BeginBulkUpsertImport` for batch upsert operations with transaction checks and integration tests.
+- ADO.NET: Added `BeginBulkUpsertImport` for batch upsert operations with transaction checks.
 - Optimization: On BadSession, do not invoke the `DeleteSession()` method.
 - Canceling AttachStream after calling the `DeleteSession` method.
 - Fixed bug: fixed issue where session was not deleted (`ClientTransportTimeout`).
