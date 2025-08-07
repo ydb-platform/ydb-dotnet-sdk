@@ -1,4 +1,5 @@
-﻿using Ydb.Sdk.Ado;
+﻿using Google.Protobuf.WellKnownTypes;
+using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Value;
 
@@ -96,7 +97,7 @@ public partial class YdbValue
     public TimeSpan GetInterval()
     {
         EnsurePrimitiveTypeId(Type.Types.PrimitiveTypeId.Interval);
-        return TimeSpan.FromMilliseconds((double)_protoValue.Int64Value / 1000);
+        return TimeSpan.FromTicks(_protoValue.Int64Value * (1000 / Duration.NanosecondsPerTick));
     }
 
     public byte[] GetString()
