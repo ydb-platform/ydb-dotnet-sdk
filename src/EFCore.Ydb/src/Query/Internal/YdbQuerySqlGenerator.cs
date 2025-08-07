@@ -20,7 +20,6 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         _ => base.VisitExtension(extensionExpression)
     };
 
-
     protected override Expression VisitColumn(ColumnExpression columnExpression)
     {
         if (SkipAliases)
