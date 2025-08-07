@@ -4,17 +4,19 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;
 
-public class YdbSqlNullabilityProcessor : SqlNullabilityProcessor
+public class YdbSqlNullabilityProcessor(RelationalParameterBasedSqlProcessorDependencies dependencies,
+    RelationalParameterBasedSqlProcessorParameters parameters)
+    : SqlNullabilityProcessor(dependencies, parameters)
 {
-    private readonly ISqlExpressionFactory _sqlExpressionFactory;
+    private readonly ISqlExpressionFactory _sqlExpressionFactory = dependencies.SqlExpressionFactory;
 
-    public YdbSqlNullabilityProcessor(RelationalParameterBasedSqlProcessorDependencies dependencies, 
-        RelationalParameterBasedSqlProcessorParameters parameters) : base(dependencies, parameters)
+    protected override SqlExpression VisitCustomSqlExpression(SqlExpression sqlExpression, bool allowOptimizedExpansion, out bool nullable) => sqlExpression switch
     {
-        _sqlExpressionFactory = dependencies.SqlExpressionFactory;
-    }
-    
-        protected virtual SqlExpression VisitILike(YdbILikeExpression iLikeExpression, bool allowOptimizedExpansion, out bool nullable)
+        YdbILikeExpression e => VisitILike(e, allowOptimizedExpansion, out nullable),
+        _ => base.VisitCustomSqlExpression(sqlExpression, allowOptimizedExpansion, out nullable)
+    };
+
+    protected virtual SqlExpression VisitILike(YdbILikeExpression iLikeExpression, bool allowOptimizedExpansion, out bool nullable)
     {
         // Note: this is largely duplicated from relational SqlNullabilityProcessor.VisitLike.
         // We unfortunately can't reuse that since it may return arbitrary expression tree structures with LikeExpression embedded, but
@@ -84,5 +86,5 @@ public class YdbSqlNullabilityProcessor : SqlNullabilityProcessor
         
     private bool IsNull(SqlExpression? expression)
         => expression is SqlConstantExpression { Value: null }
-           || expression is SqlParameterExpression { Name: string parameterName } && ParametersFacade.IsParameterNull(parameterName);
+           || expression is SqlParameterExpression { Name: string parameterName };
 }

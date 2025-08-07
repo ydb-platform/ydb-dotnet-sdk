@@ -10,5 +10,5 @@ public class YdbParameterBasedSqlProcessor(
 ) : RelationalParameterBasedSqlProcessor(dependencies, parameters)
 {
     protected override Expression ProcessSqlNullability(Expression queryExpression, IReadOnlyDictionary<string, object?> parametersValues, out bool canCache)
-        =>new YdbParameterBasedSqlProcessor(Dependencies, Parameters).ProcessSqlNullability(queryExpression, parametersValues, out canCache);
+        =>new YdbSqlNullabilityProcessor(Dependencies, Parameters).Process(queryExpression, parametersValues, out canCache);
 }
