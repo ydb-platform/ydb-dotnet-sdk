@@ -35,6 +35,6 @@ public class YdbILikeFunctionTranslator(YdbSqlExpressionFactory sqlExpressionFac
             return sqlExpressionFactory.ILike(match, pattern, arguments[3]);
         }
         
-        return sqlExpressionFactory.ILike(match, pattern, sqlExpressionFactory.Constant(string.Empty));
+        return sqlExpressionFactory.ILike(match, pattern);
     }
 }

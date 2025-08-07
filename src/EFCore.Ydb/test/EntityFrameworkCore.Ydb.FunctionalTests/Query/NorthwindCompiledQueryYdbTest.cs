@@ -57,9 +57,9 @@ public class NorthwindCompiledQueryYdbTest
         Assert.Equal(34, count);
         AssertSql(
             """
-            SELECT count(*)::int
-            FROM "Customers" AS c
-            WHERE c."ContactName" ILIKE '%M%'
+            SELECT CAST(COUNT(*) AS Int32)
+            FROM `Customers` AS c
+            WHERE `c`.`ContactName` ILIKE '%M%'
             """);
     }
     
