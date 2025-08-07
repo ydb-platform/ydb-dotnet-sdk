@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -38,6 +39,10 @@ public class YdbSqlTranslatingExpressionVisitor(
     private static readonly MethodInfo EscapeLikePatternParameterMethod =
         typeof(YdbSqlTranslatingExpressionVisitor).GetTypeInfo()
             .GetDeclaredMethod(nameof(ConstructLikePatternParameter))!;
+    
+    private static readonly MethodInfo ILike2MethodInfo
+        = typeof(YdbFunctionExtension).GetRuntimeMethod(
+            nameof(YdbFunctionExtension.ILike), [typeof(DbFunctions), typeof(string), typeof(string)])!;
 
 
     protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)

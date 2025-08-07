@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
+using EntityFrameworkCore.Ydb.Query.Expressions.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -12,6 +13,13 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
 {
     private bool SkipAliases { get; set; }
     private ISqlGenerationHelper SqlGenerationHelper => Dependencies.SqlGenerationHelper;
+
+    protected override Expression VisitExtension(Expression extensionExpression) => extensionExpression switch
+    {
+        YdbILikeExpression e => VisitILike(e),
+        _ => base.VisitExtension(extensionExpression)
+    };
+
 
     protected override Expression VisitColumn(ColumnExpression columnExpression)
     {
@@ -279,6 +287,27 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         return projectionExpression;
     }
 
+    protected virtual Expression VisitILike(YdbILikeExpression likeExpression, bool negated = false)
+    {
+        Visit(likeExpression.Match);
+
+        if (negated)
+        {
+            Sql.Append(" NOT");
+        }
+
+        Sql.Append(" ILIKE ");
+
+        Visit(likeExpression.Pattern);
+
+        if (likeExpression.EscapeChar is not null)
+        {
+            Sql.Append(" ESCAPE ");
+            Visit(likeExpression.EscapeChar);
+        }
+
+        return likeExpression;
+    }
     protected override Expression VisitCase(CaseExpression caseExpression)
     {
         Sql.Append("CASE");

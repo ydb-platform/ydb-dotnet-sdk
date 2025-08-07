@@ -1,3 +1,5 @@
+using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;

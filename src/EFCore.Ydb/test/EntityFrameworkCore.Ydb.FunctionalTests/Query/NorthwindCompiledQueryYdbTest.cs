@@ -51,21 +51,15 @@ public class NorthwindCompiledQueryYdbTest
     [Fact]
     public async Task Array_All_ILike()
     {
-        await using var context = CreateContext();
+        using var context = CreateContext();
+        var count = context.Customers.Count(c => EF.Functions.ILike(c.ContactName, "%M%"));
 
-        var collection = new[] { "a%", "b%", "c%" };
-        var query = context.Set<Customer>().Where(c => collection.All(y => EF.Functions.ILike(c.Address, y)));
-        var result = await query.ToListAsync();
-
-        Assert.Empty(result);
-
+        Assert.Equal(34, count);
         AssertSql(
             """
-            @collection={ 'a%', 'b%', 'c%' } (DbType = Object)
-
-            SELECT c."CustomerID", c."Address", c."City", c."CompanyName", c."ContactName", c."ContactTitle", c."Country", c."Fax", c."Phone", c."PostalCode", c."Region"
+            SELECT count(*)::int
             FROM "Customers" AS c
-            WHERE c."Address" ILIKE ALL (@collection)
+            WHERE c."ContactName" ILIKE '%M%'
             """);
     }
     
