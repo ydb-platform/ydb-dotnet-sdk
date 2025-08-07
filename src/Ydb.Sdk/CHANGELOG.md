@@ -1,3 +1,4 @@
+- Fixed bug: interval value parsing in microseconds and double instead of ticks.
 - ADO.NET: Changed `IBulkUpsertImporter.AddRowAsync` signature: `object?[] row` → `params object[]`.
 
 ## v0.21.0
