@@ -201,9 +201,7 @@ INSERT INTO {tableName}
         connection.ConnectionString = ConnectionString + ";MinSessionPool=1";
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        Assert.Equal("The connection pool has been exhausted, either raise 'MaxSessionPool' (currently 10) " +
-                     "or 'CreateSessionTimeout' (currently 5 seconds) in your connection string.",
-            (await Assert.ThrowsAsync<YdbException>(async () => await connection.OpenAsync(cts.Token))).Message);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await connection.OpenAsync(cts.Token));
         Assert.Equal(ConnectionState.Closed, connection.State);
     }
 

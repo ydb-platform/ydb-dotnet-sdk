@@ -1,3 +1,4 @@
+- ADO.NET: `YdbConnection.OpenAsync` throws OperationCancelException when the `CancellationToken` is cancelled.
 - Feat ADO.NET: decimal type with arbitrary precision/scale ([#498](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/498)).
 - Fixed bug: interval value parsing in microseconds and double instead of ticks ([#497](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/497)).
 - ADO.NET: Changed `IBulkUpsertImporter.AddRowAsync` signature: `object?[] row` → `params object[]`.

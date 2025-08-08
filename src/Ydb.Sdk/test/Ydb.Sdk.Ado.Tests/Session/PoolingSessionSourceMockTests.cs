@@ -295,6 +295,9 @@ public class PoolingSessionSourceMockTests
                 catch (OperationCanceledException)
                 {
                 }
+                catch (YdbException)
+                {
+                }
             }, cts.Token));
         }
 
@@ -316,7 +319,9 @@ public class PoolingSessionSourceMockTests
         var cts = new CancellationTokenSource();
         cts.CancelAfter(500);
 
-        await Assert.ThrowsAsync<TaskCanceledException>(async () => await sessionSource.OpenSession(cts.Token));
+        Assert.Equal("The connection pool has been exhausted, either raise 'MaxSessionPool' (currently 1) " +
+                     "or 'CreateSessionTimeout' (currently 5 seconds) in your connection string.",
+            (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.OpenSession(cts.Token))).Message);
         session.Close();
 
         Assert.Equal(1, mockFactory.NumSession);
