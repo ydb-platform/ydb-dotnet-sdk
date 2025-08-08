@@ -169,6 +169,8 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (YdbConnection.IsBusy)
         {
             throw new YdbOperationInProgressException(YdbConnection);

@@ -246,21 +246,19 @@ INSERT INTO {tableName}
         await using var connection = await CreateOpenConnectionAsync();
         var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
-        Assert.Equal(StatusCode.ClientTransportTimeout,
-            (await Assert.ThrowsAsync<YdbException>(async () => await command.ExecuteReaderAsync(cts.Token))).Code);
-        Assert.Equal(ConnectionState.Broken, connection.State);
-        // ReSharper disable once MethodSupportsCancellation
-        await connection.OpenAsync();
-        Assert.Equal(StatusCode.ClientTransportTimeout,
-            (await Assert.ThrowsAsync<YdbException>(async () => await command.ExecuteScalarAsync(cts.Token))).Code);
-        Assert.Equal(ConnectionState.Broken, connection.State);
-        // ReSharper disable once MethodSupportsCancellation
-        await connection.OpenAsync();
-        Assert.Equal(StatusCode.ClientTransportTimeout,
-            (await Assert.ThrowsAsync<YdbException>(async () => await command.ExecuteNonQueryAsync(cts.Token))).Code);
-        Assert.Equal(ConnectionState.Broken, connection.State);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await command.ExecuteReaderAsync(cts.Token));
+        Assert.Equal(ConnectionState.Open, connection.State); // state is not changed
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await command.ExecuteScalarAsync(cts.Token));
+        Assert.Equal(ConnectionState.Open, connection.State); // state is not changed
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await command.ExecuteNonQueryAsync(cts.Token));
+        Assert.Equal(ConnectionState.Open, connection.State);
     }
 
     [Fact]
