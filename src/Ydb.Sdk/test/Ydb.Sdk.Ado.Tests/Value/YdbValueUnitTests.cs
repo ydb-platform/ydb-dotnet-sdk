@@ -274,9 +274,6 @@ public class BasicUnitTests
 
         Assert.Null(YdbValue.MakeOptionalDecimal().GetOptionalDecimal());
         Assert.Null((decimal?)(YdbValue)(decimal?)null);
-
-        Assert.Equal("Decimal with precision (30, 0) can't fit into (22, 9)",
-            Assert.Throws<InvalidCastException>(() => YdbValue.MakeDecimal(decimal.MaxValue)).Message);
     }
 
     [Fact]

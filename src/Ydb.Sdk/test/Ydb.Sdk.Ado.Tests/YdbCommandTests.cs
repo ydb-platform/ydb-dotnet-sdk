@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using System.Text;
 using Xunit;
 using Ydb.Sdk.Value;
@@ -472,14 +473,14 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
     }
 
     [Theory]
-    [InlineData("12345", "12345,0000000000", 22, 9)]
+    [InlineData("12345", "12345.0000000000", 22, 9)]
     [InlineData("54321", "54321", 5, 0)]
-    [InlineData("493235.4", "493235,40", 7, 2)]
-    [InlineData("123,46", "123,46", 5, 2)]
-    [InlineData("-184467434073,70911616", "-184467434073,7091161600", 35, 10)]
+    [InlineData("493235.4", "493235.40", 7, 2)]
+    [InlineData("123.46", "123.46", 5, 2)]
+    [InlineData("-184467434073.70911616", "-184467434073.7091161600", 35, 10)]
     [InlineData("-18446744074", "-18446744074", 12, 0)]
     [InlineData("-184467440730709551616", "-184467440730709551616", 21, 0)]
-    [InlineData("-218446744073,709551616", "-218446744073,7095516160", 22, 10)]
+    [InlineData("-218446744073.709551616", "-218446744073.7095516160", 22, 10)]
     [InlineData(null, null, 22, 9)]
     [InlineData(null, null, 35, 9)]
     [InlineData(null, null, 35, 0)]
@@ -488,7 +489,7 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
         var decimalTableName = $"DecimalTable_{Random.Shared.Next()}";
-        var decimalValue = value == null ? (decimal?)null : decimal.Parse(value);
+        var decimalValue = value == null ? (decimal?)null : decimal.Parse(value, CultureInfo.InvariantCulture);
         var ydbCommand = new YdbCommand(ydbConnection)
         {
             CommandText = $"""
@@ -506,7 +507,8 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
         await ydbCommand.ExecuteNonQueryAsync();
 
         ydbCommand.CommandText = $"SELECT DecimalField FROM {decimalTableName}";
-        Assert.Equal(expected == null ? DBNull.Value : decimal.Parse(expected), await ydbCommand.ExecuteScalarAsync());
+        Assert.Equal(expected == null ? DBNull.Value : decimal.Parse(expected, CultureInfo.InvariantCulture),
+            await ydbCommand.ExecuteScalarAsync());
         ydbCommand.CommandText = "DROP TABLE {decimalTableName};";
     }
 }
