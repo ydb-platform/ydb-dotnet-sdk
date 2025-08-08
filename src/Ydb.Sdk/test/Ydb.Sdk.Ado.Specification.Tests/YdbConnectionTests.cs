@@ -28,13 +28,4 @@ public class YdbConnectionTests(YdbFactoryFixture fixture) : ConnectionTestBase<
     {
         base.ServerVersion_returns_value();
     }
-
-    public override async Task OpenAsync_is_canceled()
-    {
-        await using var connection = CreateConnection();
-        connection.ConnectionString = ConnectionString;
-        var task = connection.OpenAsync(CanceledToken);
-        await Assert.ThrowsAnyAsync<YdbException>(() => task);
-        Assert.True(task.IsFaulted);
-    }
 }

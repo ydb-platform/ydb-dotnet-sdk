@@ -126,9 +126,12 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                 continue;
             }
 
-            await using var _ = finalToken.Register(
-                () => waiterTcs.TrySetCanceled(),
-                useSynchronizationContext: false
+            await using var _ = finalToken.Register(() => waiterTcs.TrySetException(
+                    new YdbException(StatusCode.ClientTransportTimeout,
+                        $"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
+                        $"(currently {_maxSessionSize}) or 'CreateSessionTimeout' " +
+                        $"(currently {_createSessionTimeout} seconds) in your connection string.")
+                ), useSynchronizationContext: false
             );
             await using var disposeRegistration = _disposeCts.Token.Register(
                 () => waiterTcs.TrySetException(new YdbException("The session source has been shut down.")),
