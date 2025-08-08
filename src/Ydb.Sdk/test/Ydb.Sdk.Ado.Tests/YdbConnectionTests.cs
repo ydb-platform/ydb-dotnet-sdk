@@ -201,7 +201,7 @@ INSERT INTO {tableName}
         connection.ConnectionString = ConnectionString + ";MinSessionPool=1";
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        await Assert.ThrowsAsync<OperationCanceledException>(async () => await connection.OpenAsync(cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await connection.OpenAsync(cts.Token));
         Assert.Equal(ConnectionState.Closed, connection.State);
     }
 
