@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using System.Text;
 using Xunit;
 using Ydb.Sdk.Value;
@@ -469,5 +470,45 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
         ydbCommand.Parameters.Clear();
         ydbCommand.Parameters.AddWithValue("dateOnly", DbType.Date, new DateOnly(2102, 2, 24));
         Assert.Equal(new DateTime(2102, 2, 24), await ydbCommand.ExecuteScalarAsync());
+    }
+
+    [Theory]
+    [InlineData("12345", "12345.0000000000", 22, 9)]
+    [InlineData("54321", "54321", 5, 0)]
+    [InlineData("493235.4", "493235.40", 7, 2)]
+    [InlineData("123.46", "123.46", 5, 2)]
+    [InlineData("-184467434073.70911616", "-184467434073.7091161600", 35, 10)]
+    [InlineData("-18446744074", "-18446744074", 12, 0)]
+    [InlineData("-184467440730709551616", "-184467440730709551616", 21, 0)]
+    [InlineData("-218446744073.709551616", "-218446744073.7095516160", 22, 10)]
+    [InlineData(null, null, 22, 9)]
+    [InlineData(null, null, 35, 9)]
+    [InlineData(null, null, 35, 0)]
+    public async Task Decimal_WhenDecimalIsScaleAndPrecision_ReturnDecimal(string? value, string? expected,
+        byte precision, byte scale)
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var decimalTableName = $"DecimalTable_{Random.Shared.Next()}";
+        var decimalValue = value == null ? (decimal?)null : decimal.Parse(value, CultureInfo.InvariantCulture);
+        var ydbCommand = new YdbCommand(ydbConnection)
+        {
+            CommandText = $"""
+                           CREATE TABLE {decimalTableName} (
+                                DecimalField Decimal({precision}, {scale}),
+                                PRIMARY KEY (DecimalField)
+                           )
+                           """
+        };
+        await ydbCommand.ExecuteNonQueryAsync();
+        ydbCommand.CommandText = $"INSERT INTO {decimalTableName}(DecimalField) VALUES (@DecimalField);";
+        ydbCommand.Parameters.Add(
+            new YdbParameter("DecimalField", DbType.Decimal, decimalValue)
+                { Precision = precision, Scale = scale });
+        await ydbCommand.ExecuteNonQueryAsync();
+
+        ydbCommand.CommandText = $"SELECT DecimalField FROM {decimalTableName}";
+        Assert.Equal(expected == null ? DBNull.Value : decimal.Parse(expected, CultureInfo.InvariantCulture),
+            await ydbCommand.ExecuteScalarAsync());
+        ydbCommand.CommandText = "DROP TABLE {decimalTableName};";
     }
 }
