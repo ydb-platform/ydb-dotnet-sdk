@@ -1,3 +1,5 @@
+using Ydb.Sdk.Ado.Retry.Delay;
+
 namespace Ydb.Sdk.Ado.Retry;
 
 public sealed class RetryConfig
@@ -14,12 +16,10 @@ public sealed class RetryConfig
 
     public Dictionary<StatusCode, Func<int, TimeSpan?>> PerStatusDelay { get; } = new();
 
-    public Func<System.Data.Common.DbCommand, System.Data.CommandBehavior, bool> IsStreaming { get; set; }
-        = static (_, behavior) => (behavior & System.Data.CommandBehavior.SequentialAccess) != 0;
+    public IStatusDelayProfile StatusDelayProfile { get; set; } = new DefaultStatusDelayProfile();
 
-    public Func<Exception, int, TimeSpan?> DefaultDelay { get; set; }
-
-        = static (ex, attempt) =>
+    public Func<Exception, int, TimeSpan?> DefaultDelay { get; set; } =
+        static (_, attempt) =>
         {
             var baseMs = 100.0 * Math.Pow(2.0, Math.Max(0, attempt - 1));
             var jitter = 1.0 + (Random.Shared.NextDouble() * 0.5);

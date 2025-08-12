@@ -98,26 +98,6 @@ public class DefaultRetryPolicyTests : TestBase
         var ex = new OperationCanceledException(cts.Token);
         Assert.False(policy.CanRetry(ex, isIdempotent: true));
     }
-
-    [Fact]
-    public void IsStreaming_WhenSequentialAccess_ReturnsTrue()
-    {
-        var config = new RetryConfig();
-        var policy = new DefaultRetryPolicy(config);
-        var cmd = new DummyCommand();
-
-        Assert.True(policy.IsStreaming(cmd, CommandBehavior.SequentialAccess));
-    }
-
-    [Fact]
-    public void IsStreaming_WhenCustomConfigDelegateUsed_ReturnsTrue()
-    {
-        var config = new RetryConfig { IsStreaming = (c, b) => true };
-        var policy = new DefaultRetryPolicy(config);
-        var cmd = new DummyCommand();
-
-        Assert.True(policy.IsStreaming(cmd, CommandBehavior.Default));
-    }
     
     [Fact]
     public void GetDelay_WhenDelayExceedsMaxDelay_IsCappedToMaxDelay()
