@@ -28,6 +28,7 @@ public class YdbConnectionStringBuilderTests
         Assert.False(ydbConnectionStringBuilder.DisableDiscovery);
         Assert.False(ydbConnectionStringBuilder.DisableServerBalancer);
         Assert.False(ydbConnectionStringBuilder.UseTls);
+        Assert.False(ydbConnectionStringBuilder.EnableImplicitSession);
     }
 
     [Fact]
@@ -50,7 +51,7 @@ public class YdbConnectionStringBuilderTests
             "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
             "EnableMultipleHttp2Connections=true;" +
             "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-            "DisableDiscovery=true;DisableServerBalancer=true;"
+            "DisableDiscovery=true;DisableServerBalancer=true;EnableImplicitSession=true;"
         );
 
         Assert.Equal(2135, connectionString.Port);
@@ -74,9 +75,10 @@ public class YdbConnectionStringBuilderTests
                      "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
                      "EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-                     "DisableDiscovery=True;DisableServerBalancer=True", connectionString.ConnectionString);
+                     "DisableDiscovery=True;DisableServerBalancer=True;EnableImplicitSession=True", connectionString.ConnectionString);
         Assert.True(connectionString.DisableDiscovery);
         Assert.True(connectionString.DisableServerBalancer);
+        Assert.True(connectionString.EnableImplicitSession);
     }
 
     [Fact]
