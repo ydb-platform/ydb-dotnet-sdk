@@ -10,7 +10,12 @@ public class DefaultRetryPolicyTests : TestBase
     {
         var config = new RetryConfig
         {
-            DefaultDelay = (_ex, _attempt) => TimeSpan.FromMilliseconds(100),
+            DefaultDelay = (ex, attempt) =>
+            {
+                _ = ex;
+                _ = attempt;
+                return TimeSpan.FromMilliseconds(100);
+            },
             MaxDelay = TimeSpan.FromMilliseconds(500)
         };
 
@@ -31,6 +36,7 @@ public class DefaultRetryPolicyTests : TestBase
             MaxDelay = TimeSpan.FromMilliseconds(500),
             DefaultDelay = (ex, attempt) =>
             {
+                _ = ex;
                 attempt = Math.Max(1, attempt);
                 var baseMs = 100.0 * Math.Pow(2.0, attempt - 1);
                 var ms = Math.Min(baseMs, 500.0);
@@ -48,7 +54,11 @@ public class DefaultRetryPolicyTests : TestBase
     public void GetDelay_WhenStatusHasOverride_ReturnsPerStatusDelay()
     {
         var config = new RetryConfig();
-        config.PerStatusDelay[StatusCode.Unavailable] = _attempt => TimeSpan.FromMilliseconds(123);
+        config.PerStatusDelay[StatusCode.Unavailable] = attempt =>
+        {
+            _ = attempt;
+            return TimeSpan.FromMilliseconds(123);
+        };
         var policy = new DefaultRetryPolicy(config);
 
         var ex = new YdbException(StatusCode.Unavailable, "unavailable");
