@@ -1,4 +1,4 @@
-using Ydb.Sdk.Value;
+using Ydb.Sdk.Ado.YdbType;
 
 namespace Ydb.Sdk.Ado.Internal;
 
@@ -8,13 +8,12 @@ internal interface ISqlParam
 
     string Name { get; }
 
-    YdbValue YdbValueFetch(Dictionary<string, YdbValue> ydbParameters);
+    TypedValue YdbValueFetch(Dictionary<string, TypedValue> ydbParameters);
 }
 
 internal record PrimitiveParam(string Name, bool IsNative) : ISqlParam
 {
-    public YdbValue YdbValueFetch(Dictionary<string, YdbValue> ydbParameters) =>
-        ydbParameters.Get(Name);
+    public TypedValue YdbValueFetch(Dictionary<string, TypedValue> ydbParameters) => ydbParameters[Name];
 }
 
 internal class ListPrimitiveParam : ISqlParam
@@ -33,14 +32,14 @@ internal class ListPrimitiveParam : ISqlParam
 
     public bool IsNative => false;
 
-    public YdbValue YdbValueFetch(Dictionary<string, YdbValue> ydbParameters) => YdbValue
-        .MakeList(_paramNames.Select(ydbParameters.Get).ToArray());
+    public TypedValue YdbValueFetch(Dictionary<string, TypedValue> ydbParameters) =>
+        _paramNames.Select(ydbParameters.Get).ToArray().List();
 }
 
 internal static class YdbParametersExtension
 {
-    internal static YdbValue Get(this Dictionary<string, YdbValue> ydbParameters, string name)
-        => ydbParameters.TryGetValue(name, out var ydbValue)
-            ? ydbValue
+    internal static TypedValue Get(this Dictionary<string, TypedValue> ydbParameters, string name)
+        => ydbParameters.TryGetValue(name, out var typedValue)
+            ? typedValue
             : throw new YdbException($"Not found YDB parameter [name: {name}]");
 }

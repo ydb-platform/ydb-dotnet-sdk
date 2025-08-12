@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using Xunit;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -22,8 +23,8 @@ public class YdbSchemaTests : TestBase
         _table3 = $"table_{Random.Shared.Next()}";
         _allTypesTable = $"allTypesTable_{Random.Shared.Next()}";
         _allTypesTableNullable = $"allTypesTableNullable_{Random.Shared.Next()}";
-        _allTableNames = new HashSet<string> { _table1, _table2, _table3, _allTypesTable, _allTypesTableNullable };
-        _simpleTableNames = new HashSet<string> { _table1, _table2, _table3 };
+        _allTableNames = [_table1, _table2, _table3, _allTypesTable, _allTypesTableNullable];
+        _simpleTableNames = [_table1, _table2, _table3];
     }
 
     [Fact]

@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Ydb.Query;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Session;
 
@@ -325,9 +324,12 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
 
     internal abstract Task DeleteSession();
 
-    public abstract ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(string query,
-        Dictionary<string, YdbValue> parameters, GrpcRequestSettings settings,
-        TransactionControl? txControl);
+    public abstract ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
+        string query,
+        Dictionary<string, TypedValue> parameters,
+        GrpcRequestSettings settings,
+        TransactionControl? txControl
+    );
 
     public abstract Task CommitTransaction(string txId, CancellationToken cancellationToken = default);
 

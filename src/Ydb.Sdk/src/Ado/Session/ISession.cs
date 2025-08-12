@@ -1,5 +1,4 @@
 using Ydb.Query;
-using Ydb.Sdk.Value;
 using TransactionControl = Ydb.Query.TransactionControl;
 
 namespace Ydb.Sdk.Ado.Session;
@@ -12,7 +11,7 @@ internal interface ISession
 
     ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
-        Dictionary<string, YdbValue> parameters,
+        Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl
     );

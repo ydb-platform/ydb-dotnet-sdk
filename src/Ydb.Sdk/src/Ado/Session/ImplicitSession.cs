@@ -1,6 +1,5 @@
 using Ydb.Query;
 using Ydb.Query.V1;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Session;
 
@@ -16,7 +15,7 @@ internal class ImplicitSession : ISession
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
-        Dictionary<string, YdbValue> parameters,
+        Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl
     )
@@ -33,7 +32,7 @@ internal class ImplicitSession : ISession
             StatsMode = StatsMode.None,
             TxControl = txControl
         };
-        request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
+        request.Parameters.Add(parameters);
 
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }

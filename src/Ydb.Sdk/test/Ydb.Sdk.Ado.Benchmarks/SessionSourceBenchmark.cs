@@ -1,7 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Benchmarks;
 
@@ -151,7 +150,7 @@ internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> sourc
 
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
-        Dictionary<string, YdbValue> parameters, GrpcRequestSettings settings,
+        Dictionary<string, TypedValue> parameters, GrpcRequestSettings settings,
         TransactionControl? txControl
     ) => throw new NotImplementedException();
 

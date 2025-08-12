@@ -69,19 +69,6 @@ public sealed partial class YdbValue
 
     public override string ToString() => _protoValue.ToString() ?? "";
 
-    internal string ToYql() => ToYql(_protoType);
-
-    private static string ToYql(Type type) =>
-        type.TypeCase switch
-        {
-            Type.TypeOneofCase.TypeId => type.TypeId.ToString(),
-            Type.TypeOneofCase.DecimalType => $"Decimal({type.DecimalType.Precision}, {type.DecimalType.Scale})",
-            Type.TypeOneofCase.OptionalType => $"{ToYql(type.OptionalType.Item)}?",
-            Type.TypeOneofCase.ListType => $"List<{ToYql(type.ListType.Item)}>",
-            Type.TypeOneofCase.VoidType => "Void",
-            _ => "Unknown"
-        };
-
     internal static YdbTypeId GetYdbTypeId(Type protoType) =>
         protoType.TypeCase switch
         {
