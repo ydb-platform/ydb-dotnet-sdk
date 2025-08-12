@@ -5,7 +5,9 @@ public sealed class DefaultRetryPolicy : IRetryPolicy
     private readonly RetryConfig _cfg;
 
     public DefaultRetryPolicy(RetryConfig? config = null)
-        => _cfg = config ?? new RetryConfig();
+    {
+        _cfg = config ?? new RetryConfig();
+    }
 
     public int MaxAttempts => _cfg.MaxAttempts;
 

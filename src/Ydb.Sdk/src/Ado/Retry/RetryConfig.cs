@@ -22,7 +22,7 @@ public sealed class RetryConfig
         static (_, attempt) =>
         {
             var baseMs = 100.0 * Math.Pow(2.0, Math.Max(0, attempt - 1));
-            var jitter = 1.0 + (Random.Shared.NextDouble() * 0.5);
+            var jitter = 1.0 + Random.Shared.NextDouble() * 0.5;
             var ms = Math.Min(baseMs * jitter, 10_000.0);
             return TimeSpan.FromMilliseconds(ms);
         };

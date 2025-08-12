@@ -1,4 +1,3 @@
-using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado.Retry;
 
@@ -11,7 +10,7 @@ public class DefaultRetryPolicyTests : TestBase
     {
         var config = new RetryConfig
         {
-            DefaultDelay = (_, __) => TimeSpan.FromMilliseconds(100),
+            DefaultDelay = (_ex, _attempt) => TimeSpan.FromMilliseconds(100),
             MaxDelay = TimeSpan.FromMilliseconds(500)
         };
 
@@ -20,7 +19,7 @@ public class DefaultRetryPolicyTests : TestBase
         var delay = policy.GetDelay(new Exception("test"), 1);
         Assert.Equal(TimeSpan.FromMilliseconds(100), delay);
     }
-    
+
     [Fact]
     public void GetDelay_WhenAttemptOne_ReturnsBaseDelay_NoJitter()
     {
@@ -49,7 +48,7 @@ public class DefaultRetryPolicyTests : TestBase
     public void GetDelay_WhenStatusHasOverride_ReturnsPerStatusDelay()
     {
         var config = new RetryConfig();
-        config.PerStatusDelay[StatusCode.Unavailable] = attempt => TimeSpan.FromMilliseconds(123);
+        config.PerStatusDelay[StatusCode.Unavailable] = _attempt => TimeSpan.FromMilliseconds(123);
         var policy = new DefaultRetryPolicy(config);
 
         var ex = new YdbException(StatusCode.Unavailable, "unavailable");
@@ -98,7 +97,7 @@ public class DefaultRetryPolicyTests : TestBase
         var ex = new OperationCanceledException(cts.Token);
         Assert.False(policy.CanRetry(ex, isIdempotent: true));
     }
-    
+
     [Fact]
     public void GetDelay_WhenDelayExceedsMaxDelay_IsCappedToMaxDelay()
     {
@@ -122,23 +121,5 @@ public class DefaultRetryPolicyTests : TestBase
 
         var ex = new OperationCanceledException();
         Assert.False(policy.CanRetry(ex, isIdempotent: true));
-    }
-
-    private class DummyCommand : System.Data.Common.DbCommand
-    {
-        public override string CommandText { get; set; } = string.Empty;
-        public override int CommandTimeout { get; set; }
-        public override CommandType CommandType { get; set; } = CommandType.Text;
-        protected override System.Data.Common.DbConnection DbConnection { get; set; }
-        protected override System.Data.Common.DbParameterCollection DbParameterCollection { get; } = null!;
-        protected override System.Data.Common.DbTransaction DbTransaction { get; set; }
-        public override bool DesignTimeVisible { get; set; }
-        public override UpdateRowSource UpdatedRowSource { get; set; }
-        public override void Cancel() { }
-        public override int ExecuteNonQuery() => 0;
-        public override object ExecuteScalar() => null!;
-        public override void Prepare() { }
-        protected override System.Data.Common.DbParameter CreateDbParameter() => throw new NotImplementedException();
-        protected override System.Data.Common.DbDataReader ExecuteDbDataReader(CommandBehavior behavior) => throw new NotImplementedException();
     }
 }

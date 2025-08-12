@@ -7,7 +7,7 @@ public sealed class DefaultStatusDelayProfile : IStatusDelayProfile
         TimeSpan Calc(TimeSpan baseDelay)
         {
             var baseMs = baseDelay.TotalMilliseconds * Math.Pow(2.0, attempt - 1);
-            var jitter = 1.0 + (Random.Shared.NextDouble() * 0.5);
+            var jitter = 1.0 + Random.Shared.NextDouble() * 0.5;
             var ms = Math.Min(baseMs * jitter, TimeSpan.FromSeconds(10).TotalMilliseconds);
             return TimeSpan.FromMilliseconds(ms);
         }
