@@ -32,7 +32,7 @@ public sealed class YdbParameter : DbParameter
         { YdbDbType.Double, Type.Types.PrimitiveTypeId.Double.Null() },
         { YdbDbType.Uuid, Type.Types.PrimitiveTypeId.Uuid.Null() },
         { YdbDbType.Json, Type.Types.PrimitiveTypeId.Json.Null() },
-        { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() },
+        { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() }
     };
 
     private string _parameterName = string.Empty;

@@ -156,7 +156,7 @@ public class YdbCommandTests : TestBase
         ydbDataReader.Close();
         Assert.True(ydbDataReader.IsClosed);
     }
-    
+
 
     [Fact]
     public async Task ExecuteScalar_WhenSelectNull_ReturnDbNull()
@@ -183,7 +183,7 @@ public class YdbCommandTests : TestBase
         Assert.Null(await new YdbCommand(ydbConnection) { CommandText = "SELECT * FROM (select 1) AS T WHERE FALSE" }
             .ExecuteScalarAsync());
     }
-    
+
 
     public class Data<T>
     {

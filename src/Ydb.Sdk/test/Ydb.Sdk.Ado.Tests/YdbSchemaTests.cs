@@ -1,5 +1,4 @@
 using System.Data;
-using System.Globalization;
 using Xunit;
 
 namespace Ydb.Sdk.Ado.Tests;

@@ -3,7 +3,6 @@ using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
-using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Value;
 using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
