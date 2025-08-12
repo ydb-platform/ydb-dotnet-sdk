@@ -75,7 +75,8 @@ public class YdbConnectionStringBuilderTests
                      "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
                      "EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-                     "DisableDiscovery=True;DisableServerBalancer=True;EnableImplicitSession=True", connectionString.ConnectionString);
+                     "DisableDiscovery=True;DisableServerBalancer=True;EnableImplicitSession=True",
+            connectionString.ConnectionString);
         Assert.True(connectionString.DisableDiscovery);
         Assert.True(connectionString.DisableServerBalancer);
         Assert.True(connectionString.EnableImplicitSession);
