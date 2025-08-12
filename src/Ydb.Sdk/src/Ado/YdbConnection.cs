@@ -38,6 +38,11 @@ public sealed class YdbConnection : DbConnection
     }
 
     private ISession _session = null!;
+    
+    internal bool EnableImplicitSession => ConnectionStringBuilder.EnableImplicitSession;
+    
+    internal ISession GetExecutionSession(bool useImplicit)
+        => useImplicit ? new ImplicitSession(Session.Driver) : Session;
 
     public YdbConnection()
     {

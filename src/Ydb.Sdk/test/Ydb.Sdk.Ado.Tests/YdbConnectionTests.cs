@@ -477,4 +477,48 @@ INSERT INTO {tableName}
 
         await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
     }
+    
+    [Fact]
+    public void EnableImplicitSession_WhenSetViaPrimaryKey_ParsesAndAppearsInConnectionString()
+    {
+        var csb = new YdbConnectionStringBuilder("EnableImplicitSession=true;Host=server;Port=2135;");
+        Assert.True(csb.EnableImplicitSession);
+
+        Assert.Contains("EnableImplicitSession=True", csb.ConnectionString);
+        Assert.Contains("Host=server", csb.ConnectionString); 
+        Assert.Contains("Port=2135", csb.ConnectionString);
+    }
+    
+    [Fact]
+    public void EnableImplicitSession_WhenSetViaAlias_ParsesAndNormalizesKey()
+    {
+        var csb = new YdbConnectionStringBuilder("ImplicitSession=on;Host=server;Port=2135;");
+        Assert.True(csb.EnableImplicitSession);
+
+        var s = csb.ConnectionString;
+
+        Assert.Contains("EnableImplicitSession=True", s);
+
+        var parts = s.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.DoesNotContain(parts, p => p.StartsWith("ImplicitSession=", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Contains("Host=server", s);
+        Assert.Contains("Port=2135", s);
+    }
+
+    [Theory]
+    [InlineData("true",  true)]
+    [InlineData("True",  true)]
+    [InlineData("on",    true)]
+    [InlineData("1",     true)]
+    [InlineData("false", false)]
+    [InlineData("False", false)]
+    [InlineData("off",   false)]
+    [InlineData("0",     false)]
+    public void EnableImplicitSession_StringBooleanVariants_AreParsed(string value, bool expected)
+    {
+        var csb = new YdbConnectionStringBuilder($"EnableImplicitSession={value};");
+        Assert.Equal(expected, csb.EnableImplicitSession);
+        Assert.Contains($"EnableImplicitSession={(expected ? "True" : "False")}", csb.ConnectionString);
+    }
 }
