@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Data;
 using System.Data.Common;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
@@ -13,8 +12,8 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     {
     }
 
-    internal Dictionary<string, YdbValue> YdbParameters =>
-        _parameters.ToDictionary(p => p.ParameterName, p => p.YdbValue);
+    internal Dictionary<string, TypedValue> YdbParameters =>
+        _parameters.ToDictionary(p => p.ParameterName, p => p.TypedValue);
 
     /// <summary>
     /// Adds a <see cref="YdbParameter"/> to the <see cref="YdbParameterCollection"/> given the specified parameter name and

@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using Xunit;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 
@@ -447,7 +446,7 @@ internal class MockPoolingSession(
 
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
-        Dictionary<string, YdbValue> parameters,
+        Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl
     ) => throw new NotImplementedException();

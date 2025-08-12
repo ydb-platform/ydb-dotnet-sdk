@@ -1,6 +1,5 @@
 using Xunit;
 using Ydb.Sdk.Ado.Internal;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests.Internal;
 
@@ -312,18 +311,19 @@ SELECT $param; SELECT $p2; SELECT $p_3;", sql);
         var (sql, sqlParams) = SqlParser.Parse(actualSql);
         Assert.Equal(expectedSql, sql);
 
-        var ydbParameters = new Dictionary<string, YdbValue>();
+        var ydbParameterCollection = new YdbParameterCollection();
         for (var i = 1; i <= listSize; i++)
         {
-            ydbParameters[$"$id{i}"] = YdbValue.MakeInt32(i);
+            ydbParameterCollection.AddWithValue($"$id{i}", i);
         }
 
-        var listYdbValues = sqlParams[0].YdbValueFetch(ydbParameters).GetList();
+        var ydbParameters = ydbParameterCollection.YdbParameters;
+        var listYdbValues = sqlParams[0].YdbValueFetch(ydbParameters).Value.Items;
 
         Assert.Equal(listSize, listYdbValues.Count);
         for (var i = 1; i <= listSize; i++)
         {
-            Assert.Equal(i, listYdbValues[i - 1].GetInt32());
+            Assert.Equal(i, listYdbValues[i - 1].Int32Value);
         }
     }
 
@@ -372,34 +372,37 @@ SELECT $simple_param_second;
 ", sql);
 
         Assert.Equal(6, sqlParams.Count);
-        var ydbParameters = new Dictionary<string, YdbValue>();
+
+        var ydbParameterCollection = new YdbParameterCollection();
         for (var i = 1; i <= 5; i++)
         {
-            ydbParameters[$"$id{i}"] = YdbValue.MakeInt32(i);
+            ydbParameterCollection.AddWithValue($"@id{i}", i);
         }
 
-        ydbParameters["$simple_param_first"] = YdbValue.MakeUtf8("first");
-        ydbParameters["$simple_param_second"] = YdbValue.MakeUtf8("second");
+        ydbParameterCollection.AddWithValue("$simple_param_first", "first");
+        ydbParameterCollection.AddWithValue("$simple_param_second", "second");
+
+        var ydbParameters = ydbParameterCollection.YdbParameters;
 
         Assert.Equal("$Gen_List_Primitive_1", sqlParams[0].Name);
-        var listPrimitive1 = sqlParams[0].YdbValueFetch(ydbParameters).GetList();
+        var listPrimitive1 = sqlParams[0].YdbValueFetch(ydbParameters).Value.Items;
         Assert.Equal(5, listPrimitive1.Count);
         for (var i = 0; i < 5; i++)
         {
-            Assert.Equal(i + 1, listPrimitive1[i].GetInt32());
+            Assert.Equal(i + 1, listPrimitive1[i].Int32Value);
         }
 
         Assert.Equal("$Gen_List_Primitive_2", sqlParams[2].Name);
-        var listPrimitive2 = sqlParams[2].YdbValueFetch(ydbParameters).GetList();
+        var listPrimitive2 = sqlParams[2].YdbValueFetch(ydbParameters).Value.Items;
         Assert.Equal(4, listPrimitive2.Count);
         for (var i = 0; i < 4; i++)
         {
-            Assert.Equal(i + 1, listPrimitive2[i].GetInt32());
+            Assert.Equal(i + 1, listPrimitive2[i].Int32Value);
         }
 
-        Assert.Equal("first", sqlParams[1].YdbValueFetch(ydbParameters).GetUtf8());
-        Assert.Equal("second", sqlParams[5].YdbValueFetch(ydbParameters).GetUtf8());
-        Assert.Equal(1, sqlParams[3].YdbValueFetch(ydbParameters).GetInt32());
-        Assert.Equal(2, sqlParams[4].YdbValueFetch(ydbParameters).GetInt32());
+        Assert.Equal("first", sqlParams[1].YdbValueFetch(ydbParameters).Value.TextValue);
+        Assert.Equal("second", sqlParams[5].YdbValueFetch(ydbParameters).Value.TextValue);
+        Assert.Equal(1, sqlParams[3].YdbValueFetch(ydbParameters).Value.Int32Value);
+        Assert.Equal(2, sqlParams[4].YdbValueFetch(ydbParameters).Value.Int32Value);
     }
 }

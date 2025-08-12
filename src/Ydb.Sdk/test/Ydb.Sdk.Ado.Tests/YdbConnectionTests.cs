@@ -1,7 +1,7 @@
 using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
-using Ydb.Sdk.Value;
+using Ydb.Sdk.Ado.YdbType;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -159,16 +159,14 @@ INSERT INTO {tableName}
         ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name12", DbType = DbType.UInt64, Value = null });
         ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name13", DbType = DbType.String, Value = null });
         ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name14", DbType = DbType.Binary, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name15", Value = YdbValue.MakeOptionalJson() });
-        ydbCommand.Parameters.Add(new YdbParameter
-            { ParameterName = "name16", Value = YdbValue.MakeOptionalJsonDocument() });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name15", YdbDbType = YdbDbType.Json });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name16", YdbDbType = YdbDbType.JsonDocument });
         ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name17", DbType = DbType.Date, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter
+            { ParameterName = "name18", DbType = DbType.DateTime, Value = null });
         ydbCommand.Parameters.Add(
-            new YdbParameter { ParameterName = "name18", DbType = DbType.DateTime, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter
-            { ParameterName = "name19", DbType = DbType.DateTime2, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter
-            { ParameterName = "name20", Value = YdbValue.MakeOptionalInterval() });
+            new YdbParameter { ParameterName = "name19", DbType = DbType.DateTime2, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name20", YdbDbType = YdbDbType.Interval });
 
         await ydbCommand.ExecuteNonQueryAsync();
         ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
@@ -315,7 +313,7 @@ INSERT INTO {tableName}
                 createCmd.CommandText = $"""
                                          CREATE TABLE {tableName} (
                                              Id Int32,
-                                             Name Utf8,
+                                             Name Text,
                                              PRIMARY KEY (Id)
                                          )
                                          """;
@@ -326,8 +324,8 @@ INSERT INTO {tableName}
 
             var importer = conn.BeginBulkUpsertImport(tableName, columns);
 
-            await importer.AddRowAsync(YdbValue.MakeInt32(1), YdbValue.MakeUtf8("Alice"));
-            await importer.AddRowAsync(YdbValue.MakeInt32(2), YdbValue.MakeUtf8("Bob"));
+            await importer.AddRowAsync(1, "Alice");
+            await importer.AddRowAsync(2, "Bob");
             await importer.FlushAsync();
 
             await using (var checkCmd = conn.CreateCommand())
@@ -338,8 +336,8 @@ INSERT INTO {tableName}
             }
 
             importer = conn.BeginBulkUpsertImport(tableName, columns);
-            await importer.AddRowAsync(YdbValue.MakeInt32(3), YdbValue.MakeUtf8("Charlie"));
-            await importer.AddRowAsync(YdbValue.MakeInt32(4), YdbValue.MakeUtf8("Diana"));
+            await importer.AddRowAsync(3, "Charlie");
+            await importer.AddRowAsync(4, "Diana");
             await importer.FlushAsync();
 
             await using (var checkCmd = conn.CreateCommand())
@@ -426,7 +424,7 @@ INSERT INTO {tableName}
                 {
                     var importer = conn.BeginBulkUpsertImport(table1, columns);
                     var rows = Enumerable.Range(0, 20)
-                        .Select(i => new object[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"A{i}") })
+                        .Select(i => new object[] { i, $"A{i}" })
                         .ToArray();
                     foreach (var row in rows)
                         await importer.AddRowAsync(row);
@@ -436,7 +434,7 @@ INSERT INTO {tableName}
                 {
                     var importer = conn.BeginBulkUpsertImport(table2, columns);
                     var rows = Enumerable.Range(0, 20)
-                        .Select(i => new object[] { YdbValue.MakeInt32(i), YdbValue.MakeUtf8($"B{i}") })
+                        .Select(i => new object[] { i, $"B{i}" })
                         .ToArray();
                     foreach (var row in rows)
                         await importer.AddRowAsync(row);
@@ -475,7 +473,7 @@ INSERT INTO {tableName}
 
         var importer = conn.BeginBulkUpsertImport(tableName, columns);
 
-        await importer.AddRowAsync(YdbValue.MakeInt32(1), YdbValue.MakeUtf8("NotExists"));
+        await importer.AddRowAsync(1, "NotExists");
 
         await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
     }
