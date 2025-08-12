@@ -2,6 +2,7 @@ using System.Data;
 using System.Globalization;
 using Xunit;
 using Ydb.Sdk.Ado.YdbType;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -24,6 +25,11 @@ public class YdbParameterTests : TestBase
         Assert.Equal("$name", new YdbParameter { ParameterName = "@name" }.ParameterName);
         Assert.Equal("$name", new YdbParameter { ParameterName = "$name" }.ParameterName);
     }
+
+    [Fact]
+    public void YdbValue_WhenYdbValueIsSet_ReturnThis() =>
+        Assert.Equal("{\"type\": \"jsondoc\"}", new YdbParameter("$parameter",
+            YdbValue.MakeJsonDocument("{\"type\": \"jsondoc\"}")).TypedValue.Value.TextValue);
 
     [Fact]
     public void YdbParameter_WhenUnCastTypes_ThrowInvalidCastException()
@@ -228,7 +234,7 @@ public class YdbParameterTests : TestBase
         {
             if (ydbType == YdbDbType.Unspecified) continue;
 
-            var tableName = $"YdbDbType_{Random.Shared.Next()}";
+            var tableName = $"Null_YdbDbType_{Random.Shared.Next()}";
             await using var ydbConnection = await CreateOpenConnectionAsync();
             var ydbTypeStr = ydbType == YdbDbType.Decimal ? "Decimal(22, 9)" : ydbType.ToString();
             await new YdbCommand(ydbConnection)
@@ -249,5 +255,121 @@ public class YdbParameterTests : TestBase
 
             await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
         }
+    }
+
+    [Fact]
+    public async Task YdbParameter_WhenYdbDbTypeSetAndValueIsNotNull_ReturnsValue()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var tableName = $"NouNull_YdbDbType_{Random.Shared.Next()}";
+        await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"""
+                           CREATE TABLE {tableName} (
+                               Int32Column Int32,
+                               BoolColumn Bool NOT NULL,
+                               Int64Column Int64 NOT NULL,
+                               Int16Column Int16 NOT NULL,
+                               Int8Column Int8 NOT NULL,
+                               FloatColumn Float NOT NULL,
+                               DoubleColumn Double NOT NULL,
+                               DefaultDecimalColumn Decimal(22, 9) NOT NULL,
+                               CustomDecimalColumn Decimal(35, 5) NOT NULL,
+                               Uint8Column Uint8 NOT NULL,
+                               Uint16Column Uint16 NOT NULL,
+                               Uint32Column Uint32 NOT NULL,
+                               Uint64Column Uint64 NOT NULL,
+                               TextColumn Text NOT NULL,
+                               BytesColumn Bytes NOT NULL,
+                               DateColumn Date NOT NULL,
+                               DatetimeColumn Datetime NOT NULL,
+                               TimestampColumn Timestamp NOT NULL,
+                               IntervalColumn Interval NOT NULL,
+                               JsonColumn Json NOT NULL,
+                               JsonDocumentColumn JsonDocument NOT NULL,
+                               PRIMARY KEY (Int32Column)
+                           );
+                           """
+        }.ExecuteNonQueryAsync();
+
+        await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"""
+                           INSERT INTO {tableName} (
+                               Int32Column, BoolColumn, Int64Column, Int16Column, Int8Column, FloatColumn, DoubleColumn, 
+                               DefaultDecimalColumn, CustomDecimalColumn, Uint8Column, Uint16Column, Uint32Column, 
+                               Uint64Column, TextColumn, BytesColumn, DateColumn, DatetimeColumn, TimestampColumn,
+                               IntervalColumn, JsonColumn, JsonDocumentColumn
+                           ) VALUES (
+                               @Int32Column, @BoolColumn, @Int64Column, @Int16Column, @Int8Column, @FloatColumn, 
+                               @DoubleColumn, @DefaultDecimalColumn, @CustomDecimalColumn, @Uint8Column, @Uint16Column, 
+                               @Uint32Column, @Uint64Column, @TextColumn, @BytesColumn, @DateColumn, @DatetimeColumn, 
+                               @TimestampColumn, @IntervalColumn, @JsonColumn, @JsonDocumentColumn
+                           );
+                           """,
+            Parameters =
+            {
+                new YdbParameter("Int32Column", YdbDbType.Int32, 1),
+                new YdbParameter("BoolColumn", YdbDbType.Bool, true),
+                new YdbParameter("Int64Column", YdbDbType.Int64, 1),
+                new YdbParameter("Int16Column", YdbDbType.Int16, (short)1),
+                new YdbParameter("Int8Column", YdbDbType.Int8, (sbyte)1),
+                new YdbParameter("FloatColumn", YdbDbType.Float, 1.0f),
+                new YdbParameter("DoubleColumn", YdbDbType.Double, 1.0),
+                new YdbParameter("DefaultDecimalColumn", YdbDbType.Decimal, 1m),
+                new YdbParameter("CustomDecimalColumn", YdbDbType.Decimal, 1m) { Precision = 35, Scale = 5 },
+                new YdbParameter("Uint8Column", YdbDbType.UInt8, (byte)1),
+                new YdbParameter("Uint16Column", YdbDbType.UInt16, (ushort)1),
+                new YdbParameter("Uint32Column", YdbDbType.UInt32, (uint)1),
+                new YdbParameter("Uint64Column", YdbDbType.UInt64, (ulong)1),
+                new YdbParameter("TextColumn", YdbDbType.Text, string.Empty),
+                new YdbParameter("BytesColumn", YdbDbType.Bytes, Array.Empty<byte>()),
+                new YdbParameter("DateColumn", YdbDbType.Date, DateTime.UnixEpoch),
+                new YdbParameter("DatetimeColumn", YdbDbType.DateTime, DateTime.UnixEpoch),
+                new YdbParameter("TimestampColumn", YdbDbType.Timestamp, DateTime.UnixEpoch),
+                new YdbParameter("IntervalColumn", YdbDbType.Interval, TimeSpan.Zero),
+                new YdbParameter("JsonColumn", YdbDbType.Json, "{}"),
+                new YdbParameter("JsonDocumentColumn", YdbDbType.JsonDocument, "{}")
+            }
+        }.ExecuteNonQueryAsync();
+
+        var ydbDataReader = await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"""
+                           SELECT 
+                               Int32Column, BoolColumn, Int64Column, Int16Column, Int8Column, FloatColumn, DoubleColumn, 
+                               DefaultDecimalColumn, CustomDecimalColumn, Uint8Column, Uint16Column, Uint32Column, 
+                               Uint64Column, TextColumn, BytesColumn, DateColumn, DatetimeColumn, TimestampColumn,
+                               IntervalColumn, JsonColumn, JsonDocumentColumn 
+                           FROM {tableName};
+                           """
+        }.ExecuteReaderAsync();
+
+        Assert.True(ydbDataReader.Read());
+        Assert.Equal(1, ydbDataReader.GetInt32(0));
+        Assert.True(ydbDataReader.GetBoolean(1));
+        Assert.Equal(1, ydbDataReader.GetInt64(2));
+        Assert.Equal(1, ydbDataReader.GetInt16(3));
+        Assert.Equal(1, ydbDataReader.GetSByte(4));
+        Assert.Equal(1.0, ydbDataReader.GetFloat(5));
+        Assert.Equal(1.0, ydbDataReader.GetDouble(6));
+        Assert.Equal(1.000000000m, ydbDataReader.GetDecimal(7));
+        Assert.Equal(1.00000m, ydbDataReader.GetDecimal(8));
+        Assert.Equal(1, ydbDataReader.GetByte(9));
+        Assert.Equal(1, ydbDataReader.GetUint16(10));
+        Assert.Equal((uint)1, ydbDataReader.GetUint32(11));
+        Assert.Equal((ulong)1, ydbDataReader.GetUint64(12));
+        Assert.Equal(string.Empty, ydbDataReader.GetString(13));
+        Assert.Equal(Array.Empty<byte>(), ydbDataReader.GetBytes(14));
+        Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(15));
+        Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(16));
+        Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(17));
+        Assert.Equal(TimeSpan.Zero, ydbDataReader.GetInterval(18));
+        Assert.Equal("{}", ydbDataReader.GetJson(19));
+        Assert.Equal("{}", ydbDataReader.GetJsonDocument(20));
+        Assert.False(ydbDataReader.Read());
+        await ydbDataReader.CloseAsync();
+
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName}" }.ExecuteNonQueryAsync();
     }
 }

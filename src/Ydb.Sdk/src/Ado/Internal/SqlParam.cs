@@ -13,7 +13,7 @@ internal interface ISqlParam
 
 internal record PrimitiveParam(string Name, bool IsNative) : ISqlParam
 {
-    public TypedValue YdbValueFetch(Dictionary<string, TypedValue> ydbParameters) => ydbParameters[Name];
+    public TypedValue YdbValueFetch(Dictionary<string, TypedValue> ydbParameters) => ydbParameters.Get(Name);
 }
 
 internal class ListPrimitiveParam : ISqlParam
