@@ -1,3 +1,5 @@
+## v0.22.0
+
 - Added `YdbDbType` property to `YdbParameter`, allowing to explicitly specify YDB-specific data types for parameter mapping.
 - ADO.NET: Now `YdbConnection.OpenAsync` and `YdbCommand.Execute*` throw `OperationCanceledException`,
   if the CancellationToken has already been cancelled before the method is called.
