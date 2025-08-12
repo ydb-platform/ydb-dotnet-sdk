@@ -79,12 +79,12 @@ public class DefaultRetryPolicyTests : TestBase
     }
 
     [Fact]
-    public void CanRetry_WhenTimeoutException_ReturnsTrue()
+    public void CanRetry_WhenTimeoutException_ReturnsFalse()
     {
         var config = new RetryConfig();
         var policy = new DefaultRetryPolicy(config);
 
-        Assert.True(policy.CanRetry(new TimeoutException(), isIdempotent: true));
+        Assert.False(policy.CanRetry(new TimeoutException(), isIdempotent: true));
     }
 
     [Fact]
@@ -115,13 +115,13 @@ public class DefaultRetryPolicyTests : TestBase
     }
 
     [Fact]
-    public void CanRetry_WhenOperationCanceledWithoutToken_ReturnsTrue()
+    public void CanRetry_WhenOperationCanceledWithoutToken_ReturnsFalse()
     {
         var config = new RetryConfig();
         var policy = new DefaultRetryPolicy(config);
 
         var ex = new OperationCanceledException();
-        Assert.True(policy.CanRetry(ex, isIdempotent: true));
+        Assert.False(policy.CanRetry(ex, isIdempotent: true));
     }
 
     private class DummyCommand : System.Data.Common.DbCommand
