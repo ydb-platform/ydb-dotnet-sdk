@@ -99,7 +99,7 @@ public class YdbParameterTests : TestBase
     }
 
     [Fact]
-    public async Task YdbValue_WhenDateTimeOffset_ReturnTimestamp()
+    public async Task YdbParameter_WhenDateTimeOffset_ReturnTimestamp()
     {
         var dateTimeOffset = DateTimeOffset.Parse("2029-08-03T06:59:44.8578730Z");
         await using var ydbConnection = await CreateOpenConnectionAsync();
