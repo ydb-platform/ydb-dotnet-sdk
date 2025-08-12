@@ -114,7 +114,7 @@ public class DefaultRetryPolicyTests : TestBase
         var config = new RetryConfig
         {
             MaxDelay = TimeSpan.FromMilliseconds(500),
-            DefaultDelay = (_, __) => TimeSpan.FromMilliseconds(1000)
+            DefaultDelay = (_, _) => TimeSpan.FromMilliseconds(1000)
         };
         var policy = new DefaultRetryPolicy(config);
 
