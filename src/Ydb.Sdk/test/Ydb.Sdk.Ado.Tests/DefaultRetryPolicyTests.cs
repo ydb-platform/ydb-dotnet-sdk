@@ -140,7 +140,7 @@ public class DefaultRetryPolicyTests : TestBase
         var config = new RetryConfig();
         var policy = new DefaultRetryPolicy(config);
 
-        var ex = new OperationCanceledException(); // токен не передаём
+        var ex = new OperationCanceledException();
         Assert.True(policy.CanRetry(ex, isIdempotent: true));
     }
 
