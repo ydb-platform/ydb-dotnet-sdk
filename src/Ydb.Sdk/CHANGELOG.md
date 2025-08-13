@@ -1,3 +1,5 @@
+- Dev: LogLevel `Warning` -> `Debug` on DeleteSession has been `RpcException`.
+
 ## v0.22.0
 
 - Added `YdbDbType` property to `YdbParameter`, allowing to explicitly specify YDB-specific data types for parameter mapping.

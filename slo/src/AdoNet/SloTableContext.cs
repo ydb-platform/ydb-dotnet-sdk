@@ -1,6 +1,5 @@
 using System.Data;
 using Internal;
-using Microsoft.Extensions.Logging;
 using Polly;
 using Ydb.Sdk;
 using Ydb.Sdk.Ado;
