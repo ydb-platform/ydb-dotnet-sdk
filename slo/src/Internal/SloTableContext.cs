@@ -210,7 +210,7 @@ public abstract class SloTableContext<T> : ISloContext
 
                         if (!lease.IsAcquired)
                         {
-                            continue;
+                            await Task.Delay(IntervalMs, cancellationTokenSource.Token);
                         }
 
                         try
