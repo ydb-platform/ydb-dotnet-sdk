@@ -20,7 +20,7 @@ public interface ISloContext
 public abstract class SloTableContext<T> : ISloContext
 {
     private const int IntervalMs = 100;
-    
+
     protected static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContext<T>>();
 
     private volatile int _maxId;
@@ -97,11 +97,13 @@ public abstract class SloTableContext<T> : ISloContext
 
         var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.WriteRps / 10, QueueLimit = int.MaxValue
+            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.WriteRps / 10,
+            QueueLimit = int.MaxValue
         });
         var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.ReadRps / 10, QueueLimit = int.MaxValue
+            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.ReadRps / 10,
+            QueueLimit = int.MaxValue
         });
 
         var cancellationTokenSource = new CancellationTokenSource();
@@ -210,9 +212,9 @@ public abstract class SloTableContext<T> : ISloContext
 
                     _ = Task.Run(async () =>
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(IntervalMs)), 
+                        await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(IntervalMs)),
                             cancellationToken: cancellationTokenSource.Token);
-                        
+
                         try
                         {
                             pendingOperations.Inc();
