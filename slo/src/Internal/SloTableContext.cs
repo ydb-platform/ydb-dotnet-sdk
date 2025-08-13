@@ -128,7 +128,7 @@ public abstract class SloTableContext<T> : ISloContext
         Logger.LogInformation("Run task is finished");
         return;
 
-        Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
+        async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
             Func<T, RunConfig, Task<(int, StatusCode)>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
@@ -197,21 +197,22 @@ public abstract class SloTableContext<T> : ISloContext
                 ["error_type"]
             );
 
-            // ReSharper disable once MethodSupportsCancellation
-            return Task.Run(async () =>
+            var workJobs = new List<Task>();
+
+            for (var i = 0; i < 10; i++)
             {
-                while (!cancellationTokenSource.Token.IsCancellationRequested)
+                workJobs.Add(Task.Run(async () =>
                 {
-                    using var lease = await rateLimitPolicy
-                        .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
-
-                    if (!lease.IsAcquired)
+                    while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
-                        continue;
-                    }
+                        using var lease = await rateLimitPolicy
+                            .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
 
-                    _ = Task.Run(async () =>
-                    {
+                        if (!lease.IsAcquired)
+                        {
+                            continue;
+                        }
+
                         await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(IntervalMs)),
                             cancellationToken: cancellationTokenSource.Token);
 
@@ -242,11 +243,14 @@ public abstract class SloTableContext<T> : ISloContext
                         {
                             Logger.LogError(e, "Fail operation!");
                         }
-                    }, cancellationTokenSource.Token);
-                }
+                    }
+                }, cancellationTokenSource.Token));
+            }
 
-                Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
-            });
+            // ReSharper disable once MethodSupportsCancellation
+            await Task.WhenAll(workJobs);
+
+            Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
         }
     }
 
