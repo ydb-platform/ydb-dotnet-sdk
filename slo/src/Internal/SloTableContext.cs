@@ -19,6 +19,8 @@ public interface ISloContext
 
 public abstract class SloTableContext<T> : ISloContext
 {
+    private const int IntervalMs = 100;
+
     protected static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContext<T>>();
 
     private volatile int _maxId;
@@ -95,11 +97,13 @@ public abstract class SloTableContext<T> : ISloContext
 
         var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(100), PermitLimit = runConfig.WriteRps / 10, QueueLimit = int.MaxValue
+            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.WriteRps / 10,
+            QueueLimit = int.MaxValue
         });
         var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(100), PermitLimit = runConfig.ReadRps / 10, QueueLimit = int.MaxValue
+            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.ReadRps / 10,
+            QueueLimit = int.MaxValue
         });
 
         var cancellationTokenSource = new CancellationTokenSource();
@@ -124,7 +128,7 @@ public abstract class SloTableContext<T> : ISloContext
         Logger.LogInformation("Run task is finished");
         return;
 
-        Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
+        async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
             Func<T, RunConfig, Task<(int, StatusCode)>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
@@ -193,21 +197,22 @@ public abstract class SloTableContext<T> : ISloContext
                 ["error_type"]
             );
 
-            // ReSharper disable once MethodSupportsCancellation
-            return Task.Run(async () =>
+            var workJobs = new List<Task>();
+
+            for (var i = 0; i < 10; i++)
             {
-                while (!cancellationTokenSource.Token.IsCancellationRequested)
+                workJobs.Add(Task.Run(async () =>
                 {
-                    using var lease = await rateLimitPolicy
-                        .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
-
-                    if (!lease.IsAcquired)
+                    while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
-                        continue;
-                    }
+                        using var lease = await rateLimitPolicy
+                            .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
 
-                    _ = Task.Run(async () =>
-                    {
+                        if (!lease.IsAcquired)
+                        {
+                            await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
+                        }
+
                         try
                         {
                             pendingOperations.Inc();
@@ -235,11 +240,14 @@ public abstract class SloTableContext<T> : ISloContext
                         {
                             Logger.LogError(e, "Fail operation!");
                         }
-                    }, cancellationTokenSource.Token);
-                }
+                    }
+                }, cancellationTokenSource.Token));
+            }
 
-                Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
-            });
+            // ReSharper disable once MethodSupportsCancellation
+            await Task.WhenAll(workJobs);
+
+            Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
         }
     }
 

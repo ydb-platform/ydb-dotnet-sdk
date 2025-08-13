@@ -1,6 +1,5 @@
 using System.Data;
 using Internal;
-using Microsoft.Extensions.Logging;
 using Polly;
 using Ydb.Sdk;
 using Ydb.Sdk.Ado;
@@ -9,9 +8,9 @@ namespace AdoNet;
 
 public class SloTableContext : SloTableContext<YdbDataSource>
 {
-    private static readonly AsyncPolicy Policy = Polly.Policy.Handle<YdbException>(exception => exception.IsTransient)
-        .WaitAndRetryAsync(10, attempt => TimeSpan.FromMilliseconds(attempt * 10),
-            (e, _, _, _) => { Logger.LogWarning(e, "Failed read / write operation"); });
+    private static readonly AsyncPolicy Policy = Polly.Policy
+        .Handle<YdbException>(exception => exception.IsTransient)
+        .RetryAsync(10);
 
     protected override string Job => "AdoNet";
 
