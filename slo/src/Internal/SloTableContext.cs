@@ -213,9 +213,6 @@ public abstract class SloTableContext<T> : ISloContext
                             continue;
                         }
 
-                        await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(IntervalMs)),
-                            cancellationToken: cancellationTokenSource.Token);
-
                         try
                         {
                             pendingOperations.Inc();
