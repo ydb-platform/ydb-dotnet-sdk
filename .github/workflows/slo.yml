@@ -64,8 +64,8 @@ jobs:
             --prom-pgw http://localhost:9091  \
             --report-period 250 \
             --time 600 \
-            --read-rps ${ matrix.read_rps } \
-            --write-rps ${ matrix.write_rps } \
+            --read-rps ${{ matrix.read_rps }} \
+            --write-rps ${{ matrix.write_rps }} \
             --read-timeout 1000 \
             --write-timeout 1000
 
