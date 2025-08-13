@@ -4,7 +4,6 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Auth;
-using Ydb.Sdk.Pool;
 using Ydb.Sdk.Transport;
 
 namespace Ydb.Sdk.Ado;
@@ -29,8 +28,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _port = 2136;
         _database = "/local";
         _minSessionPool = 0;
-        _maxSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
-        _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
+        _maxSessionPool = 100;
+        _createSessionTimeout = 5;
         _sessionIdleTimeout = 300;
         _useTls = false;
         _connectTimeout = GrpcDefaultSettings.ConnectTimeoutSeconds;

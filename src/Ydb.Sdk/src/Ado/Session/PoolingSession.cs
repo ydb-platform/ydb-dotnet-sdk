@@ -235,7 +235,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         }
         catch (Exception e)
         {
-            _logger.LogWarning(e, "Error occurred while deleting session[{SessionId}] (NodeId = {NodeId})",
+            _logger.LogDebug(e, "Error occurred while deleting session[{SessionId}] (NodeId = {NodeId})",
                 SessionId, NodeId);
         }
     }
