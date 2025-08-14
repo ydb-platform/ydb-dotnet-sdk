@@ -42,7 +42,7 @@ public sealed class YdbConnection : DbConnection
     internal bool EnableImplicitSession => ConnectionStringBuilder.EnableImplicitSession;
 
     internal ISession GetExecutionSession(bool useImplicit)
-        => useImplicit ? new ImplicitSession(Session.Driver) : Session;
+        => useImplicit ? PoolManager.GetImplicitSession(ConnectionStringBuilder) : Session;
 
     public YdbConnection()
     {
