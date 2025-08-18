@@ -45,10 +45,11 @@ public sealed class YdbList
     internal TypedValue ToTypedValue()
     {
         if (_rows.Count == 0 && (_types is null || _types.All(t => t == YdbDbType.Unspecified)))
-            throw new InvalidOperationException("Cannot infer Struct schema from an empty list without explicit YdbDbType hints.");
+            throw new InvalidOperationException(
+                "Cannot infer Struct schema from an empty list without explicit YdbDbType hints.");
 
         var memberTypes = new Type[_columns.Length];
-        for (int i = 0; i < _columns.Length; i++)
+        for (var i = 0; i < _columns.Length; i++)
         {
             if (_types is not null && _types[i] != YdbDbType.Unspecified)
             {
@@ -60,8 +61,13 @@ public sealed class YdbList
             foreach (var r in _rows)
             {
                 var v = r[i];
-                if (v is not null && v != DBNull.Value) { sample = v; break; }
+                if (v is not null && v != DBNull.Value)
+                {
+                    sample = v;
+                    break;
+                }
             }
+
             if (sample is null)
                 throw new InvalidOperationException(
                     $"Column '{_columns[i]}' has only nulls and no explicit YdbDbType. Provide a type hint.");
@@ -78,7 +84,7 @@ public sealed class YdbList
         foreach (var r in _rows)
         {
             var fields = new List<Ydb.Value>(_columns.Length);
-            for (int i = 0; i < _columns.Length; i++)
+            for (var i = 0; i < _columns.Length; i++)
             {
                 var v = r[i];
                 if (v is null || v == DBNull.Value)
@@ -89,18 +95,19 @@ public sealed class YdbList
 
                 var tv = v switch
                 {
-                    YdbValue yv    => yv.GetProto(),
+                    YdbValue yv => yv.GetProto(),
                     YdbParameter p => p.TypedValue,
-                    _              => new YdbParameter { Value = v }.TypedValue
+                    _ => new YdbParameter { Value = v }.TypedValue
                 };
                 fields.Add(tv.Value);
             }
+
             ydbRows.Add(new Ydb.Value { Items = { fields } });
         }
 
         return new TypedValue
         {
-            Type  = new Type { ListType = new ListType { Item = new Type { StructType = structType } } },
+            Type = new Type { ListType = new ListType { Item = new Type { StructType = structType } } },
             Value = new Ydb.Value { Items = { ydbRows } }
         };
     }

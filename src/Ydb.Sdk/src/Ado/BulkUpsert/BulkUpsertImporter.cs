@@ -54,10 +54,10 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
 
         var ydbValues = values.Select(v => v switch
         {
-            YdbValue ydbValue  => ydbValue.GetProto(),
+            YdbValue ydbValue => ydbValue.GetProto(),
             YdbParameter param => param.TypedValue,
-            YdbList list       => list.ToTypedValue(),
-            _                  => new YdbParameter { Value = v }.TypedValue
+            YdbList list => list.ToTypedValue(),
+            _ => new YdbParameter { Value = v }.TypedValue
         }).ToArray();
 
         var protoStruct = new Ydb.Value();
