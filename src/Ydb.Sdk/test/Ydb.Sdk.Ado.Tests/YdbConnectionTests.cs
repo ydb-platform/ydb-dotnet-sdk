@@ -173,10 +173,7 @@ INSERT INTO {tableName}
         ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
         var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
         Assert.True(await ydbDataReader.ReadAsync());
-        for (var i = 0; i < 21; i++)
-        {
-            Assert.True(ydbDataReader.IsDBNull(i));
-        }
+        for (var i = 0; i < 21; i++) Assert.True(ydbDataReader.IsDBNull(i));
 
         Assert.False(await ydbDataReader.ReadAsync());
 
@@ -478,8 +475,8 @@ INSERT INTO {tableName}
 
         await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
     }
-    
-        [Fact]
+
+    [Fact]
     public async Task BulkUpsertImporter_AddListAsync_HappyPath_InsertsRows()
     {
         var table = $"BulkImporter_List_{Guid.NewGuid():N}";
@@ -490,30 +487,22 @@ INSERT INTO {tableName}
             await using (var create = conn.CreateCommand())
             {
                 create.CommandText = $"""
-                    CREATE TABLE {table} (
-                        Id Int64,
-                        Name Utf8,
-                        PRIMARY KEY (Id)
-                    )
-                    """;
+                                      CREATE TABLE {table} (
+                                          Id Int64,
+                                          Name Utf8,
+                                          PRIMARY KEY (Id)
+                                      )
+                                      """;
                 await create.ExecuteNonQueryAsync();
             }
 
             var importer = conn.BeginBulkUpsertImport(table, ["Id", "Name"]);
 
             // $rows: List<Struct<Id:Int64, Name:Utf8>>
-            var rows = new YdbList([
-                YdbValue.MakeStruct(new Dictionary<string, YdbValue>
-                {
-                    ["Id"] = YdbValue.MakeInt64(1),
-                    ["Name"] = YdbValue.MakeUtf8("A")
-                }),
-                YdbValue.MakeStruct(new Dictionary<string, YdbValue>
-                {
-                    ["Id"] = YdbValue.MakeInt64(2),
-                    ["Name"] = YdbValue.MakeUtf8("B")
-                })
-            ]);
+            var rows = YdbList
+                .Struct("Id", "Name")
+                .AddRow(1L, "A")
+                .AddRow(2L, "B");
 
             await importer.AddListAsync(rows);
             await importer.FlushAsync();
@@ -532,7 +521,7 @@ INSERT INTO {tableName}
     }
 
     [Fact]
-    public async Task BulkUpsertImporter_AddListAsync_NotListOfStruct_ThrowsArgumentException()
+    public async Task BulkUpsertImporter_AddListAsync_WrongStructColumns_ThrowsArgumentException()
     {
         var table = $"BulkImporter_List_{Guid.NewGuid():N}";
 
@@ -542,21 +531,24 @@ INSERT INTO {tableName}
             await using (var create = conn.CreateCommand())
             {
                 create.CommandText = $"""
-                    CREATE TABLE {table} (
-                        Id Int64,
-                        Name Utf8,
-                        PRIMARY KEY (Id)
-                    )
-                    """;
+                                      CREATE TABLE {table} (
+                                          Id Int64,
+                                          Name Utf8,
+                                          PRIMARY KEY (Id)
+                                      )
+                                      """;
                 await create.ExecuteNonQueryAsync();
             }
 
             var importer = conn.BeginBulkUpsertImport(table, ["Id", "Name"]);
 
-            var wrong = new YdbList([1L, 2L, 3L]);
+            var wrong = YdbList
+                .Struct("Id", "Wrong")
+                .AddRow(1L, "A");
 
             var ex = await Assert.ThrowsAsync<ArgumentException>(() => importer.AddListAsync(wrong).AsTask());
-            Assert.Contains("expects a YdbList with a value like List<Struct<...>>", ex.Message);
+            Assert.Contains("mismatch", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("expected 'Name'", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

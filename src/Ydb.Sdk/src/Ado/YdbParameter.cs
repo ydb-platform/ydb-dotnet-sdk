@@ -37,7 +37,9 @@ public sealed class YdbParameter : DbParameter
 
     private string _parameterName = string.Empty;
 
-    public YdbParameter() { }
+    public YdbParameter()
+    {
+    }
 
     public YdbParameter(string parameterName, object value)
     {
@@ -122,14 +124,10 @@ public sealed class YdbParameter : DbParameter
             var value = Value;
 
             if (value is YdbValue ydbValue)
-            {
                 return ydbValue.GetProto();
-            }
 
             if (value == null || value == DBNull.Value)
-            {
                 return NullTypedValue();
-            }
 
             return YdbDbType switch
             {
@@ -147,13 +145,13 @@ public sealed class YdbParameter : DbParameter
                 YdbDbType.Double => MakeDouble(value),
                 YdbDbType.Decimal when value is decimal decimalValue => Decimal(decimalValue),
                 YdbDbType.Bytes => MakeBytes(value),
-                YdbDbType.Json when value is string stringValue => stringValue.Json(),
-                YdbDbType.JsonDocument when value is string stringValue => stringValue.JsonDocument(),
+                YdbDbType.Json when value is string sJson => sJson.Json(),
+                YdbDbType.JsonDocument when value is string sJsonDoc => sJsonDoc.JsonDocument(),
                 YdbDbType.Uuid when value is Guid guidValue => guidValue.Uuid(),
                 YdbDbType.Date => MakeDate(value),
-                YdbDbType.DateTime when value is DateTime dateTimeValue => dateTimeValue.Datetime(),
+                YdbDbType.DateTime when value is DateTime dt => dt.Datetime(),
                 YdbDbType.Timestamp => MakeTimestamp(value),
-                YdbDbType.Interval when value is TimeSpan timeSpanValue => timeSpanValue.Interval(),
+                YdbDbType.Interval when value is TimeSpan ts => ts.Interval(),
                 YdbDbType.Unspecified => Cast(value),
                 _ => throw ValueTypeNotSupportedException
             };
@@ -277,9 +275,7 @@ public sealed class YdbParameter : DbParameter
     private TypedValue NullTypedValue()
     {
         if (YdbNullByDbType.TryGetValue(YdbDbType, out var value))
-        {
             return value;
-        }
 
         if (YdbDbType == YdbDbType.Decimal)
         {
@@ -289,8 +285,7 @@ public sealed class YdbParameter : DbParameter
         }
 
         throw new InvalidOperationException(
-            "Writing value of 'null' is not supported without explicit mapping to the YdbDbType"
-        );
+            "Writing value of 'null' is not supported without explicit mapping to the YdbDbType");
     }
 
     private InvalidOperationException ValueTypeNotSupportedException =>

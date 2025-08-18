@@ -22,14 +22,14 @@ public class YdbListTests : TestBase
         var r1 = tv.Value.Items[0].Items;
         Assert.Equal(2, r1.Count);
         Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r1[0].ValueCase); // Id
-        Assert.Equal(Ydb.Value.ValueOneofCase.TextValue,  r1[1].ValueCase); // Value
+        Assert.Equal(Ydb.Value.ValueOneofCase.TextValue, r1[1].ValueCase); // Value
         Assert.Equal(1L, r1[0].Int64Value);
         Assert.Equal("a", r1[1].TextValue);
 
         var r2 = tv.Value.Items[1].Items;
         Assert.Equal(2, r2.Count);
         Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r2[0].ValueCase);
-        Assert.Equal(Ydb.Value.ValueOneofCase.TextValue,  r2[1].ValueCase);
+        Assert.Equal(Ydb.Value.ValueOneofCase.TextValue, r2[1].ValueCase);
         Assert.Equal(2L, r2[0].Int64Value);
         Assert.Equal("b", r2[1].TextValue);
     }
@@ -55,18 +55,27 @@ public class YdbListTests : TestBase
     }
 
     [Fact]
-    public void Struct_NullBeforeInference_Throws()
+    public void Struct_NullBeforeInference_InfersFromNextRow_UsesNullFlagValue()
     {
         var rows = YdbList
             .Struct("Id", "Value")
             .AddRow(1L, null)
             .AddRow(2L, "B");
 
-        var p = new YdbParameter("$rows", rows);
-        var ex = Assert.Throws<InvalidOperationException>(() => { var _ = p.TypedValue; });
+        var tv = new YdbParameter("$rows", rows).TypedValue;
 
-        Assert.Contains("null", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("explicit", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, tv.Value.Items.Count);
+
+        var r1 = tv.Value.Items[0].Items;
+        Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r1[0].ValueCase);
+        Assert.Equal(1L, r1[0].Int64Value);
+        Assert.Equal(Ydb.Value.ValueOneofCase.NullFlagValue, r1[1].ValueCase);
+
+        var r2 = tv.Value.Items[1].Items;
+        Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r2[0].ValueCase);
+        Assert.Equal(2L, r2[0].Int64Value);
+        Assert.Equal(Ydb.Value.ValueOneofCase.TextValue, r2[1].ValueCase);
+        Assert.Equal("B", r2[1].TextValue);
     }
 
     [Fact]
@@ -96,7 +105,10 @@ public class YdbListTests : TestBase
         var rows = YdbList.Struct("Id", "Value");
         var p = new YdbParameter("$rows", rows);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => { var _ = p.TypedValue; });
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+        {
+            var _ = p.TypedValue;
+        });
         Assert.Contains("infer", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -108,7 +120,10 @@ public class YdbListTests : TestBase
             .AddRow(1L, null);
 
         var p = new YdbParameter("$rows", rows);
-        var ex = Assert.Throws<InvalidOperationException>(() => { var _ = p.TypedValue; });
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+        {
+            var _ = p.TypedValue;
+        });
 
         Assert.Contains("only null", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("explicit", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -127,17 +142,28 @@ public class YdbListTests : TestBase
     }
 
     [Fact]
-    public void PlainMode_BackCompat_ListOfPrimitives()
+    public void Struct_SingleColumn_ListOfPrimitives()
     {
-        var plain = new YdbList([1L, 2L, 3L]);
-        var tv = new YdbParameter("$ids", plain).TypedValue;
+        // $ids: List<Struct<Id:Int64>>
+        var ids = YdbList
+            .Struct("Id")
+            .AddRow(1L)
+            .AddRow(2L)
+            .AddRow(3L);
+
+        var tv = new YdbParameter("$ids", ids).TypedValue;
 
         Assert.Equal(3, tv.Value.Items.Count);
-        Assert.All(tv.Value.Items, v => Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, v.ValueCase));
 
-        Assert.Equal(1L, tv.Value.Items[0].Int64Value);
-        Assert.Equal(2L, tv.Value.Items[1].Int64Value);
-        Assert.Equal(3L, tv.Value.Items[2].Int64Value);
+        Assert.All(tv.Value.Items, row =>
+        {
+            Assert.Single(row.Items);
+            Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, row.Items[0].ValueCase);
+        });
+
+        Assert.Equal(1L, tv.Value.Items[0].Items[0].Int64Value);
+        Assert.Equal(2L, tv.Value.Items[1].Items[0].Int64Value);
+        Assert.Equal(3L, tv.Value.Items[2].Items[0].Int64Value);
     }
 
     [Fact]
@@ -158,24 +184,24 @@ public class YdbListTests : TestBase
         Assert.True(pDelete.Value.Items.All(r => r.Items.Count == 1));
 
         const string yqlUpdate = """
-            UPDATE my_table ON
-            SELECT * FROM $to_update;
-            """;
+                                 UPDATE my_table ON
+                                 SELECT * FROM $to_update;
+                                 """;
         Assert.Contains("UPDATE my_table ON", yqlUpdate);
 
         const string yqlDelete = """
-            DELETE my_table ON
-            SELECT * FROM $to_delete;
-            """;
+                                 DELETE my_table ON
+                                 SELECT * FROM $to_delete;
+                                 """;
         Assert.Contains("DELETE my_table ON", yqlDelete);
 
         var insertRows = YdbList.Struct("Id", "Value").AddRow(10L, "v");
         var pInsert = new YdbParameter("$rows", insertRows).TypedValue;
         Assert.Single(pInsert.Value.Items);
         const string yqlInsert = """
-            INSERT INTO my_table
-            SELECT * FROM $rows;
-            """;
+                                 INSERT INTO my_table
+                                 SELECT * FROM $rows;
+                                 """;
         Assert.Contains("INSERT INTO my_table", yqlInsert);
         Assert.DoesNotContain(" ON", yqlInsert);
 
@@ -183,9 +209,9 @@ public class YdbListTests : TestBase
         var pUpsert = new YdbParameter("$rows", upsertRows).TypedValue;
         Assert.Single(pUpsert.Value.Items);
         const string yqlUpsert = """
-            UPSERT INTO my_table
-            SELECT * FROM $rows;
-            """;
+                                 UPSERT INTO my_table
+                                 SELECT * FROM $rows;
+                                 """;
         Assert.Contains("UPSERT INTO my_table", yqlUpsert);
         Assert.DoesNotContain(" ON", yqlUpsert);
     }
