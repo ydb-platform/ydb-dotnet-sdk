@@ -78,7 +78,7 @@ public class YdbDatabaseCreator(RelationalDatabaseCreatorDependencies dependenci
             .GetSchemaAsync("Tables", [null, "TABLE"], cancellationToken);
 
         var dropTableOperations = (from DataRow row in dataTable.Rows
-            select new DropTableOperation { Name = row["table_name"].ToString() }).ToList();
+            select new DropTableOperation { Name = row["table_name"]!.ToString() }).ToList();
 
         await Dependencies.MigrationCommandExecutor.ExecuteNonQueryAsync(Dependencies.MigrationsSqlGenerator
             .Generate(dropTableOperations), connection, cancellationToken);

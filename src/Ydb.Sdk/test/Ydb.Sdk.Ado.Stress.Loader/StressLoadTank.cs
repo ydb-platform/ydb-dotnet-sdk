@@ -37,13 +37,12 @@ public class StressLoadTank
                 Peak RPS: {PeakRps}
                 Medium RPS: {MediumRps}
                 Min RPS: {MinRps}
-                Load Pattern: Peak({PeakDuration}s) -> Medium({MediumDuration}s) -> Min({MinDuration}s) -> Medium({MediumDuration}s)
+                Load Pattern: Peak({PeakDuration}s) -> Medium({MediumDuration}s) -> Min({MinDuration}s)
                 Total Test Time: {TotalTime}s
                 Test Query: {TestQuery}
             """,
             _config.PeakRps, _config.MediumRps, _config.MinRps, _config.PeakDurationSeconds,
-            _config.MediumDurationSeconds, _config.MinDurationSeconds, _config.MediumDurationSeconds,
-            _config.TotalTestTimeSeconds, _config.TestQuery
+            _config.MediumDurationSeconds, _config.MinDurationSeconds, _config.TotalTestTimeSeconds, _config.TestQuery
         );
 
         var ctsRunJob = new CancellationTokenSource();

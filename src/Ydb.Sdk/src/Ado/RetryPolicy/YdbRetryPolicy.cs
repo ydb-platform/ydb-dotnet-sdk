@@ -39,7 +39,7 @@ public class YdbRetryPolicy : IRetryPolicy
 
     public TimeSpan? GetNextDelay(YdbException ydbException, int attempt)
     {
-        if (attempt >= _maxAttempt || !_enableRetryIdempotence && !ydbException.IsTransient)
+        if (attempt >= _maxAttempt || (!_enableRetryIdempotence && !ydbException.IsTransient))
             return null;
 
         return ydbException.Code switch
