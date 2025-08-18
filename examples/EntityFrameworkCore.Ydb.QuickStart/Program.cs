@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Design;
 
 await using var db = new BloggingContext();
 
+var db = db.CreateExecutionDatabase();
 // Create
 Console.WriteLine("Inserting a new blog");
 db.Add(new Blog { Url = "http://blogs.msdn.com/adonet" });

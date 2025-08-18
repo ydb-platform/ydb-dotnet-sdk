@@ -53,23 +53,6 @@ public sealed class YdbConnection : DbConnection
         ConnectionStringBuilder = connectionStringBuilder;
     }
 
-    public IBulkUpsertImporter BeginBulkUpsertImport(
-        string name,
-        IReadOnlyList<string> columns,
-        CancellationToken cancellationToken = default)
-    {
-        ThrowIfConnectionClosed();
-        if (CurrentTransaction is { Completed: false })
-            throw new InvalidOperationException("BulkUpsert cannot be used inside an active transaction.");
-
-        var database = ConnectionStringBuilder.Database.TrimEnd('/');
-        var tablePath = name.StartsWith(database) ? name : $"{database}/{name}";
-
-        var maxBytes = ConnectionStringBuilder.MaxSendMessageSize;
-
-        return new BulkUpsertImporter(Session.Driver, tablePath, columns, maxBytes, cancellationToken);
-    }
-
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
     {
         ThrowIfConnectionClosed();
@@ -279,4 +262,22 @@ public sealed class YdbConnection : DbConnection
     /// to their pool.
     /// </summary>
     public static Task ClearAllPools() => PoolManager.ClearAllPools();
+
+    public IBulkUpsertImporter BeginBulkUpsertImport(
+        string name,
+        IReadOnlyList<string> columns,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfConnectionClosed();
+
+        if (CurrentTransaction is { Completed: false })
+            throw new InvalidOperationException("BulkUpsert cannot be used inside an active transaction.");
+
+        var database = ConnectionStringBuilder.Database.TrimEnd('/');
+        var tablePath = name.StartsWith(database) ? name : $"{database}/{name}";
+
+        var maxBytes = ConnectionStringBuilder.MaxSendMessageSize;
+
+        return new BulkUpsertImporter(Session.Driver, tablePath, columns, maxBytes, cancellationToken);
+    }
 }
