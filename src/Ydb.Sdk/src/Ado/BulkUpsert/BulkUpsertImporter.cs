@@ -31,6 +31,14 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
         _cancellationToken = cancellationToken;
     }
 
+    /// <summary>Adds one line to the current BulkUpsert batch.</summary>
+    /// <param name="values">Column values are in array order <c>columns</c>.</param>
+    /// <remarks>Types: <see cref="YdbValue"/> / <see cref="YdbParameter"/> / <see cref="YdbList"/> — as is; others are displayed.</remarks>
+    /// <example><code>// columns: ["Id","Name"]
+    /// await importer.AddRowAsync(1, "Alice");
+    /// </code></example>
+    /// <exception cref="ArgumentException">The number of values is not equal to the number of columns.</exception>
+    /// <exception cref="InvalidOperationException">The value cannot be compared with the YDB type.</exception>
     public async ValueTask AddRowAsync(params object[] values)
     {
         if (values.Length != _columns.Count)
@@ -40,6 +48,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
             {
                 YdbValue ydbValue => ydbValue.GetProto(),
                 YdbParameter param => param.TypedValue,
+                YdbList list => list.ToTypedValue(),
                 _ => new YdbParameter { Value = v }.TypedValue
             }
         ).ToArray();
@@ -59,6 +68,56 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
 
         _structType ??= new StructType
             { Members = { _columns.Select((col, i) => new StructMember { Name = col, Type = ydbValues[i].Type }) } };
+    }
+    
+    /// <summary>
+    /// Adds a set of strings in the form <see cref="YdbList"/>.
+    /// </summary>
+    /// <remarks>
+    /// The expected value is of the type <c>List&lt;Struct&lt;...&gt;&gt;</c>. Names and order of fields <c>Struct</c>
+    /// they must exactly match the array <c>columns</c> passed when creating the importer..
+    /// Example: <c>columns=["Id","Name"]</c> → <c>List&lt;Struct&lt;Id:Int64, Name:Utf8&gt;&gt;</c>.
+    /// </remarks>
+    public async ValueTask AddListAsync(YdbList list)
+    {
+        var tv = list.ToTypedValue();
+
+        if (tv.Type.TypeCase != Type.TypeOneofCase.ListType ||
+            tv.Type.ListType.Item.TypeCase != Type.TypeOneofCase.StructType)
+        {
+            throw new ArgumentException(
+                "BulkUpsertImporter.AddListAsync expects a YdbList with a value like List<Struct<...>>",
+                nameof(list));
+        }
+
+        var incomingStruct = tv.Type.ListType.Item.StructType;
+
+        if (incomingStruct.Members.Count != _columns.Count)
+            throw new ArgumentException(
+                $"The number of columns in the List<Struct> ({incomingStruct.Members.Count}) " +
+                $"does not match the expected ({_columns.Count}).");
+
+        for (var i = 0; i < _columns.Count; i++)
+        {
+            var expected = _columns[i];
+            var actual = incomingStruct.Members[i].Name;
+            if (!string.Equals(expected, actual, StringComparison.Ordinal))
+                throw new ArgumentException(
+                    $"Column name mismatch at position {i}: expected '{expected}', received '{actual}'.");
+        }
+
+        _structType ??= incomingStruct;
+
+        foreach (var rowValue in tv.Value.Items)
+        {
+            var rowSize = rowValue.CalculateSize();
+
+            if (_currentBytes + rowSize > _maxBatchByteSize && _rows.Count > 0)
+                await FlushAsync().ConfigureAwait(false);
+
+            _rows.Add(rowValue);
+            _currentBytes += rowSize;
+        }
     }
 
     public async ValueTask FlushAsync()

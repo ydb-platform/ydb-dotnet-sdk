@@ -2,6 +2,7 @@ using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Ado.YdbType;
+using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -476,5 +477,92 @@ INSERT INTO {tableName}
         await importer.AddRowAsync(1, "NotExists");
 
         await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
+    }
+    
+        [Fact]
+    public async Task BulkUpsertImporter_AddListAsync_HappyPath_InsertsRows()
+    {
+        var table = $"BulkImporter_List_{Guid.NewGuid():N}";
+
+        await using var conn = await CreateOpenConnectionAsync();
+        try
+        {
+            await using (var create = conn.CreateCommand())
+            {
+                create.CommandText = $"""
+                    CREATE TABLE {table} (
+                        Id Int64,
+                        Name Utf8,
+                        PRIMARY KEY (Id)
+                    )
+                    """;
+                await create.ExecuteNonQueryAsync();
+            }
+
+            var importer = conn.BeginBulkUpsertImport(table, ["Id", "Name"]);
+
+            // $rows: List<Struct<Id:Int64, Name:Utf8>>
+            var rows = new YdbList([
+                YdbValue.MakeStruct(new Dictionary<string, YdbValue>
+                {
+                    ["Id"] = YdbValue.MakeInt64(1),
+                    ["Name"] = YdbValue.MakeUtf8("A")
+                }),
+                YdbValue.MakeStruct(new Dictionary<string, YdbValue>
+                {
+                    ["Id"] = YdbValue.MakeInt64(2),
+                    ["Name"] = YdbValue.MakeUtf8("B")
+                })
+            ]);
+
+            await importer.AddListAsync(rows);
+            await importer.FlushAsync();
+
+            await using var check = conn.CreateCommand();
+            check.CommandText = $"SELECT COUNT(*) FROM {table}";
+            var count = Convert.ToInt32(await check.ExecuteScalarAsync());
+            Assert.Equal(2, count);
+        }
+        finally
+        {
+            await using var drop = conn.CreateCommand();
+            drop.CommandText = $"DROP TABLE {table}";
+            await drop.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task BulkUpsertImporter_AddListAsync_NotListOfStruct_ThrowsArgumentException()
+    {
+        var table = $"BulkImporter_List_{Guid.NewGuid():N}";
+
+        await using var conn = await CreateOpenConnectionAsync();
+        try
+        {
+            await using (var create = conn.CreateCommand())
+            {
+                create.CommandText = $"""
+                    CREATE TABLE {table} (
+                        Id Int64,
+                        Name Utf8,
+                        PRIMARY KEY (Id)
+                    )
+                    """;
+                await create.ExecuteNonQueryAsync();
+            }
+
+            var importer = conn.BeginBulkUpsertImport(table, ["Id", "Name"]);
+
+            var wrong = new YdbList([1L, 2L, 3L]);
+
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => importer.AddListAsync(wrong).AsTask());
+            Assert.Contains("expects a YdbList with a value like List<Struct<...>>", ex.Message);
+        }
+        finally
+        {
+            await using var drop = conn.CreateCommand();
+            drop.CommandText = $"DROP TABLE {table}";
+            await drop.ExecuteNonQueryAsync();
+        }
     }
 }
