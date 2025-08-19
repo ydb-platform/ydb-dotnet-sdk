@@ -124,10 +124,14 @@ public sealed class YdbParameter : DbParameter
             var value = Value;
 
             if (value is YdbValue ydbValue)
+            {
                 return ydbValue.GetProto();
+            }
 
             if (value == null || value == DBNull.Value)
+            {
                 return NullTypedValue();
+            }
 
             return YdbDbType switch
             {
@@ -145,13 +149,13 @@ public sealed class YdbParameter : DbParameter
                 YdbDbType.Double => MakeDouble(value),
                 YdbDbType.Decimal when value is decimal decimalValue => Decimal(decimalValue),
                 YdbDbType.Bytes => MakeBytes(value),
-                YdbDbType.Json when value is string sJson => sJson.Json(),
-                YdbDbType.JsonDocument when value is string sJsonDoc => sJsonDoc.JsonDocument(),
+                YdbDbType.Json when value is string stringJsonValue => stringJsonValue.Json(),
+                YdbDbType.JsonDocument when value is string stringJsonDocumentValue => stringJsonDocumentValue.JsonDocument(),
                 YdbDbType.Uuid when value is Guid guidValue => guidValue.Uuid(),
                 YdbDbType.Date => MakeDate(value),
-                YdbDbType.DateTime when value is DateTime dt => dt.Datetime(),
+                YdbDbType.DateTime when value is DateTime dateTimeValue => dateTimeValue.Datetime(),
                 YdbDbType.Timestamp => MakeTimestamp(value),
-                YdbDbType.Interval when value is TimeSpan ts => ts.Interval(),
+                YdbDbType.Interval when value is TimeSpan timeSpanValue => timeSpanValue.Interval(),
                 YdbDbType.Unspecified => Cast(value),
                 _ => throw ValueTypeNotSupportedException
             };

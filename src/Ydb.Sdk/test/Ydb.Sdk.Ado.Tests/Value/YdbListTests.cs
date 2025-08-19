@@ -4,215 +4,344 @@ using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests.Value;
 
-public class YdbListTests : TestBase
+public class YdbListIntegrationTests : TestBase
 {
     [Fact]
-    public void Struct_BasicShape_ProducesListOfStruct()
+    public async Task Insert_With_YdbList_Works()
     {
-        // $rows: List<Struct<Id:Int64, Value:Utf8>>
-        var rows = YdbList
-            .Struct("Id", "Value")
-            .AddRow(1L, "a")
-            .AddRow(2L, "b");
-
-        var tv = new YdbParameter("$rows", rows).TypedValue;
-
-        Assert.Equal(2, tv.Value.Items.Count);
-
-        var r1 = tv.Value.Items[0].Items;
-        Assert.Equal(2, r1.Count);
-        Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r1[0].ValueCase); // Id
-        Assert.Equal(Ydb.Value.ValueOneofCase.TextValue, r1[1].ValueCase); // Value
-        Assert.Equal(1L, r1[0].Int64Value);
-        Assert.Equal("a", r1[1].TextValue);
-
-        var r2 = tv.Value.Items[1].Items;
-        Assert.Equal(2, r2.Count);
-        Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r2[0].ValueCase);
-        Assert.Equal(Ydb.Value.ValueOneofCase.TextValue, r2[1].ValueCase);
-        Assert.Equal(2L, r2[0].Int64Value);
-        Assert.Equal("b", r2[1].TextValue);
-    }
-
-    [Fact]
-    public void Struct_AllNonNullThenNull_UsesNullFlagValue()
-    {
-        var rows = YdbList
-            .Struct(["Id", "Name"], [YdbDbType.Int64, YdbDbType.Text])
-            .AddRow(1L, "A")
-            .AddRow(2L, null);
-
-        var tv = new YdbParameter("$rows", rows).TypedValue;
-
-        Assert.Equal(2, tv.Value.Items.Count);
-
-        var r2 = tv.Value.Items[1].Items;
-        Assert.Equal(2, r2.Count);
-        Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r2[0].ValueCase);
-        Assert.Equal(2L, r2[0].Int64Value);
-
-        Assert.Equal(Ydb.Value.ValueOneofCase.NullFlagValue, r2[1].ValueCase);
-    }
-
-    [Fact]
-    public void Struct_NullBeforeInference_InfersFromNextRow_UsesNullFlagValue()
-    {
-        var rows = YdbList
-            .Struct("Id", "Value")
-            .AddRow(1L, null)
-            .AddRow(2L, "B");
-
-        var tv = new YdbParameter("$rows", rows).TypedValue;
-
-        Assert.Equal(2, tv.Value.Items.Count);
-
-        var r1 = tv.Value.Items[0].Items;
-        Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r1[0].ValueCase);
-        Assert.Equal(1L, r1[0].Int64Value);
-        Assert.Equal(Ydb.Value.ValueOneofCase.NullFlagValue, r1[1].ValueCase);
-
-        var r2 = tv.Value.Items[1].Items;
-        Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r2[0].ValueCase);
-        Assert.Equal(2L, r2[0].Int64Value);
-        Assert.Equal(Ydb.Value.ValueOneofCase.TextValue, r2[1].ValueCase);
-        Assert.Equal("B", r2[1].TextValue);
-    }
-
-    [Fact]
-    public void Struct_WithTypeHints_AllowsTypedNulls()
-    {
-        var rows = YdbList.Struct(
-                ["Id", "Name"],
-                [YdbDbType.Int64, YdbDbType.Text])
-            .AddRow(1L, "A")
-            .AddRow(2L, null);
-
-        var tv = new YdbParameter("$rows", rows).TypedValue;
-
-        Assert.Equal(2, tv.Value.Items.Count);
-
-        var r2 = tv.Value.Items[1].Items;
-        Assert.Equal(2, r2.Count);
-        Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, r2[0].ValueCase);
-        Assert.Equal(2L, r2[0].Int64Value);
-
-        Assert.Equal(Ydb.Value.ValueOneofCase.NullFlagValue, r2[1].ValueCase);
-    }
-
-    [Fact]
-    public void Struct_EmptyWithoutTypeHints_Throws()
-    {
-        var rows = YdbList.Struct("Id", "Value");
-        var p = new YdbParameter("$rows", rows);
-
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var table = $"ydb_list_insert_{Guid.NewGuid():N}";
+        await using var conn = await CreateOpenConnectionAsync();
+        try
         {
-            var _ = p.TypedValue;
-        });
-        Assert.Contains("infer", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
+            await using (var create = conn.CreateCommand())
+            {
+                create.CommandText = $"""
+                    CREATE TABLE {table} (
+                        Id Int64,
+                        Value Utf8,
+                        PRIMARY KEY (Id)
+                    )
+                    """;
+                await create.ExecuteNonQueryAsync();
+            }
 
-    [Fact]
-    public void Struct_NullWithoutAnyNonNull_InColumn_Throws()
-    {
-        var rows = YdbList
-            .Struct("Id", "Value")
-            .AddRow(1L, null);
+            var rows = YdbList.Struct("Id", "Value")
+                .AddRow(1L, "a")
+                .AddRow(2L, "b");
 
-        var p = new YdbParameter("$rows", rows);
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = $"""
+                    INSERT INTO {table}
+                    SELECT * FROM AS_TABLE($rows);
+                    """;
+                cmd.Parameters.Add(new YdbParameter("$rows", rows));
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var check = conn.CreateCommand())
+            {
+                check.CommandText = $"SELECT COUNT(*) FROM {table}";
+                var count = Convert.ToInt32(await check.ExecuteScalarAsync());
+                Assert.Equal(2, count);
+            }
+        }
+        finally
         {
-            var _ = p.TypedValue;
-        });
-
-        Assert.Contains("only null", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("explicit", ex.Message, StringComparison.OrdinalIgnoreCase);
+            await using var drop = conn.CreateCommand();
+            drop.CommandText = $"DROP TABLE {table}";
+            await drop.ExecuteNonQueryAsync();
+        }
     }
 
     [Fact]
-    public void Struct_AddRow_WrongArity_Throws()
+    public async Task Upsert_With_YdbList_Inserts_And_Updates()
     {
-        var rows = YdbList.Struct("Id", "Value");
-
-        var ex1 = Assert.Throws<ArgumentException>(() => rows.AddRow(1L));
-        Assert.Contains("Expected 2 values", ex1.Message, StringComparison.OrdinalIgnoreCase);
-
-        var ex2 = Assert.Throws<ArgumentException>(() => rows.AddRow(1L, "a", 123));
-        Assert.Contains("Expected 2 values", ex2.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void Struct_SingleColumn_ListOfPrimitives()
-    {
-        // $ids: List<Struct<Id:Int64>>
-        var ids = YdbList
-            .Struct("Id")
-            .AddRow(1L)
-            .AddRow(2L)
-            .AddRow(3L);
-
-        var tv = new YdbParameter("$ids", ids).TypedValue;
-
-        Assert.Equal(3, tv.Value.Items.Count);
-
-        Assert.All(tv.Value.Items, row =>
+        var table = $"ydb_list_upsert_{Guid.NewGuid():N}";
+        await using var conn = await CreateOpenConnectionAsync();
+        try
         {
-            Assert.Single(row.Items);
-            Assert.Equal(Ydb.Value.ValueOneofCase.Int64Value, row.Items[0].ValueCase);
-        });
+            await using (var create = conn.CreateCommand())
+            {
+                create.CommandText = $"""
+                    CREATE TABLE {table} (
+                        Id Int64,
+                        Value Utf8,
+                        PRIMARY KEY (Id)
+                    )
+                    """;
+                await create.ExecuteNonQueryAsync();
+            }
 
-        Assert.Equal(1L, tv.Value.Items[0].Items[0].Int64Value);
-        Assert.Equal(2L, tv.Value.Items[1].Items[0].Int64Value);
-        Assert.Equal(3L, tv.Value.Items[2].Items[0].Int64Value);
+            await using (var seed = conn.CreateCommand())
+            {
+                seed.CommandText = $"INSERT INTO {table} (Id, Value) VALUES (1, 'old')";
+                await seed.ExecuteNonQueryAsync();
+            }
+
+            var rows = YdbList.Struct("Id", "Value")
+                .AddRow(1L, "new")
+                .AddRow(2L, "two");
+
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = $"""
+                    UPSERT INTO {table}
+                    SELECT * FROM AS_TABLE($rows);
+                    """;
+                cmd.Parameters.Add(new YdbParameter("$rows", rows));
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var check = conn.CreateCommand())
+            {
+                check.CommandText = $"SELECT Value FROM {table} WHERE Id=1";
+                Assert.Equal("new", (string)(await check.ExecuteScalarAsync())!);
+
+                check.CommandText = $"SELECT Value FROM {table} WHERE Id=2";
+                Assert.Equal("two", (string)(await check.ExecuteScalarAsync())!);
+            }
+        }
+        finally
+        {
+            await using var drop = conn.CreateCommand();
+            drop.CommandText = $"DROP TABLE {table}";
+            await drop.ExecuteNonQueryAsync();
+        }
     }
 
     [Fact]
-    public void Shape_For_Update_Delete_Insert_Upsert_Samples()
+    public async Task UpdateOn_With_YdbList_ChangesValues()
     {
-        var toUpdate = YdbList.Struct("Id", "Value")
-            .AddRow(1L, "new-1")
-            .AddRow(2L, "new-2");
-        var pUpdate = new YdbParameter("$to_update", toUpdate).TypedValue;
-        Assert.Equal(2, pUpdate.Value.Items.Count);
-        Assert.True(pUpdate.Value.Items.All(r => r.Items.Count == 2));
+        var table = $"ydb_list_update_on_{Guid.NewGuid():N}";
+        await using var conn = await CreateOpenConnectionAsync();
+        try
+        {
+            await using (var create = conn.CreateCommand())
+            {
+                create.CommandText = $"""
+                    CREATE TABLE {table} (
+                        Id Int64,
+                        Value Utf8,
+                        PRIMARY KEY (Id)
+                    )
+                    """;
+                await create.ExecuteNonQueryAsync();
+            }
 
-        var toDelete = YdbList.Struct("Id")
-            .AddRow(1L)
-            .AddRow(3L);
-        var pDelete = new YdbParameter("$to_delete", toDelete).TypedValue;
-        Assert.Equal(2, pDelete.Value.Items.Count);
-        Assert.True(pDelete.Value.Items.All(r => r.Items.Count == 1));
+            await using (var seed = conn.CreateCommand())
+            {
+                seed.CommandText = $"INSERT INTO {table} (Id, Value) VALUES (1,'a'),(2,'b')";
+                await seed.ExecuteNonQueryAsync();
+            }
 
-        const string yqlUpdate = """
-                                 UPDATE my_table ON
-                                 SELECT * FROM $to_update;
-                                 """;
-        Assert.Contains("UPDATE my_table ON", yqlUpdate);
+            var toUpdate = YdbList.Struct("Id", "Value")
+                .AddRow(1L, "x")
+                .AddRow(2L, "y");
 
-        const string yqlDelete = """
-                                 DELETE my_table ON
-                                 SELECT * FROM $to_delete;
-                                 """;
-        Assert.Contains("DELETE my_table ON", yqlDelete);
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = $"""
+                    UPDATE {table} ON
+                    SELECT * FROM AS_TABLE($to_update);
+                    """;
+                cmd.Parameters.Add(new YdbParameter("$to_update", toUpdate));
+                await cmd.ExecuteNonQueryAsync();
+            }
 
-        var insertRows = YdbList.Struct("Id", "Value").AddRow(10L, "v");
-        var pInsert = new YdbParameter("$rows", insertRows).TypedValue;
-        Assert.Single(pInsert.Value.Items);
-        const string yqlInsert = """
-                                 INSERT INTO my_table
-                                 SELECT * FROM $rows;
-                                 """;
-        Assert.Contains("INSERT INTO my_table", yqlInsert);
-        Assert.DoesNotContain(" ON", yqlInsert);
+            await using (var check = conn.CreateCommand())
+            {
+                check.CommandText = $"SELECT Value FROM {table} WHERE Id=1";
+                Assert.Equal("x", (string)(await check.ExecuteScalarAsync())!);
 
-        var upsertRows = YdbList.Struct("Id", "Value").AddRow(10L, "vv");
-        var pUpsert = new YdbParameter("$rows", upsertRows).TypedValue;
-        Assert.Single(pUpsert.Value.Items);
-        const string yqlUpsert = """
-                                 UPSERT INTO my_table
-                                 SELECT * FROM $rows;
-                                 """;
-        Assert.Contains("UPSERT INTO my_table", yqlUpsert);
-        Assert.DoesNotContain(" ON", yqlUpsert);
+                check.CommandText = $"SELECT Value FROM {table} WHERE Id=2";
+                Assert.Equal("y", (string)(await check.ExecuteScalarAsync())!);
+            }
+        }
+        finally
+        {
+            await using var drop = conn.CreateCommand();
+            drop.CommandText = $"DROP TABLE {table}";
+            await drop.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task DeleteOn_With_YdbList_RemovesRows()
+    {
+        var table = $"ydb_list_delete_on_{Guid.NewGuid():N}";
+        await using var conn = await CreateOpenConnectionAsync();
+        try
+        {
+            await using (var create = conn.CreateCommand())
+            {
+                create.CommandText = $"""
+                    CREATE TABLE {table} (
+                        Id Int64,
+                        Value Utf8,
+                        PRIMARY KEY (Id)
+                    )
+                    """;
+                await create.ExecuteNonQueryAsync();
+            }
+
+            await using (var seed = conn.CreateCommand())
+            {
+                seed.CommandText = $"INSERT INTO {table} (Id, Value) VALUES (1,'a'),(2,'b'),(3,'c')";
+                await seed.ExecuteNonQueryAsync();
+            }
+
+            var toDelete = YdbList.Struct("Id")
+                .AddRow(1L)
+                .AddRow(3L);
+
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = $"""
+                    DELETE FROM {table} ON
+                    SELECT * FROM AS_TABLE($to_delete);
+                    """;
+                cmd.Parameters.Add(new YdbParameter("$to_delete", toDelete));
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var check = conn.CreateCommand())
+            {
+                check.CommandText = $"SELECT COUNT(*) FROM {table}";
+                var count = Convert.ToInt32(await check.ExecuteScalarAsync());
+                Assert.Equal(1, count);
+
+                check.CommandText = $"SELECT Value FROM {table} WHERE Id=2";
+                Assert.Equal("b", (string)(await check.ExecuteScalarAsync())!);
+            }
+        }
+        finally
+        {
+            await using var drop = conn.CreateCommand();
+            drop.CommandText = $"DROP TABLE {table}";
+            await drop.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Insert_With_OptionalUtf8_And_Inference_NullThenNonNull()
+    {
+        var table = $"ydb_list_nulls_{Guid.NewGuid():N}";
+        await using var conn = await CreateOpenConnectionAsync();
+        try
+        {
+            await using (var create = conn.CreateCommand())
+            {
+                create.CommandText = $"""
+                    CREATE TABLE {table} (
+                        Id   Int64,
+                        Name Utf8?,
+                        PRIMARY KEY (Id)
+                    )
+                    """;
+                await create.ExecuteNonQueryAsync();
+            }
+
+            var rows1 = YdbList.Struct(
+                    ["Id", "Name"],
+                    [YdbDbType.Int64, YdbDbType.Text])
+                .AddRow(1L, "A")
+                .AddRow(2L, null);
+
+            await using (var insert1 = conn.CreateCommand())
+            {
+                insert1.CommandText = $"""
+                    INSERT INTO {table}
+                    SELECT * FROM AS_TABLE($rows);
+                    """;
+                insert1.Parameters.Add(new YdbParameter("$rows", rows1));
+                await insert1.ExecuteNonQueryAsync();
+            }
+
+            var rows2 = YdbList.Struct(
+                    ["Id", "Name"],
+                    [YdbDbType.Int64, YdbDbType.Text])
+                .AddRow(3L, null)
+                .AddRow(4L, "B");
+
+            await using (var insert2 = conn.CreateCommand())
+            {
+                insert2.CommandText = $"""
+                    INSERT INTO {table}
+                    SELECT * FROM AS_TABLE($rows);
+                    """;
+                insert2.Parameters.Add(new YdbParameter("$rows", rows2));
+                await insert2.ExecuteNonQueryAsync();
+            }
+
+            await using (var check = conn.CreateCommand())
+            {
+                check.CommandText = $"SELECT Name IS NULL FROM {table} WHERE Id=2";
+                Assert.True((bool)(await check.ExecuteScalarAsync())!);
+
+                check.CommandText = $"SELECT Name IS NULL FROM {table} WHERE Id=3";
+                Assert.True((bool)(await check.ExecuteScalarAsync())!);
+
+                check.CommandText = $"SELECT Name FROM {table} WHERE Id=4";
+                Assert.Equal("B", (string)(await check.ExecuteScalarAsync())!);
+            }
+        }
+        finally
+        {
+            await using var drop = conn.CreateCommand();
+            drop.CommandText = $"DROP TABLE {table}";
+            await drop.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Bulk_Load_With_List_Mode_Sanity()
+    {
+        var table = $"ydb_list_load_{Guid.NewGuid():N}";
+        const int n = 5_000;
+
+        await using var conn = await CreateOpenConnectionAsync();
+        try
+        {
+            await using (var create = conn.CreateCommand())
+            {
+                create.CommandText = $"""
+                    CREATE TABLE {table} (
+                        Id Int64,
+                        Name Utf8,
+                        PRIMARY KEY (Id)
+                    )
+                    """;
+                await create.ExecuteNonQueryAsync();
+            }
+
+            for (var offset = 0; offset < n; offset += 1000)
+            {
+                var rows = YdbList.Struct("Id", "Name");
+                for (var i = offset; i < Math.Min(n, offset + 1000); i++)
+                    rows.AddRow((long)i, $"v{i}");
+
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"""
+                    UPSERT INTO {table}
+                    SELECT * FROM AS_TABLE($rows);
+                    """;
+                cmd.Parameters.Add(new YdbParameter("$rows", rows));
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var check = conn.CreateCommand())
+            {
+                check.CommandText = $"SELECT COUNT(*) FROM {table}";
+                var count = Convert.ToInt32(await check.ExecuteScalarAsync());
+                Assert.Equal(n, count);
+            }
+        }
+        finally
+        {
+            await using var drop = conn.CreateCommand();
+            drop.CommandText = $"DROP TABLE {table}";
+            await drop.ExecuteNonQueryAsync();
+        }
     }
 }

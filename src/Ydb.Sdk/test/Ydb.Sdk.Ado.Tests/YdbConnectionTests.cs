@@ -173,7 +173,10 @@ INSERT INTO {tableName}
         ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
         var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
         Assert.True(await ydbDataReader.ReadAsync());
-        for (var i = 0; i < 21; i++) Assert.True(ydbDataReader.IsDBNull(i));
+        for (var i = 0; i < 21; i++)
+        {
+            Assert.True(ydbDataReader.IsDBNull(i));
+        }
 
         Assert.False(await ydbDataReader.ReadAsync());
 
@@ -311,7 +314,7 @@ INSERT INTO {tableName}
                 createCmd.CommandText = $"""
                                          CREATE TABLE {tableName} (
                                              Id Int32,
-                                             Name Text,
+                                             Name Utf8,
                                              PRIMARY KEY (Id)
                                          )
                                          """;
