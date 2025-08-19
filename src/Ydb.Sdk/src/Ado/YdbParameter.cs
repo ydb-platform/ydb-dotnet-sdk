@@ -150,7 +150,8 @@ public sealed class YdbParameter : DbParameter
                 YdbDbType.Decimal when value is decimal decimalValue => Decimal(decimalValue),
                 YdbDbType.Bytes => MakeBytes(value),
                 YdbDbType.Json when value is string stringJsonValue => stringJsonValue.Json(),
-                YdbDbType.JsonDocument when value is string stringJsonDocumentValue => stringJsonDocumentValue.JsonDocument(),
+                YdbDbType.JsonDocument when value is string stringJsonDocumentValue => stringJsonDocumentValue
+                    .JsonDocument(),
                 YdbDbType.Uuid when value is Guid guidValue => guidValue.Uuid(),
                 YdbDbType.Date => MakeDate(value),
                 YdbDbType.DateTime when value is DateTime dateTimeValue => dateTimeValue.Datetime(),

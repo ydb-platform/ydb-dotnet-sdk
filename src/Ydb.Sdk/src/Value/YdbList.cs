@@ -74,9 +74,9 @@ public sealed class YdbList
 
             var tv = v switch
             {
-                YdbValue yv    => yv.GetProto(),
+                YdbValue yv => yv.GetProto(),
                 YdbParameter p => p.TypedValue,
-                _              => new YdbParameter { Value = v }.TypedValue
+                _ => new YdbParameter { Value = v }.TypedValue
             };
 
             var t = tv.Type;
@@ -143,7 +143,7 @@ public sealed class YdbList
 
         return new TypedValue
         {
-            Type  = new Type { ListType = new ListType { Item = new Type { StructType = structType } } },
+            Type = new Type { ListType = new ListType { Item = new Type { StructType = structType } } },
             Value = new Ydb.Value { Items = { _rows } }
         };
     }

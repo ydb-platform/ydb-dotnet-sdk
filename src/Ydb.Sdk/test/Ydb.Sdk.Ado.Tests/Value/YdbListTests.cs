@@ -16,12 +16,12 @@ public class YdbListIntegrationTests : TestBase
             await using (var create = conn.CreateCommand())
             {
                 create.CommandText = $"""
-                    CREATE TABLE {table} (
-                        Id Int64,
-                        Value Utf8,
-                        PRIMARY KEY (Id)
-                    )
-                    """;
+                                      CREATE TABLE {table} (
+                                          Id Int64,
+                                          Value Utf8,
+                                          PRIMARY KEY (Id)
+                                      )
+                                      """;
                 await create.ExecuteNonQueryAsync();
             }
 
@@ -32,9 +32,9 @@ public class YdbListIntegrationTests : TestBase
             await using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = $"""
-                    INSERT INTO {table}
-                    SELECT * FROM AS_TABLE($rows);
-                    """;
+                                   INSERT INTO {table}
+                                   SELECT * FROM AS_TABLE($rows);
+                                   """;
                 cmd.Parameters.Add(new YdbParameter("$rows", rows));
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -64,12 +64,12 @@ public class YdbListIntegrationTests : TestBase
             await using (var create = conn.CreateCommand())
             {
                 create.CommandText = $"""
-                    CREATE TABLE {table} (
-                        Id Int64,
-                        Value Utf8,
-                        PRIMARY KEY (Id)
-                    )
-                    """;
+                                      CREATE TABLE {table} (
+                                          Id Int64,
+                                          Value Utf8,
+                                          PRIMARY KEY (Id)
+                                          )
+                                      """;
                 await create.ExecuteNonQueryAsync();
             }
 
@@ -86,9 +86,9 @@ public class YdbListIntegrationTests : TestBase
             await using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = $"""
-                    UPSERT INTO {table}
-                    SELECT * FROM AS_TABLE($rows);
-                    """;
+                                   UPSERT INTO {table}
+                                          SELECT * FROM AS_TABLE($rows);
+                                   """;
                 cmd.Parameters.Add(new YdbParameter("$rows", rows));
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -120,12 +120,12 @@ public class YdbListIntegrationTests : TestBase
             await using (var create = conn.CreateCommand())
             {
                 create.CommandText = $"""
-                    CREATE TABLE {table} (
-                        Id Int64,
-                        Value Utf8,
-                        PRIMARY KEY (Id)
-                    )
-                    """;
+                                      CREATE TABLE {table} (
+                                          Id Int64,
+                                          Value Utf8,
+                                          PRIMARY KEY (Id)
+                                          )
+                                      """;
                 await create.ExecuteNonQueryAsync();
             }
 
@@ -142,9 +142,9 @@ public class YdbListIntegrationTests : TestBase
             await using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = $"""
-                    UPDATE {table} ON
-                    SELECT * FROM AS_TABLE($to_update);
-                    """;
+                                   UPDATE {table} ON
+                                   SELECT * FROM AS_TABLE($to_update);
+                                   """;
                 cmd.Parameters.Add(new YdbParameter("$to_update", toUpdate));
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -176,12 +176,12 @@ public class YdbListIntegrationTests : TestBase
             await using (var create = conn.CreateCommand())
             {
                 create.CommandText = $"""
-                    CREATE TABLE {table} (
-                        Id Int64,
-                        Value Utf8,
-                        PRIMARY KEY (Id)
-                    )
-                    """;
+                                      CREATE TABLE {table} (
+                                          Id Int64,
+                                          Value Utf8,
+                                          PRIMARY KEY (Id)
+                                          )
+                                      """;
                 await create.ExecuteNonQueryAsync();
             }
 
@@ -198,9 +198,9 @@ public class YdbListIntegrationTests : TestBase
             await using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = $"""
-                    DELETE FROM {table} ON
-                    SELECT * FROM AS_TABLE($to_delete);
-                    """;
+                                   DELETE FROM {table} ON
+                                          SELECT * FROM AS_TABLE($to_delete);
+                                   """;
                 cmd.Parameters.Add(new YdbParameter("$to_delete", toDelete));
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -233,12 +233,12 @@ public class YdbListIntegrationTests : TestBase
             await using (var create = conn.CreateCommand())
             {
                 create.CommandText = $"""
-                    CREATE TABLE {table} (
-                        Id   Int64,
-                        Name Utf8?,
-                        PRIMARY KEY (Id)
-                    )
-                    """;
+                                      CREATE TABLE {table} (
+                                          Id Int64,
+                                          Name Utf8?,
+                                          PRIMARY KEY (Id)
+                                          )
+                                      """;
                 await create.ExecuteNonQueryAsync();
             }
 
@@ -251,9 +251,9 @@ public class YdbListIntegrationTests : TestBase
             await using (var insert1 = conn.CreateCommand())
             {
                 insert1.CommandText = $"""
-                    INSERT INTO {table}
-                    SELECT * FROM AS_TABLE($rows);
-                    """;
+                                       INSERT INTO {table}
+                                       SELECT * FROM AS_TABLE($rows);
+                                       """;
                 insert1.Parameters.Add(new YdbParameter("$rows", rows1));
                 await insert1.ExecuteNonQueryAsync();
             }
@@ -267,9 +267,9 @@ public class YdbListIntegrationTests : TestBase
             await using (var insert2 = conn.CreateCommand())
             {
                 insert2.CommandText = $"""
-                    INSERT INTO {table}
-                    SELECT * FROM AS_TABLE($rows);
-                    """;
+                                       INSERT INTO {table}
+                                       SELECT * FROM AS_TABLE($rows);
+                                       """;
                 insert2.Parameters.Add(new YdbParameter("$rows", rows2));
                 await insert2.ExecuteNonQueryAsync();
             }
@@ -306,12 +306,12 @@ public class YdbListIntegrationTests : TestBase
             await using (var create = conn.CreateCommand())
             {
                 create.CommandText = $"""
-                    CREATE TABLE {table} (
-                        Id Int64,
-                        Name Utf8,
-                        PRIMARY KEY (Id)
-                    )
-                    """;
+                                      CREATE TABLE {table} (
+                                          Id Int64,
+                                          Name Utf8,
+                                          PRIMARY KEY (Id)
+                                          )
+                                      """;
                 await create.ExecuteNonQueryAsync();
             }
 
@@ -323,9 +323,9 @@ public class YdbListIntegrationTests : TestBase
 
                 await using var cmd = conn.CreateCommand();
                 cmd.CommandText = $"""
-                    UPSERT INTO {table}
-                    SELECT * FROM AS_TABLE($rows);
-                    """;
+                                   UPSERT INTO {table}
+                                          SELECT * FROM AS_TABLE($rows);
+                                   """;
                 cmd.Parameters.Add(new YdbParameter("$rows", rows));
                 await cmd.ExecuteNonQueryAsync();
             }
