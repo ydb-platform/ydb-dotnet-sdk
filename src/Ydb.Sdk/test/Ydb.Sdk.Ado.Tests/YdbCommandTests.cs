@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Data;
-using System.Text;
 using Xunit;
 using Ydb.Sdk.Value;
 
@@ -185,138 +184,78 @@ public class YdbCommandTests : TestBase
     }
 
 
-    public class Data<T>
+    public class Data<T>(DbType dbType, T expected, bool isNullable = false)
     {
-        public Data(DbType dbType, T expected, Func<YdbValue, T> fetchFun, bool isNullable = false)
-        {
-            DbType = dbType;
-            Expected = expected;
-            IsNullable = isNullable || expected == null;
-            FetchFun = fetchFun;
-        }
-
-        public bool IsNullable { get; }
-        public DbType DbType { get; }
-        public T Expected { get; }
-        public Func<YdbValue, T> FetchFun { get; }
+        public bool IsNullable { get; } = isNullable || expected == null;
+        public DbType DbType { get; } = dbType;
+        public T Expected { get; } = expected;
     }
 
-    public class TestDataGenerator : IEnumerable<object[]>
+    private class TestDataGenerator : IEnumerable<object[]>
     {
         private readonly List<object[]> _data =
         [
-            new object[] { new Data<bool>(DbType.Boolean, true, value => value.GetBool()) },
-            new object[] { new Data<bool>(DbType.Boolean, false, value => value.GetBool()) },
-            new object[] { new Data<bool?>(DbType.Boolean, true, value => value.GetBool(), true) },
-            new object[] { new Data<bool?>(DbType.Boolean, false, value => value.GetBool(), true) },
-            new object[] { new Data<bool?>(DbType.Boolean, null, value => value.GetOptionalBool()) },
-            new object[] { new Data<sbyte>(DbType.SByte, -1, value => value.GetInt8()) },
-            new object[] { new Data<sbyte?>(DbType.SByte, -2, value => value.GetInt8(), true) },
-            new object[] { new Data<sbyte?>(DbType.SByte, null, value => value.GetOptionalInt8()) },
-            new object[] { new Data<byte>(DbType.Byte, 200, value => value.GetUint8()) },
-            new object[] { new Data<byte?>(DbType.Byte, 228, value => value.GetUint8(), true) },
-            new object[] { new Data<byte?>(DbType.Byte, null, value => value.GetOptionalUint8()) },
-            new object[] { new Data<short>(DbType.Int16, 14000, value => value.GetInt16()) },
-            new object[] { new Data<short?>(DbType.Int16, 14000, value => value.GetInt16(), true) },
-            new object[] { new Data<short?>(DbType.Int16, null, value => value.GetOptionalInt16()) },
-            new object[] { new Data<ushort>(DbType.UInt16, 40_000, value => value.GetUint16()) },
-            new object[] { new Data<ushort?>(DbType.UInt16, 40_000, value => value.GetUint16(), true) },
-            new object[] { new Data<ushort?>(DbType.UInt16, null, value => value.GetOptionalUint16()) },
-            new object[] { new Data<int>(DbType.Int32, -40_000, value => value.GetInt32()) },
-            new object[] { new Data<int?>(DbType.Int32, -40_000, value => value.GetInt32(), true) },
-            new object[] { new Data<int?>(DbType.Int32, null, value => value.GetOptionalInt32()) },
-            new object[] { new Data<uint>(DbType.UInt32, 4_000_000_000, value => value.GetUint32()) },
-            new object[] { new Data<uint?>(DbType.UInt32, 4_000_000_000, value => value.GetUint32(), true) },
-            new object[] { new Data<uint?>(DbType.UInt32, null, value => value.GetOptionalUint32()) },
-            new object[] { new Data<long>(DbType.Int64, -4_000_000_000, value => value.GetInt64()) },
-            new object[] { new Data<long?>(DbType.Int64, -4_000_000_000, value => value.GetInt64(), true) },
-            new object[] { new Data<long?>(DbType.Int64, null, value => value.GetOptionalInt64()) },
-            new object[] { new Data<ulong>(DbType.UInt64, 10_000_000_000ul, value => value.GetUint64()) },
-            new object[]
-                { new Data<ulong?>(DbType.UInt64, 10_000_000_000ul, value => value.GetUint64(), true) },
-
-            new object[] { new Data<ulong?>(DbType.UInt64, null, value => value.GetOptionalUint64()) },
-            new object[] { new Data<float>(DbType.Single, -1.7f, value => value.GetFloat()) },
-            new object[] { new Data<float?>(DbType.Single, -1.7f, value => value.GetFloat(), true) },
-            new object[] { new Data<float?>(DbType.Single, null, value => value.GetOptionalFloat()) },
-            new object[] { new Data<double>(DbType.Double, 123.45, value => value.GetDouble()) },
-            new object[] { new Data<double?>(DbType.Double, 123.45, value => value.GetDouble(), true) },
-            new object[] { new Data<double?>(DbType.Double, null, value => value.GetOptionalDouble()) },
-            new object[]
-            {
-                new Data<Guid>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"),
-                    value => value.GetUuid())
-            },
-
-            new object[]
-            {
-                new Data<Guid?>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"),
-                    value => value.GetUuid(), true)
-            },
-
-            new object[] { new Data<Guid?>(DbType.Guid, null, value => value.GetOptionalUuid()) },
-            new object[] { new Data<DateTime>(DbType.Date, new DateTime(2021, 08, 21), value => value.GetDate()) },
-            new object[]
-            {
-                new Data<DateTime?>(DbType.Date, new DateTime(2021, 08, 21), value => value.GetDate(), true)
-            },
-
-            new object[] { new Data<DateTime?>(DbType.Date, null, value => value.GetOptionalDate()) },
-            new object[]
-            {
-                new Data<DateTime>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47),
-                    value => value.GetDatetime())
-            },
-
-            new object[]
-            {
-                new Data<DateTime?>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47),
-                    value => value.GetDatetime(), true)
-            },
-
-            new object[] { new Data<DateTime?>(DbType.DateTime, null, value => value.GetOptionalDatetime()) },
-            new object[]
-            {
-                new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-03T06:59:44.8578730Z"),
-                    value => value.GetTimestamp())
-            },
-
-            new object[]
-            {
-                new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-09T17:15:29.6935850Z"),
-                    value => value.GetTimestamp())
-            },
-
+            new object[] { new Data<bool>(DbType.Boolean, true) },
+            new object[] { new Data<bool>(DbType.Boolean, false) },
+            new object[] { new Data<bool?>(DbType.Boolean, true, true) },
+            new object[] { new Data<bool?>(DbType.Boolean, false, true) },
+            new object[] { new Data<bool?>(DbType.Boolean, null) },
+            new object[] { new Data<sbyte>(DbType.SByte, -1) },
+            new object[] { new Data<sbyte?>(DbType.SByte, -2, true) },
+            new object[] { new Data<sbyte?>(DbType.SByte, null) },
+            new object[] { new Data<byte>(DbType.Byte, 200) },
+            new object[] { new Data<byte?>(DbType.Byte, 228, true) },
+            new object[] { new Data<byte?>(DbType.Byte, null) },
+            new object[] { new Data<short>(DbType.Int16, 14000) },
+            new object[] { new Data<short?>(DbType.Int16, 14000, true) },
+            new object[] { new Data<short?>(DbType.Int16, null) },
+            new object[] { new Data<ushort>(DbType.UInt16, 40_000) },
+            new object[] { new Data<ushort?>(DbType.UInt16, 40_000, true) },
+            new object[] { new Data<ushort?>(DbType.UInt16, null) },
+            new object[] { new Data<int>(DbType.Int32, -40_000) },
+            new object[] { new Data<int?>(DbType.Int32, -40_000, true) },
+            new object[] { new Data<int?>(DbType.Int32, null) },
+            new object[] { new Data<uint>(DbType.UInt32, 4_000_000_000) },
+            new object[] { new Data<uint?>(DbType.UInt32, 4_000_000_000, true) },
+            new object[] { new Data<uint?>(DbType.UInt32, null) },
+            new object[] { new Data<long>(DbType.Int64, -4_000_000_000) },
+            new object[] { new Data<long?>(DbType.Int64, -4_000_000_000, true) },
+            new object[] { new Data<long?>(DbType.Int64, null) },
+            new object[] { new Data<ulong>(DbType.UInt64, 10_000_000_000ul) },
+            new object[] { new Data<ulong?>(DbType.UInt64, 10_000_000_000ul, true) },
+            new object[] { new Data<ulong?>(DbType.UInt64, null) },
+            new object[] { new Data<float>(DbType.Single, -1.7f) },
+            new object[] { new Data<float?>(DbType.Single, -1.7f, true) },
+            new object[] { new Data<float?>(DbType.Single, null) },
+            new object[] { new Data<double>(DbType.Double, 123.45) },
+            new object[] { new Data<double?>(DbType.Double, 123.45, true) },
+            new object[] { new Data<double?>(DbType.Double, null) },
+            new object[] { new Data<Guid>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")) },
+            new object[] { new Data<Guid?>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"), true) },
+            new object[] { new Data<Guid?>(DbType.Guid, null) },
+            new object[] { new Data<DateTime>(DbType.Date, new DateTime(2021, 08, 21)) },
+            new object[] { new Data<DateTime?>(DbType.Date, new DateTime(2021, 08, 21), true) },
+            new object[] { new Data<DateTime?>(DbType.Date, null) },
+            new object[] { new Data<DateTime>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47)) },
+            new object[] { new Data<DateTime?>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47), true) },
+            new object[] { new Data<DateTime?>(DbType.DateTime, null) },
+            new object[] { new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-03T06:59:44.8578730Z")) },
+            new object[] { new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-09T17:15:29.6935850Z")) },
             new object[]
             {
                 new Data<DateTime?>(DbType.DateTime2, new DateTime(2021, 08, 21, 23, 30, 47, 581, DateTimeKind.Local),
-                    value => value.GetTimestamp(), true)
+                    true)
             },
-
-            new object[] { new Data<DateTime?>(DbType.DateTime2, null, value => value.GetOptionalTimestamp()) },
-            new object[]
-            {
-                new Data<byte[]>(DbType.Binary, Encoding.ASCII.GetBytes("test str"),
-                    value => value.GetString())
-            },
-
-            new object[]
-            {
-                new Data<byte[]?>(DbType.Binary, Encoding.ASCII.GetBytes("test str"),
-                    value => value.GetString(), true)
-            },
-
-            new object[] { new Data<byte[]?>(DbType.Binary, null, value => value.GetOptionalString()) },
-            new object[] { new Data<string>(DbType.String, "unicode str", value => value.GetUtf8()) },
-            new object[] { new Data<string?>(DbType.String, "unicode str", value => value.GetUtf8(), true) },
-            new object[] { new Data<string?>(DbType.String, null, value => value.GetOptionalUtf8()) },
-            new object[] { new Data<decimal>(DbType.Decimal, -18446744073.709551616m, value => value.GetDecimal()) },
-            new object[]
-            {
-                new Data<decimal?>(DbType.Decimal, -18446744073.709551616m, value => value.GetDecimal(), true)
-            },
-
-            new object[] { new Data<decimal?>(DbType.Decimal, null, value => value.GetOptionalDecimal()) }
+            new object[] { new Data<DateTime?>(DbType.DateTime2, null) },
+            new object[] { new Data<byte[]>(DbType.Binary, "test str"u8.ToArray()) },
+            new object[] { new Data<byte[]?>(DbType.Binary, "test str"u8.ToArray(), true) },
+            new object[] { new Data<byte[]?>(DbType.Binary, null) },
+            new object[] { new Data<string>(DbType.String, "unicode str") },
+            new object[] { new Data<string?>(DbType.String, "unicode str", true) },
+            new object[] { new Data<string?>(DbType.String, null) },
+            new object[] { new Data<decimal>(DbType.Decimal, -18446744073.709551616m) },
+            new object[] { new Data<decimal?>(DbType.Decimal, -18446744073.709551616m, true) },
+            new object[] { new Data<decimal?>(DbType.Decimal, null) }
         ];
 
         public IEnumerator<object[]> GetEnumerator() => _data.GetEnumerator();

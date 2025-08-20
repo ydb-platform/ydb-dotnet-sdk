@@ -372,4 +372,9 @@ public class YdbParameterTests : TestBase
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName}" }.ExecuteNonQueryAsync();
     }
+
+    [Fact]
+    public async Task YdbDbType_WhenEnableNewDateTimeTypes_ReturnsExpectedTypes()
+    {
+    }
 }

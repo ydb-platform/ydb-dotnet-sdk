@@ -153,9 +153,13 @@ public sealed class YdbParameter : DbParameter
                 YdbDbType.JsonDocument when value is string stringValue => stringValue.JsonDocument(),
                 YdbDbType.Uuid when value is Guid guidValue => guidValue.Uuid(),
                 YdbDbType.Date => MakeDate(value),
+                YdbDbType.Date32 => MakeDate32(value),
                 YdbDbType.DateTime when value is DateTime dateTimeValue => dateTimeValue.Datetime(),
-                YdbDbType.Timestamp => MakeTimestamp(value),
+                YdbDbType.Datetime64 when value is DateTime dateTimeValue => dateTimeValue.Datetime64(),
+                YdbDbType.Timestamp when value is DateTime dateTimeValue => dateTimeValue.Timestamp(),
+                YdbDbType.Timestamp64 when value is DateTime dateTimeValue => dateTimeValue.Timestamp64(),
                 YdbDbType.Interval when value is TimeSpan timeSpanValue => timeSpanValue.Interval(),
+                YdbDbType.Interval64 when value is TimeSpan timeSpanValue => timeSpanValue.Interval64(),
                 YdbDbType.Unspecified => Cast(value),
                 _ => throw ValueTypeNotSupportedException
             };
@@ -237,10 +241,10 @@ public sealed class YdbParameter : DbParameter
         _ => throw ValueTypeNotSupportedException
     };
 
-    private TypedValue MakeTimestamp(object value) => value switch
+    private TypedValue MakeDate32(object value) => value switch
     {
-        DateTime dateTimeValue => dateTimeValue.Timestamp(),
-        DateTimeOffset dateTimeOffsetValue => dateTimeOffsetValue.UtcDateTime.Timestamp(),
+        DateTime dateTimeValue => dateTimeValue.Date32(),
+        DateOnly dateOnlyValue => dateOnlyValue.ToDateTime(TimeOnly.MinValue).Date32(),
         _ => throw ValueTypeNotSupportedException
     };
 
@@ -271,9 +275,7 @@ public sealed class YdbParameter : DbParameter
     };
 
     private TypedValue Decimal(decimal value) =>
-        Precision == 0 && Scale == 0
-            ? value.Decimal(22, 9)
-            : value.Decimal(Precision, Scale);
+        Precision == 0 && Scale == 0 ? value.Decimal(22, 9) : value.Decimal(Precision, Scale);
 
     private TypedValue NullTypedValue()
     {
