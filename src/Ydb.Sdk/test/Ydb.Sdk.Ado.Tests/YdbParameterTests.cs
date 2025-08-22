@@ -187,7 +187,7 @@ public class YdbParameterTests : TestBase
     [Theory]
     [InlineData("12345", "12345.0000000000", 22, 9)]
     [InlineData("54321", "54321", 5, 0)]
-    [InlineData("493235.4", "493235.40", 7, 2)]
+    [InlineData("493235.4", "493235.40", 8, 2)]
     [InlineData("123.46", "123.46", 5, 2)]
     [InlineData("-184467434073.70911616", "-184467434073.7091161600", 35, 10)]
     [InlineData("-18446744074", "-18446744074", 12, 0)]
@@ -225,6 +225,38 @@ public class YdbParameterTests : TestBase
                 .ExecuteScalarAsync());
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {decimalTableName};" }.ExecuteNonQueryAsync();
+    }
+    
+    [Fact]
+    public async Task Decimal_WhenFractionalDigitsExceedScale_Throws()
+    {
+        await using var ydb = await CreateOpenConnectionAsync();
+        var t = $"T_{Random.Shared.Next()}";
+        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,2), PRIMARY KEY(d))" }.ExecuteNonQueryAsync();
+
+        var cmd = new YdbCommand(ydb)
+        {
+            CommandText = $"INSERT INTO {t}(d) VALUES (@d);",
+            Parameters = { new YdbParameter("d", DbType.Decimal, 123.456m){ Precision = 5, Scale = 2 } }
+        };
+
+        await Assert.ThrowsAsync<OverflowException>(() => cmd.ExecuteNonQueryAsync());
+    }
+
+    [Fact]
+    public async Task Decimal_WhenIntegerDigitsExceedPrecisionMinusScale_Throws()
+    {
+        await using var ydb = await CreateOpenConnectionAsync();
+        var t = $"T_{Random.Shared.Next()}";
+        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,0), PRIMARY KEY(d))" }.ExecuteNonQueryAsync();
+
+        var cmd = new YdbCommand(ydb)
+        {
+            CommandText = $"INSERT INTO {t}(d) VALUES (@d);",
+            Parameters = { new YdbParameter("d", DbType.Decimal, 100000m){ Precision = 5, Scale = 0 } } // 6 целых цифр
+        };
+
+        await Assert.ThrowsAsync<OverflowException>(() => cmd.ExecuteNonQueryAsync());
     }
 
     [Fact]
