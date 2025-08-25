@@ -2,14 +2,17 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
+
+using static Ydb.Sdk.Ado.Internal.YdbTypedValueBuildExtensions;
 
 namespace Ydb.Sdk.Ado;
 
 public sealed class YdbParameter : DbParameter
 {
-    private static readonly TypedValue NullDefaultDecimal = YdbTypedValueExtensions.NullDecimal(22, 9);
+    private static readonly TypedValue NullDefaultDecimal = NullDecimal(22, 9);
 
     private static readonly Dictionary<YdbDbType, TypedValue> YdbNullByDbType = new()
     {
@@ -169,61 +172,61 @@ public sealed class YdbParameter : DbParameter
     private TypedValue MakeInt16(object value) => value switch
     {
         short shortValue => shortValue.Int16(),
-        sbyte sbyteValue => YdbTypedValueExtensions.Int16(sbyteValue),
-        byte byteValue => YdbTypedValueExtensions.Int16(byteValue),
+        sbyte sbyteValue => YdbTypedValueBuildExtensions.Int16(sbyteValue),
+        byte byteValue => YdbTypedValueBuildExtensions.Int16(byteValue),
         _ => throw ValueTypeNotSupportedException
     };
 
     private TypedValue MakeInt32(object value) => value switch
     {
         int intValue => intValue.Int32(),
-        sbyte sbyteValue => YdbTypedValueExtensions.Int32(sbyteValue),
-        byte byteValue => YdbTypedValueExtensions.Int32(byteValue),
-        short shortValue => YdbTypedValueExtensions.Int32(shortValue),
-        ushort ushortValue => YdbTypedValueExtensions.Int32(ushortValue),
+        sbyte sbyteValue => YdbTypedValueBuildExtensions.Int32(sbyteValue),
+        byte byteValue => YdbTypedValueBuildExtensions.Int32(byteValue),
+        short shortValue => YdbTypedValueBuildExtensions.Int32(shortValue),
+        ushort ushortValue => YdbTypedValueBuildExtensions.Int32(ushortValue),
         _ => throw ValueTypeNotSupportedException
     };
 
     private TypedValue MakeInt64(object value) => value switch
     {
         long longValue => longValue.Int64(),
-        sbyte sbyteValue => YdbTypedValueExtensions.Int64(sbyteValue),
-        byte byteValue => YdbTypedValueExtensions.Int64(byteValue),
-        short shortValue => YdbTypedValueExtensions.Int64(shortValue),
-        ushort ushortValue => YdbTypedValueExtensions.Int64(ushortValue),
-        int intValue => YdbTypedValueExtensions.Int64(intValue),
-        uint uintValue => YdbTypedValueExtensions.Int64(uintValue),
+        sbyte sbyteValue => YdbTypedValueBuildExtensions.Int64(sbyteValue),
+        byte byteValue => YdbTypedValueBuildExtensions.Int64(byteValue),
+        short shortValue => YdbTypedValueBuildExtensions.Int64(shortValue),
+        ushort ushortValue => YdbTypedValueBuildExtensions.Int64(ushortValue),
+        int intValue => YdbTypedValueBuildExtensions.Int64(intValue),
+        uint uintValue => YdbTypedValueBuildExtensions.Int64(uintValue),
         _ => throw ValueTypeNotSupportedException
     };
 
     private TypedValue MakeUint16(object value) => value switch
     {
         ushort shortValue => shortValue.Uint16(),
-        byte byteValue => YdbTypedValueExtensions.Uint16(byteValue),
+        byte byteValue => YdbTypedValueBuildExtensions.Uint16(byteValue),
         _ => throw ValueTypeNotSupportedException
     };
 
     private TypedValue MakeUint32(object value) => value switch
     {
         uint intValue => intValue.Uint32(),
-        byte byteValue => YdbTypedValueExtensions.Uint32(byteValue),
-        ushort ushortValue => YdbTypedValueExtensions.Uint32(ushortValue),
+        byte byteValue => YdbTypedValueBuildExtensions.Uint32(byteValue),
+        ushort ushortValue => YdbTypedValueBuildExtensions.Uint32(ushortValue),
         _ => throw ValueTypeNotSupportedException
     };
 
     private TypedValue MakeUint64(object value) => value switch
     {
         ulong longValue => longValue.Uint64(),
-        byte byteValue => YdbTypedValueExtensions.Uint64(byteValue),
-        ushort ushortValue => YdbTypedValueExtensions.Uint64(ushortValue),
-        uint uintValue => YdbTypedValueExtensions.Uint64(uintValue),
+        byte byteValue => YdbTypedValueBuildExtensions.Uint64(byteValue),
+        ushort ushortValue => YdbTypedValueBuildExtensions.Uint64(ushortValue),
+        uint uintValue => YdbTypedValueBuildExtensions.Uint64(uintValue),
         _ => throw ValueTypeNotSupportedException
     };
 
     private TypedValue MakeDouble(object value) => value switch
     {
         double doubleValue => doubleValue.Double(),
-        float floatValue => YdbTypedValueExtensions.Double(floatValue),
+        float floatValue => YdbTypedValueBuildExtensions.Double(floatValue),
         _ => throw ValueTypeNotSupportedException
     };
 
@@ -288,7 +291,7 @@ public sealed class YdbParameter : DbParameter
         {
             return Precision == 0 && Scale == 0
                 ? NullDefaultDecimal
-                : YdbTypedValueExtensions.NullDecimal(Precision, Scale);
+                : NullDecimal(Precision, Scale);
         }
 
         throw new InvalidOperationException(

@@ -1,9 +1,9 @@
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
-namespace Ydb.Sdk.Ado.YdbType;
+namespace Ydb.Sdk.Ado.Internal;
 
-internal static class YdbTypedValueExtensions
+internal static class YdbTypedValueBuildExtensions
 {
     internal static TypedValue Null(this Type.Types.PrimitiveTypeId primitiveTypeId) => new()
     {
