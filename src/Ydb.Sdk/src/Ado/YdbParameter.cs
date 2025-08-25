@@ -246,6 +246,7 @@ public sealed class YdbParameter : DbParameter
 
     private TypedValue Cast(object value) => value switch
     {
+        YdbList ydbList => ydbList.ToTypedValue(),
         string stringValue => stringValue.Text(),
         bool boolValue => boolValue.Bool(),
         sbyte sbyteValue => sbyteValue.Int8(),
@@ -278,9 +279,7 @@ public sealed class YdbParameter : DbParameter
     private TypedValue NullTypedValue()
     {
         if (YdbNullByDbType.TryGetValue(YdbDbType, out var value))
-        {
             return value;
-        }
 
         if (YdbDbType == YdbDbType.Decimal)
         {
