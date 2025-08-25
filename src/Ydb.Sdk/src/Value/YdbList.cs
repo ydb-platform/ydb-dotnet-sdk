@@ -5,16 +5,15 @@ using Ydb.Sdk.Ado.YdbType;
 namespace Ydb.Sdk.Value;
 
 /// <summary>
-/// Struct-only builder for YDB <c>List&lt;Struct&lt;...&gt;&gt;</c>.
-/// Works directly with protobuf:
-/// - Each call to <see cref="AddRow(object?[])"/> converts values into protobuf cells (<see cref="Ydb.Value"/>) and stores a row immediately.
-/// - The struct schema (<see cref="StructType"/>) is derived from column type hints or from the first non-null sample per column.
-/// - If a column has at least one <c>null</c>, its type becomes <c>Optional&lt;T&gt;</c>; individual null cells are encoded via <see cref="NullValue.NullValue"/>.
+/// Builder for YDB values shaped as <c>List&lt;Struct&lt;...&gt;&gt;</c>, working directly with protobuf.
+/// Each call to <see cref="AddRow(object?[])"/> converts input values into protobuf cells and stores the row.
+/// The struct schema is derived from explicit type hints or from the first non-null sample per column.
+/// If a column contains at least one <c>null</c>, its member type becomes <c>Optional&lt;T&gt;</c>.
 /// </summary>
 public sealed class YdbList
 {
     private readonly string[] _columns;
-    private readonly YdbDbType[]? _typeHints;
+    private readonly YdbDbType[] _typeHints;
 
     private readonly List<Ydb.Value> _rows = new();
 
@@ -22,16 +21,18 @@ public sealed class YdbList
     private readonly bool[] _sawNull;
 
     /// <summary>
-    /// Create a struct-mode list with column names; types will be inferred from the
-    /// first non-null value per column (columns with any nulls become Optional&lt;T&gt;).
+    /// Create a struct-mode list with column names. Types will be inferred from the
+    /// first non-null value per column (columns with any nulls become <c>Optional&lt;T&gt;</c>).
     /// </summary>
+    /// <param name="columns">Struct member names, in order.</param>
     public static YdbList Struct(params string[] columns) => new(columns);
 
     /// <summary>
-    /// Create a struct-mode list with column names and explicit YDB type hints
-    /// (array length must match <paramref name="columns"/>). Columns with any nulls
-    /// will be emitted as Optional&lt;hintedType&gt;.
+    /// Create a struct-mode list with column names and explicit YDB type hints. The array length must match <paramref name="columns"/>.
+    /// Columns that contain <c>null</c> are emitted as <c>Optional&lt;hintedType&gt;</c>.
     /// </summary>
+    /// <param name="columns">Struct member names, in order.</param>
+    /// <param name="types">YDB type hints for each column (same length as <paramref name="columns"/>).</param>
     public static YdbList Struct(string[] columns, YdbDbType[] types) => new(columns, types);
 
     /// <summary>
@@ -45,7 +46,7 @@ public sealed class YdbList
             throw new ArgumentException("Length of 'types' must match length of 'columns'.", nameof(types));
 
         _columns = columns;
-        _typeHints = types;
+        _typeHints = types ?? Enumerable.Repeat(YdbDbType.Unspecified, columns.Length).ToArray();
         _observedBaseTypes = new Type[_columns.Length];
         _sawNull = new bool[_columns.Length];
     }
@@ -54,6 +55,8 @@ public sealed class YdbList
     /// Add a single positional row. The number of values must match the number of columns.
     /// Values are converted to protobuf cells and the row is stored immediately.
     /// </summary>
+    /// <param name="values">Row values in the same order as the declared columns.</param>
+    /// <exception cref="ArgumentException">Thrown when the number of values differs from the number of columns.</exception>
     public YdbList AddRow(params object?[] values)
     {
         if (values.Length != _columns.Length)
@@ -92,13 +95,17 @@ public sealed class YdbList
     }
 
     /// <summary>
-    /// Convert to a YDB <see cref="TypedValue"/> shaped as <c>List&lt;Struct&lt;...&gt;&gt;</c>.
-    /// Columns that observed <c>null</c> values are emitted as <c>Optional&lt;T&gt;</c>;
-    /// individual <c>null</c> cells are encoded via <see cref="NullValue.NullValue"/>.
+    /// Convert the accumulated rows into a YDB <see cref="TypedValue"/> with shape <c>List&lt;Struct&lt;...&gt;&gt;</c>.
+    /// Columns that observed <c>null</c> values are emitted as <c>Optional&lt;T&gt;</c>.
     /// </summary>
+    /// <returns>TypedValue representing <c>List&lt;Struct&lt;...&gt;&gt;</c> and the collected data rows.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the schema cannot be inferred (e.g., empty list without type hints, or a column has only nulls
+    /// and no explicit type hint).
+    /// </exception>
     internal TypedValue ToTypedValue()
     {
-        if (_rows.Count == 0 && (_typeHints is null || _typeHints.All(t => t == YdbDbType.Unspecified)))
+        if (_rows.Count == 0)
             throw new InvalidOperationException(
                 "Cannot infer Struct schema from an empty list without explicit YdbDbType hints.");
 
@@ -109,7 +116,7 @@ public sealed class YdbList
         {
             Type? baseType;
 
-            if (_typeHints is not null && _typeHints[i] != YdbDbType.Unspecified)
+            if (_typeHints[i] != YdbDbType.Unspecified)
             {
                 baseType = new YdbParameter { YdbDbType = _typeHints[i], Value = DBNull.Value }.TypedValue.Type;
 

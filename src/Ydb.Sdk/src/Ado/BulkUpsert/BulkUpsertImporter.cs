@@ -34,19 +34,22 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
     /// <summary>
     /// Add a single row to the current BulkUpsert batch.
     /// </summary>
-    /// <param name="values">Column values in the same order as the configured <c>columns</c>.</param>
+    /// <param name="values">Values in the same order as the configured <c>columns</c>.</param>
     /// <remarks>
-    /// Supported element types: <see cref="YdbValue"/>, <see cref="YdbParameter"/>, <see cref="YdbList"/> (as-is);
-    /// other CLR values are converted via <see cref="YdbParameter"/>.
+    /// Supported per-cell types: <see cref="YdbValue"/>, <see cref="YdbParameter"/>.
+    /// Other CLR values are converted via <see cref="YdbParameter"/>.
+    /// Passing <see cref="YdbList"/> as a column value is not supported (tables do not accept list-typed columns).
+    /// Use <c>AddListAsync(YdbList)</c> to append many rows from a list parameter.
     /// </remarks>
+    /// <exception cref="ArgumentException">Thrown when the number of values differs from the number of columns.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when a value cannot be mapped to a YDB type.</exception>
     /// <example>
     /// <code>
     /// // columns: ["Id", "Name"]
     /// await importer.AddRowAsync(1, "Alice");
+    /// await importer.AddRowAsync(2, "Bob");
     /// </code>
     /// </example>
-    /// <exception cref="ArgumentException">When the number of values doesn't equal the number of columns.</exception>
-    /// <exception cref="InvalidOperationException">When a value cannot be mapped to a YDB type.</exception>
     public async ValueTask AddRowAsync(params object[] values)
     {
         if (values.Length != _columns.Count)
@@ -54,15 +57,17 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
 
         var ydbValues = values.Select(v => v switch
         {
-            YdbValue ydbValue => ydbValue.GetProto(),
+            YdbValue ydbValue  => ydbValue.GetProto(),
             YdbParameter param => param.TypedValue,
-            YdbList list => list.ToTypedValue(),
+            YdbList => throw new ArgumentException(
+                "YdbList cannot be used as a column value. Use AddListAsync(YdbList) to append multiple rows.",
+                nameof(values)),
             _ => new YdbParameter { Value = v }.TypedValue
         }).ToArray();
 
         var protoStruct = new Ydb.Value();
-        foreach (var value in ydbValues)
-            protoStruct.Items.Add(value.Value);
+        foreach (var tv in ydbValues)
+            protoStruct.Items.Add(tv.Value);
 
         var rowSize = protoStruct.CalculateSize();
 
@@ -79,23 +84,16 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
     }
 
     /// <summary>
-    /// Add multiple rows from a single <see cref="YdbList"/> parameter.
+    /// Add multiple rows from a <see cref="YdbList"/> shaped as <c>List&lt;Struct&lt;...&gt;&gt;</c>.
+    /// Struct member names and order must exactly match the configured <c>columns</c>.
     /// </summary>
-    /// <remarks>
-    /// Expects <c>List&lt;Struct&lt;...&gt;&gt;</c>; struct member names and order must exactly match the configured <c>columns</c>.
-    /// Example: <c>columns=["Id","Name"]</c> → <c>List&lt;Struct&lt;Id:Int64, Name:Utf8&gt;&gt;</c>.
-    /// </remarks>
+    /// <param name="list">Rows as <c>List&lt;Struct&lt;...&gt;&gt;</c> with the exact column names and order.</param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when the struct column set, order, or count does not match the importer’s <c>columns</c>.
+    /// </exception>
     public async ValueTask AddListAsync(YdbList list)
     {
         var tv = list.ToTypedValue();
-
-        if (tv.Type.TypeCase != Type.TypeOneofCase.ListType ||
-            tv.Type.ListType.Item.TypeCase != Type.TypeOneofCase.StructType)
-        {
-            throw new ArgumentException(
-                "BulkUpsertImporter.AddListAsync expects a YdbList with a value like List<Struct<...>>",
-                nameof(list));
-        }
 
         var incomingStruct = tv.Type.ListType.Item.StructType;
 
@@ -130,6 +128,10 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
     /// <summary>
     /// Flush the current batch via BulkUpsert. No-op if the batch is empty.
     /// </summary>
+    /// <remarks>
+    /// Uses the collected struct schema from the first added row (or the provided list) and sends
+    /// the accumulated rows in a single BulkUpsert request.
+    /// </remarks>
     public async ValueTask FlushAsync()
     {
         if (_rows.Count == 0)

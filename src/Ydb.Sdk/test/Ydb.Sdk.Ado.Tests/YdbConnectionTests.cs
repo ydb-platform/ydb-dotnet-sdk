@@ -314,7 +314,7 @@ INSERT INTO {tableName}
                 createCmd.CommandText = $"""
                                          CREATE TABLE {tableName} (
                                              Id Int32,
-                                             Name Utf8,
+                                             Name Text,
                                              PRIMARY KEY (Id)
                                          )
                                          """;
@@ -374,7 +374,7 @@ INSERT INTO {tableName}
                 createCmd.CommandText = $"""
                                          CREATE TABLE {tableName} (
                                              Id Int32,
-                                             Name Utf8,
+                                             Name Text,
                                              PRIMARY KEY (Id)
                                          )
                                          """;
@@ -411,7 +411,7 @@ INSERT INTO {tableName}
                 createCmd.CommandText = $"""
                                          CREATE TABLE {table} (
                                              Id Int32,
-                                             Name Utf8,
+                                             Name Text,
                                              PRIMARY KEY (Id)
                                          )
                                          """;
@@ -492,7 +492,7 @@ INSERT INTO {tableName}
                 create.CommandText = $"""
                                       CREATE TABLE {table} (
                                           Id Int64,
-                                          Name Utf8,
+                                          Name Text,
                                           PRIMARY KEY (Id)
                                       )
                                       """;
@@ -501,7 +501,7 @@ INSERT INTO {tableName}
 
             var importer = conn.BeginBulkUpsertImport(table, ["Id", "Name"]);
 
-            // $rows: List<Struct<Id:Int64, Name:Utf8>>
+            // $rows: List<Struct<Id:Int64, Name:Text>>
             var rows = YdbList
                 .Struct("Id", "Name")
                 .AddRow(1L, "A")
@@ -536,7 +536,7 @@ INSERT INTO {tableName}
                 create.CommandText = $"""
                                       CREATE TABLE {table} (
                                           Id Int64,
-                                          Name Utf8,
+                                          Name Text,
                                           PRIMARY KEY (Id)
                                       )
                                       """;
@@ -552,6 +552,50 @@ INSERT INTO {tableName}
             var ex = await Assert.ThrowsAsync<ArgumentException>(() => importer.AddListAsync(wrong).AsTask());
             Assert.Contains("mismatch", ex.Message, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("expected 'Name'", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            await using var drop = conn.CreateCommand();
+            drop.CommandText = $"DROP TABLE {table}";
+            await drop.ExecuteNonQueryAsync();
+        }
+    }
+    
+    [Fact]
+    public async Task BulkUpsertImporter_AddRowAsync_WhenLaterRowHasNull_AllowsNullValue()
+    {
+        var table = $"bulk_null_{Guid.NewGuid():N}";
+        await using var conn = await CreateOpenConnectionAsync();
+        try
+        {
+            await using (var create = conn.CreateCommand())
+            {
+                create.CommandText = $"""
+                                      CREATE TABLE {table} (
+                                          Id   Int32,
+                                          Name Text?,
+                                          PRIMARY KEY (Id)
+                                      )
+                                      """;
+                await create.ExecuteNonQueryAsync();
+            }
+
+            var importer = conn.BeginBulkUpsertImport(table, ["Id", "Name"]);
+
+            await importer.AddRowAsync(1, "A");
+
+            await importer.AddRowAsync(2, new YdbParameter { YdbDbType = YdbDbType.Text, Value = null });
+
+            await importer.FlushAsync();
+
+            await using (var check = conn.CreateCommand())
+            {
+                check.CommandText = $"SELECT Name FROM {table} WHERE Id=1";
+                Assert.Equal("A", (string)(await check.ExecuteScalarAsync())!);
+
+                check.CommandText = $"SELECT Name IS NULL FROM {table} WHERE Id=2";
+                Assert.True((bool)(await check.ExecuteScalarAsync())!);
+            }
         }
         finally
         {

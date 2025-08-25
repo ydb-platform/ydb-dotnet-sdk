@@ -149,9 +149,8 @@ public sealed class YdbParameter : DbParameter
                 YdbDbType.Double => MakeDouble(value),
                 YdbDbType.Decimal when value is decimal decimalValue => Decimal(decimalValue),
                 YdbDbType.Bytes => MakeBytes(value),
-                YdbDbType.Json when value is string stringJsonValue => stringJsonValue.Json(),
-                YdbDbType.JsonDocument when value is string stringJsonDocumentValue => stringJsonDocumentValue
-                    .JsonDocument(),
+                YdbDbType.Json when value is string stringValue => stringValue.Json(),
+                YdbDbType.JsonDocument when value is string stringValue => stringValue.JsonDocument(),
                 YdbDbType.Uuid when value is Guid guidValue => guidValue.Uuid(),
                 YdbDbType.Date => MakeDate(value),
                 YdbDbType.DateTime when value is DateTime dateTimeValue => dateTimeValue.Datetime(),
@@ -290,7 +289,8 @@ public sealed class YdbParameter : DbParameter
         }
 
         throw new InvalidOperationException(
-            "Writing value of 'null' is not supported without explicit mapping to the YdbDbType");
+            "Writing value of 'null' is not supported without explicit mapping to the YdbDbType"
+        );
     }
 
     private InvalidOperationException ValueTypeNotSupportedException =>
