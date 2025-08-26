@@ -226,18 +226,19 @@ public class YdbParameterTests : TestBase
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {decimalTableName};" }.ExecuteNonQueryAsync();
     }
-    
+
     [Fact]
     public async Task Decimal_WhenFractionalDigitsExceedScale_Throws()
     {
         await using var ydb = await CreateOpenConnectionAsync();
         var t = $"T_{Random.Shared.Next()}";
-        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,2), PRIMARY KEY(d))" }.ExecuteNonQueryAsync();
+        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,2), PRIMARY KEY(d))" }
+            .ExecuteNonQueryAsync();
 
         var cmd = new YdbCommand(ydb)
         {
             CommandText = $"INSERT INTO {t}(d) VALUES (@d);",
-            Parameters = { new YdbParameter("d", DbType.Decimal, 123.456m){ Precision = 5, Scale = 2 } }
+            Parameters = { new YdbParameter("d", DbType.Decimal, 123.456m) { Precision = 5, Scale = 2 } }
         };
 
         await Assert.ThrowsAsync<OverflowException>(() => cmd.ExecuteNonQueryAsync());
@@ -248,28 +249,30 @@ public class YdbParameterTests : TestBase
     {
         await using var ydb = await CreateOpenConnectionAsync();
         var t = $"T_{Random.Shared.Next()}";
-        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,0), PRIMARY KEY(d))" }.ExecuteNonQueryAsync();
+        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,0), PRIMARY KEY(d))" }
+            .ExecuteNonQueryAsync();
 
         var cmd = new YdbCommand(ydb)
         {
             CommandText = $"INSERT INTO {t}(d) VALUES (@d);",
-            Parameters = { new YdbParameter("d", DbType.Decimal, 100000m){ Precision = 5, Scale = 0 } } // 6 целых цифр
+            Parameters = { new YdbParameter("d", DbType.Decimal, 100000m) { Precision = 5, Scale = 0 } }
         };
 
         await Assert.ThrowsAsync<OverflowException>(() => cmd.ExecuteNonQueryAsync());
     }
-    
+
     [Fact]
     public async Task Decimal_WhenScaleGreaterThanPrecision_ThrowsByMathNotByIf()
     {
         await using var ydb = await CreateOpenConnectionAsync();
         var t = $"T_{Random.Shared.Next()}";
-        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,4), PRIMARY KEY(d))" }.ExecuteNonQueryAsync();
+        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,4), PRIMARY KEY(d))" }
+            .ExecuteNonQueryAsync();
 
         var cmd = new YdbCommand(ydb)
         {
             CommandText = $"INSERT INTO {t}(d) VALUES (@d);",
-            Parameters = { new YdbParameter("d", DbType.Decimal, 0.0m){ Precision = 1, Scale = 2 } }
+            Parameters = { new YdbParameter("d", DbType.Decimal, 0.0m) { Precision = 1, Scale = 2 } }
         };
 
         await Assert.ThrowsAnyAsync<Exception>(() => cmd.ExecuteNonQueryAsync());
@@ -280,14 +283,15 @@ public class YdbParameterTests : TestBase
     {
         await using var ydb = await CreateOpenConnectionAsync();
         var t = $"T_{Random.Shared.Next()}";
-        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(35,0), PRIMARY KEY(d))" }.ExecuteNonQueryAsync();
+        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(35,0), PRIMARY KEY(d))" }
+            .ExecuteNonQueryAsync();
 
         await new YdbCommand(ydb)
         {
             CommandText = $@"INSERT INTO {t}(d) VALUES (CAST('10000000000000000000000000000000000' AS Decimal(35,0)));"
         }.ExecuteNonQueryAsync();
 
-        var select = new YdbCommand(ydb){ CommandText = $"SELECT d FROM {t};" };
+        var select = new YdbCommand(ydb) { CommandText = $"SELECT d FROM {t};" };
 
         await Assert.ThrowsAsync<OverflowException>(() => select.ExecuteScalarAsync());
     }

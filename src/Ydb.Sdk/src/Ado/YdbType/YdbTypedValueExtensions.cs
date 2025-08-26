@@ -98,15 +98,15 @@ internal static class YdbTypedValueExtensions
 
         var unscaled = new decimal(rb[0], rb[1], rb[2], false, 0);
 
-        int delta = scale - roundedScale;
+        var delta = scale - roundedScale;
         if (delta > 0)
         {
-            for (int i = 0; i < delta; i++)
+            for (var i = 0; i < delta; i++)
                 unscaled *= 10m;
         }
         else if (delta < 0)
         {
-            for (int i = 0; i < -delta; i++)
+            for (var i = 0; i < -delta; i++)
                 unscaled /= 10m;
         }
 

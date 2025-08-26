@@ -1,3 +1,4 @@
+- Dev: Parameterized Decimal overflow check (precision/scale).
 - Dev: LogLevel `Warning` -> `Debug` on DeleteSession has been `RpcException`.
 
 ## v0.22.0

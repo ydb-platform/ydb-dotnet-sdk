@@ -273,7 +273,7 @@ public sealed class YdbParameter : DbParameter
     private TypedValue Decimal(decimal value)
     {
         var p = Precision == 0 && Scale == 0 ? 22 : Precision;
-        var s = Precision == 0 && Scale == 0 ? 9  : Scale;
+        var s = Precision == 0 && Scale == 0 ? 9 : Scale;
 
         return value.Decimal((byte)p, (byte)s);
     }
