@@ -232,7 +232,7 @@ public class YdbParameterTests : TestBase
     {
         await using var ydb = await CreateOpenConnectionAsync();
         var t = $"T_{Random.Shared.Next()}";
-        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,2), PRIMARY KEY(d))" }
+        await new YdbCommand(ydb) { CommandText = $"CREATE TABLE {t}(d Decimal(5,2), PRIMARY KEY(d))" }
             .ExecuteNonQueryAsync();
 
         var cmd = new YdbCommand(ydb)
@@ -249,7 +249,7 @@ public class YdbParameterTests : TestBase
     {
         await using var ydb = await CreateOpenConnectionAsync();
         var t = $"T_{Random.Shared.Next()}";
-        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,0), PRIMARY KEY(d))" }
+        await new YdbCommand(ydb) { CommandText = $"CREATE TABLE {t}(d Decimal(5,0), PRIMARY KEY(d))" }
             .ExecuteNonQueryAsync();
 
         var cmd = new YdbCommand(ydb)
@@ -266,7 +266,7 @@ public class YdbParameterTests : TestBase
     {
         await using var ydb = await CreateOpenConnectionAsync();
         var t = $"T_{Random.Shared.Next()}";
-        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,4), PRIMARY KEY(d))" }
+        await new YdbCommand(ydb) { CommandText = $"CREATE TABLE {t}(d Decimal(5,4), PRIMARY KEY(d))" }
             .ExecuteNonQueryAsync();
 
         var cmd = new YdbCommand(ydb)
@@ -283,7 +283,7 @@ public class YdbParameterTests : TestBase
     {
         await using var ydb = await CreateOpenConnectionAsync();
         var t = $"T_{Random.Shared.Next()}";
-        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(35,0), PRIMARY KEY(d))" }
+        await new YdbCommand(ydb) { CommandText = $"CREATE TABLE {t}(d Decimal(35,0), PRIMARY KEY(d))" }
             .ExecuteNonQueryAsync();
 
         await new YdbCommand(ydb)
