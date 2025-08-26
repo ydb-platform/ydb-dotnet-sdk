@@ -258,6 +258,39 @@ public class YdbParameterTests : TestBase
 
         await Assert.ThrowsAsync<OverflowException>(() => cmd.ExecuteNonQueryAsync());
     }
+    
+    [Fact]
+    public async Task Decimal_WhenScaleGreaterThanPrecision_ThrowsByMathNotByIf()
+    {
+        await using var ydb = await CreateOpenConnectionAsync();
+        var t = $"T_{Random.Shared.Next()}";
+        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(5,4), PRIMARY KEY(d))" }.ExecuteNonQueryAsync();
+
+        var cmd = new YdbCommand(ydb)
+        {
+            CommandText = $"INSERT INTO {t}(d) VALUES (@d);",
+            Parameters = { new YdbParameter("d", DbType.Decimal, 0.0m){ Precision = 1, Scale = 2 } }
+        };
+
+        await Assert.ThrowsAnyAsync<Exception>(() => cmd.ExecuteNonQueryAsync());
+    }
+
+    [Fact]
+    public async Task Decimal_WhenYdbReturnsDecimal35_0_OverflowsDotNetDecimal()
+    {
+        await using var ydb = await CreateOpenConnectionAsync();
+        var t = $"T_{Random.Shared.Next()}";
+        await new YdbCommand(ydb){ CommandText = $"CREATE TABLE {t}(d Decimal(35,0), PRIMARY KEY(d))" }.ExecuteNonQueryAsync();
+
+        await new YdbCommand(ydb)
+        {
+            CommandText = $@"INSERT INTO {t}(d) VALUES (CAST('10000000000000000000000000000000000' AS Decimal(35,0)));"
+        }.ExecuteNonQueryAsync();
+
+        var select = new YdbCommand(ydb){ CommandText = $"SELECT d FROM {t};" };
+
+        await Assert.ThrowsAsync<OverflowException>(() => select.ExecuteScalarAsync());
+    }
 
     [Fact]
     public async Task YdbParameter_WhenYdbDbTypeSetAndValueIsNull_ReturnsNullValue()

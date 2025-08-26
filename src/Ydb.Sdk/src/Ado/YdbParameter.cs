@@ -2,8 +2,6 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using System.Numerics;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
 
@@ -274,52 +272,10 @@ public sealed class YdbParameter : DbParameter
 
     private TypedValue Decimal(decimal value)
     {
-        var p = (Precision == 0 && Scale == 0) ? 22 : Precision;
-        var s = (Precision == 0 && Scale == 0) ? 9  : Scale;
-
-        EnsureDecimalFits(value, p, s);
+        var p = Precision == 0 && Scale == 0 ? 22 : Precision;
+        var s = Precision == 0 && Scale == 0 ? 9  : Scale;
 
         return value.Decimal((byte)p, (byte)s);
-    }
-
-    private static void EnsureDecimalFits(decimal value, int precision, int scale)
-    {
-        if (precision <= 0 || scale < 0 || scale > precision)
-            throw new ArgumentOutOfRangeException(
-                $"Invalid DECIMAL({precision},{scale}) — must have precision>0 and 0<=scale<=precision.");
-
-        GetTrimmedMantissaAndScale(value, out BigInteger mantissa, out int fracDigits /* = scale' */);
-
-        var totalDigits = mantissa.IsZero ? 1 : mantissa.ToString(CultureInfo.InvariantCulture).Length;
-
-        var intDigits = Math.Max(1, totalDigits - fracDigits);
-
-        if (fracDigits > scale)
-            throw new OverflowException(
-                $"Decimal scale overflow: fractional digits {fracDigits} exceed allowed {scale} for DECIMAL({precision},{scale}). Value={value}");
-
-        if (intDigits > (precision - scale))
-            throw new OverflowException(
-                $"Decimal precision overflow: integer digits {intDigits} exceed allowed {precision - scale} for DECIMAL({precision},{scale}). Value={value}");
-    }
-
-    private static void GetTrimmedMantissaAndScale(decimal value, out BigInteger mantissa, out int scale)
-    {
-        var bits = decimal.GetBits(value);
-        scale = (bits[3] >> 16) & 0xFF;
-
-        var lo = (uint)bits[0];
-        var mid = (uint)bits[1];
-        var hi = (uint)bits[2];
-
-        mantissa = ((BigInteger)hi << 64) | ((BigInteger)mid << 32) | lo;
-        mantissa = BigInteger.Abs(mantissa);
-
-        while (scale > 0 && !mantissa.IsZero && mantissa % 10 == 0)
-        {
-            mantissa /= 10;
-            scale--;
-        }
     }
 
     private TypedValue NullTypedValue()

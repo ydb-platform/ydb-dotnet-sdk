@@ -1,3 +1,4 @@
+using System.Globalization;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
@@ -73,16 +74,49 @@ internal static class YdbTypedValueExtensions
 
     internal static TypedValue Decimal(this decimal value, byte precision, byte scale)
     {
-        value *= 1.00000000000000000000000000000m; // 29 zeros, max supported by c# decimal
-        value = Math.Round(value, scale);
+        var bits0 = decimal.GetBits(value);
+        var fracDigits0 = (bits0[3] >> 16) & 0xFF;
 
-        var bits = decimal.GetBits(value);
-        var low = ((ulong)bits[1] << 32) + (uint)bits[0];
-        var high = (ulong)bits[2];
+        var absInt0 = decimal.Truncate(Math.Abs(value));
+        var integerDigits0 = absInt0 == 0m
+            ? 1
+            : absInt0.ToString(CultureInfo.InvariantCulture).Length;
+
+        if (fracDigits0 > scale)
+            throw new OverflowException(
+                $"Decimal scale overflow: fractional digits {fracDigits0} exceed allowed {scale} for DECIMAL({precision},{scale}). Value={value}");
+
+        if (integerDigits0 > precision - scale)
+            throw new OverflowException(
+                $"Decimal precision overflow: integer digits {integerDigits0} exceed allowed {precision - scale} for DECIMAL({precision},{scale}). Value={value}");
+
+        var rounded = Math.Round(value, scale, MidpointRounding.ToEven);
+
+        var rb = decimal.GetBits(rounded);
+        var roundedScale = (rb[3] >> 16) & 0xFF;
+        var negative = (rb[3] & unchecked((int)0x80000000)) != 0;
+
+        var unscaled = new decimal(rb[0], rb[1], rb[2], false, 0);
+
+        int delta = scale - roundedScale;
+        if (delta > 0)
+        {
+            for (int i = 0; i < delta; i++)
+                unscaled *= 10m;
+        }
+        else if (delta < 0)
+        {
+            for (int i = 0; i < -delta; i++)
+                unscaled /= 10m;
+        }
+
+        var ub = decimal.GetBits(unscaled);
+        var low = ((ulong)ub[1] << 32) + (uint)ub[0];
+        var high = (ulong)ub[2];
 
         unchecked
         {
-            if (value < 0)
+            if (negative)
             {
                 low = ~low;
                 high = ~high;
