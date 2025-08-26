@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Ado.Internal;
 
 namespace Ydb.Sdk.Pool;
 
@@ -152,23 +153,3 @@ internal class EndpointPool
 }
 
 public record EndpointSettings(long NodeId, string Endpoint, string LocationDc);
-
-public interface IRandom
-{
-    public int Next(int maxValue);
-}
-
-internal class ThreadLocalRandom : IRandom
-{
-    internal static readonly ThreadLocalRandom Instance = new();
-
-    [ThreadStatic] private static Random? _random;
-
-    private static Random ThreadStaticRandom => _random ??= new Random();
-
-    private ThreadLocalRandom()
-    {
-    }
-
-    public int Next(int maxValue) => ThreadStaticRandom.Next(maxValue);
-}

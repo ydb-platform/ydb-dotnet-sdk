@@ -364,7 +364,8 @@ internal class AppContext
 
         while (await ydbDataReader.ReadAsync())
         {
-            _logger.LogInformation("season_title: {}, series_title: {}, series_id: {}, season_id: {}",
+            _logger.LogInformation("season_title: {SeasonTitle}, series_title: {SeriesTitle}, " +
+                                   "series_id: {SeriesId}, season_id: {SeasonId}",
                 ydbDataReader.GetString("season_title"), ydbDataReader.GetString("series_title"),
                 ydbDataReader.GetUint64(2), ydbDataReader.GetUint64(3));
         }
