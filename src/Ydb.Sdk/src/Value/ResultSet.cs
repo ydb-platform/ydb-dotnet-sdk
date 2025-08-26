@@ -116,7 +116,7 @@ public class ResultSet
             {
                 if (columnIndex < 0 || columnIndex >= ColumnCount)
                 {
-                    throw ThrowHelper.IndexOutOfRangeException(ColumnCount);
+                    throw new IndexOutOfRangeException("Ordinal must be between 0 and " + (ColumnCount - 1));
                 }
 
                 return new YdbValue(_columns[columnIndex].Type, _row.Items[columnIndex]);

@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
-
 using static Ydb.Sdk.Ado.Internal.YdbTypedValueBuildExtensions;
 
 namespace Ydb.Sdk.Ado;
@@ -35,7 +34,11 @@ public sealed class YdbParameter : DbParameter
         { YdbDbType.Double, Type.Types.PrimitiveTypeId.Double.Null() },
         { YdbDbType.Uuid, Type.Types.PrimitiveTypeId.Uuid.Null() },
         { YdbDbType.Json, Type.Types.PrimitiveTypeId.Json.Null() },
-        { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() }
+        { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() },
+        { YdbDbType.Date32, Type.Types.PrimitiveTypeId.Date32.Null() },
+        { YdbDbType.Datetime64, Type.Types.PrimitiveTypeId.Datetime64.Null() },
+        { YdbDbType.Timestamp64, Type.Types.PrimitiveTypeId.Timestamp64.Null() },
+        { YdbDbType.Interval64, Type.Types.PrimitiveTypeId.Interval64.Null() }
     };
 
     private string _parameterName = string.Empty;

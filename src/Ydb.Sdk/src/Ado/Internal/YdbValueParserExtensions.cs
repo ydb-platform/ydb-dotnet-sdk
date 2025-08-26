@@ -43,7 +43,7 @@ internal static class YdbValueParserExtensions
         UnixEpoch.AddTicks(value.Int64Value * TimeSpan.TicksPerSecond);
 
     internal static DateTime GetTimestamp(this Ydb.Value value) =>
-        UnixEpoch.AddTicks(value.Int64Value * (1000 / Duration.NanosecondsPerTick));
+        UnixEpoch.AddTicks((long)(value.Uint64Value * (1000 / Duration.NanosecondsPerTick)));
 
     internal static DateTime GetTimestamp64(this Ydb.Value value) =>
         UnixEpoch.AddTicks(value.Int64Value * (1000 / Duration.NanosecondsPerTick));
@@ -77,7 +77,7 @@ internal static class YdbValueParserExtensions
         return new Guid(guidBytes);
     }
 
-    internal static decimal GetDecimal(this Ydb.Value value, byte scale)
+    internal static decimal GetDecimal(this Ydb.Value value, uint scale)
     {
         var lo = value.Low128;
         var hi = value.High128;
@@ -98,6 +98,6 @@ internal static class YdbValueParserExtensions
         if (hi >> 32 != 0)
             throw new OverflowException("Value does not fit into decimal");
 
-        return new decimal((int)lo, (int)(lo >> 32), (int)hi, isNegative, scale);
+        return new decimal((int)lo, (int)(lo >> 32), (int)hi, isNegative, (byte)scale);
     }
 }

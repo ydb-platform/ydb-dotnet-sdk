@@ -185,7 +185,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Timestamp64 => CurrentRow[ordinal].GetTimestamp64(),
             Type.Types.PrimitiveTypeId.Datetime64 => CurrentRow[ordinal].GetDatetime64(),
             Type.Types.PrimitiveTypeId.Date32 => CurrentRow[ordinal].GetDate32(),
-            _ => throw ThrowHelper.InvalidCastException<DateTime>(type)
+            _ => throw InvalidCastException<DateTime>(ordinal)
         };
     }
 
@@ -197,7 +197,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         {
             Type.Types.PrimitiveTypeId.Interval => CurrentRow[ordinal].GetInterval(),
             Type.Types.PrimitiveTypeId.Interval64 => CurrentRow[ordinal].GetInterval64(),
-            _ => throw ThrowHelper.InvalidCastException<TimeSpan>(type)
+            _ => throw InvalidCastException<TimeSpan>(ordinal)
         };
     }
 
@@ -218,7 +218,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         {
             Type.Types.PrimitiveTypeId.Double => CurrentRow[ordinal].GetDouble(),
             Type.Types.PrimitiveTypeId.Float => CurrentRow[ordinal].GetFloat(),
-            _ => throw ThrowHelper.InvalidCastException<double>(type)
+            _ => throw InvalidCastException<double>(ordinal)
         };
     }
 
@@ -399,24 +399,26 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     {
         var type = GetColumnType(ordinal);
 
-        if (type.TypeCase == Type.TypeOneofCase.NullType)
+        if (type.IsNull())
         {
             return DBNull.Value;
         }
 
-        // The bounds are checked when the type is extracted.
         var ydbValue = CurrentRow[ordinal];
 
-        // ReSharper disable once InvertIf
-        if (type.TypeCase == Type.TypeOneofCase.OptionalType)
+        if (type.IsOptional())
         {
             if (ydbValue.IsNull())
             {
                 return DBNull.Value;
             }
 
-            ydbValue = ydbValue.NestedValue;
             type = type.OptionalType.Item;
+        }
+
+        if (type.TypeCase == Type.TypeOneofCase.DecimalType)
+        {
+            return ydbValue.GetDecimal(type.DecimalType.Scale);
         }
 
         return type.TypeId switch
@@ -466,8 +468,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     {
         var type = GetColumnType(ordinal);
 
-        return type.TypeCase == Type.TypeOneofCase.NullType ||
-               (type.TypeCase == Type.TypeOneofCase.OptionalType && CurrentRow[ordinal].IsNull());
+        return type.IsNull() || (type.IsOptional() && CurrentRow[ordinal].IsNull());
     }
 
     public override int FieldCount => ReaderMetadata.FieldCount;
@@ -577,19 +578,20 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public override void Close() => CloseAsync().GetAwaiter().GetResult();
 
-    private void UnwrapColumnType(int ordinal, out Type type, out Ydb.Value value)
+    private Type UnwrapColumnType(int ordinal)
     {
-        var originType = GetColumnType(ordinal);
+        var type = GetColumnType(ordinal);
 
-        if (originType)
-        {
-            type = originType.OptionalType.Item;
-            value = CurrentRow[ordinal].NestedValue;
-        }
-        
-        return type.TypeCase == Type.TypeOneofCase.OptionalType
-            ? type.OptionalType.Item ?? throw new InvalidCastException("Field is null.")
-            : type;
+        if (type.IsNull())
+            throw new InvalidCastException("Field is null.");
+
+        if (!type.IsOptional())
+            return type;
+
+        if (CurrentRow[ordinal].IsNull())
+            throw new InvalidCastException("Field is null.");
+
+        return type.OptionalType.Item;
     }
 
     private Type GetColumnType(int ordinal) => ReaderMetadata.GetColumn(ordinal).Type;
@@ -732,7 +734,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         {
             if (ordinal < 0 || ordinal >= FieldCount)
             {
-                throw ThrowHelper.IndexOutOfRangeException(FieldCount);
+                throw new IndexOutOfRangeException("Ordinal must be between 0 and " + (FieldCount - 1));
             }
 
             return Columns[ordinal];
@@ -744,4 +746,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private InvalidCastException InvalidCastException(Type.Types.PrimitiveTypeId expectedType, int ordinal) =>
         new($"Invalid type of YDB value, expected primitive typeId: {expectedType}, actual: {GetColumnType(ordinal)}.");
+
+    private InvalidCastException InvalidCastException(Type.TypeOneofCase expectedType, int ordinal)
+        => new($"Invalid type of YDB value, expected: {expectedType}, actual: {GetColumnType(ordinal)}.");
 }

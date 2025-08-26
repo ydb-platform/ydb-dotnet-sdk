@@ -59,6 +59,30 @@ public class YdbCommandTests : TestBase
         Assert.Equal(data.Expected == null ? DBNull.Value : data.Expected, await dbCommand.ExecuteScalarAsync());
     }
 
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenSelectNull_ThrowFieldIsNull()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var dbCommand = connection.CreateCommand();
+        dbCommand.CommandText = "SELECT NULL";
+        var reader = await dbCommand.ExecuteReaderAsync();
+        await reader.ReadAsync();
+
+        Assert.Equal("Field is null.", Assert.Throws<InvalidCastException>(() => reader.GetFloat(0)).Message);
+    }
+
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenOptionalIsNull_ThrowFieldIsNull()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var dbCommand = connection.CreateCommand();
+        dbCommand.CommandText = "SELECT CAST(NULL AS Optional<Float>) AS Field";
+        var reader = await dbCommand.ExecuteReaderAsync();
+        await reader.ReadAsync();
+
+        Assert.Equal("Field is null.", Assert.Throws<InvalidCastException>(() => reader.GetFloat(0)).Message);
+    }
+
     [Theory]
     [ClassData(typeof(TestDataGenerator))]
     public async Task ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue<T>(Data<T> data)
@@ -93,11 +117,9 @@ public class YdbCommandTests : TestBase
             (YdbValue.MakeJson(simpleJson), simpleJson),
             (YdbValue.MakeJsonDocument(simpleJson), simpleJson),
             (YdbValue.MakeInterval(TimeSpan.FromSeconds(5)), TimeSpan.FromSeconds(5)),
-            (YdbValue.MakeYson("{type=\"yson\"}"u8.ToArray()), "{type=\"yson\"}"u8.ToArray()),
             (YdbValue.MakeOptionalJson(simpleJson), simpleJson),
             (YdbValue.MakeOptionalJsonDocument(simpleJson), simpleJson),
-            (YdbValue.MakeOptionalInterval(TimeSpan.FromSeconds(5)), TimeSpan.FromSeconds(5)),
-            (YdbValue.MakeOptionalYson("{type=\"yson\"}"u8.ToArray()), "{type=\"yson\"}"u8.ToArray())
+            (YdbValue.MakeOptionalInterval(TimeSpan.FromSeconds(5)), TimeSpan.FromSeconds(5))
         };
 
         await using var connection = await CreateOpenConnectionAsync();

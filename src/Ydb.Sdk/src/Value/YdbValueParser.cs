@@ -259,7 +259,8 @@ public partial class YdbValue
     {
         if (_protoType.TypeCase != expectedType)
         {
-            throw ThrowHelper.InvalidCastException(expectedType, _protoType);
+            throw new InvalidCastException(
+                $"Invalid type of YDB value, expected: {expectedType}, actual: {_protoType}.");
         }
     }
 
@@ -267,7 +268,8 @@ public partial class YdbValue
     {
         if (_protoType.TypeCase != Type.TypeOneofCase.TypeId || _protoType.TypeId != primitiveTypeId)
         {
-            throw ThrowHelper.InvalidCastException(primitiveTypeId, _protoType);
+            throw new InvalidCastException(
+                $"Invalid type of YDB value, expected: {primitiveTypeId}, actual: {_protoType}.");
         }
     }
 }

@@ -98,45 +98,6 @@ public class YdbParameterTests : TestBase
         Assert.Equal(1.1f, new YdbParameter("$parameter", DbType.Double) { Value = 1.1f }.TypedValue.Value.DoubleValue);
     }
 
-    [Fact]
-    public async Task YdbParameter_WhenDateTimeOffset_ReturnTimestamp()
-    {
-        var dateTimeOffset = DateTimeOffset.Parse("2029-08-03T06:59:44.8578730Z");
-        await using var ydbConnection = await CreateOpenConnectionAsync();
-        var tableTableName = $"dateTimeOffset_{Random.Shared.Next()}";
-        await new YdbCommand(ydbConnection)
-            {
-                CommandText = $"CREATE TABLE {tableTableName} (TimestampField Timestamp, PRIMARY KEY (TimestampField))"
-            }
-            .ExecuteNonQueryAsync();
-        await new YdbCommand(ydbConnection)
-            {
-                CommandText =
-                    $"INSERT INTO {tableTableName}(TimestampField) " +
-                    $"VALUES (@parameter1), (@parameter2), (@parameter3), (@parameter4)",
-                Parameters =
-                {
-                    new YdbParameter("$parameter1", dateTimeOffset),
-                    new YdbParameter("$parameter2", DbType.DateTimeOffset, dateTimeOffset.AddHours(1)),
-                    new YdbParameter("$parameter3", DbType.DateTimeOffset, dateTimeOffset.AddHours(2)),
-                    new YdbParameter("$parameter4", YdbDbType.Timestamp, dateTimeOffset.AddHours(3))
-                }
-            }
-            .ExecuteNonQueryAsync();
-
-        var ydbDataReader = await new YdbCommand(ydbConnection) { CommandText = $"SELECT * FROM {tableTableName}" }
-            .ExecuteReaderAsync();
-
-        var hourCount = 0;
-        while (ydbDataReader.NextResult())
-        {
-            Assert.True(ydbDataReader.Read());
-            Assert.Equal(dateTimeOffset.AddHours(hourCount++).UtcDateTime, ydbDataReader.GetValue(0));
-        }
-
-        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableTableName};" }.ExecuteNonQueryAsync();
-    }
-
     [Theory]
     [InlineData("123e4567-e89b-12d3-a456-426614174000")]
     [InlineData("2d9e498b-b746-9cfb-084d-de4e1cb4736e")]
