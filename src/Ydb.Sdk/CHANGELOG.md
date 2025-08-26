@@ -1,4 +1,5 @@
 - Dev: Parameterized Decimal overflow check (precision/scale).
+- Feat: Implement `YdbRetryPolicy` with AWS-inspired Exponential Backoff and Jitter.
 - Dev: LogLevel `Warning` -> `Debug` on DeleteSession has been `RpcException`.
 
 ## v0.22.0
