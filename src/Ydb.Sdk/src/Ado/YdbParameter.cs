@@ -270,13 +270,10 @@ public sealed class YdbParameter : DbParameter
             $"Writing value of '{value.GetType()}' is not supported without explicit mapping to the YdbDbType")
     };
 
-    private TypedValue Decimal(decimal value)
-    {
-        var p = Precision == 0 && Scale == 0 ? 22 : Precision;
-        var s = Precision == 0 && Scale == 0 ? 9 : Scale;
-
-        return value.Decimal((byte)p, (byte)s);
-    }
+    private TypedValue Decimal(decimal value) =>
+        Precision == 0 && Scale == 0
+            ? value.Decimal(22, 9)
+            : value.Decimal(Precision, Scale);
 
     private TypedValue NullTypedValue()
     {

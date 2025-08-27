@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
@@ -74,61 +75,33 @@ internal static class YdbTypedValueExtensions
 
     internal static TypedValue Decimal(this decimal value, byte precision, byte scale)
     {
-        var bits0 = decimal.GetBits(value);
-        var fracDigits0 = (bits0[3] >> 16) & 0xFF;
+        var bits = decimal.GetBits(value);
+        var scale0 = (bits[3] >> 16) & 0xFF;
+        var isNegative = (bits[3] & unchecked((int)0x80000000)) != 0;
 
-        var absInt0 = decimal.Truncate(Math.Abs(value));
-        var integerDigits0 = absInt0 == 0m
-            ? 1
-            : absInt0.ToString(CultureInfo.InvariantCulture).Length;
-
-        if (fracDigits0 > scale)
+        if (scale0 > scale)
             throw new OverflowException(
-                $"Decimal scale overflow: fractional digits {fracDigits0} exceed allowed {scale} for DECIMAL({precision},{scale}). Value={value}");
+                $"Decimal scale overflow: fractional digits {scale0} exceed allowed {scale} for DECIMAL({precision},{scale}). Value={value}");
 
-        if (integerDigits0 > precision - scale)
-            throw new OverflowException(
-                $"Decimal precision overflow: integer digits {integerDigits0} exceed allowed {precision - scale} for DECIMAL({precision},{scale}). Value={value}");
+        var lo = (uint)bits[0];
+        var mid = (uint)bits[1];
+        var hi = (uint)bits[2];
+        var mantissa = ((BigInteger)hi << 64) | ((BigInteger)mid << 32) | lo;
 
-        var rounded = Math.Round(value, scale, MidpointRounding.ToEven);
-
-        var rb = decimal.GetBits(rounded);
-        var roundedScale = (rb[3] >> 16) & 0xFF;
-        var negative = (rb[3] & unchecked((int)0x80000000)) != 0;
-
-        var unscaled = new decimal(rb[0], rb[1], rb[2], false, 0);
-
-        var delta = scale - roundedScale;
+        var delta = scale - scale0;
         if (delta > 0)
-        {
-            for (var i = 0; i < delta; i++)
-                unscaled *= 10m;
-        }
-        else if (delta < 0)
-        {
-            for (var i = 0; i < -delta; i++)
-                unscaled /= 10m;
-        }
+            mantissa *= BigInteger.Pow(10, delta);
 
-        var ub = decimal.GetBits(unscaled);
-        var low = ((ulong)ub[1] << 32) + (uint)ub[0];
-        var high = (ulong)ub[2];
+        var totalDigits = mantissa.IsZero ? 1 : mantissa.ToString(CultureInfo.InvariantCulture).Length;
+        if (totalDigits > precision)
+            throw new OverflowException(
+                $"Decimal precision overflow: total digits {totalDigits} exceed allowed {precision} for DECIMAL({precision},{scale}). Value={value}");
 
-        unchecked
-        {
-            if (negative)
-            {
-                low = ~low;
-                high = ~high;
+        if (isNegative) mantissa = -mantissa;
 
-                if (low == (ulong)-1L)
-                {
-                    high += 1;
-                }
-
-                low += 1;
-            }
-        }
+        var mod128 = (mantissa % (BigInteger.One << 128) + (BigInteger.One << 128)) % (BigInteger.One << 128);
+        var low = (ulong)(mod128 & ((BigInteger.One << 64) - 1));
+        var high = (ulong)(mod128 >> 64);
 
         return new TypedValue
         {

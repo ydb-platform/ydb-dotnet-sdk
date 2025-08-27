@@ -297,6 +297,18 @@ public class YdbParameterTests : TestBase
     }
 
     [Fact]
+    public void Decimal_WhenEncodingP35_10_With25IntegerDigits_DoesNotOverflow()
+    {
+        var val = decimal.Parse("1234567890123456789012345", CultureInfo.InvariantCulture);
+        var param = new YdbParameter("d", DbType.Decimal, val) { Precision = 35, Scale = 10 };
+
+        var tv = param.TypedValue;
+
+        Assert.Equal((byte)35, tv.Type.DecimalType.Precision);
+        Assert.Equal((byte)10, tv.Type.DecimalType.Scale);
+    }
+
+    [Fact]
     public async Task YdbParameter_WhenYdbDbTypeSetAndValueIsNull_ReturnsNullValue()
     {
         foreach (var ydbType in Enum.GetValues<YdbDbType>())
