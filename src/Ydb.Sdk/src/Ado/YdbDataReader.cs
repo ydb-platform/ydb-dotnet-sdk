@@ -407,7 +407,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return DBNull.Value;
         }
 
-        if (type.IsOptional())
+        if (type.TypeCase == Type.TypeOneofCase.OptionalType)
         {
             type = type.OptionalType.Item;
         }
@@ -576,7 +576,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         if (CurrentRow[ordinal].IsNull())
             throw new InvalidCastException("Field is null.");
 
-        return type.IsOptional() ? type.OptionalType.Item : type;
+        return type.TypeCase == Type.TypeOneofCase.OptionalType ? type.OptionalType.Item : type;
     }
 
     private Type GetColumnType(int ordinal) => ReaderMetadata.GetColumn(ordinal).Type;
