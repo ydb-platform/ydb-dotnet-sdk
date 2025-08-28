@@ -271,7 +271,6 @@ public sealed class YdbParameter : DbParameter
         decimal decimalValue => Decimal(decimalValue),
         Guid guidValue => guidValue.Uuid(),
         DateTime dateTimeValue => dateTimeValue.Timestamp(),
-        DateTimeOffset dateTimeOffset => dateTimeOffset.UtcDateTime.Timestamp(),
         DateOnly dateOnlyValue => dateOnlyValue.ToDateTime(TimeOnly.MinValue).Date(),
         byte[] bytesValue => bytesValue.Bytes(),
         TimeSpan timeSpanValue => timeSpanValue.Interval(),
