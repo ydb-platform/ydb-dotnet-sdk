@@ -402,18 +402,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         var type = GetColumnType(ordinal);
         var ydbValue = CurrentRow[ordinal];
 
-        if (type.IsNull())
+        if (ydbValue.IsNull())
         {
             return DBNull.Value;
         }
 
         if (type.IsOptional())
         {
-            if (ydbValue.IsNull())
-            {
-                return DBNull.Value;
-            }
-
             type = type.OptionalType.Item;
         }
 
@@ -578,16 +573,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     {
         var type = GetColumnType(ordinal);
 
-        if (type.IsNull())
-            throw new InvalidCastException("Field is null.");
-
-        if (!type.IsOptional())
-            return type;
-
         if (CurrentRow[ordinal].IsNull())
             throw new InvalidCastException("Field is null.");
 
-        return type.OptionalType.Item;
+        return type.IsOptional() ? type.OptionalType.Item : type;
     }
 
     private Type GetColumnType(int ordinal) => ReaderMetadata.GetColumn(ordinal).Type;
