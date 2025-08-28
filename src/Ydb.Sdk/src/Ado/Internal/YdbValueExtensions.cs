@@ -1,8 +1,6 @@
-using Google.Protobuf.WellKnownTypes;
-
 namespace Ydb.Sdk.Ado.Internal;
 
-internal static class YdbValueParserExtensions
+internal static class YdbValueExtensions
 {
     private static readonly DateTime UnixEpoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 

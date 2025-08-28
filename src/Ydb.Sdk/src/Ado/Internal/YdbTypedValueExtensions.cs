@@ -3,7 +3,7 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace Ydb.Sdk.Ado.Internal;
 
-internal static class YdbTypedValueBuildExtensions
+internal static class YdbTypedValueExtensions
 {
     internal static TypedValue Null(this Type.Types.PrimitiveTypeId primitiveTypeId) => new()
     {
