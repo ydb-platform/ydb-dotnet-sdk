@@ -122,6 +122,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     public override char GetChar(int ordinal)
     {
         var str = GetString(ordinal);
+
         return str.Length == 0 ? throw new InvalidCastException("Could not read char - string was empty") : str[0];
     }
 
@@ -386,7 +387,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         throw new IndexOutOfRangeException($"Field not found in row: {name}");
     }
 
-    public override string GetString(int ordinal) => CurrentRow[ordinal].GetText();
+    public override string GetString(int ordinal) =>
+        GetPrimitiveValue(Type.Types.PrimitiveTypeId.Utf8, ordinal).GetText();
 
     public override TextReader GetTextReader(int ordinal) => new StringReader(GetString(ordinal));
 
@@ -398,13 +400,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     public override object GetValue(int ordinal)
     {
         var type = GetColumnType(ordinal);
+        var ydbValue = CurrentRow[ordinal];
 
         if (type.IsNull())
         {
             return DBNull.Value;
         }
-
-        var ydbValue = CurrentRow[ordinal];
 
         if (type.IsOptional())
         {
@@ -468,7 +469,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     {
         var type = GetColumnType(ordinal);
 
-        return type.IsNull() || (type.IsOptional() && CurrentRow[ordinal].IsNull());
+        return (type.IsOptional() && CurrentRow[ordinal].IsNull()) || type.IsNull();
     }
 
     public override int FieldCount => ReaderMetadata.FieldCount;
@@ -599,10 +600,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private Ydb.Value GetPrimitiveValue(Type.Types.PrimitiveTypeId primitiveTypeId, int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
+        var ydbValue = CurrentRow[ordinal];
 
-        return type.TypeId == primitiveTypeId
-            ? CurrentRow[ordinal]
-            : throw InvalidCastException(primitiveTypeId, ordinal);
+        return type.TypeId == primitiveTypeId ? ydbValue : throw InvalidCastException(primitiveTypeId, ordinal);
     }
 
     private async ValueTask<State> NextExecPart(CancellationToken cancellationToken)
