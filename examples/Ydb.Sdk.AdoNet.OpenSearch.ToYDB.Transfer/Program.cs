@@ -89,6 +89,7 @@ for (var i = 0; i < workerCount; i++)
         {
             var index = Interlocked.Decrement(ref iterator);
 
+            // ReSharper disable once AccessToDisposedClosure
             await using var ydbConnection = await ydbDataSource.OpenConnectionAsync();
 
             if (index < 0)
