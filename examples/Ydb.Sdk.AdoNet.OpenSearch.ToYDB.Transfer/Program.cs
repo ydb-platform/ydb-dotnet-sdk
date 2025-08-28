@@ -8,7 +8,8 @@ using NLog.Extensions.Logging;
 
 if (args.Length != 4)
 {
-    Console.WriteLine("Usage: Program.exe <YdbConnectionString> <OpenSearchConnectionString> <OpenSearchPassword> <YdbTableName>");
+    Console.WriteLine(
+        "Usage: Program.exe <YdbConnectionString> <OpenSearchConnectionString> <OpenSearchPassword> <YdbTableName>");
 
     return 1;
 }
@@ -30,29 +31,29 @@ await using var ydbDataSource = new YdbDataSource(builder);
 await using (var ydbCommand = ydbDataSource.CreateCommand())
 {
     ydbCommand.CommandText = $"""
-                                CREATE TABLE IF NOT EXISTS `{args[3]}` (
-                                    indexId Text NOT NULL,
-                                    chunkId Text NOT NULL,
-                                    fileId Text NOT NULL,
-                                    folderId Text NOT NULL,
-                                    chunkText Text FAMILY family_chunkText NOT NULL,
-                                    chunkVector Bytes,
-                                    createdAt Timestamp NOT NULL,
-                                    createdBy Text NOT NULL,
-                                    updatedAt Timestamp NOT NULL,
-                                    updatedBy Text NOT NULL,
-                                    PRIMARY KEY (indexId, chunkId, fileId, folderId),
-                                    FAMILY family_chunkText (
-                                        DATA = "ssd",
-                                        COMPRESSION = "lz4"
-                                    ),
-                                ) WITH (
-                                    AUTO_PARTITIONING_BY_SIZE = ENABLED,
-                                    AUTO_PARTITIONING_BY_LOAD = ENABLED,
-                                    AUTO_PARTITIONING_MIN_PARTITIONS_COUNT = 50,
-                                    AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = 100
-                                )
-                             """;
+                                 CREATE TABLE IF NOT EXISTS `{args[3]}` (
+                                     indexId Text NOT NULL,
+                                     chunkId Text NOT NULL,
+                                     fileId Text NOT NULL,
+                                     folderId Text NOT NULL,
+                                     chunkText Text FAMILY family_chunkText NOT NULL,
+                                     chunkVector Bytes,
+                                     createdAt Timestamp NOT NULL,
+                                     createdBy Text NOT NULL,
+                                     updatedAt Timestamp NOT NULL,
+                                     updatedBy Text NOT NULL,
+                                     PRIMARY KEY (indexId, chunkId, fileId, folderId),
+                                     FAMILY family_chunkText (
+                                         DATA = "ssd",
+                                         COMPRESSION = "lz4"
+                                     ),
+                                 ) WITH (
+                                     AUTO_PARTITIONING_BY_SIZE = ENABLED,
+                                     AUTO_PARTITIONING_BY_LOAD = ENABLED,
+                                     AUTO_PARTITIONING_MIN_PARTITIONS_COUNT = 50,
+                                     AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = 100
+                                 )
+                              """;
     await ydbCommand.ExecuteNonQueryAsync();
 }
 
@@ -194,9 +195,9 @@ async Task WorkerJobSingleIndex(IndexName indexName, YdbConnection ydbConnection
                 break;
             }
 
-            if (scrollResponse.Documents.Count != 0) 
+            if (scrollResponse.Documents.Count != 0)
                 continue;
-            
+
             logger.LogInformation(
                 "Index {IndexName}: Scroll completed - no more documents, processed {TotalProcessed}/{TotalDocuments}",
                 indexName, totalProcessed, totalDocuments);
