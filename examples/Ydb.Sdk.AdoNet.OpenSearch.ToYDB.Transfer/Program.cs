@@ -6,9 +6,9 @@ using OpenSearch.Client;
 using System.Text.Json.Serialization;
 using NLog.Extensions.Logging;
 
-if (args.Length != 3)
+if (args.Length != 4)
 {
-    Console.WriteLine("Usage: Program.exe <YdbConnectionString> <OpenSearchConnectionString> <OpenSearchPassword>");
+    Console.WriteLine("Usage: Program.exe <YdbConnectionString> <OpenSearchConnectionString> <OpenSearchPassword> <YdbTableName>");
 
     return 1;
 }
@@ -29,8 +29,8 @@ var builder = new YdbConnectionStringBuilder(args[0])
 await using var ydbDataSource = new YdbDataSource(builder);
 await using (var ydbCommand = ydbDataSource.CreateCommand())
 {
-    ydbCommand.CommandText = """
-                                CREATE TABLE IF NOT EXISTS `doc_25_08_28__12_00` (
+    ydbCommand.CommandText = $"""
+                                CREATE TABLE IF NOT EXISTS `{args[3]}` (
                                     indexId Text NOT NULL,
                                     chunkId Text NOT NULL,
                                     fileId Text NOT NULL,
@@ -112,7 +112,7 @@ async Task WorkerJobSingleIndex(IndexName indexName, YdbConnection ydbConnection
     var countResponse = await openSearchClient.CountAsync<Document>(c => c.Index(indexName));
     var totalDocuments = countResponse.Count;
 
-    var bulkUpsertImporter = ydbConnection.BeginBulkUpsertImport("doc_25_08_28__12_00",
+    var bulkUpsertImporter = ydbConnection.BeginBulkUpsertImport(args[3],
     [
         "indexId", "chunkId", "fileId", "folderId", "chunkText", "chunkVector", "createdAt", "createdBy", "updatedAt",
         "updatedBy"
