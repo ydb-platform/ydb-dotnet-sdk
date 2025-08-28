@@ -465,12 +465,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return count;
     }
 
-    public override bool IsDBNull(int ordinal)
-    {
-        var type = GetColumnType(ordinal);
-
-        return (type.IsOptional() && CurrentRow[ordinal].IsNull()) || type.IsNull();
-    }
+    public override bool IsDBNull(int ordinal) => CurrentRow[ordinal].IsNull();
 
     public override int FieldCount => ReaderMetadata.FieldCount;
     public override object this[int ordinal] => GetValue(ordinal);
