@@ -127,8 +127,7 @@ internal static class YdbTypedValueBuildExtensions
         new Ydb.Value { Int32Value = (int)(value.Subtract(DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerDay) });
 
     internal static TypedValue Datetime(this DateTime dateTimeValue) => MakePrimitiveTypedValue(
-        Type.Types.PrimitiveTypeId.Datetime,
-        new Ydb.Value
+        Type.Types.PrimitiveTypeId.Datetime, new Ydb.Value
             { Uint32Value = (uint)(dateTimeValue.Subtract(DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerSecond) }
     );
 
@@ -140,23 +139,23 @@ internal static class YdbTypedValueBuildExtensions
     internal static TypedValue Timestamp(this DateTime dateTimeValue) => MakePrimitiveTypedValue(
         Type.Types.PrimitiveTypeId.Timestamp, new Ydb.Value
         {
-            Uint64Value = (ulong)(dateTimeValue.Ticks - DateTime.UnixEpoch.Ticks) * Duration.NanosecondsPerTick / 1000
+            Uint64Value = (ulong)(dateTimeValue.Ticks - DateTime.UnixEpoch.Ticks) / TimeSpanUtils.TicksPerMicrosecond
         }
     );
 
     internal static TypedValue Timestamp64(this DateTime dateTimeValue) => MakePrimitiveTypedValue(
         Type.Types.PrimitiveTypeId.Timestamp64, new Ydb.Value
-            { Int64Value = (dateTimeValue.Ticks - DateTime.UnixEpoch.Ticks) * Duration.NanosecondsPerTick / 1000 }
+            { Int64Value = (dateTimeValue.Ticks - DateTime.UnixEpoch.Ticks) / TimeSpanUtils.TicksPerMicrosecond }
     );
 
     internal static TypedValue Interval(this TimeSpan timeSpanValue) => MakePrimitiveTypedValue(
         Type.Types.PrimitiveTypeId.Interval,
-        new Ydb.Value { Int64Value = timeSpanValue.Ticks * Duration.NanosecondsPerTick / 1000 }
+        new Ydb.Value { Int64Value = timeSpanValue.Ticks / TimeSpanUtils.TicksPerMicrosecond }
     );
 
     internal static TypedValue Interval64(this TimeSpan timeSpanValue) => MakePrimitiveTypedValue(
-        Type.Types.PrimitiveTypeId.Interval,
-        new Ydb.Value { Int64Value = timeSpanValue.Ticks * Duration.NanosecondsPerTick / 1000 }
+        Type.Types.PrimitiveTypeId.Interval64,
+        new Ydb.Value { Int64Value = timeSpanValue.Ticks / TimeSpanUtils.TicksPerMicrosecond }
     );
 
     internal static TypedValue List(this IReadOnlyList<TypedValue> values)

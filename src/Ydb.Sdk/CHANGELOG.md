@@ -1,3 +1,4 @@
+- Feat ADO.NET: Added support for `Date32`, `Datetime64`, `Timestamp64` and `Interval64` types in YDB.
 - Feat: Implement `YdbRetryPolicy` with AWS-inspired Exponential Backoff and Jitter.
 - Dev: LogLevel `Warning` -> `Debug` on DeleteSession has been `RpcException`.
 

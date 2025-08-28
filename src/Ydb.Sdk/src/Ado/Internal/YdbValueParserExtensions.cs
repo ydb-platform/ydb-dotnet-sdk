@@ -7,7 +7,7 @@ internal static class YdbValueParserExtensions
     private static readonly DateTime UnixEpoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
     internal static bool IsNull(this Ydb.Value value) => value.ValueCase == Ydb.Value.ValueOneofCase.NullFlagValue;
-    
+
     internal static bool GetBool(this Ydb.Value value) => value.BoolValue;
 
     internal static sbyte GetInt8(this Ydb.Value value) => (sbyte)value.Int32Value;
@@ -43,16 +43,16 @@ internal static class YdbValueParserExtensions
         UnixEpoch.AddTicks(value.Int64Value * TimeSpan.TicksPerSecond);
 
     internal static DateTime GetTimestamp(this Ydb.Value value) =>
-        UnixEpoch.AddTicks((long)(value.Uint64Value * (1000 / Duration.NanosecondsPerTick)));
+        UnixEpoch.AddTicks((long)(value.Uint64Value * TimeSpanUtils.TicksPerMicrosecond));
 
     internal static DateTime GetTimestamp64(this Ydb.Value value) =>
-        UnixEpoch.AddTicks(value.Int64Value * (1000 / Duration.NanosecondsPerTick));
+        UnixEpoch.AddTicks(value.Int64Value * TimeSpanUtils.TicksPerMicrosecond);
 
-    internal static TimeSpan GetInterval(this Ydb.Value value) => 
-        TimeSpan.FromTicks(value.Int64Value * (1000 / Duration.NanosecondsPerTick));
+    internal static TimeSpan GetInterval(this Ydb.Value value) =>
+        TimeSpan.FromTicks(value.Int64Value * TimeSpanUtils.TicksPerMicrosecond);
 
     internal static TimeSpan GetInterval64(this Ydb.Value value) =>
-        TimeSpan.FromTicks(value.Int64Value * (1000 / Duration.NanosecondsPerTick));
+        TimeSpan.FromTicks(value.Int64Value * TimeSpanUtils.TicksPerMicrosecond);
 
     internal static byte[] GetBytes(this Ydb.Value value) => value.BytesValue.ToByteArray();
 
