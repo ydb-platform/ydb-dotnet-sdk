@@ -35,7 +35,7 @@ await using (var ydbCommand = ydbDataSource.CreateCommand())
                                     chunkId Text NOT NULL,
                                     fileId Text NOT NULL,
                                     folderId Text NOT NULL,
-                                    chunkText Text FAMILY family_chunkText,
+                                    chunkText Text FAMILY family_chunkText NOT NULL,
                                     chunkVector Bytes,
                                     createdAt Timestamp NOT NULL,
                                     createdBy Text NOT NULL,
