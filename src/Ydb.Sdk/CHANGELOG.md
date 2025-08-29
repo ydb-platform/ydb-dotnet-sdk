@@ -1,3 +1,5 @@
+- Test: Refactor TestBase: add UsingTempTableAsync / UsingTempTablesAsync to remove DDL/cleanup boilerplate; test names and logic unchanged.
+- Feat Value: Add YdbList builder for List<Struct<...>> (protobuf-based); works with IBulkUpsertImporter.AddListAsync.
 - Feat ADO.NET: Deleted support for `DateTimeOffset` was a mistake.
 - Feat ADO.NET: Added support for `Date32`, `Datetime64`, `Timestamp64` and `Interval64` types in YDB.
 - Feat: Implement `YdbRetryPolicy` with AWS-inspired Exponential Backoff and Jitter.
