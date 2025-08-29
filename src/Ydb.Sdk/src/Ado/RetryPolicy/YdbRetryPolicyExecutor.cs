@@ -1,6 +1,6 @@
 namespace Ydb.Sdk.Ado.RetryPolicy;
 
-public class YdbRetryPolicyExecutor
+internal class YdbRetryPolicyExecutor
 {
     private readonly YdbRetryPolicy _retryPolicy;
 
@@ -37,37 +37,26 @@ public class YdbRetryPolicyExecutor
 
     private async Task<TResult> ExecuteImplementationAsync<TResult>(
         Func<CancellationToken, Task<TResult>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
+        var attempt = 0;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            TimeSpan? delay;
-
-            // try
-            // {
-            //     return await operation(cancellationToken).ConfigureAwait(false);
-            //     Suspended = false;
-            //     return result;
-            // }
-            // catch (Exception ex)
-            // {
-            //     Suspended = false;
-            //
-            //     if (!ShouldRetryOn(ex))
-            //         throw;
-            //
-            //     ExceptionsEncountered.Add(ex);
-            //
-            //     delay = GetNextDelay(ex);
-            //     if (delay == null)
-            //         throw;
-            //
-            //     OnRetry();
-            // }
-
-            // await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
+            
+            try
+            {
+                return await operation(cancellationToken).ConfigureAwait(false);
+            }
+            catch (YdbException e)
+            {
+                var delay = _retryPolicy.GetNextDelay(e, attempt++);
+                if (delay == null)
+                    throw;
+                
+                await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 }
