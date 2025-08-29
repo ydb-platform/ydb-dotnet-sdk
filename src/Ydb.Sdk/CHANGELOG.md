@@ -1,5 +1,6 @@
 - Test: Refactor TestBase: add UsingTempTableAsync / UsingTempTablesAsync to remove DDL/cleanup boilerplate; test names and logic unchanged.
 - Feat Value: Add YdbList builder for List<Struct<...>> (protobuf-based); works with IBulkUpsertImporter.AddListAsync.
+- Feat: Implement `YdbRetryPolicy` with AWS-inspired Exponential Backoff and Jitter.
 - Dev: LogLevel `Warning` -> `Debug` on DeleteSession has been `RpcException`.
 
 ## v0.22.0
