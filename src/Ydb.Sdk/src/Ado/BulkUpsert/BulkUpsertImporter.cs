@@ -57,7 +57,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
 
         var ydbValues = values.Select(v => v switch
         {
-            YdbValue ydbValue  => ydbValue.GetProto(),
+            YdbValue ydbValue => ydbValue.GetProto(),
             YdbParameter param => param.TypedValue,
             YdbList => throw new ArgumentException(
                 "YdbList cannot be used as a column value. Use AddListAsync(YdbList) to append multiple rows.",

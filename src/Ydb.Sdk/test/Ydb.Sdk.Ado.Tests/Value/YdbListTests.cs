@@ -47,7 +47,7 @@ public class YdbListTests : TestBase
         await cmd.ExecuteNonQueryAsync();
     }
 
-    private static async Task<int> CountAsync(YdbConnection conn, string table)
+    private new static async Task<int> CountAsync(YdbConnection conn, string table)
     {
         await using var check = conn.CreateCommand();
         check.CommandText = $"SELECT COUNT(*) FROM {table}";

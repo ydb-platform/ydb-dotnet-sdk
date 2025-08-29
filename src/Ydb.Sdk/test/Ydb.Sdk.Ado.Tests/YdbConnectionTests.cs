@@ -297,7 +297,7 @@ public sealed class YdbConnectionTests : TestBase
 
     [Fact]
     public async Task BulkUpsertImporter_AddListAsync_HappyPath_InsertsRows() =>
-        await WithIdNameTableAsync((c, table) => Task.CompletedTask, idType: "Int64");
+        await WithIdNameTableAsync((_, _) => Task.CompletedTask, idType: "Int64");
 
     [Fact]
     public async Task BulkUpsertImporter_AddListAsync_HappyPath_InsertsRows_Int64() =>

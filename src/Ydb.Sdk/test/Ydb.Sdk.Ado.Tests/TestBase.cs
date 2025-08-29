@@ -30,12 +30,12 @@ public abstract class TestBase : IAsyncLifetime
     }
 
     private static string CreateIdNameTableSql(string table, string idType = "Int32", bool nameNullable = false) => $"""
-                                                                                                                     CREATE TABLE {table} (
-                                                                                                                         Id {idType},
-                                                                                                                         Name Text{(nameNullable ? "?" : "")},
-                                                                                                                         PRIMARY KEY (Id)
-                                                                                                                     )
-                                                                                                                     """;
+         CREATE TABLE {table} (
+                 Id {idType},
+                 Name Text{(nameNullable ? "?" : "")},
+             PRIMARY KEY (Id)
+         )
+         """;
 
     private static string CreateAllTypesTableSql(string table) => @$"
 CREATE TABLE {table} (
@@ -85,7 +85,14 @@ CREATE TABLE {table} (
         {
             await using var drop = conn.CreateCommand();
             drop.CommandText = (dropSqlFactory ?? (t => $"DROP TABLE {t}"))(table);
-            try { await drop.ExecuteNonQueryAsync(); } catch { /* ignore */ }
+            try
+            {
+                await drop.ExecuteNonQueryAsync();
+            }
+            catch
+            {
+                /* ignore */
+            }
         }
     }
 
@@ -134,7 +141,14 @@ CREATE TABLE {table} (
             {
                 await using var cmd = conn.CreateCommand();
                 cmd.CommandText = sql;
-                try { await cmd.ExecuteNonQueryAsync(); } catch { /* ignore */ }
+                try
+                {
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                catch
+                {
+                    /* ignore */
+                }
             }
         }
     }
