@@ -1,5 +1,3 @@
-using Ydb.Sdk.Ado.YdbType;
-
 namespace Ydb.Sdk.Ado.Internal;
 
 internal interface ISqlParam
