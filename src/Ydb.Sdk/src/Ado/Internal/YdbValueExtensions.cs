@@ -77,25 +77,21 @@ internal static class YdbValueExtensions
 
     internal static decimal GetDecimal(this Ydb.Value value, uint scale)
     {
-        var lo = value.Low128;
-        var hi = value.High128;
-        var isNegative = (hi & 0x8000_0000_0000_0000UL) != 0;
+        var low = value.Low128;
+        var high = value.High128;
+        var isNegative = (high & 0x8000_0000_0000_0000UL) != 0;
         unchecked
         {
             if (isNegative)
             {
-                if (lo == 0)
-                    hi--;
-
-                lo--;
-                lo = ~lo;
-                hi = ~hi;
+                low = ~low + 1UL;
+                high = ~high + (low == 0 ? 1UL : 0UL);
             }
         }
 
-        if (hi >> 32 != 0)
+        if (high >> 32 != 0)
             throw new OverflowException("Value does not fit into decimal");
 
-        return new decimal((int)lo, (int)(lo >> 32), (int)hi, isNegative, (byte)scale);
+        return new decimal((int)low, (int)(low >> 32), (int)high, isNegative, (byte)scale);
     }
 }

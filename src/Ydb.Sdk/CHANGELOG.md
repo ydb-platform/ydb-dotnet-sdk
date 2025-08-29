@@ -1,4 +1,5 @@
-- Feat ADO.NET: Parameterized Decimal overflow check (precision/scale).
+- Fix bug wrap-around ADO.NET: Big parameterized Decimal — `((ulong)bits[1] << 32)` -> `((ulong)(uint)bits[1] << 32)`
+- Feat ADO.NET: Parameterized Decimal overflow check: `Precision` and `Scale`.
 - Feat ADO.NET: Deleted support for `DateTimeOffset` was a mistake.
 - Feat ADO.NET: Added support for `Date32`, `Datetime64`, `Timestamp64` and `Interval64` types in YDB.
 - Feat: Implement `YdbRetryPolicy` with AWS-inspired Exponential Backoff and Jitter.
