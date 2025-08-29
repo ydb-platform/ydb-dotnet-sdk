@@ -1,5 +1,4 @@
 ﻿using Google.Protobuf.WellKnownTypes;
-using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Value;
 
@@ -258,7 +257,8 @@ public partial class YdbValue
     {
         if (_protoType.TypeCase != expectedType)
         {
-            ThrowHelper.ThrowInvalidCastException(expectedType.ToString(), TypeId.ToString());
+            throw new InvalidCastException(
+                $"Invalid type of YDB value, expected: {expectedType}, actual: {_protoType}.");
         }
     }
 
@@ -266,7 +266,8 @@ public partial class YdbValue
     {
         if (_protoType.TypeCase != Type.TypeOneofCase.TypeId || _protoType.TypeId != primitiveTypeId)
         {
-            ThrowHelper.ThrowInvalidCastException(primitiveTypeId.ToString(), TypeId.ToString());
+            throw new InvalidCastException(
+                $"Invalid type of YDB value, expected: {primitiveTypeId}, actual: {_protoType}.");
         }
     }
 }

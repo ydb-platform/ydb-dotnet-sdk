@@ -2,14 +2,16 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
+using static Ydb.Sdk.Ado.Internal.YdbTypedValueExtensions;
 
 namespace Ydb.Sdk.Ado;
 
 public sealed class YdbParameter : DbParameter
 {
-    private static readonly TypedValue NullDefaultDecimal = YdbTypedValueExtensions.NullDecimal(22, 9);
+    private static readonly TypedValue NullDefaultDecimal = NullDecimal(22, 9);
 
     private static readonly Dictionary<YdbDbType, TypedValue> YdbNullByDbType = new()
     {
@@ -32,7 +34,11 @@ public sealed class YdbParameter : DbParameter
         { YdbDbType.Double, Type.Types.PrimitiveTypeId.Double.Null() },
         { YdbDbType.Uuid, Type.Types.PrimitiveTypeId.Uuid.Null() },
         { YdbDbType.Json, Type.Types.PrimitiveTypeId.Json.Null() },
-        { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() }
+        { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() },
+        { YdbDbType.Date32, Type.Types.PrimitiveTypeId.Date32.Null() },
+        { YdbDbType.Datetime64, Type.Types.PrimitiveTypeId.Datetime64.Null() },
+        { YdbDbType.Timestamp64, Type.Types.PrimitiveTypeId.Timestamp64.Null() },
+        { YdbDbType.Interval64, Type.Types.PrimitiveTypeId.Interval64.Null() }
     };
 
     private string _parameterName = string.Empty;
@@ -153,9 +159,13 @@ public sealed class YdbParameter : DbParameter
                 YdbDbType.JsonDocument when value is string stringValue => stringValue.JsonDocument(),
                 YdbDbType.Uuid when value is Guid guidValue => guidValue.Uuid(),
                 YdbDbType.Date => MakeDate(value),
+                YdbDbType.Date32 => MakeDate32(value),
                 YdbDbType.DateTime when value is DateTime dateTimeValue => dateTimeValue.Datetime(),
-                YdbDbType.Timestamp => MakeTimestamp(value),
+                YdbDbType.Datetime64 when value is DateTime dateTimeValue => dateTimeValue.Datetime64(),
+                YdbDbType.Timestamp when value is DateTime dateTimeValue => dateTimeValue.Timestamp(),
+                YdbDbType.Timestamp64 when value is DateTime dateTimeValue => dateTimeValue.Timestamp64(),
                 YdbDbType.Interval when value is TimeSpan timeSpanValue => timeSpanValue.Interval(),
+                YdbDbType.Interval64 when value is TimeSpan timeSpanValue => timeSpanValue.Interval64(),
                 YdbDbType.Unspecified => Cast(value),
                 _ => throw ValueTypeNotSupportedException
             };
@@ -237,10 +247,10 @@ public sealed class YdbParameter : DbParameter
         _ => throw ValueTypeNotSupportedException
     };
 
-    private TypedValue MakeTimestamp(object value) => value switch
+    private TypedValue MakeDate32(object value) => value switch
     {
-        DateTime dateTimeValue => dateTimeValue.Timestamp(),
-        DateTimeOffset dateTimeOffsetValue => dateTimeOffsetValue.UtcDateTime.Timestamp(),
+        DateTime dateTimeValue => dateTimeValue.Date32(),
+        DateOnly dateOnlyValue => dateOnlyValue.ToDateTime(TimeOnly.MinValue).Date32(),
         _ => throw ValueTypeNotSupportedException
     };
 
@@ -261,7 +271,6 @@ public sealed class YdbParameter : DbParameter
         decimal decimalValue => Decimal(decimalValue),
         Guid guidValue => guidValue.Uuid(),
         DateTime dateTimeValue => dateTimeValue.Timestamp(),
-        DateTimeOffset dateTimeOffset => dateTimeOffset.UtcDateTime.Timestamp(),
         DateOnly dateOnlyValue => dateOnlyValue.ToDateTime(TimeOnly.MinValue).Date(),
         byte[] bytesValue => bytesValue.Bytes(),
         TimeSpan timeSpanValue => timeSpanValue.Interval(),
@@ -271,9 +280,7 @@ public sealed class YdbParameter : DbParameter
     };
 
     private TypedValue Decimal(decimal value) =>
-        Precision == 0 && Scale == 0
-            ? value.Decimal(22, 9)
-            : value.Decimal(Precision, Scale);
+        Precision == 0 && Scale == 0 ? value.Decimal(22, 9) : value.Decimal(Precision, Scale);
 
     private TypedValue NullTypedValue()
     {
@@ -286,7 +293,7 @@ public sealed class YdbParameter : DbParameter
         {
             return Precision == 0 && Scale == 0
                 ? NullDefaultDecimal
-                : YdbTypedValueExtensions.NullDecimal(Precision, Scale);
+                : NullDecimal(Precision, Scale);
         }
 
         throw new InvalidOperationException(
