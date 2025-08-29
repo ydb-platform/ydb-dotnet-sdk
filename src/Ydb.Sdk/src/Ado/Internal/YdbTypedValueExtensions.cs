@@ -89,7 +89,7 @@ internal static class YdbTypedValueExtensions
 
         var origScale = (decimal.GetBits(value)[3] >> 16) & 0xFF;
 
-        if (origScale > scale || precision < MaxPrecisionDecimal && Pow10[precision - scale] <= Math.Abs(value))
+        if (origScale > scale || (precision < MaxPrecisionDecimal && Pow10[precision - scale] <= Math.Abs(value)))
         {
             throw new OverflowException($"Value {value} does not fit Decimal({precision}, {scale})");
         }
