@@ -158,7 +158,15 @@ public enum YdbDbType
     /// Value range: From -136 years to +136 years. Internal representation: Signed 64-bit integer.
     /// Can't be used in the primary key.
     /// </remarks>
-    Interval
+    Interval,
+
+    Date32,
+
+    Datetime64,
+
+    Timestamp64,
+
+    Interval64
 }
 
 internal static class YdbDbTypeExtensions

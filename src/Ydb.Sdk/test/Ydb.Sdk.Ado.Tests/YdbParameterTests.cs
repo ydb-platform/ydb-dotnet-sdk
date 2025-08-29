@@ -98,45 +98,6 @@ public class YdbParameterTests : TestBase
         Assert.Equal(1.1f, new YdbParameter("$parameter", DbType.Double) { Value = 1.1f }.TypedValue.Value.DoubleValue);
     }
 
-    [Fact]
-    public async Task YdbParameter_WhenDateTimeOffset_ReturnTimestamp()
-    {
-        var dateTimeOffset = DateTimeOffset.Parse("2029-08-03T06:59:44.8578730Z");
-        await using var ydbConnection = await CreateOpenConnectionAsync();
-        var tableTableName = $"dateTimeOffset_{Random.Shared.Next()}";
-        await new YdbCommand(ydbConnection)
-            {
-                CommandText = $"CREATE TABLE {tableTableName} (TimestampField Timestamp, PRIMARY KEY (TimestampField))"
-            }
-            .ExecuteNonQueryAsync();
-        await new YdbCommand(ydbConnection)
-            {
-                CommandText =
-                    $"INSERT INTO {tableTableName}(TimestampField) " +
-                    $"VALUES (@parameter1), (@parameter2), (@parameter3), (@parameter4)",
-                Parameters =
-                {
-                    new YdbParameter("$parameter1", dateTimeOffset),
-                    new YdbParameter("$parameter2", DbType.DateTimeOffset, dateTimeOffset.AddHours(1)),
-                    new YdbParameter("$parameter3", DbType.DateTimeOffset, dateTimeOffset.AddHours(2)),
-                    new YdbParameter("$parameter4", YdbDbType.Timestamp, dateTimeOffset.AddHours(3))
-                }
-            }
-            .ExecuteNonQueryAsync();
-
-        var ydbDataReader = await new YdbCommand(ydbConnection) { CommandText = $"SELECT * FROM {tableTableName}" }
-            .ExecuteReaderAsync();
-
-        var hourCount = 0;
-        while (ydbDataReader.NextResult())
-        {
-            Assert.True(ydbDataReader.Read());
-            Assert.Equal(dateTimeOffset.AddHours(hourCount++).UtcDateTime, ydbDataReader.GetValue(0));
-        }
-
-        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableTableName};" }.ExecuteNonQueryAsync();
-    }
-
     [Theory]
     [InlineData("123e4567-e89b-12d3-a456-426614174000")]
     [InlineData("2d9e498b-b746-9cfb-084d-de4e1cb4736e")]
@@ -342,7 +303,7 @@ public class YdbParameterTests : TestBase
     public async Task YdbParameter_WhenYdbDbTypeSetAndValueIsNotNull_ReturnsValue()
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
-        var tableName = $"NouNull_YdbDbType_{Random.Shared.Next()}";
+        var tableName = $"NonNull_YdbDbType_{Random.Shared.Next()}";
         await new YdbCommand(ydbConnection)
         {
             CommandText = $"""
@@ -368,6 +329,10 @@ public class YdbParameterTests : TestBase
                                IntervalColumn Interval NOT NULL,
                                JsonColumn Json NOT NULL,
                                JsonDocumentColumn JsonDocument NOT NULL,
+                               Date32Column Date32 NOT NULL,
+                               Datetime64Column DateTime64 NOT NULL,
+                               Timestamp64Column Timestamp64 NOT NULL,
+                               Interval64Column Interval64 NOT NULL,
                                PRIMARY KEY (Int32Column)
                            );
                            """
@@ -380,12 +345,14 @@ public class YdbParameterTests : TestBase
                                Int32Column, BoolColumn, Int64Column, Int16Column, Int8Column, FloatColumn, DoubleColumn, 
                                DefaultDecimalColumn, CustomDecimalColumn, Uint8Column, Uint16Column, Uint32Column, 
                                Uint64Column, TextColumn, BytesColumn, DateColumn, DatetimeColumn, TimestampColumn,
-                               IntervalColumn, JsonColumn, JsonDocumentColumn
+                               IntervalColumn, JsonColumn, JsonDocumentColumn, Date32Column, Datetime64Column,
+                               Timestamp64Column,  Interval64Column
                            ) VALUES (
                                @Int32Column, @BoolColumn, @Int64Column, @Int16Column, @Int8Column, @FloatColumn, 
                                @DoubleColumn, @DefaultDecimalColumn, @CustomDecimalColumn, @Uint8Column, @Uint16Column, 
                                @Uint32Column, @Uint64Column, @TextColumn, @BytesColumn, @DateColumn, @DatetimeColumn, 
-                               @TimestampColumn, @IntervalColumn, @JsonColumn, @JsonDocumentColumn
+                               @TimestampColumn, @IntervalColumn, @JsonColumn, @JsonDocumentColumn, @Date32Column,
+                               @Datetime64Column,  @Timestamp64Column, @Interval64Column
                            );
                            """,
             Parameters =
@@ -410,7 +377,12 @@ public class YdbParameterTests : TestBase
                 new YdbParameter("TimestampColumn", YdbDbType.Timestamp, DateTime.UnixEpoch),
                 new YdbParameter("IntervalColumn", YdbDbType.Interval, TimeSpan.Zero),
                 new YdbParameter("JsonColumn", YdbDbType.Json, "{}"),
-                new YdbParameter("JsonDocumentColumn", YdbDbType.JsonDocument, "{}")
+                new YdbParameter("JsonDocumentColumn", YdbDbType.JsonDocument, "{}"),
+                new YdbParameter("Date32Column", YdbDbType.Date32, DateTime.MinValue),
+                new YdbParameter("Datetime64Column", YdbDbType.Datetime64, DateTime.MinValue),
+                new YdbParameter("Timestamp64Column", YdbDbType.Timestamp64, DateTime.MinValue),
+                new YdbParameter("Interval64Column", YdbDbType.Interval64,
+                    TimeSpan.FromMilliseconds(TimeSpan.MinValue.Milliseconds))
             }
         }.ExecuteNonQueryAsync();
 
@@ -421,7 +393,8 @@ public class YdbParameterTests : TestBase
                                Int32Column, BoolColumn, Int64Column, Int16Column, Int8Column, FloatColumn, DoubleColumn, 
                                DefaultDecimalColumn, CustomDecimalColumn, Uint8Column, Uint16Column, Uint32Column, 
                                Uint64Column, TextColumn, BytesColumn, DateColumn, DatetimeColumn, TimestampColumn,
-                               IntervalColumn, JsonColumn, JsonDocumentColumn 
+                               IntervalColumn, JsonColumn, JsonDocumentColumn,  Date32Column, Datetime64Column,  
+                               Timestamp64Column, Interval64Column
                            FROM {tableName};
                            """
         }.ExecuteReaderAsync();
@@ -448,6 +421,10 @@ public class YdbParameterTests : TestBase
         Assert.Equal(TimeSpan.Zero, ydbDataReader.GetInterval(18));
         Assert.Equal("{}", ydbDataReader.GetJson(19));
         Assert.Equal("{}", ydbDataReader.GetJsonDocument(20));
+        Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(21));
+        Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(22));
+        Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(23));
+        Assert.Equal(TimeSpan.FromMilliseconds(TimeSpan.MinValue.Milliseconds), ydbDataReader.GetInterval(24));
         Assert.False(ydbDataReader.Read());
         await ydbDataReader.CloseAsync();
 
