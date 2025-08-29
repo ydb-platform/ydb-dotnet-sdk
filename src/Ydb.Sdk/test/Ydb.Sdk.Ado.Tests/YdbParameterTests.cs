@@ -179,7 +179,7 @@ public class YdbParameterTests : TestBase
         }.ExecuteNonQueryAsync();
 
         Assert.Equal(expected == null ? DBNull.Value : decimal.Parse(expected, CultureInfo.InvariantCulture),
-            await new YdbCommand(ydbConnection) { CommandText = $"SELECT DecimalField FROM {tableName};" }
+            await new YdbCommand(ydbConnection) { CommandText = $"SELECT d FROM {tableName};" }
                 .ExecuteScalarAsync());
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
