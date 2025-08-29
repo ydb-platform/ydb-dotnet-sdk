@@ -5,6 +5,17 @@ namespace Ydb.Sdk.Ado.Internal;
 
 internal static class YdbTypedValueExtensions
 {
+    private const byte MaxPrecisionDecimal = 29;
+    private static readonly decimal[] Pow10 = CreatePow10();
+
+    private static decimal[] CreatePow10()
+    {
+        var a = new decimal[29];
+        a[0] = 1m;
+        for (var i = 1; i < a.Length; i++) a[i] = a[i - 1] * 10m; // 1..1e28
+        return a;
+    }
+
     internal static TypedValue Null(this Type.Types.PrimitiveTypeId primitiveTypeId) => new()
     {
         Type = new Type { OptionalType = new OptionalType { Item = new Type { TypeId = primitiveTypeId } } },
@@ -73,26 +84,29 @@ internal static class YdbTypedValueExtensions
 
     internal static TypedValue Decimal(this decimal value, byte precision, byte scale)
     {
-        value *= 1.00000000000000000000000000000m; // 29 zeros, max supported by c# decimal
-        value = Math.Round(value, scale);
+        if (scale > precision)
+            throw new ArgumentOutOfRangeException(nameof(scale), "Scale cannot exceed precision");
 
+        var origScale = (decimal.GetBits(value)[3] >> 16) & 0xFF;
+
+        if (origScale > scale || (precision < MaxPrecisionDecimal && Pow10[precision - scale] <= Math.Abs(value)))
+        {
+            throw new OverflowException($"Value {value} does not fit Decimal({precision}, {scale})");
+        }
+
+        value *= 1.0000000000000000000000000000m; // 28 zeros, max supported by c# decimal
+        value = Math.Round(value, scale);
         var bits = decimal.GetBits(value);
-        var low = ((ulong)bits[1] << 32) + (uint)bits[0];
-        var high = (ulong)bits[2];
+        var low = ((ulong)(uint)bits[1] << 32) | (uint)bits[0];
+        var high = (ulong)(uint)bits[2];
+        var isNegative = bits[3] < 0;
 
         unchecked
         {
-            if (value < 0)
+            if (isNegative)
             {
-                low = ~low;
-                high = ~high;
-
-                if (low == (ulong)-1L)
-                {
-                    high += 1;
-                }
-
-                low += 1;
+                low = ~low + 1UL;
+                high = ~high + (low == 0 ? 1UL : 0UL);
             }
         }
 
