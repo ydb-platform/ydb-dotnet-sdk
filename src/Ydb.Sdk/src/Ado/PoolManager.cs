@@ -6,7 +6,9 @@ namespace Ydb.Sdk.Ado;
 internal static class PoolManager
 {
     private static readonly SemaphoreSlim SemaphoreSlim = new(1); // async mutex
-    private static readonly ConcurrentDictionary<string, ISessionSource> Pools = new();
+
+    internal static readonly ConcurrentDictionary<string, IDriver> Drivers = new();
+    internal static readonly ConcurrentDictionary<string, ISessionSource> Pools = new();
 
     internal static async Task<ISession> GetSession(
         YdbConnectionStringBuilder settings,
@@ -27,9 +29,14 @@ internal static class PoolManager
                 return await pool.OpenSession(cancellationToken);
             }
 
-            var newSessionPool = new PoolingSessionSource<PoolingSession>(
-                await PoolingSessionFactory.Create(settings), settings
-            );
+            var driver = Drivers.TryGetValue(settings.GrpcConnectionString, out var cacheDriver) &&
+                         !cacheDriver.IsDisposed
+                ? cacheDriver
+                : Drivers[settings.GrpcConnectionString] = await settings.BuildDriver();
+            driver.RegisterOwner();
+
+            var factory = new PoolingSessionFactory(driver, settings);
+            var newSessionPool = new PoolingSessionSource<PoolingSession>(factory, settings);
 
             Pools[settings.ConnectionString] = newSessionPool;
 

@@ -314,7 +314,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private int _createSessionTimeout;
 
-    public ILoggerFactory? LoggerFactory { get; init; }
+    public ILoggerFactory LoggerFactory { get; init; } = NullLoggerFactory.Instance;
 
     public ICredentialsProvider? CredentialsProvider { get; init; }
 
@@ -358,6 +358,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private string Endpoint => $"{(UseTls ? "grpcs" : "grpc")}://{Host}:{Port}";
 
+    internal string GrpcConnectionString =>
+        $"UseTls={UseTls};Host={Host};Port={Port};Database={Database};User={User};Password={Password};" +
+        $"ConnectTimeout={ConnectTimeout};KeepAlivePingDelay={KeepAlivePingDelay};KeepAlivePingTimeout={KeepAlivePingTimeout};" +
+        $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
+        $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery}";
+
     internal async Task<IDriver> BuildDriver()
     {
         var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
@@ -384,11 +390,10 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             MaxSendMessageSize = MaxSendMessageSize,
             MaxReceiveMessageSize = MaxReceiveMessageSize
         };
-        var loggerFactory = LoggerFactory ?? NullLoggerFactory.Instance;
 
         return DisableDiscovery
-            ? new DirectGrpcChannelDriver(driverConfig, loggerFactory)
-            : await Driver.CreateInitialized(driverConfig, loggerFactory);
+            ? new DirectGrpcChannelDriver(driverConfig, LoggerFactory)
+            : await Driver.CreateInitialized(driverConfig, LoggerFactory);
     }
 
     public override void Clear()

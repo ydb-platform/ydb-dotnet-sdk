@@ -31,6 +31,10 @@ public interface IDriver : IAsyncDisposable, IDisposable
         where TResponse : class;
 
     ILoggerFactory LoggerFactory { get; }
+
+    void RegisterOwner();
+
+    bool IsDisposed { get; }
 }
 
 public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
@@ -62,6 +66,8 @@ public abstract class BaseDriver : IDriver
 
     internal readonly GrpcChannelFactory GrpcChannelFactory;
     internal readonly ChannelPool<GrpcChannel> ChannelPool;
+
+    private int _ownerCount;
 
     protected int Disposed;
 
@@ -204,12 +210,14 @@ public abstract class BaseDriver : IDriver
     }
 
     public ILoggerFactory LoggerFactory { get; }
+    public void RegisterOwner() => _ownerCount++;
+    public bool IsDisposed => Disposed == 1;
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.CompareExchange(ref Disposed, 1, 0) == 0)
+        if (--_ownerCount <= 0 && Interlocked.CompareExchange(ref Disposed, 1, 0) == 0)
         {
             await ChannelPool.DisposeAsync();
 
