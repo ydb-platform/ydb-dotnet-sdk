@@ -6,7 +6,9 @@ namespace Ydb.Sdk.Ado;
 internal static class PoolManager
 {
     private static readonly SemaphoreSlim SemaphoreSlim = new(1); // async mutex
+    
     private static readonly ConcurrentDictionary<string, ISessionSource> Pools = new();
+    private static readonly ConcurrentDictionary<string, ISessionSource> ImplicitPools = new();
 
     internal static async Task<ISession> GetSession(
         YdbConnectionStringBuilder settings,
@@ -41,29 +43,58 @@ internal static class PoolManager
         }
     }
 
-    internal static async Task ClearPool(string connectionString)
+    internal static ISession GetImplicitSession(YdbConnectionStringBuilder settings)
     {
-        if (Pools.Remove(connectionString, out var sessionPool))
-        {
-            try
-            {
-                await SemaphoreSlim.WaitAsync();
+        if (ImplicitPools.TryGetValue(settings.ConnectionString, out var ready))
+            return ready.OpenSession(CancellationToken.None).GetAwaiter().GetResult();
 
-                await sessionPool.DisposeAsync();
-            }
-            finally
+        var driver = settings.BuildDriver().GetAwaiter().GetResult();
+        ISessionSource source;
+
+        SemaphoreSlim.Wait();
+        try
+        {
+            if (!ImplicitPools.TryGetValue(settings.ConnectionString, out source))
             {
-                SemaphoreSlim.Release();
+                source = new ImplicitSessionSource(driver);
+                ImplicitPools[settings.ConnectionString] = source;
+                driver = null;
             }
         }
+        finally
+        {
+            SemaphoreSlim.Release();
+            if (driver != null)
+                driver.DisposeAsync().GetAwaiter().GetResult();
+        }
+
+        return source.OpenSession(CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    internal static async Task ClearPool(string connectionString)
+    {
+        Pools.TryRemove(connectionString, out var pooled);
+        ImplicitPools.TryRemove(connectionString, out var implicitSrc);
+
+        var tasks = new List<Task>(2);
+        if (pooled != null)      tasks.Add(pooled.DisposeAsync().AsTask());
+        if (implicitSrc != null) tasks.Add(implicitSrc.DisposeAsync().AsTask());
+
+        if (tasks.Count > 0)
+            await Task.WhenAll(tasks);
     }
 
     internal static async Task ClearAllPools()
     {
-        var keys = Pools.Keys.ToList();
+        var pooled = Pools.ToArray();
+        var implicitArr = ImplicitPools.ToArray();
 
-        var tasks = keys.Select(ClearPool).ToList();
+        Pools.Clear();
+        ImplicitPools.Clear();
 
+        var tasks = new List<Task>(pooled.Length + implicitArr.Length);
+        tasks.AddRange(pooled.Select(kv => kv.Value.DisposeAsync().AsTask()));
+        tasks.AddRange(implicitArr.Select(kv => kv.Value.DisposeAsync().AsTask()));
         await Task.WhenAll(tasks);
     }
 }
