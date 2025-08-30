@@ -21,7 +21,7 @@ public class PoolingSessionTests
 
     public PoolingSessionTests()
     {
-        var settings = new YdbConnectionStringBuilder { LoggerFactory = TestUtils.LoggerFactory};
+        var settings = new YdbConnectionStringBuilder { LoggerFactory = TestUtils.LoggerFactory };
 
         _mockIDriver = new Mock<IDriver>(MockBehavior.Strict);
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(TestUtils.LoggerFactory);
