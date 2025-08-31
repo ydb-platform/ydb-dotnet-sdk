@@ -30,10 +30,7 @@ public class PoolManagerTests
     }, 1, 1)] // simple case
     public async Task PoolManager_CachingAndCleanup(string[] connectionStrings, int expectedDrivers, int expectedPools)
     {
-        foreach (var (_, pool) in PoolManager.Pools)
-        {
-            await pool.DisposeAsync();
-        }
+        await YdbConnection.ClearAllPools();
 
         PoolManager.Pools.Clear();
         PoolManager.Drivers.Clear();
