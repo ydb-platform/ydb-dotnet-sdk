@@ -110,40 +110,40 @@ public sealed class YdbConnectionTests : TestBase
         var ydbCommand = ydbConnection.CreateCommand();
         var tableName = "AllTypes_" + Random.Shared.Next();
 
-        ydbCommand.CommandText = @$"
-CREATE TABLE {tableName} (
-    id INT32,
-    bool_column BOOL,
-    bigint_column INT64,
-    smallint_column INT16,
-    tinyint_column INT8,
-    float_column FLOAT,
-    double_column DOUBLE,
-    decimal_column DECIMAL(22,9),
-    uint8_column UINT8,
-    uint16_column UINT16,
-    uint32_column UINT32,
-    uint64_column UINT64,
-    text_column TEXT,
-    binary_column BYTES,
-    json_column JSON,
-    jsondocument_column JSONDOCUMENT,
-    date_column DATE,
-    datetime_column DATETIME,
-    timestamp_column TIMESTAMP,
-    interval_column INTERVAL,
-    PRIMARY KEY (id)
-)
-";
+        ydbCommand.CommandText = $"""
+                                  CREATE TABLE {tableName} (
+                                      id INT32,
+                                      bool_column BOOL,
+                                      bigint_column INT64,
+                                      smallint_column INT16,
+                                      tinyint_column INT8,
+                                      float_column FLOAT,
+                                      double_column DOUBLE,
+                                      decimal_column DECIMAL(22,9),
+                                      uint8_column UINT8,
+                                      uint16_column UINT16,
+                                      uint32_column UINT32,
+                                      uint64_column UINT64,
+                                      text_column TEXT,
+                                      binary_column BYTES,
+                                      json_column JSON,
+                                      jsondocument_column JSONDOCUMENT,
+                                      date_column DATE,
+                                      datetime_column DATETIME,
+                                      timestamp_column TIMESTAMP,
+                                      interval_column INTERVAL,
+                                      PRIMARY KEY (id)
+                                  )
+                                  """;
         await ydbCommand.ExecuteNonQueryAsync();
-        ydbCommand.CommandText = @$"
-INSERT INTO {tableName} 
-    (id, bool_column, bigint_column, smallint_column, tinyint_column, float_column, double_column, decimal_column, 
-     uint8_column, uint16_column, uint32_column, uint64_column, text_column, binary_column, json_column,
-     jsondocument_column, date_column, datetime_column, timestamp_column, interval_column) VALUES
-(@name1, @name2, @name3, @name4, @name5, @name6, @name7, @name8, @name9, @name10, @name11, @name12, @name13, @name14,
- @name15, @name16, @name17, @name18, @name19, @name20); 
-";
+        ydbCommand.CommandText =
+            $"""
+             INSERT INTO {tableName} (id, bool_column, bigint_column, smallint_column, tinyint_column, float_column,
+             double_column, decimal_column, uint8_column, uint16_column, uint32_column, uint64_column, text_column, 
+             binary_column, json_column, jsondocument_column, date_column, datetime_column, timestamp_column, 
+             interval_column) VALUES (@name1, @name2, @name3, @name4, @name5, @name6, @name7, @name8, @name9, @name10, 
+             @name11, @name12, @name13, @name14, @name15, @name16, @name17, @name18, @name19, @name20); 
+             """;
 
         ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name1", DbType = DbType.Int32, Value = null });
         ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name2", DbType = DbType.Boolean, Value = null });
@@ -198,7 +198,7 @@ INSERT INTO {tableName}
         await using var connection = CreateConnection();
         connection.ConnectionString = ConnectionString + ";MinSessionPool=1";
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await connection.OpenAsync(cts.Token));
         Assert.Equal(ConnectionState.Closed, connection.State);
     }
@@ -210,7 +210,7 @@ INSERT INTO {tableName}
         var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
         var ydbDataReader = await command.ExecuteReaderAsync();
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await ydbDataReader.ReadAsync(cts.Token); // first part in memory
         Assert.False(ydbDataReader.IsClosed);
@@ -305,10 +305,10 @@ INSERT INTO {tableName}
     {
         var tableName = $"BulkImporter_{Guid.NewGuid():N}";
 
-        await using var conn = await CreateOpenConnectionAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         try
         {
-            await using (var createCmd = conn.CreateCommand())
+            await using (var createCmd = ydbConnection.CreateCommand())
             {
                 createCmd.CommandText = $"""
                                          CREATE TABLE {tableName} (
@@ -322,25 +322,25 @@ INSERT INTO {tableName}
 
             var columns = new[] { "Id", "Name" };
 
-            var importer = conn.BeginBulkUpsertImport(tableName, columns);
+            var importer = ydbConnection.BeginBulkUpsertImport(tableName, columns);
 
             await importer.AddRowAsync(1, "Alice");
             await importer.AddRowAsync(2, "Bob");
             await importer.FlushAsync();
 
-            await using (var checkCmd = conn.CreateCommand())
+            await using (var checkCmd = ydbConnection.CreateCommand())
             {
                 checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
                 var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
                 Assert.Equal(2, count);
             }
 
-            importer = conn.BeginBulkUpsertImport(tableName, columns);
+            importer = ydbConnection.BeginBulkUpsertImport(tableName, columns);
             await importer.AddRowAsync(3, "Charlie");
             await importer.AddRowAsync(4, "Diana");
             await importer.FlushAsync();
 
-            await using (var checkCmd = conn.CreateCommand())
+            await using (var checkCmd = ydbConnection.CreateCommand())
             {
                 checkCmd.CommandText = $"SELECT Name FROM {tableName} ORDER BY Id";
                 var names = new List<string>();
@@ -355,7 +355,7 @@ INSERT INTO {tableName}
         }
         finally
         {
-            await using var dropCmd = conn.CreateCommand();
+            await using var dropCmd = ydbConnection.CreateCommand();
             dropCmd.CommandText = $"DROP TABLE {tableName}";
             await dropCmd.ExecuteNonQueryAsync();
         }
@@ -365,31 +365,25 @@ INSERT INTO {tableName}
     public async Task BulkUpsertImporter_ThrowsOnInvalidRowCount()
     {
         var tableName = $"BulkImporter_{Guid.NewGuid():N}";
-        await using var conn = await CreateOpenConnectionAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         try
         {
-            await using (var createCmd = conn.CreateCommand())
+            await using (var createCmd = ydbConnection.CreateCommand())
             {
-                createCmd.CommandText = $"""
-                                         CREATE TABLE {tableName} (
-                                             Id Int32,
-                                             Name Utf8,
-                                             PRIMARY KEY (Id)
-                                         )
-                                         """;
+                createCmd.CommandText = $"CREATE TABLE {tableName} (Id Int32, Name Utf8, PRIMARY KEY (Id))";
                 await createCmd.ExecuteNonQueryAsync();
             }
 
             var columns = new[] { "Id", "Name" };
 
-            var importer = conn.BeginBulkUpsertImport(tableName, columns);
+            var importer = ydbConnection.BeginBulkUpsertImport(tableName, columns);
 
             await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowAsync(1));
             await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowAsync(2));
         }
         finally
         {
-            await using var dropCmd = conn.CreateCommand();
+            await using var dropCmd = ydbConnection.CreateCommand();
             dropCmd.CommandText = $"DROP TABLE {tableName}";
             await dropCmd.ExecuteNonQueryAsync();
         }
@@ -401,12 +395,12 @@ INSERT INTO {tableName}
         var table1 = $"BulkImporter_{Guid.NewGuid():N}_1";
         var table2 = $"BulkImporter_{Guid.NewGuid():N}_2";
 
-        var conn = await CreateOpenConnectionAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         try
         {
             foreach (var table in new[] { table1, table2 })
             {
-                await using var createCmd = conn.CreateCommand();
+                await using var createCmd = ydbConnection.CreateCommand();
                 createCmd.CommandText = $"""
                                          CREATE TABLE {table} (
                                              Id Int32,
@@ -422,7 +416,7 @@ INSERT INTO {tableName}
             await Task.WhenAll(
                 Task.Run(async () =>
                 {
-                    var importer = conn.BeginBulkUpsertImport(table1, columns);
+                    var importer = ydbConnection.BeginBulkUpsertImport(table1, columns);
                     var rows = Enumerable.Range(0, 20)
                         .Select(i => new object[] { i, $"A{i}" })
                         .ToArray();
@@ -432,7 +426,7 @@ INSERT INTO {tableName}
                 }),
                 Task.Run(async () =>
                 {
-                    var importer = conn.BeginBulkUpsertImport(table2, columns);
+                    var importer = ydbConnection.BeginBulkUpsertImport(table2, columns);
                     var rows = Enumerable.Range(0, 20)
                         .Select(i => new object[] { i, $"B{i}" })
                         .ToArray();
@@ -444,7 +438,7 @@ INSERT INTO {tableName}
 
             foreach (var table in new[] { table1, table2 })
             {
-                await using var checkCmd = conn.CreateCommand();
+                await using var checkCmd = ydbConnection.CreateCommand();
                 checkCmd.CommandText = $"SELECT COUNT(*) FROM {table}";
                 var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
                 Assert.Equal(20, count);
@@ -454,12 +448,10 @@ INSERT INTO {tableName}
         {
             foreach (var table in new[] { table1, table2 })
             {
-                await using var dropCmd = conn.CreateCommand();
+                await using var dropCmd = ydbConnection.CreateCommand();
                 dropCmd.CommandText = $"DROP TABLE {table}";
                 await dropCmd.ExecuteNonQueryAsync();
             }
-
-            await conn.DisposeAsync();
         }
     }
 
@@ -467,11 +459,11 @@ INSERT INTO {tableName}
     public async Task BulkUpsertImporter_ThrowsOnNonexistentTable()
     {
         var tableName = $"Nonexistent_{Guid.NewGuid():N}";
-        await using var conn = await CreateOpenConnectionAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
 
         var columns = new[] { "Id", "Name" };
 
-        var importer = conn.BeginBulkUpsertImport(tableName, columns);
+        var importer = ydbConnection.BeginBulkUpsertImport(tableName, columns);
 
         await importer.AddRowAsync(1, "NotExists");
 
