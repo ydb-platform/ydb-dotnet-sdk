@@ -106,7 +106,7 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task SetNulls_WhenTableAllTypes_SussesSet()
     {
-        var ydbConnection = await CreateOpenConnectionAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         var ydbCommand = ydbConnection.CreateCommand();
         var tableName = "AllTypes_" + Random.Shared.Next();
 
@@ -270,7 +270,7 @@ public sealed class YdbConnectionTests : TestBase
         await ydbDataReader.ReadAsync(cts.Token);
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.True(await ydbDataReader.NextResultAsync(cts.Token));
-        cts.Cancel();
+        await cts.CancelAsync();
         await ydbDataReader.ReadAsync(cts.Token);
         Assert.Equal(1, ydbDataReader.GetValue(0));
         // ReSharper disable once MethodSupportsCancellation
@@ -416,6 +416,7 @@ public sealed class YdbConnectionTests : TestBase
             await Task.WhenAll(
                 Task.Run(async () =>
                 {
+                    // ReSharper disable once AccessToDisposedClosure
                     var importer = ydbConnection.BeginBulkUpsertImport(table1, columns);
                     var rows = Enumerable.Range(0, 20)
                         .Select(i => new object[] { i, $"A{i}" })
@@ -426,6 +427,7 @@ public sealed class YdbConnectionTests : TestBase
                 }),
                 Task.Run(async () =>
                 {
+                    // ReSharper disable once AccessToDisposedClosure
                     var importer = ydbConnection.BeginBulkUpsertImport(table2, columns);
                     var rows = Enumerable.Range(0, 20)
                         .Select(i => new object[] { i, $"B{i}" })
