@@ -220,6 +220,8 @@ public sealed class YdbConnectionTests : TestBase
             (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
         Assert.True(ydbDataReader.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
+        // CLOSE OLD CONNECTION! (return to pool)
+        await connection.CloseAsync();
         // ReSharper disable once MethodSupportsCancellation
         await connection.OpenAsync();
 
