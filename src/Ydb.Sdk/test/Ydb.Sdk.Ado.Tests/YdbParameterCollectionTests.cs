@@ -11,8 +11,7 @@ public class YdbParameterCollectionTests
 
     public YdbParameterCollectionTests()
     {
-        _ydbParameterCollection = new YdbParameterCollection();
-
+        _ydbParameterCollection = [];
         _ydbParameterCollection.AddWithValue("$param1", 1);
         _ydbParameterCollection.AddWithValue("$param2", 1.0);
         _ydbParameterCollection.AddWithValue("$param3", DbType.String, "text");

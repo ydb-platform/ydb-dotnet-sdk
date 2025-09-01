@@ -63,4 +63,8 @@ internal class BulkUpsertMockDriver : IDriver
         NotImplementedException();
 
     public ILoggerFactory LoggerFactory => null!;
+
+    public void RegisterOwner() => throw new NotImplementedException();
+
+    public bool IsDisposed => false;
 }
