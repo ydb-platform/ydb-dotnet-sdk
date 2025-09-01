@@ -67,7 +67,6 @@ public class YdbCommandTests : TestBase
         dbCommand.CommandText = "SELECT NULL";
         var reader = await dbCommand.ExecuteReaderAsync();
         await reader.ReadAsync();
-
         Assert.Equal("Field is null.", Assert.Throws<InvalidCastException>(() => reader.GetFloat(0)).Message);
     }
 

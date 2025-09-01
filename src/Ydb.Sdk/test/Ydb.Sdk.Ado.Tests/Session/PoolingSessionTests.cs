@@ -21,7 +21,7 @@ public class PoolingSessionTests
 
     public PoolingSessionTests()
     {
-        var settings = new YdbConnectionStringBuilder();
+        var settings = new YdbConnectionStringBuilder { LoggerFactory = TestUtils.LoggerFactory };
 
         _mockIDriver = new Mock<IDriver>(MockBehavior.Strict);
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(TestUtils.LoggerFactory);
@@ -31,7 +31,7 @@ public class PoolingSessionTests
             It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
         ).ReturnsAsync(_mockAttachStream.Object);
         _mockAttachStream.Setup(stream => stream.Dispose());
-        _poolingSessionFactory = new PoolingSessionFactory(_mockIDriver.Object, settings, TestUtils.LoggerFactory);
+        _poolingSessionFactory = new PoolingSessionFactory(_mockIDriver.Object, settings);
         _poolingSessionSource = new PoolingSessionSource<PoolingSession>(_poolingSessionFactory, settings);
     }
 
