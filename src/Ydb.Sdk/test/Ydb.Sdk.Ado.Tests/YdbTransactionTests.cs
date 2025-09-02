@@ -1,7 +1,7 @@
 using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
-using Ydb.Sdk.Services.Query;
+using Ydb.Sdk.Ado.Transaction;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -76,7 +76,7 @@ public class YdbTransactionTests : TestBase
         ydbCommand.ExecuteNonQuery();
         ydbTransaction.Commit();
 
-        ydbTransaction = connection.BeginTransaction(TxMode.SnapshotRo);
+        ydbTransaction = connection.BeginTransaction(TransactionMode.SnapshotRo);
         ydbCommand.Transaction = ydbTransaction;
         ydbCommand.CommandText = $"SELECT title FROM {Tables.Seasons} WHERE series_id = 2 AND season_id = 6";
         var dbDataReader = ydbCommand.ExecuteReader();

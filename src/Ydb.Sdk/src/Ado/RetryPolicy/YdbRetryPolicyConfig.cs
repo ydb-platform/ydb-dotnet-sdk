@@ -15,4 +15,11 @@ public class YdbRetryPolicyConfig
     public int SlowCapBackoffMs { get; init; } = 5_000;
 
     public bool EnableRetryIdempotence { get; init; } = false;
+
+    public override string ToString() => $"MaxAttempt={MaxAttempt};" +
+                                         $"FastBackoffBaseMs={FastBackoffBaseMs};" +
+                                         $"SlowBackoffBaseMs={SlowBackoffBaseMs};" +
+                                         $"FastCapBackoffMs={FastCapBackoffMs};" +
+                                         $"SlowCapBackoffMs={SlowCapBackoffMs};" +
+                                         $"EnableRetryIdempotence={EnableRetryIdempotence}";
 }

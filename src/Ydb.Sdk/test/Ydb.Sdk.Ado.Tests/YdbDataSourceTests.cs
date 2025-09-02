@@ -59,4 +59,6 @@ public class YdbDataSourceTests : TestBase
         using var ydbConnection = _dataSource.OpenConnection();
         Assert.Equal(1, new YdbCommand(ydbConnection) { CommandText = "SELECT 1" }.ExecuteScalar());
     }
+    
+    
 }

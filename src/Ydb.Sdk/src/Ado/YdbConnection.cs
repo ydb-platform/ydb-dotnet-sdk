@@ -3,7 +3,7 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Services.Query;
+using Ydb.Sdk.Ado.Transaction;
 using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;
@@ -59,14 +59,14 @@ public sealed class YdbConnection : DbConnection
 
         return BeginTransaction(isolationLevel switch
         {
-            Serializable or Unspecified => TxMode.SerializableRw,
+            Serializable or Unspecified => TransactionMode.SerializableRw,
             _ => throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel)
         });
     }
 
     public new YdbTransaction BeginTransaction(IsolationLevel isolationLevel) => BeginDbTransaction(isolationLevel);
 
-    public YdbTransaction BeginTransaction(TxMode txMode = TxMode.SerializableRw)
+    public YdbTransaction BeginTransaction(TransactionMode transactionMode = TransactionMode.SerializableRw)
     {
         ThrowIfConnectionClosed();
 
@@ -77,7 +77,7 @@ public sealed class YdbConnection : DbConnection
             );
         }
 
-        CurrentTransaction = new YdbTransaction(this, txMode);
+        CurrentTransaction = new YdbTransaction(this, transactionMode);
 
         return CurrentTransaction;
     }

@@ -1,10 +1,10 @@
 namespace Ydb.Sdk.Ado.RetryPolicy;
 
-internal class YdbRetryPolicyExecutor
+internal sealed class YdbRetryPolicyExecutor
 {
-    private readonly YdbRetryPolicy _retryPolicy;
+    private readonly IRetryPolicy _retryPolicy;
 
-    public YdbRetryPolicyExecutor(YdbRetryPolicy retryPolicy)
+    public YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
     {
         _retryPolicy = retryPolicy;
     }
@@ -25,15 +25,19 @@ internal class YdbRetryPolicyExecutor
     ///     first time or after retrying transient failures). If the task fails with a non-transient error or
     ///     the retry limit is reached, the returned task will become faulted and the exception must be observed.
     /// </returns>
-    public virtual Task<TResult> ExecuteAsync<TResult>(Func<CancellationToken, Task<TResult>> operation,
-        CancellationToken cancellationToken = default) => ExecuteImplementationAsync(operation, cancellationToken);
+    public Task<TResult> ExecuteAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operation,
+        CancellationToken cancellationToken = default
+    ) => ExecuteImplementationAsync(operation, cancellationToken);
 
-    public async Task ExecuteAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken = new())
-        => await ExecuteImplementationAsync(async ct =>
-        {
-            await operation(ct).ConfigureAwait(false);
-            return 0;
-        }, cancellationToken).ConfigureAwait(false);
+    public async Task ExecuteAsync(
+        Func<CancellationToken, Task> operation,
+        CancellationToken cancellationToken = default
+    ) => await ExecuteImplementationAsync(async ct =>
+    {
+        await operation(ct).ConfigureAwait(false);
+        return 0;
+    }, cancellationToken).ConfigureAwait(false);
 
     private async Task<TResult> ExecuteImplementationAsync<TResult>(
         Func<CancellationToken, Task<TResult>> operation,
@@ -44,7 +48,7 @@ internal class YdbRetryPolicyExecutor
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             try
             {
                 return await operation(cancellationToken).ConfigureAwait(false);
@@ -54,7 +58,7 @@ internal class YdbRetryPolicyExecutor
                 var delay = _retryPolicy.GetNextDelay(e, attempt++);
                 if (delay == null)
                     throw;
-                
+
                 await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
             }
         }
