@@ -1,17 +1,11 @@
 using Dapper;
 using Internal;
-using Polly;
-using Ydb.Sdk;
 using Ydb.Sdk.Ado;
 
 namespace AdoNet.Dapper;
 
 public class SloTableContext : SloTableContext<YdbDataSource>
 {
-    private static readonly AsyncPolicy Policy = Polly.Policy
-        .Handle<YdbException>(exception => exception.IsTransient)
-        .RetryAsync(10);
-
     protected override string Job => "Dapper";
 
     protected override YdbDataSource CreateClient(Config config) => new(
@@ -34,42 +28,40 @@ public class SloTableContext : SloTableContext<YdbDataSource>
                                        """);
     }
 
-    protected override async Task<(int, StatusCode)> Save(YdbDataSource client, SloTable sloTable, int writeTimeout)
+    protected override async Task<int> Save(YdbDataSource client, SloTable sloTable, int writeTimeout)
     {
         var attempt = 0;
-        var policyResult = await Policy.ExecuteAndCaptureAsync(async _ =>
+        await client.ExecuteAsync(async ydbConnection =>
             {
                 attempt++;
-                await using var connection = await client.OpenConnectionAsync();
-                await connection.ExecuteAsync($"""
-                                               UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
-                                               VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)
-                                               """, sloTable);
-            }, new Context()
+                await ydbConnection.ExecuteAsync(
+                    $"""
+                     UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
+                     VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)
+                     """, sloTable);
+            }
         );
 
-        return (attempt, ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success);
+        return attempt;
     }
 
-    protected override async Task<(int, StatusCode, object?)> Select(YdbDataSource client, (Guid Guid, int Id) select,
+    protected override async Task<(int, object?)> Select(YdbDataSource client, (Guid Guid, int Id) select,
         int readTimeout)
     {
         var attempts = 0;
-        var policyResult = await Policy.ExecuteAndCaptureAsync(async _ =>
+        var policyResult = await client.ExecuteAsync(async ydbConnection =>
         {
             attempts++;
-            await using var connection = await client.OpenConnectionAsync();
-
-            return await connection.QueryFirstOrDefaultAsync<SloTable>(
+            return await ydbConnection.QueryFirstOrDefaultAsync<SloTable>(
                 $"""
                  SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp
                  FROM `{SloTable.Name}` WHERE Guid = @Guid AND Id = @Id;
                  """,
                 new { select.Guid, select.Id }
             );
-        }, new Context());
+        });
 
-        return (attempts, ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success, policyResult.Result);
+        return (attempts, policyResult);
     }
 
     protected override async Task<int> SelectCount(YdbDataSource client)

@@ -32,9 +32,4 @@ public static class StatusCodeUtils
         StatusCode.Overloaded or
         StatusCode.SessionExpired or
         StatusCode.ClientTransportResourceExhausted;
-
-    internal static bool IsTransientWhenIdempotent(this StatusCode statusCode) => statusCode.IsTransient() ||
-        statusCode is StatusCode.Undetermined or
-            StatusCode.ClientTransportUnknown or
-            StatusCode.ClientTransportUnavailable;
 }

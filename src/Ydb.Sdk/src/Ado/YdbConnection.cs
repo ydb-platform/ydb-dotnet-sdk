@@ -3,7 +3,6 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Ado.Transaction;
 using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;

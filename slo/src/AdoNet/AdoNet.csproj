@@ -11,9 +11,4 @@
     <ItemGroup>
       <ProjectReference Include="..\Internal\Internal.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-      <PackageReference Include="Polly" Version="8.4.1" />
-    </ItemGroup>
-
 </Project>

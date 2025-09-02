@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using Ydb.Sdk.Ado.RetryPolicy;
-using Ydb.Sdk.Ado.Transaction;
 #if NET7_0_OR_GREATER
 using System.Data.Common;
 #endif
@@ -158,6 +157,24 @@ public class YdbDataSource
     }, cancellationToken);
 
     public Task ExecuteAsync(
+        Func<YdbConnection, Task> func,
+        YdbRetryPolicyConfig retryPolicyConfig
+    ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async ct =>
+    {
+        await using var ydbConnection = await OpenConnectionAsync(ct);
+        await func(ydbConnection);
+    });
+
+    public Task ExecuteAsync(
+        Func<YdbConnection, Task> func,
+        IRetryPolicy retryPolicy
+    ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
+    {
+        await using var ydbConnection = await OpenConnectionAsync(ct);
+        await func(ydbConnection);
+    });
+
+    public Task ExecuteAsync(
         Func<YdbConnection, CancellationToken, Task> func,
         YdbRetryPolicyConfig retryPolicyConfig,
         CancellationToken cancellationToken = default
@@ -197,7 +214,8 @@ public class YdbDataSource
         return await func(ydbConnection, ct);
     }, cancellationToken);
 
-    public Task ExecuteInTransactionAsync(Func<YdbConnection, Task> func, TransactionMode transactionMode = TransactionMode.SerializableRw) =>
+    public Task ExecuteInTransactionAsync(Func<YdbConnection, Task> func,
+        TransactionMode transactionMode = TransactionMode.SerializableRw) =>
         _retryPolicyExecutor.ExecuteAsync(async cancellationToken =>
         {
             await using var ydbConnection = await OpenConnectionAsync(cancellationToken);

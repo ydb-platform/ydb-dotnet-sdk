@@ -114,7 +114,8 @@ public class QueryClient : IAsyncDisposable
             _ = await stream.MoveNextAsync();
         }, parameters, txMode, settings);
 
-    public Task<T> DoTx<T>(Func<QueryTx, Task<T>> queryTx, TransactionMode transactionMode = TransactionMode.SerializableRw) =>
+    public Task<T> DoTx<T>(Func<QueryTx, Task<T>> queryTx,
+        TransactionMode transactionMode = TransactionMode.SerializableRw) =>
         _sessionPool.ExecOnSession<T>(async session =>
         {
             var tx = new QueryTx(session, transactionMode);
@@ -144,7 +145,8 @@ public class QueryClient : IAsyncDisposable
 
     private static readonly object None = new();
 
-    public async Task DoTx(Func<QueryTx, Task> queryTx, TransactionMode transactionMode = TransactionMode.SerializableRw) =>
+    public async Task DoTx(Func<QueryTx, Task> queryTx,
+        TransactionMode transactionMode = TransactionMode.SerializableRw) =>
         await DoTx<object>(async tx =>
         {
             await queryTx(tx);
