@@ -4,6 +4,8 @@ namespace Ydb.Sdk.Ado.Tests;
 
 public class YdbConnectionStringBuilderTests
 {
+    private const int MessageSize = 64 * 1024 * 1024;
+
     [Fact]
     public void InitDefaultValues_WhenEmptyConstructorInvoke_ReturnDefaultConnectionString()
     {
@@ -23,12 +25,16 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(10, ydbConnectionStringBuilder.KeepAlivePingTimeout);
         Assert.Equal("", ydbConnectionStringBuilder.ConnectionString);
         Assert.False(ydbConnectionStringBuilder.EnableMultipleHttp2Connections);
-        Assert.Equal(64 * 1024 * 1024, ydbConnectionStringBuilder.MaxSendMessageSize);
-        Assert.Equal(64 * 1024 * 1024, ydbConnectionStringBuilder.MaxReceiveMessageSize);
+        Assert.Equal(MessageSize, ydbConnectionStringBuilder.MaxSendMessageSize);
+        Assert.Equal(MessageSize, ydbConnectionStringBuilder.MaxReceiveMessageSize);
         Assert.False(ydbConnectionStringBuilder.DisableDiscovery);
         Assert.False(ydbConnectionStringBuilder.DisableServerBalancer);
         Assert.False(ydbConnectionStringBuilder.UseTls);
-        Assert.False(ydbConnectionStringBuilder.EnableImplicitSession);
+
+        Assert.Equal("UseTls=False;Host=localhost;Port=2136;Database=/local;User=;Password=;ConnectTimeout=5;" +
+                     "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
+                     $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False",
+            ydbConnectionStringBuilder.GrpcConnectionString);
     }
 
     [Fact]
@@ -44,69 +50,81 @@ public class YdbConnectionStringBuilderTests
     [Fact]
     public void InitConnectionStringBuilder_WhenExpectedKeys_ReturnUpdatedConnectionString()
     {
-        var connectionString = new YdbConnectionStringBuilder(
-            "Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true;" +
-            "MinSessionPool=10;MaxSessionPool=50;CreateSessionTimeout=30;" +
-            "SessionIdleTimeout=600;" +
-            "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
-            "EnableMultipleHttp2Connections=true;" +
-            "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-            "DisableDiscovery=true;DisableServerBalancer=true;EnableImplicitSession=true;"
+        var ydbConnectionStringBuilder = new YdbConnectionStringBuilder(
+            "Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true;MinSessionPool=10;MaxSessionPool=50;" +
+            "CreateSessionTimeout=30;SessionIdleTimeout=600;ConnectTimeout=30;KeepAlivePingDelay=30;" +
+            "KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=true;MaxSendMessageSize=1000000;" +
+            "MaxReceiveMessageSize=1000000;DisableDiscovery=true;DisableServerBalancer=true;"
         );
 
-        Assert.Equal(2135, connectionString.Port);
-        Assert.Equal("server", connectionString.Host);
-        Assert.Equal("/my/path", connectionString.Database);
-        Assert.Equal(10, connectionString.MinSessionPool);
-        Assert.Equal(50, connectionString.MaxSessionPool);
-        Assert.Equal(30, connectionString.CreateSessionTimeout);
-        Assert.Equal(600, connectionString.SessionIdleTimeout);
-        Assert.Equal("Kirill", connectionString.User);
-        Assert.Equal(30, connectionString.ConnectTimeout);
-        Assert.Equal(30, connectionString.KeepAlivePingDelay);
-        Assert.Equal(60, connectionString.KeepAlivePingTimeout);
-        Assert.Null(connectionString.Password);
-        Assert.True(connectionString.EnableMultipleHttp2Connections);
-        Assert.Equal(1000000, connectionString.MaxSendMessageSize);
-        Assert.Equal(1000000, connectionString.MaxReceiveMessageSize);
+        Assert.Equal(2135, ydbConnectionStringBuilder.Port);
+        Assert.Equal("server", ydbConnectionStringBuilder.Host);
+        Assert.Equal("/my/path", ydbConnectionStringBuilder.Database);
+        Assert.Equal(10, ydbConnectionStringBuilder.MinSessionPool);
+        Assert.Equal(50, ydbConnectionStringBuilder.MaxSessionPool);
+        Assert.Equal(30, ydbConnectionStringBuilder.CreateSessionTimeout);
+        Assert.Equal(600, ydbConnectionStringBuilder.SessionIdleTimeout);
+        Assert.Equal("Kirill", ydbConnectionStringBuilder.User);
+        Assert.Equal(30, ydbConnectionStringBuilder.ConnectTimeout);
+        Assert.Equal(30, ydbConnectionStringBuilder.KeepAlivePingDelay);
+        Assert.Equal(60, ydbConnectionStringBuilder.KeepAlivePingTimeout);
+        Assert.Null(ydbConnectionStringBuilder.Password);
+        Assert.True(ydbConnectionStringBuilder.EnableMultipleHttp2Connections);
+        Assert.Equal(1000000, ydbConnectionStringBuilder.MaxSendMessageSize);
+        Assert.Equal(1000000, ydbConnectionStringBuilder.MaxReceiveMessageSize);
         Assert.Equal("Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=True;" +
                      "MinSessionPool=10;MaxSessionPool=50;CreateSessionTimeout=30;" +
                      "SessionIdleTimeout=600;" +
                      "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
                      "EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-                     "DisableDiscovery=True;DisableServerBalancer=True;EnableImplicitSession=True", connectionString.ConnectionString);
-        Assert.True(connectionString.DisableDiscovery);
-        Assert.True(connectionString.DisableServerBalancer);
-        Assert.True(connectionString.EnableImplicitSession);
+                     "DisableDiscovery=True;DisableServerBalancer=True", ydbConnectionStringBuilder.ConnectionString);
+        Assert.True(ydbConnectionStringBuilder.DisableDiscovery);
+        Assert.True(ydbConnectionStringBuilder.DisableServerBalancer);
+        Assert.Equal("UseTls=True;Host=server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=30;" +
+                     "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=True;" +
+                     "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;DisableDiscovery=True",
+            ydbConnectionStringBuilder.GrpcConnectionString);
     }
 
     [Fact]
     public void Host_WhenSetInProperty_ReturnUpdatedConnectionString()
     {
-        var connectionString = new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path;User=Kirill");
-
-        Assert.Equal("server", connectionString.Host);
-        connectionString.Host = "new_server";
-        Assert.Equal("new_server", connectionString.Host);
-
-        Assert.Equal("Host=new_server;Port=2135;Database=/my/path;User=Kirill", connectionString.ConnectionString);
+        var ydbConnectionStringBuilder =
+            new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path;User=Kirill");
+        Assert.Equal(
+            "UseTls=False;Host=server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=5;" +
+            "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
+            $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False",
+            ydbConnectionStringBuilder.GrpcConnectionString);
+        Assert.Equal("server", ydbConnectionStringBuilder.Host);
+        ydbConnectionStringBuilder.Host = "new_server";
+        Assert.Equal("new_server", ydbConnectionStringBuilder.Host);
+        Assert.Equal(
+            "UseTls=False;Host=new_server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=5;" +
+            "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
+            $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False",
+            ydbConnectionStringBuilder.GrpcConnectionString);
+        Assert.Equal("Host=new_server;Port=2135;Database=/my/path;User=Kirill",
+            ydbConnectionStringBuilder.ConnectionString);
     }
 
     [Fact]
     public void SetProperty_WhenPropertyNeedsTrimOperation_ReturnUpdatedConnectionString()
     {
-        var connectionString =
+        var ydbConnectionStringBuilder =
             new YdbConnectionStringBuilder(" Host  =server;Port=2135;   EnableMultipleHttp2Connections  =true");
 
-        Assert.Equal(2135, connectionString.Port);
-        Assert.Equal("server", connectionString.Host);
-        Assert.True(connectionString.EnableMultipleHttp2Connections);
+        Assert.Equal(2135, ydbConnectionStringBuilder.Port);
+        Assert.Equal("server", ydbConnectionStringBuilder.Host);
+        Assert.True(ydbConnectionStringBuilder.EnableMultipleHttp2Connections);
 
-        Assert.Equal("Host=server;Port=2135;EnableMultipleHttp2Connections=True", connectionString.ConnectionString);
+        Assert.Equal("Host=server;Port=2135;EnableMultipleHttp2Connections=True",
+            ydbConnectionStringBuilder.ConnectionString);
 
-        connectionString.EnableMultipleHttp2Connections = false;
+        ydbConnectionStringBuilder.EnableMultipleHttp2Connections = false;
 
-        Assert.Equal("Host=server;Port=2135;EnableMultipleHttp2Connections=False", connectionString.ConnectionString);
+        Assert.Equal("Host=server;Port=2135;EnableMultipleHttp2Connections=False",
+            ydbConnectionStringBuilder.ConnectionString);
     }
 }
