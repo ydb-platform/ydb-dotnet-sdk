@@ -24,54 +24,6 @@ public class ExecuteQuerySettings : GrpcRequestSettings
     public bool ConcurrentResultSets { get; set; }
 }
 
-public enum TxMode
-{
-    NoTx,
-
-    SerializableRw,
-    SnapshotRo,
-    StaleRo,
-
-    OnlineRo,
-    OnlineInconsistentRo
-}
-
-internal static class TxModeExtensions
-{
-    private static readonly TransactionSettings SerializableRw = new()
-        { SerializableReadWrite = new SerializableModeSettings() };
-
-    private static readonly TransactionSettings SnapshotRo = new()
-        { SnapshotReadOnly = new SnapshotModeSettings() };
-
-    private static readonly TransactionSettings StaleRo = new()
-        { StaleReadOnly = new StaleModeSettings() };
-
-    private static readonly TransactionSettings OnlineRo = new()
-        { OnlineReadOnly = new OnlineModeSettings { AllowInconsistentReads = false } };
-
-    private static readonly TransactionSettings OnlineInconsistentRo = new()
-        { OnlineReadOnly = new OnlineModeSettings { AllowInconsistentReads = true } };
-
-    internal static TransactionSettings? TransactionSettings(this TxMode mode) =>
-        mode switch
-        {
-            TxMode.SerializableRw => SerializableRw,
-            TxMode.SnapshotRo => SnapshotRo,
-            TxMode.StaleRo => StaleRo,
-            TxMode.OnlineRo => OnlineRo,
-            TxMode.OnlineInconsistentRo => OnlineInconsistentRo,
-            _ => null
-        };
-
-    internal static TransactionControl? TransactionControl(this TxMode mode, bool commit = true) =>
-        mode switch
-        {
-            TxMode.NoTx => null,
-            _ => new TransactionControl { BeginTx = mode.TransactionSettings(), CommitTx = commit }
-        };
-}
-
 public class ExecuteQueryPart
 {
     public Value.ResultSet? ResultSet { get; }

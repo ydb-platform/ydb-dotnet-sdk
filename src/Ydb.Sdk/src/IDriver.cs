@@ -69,7 +69,7 @@ public abstract class BaseDriver : IDriver
 
     private int _ownerCount;
 
-    protected int Disposed;
+    protected volatile int Disposed;
 
     internal BaseDriver(
         DriverConfig config,
@@ -217,7 +217,7 @@ public abstract class BaseDriver : IDriver
 
     public async ValueTask DisposeAsync()
     {
-        if (--_ownerCount <= 0 && Interlocked.CompareExchange(ref Disposed, 1, 0) == 0)
+        if (Interlocked.Decrement(ref _ownerCount) <= 0 && Interlocked.CompareExchange(ref Disposed, 1, 0) == 0)
         {
             await ChannelPool.DisposeAsync();
 

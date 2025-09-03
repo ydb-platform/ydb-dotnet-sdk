@@ -12,12 +12,11 @@ public class YdbRetryPolicyTests
     [InlineData(StatusCode.SessionBusy)]
     public void GetNextDelay_WhenStatusIsBadSessionOrBusySession_ReturnTimeSpanZero(StatusCode statusCode)
     {
-        var ydbRetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempt = 2 });
+        var ydbRetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 2 });
         var ydbException = new YdbException(statusCode, "Mock message");
 
         Assert.Equal(TimeSpan.Zero, ydbRetryPolicy.GetNextDelay(ydbException, 0));
-        Assert.Equal(TimeSpan.Zero, ydbRetryPolicy.GetNextDelay(ydbException, 1));
-        Assert.Null(ydbRetryPolicy.GetNextDelay(ydbException, 2));
+        Assert.Null(ydbRetryPolicy.GetNextDelay(ydbException, 1));
     }
 
     [Theory]
@@ -25,7 +24,7 @@ public class YdbRetryPolicyTests
     [InlineData(StatusCode.Undetermined)]
     public void GetNextDelay_WhenStatusIsIdempotenceAndDisableIdempotence_ReturnNull(StatusCode statusCode)
     {
-        var ydbRetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempt = 2 });
+        var ydbRetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 2 });
         var ydbException = new YdbException(statusCode, "Mock message");
 
         Assert.Null(ydbRetryPolicy.GetNextDelay(ydbException, 0));

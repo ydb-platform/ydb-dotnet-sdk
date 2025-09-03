@@ -1,13 +1,13 @@
 using System.Data;
 using System.Data.Common;
 using Ydb.Query;
-using Ydb.Sdk.Services.Query;
+using Ydb.Sdk.Ado.Transaction;
 
 namespace Ydb.Sdk.Ado;
 
 public sealed class YdbTransaction : DbTransaction
 {
-    private readonly TxMode _txMode;
+    private readonly TransactionMode _transactionMode;
 
     private bool _failed;
     private YdbConnection? _ydbConnection;
@@ -29,13 +29,13 @@ public sealed class YdbTransaction : DbTransaction
     internal TransactionControl? TransactionControl => Completed
         ? null
         : TxId == null
-            ? new TransactionControl { BeginTx = _txMode.TransactionSettings() }
+            ? new TransactionControl { BeginTx = _transactionMode.TransactionSettings() }
             : new TransactionControl { TxId = TxId };
 
-    internal YdbTransaction(YdbConnection ydbConnection, TxMode txMode)
+    internal YdbTransaction(YdbConnection ydbConnection, TransactionMode transactionMode)
     {
         _ydbConnection = ydbConnection;
-        _txMode = txMode;
+        _transactionMode = transactionMode;
     }
 
     public override void Commit() => CommitAsync().GetAwaiter().GetResult();
@@ -66,7 +66,7 @@ public sealed class YdbTransaction : DbTransaction
         }
     }
 
-    public override IsolationLevel IsolationLevel => _txMode == TxMode.SerializableRw
+    public override IsolationLevel IsolationLevel => _transactionMode == TransactionMode.SerializableRw
         ? IsolationLevel.Serializable
         : IsolationLevel.Unspecified;
 

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.Transaction;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Value;
 
@@ -58,15 +59,15 @@ public class QueryClient : IAsyncDisposable
     }
 
     public Task<T> Stream<T>(string query, Func<ExecuteQueryStream, Task<T>> onStream,
-        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
+        Dictionary<string, YdbValue>? parameters = null, TransactionMode? txMode = null,
         ExecuteQuerySettings? settings = null) =>
         _sessionPool.ExecOnSession(async session => await onStream(new ExecuteQueryStream(
             await session.ExecuteQuery(query, parameters ?? new Dictionary<string, YdbValue>(),
-                settings ?? new GrpcRequestSettings(), txMode.TransactionControl())))
+                settings ?? new GrpcRequestSettings(), txMode?.TransactionControl())))
         );
 
     public Task Stream(string query, Func<ExecuteQueryStream, Task> onStream,
-        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
+        Dictionary<string, YdbValue>? parameters = null, TransactionMode? txMode = null,
         ExecuteQuerySettings? settings = null) =>
         Stream<object>(query, async stream =>
         {
@@ -75,7 +76,7 @@ public class QueryClient : IAsyncDisposable
         }, parameters, txMode, settings);
 
     public Task<IReadOnlyList<Value.ResultSet.Row>> ReadAllRows(string query,
-        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
+        Dictionary<string, YdbValue>? parameters = null, TransactionMode? txMode = null,
         ExecuteQuerySettings? settings = null) =>
         Stream<IReadOnlyList<Value.ResultSet.Row>>(query, async stream =>
         {
@@ -96,7 +97,7 @@ public class QueryClient : IAsyncDisposable
         }, parameters, txMode, settings);
 
     public async Task<Value.ResultSet.Row?> ReadRow(string query,
-        Dictionary<string, YdbValue>? parameters = null, TxMode txMode = TxMode.NoTx,
+        Dictionary<string, YdbValue>? parameters = null, TransactionMode? txMode = null,
         ExecuteQuerySettings? settings = null)
     {
         var result = await ReadAllRows(query, parameters, txMode, settings);
@@ -105,7 +106,7 @@ public class QueryClient : IAsyncDisposable
     }
 
     public async Task Exec(string query, Dictionary<string, YdbValue>? parameters = null,
-        TxMode txMode = TxMode.NoTx, ExecuteQuerySettings? settings = null) =>
+        TransactionMode? txMode = null, ExecuteQuerySettings? settings = null) =>
         await Stream(query, async stream =>
         {
             await using var uStream = stream;
@@ -113,16 +114,11 @@ public class QueryClient : IAsyncDisposable
             _ = await stream.MoveNextAsync();
         }, parameters, txMode, settings);
 
-    public Task<T> DoTx<T>(Func<QueryTx, Task<T>> queryTx, TxMode txMode = TxMode.SerializableRw)
-    {
-        if (txMode == TxMode.NoTx)
+    public Task<T> DoTx<T>(Func<QueryTx, Task<T>> queryTx,
+        TransactionMode transactionMode = TransactionMode.SerializableRw) =>
+        _sessionPool.ExecOnSession<T>(async session =>
         {
-            throw new ArgumentException("DoTx requires a txMode other than None");
-        }
-
-        return _sessionPool.ExecOnSession<T>(async session =>
-        {
-            var tx = new QueryTx(session, txMode);
+            var tx = new QueryTx(session, transactionMode);
 
             try
             {
@@ -146,17 +142,17 @@ public class QueryClient : IAsyncDisposable
                 await session.Release();
             }
         });
-    }
 
     private static readonly object None = new();
 
-    public async Task DoTx(Func<QueryTx, Task> queryTx, TxMode txMode = TxMode.SerializableRw) =>
+    public async Task DoTx(Func<QueryTx, Task> queryTx,
+        TransactionMode transactionMode = TransactionMode.SerializableRw) =>
         await DoTx<object>(async tx =>
         {
             await queryTx(tx);
 
             return None;
-        }, txMode);
+        }, transactionMode);
 
     public ValueTask DisposeAsync()
     {

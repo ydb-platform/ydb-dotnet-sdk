@@ -4,7 +4,7 @@ public class YdbRetryPolicyConfig
 {
     public static readonly YdbRetryPolicyConfig Default = new();
 
-    public int MaxAttempt { get; init; } = 10;
+    public int MaxAttempts { get; init; } = 10;
 
     public int FastBackoffBaseMs { get; init; } = 5;
 
@@ -15,4 +15,11 @@ public class YdbRetryPolicyConfig
     public int SlowCapBackoffMs { get; init; } = 5_000;
 
     public bool EnableRetryIdempotence { get; init; } = false;
+
+    public override string ToString() => $"MaxAttempt={MaxAttempts};" +
+                                         $"FastBackoffBaseMs={FastBackoffBaseMs};" +
+                                         $"SlowBackoffBaseMs={SlowBackoffBaseMs};" +
+                                         $"FastCapBackoffMs={FastCapBackoffMs};" +
+                                         $"SlowCapBackoffMs={SlowCapBackoffMs};" +
+                                         $"EnableRetryIdempotence={EnableRetryIdempotence}";
 }
