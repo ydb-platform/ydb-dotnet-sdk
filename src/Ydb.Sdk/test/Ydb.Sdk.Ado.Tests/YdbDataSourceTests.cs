@@ -181,7 +181,7 @@ public class YdbDataSourceTests : TestBase
     }
 
     [Fact]
-    public async Task ExecuteAsync_CancelsBetweenRetries()
+    public async Task ExecuteAsync_WhenCancelsBetweenRetries_Throws()
     {
         using var cts = new CancellationTokenSource();
         var attempt = 0;
@@ -200,5 +200,50 @@ public class YdbDataSourceTests : TestBase
         });
 
         Assert.Equal(1, attempt);
+    }
+
+    [Theory]
+    [InlineData(10)]
+    [InlineData(20)]
+    [InlineData(30)]
+    public async Task ExecuteInTransactionAsync_WhenTLI_ThenRetriesUntilSuccess(int concurrentJob)
+    {
+        var tableName = $"Table_TLI_{Random.Shared.Next()}";
+        await using (var ydbConnection = await CreateOpenConnectionAsync())
+        {
+            await new YdbCommand(ydbConnection)
+            {
+                CommandText = $"CREATE TABLE {tableName} (id Int32, count Int32, PRIMARY KEY (id));"
+            }.ExecuteNonQueryAsync();
+
+            await new YdbCommand(ydbConnection)
+                { CommandText = $"INSERT INTO {tableName} (id, count) VALUES (1, 0);" }.ExecuteNonQueryAsync();
+        }
+
+        var tasks = new List<Task>();
+        for (var i = 0; i < concurrentJob; i++)
+        {
+            tasks.Add(_dataSource.ExecuteInTransactionAsync(async ydbConnection =>
+            {
+                var count = (int)(await new YdbCommand(ydbConnection)
+                    { CommandText = $"SELECT count FROM {tableName} WHERE id = 1" }.ExecuteScalarAsync())!;
+
+                await new YdbCommand(ydbConnection)
+                {
+                    CommandText = $"UPDATE {tableName} SET count = @count + 1 WHERE id = 1",
+                    Parameters = { new YdbParameter { Value = count, ParameterName = "count" } }
+                }.ExecuteNonQueryAsync();
+            }));
+        }
+
+        await Task.WhenAll(tasks);
+
+        await using (var ydbConnection = await CreateOpenConnectionAsync())
+        {
+            Assert.Equal(concurrentJob, await new YdbCommand(ydbConnection)
+                { CommandText = $"SELECT count FROM {tableName} WHERE id = 1" }.ExecuteScalarAsync());
+
+            await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName}" }.ExecuteNonQueryAsync();
+        }
     }
 }
