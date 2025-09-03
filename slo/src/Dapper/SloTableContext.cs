@@ -1,6 +1,7 @@
 using Dapper;
 using Internal;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.RetryPolicy;
 
 namespace AdoNet.Dapper;
 
@@ -9,7 +10,11 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     protected override string Job => "Dapper";
 
     protected override YdbDataSource CreateClient(Config config) => new(
-        new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
+        new YdbConnectionStringBuilder(config.ConnectionString)
+        {
+            LoggerFactory = ISloContext.Factory,
+            RetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true })
+        }
     );
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
