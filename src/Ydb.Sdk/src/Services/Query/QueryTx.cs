@@ -14,7 +14,7 @@ public class QueryTx
     private string? TxId { get; set; }
     private bool Commited { get; set; }
 
-    private TransactionControl? TxControl(bool commit)
+    private TransactionControl TxControl(bool commit)
     {
         Commited = commit | Commited;
 

@@ -103,7 +103,7 @@ public class YdbDataSource
 
     protected
 #if NET7_0_OR_GREATER
-    override
+        override
 #endif
         async ValueTask DisposeAsyncCore() => await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString);
 
