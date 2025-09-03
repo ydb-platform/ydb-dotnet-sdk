@@ -14,7 +14,7 @@ public class DecimalParameterYdbTest(DecimalParameterQueryYdbFixture fixture)
         await using var ctx = Fixture.CreateContext();
         await ctx.Database.EnsureCreatedAsync();
 
-        decimal v = 1.23456789m;
+        var v = 1.23456789m;
         ctx.Add(new ItemDefault { Price = v });
         await ctx.SaveChangesAsync();
 
@@ -29,7 +29,7 @@ public class DecimalParameterYdbTest(DecimalParameterQueryYdbFixture fixture)
         await using var ctx = Fixture.CreateContext();
         await ctx.Database.EnsureCreatedAsync();
 
-        decimal v = 123.456789012m;
+        var v = 123.456789012m;
         ctx.Add(new ItemExplicit { Price = v });
         await ctx.SaveChangesAsync();
 
@@ -37,7 +37,7 @@ public class DecimalParameterYdbTest(DecimalParameterQueryYdbFixture fixture)
         Assert.Single(got);
         Assert.Equal(v, got[0].Price);
     }
-    
+
     [ConditionalFact]
     public async Task Decimal_out_of_range_bubbles_up()
     {
