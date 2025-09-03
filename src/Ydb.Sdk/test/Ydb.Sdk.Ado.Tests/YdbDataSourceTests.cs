@@ -233,7 +233,7 @@ public class YdbDataSourceTests : TestBase
                     CommandText = $"UPDATE {tableName} SET count = @count + 1 WHERE id = 1",
                     Parameters = { new YdbParameter { Value = count, ParameterName = "count" } }
                 }.ExecuteNonQueryAsync();
-            }));
+            }, new YdbRetryPolicyConfig { FastBackoffBaseMs = 20 }));
         }
 
         await Task.WhenAll(tasks);
