@@ -3,10 +3,8 @@ using Xunit;
 
 namespace Ydb.Sdk.Ado.Tests;
 
-[CollectionDefinition("PoolManagerTests", DisableParallelization = true)]
-public sealed class PoolManagerCollection;
-
 [Collection("PoolManagerTests")]
+[CollectionDefinition("PoolManagerTests", DisableParallelization = true)]
 public class PoolManagerTests
 {
     [Theory]
