@@ -211,7 +211,7 @@ public abstract class BaseDriver : IDriver
 
     public ILoggerFactory LoggerFactory { get; }
     public void RegisterOwner() => _ownerCount++;
-    public bool IsDisposed => Disposed == 1;
+    public bool IsDisposed => Volatile.Read(ref Disposed) == 1;
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
