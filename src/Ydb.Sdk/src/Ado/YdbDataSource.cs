@@ -174,6 +174,24 @@ public class YdbDataSource
         await func(ydbConnection);
     });
 
+    public Task<TResult> ExecuteAsync<TResult>(
+        Func<YdbConnection, Task<TResult>> func,
+        YdbRetryPolicyConfig retryPolicyConfig
+    ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async ct =>
+    {
+        await using var ydbConnection = await OpenConnectionAsync(ct);
+        return await func(ydbConnection);
+    });
+
+    public Task<TResult> ExecuteAsync<TResult>(
+        Func<YdbConnection, Task<TResult>> func,
+        IRetryPolicy retryPolicy
+    ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
+    {
+        await using var ydbConnection = await OpenConnectionAsync(ct);
+        return await func(ydbConnection);
+    });
+
     public Task ExecuteAsync(
         Func<YdbConnection, CancellationToken, Task> func,
         YdbRetryPolicyConfig retryPolicyConfig,
@@ -263,6 +281,31 @@ public class YdbDataSource
     }, cancellationToken);
 
     public Task ExecuteInTransactionAsync(
+        Func<YdbConnection, Task> func,
+        YdbRetryPolicyConfig retryPolicyConfig,
+        TransactionMode transactionMode = TransactionMode.SerializableRw
+    ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async cancellationToken =>
+    {
+        await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await func(ydbConnection);
+        await transaction.CommitAsync(cancellationToken);
+    });
+
+    public Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<YdbConnection, Task<TResult>> func,
+        YdbRetryPolicyConfig retryPolicyConfig,
+        TransactionMode transactionMode = TransactionMode.SerializableRw
+    ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async cancellationToken =>
+    {
+        await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
+        var result = await func(ydbConnection);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    });
+
+    public Task ExecuteInTransactionAsync(
         Func<YdbConnection, CancellationToken, Task> func,
         YdbRetryPolicyConfig retryPolicyConfig,
         TransactionMode transactionMode = TransactionMode.SerializableRw,
@@ -288,6 +331,31 @@ public class YdbDataSource
         await transaction.CommitAsync(ct);
         return result;
     }, cancellationToken);
+
+    public Task ExecuteInTransactionAsync(
+        Func<YdbConnection, Task> func,
+        IRetryPolicy retryPolicy,
+        TransactionMode transactionMode = TransactionMode.SerializableRw
+    ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
+    {
+        await using var ydbConnection = await OpenConnectionAsync(ct);
+        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await func(ydbConnection);
+        await transaction.CommitAsync(ct);
+    });
+
+    public Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<YdbConnection, Task<TResult>> func,
+        IRetryPolicy retryPolicy,
+        TransactionMode transactionMode = TransactionMode.SerializableRw
+    ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async cancellationToken =>
+    {
+        await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
+        var result = await func(ydbConnection);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    });
 
     public Task ExecuteInTransactionAsync(
         Func<YdbConnection, CancellationToken, Task> func,
