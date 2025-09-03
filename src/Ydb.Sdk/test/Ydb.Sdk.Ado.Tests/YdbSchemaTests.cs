@@ -4,6 +4,8 @@ using Xunit;
 namespace Ydb.Sdk.Ado.Tests;
 
 [CollectionDefinition("YdbSchemaTests isolation test", DisableParallelization = true)]
+public sealed class YdbSchemaManagerCollection;
+
 [Collection("YdbSchemaTests isolation test")]
 public class YdbSchemaTests : TestBase
 {
