@@ -50,10 +50,7 @@ internal class ImplicitSession : ISession
     {
     }
 
-    public void Close()
-    {
-        _onClose?.Invoke();
-    }
+    public void Close() => _onClose?.Invoke();
 
     private static YdbException NotSupportedTransaction =>
         new(StatusCode.BadRequest, "Transactions are not supported in implicit sessions");

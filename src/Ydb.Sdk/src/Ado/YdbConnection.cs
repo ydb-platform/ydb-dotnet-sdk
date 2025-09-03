@@ -50,7 +50,8 @@ public sealed class YdbConnection : DbConnection
         if (!useImplicit)
             return Session;
 
-        _implicitSessionSource ??= new ImplicitSessionSource(Session.Driver, onEmpty: () => _implicitSessionSource = null);
+        _implicitSessionSource ??=
+            new ImplicitSessionSource(Session.Driver, onEmpty: () => _implicitSessionSource = null);
         return _implicitSessionSource.OpenSession(CancellationToken.None).GetAwaiter().GetResult();
     }
 
