@@ -214,15 +214,16 @@ public class YdbDataSource
         return await func(ydbConnection, ct);
     }, cancellationToken);
 
-    public Task ExecuteInTransactionAsync(Func<YdbConnection, Task> func,
-        TransactionMode transactionMode = TransactionMode.SerializableRw) =>
-        _retryPolicyExecutor.ExecuteAsync(async cancellationToken =>
-        {
-            await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
-            await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-            await func(ydbConnection);
-            await transaction.CommitAsync(cancellationToken);
-        });
+    public Task ExecuteInTransactionAsync(
+        Func<YdbConnection, Task> func,
+        TransactionMode transactionMode = TransactionMode.SerializableRw
+    ) => _retryPolicyExecutor.ExecuteAsync(async cancellationToken =>
+    {
+        await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await func(ydbConnection);
+        await transaction.CommitAsync(cancellationToken);
+    });
 
     public Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<YdbConnection, Task<TResult>> func,

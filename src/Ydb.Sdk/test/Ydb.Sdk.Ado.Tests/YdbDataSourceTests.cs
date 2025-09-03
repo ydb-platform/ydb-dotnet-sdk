@@ -1,6 +1,5 @@
 using Xunit;
 using Ydb.Sdk.Ado.RetryPolicy;
-using Ydb.Sdk.Ado.Tests.Session;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -92,7 +91,7 @@ public class YdbDataSourceTests : TestBase
             }
 
             return Task.CompletedTask;
-        });
+        }, new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
     }
 
     [Theory]
@@ -179,5 +178,27 @@ public class YdbDataSourceTests : TestBase
         Assert.Equal(3, attempt);
         Assert.Equal(3, ydbConnections.Count);
         Assert.True(ydbConnections.Distinct().Count() == ydbConnections.Count); // new one every time
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CancelsBetweenRetries()
+    {
+        using var cts = new CancellationTokenSource();
+        var attempt = 0;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await _dataSource.ExecuteAsync(async (_, _) =>
+            {
+                attempt++;
+                if (attempt == 1)
+                {
+                    await cts.CancelAsync();
+                    throw new YdbException(StatusCode.BadSession, "Bad");
+                }
+            }, cts.Token);
+        });
+
+        Assert.Equal(1, attempt);
     }
 }
