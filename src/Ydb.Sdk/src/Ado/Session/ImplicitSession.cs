@@ -5,9 +5,12 @@ namespace Ydb.Sdk.Ado.Session;
 
 internal class ImplicitSession : ISession
 {
-    public ImplicitSession(IDriver driver)
+    private readonly Action? _onClose;
+
+    public ImplicitSession(IDriver driver, Action? onClose = null)
     {
         Driver = driver;
+        _onClose = onClose;
     }
 
     public IDriver Driver { get; }
@@ -49,6 +52,7 @@ internal class ImplicitSession : ISession
 
     public void Close()
     {
+        _onClose?.Invoke();
     }
 
     private static YdbException NotSupportedTransaction =>
