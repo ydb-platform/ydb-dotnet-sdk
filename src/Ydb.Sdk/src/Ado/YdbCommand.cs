@@ -216,33 +216,19 @@ public sealed class YdbCommand : DbCommand
             throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
         }
 
-        var useImplicit = YdbConnection.EnableImplicitSession && transaction is null;
-        var session = YdbConnection.GetExecutionSession(useImplicit);
+        var execResult = await YdbConnection.Session.ExecuteQuery(
+            preparedSql.ToString(),
+            ydbParameters,
+            execSettings,
+            transaction?.TransactionControl
+        );
 
-        YdbDataReader ydbDataReader;
-        try
-        {
-            var execResult = await session.ExecuteQuery(
-                preparedSql.ToString(),
-                ydbParameters,
-                execSettings,
-                transaction?.TransactionControl
-            );
-
-            ydbDataReader = await YdbDataReader.CreateYdbDataReader(
-                execResult,
-                YdbConnection.OnNotSuccessStatusCode,
-                transaction,
-                cancellationToken
-            );
-        }
-        finally
-        {
-            if (useImplicit)
-            {
-                session.Close();
-            }
-        }
+        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(
+            execResult,
+            YdbConnection.OnNotSuccessStatusCode,
+            transaction,
+            cancellationToken
+        );
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;
