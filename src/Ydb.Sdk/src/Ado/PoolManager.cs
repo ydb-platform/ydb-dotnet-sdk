@@ -33,10 +33,22 @@ internal static class PoolManager
                          !cacheDriver.IsDisposed
                 ? cacheDriver
                 : Drivers[settings.GrpcConnectionString] = await settings.BuildDriver();
-            driver.RegisterOwner();
 
-            var factory = new PoolingSessionFactory(driver, settings);
-            var newSessionPool = new PoolingSessionSource<PoolingSession>(factory, settings);
+            ISessionSource newSessionPool;
+            if (settings.EnableImplicitSession)
+            {
+                var key = settings.ConnectionString;
+                newSessionPool = new ImplicitSessionSource(
+                    driver,
+                    onEmpty: () => Pools.TryRemove(key, out _)
+                );
+            }
+            else
+            {
+                driver.RegisterOwner();
+                var factory = new PoolingSessionFactory(driver, settings);
+                newSessionPool = new PoolingSessionSource<PoolingSession>(factory, settings);
+            }
 
             Pools[settings.ConnectionString] = newSessionPool;
 

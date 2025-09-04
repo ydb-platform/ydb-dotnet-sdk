@@ -3,49 +3,57 @@ namespace Ydb.Sdk.Ado.Session;
 internal sealed class ImplicitSessionSource : ISessionSource
 {
     private readonly IDriver _driver;
-    private readonly Action? _onEmpty;
-    private int _leased;
-    private int _closed;
+    private readonly Action? _onBecameEmpty;
+    private int _isDisposed;
+    private int _activeLeaseCount;
 
     internal ImplicitSessionSource(IDriver driver, Action? onEmpty = null)
     {
-        _driver = driver;
-        _onEmpty = onEmpty;
+        _driver = driver ?? throw new ArgumentNullException(nameof(driver));
+        _onBecameEmpty = onEmpty;
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (Volatile.Read(ref _closed) == 1)
+        if (!TryAcquireLease())
             throw new ObjectDisposedException(nameof(ImplicitSessionSource));
 
-        Interlocked.Increment(ref _leased);
-
-        if (Volatile.Read(ref _closed) == 1)
-        {
-            Interlocked.Decrement(ref _leased);
-            throw new ObjectDisposedException(nameof(ImplicitSessionSource));
-        }
-
-        return new ValueTask<ISession>(new ImplicitSession(_driver, Release));
+        return new ValueTask<ISession>(new ImplicitSession(_driver, ReleaseLease));
     }
 
-    private void Release()
+    private bool TryAcquireLease()
     {
-        if (Interlocked.Decrement(ref _leased) == 0)
+        if (Volatile.Read(ref _isDisposed) != 0)
+            return false;
+
+        Interlocked.Increment(ref _activeLeaseCount);
+
+        if (Volatile.Read(ref _isDisposed) != 0)
         {
-            _onEmpty?.Invoke();
+            Interlocked.Decrement(ref _activeLeaseCount);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void ReleaseLease()
+    {
+        if (Interlocked.Decrement(ref _activeLeaseCount) == 0)
+        {
+            _onBecameEmpty?.Invoke();
         }
     }
 
     public ValueTask DisposeAsync()
     {
-        Interlocked.Exchange(ref _closed, 1);
+        Interlocked.Exchange(ref _isDisposed, 1);
 
-        if (Volatile.Read(ref _leased) == 0)
+        if (Volatile.Read(ref _activeLeaseCount) == 0)
         {
-            _onEmpty?.Invoke();
+            _onBecameEmpty?.Invoke();
         }
 
         return ValueTask.CompletedTask;

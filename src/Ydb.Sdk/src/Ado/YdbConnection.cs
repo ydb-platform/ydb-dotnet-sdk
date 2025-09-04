@@ -39,22 +39,6 @@ public sealed class YdbConnection : DbConnection
 
     private ISession _session = null!;
 
-    private ImplicitSessionSource? _implicitSessionSource;
-
-    internal bool EnableImplicitSession => ConnectionStringBuilder.EnableImplicitSession;
-
-    internal ISession GetExecutionSession(bool useImplicit)
-    {
-        ThrowIfConnectionClosed();
-
-        if (!useImplicit)
-            return Session;
-
-        _implicitSessionSource ??=
-            new ImplicitSessionSource(Session.Driver, onEmpty: () => _implicitSessionSource = null);
-        return _implicitSessionSource.OpenSession(CancellationToken.None).GetAwaiter().GetResult();
-    }
-
     public YdbConnection()
     {
     }
@@ -143,7 +127,6 @@ public sealed class YdbConnection : DbConnection
         finally
         {
             _session.Close();
-            _implicitSessionSource = null;
         }
     }
 
@@ -165,7 +148,7 @@ public sealed class YdbConnection : DbConnection
 
     public override ConnectionState State => ConnectionState;
 
-    private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
+    private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed;
 
     internal void OnNotSuccessStatusCode(StatusCode code)
     {
