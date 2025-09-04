@@ -285,6 +285,7 @@ public class YdbCommandTests : TestBase
                 var ex = await Assert.ThrowsAsync<YdbException>(async () => await insertTx.ExecuteNonQueryAsync());
                 Assert.Contains("Transactions are not supported in implicit sessions", ex.Message);
             }
+
             await tx.RollbackAsync();
 
             await using (var check = connection.CreateCommand())
