@@ -1,0 +1,61 @@
+namespace Ydb.Sdk.Ado.Session;
+
+internal sealed class ImplicitSessionSource : ISessionSource
+{
+    private readonly IDriver _driver;
+    private readonly Action? _onBecameEmpty;
+    private int _isDisposed;
+    private int _activeLeaseCount;
+
+    internal ImplicitSessionSource(IDriver driver, Action? onEmpty = null)
+    {
+        _driver = driver ?? throw new ArgumentNullException(nameof(driver));
+        _onBecameEmpty = onEmpty;
+    }
+
+    public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!TryAcquireLease())
+            throw new ObjectDisposedException(nameof(ImplicitSessionSource));
+
+        return new ValueTask<ISession>(new ImplicitSession(_driver, ReleaseLease));
+    }
+
+    private bool TryAcquireLease()
+    {
+        if (Volatile.Read(ref _isDisposed) != 0)
+            return false;
+
+        Interlocked.Increment(ref _activeLeaseCount);
+
+        if (Volatile.Read(ref _isDisposed) != 0)
+        {
+            Interlocked.Decrement(ref _activeLeaseCount);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void ReleaseLease()
+    {
+        if (Interlocked.Decrement(ref _activeLeaseCount) == 0)
+        {
+            _onBecameEmpty?.Invoke();
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Interlocked.Exchange(ref _isDisposed, 1);
+
+        if (Volatile.Read(ref _activeLeaseCount) == 0)
+        {
+            _onBecameEmpty?.Invoke();
+        }
+
+        return ValueTask.CompletedTask;
+    }
+}
