@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -25,6 +26,17 @@ public class PoolManagerTests
         "MinSessionSize=1;ConnectTimeout=8", "MinSessionSize=1;ConnectTimeout=9"
     }, 5, 5)] // 5 transport, 5 five pools
     [InlineData(new[] { "MinSessionSize=1" }, 1, 1)] // simple case
+    [InlineData(new[]
+    {
+        "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1",
+        "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1",
+        "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1",
+        "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1",
+        "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2",
+        "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2",
+        "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=3",
+        "MinSessionSize=3", "MinSessionSize=3", "MinSessionSize=3", "MinSessionSize=3", "MinSessionSize=3"
+    }, 1, 3)] // duplicate rows — we expect 1 transport, 3 pools, stress test
     public async Task PoolManager_CachingAndCleanup(string[] connectionStrings, int expectedDrivers, int expectedPools)
     {
         await YdbConnection.ClearAllPools();
@@ -35,23 +47,19 @@ public class PoolManagerTests
         var connections = connectionStrings
             .Select(connectionString => new YdbConnection(connectionString))
             .ToImmutableArray();
-        var parallelTasks = connections.Select(connection => connection.OpenAsync()).ToList();
-        await Task.WhenAll(parallelTasks);
+        await Task.WhenAll(connections.Select(connection => connection.OpenAsync()));
 
         Assert.Equal(expectedDrivers, PoolManager.Drivers.Count);
         Assert.Equal(expectedPools, PoolManager.Pools.Count);
 
         await ClearAllConnections(connections);
-
-        parallelTasks = connections.Select(connection => connection.OpenAsync()).ToList();
-        await Task.WhenAll(parallelTasks);
+        await Task.WhenAll(connections.Select(connection => connection.OpenAsync()));
 
         foreach (var (_, driver) in PoolManager.Drivers)
             Assert.False(driver.IsDisposed);
 
         Assert.Equal(expectedDrivers, PoolManager.Drivers.Count);
         Assert.Equal(expectedPools, PoolManager.Pools.Count);
-
         await ClearAllConnections(connections);
     }
 
