@@ -50,18 +50,18 @@ internal static class PoolManager
 
     internal static async Task ClearPool(string connectionString)
     {
-        if (Pools.Remove(connectionString, out var sessionPool))
+        try
         {
-            try
-            {
-                await SemaphoreSlim.WaitAsync();
+            await SemaphoreSlim.WaitAsync();
 
+            if (Pools.Remove(connectionString, out var sessionPool))
+            {
                 await sessionPool.DisposeAsync();
             }
-            finally
-            {
-                SemaphoreSlim.Release();
-            }
+        }
+        finally
+        {
+            SemaphoreSlim.Release();
         }
     }
 
