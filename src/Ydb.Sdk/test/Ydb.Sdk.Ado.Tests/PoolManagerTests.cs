@@ -28,6 +28,8 @@ public class PoolManagerTests
     public async Task PoolManager_CachingAndCleanup(string[] connectionStrings, int expectedDrivers, int expectedPools)
     {
         await YdbConnection.ClearAllPools();
+        foreach (var (_, driver) in PoolManager.Drivers)
+            Assert.True(driver.IsDisposed);
         PoolManager.Drivers.Clear();
 
         var connections = connectionStrings
@@ -45,9 +47,7 @@ public class PoolManagerTests
         await Task.WhenAll(parallelTasks);
 
         foreach (var (_, driver) in PoolManager.Drivers)
-        {
             Assert.False(driver.IsDisposed);
-        }
 
         Assert.Equal(expectedDrivers, PoolManager.Drivers.Count);
         Assert.Equal(expectedPools, PoolManager.Pools.Count);

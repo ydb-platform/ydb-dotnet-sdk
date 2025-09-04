@@ -50,7 +50,7 @@ internal static class PoolManager
 
     internal static async Task ClearPool(string connectionString)
     {
-        if (Pools.Remove(connectionString, out var sessionPool))
+        if (Pools.TryRemove(connectionString, out var sessionPool))
         {
             try
             {

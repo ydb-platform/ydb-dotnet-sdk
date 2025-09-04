@@ -1,6 +1,7 @@
+- Feat ADO.NET: Mark `YdbConnection.State` as `Broken` when the underlying session is broken, including background deactivation.
 - Feat ADO.NET: Added  YdbDataSource `ExecuteAsync` and `ExecuteInTransaction` convenience methods.
 - **Breaking Change**: moved and renamed `Ydb.Sdk.Services.Query.TxMode` -> `Ydb.Sdk.Ado.TransactionMode`.
-- Feat ADO.NET: cache gRPC transport by `gRPCConnectionString` to reuse channels.
+- Feat ADO.NET: Cache gRPC transport by `gRPCConnectionString` to reuse channels.
 - Fix bug wrap-around ADO.NET: Big parameterized Decimal — `((ulong)bits[1] << 32)` -> `((ulong)(uint)bits[1] << 32)`.
 - Feat ADO.NET: Parameterized Decimal overflow check: `Precision` and `Scale`.
 - Feat ADO.NET: Deleted support for `DateTimeOffset` was a mistake.

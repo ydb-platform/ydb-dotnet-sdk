@@ -210,14 +210,14 @@ public abstract class BaseDriver : IDriver
     }
 
     public ILoggerFactory LoggerFactory { get; }
-    public void RegisterOwner() => _ownerCount++;
+    public void RegisterOwner() => ++_ownerCount;
     public bool IsDisposed => Disposed == 1;
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Decrement(ref _ownerCount) <= 0 && Interlocked.CompareExchange(ref Disposed, 1, 0) == 0)
+        if (--_ownerCount <= 0 && Interlocked.CompareExchange(ref Disposed, 1, 0) == 0)
         {
             await ChannelPool.DisposeAsync();
 
