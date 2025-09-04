@@ -35,5 +35,14 @@ public class DecimalParameterQueryYdbFixture
     public class DecimalContext(DbContextOptions options) : DbContext(options);
 }
 
-public class ItemDefault { public int Id { get; init; } public decimal Price { get; init; } }
-public class ItemExplicit { public int Id { get; init; } public decimal Price { get; init; } }
+public class ItemDefault
+{
+    public int Id { get; init; }
+    public decimal Price { get; init; }
+}
+
+public class ItemExplicit
+{
+    public int Id { get; init; }
+    public decimal Price { get; init; }
+}

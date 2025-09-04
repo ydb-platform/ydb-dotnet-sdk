@@ -84,10 +84,10 @@ public class DecimalParameterYdbTest(DecimalParameterQueryYdbFixture fixture)
     {
         protected override void OnModelCreating(ModelBuilder b)
             => b.Entity<MappingEntity>(e =>
-               {
-                   e.HasKey(x => x.Id);
-                   e.Property(x => x.Price).HasPrecision(30, 10);
-               });
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Price).HasPrecision(30, 10);
+            });
     }
 
     private sealed class MappingEntity
