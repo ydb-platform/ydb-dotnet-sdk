@@ -109,6 +109,7 @@ public sealed class YdbConnection : DbConnection
                 return;
             case ConnectionState.Broken:
                 ConnectionState = ConnectionState.Closed;
+                _session.Close();
                 return;
             default:
                 try

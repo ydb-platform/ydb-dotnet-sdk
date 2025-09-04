@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -7,6 +8,13 @@ namespace Ydb.Sdk.Ado.Tests;
 [CollectionDefinition("PoolManagerTests", DisableParallelization = true)]
 public class PoolManagerTests
 {
+    private readonly ITestOutputHelper _testOutputHelper;
+
+    public PoolManagerTests(ITestOutputHelper testOutputHelper)
+    {
+        _testOutputHelper = testOutputHelper;
+    }
+
     [Theory]
     [InlineData(new[]
     {
@@ -55,7 +63,7 @@ public class PoolManagerTests
         await ClearAllConnections(connections);
     }
 
-    private static async Task ClearAllConnections(IReadOnlyCollection<YdbConnection> connections)
+    private async Task ClearAllConnections(IReadOnlyCollection<YdbConnection> connections)
     {
         foreach (var connection in connections)
             await connection.CloseAsync();
@@ -63,8 +71,9 @@ public class PoolManagerTests
         await YdbConnection.ClearAllPools();
         Assert.Empty(PoolManager.Pools);
 
-        foreach (var (_, driver) in PoolManager.Drivers)
+        foreach (var (str, driver) in PoolManager.Drivers)
         {
+            _testOutputHelper.WriteLine(str);
             Assert.True(driver.IsDisposed);
         }
     }
