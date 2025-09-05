@@ -560,7 +560,7 @@ INSERT INTO {tableName}
             await drop.ExecuteNonQueryAsync();
         }
     }
-    
+
     [Fact]
     public async Task BulkUpsertImporter_AddRowAsync_WhenLaterRowHasNull_AllowsNullValue()
     {
