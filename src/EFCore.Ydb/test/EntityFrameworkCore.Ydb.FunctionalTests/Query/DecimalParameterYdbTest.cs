@@ -80,6 +80,37 @@ public class DecimalParameterYdbTest(DecimalParameterQueryYdbFixture fixture)
         Assert.Equal("Decimal(30, 10)", mapping.StoreType);
     }
 
+    [ConditionalFact]
+    public async Task Parameter_decimal_respects_custom_30_10_and_roundtrips_if_supported()
+    {
+        var cs = Environment.GetEnvironmentVariable("YDB_EF_CONN");
+        if (string.IsNullOrWhiteSpace(cs)) return;
+
+        var opts = new DbContextOptionsBuilder<MappingOnlyContext>()
+            .UseYdb(cs)
+            .Options;
+
+        await using var ctx = new MappingOnlyContext(opts);
+
+        try
+        {
+            await ctx.Database.EnsureCreatedAsync();
+        }
+        catch (Exception ex) when (ex.ToString()
+                                       .Contains("EnableParameterizedDecimal", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var v = 123.4567890123m;
+        ctx.Add(new MappingEntity { Price = v });
+        await ctx.SaveChangesAsync();
+
+        var got = await ctx.Set<MappingEntity>().Where(x => x.Price == v).ToListAsync();
+        Assert.Single(got);
+        Assert.Equal(v, got[0].Price);
+    }
+
     private sealed class MappingOnlyContext(DbContextOptions<MappingOnlyContext> options) : DbContext(options)
     {
         protected override void OnModelCreating(ModelBuilder b)
