@@ -29,7 +29,7 @@
 - Canceling AttachStream after calling the `DeleteSession` method.
 - Fixed bug: fixed issue where session was not deleted (`ClientTransportTimeout`).
 - Fixed bug: Grpc.Core.StatusCode.Cancelled was mapped to server's Canceled status.
-- ADO.NET: PoolingSessionSource 2.0 based on Npgsql pooling algorithm.
+- Feat ADO.NET: PoolingSessionSource 2.0 based on lock-free FIFO pooling algorithm.
 - Added new ADO.NET options:
   - `MinSessionPool`: The minimum connection pool size.
   - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all sessions exceeds `MinSessionPool`.
