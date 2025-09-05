@@ -3,8 +3,7 @@ using Xunit;
 
 namespace Ydb.Sdk.Ado.Tests;
 
-[Collection("YdbSchemaTests isolation test")]
-[CollectionDefinition("YdbSchemaTests isolation test", DisableParallelization = true)]
+[Collection("DisableParallelization")]
 public class YdbSchemaTests : TestBase
 {
     private readonly string _table1;

@@ -20,10 +20,10 @@ internal static class PoolManager
             return await sessionPool.OpenSession(cancellationToken);
         }
 
+        await SemaphoreSlim.WaitAsync(cancellationToken);
+
         try
         {
-            await SemaphoreSlim.WaitAsync(cancellationToken);
-
             if (Pools.TryGetValue(settings.ConnectionString, out var pool))
             {
                 return await pool.OpenSession(cancellationToken);
@@ -52,10 +52,9 @@ internal static class PoolManager
     {
         if (Pools.TryRemove(connectionString, out var sessionPool))
         {
+            await SemaphoreSlim.WaitAsync();
             try
             {
-                await SemaphoreSlim.WaitAsync();
-
                 await sessionPool.DisposeAsync();
             }
             finally
