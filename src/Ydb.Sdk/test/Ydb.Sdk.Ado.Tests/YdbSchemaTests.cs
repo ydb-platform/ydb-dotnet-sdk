@@ -3,8 +3,7 @@ using Xunit;
 
 namespace Ydb.Sdk.Ado.Tests;
 
-[CollectionDefinition("YdbSchemaTests isolation test", DisableParallelization = true)]
-[Collection("YdbSchemaTests isolation test")]
+[Collection("DisableParallelization")]
 public class YdbSchemaTests : TestBase
 {
     private readonly string _table1;
@@ -221,53 +220,53 @@ public class YdbSchemaTests : TestBase
 
         await new YdbCommand(ydbConnection)
         {
-            CommandText = $@"
-            CREATE TABLE `{_table1}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
-            CREATE TABLE `{_table2}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
-            CREATE TABLE `{_table3}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
+            CommandText = $"""
+                           CREATE TABLE `{_table1}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
+                           CREATE TABLE `{_table2}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
+                           CREATE TABLE `{_table3}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
 
-            CREATE TABLE {_allTypesTable} (
-                Int32Column Int32 NOT NULL,
-                BoolColumn Bool NOT NULL,
-                Int64Column Int64 NOT NULL,
-                Int16Column Int16 NOT NULL,
-                Int8Column Int8 NOT NULL,
-                FloatColumn Float NOT NULL,
-                DoubleColumn Double NOT NULL,
-                DefaultDecimalColumn Decimal(22,9) NOT NULL,
-                Uint8Column Uint8 NOT NULL,
-                Uint16Column Uint16 NOT NULL,
-                Uint32Column Uint32 NOT NULL,
-                Uint64Column Uint64 NOT NULL,
-                TextColumn Text NOT NULL,
-                BytesColumn Bytes NOT NULL,
-                DateColumn Date NOT NULL,
-                DatetimeColumn Datetime NOT NULL,
-                TimestampColumn Timestamp NOT NULL,
-                PRIMARY KEY (Int32Column)
-            );
+                           CREATE TABLE {_allTypesTable} (
+                               Int32Column Int32 NOT NULL,
+                               BoolColumn Bool NOT NULL,
+                               Int64Column Int64 NOT NULL,
+                               Int16Column Int16 NOT NULL,
+                               Int8Column Int8 NOT NULL,
+                               FloatColumn Float NOT NULL,
+                               DoubleColumn Double NOT NULL,
+                               DefaultDecimalColumn Decimal(22,9) NOT NULL,
+                               Uint8Column Uint8 NOT NULL,
+                               Uint16Column Uint16 NOT NULL,
+                               Uint32Column Uint32 NOT NULL,
+                               Uint64Column Uint64 NOT NULL,
+                               TextColumn Text NOT NULL,
+                               BytesColumn Bytes NOT NULL,
+                               DateColumn Date NOT NULL,
+                               DatetimeColumn Datetime NOT NULL,
+                               TimestampColumn Timestamp NOT NULL,
+                               PRIMARY KEY (Int32Column)
+                           );
 
-            CREATE TABLE {_allTypesTableNullable} (
-                Int32Column Int32,
-                BoolColumn Bool,
-                Int64Column Int64,
-                Int16Column Int16,
-                Int8Column Int8,
-                FloatColumn Float,
-                DoubleColumn Double,
-                DefaultDecimalColumn Decimal(22,9),
-                Uint8Column Uint8,
-                Uint16Column Uint16,
-                Uint32Column Uint32,
-                Uint64Column Uint64,
-                TextColumn Text,
-                BytesColumn Bytes,
-                DateColumn Date,
-                DatetimeColumn Datetime,
-                TimestampColumn Timestamp,
-                PRIMARY KEY (Int32Column)
-            );
-            "
+                           CREATE TABLE {_allTypesTableNullable} (
+                               Int32Column Int32,
+                               BoolColumn Bool,
+                               Int64Column Int64,
+                               Int16Column Int16,
+                               Int8Column Int8,
+                               FloatColumn Float,
+                               DoubleColumn Double,
+                               DefaultDecimalColumn Decimal(22,9),
+                               Uint8Column Uint8,
+                               Uint16Column Uint16,
+                               Uint32Column Uint32,
+                               Uint64Column Uint64,
+                               TextColumn Text,
+                               BytesColumn Bytes,
+                               DateColumn Date,
+                               DatetimeColumn Datetime,
+                               TimestampColumn Timestamp,
+                               PRIMARY KEY (Int32Column)
+                           );
+                           """
         }.ExecuteNonQueryAsync();
     }
 
@@ -277,13 +276,13 @@ public class YdbSchemaTests : TestBase
 
         await new YdbCommand(ydbConnection)
         {
-            CommandText = $@"
-            DROP TABLE `{_table1}`; 
-            DROP TABLE `{_table2}`; 
-            DROP TABLE `{_table3}`;
-            DROP TABLE `{_allTypesTable}`;
-            DROP TABLE `{_allTypesTableNullable}`;
-            "
+            CommandText = $"""
+                           DROP TABLE `{_table1}`; 
+                           DROP TABLE `{_table2}`; 
+                           DROP TABLE `{_table3}`;
+                           DROP TABLE `{_allTypesTable}`;
+                           DROP TABLE `{_allTypesTableNullable}`;
+                           """
         }.ExecuteNonQueryAsync();
     }
 }

@@ -28,13 +28,10 @@ public class YdbException : DbException
     {
         Code = statusCode;
         IsTransient = statusCode.IsTransient();
-        IsTransientWhenIdempotent = statusCode.IsTransientWhenIdempotent();
         // TODO: Add SQLSTATE message with order with https://en.wikipedia.org/wiki/SQLSTATE
     }
 
     public override bool IsTransient { get; }
-
-    public bool IsTransientWhenIdempotent { get; }
 
     public StatusCode Code { get; }
 }

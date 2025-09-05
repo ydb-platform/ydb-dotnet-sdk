@@ -3,7 +3,6 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Services.Query;
 using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;
@@ -59,14 +58,14 @@ public sealed class YdbConnection : DbConnection
 
         return BeginTransaction(isolationLevel switch
         {
-            Serializable or Unspecified => TxMode.SerializableRw,
+            Serializable or Unspecified => TransactionMode.SerializableRw,
             _ => throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel)
         });
     }
 
     public new YdbTransaction BeginTransaction(IsolationLevel isolationLevel) => BeginDbTransaction(isolationLevel);
 
-    public YdbTransaction BeginTransaction(TxMode txMode = TxMode.SerializableRw)
+    public YdbTransaction BeginTransaction(TransactionMode transactionMode = TransactionMode.SerializableRw)
     {
         ThrowIfConnectionClosed();
 
@@ -77,7 +76,7 @@ public sealed class YdbConnection : DbConnection
             );
         }
 
-        CurrentTransaction = new YdbTransaction(this, txMode);
+        CurrentTransaction = new YdbTransaction(this, transactionMode);
 
         return CurrentTransaction;
     }
@@ -103,30 +102,38 @@ public sealed class YdbConnection : DbConnection
 
     public override async Task CloseAsync()
     {
-        if (State == ConnectionState.Closed)
+        // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
+        switch (State)
         {
-            return;
-        }
+            case ConnectionState.Closed:
+                return;
+            case ConnectionState.Broken:
+                ConnectionState = ConnectionState.Closed;
+                _session.Close();
+                return;
+            default:
+                try
+                {
+                    if (LastReader is { IsClosed: false })
+                    {
+                        await LastReader.CloseAsync();
+                    }
 
-        try
-        {
-            if (LastReader is { IsClosed: false })
-            {
-                await LastReader.CloseAsync();
-            }
+                    if (CurrentTransaction is { Completed: false })
+                    {
+                        await CurrentTransaction.RollbackAsync();
+                    }
 
-            if (CurrentTransaction is { Completed: false })
-            {
-                await CurrentTransaction.RollbackAsync();
-            }
+                    OnStateChange(OpenToClosedEventArgs);
 
-            OnStateChange(OpenToClosedEventArgs);
+                    ConnectionState = ConnectionState.Closed;
+                }
+                finally
+                {
+                    _session.Close();
+                }
 
-            ConnectionState = ConnectionState.Closed;
-        }
-        finally
-        {
-            _session.Close();
+                break;
         }
     }
 
@@ -146,19 +153,14 @@ public sealed class YdbConnection : DbConnection
 
     public override string Database => _connectionStringBuilder?.Database ?? string.Empty;
 
-    public override ConnectionState State => ConnectionState;
+    public override ConnectionState State =>
+        ConnectionState != ConnectionState.Closed && _session.IsBroken // maybe is updated asynchronously
+            ? ConnectionState.Broken
+            : ConnectionState;
 
     private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
 
-    internal void OnNotSuccessStatusCode(StatusCode code)
-    {
-        _session.OnNotSuccessStatusCode(code);
-
-        if (_session.IsBroken)
-        {
-            ConnectionState = ConnectionState.Broken;
-        }
-    }
+    internal void OnNotSuccessStatusCode(StatusCode code) => _session.OnNotSuccessStatusCode(code);
 
     internal YdbDataReader? LastReader { get; set; }
     internal string LastCommand { get; set; } = string.Empty;
@@ -204,7 +206,7 @@ public sealed class YdbConnection : DbConnection
 
     internal void ThrowIfConnectionClosed()
     {
-        if (ConnectionState is ConnectionState.Closed or ConnectionState.Broken)
+        if (State is ConnectionState.Closed or ConnectionState.Broken)
         {
             throw new InvalidOperationException("Connection is closed");
         }
@@ -212,7 +214,7 @@ public sealed class YdbConnection : DbConnection
 
     private void ThrowIfConnectionOpen()
     {
-        if (ConnectionState == ConnectionState.Open)
+        if (State == ConnectionState.Open)
         {
             throw new InvalidOperationException("Connection already open");
         }

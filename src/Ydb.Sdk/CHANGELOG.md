@@ -1,5 +1,11 @@
-- Test: Refactor TestBase: add UsingTempTableAsync / UsingTempTablesAsync to remove DDL/cleanup boilerplate; test names and logic unchanged.
 - Feat Value: Add YdbList builder for List<Struct<...>> (protobuf-based); works with IBulkUpsertImporter.AddListAsync.
+- Fixed bug ADO.NET/PoolManager: `SemaphoreSlim.WaitAsync` over-release on cancellation.
+- Feat ADO.NET: Mark `YdbConnection.State` as `Broken` when the underlying session is broken, including background deactivation.
+- Feat ADO.NET: Added  YdbDataSource `ExecuteAsync` and `ExecuteInTransaction` convenience methods.
+- **Breaking Change**: moved and renamed `Ydb.Sdk.Services.Query.TxMode` -> `Ydb.Sdk.Ado.TransactionMode`.
+- Feat ADO.NET: Cache gRPC transport by `gRPCConnectionString` to reuse channels.
+- Fixed bug wrap-around ADO.NET: Big parameterized Decimal — `((ulong)bits[1] << 32)` -> `((ulong)(uint)bits[1] << 32)`.
+- Feat ADO.NET: Parameterized Decimal overflow check: `Precision` and `Scale`.
 - Feat ADO.NET: Deleted support for `DateTimeOffset` was a mistake.
 - Feat ADO.NET: Added support for `Date32`, `Datetime64`, `Timestamp64` and `Interval64` types in YDB.
 - Feat: Implement `YdbRetryPolicy` with AWS-inspired Exponential Backoff and Jitter.
@@ -24,7 +30,7 @@
 - Canceling AttachStream after calling the `DeleteSession` method.
 - Fixed bug: fixed issue where session was not deleted (`ClientTransportTimeout`).
 - Fixed bug: Grpc.Core.StatusCode.Cancelled was mapped to server's Canceled status.
-- ADO.NET: PoolingSessionSource 2.0 based on Npgsql pooling algorithm.
+- Feat ADO.NET: PoolingSessionSource 2.0 based on lock-free FIFO pooling algorithm.
 - Added new ADO.NET options:
   - `MinSessionPool`: The minimum connection pool size.
   - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all sessions exceeds `MinSessionPool`.
