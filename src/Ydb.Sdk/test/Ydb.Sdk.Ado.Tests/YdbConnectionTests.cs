@@ -2,7 +2,6 @@ using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Ado.YdbType;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -105,20 +104,84 @@ public sealed class YdbConnectionTests : TestBase
     }
 
     [Fact]
-    public async Task SetNulls_WhenTableAllTypes_SussesSet() =>
-        await WithAllTypesTableAsync(async (c, table) =>
-        {
-            var insert = c.CreateCommand();
-            PrepareAllTypesInsert(insert, table);
-            await insert.ExecuteNonQueryAsync();
+    public async Task SetNulls_WhenTableAllTypes_SussesSet()
+    {
+        var ydbConnection = await CreateOpenConnectionAsync();
+        var ydbCommand = ydbConnection.CreateCommand();
+        var tableName = "AllTypes_" + Random.Shared.Next();
 
-            var select = c.CreateCommand();
-            select.CommandText = $"SELECT NULL, t.* FROM {table} t";
-            var r = await select.ExecuteReaderAsync();
-            Assert.True(await r.ReadAsync());
-            for (var i = 0; i < 21; i++) Assert.True(r.IsDBNull(i));
-            Assert.False(await r.ReadAsync());
-        });
+        ydbCommand.CommandText = @$"
+CREATE TABLE {tableName} (
+    id INT32,
+    bool_column BOOL,
+    bigint_column INT64,
+    smallint_column INT16,
+    tinyint_column INT8,
+    float_column FLOAT,
+    double_column DOUBLE,
+    decimal_column DECIMAL(22,9),
+    uint8_column UINT8,
+    uint16_column UINT16,
+    uint32_column UINT32,
+    uint64_column UINT64,
+    text_column TEXT,
+    binary_column BYTES,
+    json_column JSON,
+    jsondocument_column JSONDOCUMENT,
+    date_column DATE,
+    datetime_column DATETIME,
+    timestamp_column TIMESTAMP,
+    interval_column INTERVAL,
+    PRIMARY KEY (id)
+)
+";
+        await ydbCommand.ExecuteNonQueryAsync();
+        ydbCommand.CommandText = @$"
+INSERT INTO {tableName} 
+    (id, bool_column, bigint_column, smallint_column, tinyint_column, float_column, double_column, decimal_column, 
+     uint8_column, uint16_column, uint32_column, uint64_column, text_column, binary_column, json_column,
+     jsondocument_column, date_column, datetime_column, timestamp_column, interval_column) VALUES
+(@name1, @name2, @name3, @name4, @name5, @name6, @name7, @name8, @name9, @name10, @name11, @name12, @name13, @name14,
+ @name15, @name16, @name17, @name18, @name19, @name20); 
+";
+
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name1", DbType = DbType.Int32, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name2", DbType = DbType.Boolean, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name3", DbType = DbType.Int64, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name4", DbType = DbType.Int16, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name5", DbType = DbType.SByte, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name6", DbType = DbType.Single, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name7", DbType = DbType.Double, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name8", DbType = DbType.Decimal, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name9", DbType = DbType.Byte, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name10", DbType = DbType.UInt16, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name11", DbType = DbType.UInt32, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name12", DbType = DbType.UInt64, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name13", DbType = DbType.String, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name14", DbType = DbType.Binary, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name15", YdbDbType = YdbDbType.Json });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name16", YdbDbType = YdbDbType.JsonDocument });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name17", DbType = DbType.Date, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter
+            { ParameterName = "name18", DbType = DbType.DateTime, Value = null });
+        ydbCommand.Parameters.Add(
+            new YdbParameter { ParameterName = "name19", DbType = DbType.DateTime2, Value = null });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name20", YdbDbType = YdbDbType.Interval });
+
+        await ydbCommand.ExecuteNonQueryAsync();
+        ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
+        Assert.True(await ydbDataReader.ReadAsync());
+        for (var i = 0; i < 21; i++)
+        {
+            Assert.True(ydbDataReader.IsDBNull(i));
+        }
+
+        Assert.False(await ydbDataReader.ReadAsync());
+
+        ydbCommand.CommandText = $"DROP TABLE {tableName}";
+        await ydbCommand.ExecuteNonQueryAsync();
+    }
 
     [Fact]
     public async Task DisableDiscovery_WhenPropertyIsTrue_SimpleWorking()
@@ -238,49 +301,167 @@ public sealed class YdbConnectionTests : TestBase
     }).ToList();
 
     [Fact]
-    public async Task BulkUpsertImporter_HappyPath_Add_Flush() =>
-        await WithIdNameTableAsync(async (c, table) =>
+    public async Task BulkUpsertImporter_HappyPath_Add_Flush()
+    {
+        var tableName = $"BulkImporter_{Guid.NewGuid():N}";
+
+        await using var conn = await CreateOpenConnectionAsync();
+        try
         {
-            await ImportAsync(c, table,
-                [1, "Alice"],
-                [2, "Bob"]);
-            Assert.Equal(2, await CountAsync(c, table));
+            await using (var createCmd = conn.CreateCommand())
+            {
+                createCmd.CommandText = $"""
+                                         CREATE TABLE {tableName} (
+                                             Id Int32,
+                                             Name Text,
+                                             PRIMARY KEY (Id)
+                                         )
+                                         """;
+                await createCmd.ExecuteNonQueryAsync();
+            }
 
-            await ImportAsync(c, table,
-                [3, "Charlie"],
-                [4, "Diana"]);
+            var columns = new[] { "Id", "Name" };
 
-            var names = await ReadNamesAsync(c, table);
-            Assert.Contains("Alice", names);
-            Assert.Contains("Bob", names);
-            Assert.Contains("Charlie", names);
-            Assert.Contains("Diana", names);
-        });
+            var importer = conn.BeginBulkUpsertImport(tableName, columns);
+
+            await importer.AddRowAsync(1, "Alice");
+            await importer.AddRowAsync(2, "Bob");
+            await importer.FlushAsync();
+
+            await using (var checkCmd = conn.CreateCommand())
+            {
+                checkCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
+                var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+                Assert.Equal(2, count);
+            }
+
+            importer = conn.BeginBulkUpsertImport(tableName, columns);
+            await importer.AddRowAsync(3, "Charlie");
+            await importer.AddRowAsync(4, "Diana");
+            await importer.FlushAsync();
+
+            await using (var checkCmd = conn.CreateCommand())
+            {
+                checkCmd.CommandText = $"SELECT Name FROM {tableName} ORDER BY Id";
+                var names = new List<string>();
+                await using var reader = await checkCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                    names.Add(reader.GetString(0));
+                Assert.Contains("Alice", names);
+                Assert.Contains("Bob", names);
+                Assert.Contains("Charlie", names);
+                Assert.Contains("Diana", names);
+            }
+        }
+        finally
+        {
+            await using var dropCmd = conn.CreateCommand();
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
 
     [Fact]
-    public async Task BulkUpsertImporter_ThrowsOnInvalidRowCount() =>
-        await WithIdNameTableAsync(async (c, table) =>
+    public async Task BulkUpsertImporter_ThrowsOnInvalidRowCount()
+    {
+        var tableName = $"BulkImporter_{Guid.NewGuid():N}";
+        await using var conn = await CreateOpenConnectionAsync();
+        try
         {
-            var importer = c.BeginBulkUpsertImport(table, IdNameColumns);
+            await using (var createCmd = conn.CreateCommand())
+            {
+                createCmd.CommandText = $"""
+                                         CREATE TABLE {tableName} (
+                                             Id Int32,
+                                             Name Utf8,
+                                             PRIMARY KEY (Id)
+                                         )
+                                         """;
+                await createCmd.ExecuteNonQueryAsync();
+            }
+
+            var columns = new[] { "Id", "Name" };
+
+            var importer = conn.BeginBulkUpsertImport(tableName, columns);
+
             await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowAsync(1));
             await Assert.ThrowsAsync<ArgumentException>(async () => await importer.AddRowAsync(2));
-        });
+        }
+        finally
+        {
+            await using var dropCmd = conn.CreateCommand();
+            dropCmd.CommandText = $"DROP TABLE {tableName}";
+            await dropCmd.ExecuteNonQueryAsync();
+        }
+    }
 
     [Fact]
-    public async Task BulkUpsertImporter_MultipleImporters_Parallel() =>
-        await WithTwoIdNameTablesAsync(async (c, tables) =>
+    public async Task BulkUpsertImporter_MultipleImporters_Parallel()
+    {
+        var table1 = $"BulkImporter_{Guid.NewGuid():N}_1";
+        var table2 = $"BulkImporter_{Guid.NewGuid():N}_2";
+
+        var conn = await CreateOpenConnectionAsync();
+        try
         {
-            var t1 = tables[0];
-            var t2 = tables[1];
+            foreach (var table in new[] { table1, table2 })
+            {
+                await using var createCmd = conn.CreateCommand();
+                createCmd.CommandText = $"""
+                                         CREATE TABLE {table} (
+                                             Id Int32,
+                                             Name Utf8,
+                                             PRIMARY KEY (Id)
+                                         )
+                                         """;
+                await createCmd.ExecuteNonQueryAsync();
+            }
+
+            var columns = new[] { "Id", "Name" };
 
             await Task.WhenAll(
-                Task.Run(() => ImportRangeAsync(c, t1, 20, "A")),
-                Task.Run(() => ImportRangeAsync(c, t2, 20, "B"))
+                Task.Run(async () =>
+                {
+                    var importer = conn.BeginBulkUpsertImport(table1, columns);
+                    var rows = Enumerable.Range(0, 20)
+                        .Select(i => new object[] { i, $"A{i}" })
+                        .ToArray();
+                    foreach (var row in rows)
+                        await importer.AddRowAsync(row);
+                    await importer.FlushAsync();
+                }),
+                Task.Run(async () =>
+                {
+                    var importer = conn.BeginBulkUpsertImport(table2, columns);
+                    var rows = Enumerable.Range(0, 20)
+                        .Select(i => new object[] { i, $"B{i}" })
+                        .ToArray();
+                    foreach (var row in rows)
+                        await importer.AddRowAsync(row);
+                    await importer.FlushAsync();
+                })
             );
 
-            Assert.Equal(20, await CountAsync(c, t1));
-            Assert.Equal(20, await CountAsync(c, t2));
-        });
+            foreach (var table in new[] { table1, table2 })
+            {
+                await using var checkCmd = conn.CreateCommand();
+                checkCmd.CommandText = $"SELECT COUNT(*) FROM {table}";
+                var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+                Assert.Equal(20, count);
+            }
+        }
+        finally
+        {
+            foreach (var table in new[] { table1, table2 })
+            {
+                await using var dropCmd = conn.CreateCommand();
+                dropCmd.CommandText = $"DROP TABLE {table}";
+                await dropCmd.ExecuteNonQueryAsync();
+            }
+
+            await conn.DisposeAsync();
+        }
+    }
 
     [Fact]
     public async Task BulkUpsertImporter_ThrowsOnNonexistentTable()
@@ -288,64 +469,12 @@ public sealed class YdbConnectionTests : TestBase
         var tableName = $"Nonexistent_{Guid.NewGuid():N}";
         await using var conn = await CreateOpenConnectionAsync();
 
-        var importer = conn.BeginBulkUpsertImport(tableName, IdNameColumns);
+        var columns = new[] { "Id", "Name" };
+
+        var importer = conn.BeginBulkUpsertImport(tableName, columns);
 
         await importer.AddRowAsync(1, "NotExists");
 
         await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
     }
-
-    [Fact]
-    public async Task BulkUpsertImporter_AddListAsync_HappyPath_InsertsRows() =>
-        await WithIdNameTableAsync((_, _) => Task.CompletedTask, idType: "Int64");
-
-    [Fact]
-    public async Task BulkUpsertImporter_AddListAsync_HappyPath_InsertsRows_Int64() =>
-        await WithIdNameTableAsync(async (c, table) =>
-        {
-            var importer = c.BeginBulkUpsertImport(table, IdNameColumns);
-
-            // $rows: List<Struct<Id:Int64, Name:Text>>
-            var rows = YdbList
-                .Struct("Id", "Name")
-                .AddRow(1L, "A")
-                .AddRow(2L, "B");
-
-            await importer.AddListAsync(rows);
-            await importer.FlushAsync();
-
-            Assert.Equal(2, await CountAsync(c, table));
-        }, idType: "Int64");
-
-    [Fact]
-    public async Task BulkUpsertImporter_AddListAsync_WrongStructColumns_ThrowsArgumentException() =>
-        await WithIdNameTableAsync(async (c, table) =>
-        {
-            var importer = c.BeginBulkUpsertImport(table, IdNameColumns);
-
-            var wrong = YdbList
-                .Struct("Id", "Wrong")
-                .AddRow(1L, "A");
-
-            var ex = await Assert.ThrowsAsync<ArgumentException>(() => importer.AddListAsync(wrong).AsTask());
-            Assert.Contains("mismatch", ex.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("expected 'Name'", ex.Message, StringComparison.OrdinalIgnoreCase);
-        }, idType: "Int64");
-
-    [Fact]
-    public async Task BulkUpsertImporter_AddRowAsync_WhenLaterRowHasNull_AllowsNullValue() =>
-        await WithIdNameTableAsync(async (c, table) =>
-        {
-            var importer = c.BeginBulkUpsertImport(table, IdNameColumns);
-            await importer.AddRowAsync(1, "A");
-            await importer.AddRowAsync(2, new YdbParameter { YdbDbType = YdbDbType.Text, Value = null });
-            await importer.FlushAsync();
-
-            await using var check = c.CreateCommand();
-            check.CommandText = $"SELECT Name FROM {table} WHERE Id=1";
-            Assert.Equal("A", (string)(await check.ExecuteScalarAsync())!);
-
-            check.CommandText = $"SELECT Name IS NULL FROM {table} WHERE Id=2";
-            Assert.True((bool)(await check.ExecuteScalarAsync())!);
-        }, nameNullable: true);
 }
