@@ -1,11 +1,9 @@
 using System.Collections.Immutable;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Ydb.Sdk.Ado.Tests;
 
-[Collection("PoolManagerTests")]
-[CollectionDefinition("PoolManagerTests", DisableParallelization = true)]
+[Collection("DisableParallelization")]
 public class PoolManagerTests
 {
     [Theory]

@@ -67,7 +67,7 @@ public abstract class BaseDriver : IDriver
     internal readonly GrpcChannelFactory GrpcChannelFactory;
     internal readonly ChannelPool<GrpcChannel> ChannelPool;
 
-    private int _ownerCount;
+    private volatile int _ownerCount;
 
     protected volatile int Disposed;
 
