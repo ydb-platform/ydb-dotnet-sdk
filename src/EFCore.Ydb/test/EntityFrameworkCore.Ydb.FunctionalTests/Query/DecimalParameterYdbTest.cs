@@ -119,7 +119,8 @@ public class DecimalParameterYdbTest(DecimalParameterQueryYdbFixture fixture)
             {
                 await ctx.Database.EnsureCreatedAsync();
             }
-            catch (Exception ex) when (ex.ToString().Contains("EnableParameterizedDecimal", StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex) when (ex.ToString()
+                                           .Contains("EnableParameterizedDecimal", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
