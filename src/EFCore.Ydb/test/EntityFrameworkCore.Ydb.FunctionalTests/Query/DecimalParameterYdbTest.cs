@@ -15,43 +15,64 @@ public class DecimalParameterYdbTest(DecimalParameterQueryYdbFixture fixture)
     public async Task Parameter_decimal_uses_default_22_9_and_roundtrips()
     {
         await using var ctx = Fixture.CreateContext();
-        await ctx.Database.EnsureCreatedAsync();
+        try
+        {
+            await ctx.Database.EnsureCreatedAsync();
 
-        var v = 1.23456789m;
-        ctx.Add(new ItemDefault { Price = v });
-        await ctx.SaveChangesAsync();
+            var v = 1.23456789m;
+            ctx.Add(new ItemDefault { Price = v });
+            await ctx.SaveChangesAsync();
 
-        var got = await ctx.Set<ItemDefault>().Where(x => x.Price == v).ToListAsync();
-        Assert.Single(got);
-        Assert.Equal(v, got[0].Price);
+            var got = await ctx.Set<ItemDefault>().Where(x => x.Price == v).ToListAsync();
+            Assert.Single(got);
+            Assert.Equal(v, got[0].Price);
+        }
+        finally
+        {
+            await ctx.Database.CloseConnectionAsync();
+        }
     }
 
     [ConditionalFact]
     public async Task Parameter_decimal_respects_explicit_22_9_and_roundtrips()
     {
         await using var ctx = Fixture.CreateContext();
-        await ctx.Database.EnsureCreatedAsync();
+        try
+        {
+            await ctx.Database.EnsureCreatedAsync();
 
-        var v = 123.456789012m;
-        ctx.Add(new ItemExplicit { Price = v });
-        await ctx.SaveChangesAsync();
+            var v = 123.456789012m;
+            ctx.Add(new ItemExplicit { Price = v });
+            await ctx.SaveChangesAsync();
 
-        var got = await ctx.Set<ItemExplicit>().Where(x => x.Price == v).ToListAsync();
-        Assert.Single(got);
-        Assert.Equal(v, got[0].Price);
+            var got = await ctx.Set<ItemExplicit>().Where(x => x.Price == v).ToListAsync();
+            Assert.Single(got);
+            Assert.Equal(v, got[0].Price);
+        }
+        finally
+        {
+            await ctx.Database.CloseConnectionAsync();
+        }
     }
 
     [ConditionalFact]
     public async Task Decimal_out_of_range_bubbles_up()
     {
         await using var ctx = Fixture.CreateContext();
-        await ctx.Database.EnsureCreatedAsync();
+        try
+        {
+            await ctx.Database.EnsureCreatedAsync();
 
-        var tooBig = new ItemExplicit { Price = 10_000_000_000_000m };
-        ctx.Add(tooBig);
+            var tooBig = new ItemExplicit { Price = 10_000_000_000_000m };
+            ctx.Add(tooBig);
 
-        var ex = await Assert.ThrowsAsync<DbUpdateException>(() => ctx.SaveChangesAsync());
-        Assert.Contains("Decimal", ex.InnerException?.Message ?? "");
+            var ex = await Assert.ThrowsAsync<DbUpdateException>(() => ctx.SaveChangesAsync());
+            Assert.Contains("Decimal", ex.InnerException?.Message ?? "");
+        }
+        finally
+        {
+            await ctx.Database.CloseConnectionAsync();
+        }
     }
 
     [Fact]
@@ -94,21 +115,27 @@ public class DecimalParameterYdbTest(DecimalParameterQueryYdbFixture fixture)
 
         try
         {
-            await ctx.Database.EnsureCreatedAsync();
+            try
+            {
+                await ctx.Database.EnsureCreatedAsync();
+            }
+            catch (Exception ex) when (ex.ToString().Contains("EnableParameterizedDecimal", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var v = 123.4567890123m;
+            ctx.Add(new MappingEntity { Price = v });
+            await ctx.SaveChangesAsync();
+
+            var got = await ctx.Set<MappingEntity>().Where(x => x.Price == v).ToListAsync();
+            Assert.Single(got);
+            Assert.Equal(v, got[0].Price);
         }
-        catch (Exception ex) when (ex.ToString()
-                                       .Contains("EnableParameterizedDecimal", StringComparison.OrdinalIgnoreCase))
+        finally
         {
-            return;
+            await ctx.Database.CloseConnectionAsync();
         }
-
-        var v = 123.4567890123m;
-        ctx.Add(new MappingEntity { Price = v });
-        await ctx.SaveChangesAsync();
-
-        var got = await ctx.Set<MappingEntity>().Where(x => x.Price == v).ToListAsync();
-        Assert.Single(got);
-        Assert.Equal(v, got[0].Price);
     }
 
     private sealed class MappingOnlyContext(DbContextOptions<MappingOnlyContext> options) : DbContext(options)
