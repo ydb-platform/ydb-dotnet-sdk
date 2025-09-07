@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Ydb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -16,6 +17,7 @@ public class DecimalParameterQueryYdbFixture
     public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
     {
         var b = base.AddOptions(builder);
+        b.UseYdb(GetConnString());
         if (CurrentInterceptor is not null)
             b.AddInterceptors(CurrentInterceptor);
         return b;
@@ -30,6 +32,16 @@ public class DecimalParameterQueryYdbFixture
             e.HasKey(x => x.Id);
             e.Property(x => x.Price).HasPrecision(22, 9);
         });
+    }
+
+    private static string GetConnString()
+    {
+        var cs = Environment.GetEnvironmentVariable("YDB_EF_CONN");
+        if (!string.IsNullOrWhiteSpace(cs)) return cs;
+
+        var endpoint = Environment.GetEnvironmentVariable("YDB_ENDPOINT") ?? "grpc://localhost:2136";
+        var database = Environment.GetEnvironmentVariable("YDB_DATABASE") ?? "/ef-tests";
+        return $"{endpoint};database={database}";
     }
 
     public class DecimalContext(DbContextOptions options) : DbContext(options);
