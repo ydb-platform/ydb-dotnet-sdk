@@ -18,11 +18,16 @@ public class PoolingSessionSourceMockTests
     {
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(1),
             new YdbConnectionStringBuilder());
-        var session = await sessionSource.OpenSession();
-        var sessionId = session.SessionId();
-        session.Close();
-        session = await sessionSource.OpenSession();
-        Assert.Equal(sessionId, session.SessionId());
+        int sessionId;
+        using (var session = await sessionSource.OpenSession())
+        {
+            sessionId = session.SessionId();
+        }
+
+        using (var session = await sessionSource.OpenSession())
+        {
+            Assert.Equal(sessionId, session.SessionId());
+        }
     }
 
     [Fact]
@@ -54,11 +59,10 @@ public class PoolingSessionSourceMockTests
                 {
                     try
                     {
-                        var session = await sessionSource.OpenSession();
+                        using var session = await sessionSource.OpenSession();
                         // ReSharper disable once AccessToModifiedClosure
                         Interlocked.Increment(ref countSuccess);
                         Assert.True(session.SessionId() > maxSessionSize * 2);
-                        session.Close();
                     }
                     catch (YdbException e)
                     {
@@ -92,10 +96,9 @@ public class PoolingSessionSourceMockTests
             {
                 tasks[i] = Task.Run(async () =>
                 {
-                    var session = await sessionSource.OpenSession();
+                    using var session = await sessionSource.OpenSession();
                     Assert.True(session.SessionId() <= maxSessionSize);
                     await Task.Yield();
-                    session.Close();
                 });
             }
 
@@ -123,8 +126,7 @@ public class PoolingSessionSourceMockTests
         {
             waitingSessionTasks.Add(Task.Run(async () =>
             {
-                var session = await sessionSource.OpenSession();
-                session.Close();
+                using var session = await sessionSource.OpenSession();
             }));
         }
 
@@ -133,7 +135,7 @@ public class PoolingSessionSourceMockTests
         await Task.Delay(5_000);
         for (var i = 0; i < maxSessionSize; i++)
         {
-            openSessions[i].Close();
+            openSessions[i].Dispose();
         }
 
         await disposeTask;
@@ -182,9 +184,8 @@ public class PoolingSessionSourceMockTests
 
                     try
                     {
-                        var session = await sessionSource.OpenSession();
+                        using var session = await sessionSource.OpenSession();
                         await Task.Yield();
-                        session.Close();
                     }
                     catch (YdbException e)
                     {
@@ -226,7 +227,7 @@ public class PoolingSessionSourceMockTests
 
         foreach (var it in openSessions)
         {
-            it.Close();
+            it.Dispose();
         }
 
         await Task.Delay(TimeSpan.FromSeconds(idleTimeoutSeconds * 5)); // cleaning idle sessions
@@ -240,7 +241,7 @@ public class PoolingSessionSourceMockTests
 
         foreach (var it in openSessionTasks)
         {
-            (await it).Close();
+            (await it).Dispose();
         }
 
         Assert.Equal(minSessionSize, mockFactory.NumSession);
@@ -285,9 +286,11 @@ public class PoolingSessionSourceMockTests
                 {
                     while (!cts.IsCancellationRequested)
                     {
-                        var session = await sessionSource.OpenSession(cts.Token);
-                        Assert.False(sessionIdIsBroken[session.SessionId()]);
-                        session.Close();
+                        using (var session = await sessionSource.OpenSession(cts.Token))
+                        {
+                            Assert.False(sessionIdIsBroken[session.SessionId()]);
+                        }
+
                         await Task.Delay(Random.Shared.Next(maxSessionSize), cts.Token);
                     }
                 }
@@ -314,21 +317,20 @@ public class PoolingSessionSourceMockTests
         };
 
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
-        var session = await sessionSource.OpenSession();
+        using var session = await sessionSource.OpenSession();
         var cts = new CancellationTokenSource();
         cts.CancelAfter(500);
 
         Assert.Equal("The connection pool has been exhausted, either raise 'MaxSessionPool' (currently 1) " +
                      "or 'CreateSessionTimeout' (currently 5 seconds) in your connection string.",
             (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.OpenSession(cts.Token))).Message);
-        session.Close();
 
         Assert.Equal(1, mockFactory.NumSession);
         Assert.Equal(1, mockFactory.SessionOpenedCount);
     }
 
     [Fact]
-    public async Task Return_IsBroken_Session()
+    public async Task ReturnToPool_WhenSessionIsBroken_IsSkipped()
     {
         const int maxSessionSize = 10;
         var mockFactory = new MockPoolingSessionFactory(maxSessionSize) { IsBroken = _ => true };
@@ -341,8 +343,7 @@ public class PoolingSessionSourceMockTests
 
         for (var it = 0; it < maxSessionSize * 2; it++)
         {
-            var session = await sessionSource.OpenSession();
-            session.Close();
+            using var session = await sessionSource.OpenSession();
         }
 
         Assert.Equal(0, mockFactory.NumSession);
@@ -371,7 +372,7 @@ public class PoolingSessionSourceMockTests
 
         foreach (var session in openSessions)
         {
-            session.Close();
+            session.Dispose();
         }
 
         Assert.Equal(maxSessionSize, mockFactory.NumSession);
@@ -379,9 +380,8 @@ public class PoolingSessionSourceMockTests
         isBroken = true;
         for (var it = 0; it < maxSessionSize; it++)
         {
-            var session = await sessionSource.OpenSession();
+            using var session = await sessionSource.OpenSession();
             isBroken = false;
-            session.Close();
         }
 
         Assert.Equal(1, mockFactory.NumSession);

@@ -41,7 +41,7 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 {
     public Task Write(TRequest request);
 
-    public ValueTask<bool> MoveNextAsync();
+    public Task<bool> MoveNextAsync();
 
     public TResponse Current { get; }
 
@@ -52,7 +52,7 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 
 public interface IServerStream<out TResponse> : IDisposable
 {
-    public ValueTask<bool> MoveNextAsync(CancellationToken cancellationToken = default);
+    public Task<bool> MoveNextAsync(CancellationToken cancellationToken = default);
 
     public TResponse Current { get; }
 }
@@ -210,7 +210,7 @@ public abstract class BaseDriver : IDriver
     }
 
     public ILoggerFactory LoggerFactory { get; }
-    public void RegisterOwner() => Interlocked.Increment(ref _ownerCount);
+    public void RegisterOwner() => ++_ownerCount;
     public bool IsDisposed => Disposed == 1;
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -237,7 +237,7 @@ public sealed class ServerStream<TResponse> : IServerStream<TResponse>
         _rpcErrorAction = rpcErrorAction;
     }
 
-    public async ValueTask<bool> MoveNextAsync(CancellationToken cancellationToken = default)
+    public async Task<bool> MoveNextAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -294,7 +294,7 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
         }
     }
 
-    public async ValueTask<bool> MoveNextAsync()
+    public async Task<bool> MoveNextAsync()
     {
         try
         {

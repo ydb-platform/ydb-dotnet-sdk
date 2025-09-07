@@ -281,7 +281,7 @@ public class PoolingSessionTests
 
         _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsSecondMoveAttachStream.Task));
+            .Returns(tcsSecondMoveAttachStream.Task);
         _mockAttachStream.SetupSequence(attachStream => attachStream.Current)
             .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success })
             .Returns(new SessionState { Status = StatusIds.Types.StatusCode.BadSession });
