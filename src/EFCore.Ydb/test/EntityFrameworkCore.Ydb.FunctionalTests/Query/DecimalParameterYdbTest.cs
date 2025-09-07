@@ -88,7 +88,7 @@ public class DecimalParameterYdbTest(DecimalParameterQueryYdbFixture fixture)
     public void Type_mapping_custom_decimal_is_30_10()
     {
         var opts = new DbContextOptionsBuilder<MappingOnlyContext>()
-            .UseYdb("")
+            .UseYdb("Host=localhost;Database=/local")
             .Options;
 
         using var ctx = new MappingOnlyContext(opts);
