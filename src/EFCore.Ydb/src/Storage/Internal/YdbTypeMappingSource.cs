@@ -114,7 +114,7 @@ public sealed class YdbTypeMappingSource(
     {
         if (mappingInfo.ClrType == typeof(decimal)
             || string.Equals(mappingInfo.StoreTypeNameBase, "Decimal", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(mappingInfo.StoreTypeName, "Decimal", StringComparison.OrdinalIgnoreCase))
+            || (mappingInfo.StoreTypeName?.StartsWith("Decimal", StringComparison.OrdinalIgnoreCase) ?? false))
         {
             return Decimal.Clone(mappingInfo);
         }
