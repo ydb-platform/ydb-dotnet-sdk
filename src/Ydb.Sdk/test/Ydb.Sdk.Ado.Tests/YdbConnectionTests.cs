@@ -69,7 +69,7 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task BeginTransaction_WhenConnectionIsClosed_ThrowException()
     {
-        var ydbConnection = await CreateOpenConnectionAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         await ydbConnection.CloseAsync();
         Assert.Equal("Connection is closed",
             Assert.Throws<InvalidOperationException>(() => ydbConnection.BeginTransaction()).Message);
@@ -78,7 +78,7 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task ExecuteScalar_WhenConnectionIsClosed_ThrowException()
     {
-        var ydbConnection = await CreateOpenConnectionAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         await ydbConnection.CloseAsync();
 
         var ydbCommand = ydbConnection.CreateCommand();
@@ -91,7 +91,7 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task ClosedYdbDataReader_WhenConnectionIsClosed_ThrowException()
     {
-        var ydbConnection = await CreateOpenConnectionAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
 
         var ydbCommand = ydbConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3;";
@@ -107,7 +107,7 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task SetNulls_WhenTableAllTypes_SussesSet()
     {
-        var ydbConnection = await CreateOpenConnectionAsync();
+        await using var ydbConnection = await CreateOpenConnectionAsync();
         var ydbCommand = ydbConnection.CreateCommand();
         var tableName = "AllTypes_" + Random.Shared.Next();
 
