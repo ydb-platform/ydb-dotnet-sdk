@@ -95,7 +95,7 @@ public sealed class YdbConnectionTests : TestBase
 
         var ydbCommand = ydbConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3;";
-        var reader = await ydbCommand.ExecuteReaderAsync();
+        await using var reader = await ydbCommand.ExecuteReaderAsync();
         await reader.ReadAsync();
 
         Assert.Equal(1, reader.GetInt32(0));
@@ -171,7 +171,7 @@ INSERT INTO {tableName}
 
         await ydbCommand.ExecuteNonQueryAsync();
         ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
-        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
+        await using var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
         Assert.True(await ydbDataReader.ReadAsync());
         for (var i = 0; i < 21; i++)
         {
@@ -209,33 +209,36 @@ INSERT INTO {tableName}
     {
         await using var connection = await CreateOpenConnectionAsync();
         var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
-        var ydbDataReader = await command.ExecuteReaderAsync();
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        await ydbDataReader.ReadAsync(cts.Token); // first part in memory
-        Assert.False(ydbDataReader.IsClosed);
-        Assert.Equal(1, ydbDataReader.GetValue(0));
-        Assert.Equal(ConnectionState.Open, connection.State);
-        Assert.Equal(StatusCode.ClientTransportTimeout,
-            (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
-        Assert.True(ydbDataReader.IsClosed);
+        await using (var ydbDataReader = await command.ExecuteReaderAsync())
+        {
+            await ydbDataReader.ReadAsync(cts.Token);
+            Assert.False(ydbDataReader.IsClosed);
+            Assert.Equal(1, ydbDataReader.GetValue(0));
+            Assert.Equal(ConnectionState.Open, connection.State);
+            Assert.Equal(StatusCode.ClientTransportTimeout,
+                (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
+            Assert.True(ydbDataReader.IsClosed);
+        }
         Assert.Equal(ConnectionState.Broken, connection.State);
-        // ReSharper disable once MethodSupportsCancellation
         await connection.OpenAsync();
 
         // ReSharper disable once MethodSupportsCancellation
-        ydbDataReader = await command.ExecuteReaderAsync();
-        // ReSharper disable once MethodSupportsCancellation 
-        await ydbDataReader.NextResultAsync();
-        await ydbDataReader.ReadAsync(cts.Token);
-        Assert.False(ydbDataReader.IsClosed);
-        Assert.Equal(1, ydbDataReader.GetValue(0));
-        Assert.False(ydbDataReader.IsClosed);
+        await using (var ydbDataReader = await command.ExecuteReaderAsync())
+        {
+            // ReSharper disable once MethodSupportsCancellation
+            await ydbDataReader.NextResultAsync();
+            await ydbDataReader.ReadAsync(cts.Token);
+            Assert.False(ydbDataReader.IsClosed);
+            Assert.Equal(1, ydbDataReader.GetValue(0));
+            Assert.False(ydbDataReader.IsClosed);
 
-        Assert.Equal(StatusCode.ClientTransportTimeout,
-            (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
-        Assert.True(ydbDataReader.IsClosed);
+            Assert.Equal(StatusCode.ClientTransportTimeout,
+                (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
+            Assert.True(ydbDataReader.IsClosed);
+        }
         Assert.Equal(ConnectionState.Broken, connection.State);
     }
 
@@ -266,7 +269,7 @@ INSERT INTO {tableName}
         await using var connection = await CreateOpenConnectionAsync();
         var ydbCommand = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; " };
         var cts = new CancellationTokenSource();
-        var ydbDataReader = await ydbCommand.ExecuteReaderAsync(cts.Token);
+        await using var ydbDataReader = await ydbCommand.ExecuteReaderAsync(cts.Token);
 
         await ydbDataReader.ReadAsync(cts.Token);
         Assert.Equal(1, ydbDataReader.GetValue(0));
@@ -501,7 +504,6 @@ INSERT INTO {tableName}
 
             var importer = conn.BeginBulkUpsertImport(table, ["Id", "Name"]);
 
-            // $rows: List<Struct<Id:Int64, Name:Text>>
             var rows = YdbList
                 .Struct("Id", "Name")
                 .AddRow(1L, "A")
