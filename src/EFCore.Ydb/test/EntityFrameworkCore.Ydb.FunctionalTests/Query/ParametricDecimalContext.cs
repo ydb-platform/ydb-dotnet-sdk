@@ -16,14 +16,12 @@ public sealed class ParametricDecimalContext : DbContext
 
     public DbSet<ParamItem> Items => Set<ParamItem>();
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
+    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<ParamItem>(b =>
         {
             b.HasKey(x => x.Id);
             b.Property(x => x.Price).HasPrecision(_p, _s);
         });
-    }
 }
 
 public sealed class ParamItem

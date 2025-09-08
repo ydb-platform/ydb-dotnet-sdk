@@ -21,16 +21,16 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
 
     public static IEnumerable<object[]> AdoLikeCases =>
     [
-        [22,  9,  1.23456789m],
+        [22, 9, 1.23456789m],
         [30, 10, 123.4567890123m],
-        [18,  2,  1.239m]
+        [18, 2, 1.239m]
     ];
 
     public static IEnumerable<object[]> OverflowCases =>
     [
-        [15,  2, 123456789012345.67m],
-        [10,  0, 12345678901m],
-        [22,  9, 1.0000000001m]
+        [15, 2, 123456789012345.67m],
+        [10, 0, 12345678901m],
+        [22, 9, 1.0000000001m]
     ];
 
     private ParametricDecimalContext NewCtx(int p, int s)
