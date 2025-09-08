@@ -72,7 +72,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
         var rowSize = protoStruct.CalculateSize();
 
         if (_currentBytes + rowSize > _maxBatchByteSize && _rows.Count > 0)
-            await FlushAsync();
+            await FlushAsync().ConfigureAwait(false);
 
         _rows.Add(protoStruct);
         _currentBytes += rowSize;
