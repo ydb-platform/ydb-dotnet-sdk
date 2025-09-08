@@ -41,7 +41,7 @@ public sealed class YdbConnectionTests : TestBase
     {
         await using var ydbConnection = new YdbConnection(_connectionStringTls);
         await ydbConnection.OpenAsync();
-        var command = ydbConnection.CreateCommand();
+        await using var command = ydbConnection.CreateCommand();
         command.CommandText = Tables.CreateTables;
         await command.ExecuteNonQueryAsync();
         command.CommandText = Tables.UpsertData;
@@ -81,7 +81,7 @@ public sealed class YdbConnectionTests : TestBase
         await using var ydbConnection = await CreateOpenConnectionAsync();
         await ydbConnection.CloseAsync();
 
-        var ydbCommand = ydbConnection.CreateCommand();
+        await using var ydbCommand = ydbConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1";
 
         Assert.Equal("Connection is closed",
@@ -93,7 +93,7 @@ public sealed class YdbConnectionTests : TestBase
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
 
-        var ydbCommand = ydbConnection.CreateCommand();
+        await using var ydbCommand = ydbConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3;";
         await using var reader = await ydbCommand.ExecuteReaderAsync();
         await reader.ReadAsync();
@@ -108,10 +108,12 @@ public sealed class YdbConnectionTests : TestBase
     public async Task SetNulls_WhenTableAllTypes_SussesSet()
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
-        var ydbCommand = ydbConnection.CreateCommand();
+        await using var ydbCommand = ydbConnection.CreateCommand();
         var tableName = "AllTypes_" + Random.Shared.Next();
 
-        ydbCommand.CommandText = @$"
+        try
+        {
+            ydbCommand.CommandText = @$"
 CREATE TABLE {tableName} (
     id INT32,
     bool_column BOOL,
@@ -136,8 +138,8 @@ CREATE TABLE {tableName} (
     PRIMARY KEY (id)
 )
 ";
-        await ydbCommand.ExecuteNonQueryAsync();
-        ydbCommand.CommandText = @$"
+            await ydbCommand.ExecuteNonQueryAsync();
+            ydbCommand.CommandText = @$"
 INSERT INTO {tableName} 
     (id, bool_column, bigint_column, smallint_column, tinyint_column, float_column, double_column, decimal_column, 
      uint8_column, uint16_column, uint32_column, uint64_column, text_column, binary_column, json_column,
@@ -146,42 +148,45 @@ INSERT INTO {tableName}
  @name15, @name16, @name17, @name18, @name19, @name20); 
 ";
 
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name1", DbType = DbType.Int32, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name2", DbType = DbType.Boolean, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name3", DbType = DbType.Int64, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name4", DbType = DbType.Int16, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name5", DbType = DbType.SByte, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name6", DbType = DbType.Single, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name7", DbType = DbType.Double, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name8", DbType = DbType.Decimal, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name9", DbType = DbType.Byte, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name10", DbType = DbType.UInt16, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name11", DbType = DbType.UInt32, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name12", DbType = DbType.UInt64, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name13", DbType = DbType.String, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name14", DbType = DbType.Binary, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name15", YdbDbType = YdbDbType.Json });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name16", YdbDbType = YdbDbType.JsonDocument });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name17", DbType = DbType.Date, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter
-            { ParameterName = "name18", DbType = DbType.DateTime, Value = null });
-        ydbCommand.Parameters.Add(
-            new YdbParameter { ParameterName = "name19", DbType = DbType.DateTime2, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name20", YdbDbType = YdbDbType.Interval });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name1", DbType = DbType.Int32, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name2", DbType = DbType.Boolean, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name3", DbType = DbType.Int64, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name4", DbType = DbType.Int16, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name5", DbType = DbType.SByte, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name6", DbType = DbType.Single, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name7", DbType = DbType.Double, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name8", DbType = DbType.Decimal, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name9", DbType = DbType.Byte, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name10", DbType = DbType.UInt16, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name11", DbType = DbType.UInt32, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name12", DbType = DbType.UInt64, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name13", DbType = DbType.String, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name14", DbType = DbType.Binary, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name15", YdbDbType = YdbDbType.Json });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name16", YdbDbType = YdbDbType.JsonDocument });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name17", DbType = DbType.Date, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter
+                { ParameterName = "name18", DbType = DbType.DateTime, Value = null });
+            ydbCommand.Parameters.Add(
+                new YdbParameter { ParameterName = "name19", DbType = DbType.DateTime2, Value = null });
+            ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name20", YdbDbType = YdbDbType.Interval });
 
-        await ydbCommand.ExecuteNonQueryAsync();
-        ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
-        await using var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
-        Assert.True(await ydbDataReader.ReadAsync());
-        for (var i = 0; i < 21; i++)
-        {
-            Assert.True(ydbDataReader.IsDBNull(i));
+            await ydbCommand.ExecuteNonQueryAsync();
+            ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
+            await using var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
+            Assert.True(await ydbDataReader.ReadAsync());
+            for (var i = 0; i < 21; i++)
+            {
+                Assert.True(ydbDataReader.IsDBNull(i));
+            }
+
+            Assert.False(await ydbDataReader.ReadAsync());
         }
-
-        Assert.False(await ydbDataReader.ReadAsync());
-
-        ydbCommand.CommandText = $"DROP TABLE {tableName}";
-        await ydbCommand.ExecuteNonQueryAsync();
+        finally
+        {
+            ydbCommand.CommandText = $"DROP TABLE {tableName}";
+            await ydbCommand.ExecuteNonQueryAsync();
+        }
     }
 
     [Fact]
@@ -208,37 +213,39 @@ INSERT INTO {tableName}
     public async Task YdbDataReader_WhenCancelTokenIsCanceled_ThrowYdbException()
     {
         await using var connection = await CreateOpenConnectionAsync();
-        var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
+        await using var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
         await using (var ydbDataReader = await command.ExecuteReaderAsync())
         {
-            await ydbDataReader.ReadAsync(cts.Token);
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            await ydbDataReader.ReadAsync(cts.Token); // first part in memory
             Assert.False(ydbDataReader.IsClosed);
             Assert.Equal(1, ydbDataReader.GetValue(0));
             Assert.Equal(ConnectionState.Open, connection.State);
-            Assert.Equal(StatusCode.ClientTransportTimeout,
-                (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
+
+            var nextTask = ydbDataReader.NextResultAsync(cts.Token);
+            cts.Cancel();
+            var ex = await Assert.ThrowsAsync<YdbException>(async () => await nextTask);
+            Assert.Equal(StatusCode.ClientTransportTimeout, ex.Code);
             Assert.True(ydbDataReader.IsClosed);
+            Assert.Equal(ConnectionState.Broken, connection.State);
         }
-        Assert.Equal(ConnectionState.Broken, connection.State);
         await connection.OpenAsync();
 
-        // ReSharper disable once MethodSupportsCancellation
-        await using (var ydbDataReader = await command.ExecuteReaderAsync())
-        {
-            // ReSharper disable once MethodSupportsCancellation
-            await ydbDataReader.NextResultAsync();
-            await ydbDataReader.ReadAsync(cts.Token);
-            Assert.False(ydbDataReader.IsClosed);
-            Assert.Equal(1, ydbDataReader.GetValue(0));
-            Assert.False(ydbDataReader.IsClosed);
+        await using var ydbDataReader2 = await command.ExecuteReaderAsync();
+        await ydbDataReader2.NextResultAsync();
+        using var cts2 = new CancellationTokenSource();
+        await ydbDataReader2.ReadAsync(cts2.Token);
+        Assert.False(ydbDataReader2.IsClosed);
+        Assert.Equal(1, ydbDataReader2.GetValue(0));
+        Assert.False(ydbDataReader2.IsClosed);
 
-            Assert.Equal(StatusCode.ClientTransportTimeout,
-                (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
-            Assert.True(ydbDataReader.IsClosed);
-        }
+        var nextTask2 = ydbDataReader2.NextResultAsync(cts2.Token);
+        cts2.Cancel();
+        var ex2 = await Assert.ThrowsAsync<YdbException>(async () => await nextTask2);
+        Assert.Equal(StatusCode.ClientTransportTimeout, ex2.Code);
+        Assert.True(ydbDataReader2.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
     }
 
@@ -246,7 +253,7 @@ INSERT INTO {tableName}
     public async Task ExecuteMethods_WhenCancelTokenIsCanceled_ConnectionIsBroken()
     {
         await using var connection = await CreateOpenConnectionAsync();
-        var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
+        await using var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
@@ -267,7 +274,7 @@ INSERT INTO {tableName}
     public async Task ExecuteReaderAsync_WhenExecutedYdbDataReaderThenCancelTokenIsCanceled_ReturnValues()
     {
         await using var connection = await CreateOpenConnectionAsync();
-        var ydbCommand = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; " };
+        await using var ydbCommand = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; " };
         var cts = new CancellationTokenSource();
         await using var ydbDataReader = await ydbCommand.ExecuteReaderAsync(cts.Token);
 
@@ -277,7 +284,6 @@ INSERT INTO {tableName}
         cts.Cancel();
         await ydbDataReader.ReadAsync(cts.Token);
         Assert.Equal(1, ydbDataReader.GetValue(0));
-        // ReSharper disable once MethodSupportsCancellation
         Assert.False(await ydbDataReader.NextResultAsync());
     }
 
@@ -297,7 +303,7 @@ INSERT INTO {tableName}
         }
 
         await using var connection = ydbConnection;
-        var command = connection.CreateCommand();
+        using var command = connection.CreateCommand();
         command.CommandText = "SELECT " + i;
         var scalar = (int)(await command.ExecuteScalarAsync())!;
         Assert.Equal(i, scalar);
@@ -326,11 +332,10 @@ INSERT INTO {tableName}
 
             var columns = new[] { "Id", "Name" };
 
-            var importer = conn.BeginBulkUpsertImport(tableName, columns);
-
-            await importer.AddRowAsync(1, "Alice");
-            await importer.AddRowAsync(2, "Bob");
-            await importer.FlushAsync();
+            var importer1 = conn.BeginBulkUpsertImport(tableName, columns);
+            await importer1.AddRowAsync(1, "Alice");
+            await importer1.AddRowAsync(2, "Bob");
+            await importer1.FlushAsync();
 
             await using (var checkCmd = conn.CreateCommand())
             {
@@ -339,10 +344,10 @@ INSERT INTO {tableName}
                 Assert.Equal(2, count);
             }
 
-            importer = conn.BeginBulkUpsertImport(tableName, columns);
-            await importer.AddRowAsync(3, "Charlie");
-            await importer.AddRowAsync(4, "Diana");
-            await importer.FlushAsync();
+            var importer2 = conn.BeginBulkUpsertImport(tableName, columns);
+            await importer2.AddRowAsync(3, "Charlie");
+            await importer2.AddRowAsync(4, "Diana");
+            await importer2.FlushAsync();
 
             await using (var checkCmd = conn.CreateCommand())
             {
@@ -504,6 +509,7 @@ INSERT INTO {tableName}
 
             var importer = conn.BeginBulkUpsertImport(table, ["Id", "Name"]);
 
+            // $rows: List<Struct<Id:Int64, Name:Text>>
             var rows = YdbList
                 .Struct("Id", "Name")
                 .AddRow(1L, "A")
