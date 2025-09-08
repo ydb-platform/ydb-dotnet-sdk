@@ -10,15 +10,8 @@ public class DecimalParameterQueryYdbFixture : SharedStoreFixtureBase<DecimalPar
 
     protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
 
-    public class TestContext : DbContext
+    public class TestContext(DbContextOptions options) : DbContext(options)
     {
-        public TestContext(DbContextOptions options) : base(options)
-        {
-        }
-
-        public DbSet<ItemDefault> ItemsDefault => Set<ItemDefault>();
-        public DbSet<ItemExplicit> ItemsExplicit => Set<ItemExplicit>();
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<ItemDefault>(b =>
