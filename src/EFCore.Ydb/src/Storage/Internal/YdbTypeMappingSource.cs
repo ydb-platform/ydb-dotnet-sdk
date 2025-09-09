@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Text.Json;
@@ -110,13 +111,14 @@ public sealed class YdbTypeMappingSource(
         { typeof(TimeSpan), Interval }
     };
 
+    private static readonly ConcurrentDictionary<RelationalTypeMappingInfo, RelationalTypeMapping> DecimalCache = new();
+
     protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
     {
         if (mappingInfo.ClrType == typeof(decimal)
-            || string.Equals(mappingInfo.StoreTypeNameBase, "Decimal", StringComparison.OrdinalIgnoreCase)
             || (mappingInfo.StoreTypeName?.StartsWith("Decimal", StringComparison.OrdinalIgnoreCase) ?? false))
         {
-            return Decimal.Clone(mappingInfo);
+            return DecimalCache.GetOrAdd(mappingInfo, static mi => Decimal.Clone(mi));
         }
 
         return base.FindMapping(mappingInfo) ?? FindBaseMapping(mappingInfo)?.Clone(mappingInfo);
