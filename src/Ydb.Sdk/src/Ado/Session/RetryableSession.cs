@@ -1,4 +1,5 @@
 using Ydb.Query;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
 
 namespace Ydb.Sdk.Ado.Session;
@@ -82,20 +83,29 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
             return ++_iterator < _responses.Count;
         }
 
-        _responses = new List<ExecuteQueryResponsePart>();
-
-        return await _ydbRetryPolicyExecutor.ExecuteAsync(async ct =>
+        _responses = await _ydbRetryPolicyExecutor.ExecuteAsync<List<ExecuteQueryResponsePart>>(async ct =>
         {
             using var session = await _sessionSource.OpenSession(ct);
 
+            var responses = new List<ExecuteQueryResponsePart>();
             var serverStream = await session.ExecuteQuery(_query, _parameters, _settings, null);
+
             while (await serverStream.MoveNextAsync(ct))
             {
-                _responses.Add(serverStream.Current);
+                var current = serverStream.Current;
+
+                if (current.Status.IsNotSuccess())
+                {
+                    throw YdbException.FromServer(current.Status, current.Issues);
+                }
+
+                responses.Add(serverStream.Current);
             }
 
-            return _responses.Count > 0;
+            return responses;
         }, cancellationToken);
+
+        return _responses.Count > 0;
     }
 
     public ExecuteQueryResponsePart Current => _responses is not null && _iterator < _responses.Count
