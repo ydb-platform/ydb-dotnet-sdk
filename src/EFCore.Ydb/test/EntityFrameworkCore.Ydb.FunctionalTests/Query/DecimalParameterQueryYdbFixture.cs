@@ -10,6 +10,14 @@ public class DecimalParameterQueryYdbFixture : SharedStoreFixtureBase<DecimalPar
 
     protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
 
+    public override async Task InitializeAsync()
+    {
+        await base.InitializeAsync();
+
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+    }
+
     public class TestContext(DbContextOptions options) : DbContext(options)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)

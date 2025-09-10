@@ -19,6 +19,7 @@ public sealed class ParametricDecimalContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<ParamItem>(b =>
         {
+            b.ToTable($"Items_{_p}_{_s}");
             b.HasKey(x => x.Id);
             b.Property(x => x.Price).HasPrecision(_p, _s);
         });

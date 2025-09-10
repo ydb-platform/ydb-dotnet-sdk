@@ -52,32 +52,22 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
     public async Task Decimal_roundtrips_or_rounds_like_ado(int p, int s, decimal value)
     {
         await using var ctx = NewCtx(p, s);
+        await ctx.Database.EnsureCreatedAsync();
 
-        try
-        {
-            var e = new ParamItem { Price = value };
-            ctx.Add(e);
-            await ctx.SaveChangesAsync();
+        var e = new ParamItem { Price = value };
+        ctx.Add(e);
+        await ctx.SaveChangesAsync();
 
-            var got = await ctx.Items.AsNoTracking().SingleAsync(x => x.Id == e.Id);
+        var got = await ctx.Items.AsNoTracking().SingleAsync(x => x.Id == e.Id);
 
-            var expected = Math.Round(value, s, MidpointRounding.ToEven);
-            Assert.Equal(expected, got.Price);
+        var expected = Math.Round(value, s, MidpointRounding.ToEven);
+        Assert.Equal(expected, got.Price);
 
-            var tms = ctx.GetService<IRelationalTypeMappingSource>();
-            var et = ctx.Model.FindEntityType(typeof(ParamItem))!;
-            var prop = et.FindProperty(nameof(ParamItem.Price))!;
-            var mapping = tms.FindMapping(prop)!;
-            Assert.Equal($"Decimal({p}, {s})", mapping.StoreType);
-        }
-        catch (DbUpdateException ex) when ((ex.InnerException?.Message ?? "").Contains("Cannot find table",
-                                               StringComparison.OrdinalIgnoreCase))
-        {
-        }
-        catch (Exception ex) when (ex.ToString()
-                                       .Contains("EnableParameterizedDecimal", StringComparison.OrdinalIgnoreCase))
-        {
-        }
+        var tms = ctx.GetService<IRelationalTypeMappingSource>();
+        var et = ctx.Model.FindEntityType(typeof(ParamItem))!;
+        var prop = et.FindProperty(nameof(ParamItem.Price))!;
+        var mapping = tms.FindMapping(prop)!;
+        Assert.Equal($"Decimal({p}, {s})", mapping.StoreType);
     }
 
     [Theory]
@@ -85,19 +75,9 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
     public async Task Decimal_overflow_bubbles_up(int p, int s, decimal value)
     {
         await using var ctx = NewCtx(p, s);
+        await ctx.Database.EnsureCreatedAsync();
 
-        try
-        {
-            ctx.Add(new ParamItem { Price = value });
-            await Assert.ThrowsAsync<DbUpdateException>(() => ctx.SaveChangesAsync());
-        }
-        catch (DbUpdateException ex) when ((ex.InnerException?.Message ?? "").Contains("Cannot find table",
-                                               StringComparison.OrdinalIgnoreCase))
-        {
-        }
-        catch (Exception ex) when (ex.ToString()
-                                       .Contains("EnableParameterizedDecimal", StringComparison.OrdinalIgnoreCase))
-        {
-        }
+        ctx.Add(new ParamItem { Price = value });
+        await Assert.ThrowsAsync<DbUpdateException>(() => ctx.SaveChangesAsync());
     }
 }
