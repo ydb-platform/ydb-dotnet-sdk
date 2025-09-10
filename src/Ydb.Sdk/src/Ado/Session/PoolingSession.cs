@@ -99,7 +99,9 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             StatusCode.SessionBusy or
             StatusCode.SessionExpired or
             StatusCode.ClientTransportTimeout or
-            StatusCode.ClientTransportUnavailable)
+            StatusCode.ClientTransportUnavailable or
+            StatusCode.ClientTransportResourceExhausted or
+            StatusCode.ClientTransportUnknown)
         {
             _logger.LogWarning("Session[{SessionId}] is deactivated. Reason Status: {Status}", SessionId, statusCode);
 

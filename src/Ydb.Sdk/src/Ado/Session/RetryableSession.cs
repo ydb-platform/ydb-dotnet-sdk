@@ -87,22 +87,30 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
         {
             using var session = await _sessionSource.OpenSession(ct);
 
-            var responses = new List<ExecuteQueryResponsePart>();
-            var serverStream = await session.ExecuteQuery(_query, _parameters, _settings, null);
-
-            while (await serverStream.MoveNextAsync(ct))
+            try
             {
-                var current = serverStream.Current;
+                var responses = new List<ExecuteQueryResponsePart>();
+                var serverStream = await session.ExecuteQuery(_query, _parameters, _settings, null);
 
-                if (current.Status.IsNotSuccess())
+                while (await serverStream.MoveNextAsync(ct))
                 {
-                    throw YdbException.FromServer(current.Status, current.Issues);
+                    var current = serverStream.Current;
+
+                    if (current.Status.IsNotSuccess())
+                    {
+                        throw YdbException.FromServer(current.Status, current.Issues);
+                    }
+
+                    responses.Add(serverStream.Current);
                 }
 
-                responses.Add(serverStream.Current);
+                return responses;
             }
-
-            return responses;
+            catch (YdbException e)
+            {
+                session.OnNotSuccessStatusCode(e.Code);
+                throw;
+            }
         }, cancellationToken);
 
         return _responses.Count > 0;
