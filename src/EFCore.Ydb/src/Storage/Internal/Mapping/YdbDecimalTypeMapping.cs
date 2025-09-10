@@ -1,3 +1,4 @@
+using System;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -34,9 +35,14 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
     protected override void ConfigureParameter(DbParameter parameter)
     {
         base.ConfigureParameter(parameter);
+
         var p = (byte)(Precision ?? DefaultPrecision);
         var s = (byte)(Scale ?? DefaultScale);
+
         parameter.Precision = p;
         parameter.Scale = s;
+
+        if (parameter.Value is decimal d)
+            parameter.Value = decimal.Round(d, s, MidpointRounding.ToEven);
     }
 }
