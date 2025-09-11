@@ -24,7 +24,6 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
     [
         [22, 9, 1.23456789m],
         [30, 10, 123.4567890123m],
-        [18, 2, 1.239m],
         [18, 2, 12345678.91m],
         [10, 0, 9999999999m],
         [22, 9, -0.123456789m],
@@ -37,6 +36,7 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
         [15, 2, 123456789012345.67m],
         [10, 0, 12345678901m],
         [22, 9, 1.0000000001m],
+        [18, 2, 1.239m],
         [18, 2, 100000000000000000m],
         [22, 9, 12345678901234567890.123456789m],
         [22, 9, -12345678901234567890.123456789m],
@@ -48,8 +48,14 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
     private ParametricDecimalContext NewCtx(int p, int s)
         => new(BuildOptions(), p, s);
 
-    private static Task DropItemsTableAsync(DbContext ctx, int p, int s) =>
-        ctx.Database.ExecuteSqlRawAsync($"DROP TABLE IF EXISTS Items_{p}_{s}");
+    private static Task DropItemsTableAsync(DbContext ctx, int p, int s)
+    {
+        var helper = ctx.GetService<ISqlGenerationHelper>();
+        var tableName = $"Items_{p}_{s}";
+        var sql = $"DROP TABLE IF EXISTS {helper.DelimitIdentifier(tableName)}";
+
+        return ctx.Database.ExecuteSqlRawAsync(sql);
+    }
 
     [Theory]
     [MemberData(nameof(AdoLikeCases))]
