@@ -10,41 +10,5 @@ public class DecimalParameterQueryYdbFixture : SharedStoreFixtureBase<DecimalPar
 
     protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
 
-    public override async Task InitializeAsync()
-    {
-        await base.InitializeAsync();
-
-        await using var context = CreateContext();
-        await context.Database.EnsureCreatedAsync();
-    }
-
-    public class TestContext(DbContextOptions options) : DbContext(options)
-    {
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<ItemDefault>(b =>
-            {
-                b.HasKey(x => x.Id);
-                b.Property(x => x.Price);
-            });
-
-            modelBuilder.Entity<ItemExplicit>(b =>
-            {
-                b.HasKey(x => x.Id);
-                b.Property(x => x.Price).HasPrecision(22, 9);
-            });
-        }
-    }
-}
-
-public class ItemDefault
-{
-    public int Id { get; set; }
-    public decimal Price { get; set; }
-}
-
-public class ItemExplicit
-{
-    public int Id { get; set; }
-    public decimal Price { get; set; }
+    public class TestContext(DbContextOptions options) : DbContext(options);
 }

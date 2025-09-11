@@ -16,6 +16,7 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
 
         return new DbContextOptionsBuilder<ParametricDecimalContext>()
             .UseYdb(cs)
+            .ReplaceService<IModelCacheKeyFactory, ParametricDecimalContext.CacheKeyFactory>()
             .Options;
     }
 
@@ -47,6 +48,9 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
     private ParametricDecimalContext NewCtx(int p, int s)
         => new(BuildOptions(), p, s);
 
+    private static Task DropItemsTableAsync(DbContext ctx, int p, int s) =>
+        ctx.Database.ExecuteSqlRawAsync($"DROP TABLE IF EXISTS Items_{p}_{s}");
+
     [Theory]
     [MemberData(nameof(AdoLikeCases))]
     public async Task Decimal_roundtrips_or_rounds_like_ado(int p, int s, decimal value)
@@ -54,20 +58,27 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
         await using var ctx = NewCtx(p, s);
         await ctx.Database.EnsureCreatedAsync();
 
-        var e = new ParamItem { Price = value };
-        ctx.Add(e);
-        await ctx.SaveChangesAsync();
+        try
+        {
+            var e = new ParamItem { Price = value };
+            ctx.Add(e);
+            await ctx.SaveChangesAsync();
 
-        var got = await ctx.Items.AsNoTracking().SingleAsync(x => x.Id == e.Id);
+            var got = await ctx.Items.AsNoTracking().SingleAsync(x => x.Id == e.Id);
 
-        var expected = Math.Round(value, s, MidpointRounding.ToEven);
-        Assert.Equal(expected, got.Price);
+            var expected = Math.Round(value, s, MidpointRounding.ToEven);
+            Assert.Equal(expected, got.Price);
 
-        var tms = ctx.GetService<IRelationalTypeMappingSource>();
-        var et = ctx.Model.FindEntityType(typeof(ParamItem))!;
-        var prop = et.FindProperty(nameof(ParamItem.Price))!;
-        var mapping = tms.FindMapping(prop)!;
-        Assert.Equal($"Decimal({p}, {s})", mapping.StoreType);
+            var tms = ctx.GetService<IRelationalTypeMappingSource>();
+            var et = ctx.Model.FindEntityType(typeof(ParamItem))!;
+            var prop = et.FindProperty(nameof(ParamItem.Price))!;
+            var mapping = tms.FindMapping(prop)!;
+            Assert.Equal($"Decimal({p}, {s})", mapping.StoreType);
+        }
+        finally
+        {
+            await DropItemsTableAsync(ctx, p, s);
+        }
     }
 
     [Theory]
@@ -77,7 +88,14 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
         await using var ctx = NewCtx(p, s);
         await ctx.Database.EnsureCreatedAsync();
 
-        ctx.Add(new ParamItem { Price = value });
-        await Assert.ThrowsAsync<DbUpdateException>(() => ctx.SaveChangesAsync());
+        try
+        {
+            ctx.Add(new ParamItem { Price = value });
+            await Assert.ThrowsAsync<DbUpdateException>(() => ctx.SaveChangesAsync());
+        }
+        finally
+        {
+            await DropItemsTableAsync(ctx, p, s);
+        }
     }
 }

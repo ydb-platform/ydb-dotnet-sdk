@@ -115,8 +115,7 @@ public sealed class YdbTypeMappingSource(
 
     protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
     {
-        if (mappingInfo.ClrType == typeof(decimal)
-            || (mappingInfo.StoreTypeName?.StartsWith("Decimal", StringComparison.OrdinalIgnoreCase) ?? false))
+        if (mappingInfo.ClrType == typeof(decimal))
         {
             return DecimalCache.GetOrAdd(mappingInfo, static mi => Decimal.Clone(mi));
         }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
@@ -23,6 +24,15 @@ public sealed class ParametricDecimalContext : DbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.Price).HasPrecision(_p, _s);
         });
+
+    internal sealed class CacheKeyFactory : IModelCacheKeyFactory
+    {
+        public object Create(DbContext context, bool designTime)
+        {
+            var ctx = (ParametricDecimalContext)context;
+            return (context.GetType(), designTime, ctx._p, ctx._s);
+        }
+    }
 }
 
 public sealed class ParamItem
