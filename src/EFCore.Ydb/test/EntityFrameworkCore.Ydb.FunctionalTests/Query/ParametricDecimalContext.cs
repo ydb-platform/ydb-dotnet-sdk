@@ -30,7 +30,10 @@ public sealed class ParametricDecimalContext : DbContext
         public object Create(DbContext context, bool designTime)
         {
             var ctx = (ParametricDecimalContext)context;
-            return (context.GetType(), designTime, ctx._p, ctx._s);
+
+            var options = context.GetService<IDbContextOptions>();
+
+            return (context.GetType(), designTime, ctx._p, ctx._s, options.Extensions);
         }
     }
 }
