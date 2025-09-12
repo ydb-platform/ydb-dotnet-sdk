@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
+using Ydb.Sdk.Ado;
 
 namespace Internal;
 
@@ -129,7 +130,7 @@ public abstract class SloTableContext<T> : ISloContext
         return;
 
         async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
-            Func<T, RunConfig, Task<(int, StatusCode)>> action)
+            Func<T, RunConfig, Task<int>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
                 {
@@ -213,32 +214,25 @@ public abstract class SloTableContext<T> : ISloContext
                             await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
                         }
 
+                        pendingOperations.Inc();
+                        var sw = Stopwatch.StartNew();
                         try
                         {
-                            pendingOperations.Inc();
-                            var sw = Stopwatch.StartNew();
-                            var (attempts, statusCode) = await action(client, runConfig);
+                            var attempts = await action(client, runConfig);
                             sw.Stop();
-
                             retryAttempts.Set(attempts);
                             operationsTotal.Inc();
                             pendingOperations.Dec();
-
-                            if (statusCode != StatusCode.Success)
-                            {
-                                errorsTotal.WithLabels(statusCode.StatusName()).Inc();
-                                operationsFailureTotal.Inc();
-                                operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
-                            }
-                            else
-                            {
-                                operationsSuccessTotal.Inc();
-                                operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
-                            }
+                            operationsSuccessTotal.Inc();
+                            operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
                         }
-                        catch (Exception e)
+                        catch (YdbException e)
                         {
                             Logger.LogError(e, "Fail operation!");
+
+                            errorsTotal.WithLabels(e.Code.StatusName()).Inc();
+                            operationsFailureTotal.Inc();
+                            operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
                         }
                     }
                 }, cancellationTokenSource.Token));
@@ -252,13 +246,13 @@ public abstract class SloTableContext<T> : ISloContext
     }
 
     // return attempt count & StatusCode operation
-    protected abstract Task<(int, StatusCode)> Save(T client, SloTable sloTable, int writeTimeout);
+    protected abstract Task<int> Save(T client, SloTable sloTable, int writeTimeout);
 
-    protected abstract Task<(int, StatusCode, object?)> Select(T client, (Guid Guid, int Id) select, int readTimeout);
+    protected abstract Task<(int, object?)> Select(T client, (Guid Guid, int Id) select, int readTimeout);
 
     protected abstract Task<int> SelectCount(T client);
 
-    private Task<(int, StatusCode)> Save(T client, Config config)
+    private Task<int> Save(T client, Config config)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
@@ -278,13 +272,12 @@ public abstract class SloTableContext<T> : ISloContext
         return Save(client, sloTable, config.WriteTimeout);
     }
 
-    private async Task<(int, StatusCode)> Select(T client, RunConfig config)
+    private async Task<int> Select(T client, RunConfig config)
     {
         var id = Random.Shared.Next(_maxId);
-        var (attempts, code, _) =
-            await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);
+        var (attempts, _) = await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);
 
-        return (attempts, code);
+        return attempts;
     }
 
     private static Guid GuidFromInt(int value)

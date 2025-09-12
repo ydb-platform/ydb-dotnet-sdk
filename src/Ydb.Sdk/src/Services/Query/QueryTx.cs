@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using Ydb.Query;
+using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.Transaction;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Services.Query;
@@ -7,24 +9,24 @@ namespace Ydb.Sdk.Services.Query;
 public class QueryTx
 {
     private readonly Session _session;
-    private readonly TxMode _txMode;
+    private readonly TransactionMode _transactionMode;
 
     private string? TxId { get; set; }
     private bool Commited { get; set; }
 
-    private TransactionControl? TxControl(bool commit)
+    private TransactionControl TxControl(bool commit)
     {
         Commited = commit | Commited;
 
         return TxId == null
-            ? _txMode.TransactionControl(commit: commit)
+            ? _transactionMode.TransactionControl(commit: commit)
             : new TransactionControl { TxId = TxId, CommitTx = commit };
     }
 
-    internal QueryTx(Session session, TxMode txMode)
+    internal QueryTx(Session session, TransactionMode transactionMode)
     {
         _session = session;
-        _txMode = txMode;
+        _transactionMode = transactionMode;
     }
 
     public async ValueTask<ExecuteQueryStream> Stream(string query, Dictionary<string, YdbValue>? parameters = null,

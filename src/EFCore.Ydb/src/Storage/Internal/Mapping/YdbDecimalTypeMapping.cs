@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
@@ -29,4 +30,15 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
     protected override string ProcessStoreType(
         RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase
     ) => $"Decimal({parameters.Precision ?? DefaultPrecision}, {parameters.Scale ?? DefaultScale})";
+
+    protected override void ConfigureParameter(DbParameter parameter)
+    {
+        base.ConfigureParameter(parameter);
+
+        if (Precision is { } p)
+            parameter.Precision = (byte)p;
+
+        if (Scale is { } s)
+            parameter.Scale = (byte)s;
+    }
 }

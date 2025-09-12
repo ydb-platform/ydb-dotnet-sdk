@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Text.Json;
@@ -13,6 +14,8 @@ public sealed class YdbTypeMappingSource(
     RelationalTypeMappingSourceDependencies relationalDependencies
 ) : RelationalTypeMappingSource(dependencies, relationalDependencies)
 {
+    private static readonly ConcurrentDictionary<RelationalTypeMappingInfo, RelationalTypeMapping> DecimalCache = new();
+
     #region Mappings
 
     private static readonly YdbBoolTypeMapping Bool = YdbBoolTypeMapping.Default;
@@ -66,8 +69,6 @@ public sealed class YdbTypeMappingSource(
             { "Float", [Float] },
             { "Double", [Double] },
 
-            { "Decimal", [Decimal] },
-
             { "Guid", [Guid] },
 
             { "Date", [Date] },
@@ -97,7 +98,6 @@ public sealed class YdbTypeMappingSource(
 
         { typeof(float), Float },
         { typeof(double), Double },
-        { typeof(decimal), Decimal },
 
         { typeof(Guid), Guid },
 
@@ -111,7 +111,14 @@ public sealed class YdbTypeMappingSource(
     };
 
     protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
-        => base.FindMapping(mappingInfo) ?? FindBaseMapping(mappingInfo)?.Clone(mappingInfo);
+    {
+        if (mappingInfo.ClrType == typeof(decimal))
+        {
+            return DecimalCache.GetOrAdd(mappingInfo, static mi => Decimal.Clone(mi));
+        }
+
+        return base.FindMapping(mappingInfo) ?? FindBaseMapping(mappingInfo)?.Clone(mappingInfo);
+    }
 
     private static RelationalTypeMapping? FindBaseMapping(in RelationalTypeMappingInfo mappingInfo)
     {
