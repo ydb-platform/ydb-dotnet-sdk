@@ -9,13 +9,9 @@ public class SloTableContext : SloTableContext<YdbDataSource>
 {
     protected override string Job => "AdoNet";
 
-    protected override YdbDataSource CreateClient(Config config) => new(
-        new YdbConnectionStringBuilder(config.ConnectionString)
-        {
-            LoggerFactory = ISloContext.Factory,
-            RetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true })
-        }
-    );
+    protected override YdbDataSource CreateClient(Config config) => new YdbDataSourceBuilder(
+        new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
+    ) { RetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true }) }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
     {
@@ -96,34 +92,29 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         return attempts;
     }
 
-    protected override async Task<(int, object?)> Select(
+    protected override async Task<object?> Select(
         YdbDataSource client,
         (Guid Guid, int Id) select,
         int readTimeout
     )
     {
-        var attempts = 0;
-        var policyResult = await client.ExecuteAsync(async ydbConnection =>
+        await using var ydbConnection = await client.OpenRetryableConnectionAsync();
+
+        var ydbCommand = new YdbCommand(ydbConnection)
         {
-            attempts++;
-            var ydbCommand = new YdbCommand(ydbConnection)
+            CommandText = $"""
+                           SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp
+                           FROM `{SloTable.Name}` WHERE Guid = @Guid AND Id = @Id;
+                           """,
+            CommandTimeout = readTimeout,
+            Parameters =
             {
-                CommandText = $"""
-                               SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp
-                               FROM `{SloTable.Name}` WHERE Guid = @Guid AND Id = @Id;
-                               """,
-                CommandTimeout = readTimeout,
-                Parameters =
-                {
-                    new YdbParameter { ParameterName = "Guid", DbType = DbType.Guid, Value = select.Guid },
-                    new YdbParameter { ParameterName = "Id", DbType = DbType.Int32, Value = select.Id }
-                }
-            };
+                new YdbParameter { ParameterName = "Guid", DbType = DbType.Guid, Value = select.Guid },
+                new YdbParameter { ParameterName = "Id", DbType = DbType.Int32, Value = select.Id }
+            }
+        };
 
-            return await ydbCommand.ExecuteScalarAsync();
-        });
-
-        return (attempts, policyResult);
+        return await ydbCommand.ExecuteScalarAsync();
     }
 
     protected override async Task<int> SelectCount(YdbDataSource client)
