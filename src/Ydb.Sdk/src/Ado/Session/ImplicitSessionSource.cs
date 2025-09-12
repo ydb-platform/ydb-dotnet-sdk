@@ -55,5 +55,4 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
         return ValueTask.CompletedTask;
     }
-
 }

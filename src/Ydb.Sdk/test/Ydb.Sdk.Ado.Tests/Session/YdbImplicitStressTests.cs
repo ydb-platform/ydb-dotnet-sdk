@@ -8,33 +8,40 @@ public class YdbImplicitStressTests : TestBase
 {
     private static IDriver DummyDriver() => new Mock<IDriver>(MockBehavior.Strict).Object;
 
+    private sealed class Counter
+    {
+        public int Value;
+        public void Inc() => Interlocked.Increment(ref Value);
+    }
+
     [Fact(Timeout = 30_000)]
     public async Task Dispose_WaitsForAllLeases_AndSignalsOnEmptyExactlyOnce()
     {
         var driver = DummyDriver();
 
-        var onEmptyCalls = 0;
-        var opened = 0;
-        var closed = 0;
+        var onEmpty = new Counter();
+        var opened  = new Counter();
+        var closed  = new Counter();
 
-        var source = new ImplicitSessionSource(driver, onEmpty: () => Interlocked.Increment(ref onEmptyCalls));
+        var source = new ImplicitSessionSource(driver, onEmpty: onEmpty.Inc);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
 
         var workers = Enumerable.Range(0, 200).Select(async i =>
         {
-            var rnd = new Random(unchecked(i ^ Environment.TickCount));
+            var rnd = new Random(i ^ Environment.TickCount);
             for (var j = 0; j < 10; j++)
             {
                 try
                 {
-                    var s = await source.OpenSession(cts.Token);
-                    Interlocked.Increment(ref opened);
+                    var s = await source.OpenSession(token);
+                    opened.Inc();
 
-                    await Task.Delay(rnd.Next(0, 5), cts.Token);
+                    await Task.Delay(rnd.Next(0, 5), token);
 
                     s.Close();
-                    Interlocked.Increment(ref closed);
+                    closed.Inc();
                 }
                 catch (ObjectDisposedException)
                 {
@@ -44,47 +51,47 @@ public class YdbImplicitStressTests : TestBase
 
         var disposer = Task.Run(async () =>
         {
-            await Task.Delay(10, cts.Token);
+            await Task.Delay(10, token);
             await source.DisposeAsync();
-        }, cts.Token);
+        }, token);
 
         await Task.WhenAll(workers.Append(disposer));
 
-        Assert.True(opened > 0);
-        Assert.Equal(opened, closed);
-        Assert.Equal(1, Volatile.Read(ref onEmptyCalls));
+        Assert.True(opened.Value > 0);
+        Assert.Equal(opened.Value, closed.Value);
+        Assert.Equal(1, Volatile.Read(ref onEmpty.Value));
 
-        await Assert.ThrowsAsync<ObjectDisposedException>(
-            () => source.OpenSession(CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => source.OpenSession(CancellationToken.None).AsTask());
     }
-    
+
     [Fact(Timeout = 30_000)]
     public async Task Stress_Counts_AreBalanced()
     {
         var driver = DummyDriver();
 
-        var opened = 0;
-        var closed = 0;
-        var onEmptyCalls = 0;
+        var opened = new Counter();
+        var closed = new Counter();
+        var onEmpty = new Counter();
 
-        var source = new ImplicitSessionSource(driver, onEmpty: () => Interlocked.Increment(ref onEmptyCalls));
+        var source = new ImplicitSessionSource(driver, onEmpty: onEmpty.Inc);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
 
         var workers = Enumerable.Range(0, 200).Select(async i =>
         {
-            var rnd = new Random(unchecked(i ^ Environment.TickCount));
+            var rnd = new Random(i ^ Environment.TickCount);
             for (var j = 0; j < 10; j++)
             {
                 try
                 {
-                    var s = await source.OpenSession(cts.Token);
-                    Interlocked.Increment(ref opened);
+                    var s = await source.OpenSession(token);
+                    opened.Inc();
 
-                    await Task.Delay(rnd.Next(0, 3), cts.Token);
+                    await Task.Delay(rnd.Next(0, 3), token);
 
                     s.Close();
-                    Interlocked.Increment(ref closed);
+                    closed.Inc();
                 }
                 catch (ObjectDisposedException)
                 {
@@ -92,16 +99,15 @@ public class YdbImplicitStressTests : TestBase
             }
         }).ToArray();
 
-        var disposer = Task.Run(async () => await source.DisposeAsync(), cts.Token);
+        var disposer = Task.Run(async () => await source.DisposeAsync(), token);
 
         await Task.WhenAll(workers.Append(disposer));
 
-        Assert.Equal(opened, closed);
-        Assert.Equal(1, onEmptyCalls);
-        Assert.True(opened > 0);
+        Assert.Equal(opened.Value, closed.Value);
+        Assert.Equal(1, onEmpty.Value);
+        Assert.True(opened.Value > 0);
 
-        await Assert.ThrowsAsync<ObjectDisposedException>(
-            () => source.OpenSession(CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => source.OpenSession(CancellationToken.None).AsTask());
     }
 
     [Fact(Timeout = 30_000)]
@@ -109,16 +115,17 @@ public class YdbImplicitStressTests : TestBase
     {
         var driver = DummyDriver();
 
-        var onEmptyCalls = 0;
-        var source = new ImplicitSessionSource(driver, onEmpty: () => Interlocked.Increment(ref onEmptyCalls));
+        var onEmpty = new Counter();
+        var source = new ImplicitSessionSource(driver, onEmpty: onEmpty.Inc);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
 
         var opens = Enumerable.Range(0, 1000).Select(async _ =>
         {
             try
             {
-                var s = await source.OpenSession(cts.Token);
+                var s = await source.OpenSession(token);
                 s.Close();
                 return 1;
             }
@@ -132,13 +139,12 @@ public class YdbImplicitStressTests : TestBase
         {
             await Task.Yield();
             await source.DisposeAsync();
-        }, cts.Token);
+        }, token);
 
         await Task.WhenAll(opens.Append(disposeTask));
 
-        Assert.Equal(1, Volatile.Read(ref onEmptyCalls));
+        Assert.Equal(1, Volatile.Read(ref onEmpty.Value));
 
-        await Assert.ThrowsAsync<ObjectDisposedException>(
-            () => source.OpenSession(CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => source.OpenSession(CancellationToken.None).AsTask());
     }
 }
