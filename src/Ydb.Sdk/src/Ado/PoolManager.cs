@@ -35,14 +35,14 @@ internal static class PoolManager
                 : Drivers[settings.GrpcConnectionString] = await settings.BuildDriver();
 
             ISessionSource newSessionPool;
+            driver.RegisterOwner();
             if (settings.EnableImplicitSession)
             {
-                driver.RegisterOwner();
+                
                 newSessionPool = new ImplicitSessionSource(driver);
             }
             else
             {
-                driver.RegisterOwner();
                 var factory = new PoolingSessionFactory(driver, settings);
                 newSessionPool = new PoolingSessionSource<PoolingSession>(factory, settings);
             }
