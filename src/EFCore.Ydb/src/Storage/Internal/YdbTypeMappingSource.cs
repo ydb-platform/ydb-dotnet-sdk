@@ -111,13 +111,13 @@ public sealed class YdbTypeMappingSource(
         { typeof(TimeSpan), Interval }
     };
 
-    private readonly ConcurrentDictionary<RelationalTypeMappingInfo, RelationalTypeMapping> _decimalCache = new();
+    private static readonly ConcurrentDictionary<RelationalTypeMappingInfo, RelationalTypeMapping> DecimalCache = new();
 
     protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
     {
         if (mappingInfo.ClrType == typeof(decimal))
         {
-            return _decimalCache.GetOrAdd(mappingInfo, static mi => Decimal.Clone(mi));
+            return DecimalCache.GetOrAdd(mappingInfo, static mi => Decimal.Clone(mi));
         }
 
         return base.FindMapping(mappingInfo) ?? FindBaseMapping(mappingInfo)?.Clone(mappingInfo);

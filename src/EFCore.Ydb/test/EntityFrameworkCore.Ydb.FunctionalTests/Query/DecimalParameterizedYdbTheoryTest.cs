@@ -9,9 +9,6 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture fixture)
     : IClassFixture<DecimalParameterQueryYdbFixture>
 {
-    static DecimalParameterizedYdbTheoryTest()
-        => AppContext.SetSwitch("EntityFrameworkCore.Ydb.EnableParametrizedDecimal", true);
-    
     private DbContextOptions<ParametricDecimalContext> BuildOptions()
     {
         using var baseCtx = fixture.CreateContext();
@@ -94,7 +91,6 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
     [MemberData(nameof(OverflowCases))]
     public async Task Decimal_overflow_bubbles_up(int p, int s, decimal value)
     {
-        AppContext.SetSwitch("EntityFrameworkCore.Ydb.EnableParametrizedDecimal", true);
         await using var ctx = NewCtx(p, s);
         await ctx.Database.EnsureCreatedAsync();
 
