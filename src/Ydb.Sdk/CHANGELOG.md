@@ -1,3 +1,4 @@
+- Feat Value: Add YdbList builder for List<Struct<...>> (protobuf-based); works with IBulkUpsertImporter.AddListAsync.
 - Fixed bug ADO.NET/PoolManager: `SemaphoreSlim.WaitAsync` over-release on cancellation.
 - Feat ADO.NET: Mark `YdbConnection.State` as `Broken` when the underlying session is broken, including background deactivation.
 - Feat ADO.NET: Added  YdbDataSource `ExecuteAsync` and `ExecuteInTransaction` convenience methods.
