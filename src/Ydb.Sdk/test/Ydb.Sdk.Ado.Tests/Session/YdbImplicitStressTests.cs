@@ -28,7 +28,7 @@ public class YdbImplicitStressTests : TestBase
         var opened  = new Counter();
         var closed  = new Counter();
 
-        var source = new ImplicitSessionSource(driver, onEmpty: onEmpty.Inc);
+        var source = new ImplicitSessionSource(driver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
@@ -64,7 +64,6 @@ public class YdbImplicitStressTests : TestBase
 
         Assert.True(opened.Value > 0);
         Assert.Equal(opened.Value, closed.Value);
-        Assert.Equal(1, Volatile.Read(ref onEmpty.Value));
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => source.OpenSession(CancellationToken.None).AsTask());
     }
@@ -78,7 +77,7 @@ public class YdbImplicitStressTests : TestBase
         var closed = new Counter();
         var onEmpty = new Counter();
 
-        var source = new ImplicitSessionSource(driver, onEmpty: onEmpty.Inc);
+        var source = new ImplicitSessionSource(driver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
@@ -109,7 +108,6 @@ public class YdbImplicitStressTests : TestBase
         await Task.WhenAll(workers.Append(disposer));
 
         Assert.Equal(opened.Value, closed.Value);
-        Assert.Equal(1, onEmpty.Value);
         Assert.True(opened.Value > 0);
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => source.OpenSession(CancellationToken.None).AsTask());
@@ -121,7 +119,7 @@ public class YdbImplicitStressTests : TestBase
         var driver = DummyDriver();
 
         var onEmpty = new Counter();
-        var source = new ImplicitSessionSource(driver, onEmpty: onEmpty.Inc);
+        var source = new ImplicitSessionSource(driver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
@@ -147,8 +145,6 @@ public class YdbImplicitStressTests : TestBase
         }, token);
 
         await Task.WhenAll(opens.Append(disposeTask));
-
-        Assert.Equal(1, Volatile.Read(ref onEmpty.Value));
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => source.OpenSession(CancellationToken.None).AsTask());
     }
