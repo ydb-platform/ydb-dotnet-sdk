@@ -9,7 +9,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     internal ImplicitSessionSource(IDriver driver, Action? onEmpty = null)
     {
-        _driver = driver ?? throw new ArgumentNullException(nameof(driver));
+        _driver = driver;
         _onBecameEmpty = onEmpty;
     }
 
