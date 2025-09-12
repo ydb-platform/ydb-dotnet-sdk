@@ -41,7 +41,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     internal void ReleaseLease() => Interlocked.Decrement(ref _activeLeaseCount);
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         Interlocked.Exchange(ref _isDisposed, 1);
 
@@ -51,8 +51,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
             spinner.SpinOnce();
         }
 
+        await _driver.DisposeAsync();
         _onBecameEmpty?.Invoke();
-
-        return ValueTask.CompletedTask;
     }
 }

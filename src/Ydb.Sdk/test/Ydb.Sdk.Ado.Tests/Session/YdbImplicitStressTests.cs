@@ -6,7 +6,12 @@ namespace Ydb.Sdk.Ado.Tests.Session;
 
 public class YdbImplicitStressTests : TestBase
 {
-    private static IDriver DummyDriver() => new Mock<IDriver>(MockBehavior.Strict).Object;
+    private static IDriver DummyDriver()
+    {
+        var m = new Mock<IDriver>(MockBehavior.Loose);
+        m.Setup(d => d.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        return m.Object;
+    }
 
     private sealed class Counter
     {

@@ -37,6 +37,7 @@ internal static class PoolManager
             ISessionSource newSessionPool;
             if (settings.EnableImplicitSession)
             {
+                driver.RegisterOwner();
                 newSessionPool = new ImplicitSessionSource(driver);
             }
             else
