@@ -158,7 +158,7 @@ public sealed class YdbConnection : DbConnection
             ? ConnectionState.Broken
             : ConnectionState;
 
-    private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
+    private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed;
 
     internal void OnNotSuccessStatusCode(StatusCode code) => _session.OnNotSuccessStatusCode(code);
 

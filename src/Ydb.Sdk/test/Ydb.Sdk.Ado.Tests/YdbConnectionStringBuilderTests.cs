@@ -30,6 +30,7 @@ public class YdbConnectionStringBuilderTests
         Assert.False(ydbConnectionStringBuilder.DisableDiscovery);
         Assert.False(ydbConnectionStringBuilder.DisableServerBalancer);
         Assert.False(ydbConnectionStringBuilder.UseTls);
+        Assert.False(ydbConnectionStringBuilder.EnableImplicitSession);
 
         Assert.Equal("UseTls=False;Host=localhost;Port=2136;Database=/local;User=;Password=;ConnectTimeout=5;" +
                      "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
@@ -54,7 +55,7 @@ public class YdbConnectionStringBuilderTests
             "Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true;MinSessionPool=10;MaxSessionPool=50;" +
             "CreateSessionTimeout=30;SessionIdleTimeout=600;ConnectTimeout=30;KeepAlivePingDelay=30;" +
             "KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=true;MaxSendMessageSize=1000000;" +
-            "MaxReceiveMessageSize=1000000;DisableDiscovery=true;DisableServerBalancer=true;"
+            "MaxReceiveMessageSize=1000000;DisableDiscovery=true;DisableServerBalancer=true;EnableImplicitSession=true;"
         );
 
         Assert.Equal(2135, ydbConnectionStringBuilder.Port);
@@ -78,9 +79,11 @@ public class YdbConnectionStringBuilderTests
                      "ConnectTimeout=30;KeepAlivePingDelay=30;KeepAlivePingTimeout=60;" +
                      "EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
-                     "DisableDiscovery=True;DisableServerBalancer=True", ydbConnectionStringBuilder.ConnectionString);
+                     "DisableDiscovery=True;DisableServerBalancer=True;EnableImplicitSession=True",
+            ydbConnectionStringBuilder.ConnectionString);
         Assert.True(ydbConnectionStringBuilder.DisableDiscovery);
         Assert.True(ydbConnectionStringBuilder.DisableServerBalancer);
+        Assert.True(ydbConnectionStringBuilder.EnableImplicitSession);
         Assert.Equal("UseTls=True;Host=server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=30;" +
                      "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;DisableDiscovery=True",
