@@ -9,8 +9,8 @@ internal class ImplicitSession : ISession
 
     public ImplicitSession(IDriver driver, ImplicitSessionSource source)
     {
-        Driver = driver ?? throw new ArgumentNullException(nameof(driver));
-        _source = source ?? throw new ArgumentNullException(nameof(source));
+        Driver = driver;
+        _source = source;
     }
 
     public IDriver Driver { get; }
