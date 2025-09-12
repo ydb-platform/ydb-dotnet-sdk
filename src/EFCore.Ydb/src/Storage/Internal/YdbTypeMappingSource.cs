@@ -14,6 +14,8 @@ public sealed class YdbTypeMappingSource(
     RelationalTypeMappingSourceDependencies relationalDependencies
 ) : RelationalTypeMappingSource(dependencies, relationalDependencies)
 {
+    private static readonly ConcurrentDictionary<RelationalTypeMappingInfo, RelationalTypeMapping> DecimalCache = new();
+
     #region Mappings
 
     private static readonly YdbBoolTypeMapping Bool = YdbBoolTypeMapping.Default;
@@ -67,8 +69,6 @@ public sealed class YdbTypeMappingSource(
             { "Float", [Float] },
             { "Double", [Double] },
 
-            { "Decimal", [Decimal] },
-
             { "Guid", [Guid] },
 
             { "Date", [Date] },
@@ -98,7 +98,6 @@ public sealed class YdbTypeMappingSource(
 
         { typeof(float), Float },
         { typeof(double), Double },
-        { typeof(decimal), Decimal },
 
         { typeof(Guid), Guid },
 
@@ -110,8 +109,6 @@ public sealed class YdbTypeMappingSource(
         { typeof(DateTime), Timestamp },
         { typeof(TimeSpan), Interval }
     };
-
-    private static readonly ConcurrentDictionary<RelationalTypeMappingInfo, RelationalTypeMapping> DecimalCache = new();
 
     protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
     {
