@@ -30,10 +30,9 @@ public sealed class ParametricDecimalContext : DbContext
         public object Create(DbContext context, bool designTime)
         {
             var ctx = (ParametricDecimalContext)context;
+            var flag = AppContext.TryGetSwitch("EntityFrameworkCore.Ydb.EnableParametrizedDecimal", out var on) && on;
 
-            var options = context.GetService<IDbContextOptions>();
-
-            return (context.GetType(), designTime, ctx._p, ctx._s, options.Extensions);
+            return (context.GetType(), designTime, ctx._p, ctx._s, flag);
         }
     }
 }
