@@ -12,14 +12,14 @@ public class YdbILikeFunctionTranslator(YdbSqlExpressionFactory sqlExpressionFac
     //TODO: disable эту хуету с неймингом
     //TODO: fix get naming
     private static readonly MethodInfo ILike =
-        typeof(DbFunctionsExtensions).GetRuntimeMethod(
-            "Like",
+        typeof(YdbFunctionExtension).GetRuntimeMethod(
+            nameof(YdbFunctionExtension.ILike),
             [typeof(DbFunctions), typeof(string), typeof(string)])!;
     
     //TODO: fix get naming
     private static readonly MethodInfo ILikeWithEscape =
-        typeof(DbFunctionsExtensions).GetRuntimeMethod(
-            "Like",
+        typeof(YdbFunctionExtension).GetRuntimeMethod(
+            nameof(YdbFunctionExtension.ILike),
             [typeof(DbFunctions), typeof(string), typeof(string), typeof(string)])!;
     
 
@@ -30,9 +30,6 @@ public class YdbILikeFunctionTranslator(YdbSqlExpressionFactory sqlExpressionFac
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        //var methods = typeof(DbFunctionsExtensions).GetMethods();
-        //var mathodName = nameof(YdbFunctionExtension.ILike);
-        
         (SqlExpression match, SqlExpression pattern) = (arguments[1], arguments[2]);
         
         //TODO: тут происходит какая-то ебатория с именами (Like и ILike)
