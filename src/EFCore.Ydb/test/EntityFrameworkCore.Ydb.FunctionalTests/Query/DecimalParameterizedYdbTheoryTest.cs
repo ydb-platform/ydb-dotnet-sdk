@@ -70,7 +70,7 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
             ctx.Add(e);
             await ctx.SaveChangesAsync();
 
-            var got = await ctx.Items.AsNoTracking().SingleAsync(x => x.Id == e.Id);
+            var got = await ctx.Items.SingleAsync(x => x.Id == e.Id);
 
             var expected = Math.Round(value, s, MidpointRounding.ToEven);
             Assert.Equal(expected, got.Price);
