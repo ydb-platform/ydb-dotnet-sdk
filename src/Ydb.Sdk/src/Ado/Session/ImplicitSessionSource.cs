@@ -20,7 +20,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
         if (!TryAcquireLease())
             throw new ObjectDisposedException(nameof(ImplicitSessionSource));
 
-        return new ValueTask<ISession>(new ImplicitSession(_driver, ReleaseLease));
+        return new ValueTask<ISession>(new ImplicitSession(_driver, this));
     }
 
     private bool TryAcquireLease()
@@ -39,23 +39,21 @@ internal sealed class ImplicitSessionSource : ISessionSource
         return true;
     }
 
-    private void ReleaseLease()
-    {
-        if (Interlocked.Decrement(ref _activeLeaseCount) == 0)
-        {
-            _onBecameEmpty?.Invoke();
-        }
-    }
+    internal void ReleaseLease() => Interlocked.Decrement(ref _activeLeaseCount);
 
     public ValueTask DisposeAsync()
     {
         Interlocked.Exchange(ref _isDisposed, 1);
 
-        if (Volatile.Read(ref _activeLeaseCount) == 0)
+        var spinner = new SpinWait();
+        while (Volatile.Read(ref _activeLeaseCount) != 0)
         {
-            _onBecameEmpty?.Invoke();
+            spinner.SpinOnce();
         }
+
+        _onBecameEmpty?.Invoke();
 
         return ValueTask.CompletedTask;
     }
+
 }

@@ -5,12 +5,12 @@ namespace Ydb.Sdk.Ado.Session;
 
 internal class ImplicitSession : ISession
 {
-    private readonly Action? _onClose;
+    private readonly ImplicitSessionSource _source;
 
-    public ImplicitSession(IDriver driver, Action? onClose = null)
+    public ImplicitSession(IDriver driver, ImplicitSessionSource source)
     {
-        Driver = driver;
-        _onClose = onClose;
+        Driver = driver ?? throw new ArgumentNullException(nameof(driver));
+        _source = source ?? throw new ArgumentNullException(nameof(source));
     }
 
     public IDriver Driver { get; }
@@ -50,7 +50,7 @@ internal class ImplicitSession : ISession
     {
     }
 
-    public void Close() => _onClose?.Invoke();
+    public void Close() => _source.ReleaseLease();
 
     private static YdbException NotSupportedTransaction =>
         new(StatusCode.BadRequest, "Transactions are not supported in implicit sessions");
