@@ -60,7 +60,7 @@ public class NorthwindCompiledQueryYdbTest
             """
             SELECT CAST(COUNT(*) AS Int32)
             FROM `Customers` AS `c`
-            WHERE `c`.`ContactName` ILIKE '%M%'u
+            WHERE `c`.`ContactName` ILIKE '%M%'
             """);
     }
     
@@ -76,7 +76,7 @@ public class NorthwindCompiledQueryYdbTest
             """
             SELECT CAST(COUNT(*) AS Int32)
             FROM `Customers` AS `c`
-            WHERE `c`.`ContactName` ILIKE '!%'u ESCAPE '!'
+            WHERE `c`.`ContactName` ILIKE '!%' ESCAPE '!'
             """);
     }
     

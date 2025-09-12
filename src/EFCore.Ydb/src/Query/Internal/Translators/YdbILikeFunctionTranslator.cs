@@ -9,14 +9,11 @@ namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
 
 public class YdbILikeFunctionTranslator(YdbSqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
 {
-    //TODO: disable эту хуету с неймингом
-    //TODO: fix get naming
     private static readonly MethodInfo ILike =
         typeof(YdbFunctionExtension).GetRuntimeMethod(
             nameof(YdbFunctionExtension.ILike),
             [typeof(DbFunctions), typeof(string), typeof(string)])!;
     
-    //TODO: fix get naming
     private static readonly MethodInfo ILikeWithEscape =
         typeof(YdbFunctionExtension).GetRuntimeMethod(
             nameof(YdbFunctionExtension.ILike),
@@ -32,7 +29,6 @@ public class YdbILikeFunctionTranslator(YdbSqlExpressionFactory sqlExpressionFac
     {
         (SqlExpression match, SqlExpression pattern) = (arguments[1], arguments[2]);
         
-        //TODO: тут происходит какая-то ебатория с именами (Like и ILike)
         if (method == ILikeWithEscape)
         {
             return sqlExpressionFactory.ILike(match, pattern, arguments[3]);

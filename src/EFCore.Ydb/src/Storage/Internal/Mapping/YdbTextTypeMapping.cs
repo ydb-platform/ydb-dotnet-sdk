@@ -33,5 +33,5 @@ public class YdbTextTypeMapping : RelationalTypeMapping
 
     protected virtual string EscapeSqlLiteral(string literal) => literal.Replace("'", "\\'");
 
-    protected override string GenerateNonNullSqlLiteral(object value) => $"'{EscapeSqlLiteral((string)value)}'u";
+    protected override string GenerateNonNullSqlLiteral(object value) => $"'{EscapeSqlLiteral((string)value)}'";
 }
