@@ -1,0 +1,42 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+
+namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
+
+public sealed class ParametricDecimalContext : DbContext
+{
+    private readonly int _p;
+    private readonly int _s;
+
+    public ParametricDecimalContext(DbContextOptions<ParametricDecimalContext> options, int p, int s)
+        : base(options)
+    {
+        _p = p;
+        _s = s;
+    }
+
+    public DbSet<ParamItem> Items => Set<ParamItem>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<ParamItem>(b =>
+        {
+            b.ToTable($"Items_{_p}_{_s}");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Price).HasPrecision(_p, _s);
+        });
+
+    internal sealed class CacheKeyFactory : IModelCacheKeyFactory
+    {
+        public object Create(DbContext context, bool designTime)
+        {
+            var ctx = (ParametricDecimalContext)context;
+            return (context.GetType(), designTime, ctx._p, ctx._s);
+        }
+    }
+}
+
+public sealed class ParamItem
+{
+    public int Id { get; set; }
+    public decimal Price { get; set; }
+}
