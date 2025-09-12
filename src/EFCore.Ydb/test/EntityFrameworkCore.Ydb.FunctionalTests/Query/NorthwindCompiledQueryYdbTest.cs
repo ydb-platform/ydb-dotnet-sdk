@@ -64,6 +64,37 @@ public class NorthwindCompiledQueryYdbTest
             """);
     }
     
+    //TODO: почему то не резолвится признак что надо с эскейп символом работать
+    [Fact]
+    public void String_ILike_Literal_With_Escape()
+    {
+        using var context = CreateContext();
+        var count = context.Customers.Count(c => EF.Functions.ILike(c.ContactName, "!%", "!"));
+
+        Assert.Equal(0, count);
+        AssertSql(
+            """
+            SELECT CAST(COUNT(*) AS Int32)
+            FROM `Customers` AS `c`
+            WHERE `c`.`ContactName` ILIKE '!%'u ESCAPE '!'
+            """);
+    }
+    
+    [Fact]
+    public void String_ILike_negated()
+    {
+        using var context = CreateContext();
+        var count = context.Customers.Count(c => !EF.Functions.ILike(c.ContactName, "%M%"));
+
+        Assert.Equal(57, count);
+        AssertSql(
+            """
+            SELECT count(*)::int
+            FROM `Customers` AS `c`
+            WHERE `c`.`ContactName` NOT ILIKE '%M%' OR c."ContactName" IS NULL
+            """);
+    }
+    
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 }
