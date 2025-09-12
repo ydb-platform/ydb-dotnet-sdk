@@ -3,14 +3,12 @@ namespace Ydb.Sdk.Ado.Session;
 internal sealed class ImplicitSessionSource : ISessionSource
 {
     private readonly IDriver _driver;
-    private readonly Action? _onBecameEmpty;
     private int _isDisposed;
     private int _activeLeaseCount;
 
-    internal ImplicitSessionSource(IDriver driver, Action? onEmpty = null)
+    internal ImplicitSessionSource(IDriver driver)
     {
         _driver = driver;
-        _onBecameEmpty = onEmpty;
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
@@ -52,6 +50,5 @@ internal sealed class ImplicitSessionSource : ISessionSource
         }
 
         await _driver.DisposeAsync();
-        _onBecameEmpty?.Invoke();
     }
 }
