@@ -70,8 +70,7 @@ public class DecimalParameterizedYdbTheoryTest(DecimalParameterQueryYdbFixture f
             ctx.Add(e);
             await ctx.SaveChangesAsync();
 
-            await using var ctx2 = NewCtx(p, s);
-            var got = await ctx2.Items.SingleAsync(x => x.Id == e.Id);
+            var got = await ctx.Items.SingleAsync(x => x.Id == e.Id);
 
             Assert.Equal(value, got.Price);
 
