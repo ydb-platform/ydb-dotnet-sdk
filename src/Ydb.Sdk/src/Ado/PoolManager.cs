@@ -37,11 +37,7 @@ internal static class PoolManager
             ISessionSource newSessionPool;
             if (settings.EnableImplicitSession)
             {
-                var key = settings.ConnectionString;
-                newSessionPool = new ImplicitSessionSource(
-                    driver,
-                    onEmpty: () => Pools.TryRemove(key, out _)
-                );
+                newSessionPool = new ImplicitSessionSource(driver);
             }
             else
             {
