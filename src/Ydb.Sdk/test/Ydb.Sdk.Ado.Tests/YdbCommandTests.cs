@@ -1,5 +1,5 @@
+using System.Collections;
 using System.Data;
-using System.Text;
 using Xunit;
 using Ydb.Sdk.Value;
 
@@ -8,8 +8,8 @@ namespace Ydb.Sdk.Ado.Tests;
 public class YdbCommandTests : TestBase
 {
     [Theory]
-    [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
-    public async Task ExecuteScalarAsync_WhenSetYdbParameter_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
+    [ClassData(typeof(TestDataGenerator))]
+    public async Task ExecuteScalarAsync_WhenSetYdbParameter_ReturnThisValue<T>(Data<T> data)
     {
         await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
@@ -40,9 +40,8 @@ public class YdbCommandTests : TestBase
     }
 
     [Theory]
-    [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
-    public async Task ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue<T>(
-        YdbParameterTests.Data<T> data)
+    [ClassData(typeof(TestDataGenerator))]
+    public async Task ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue<T>(Data<T> data)
     {
         await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
@@ -60,9 +59,32 @@ public class YdbCommandTests : TestBase
         Assert.Equal(data.Expected == null ? DBNull.Value : data.Expected, await dbCommand.ExecuteScalarAsync());
     }
 
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenSelectNull_ThrowFieldIsNull()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var dbCommand = connection.CreateCommand();
+        dbCommand.CommandText = "SELECT NULL";
+        var reader = await dbCommand.ExecuteReaderAsync();
+        await reader.ReadAsync();
+        Assert.Equal("Field is null.", Assert.Throws<InvalidCastException>(() => reader.GetFloat(0)).Message);
+    }
+
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenOptionalIsNull_ThrowFieldIsNull()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var dbCommand = connection.CreateCommand();
+        dbCommand.CommandText = "SELECT CAST(NULL AS Optional<Float>) AS Field";
+        var reader = await dbCommand.ExecuteReaderAsync();
+        await reader.ReadAsync();
+
+        Assert.Equal("Field is null.", Assert.Throws<InvalidCastException>(() => reader.GetFloat(0)).Message);
+    }
+
     [Theory]
-    [ClassData(typeof(YdbParameterTests.TestDataGenerator))]
-    public async Task ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue<T>(YdbParameterTests.Data<T> data)
+    [ClassData(typeof(TestDataGenerator))]
+    public async Task ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue<T>(Data<T> data)
     {
         if (data.IsNullable)
         {
@@ -94,12 +116,9 @@ public class YdbCommandTests : TestBase
             (YdbValue.MakeJson(simpleJson), simpleJson),
             (YdbValue.MakeJsonDocument(simpleJson), simpleJson),
             (YdbValue.MakeInterval(TimeSpan.FromSeconds(5)), TimeSpan.FromSeconds(5)),
-            (YdbValue.MakeYson(Encoding.ASCII.GetBytes("{type=\"yson\"}")), Encoding.ASCII.GetBytes("{type=\"yson\"}")),
             (YdbValue.MakeOptionalJson(simpleJson), simpleJson),
             (YdbValue.MakeOptionalJsonDocument(simpleJson), simpleJson),
-            (YdbValue.MakeOptionalInterval(TimeSpan.FromSeconds(5)), TimeSpan.FromSeconds(5)),
-            (YdbValue.MakeOptionalYson(Encoding.ASCII.GetBytes("{type=\"yson\"}")),
-                Encoding.ASCII.GetBytes("{type=\"yson\"}"))
+            (YdbValue.MakeOptionalInterval(TimeSpan.FromSeconds(5)), TimeSpan.FromSeconds(5))
         };
 
         await using var connection = await CreateOpenConnectionAsync();
@@ -133,110 +152,6 @@ public class YdbCommandTests : TestBase
     }
 
     [Fact]
-    public async Task ExecuteDbDataReader_WhenSelectManyResultSet_ReturnYdbDataReader()
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        var dbCommand = connection.CreateCommand();
-        dbCommand.CommandText = @"
-DECLARE $var1 AS Datetime;
-DECLARE $var2 AS Timestamp;  
-        
-SELECT 1 as a, CAST('text' AS Text) as b;
-
-$data = ListReplicate(AsStruct(true AS bool_field, 1.5 AS double_field, 23 AS int_field), 1500);
-
-SELECT bool_field, double_field, int_field  FROM AS_TABLE($data);
-
-SELECT CAST(NULL AS Int8) AS null_field;      
-        
-$new_data = AsList(
-    AsStruct($var1 AS Key, $var2 AS Value),
-    AsStruct($var1 AS Key, $var2 AS Value)
-);
-
-SELECT Key, Value FROM AS_TABLE($new_data);
-";
-
-        var dateTime = new DateTime(2021, 08, 21, 23, 30, 47);
-        var timestamp = DateTime.Parse("2029-08-03T06:59:44.8578730Z");
-
-        dbCommand.Parameters.Add(new YdbParameter("$var1", DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47)));
-        dbCommand.Parameters.Add(new YdbParameter("$var2", DbType.DateTime2,
-            DateTime.Parse("2029-08-03T06:59:44.8578730Z")));
-
-        var ydbDataReader = await dbCommand.ExecuteReaderAsync();
-        // Read meta info 
-        Assert.Equal(2, ydbDataReader.FieldCount);
-        Assert.True(ydbDataReader.HasRows);
-        Assert.Equal("Int32", ydbDataReader.GetDataTypeName(0));
-        Assert.Equal(0, ydbDataReader.GetOrdinal("a"));
-        Assert.Equal(1, ydbDataReader.GetOrdinal("b"));
-        Assert.Equal(typeof(int), ydbDataReader.GetFieldType(0));
-        Assert.Equal(typeof(string), ydbDataReader.GetFieldType(1));
-        Assert.Equal("a", ydbDataReader.GetName(0));
-        Assert.Equal("b", ydbDataReader.GetName(1));
-
-        // Read 1 result set
-        Assert.True(await ydbDataReader.ReadAsync());
-        Assert.Equal(1, ydbDataReader.GetInt32(0));
-        Assert.Equal("text", ydbDataReader.GetString(1));
-        Assert.Equal("Ordinal must be between 0 and 1",
-            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetValue(2)).Message);
-        Assert.False(await ydbDataReader.ReadAsync());
-        Assert.Equal("No row is available",
-            Assert.Throws<InvalidOperationException>(() => ydbDataReader.GetValue(0)).Message);
-
-        Assert.True(ydbDataReader.HasRows);
-        // Read 2 result set
-        Assert.True(await ydbDataReader.NextResultAsync());
-        Assert.Equal("Bool", ydbDataReader.GetDataTypeName(0));
-        Assert.Equal("Double", ydbDataReader.GetDataTypeName(1));
-        Assert.Equal("Int32", ydbDataReader.GetDataTypeName(2));
-        for (var i = 0; i < 1500; i++)
-        {
-            // Read meta info 
-            Assert.Equal(3, ydbDataReader.FieldCount);
-            Assert.True(ydbDataReader.HasRows);
-            Assert.Equal("int_field", ydbDataReader.GetName(2));
-
-            Assert.True(await ydbDataReader.ReadAsync());
-
-            Assert.Equal(true, ydbDataReader.GetValue("bool_field"));
-            Assert.Equal(1.5, ydbDataReader.GetDouble(1));
-            Assert.Equal(23, ydbDataReader.GetValue("int_field"));
-        }
-
-        Assert.False(await ydbDataReader.ReadAsync());
-
-        // Read 3 result set
-        Assert.True(await ydbDataReader.NextResultAsync());
-        Assert.Equal("Int8", ydbDataReader.GetDataTypeName(0));
-        Assert.Equal("null_field", ydbDataReader.GetName(0));
-        Assert.True(await ydbDataReader.ReadAsync());
-        Assert.True(ydbDataReader.IsDBNull(0));
-        Assert.Equal(DBNull.Value, ydbDataReader.GetValue(0));
-        Assert.False(await ydbDataReader.ReadAsync());
-
-        // Read 4 result set
-        Assert.True(await ydbDataReader.NextResultAsync());
-        Assert.Equal("Datetime", ydbDataReader.GetDataTypeName(0));
-        Assert.Equal("Key", ydbDataReader.GetName(0));
-        Assert.Equal("Timestamp", ydbDataReader.GetDataTypeName(1));
-        Assert.Equal("Value", ydbDataReader.GetName(1));
-        Assert.True(await ydbDataReader.ReadAsync());
-        Assert.Equal(dateTime, ydbDataReader.GetDateTime(0));
-        Assert.Equal(timestamp, ydbDataReader.GetDateTime(1));
-        Assert.Equal("Field not found in row: non_existing_column",
-            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetValue("non_existing_column")).Message);
-        Assert.True(await ydbDataReader.ReadAsync());
-        Assert.Equal(dateTime, ydbDataReader.GetDateTime(0));
-        Assert.Equal(timestamp, ydbDataReader.GetDateTime(1));
-        Assert.False(await ydbDataReader.ReadAsync());
-        Assert.False(await ydbDataReader.NextResultAsync());
-        Assert.False(ydbDataReader.IsClosed); // For IsClosed, invoke Close on YdbConnection or YdbDataReader.
-    }
-
-    [Fact]
     public void CommandTimeout_WhenCommandTimeoutLessZero_ThrowException()
     {
         using var connection = CreateOpenConnection();
@@ -262,141 +177,6 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.True(ydbDataReader.IsClosed);
     }
 
-    [Fact]
-    public void GetChars_WhenSelectText_MoveCharsToBuffer()
-    {
-        using var connection = CreateOpenConnection();
-        var ydbDataReader =
-            new YdbCommand(connection) { CommandText = "SELECT CAST('abacaba' AS Text)" }.ExecuteReader();
-        Assert.True(ydbDataReader.Read());
-        var bufferChars = new char[10];
-        var checkBuffer = new char[10];
-
-        Assert.Equal(7, ydbDataReader.GetChars(0, 4, null, 0, 6));
-        Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
-            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, -1, null, 0, 6)).Message);
-        Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
-            Assert.Throws<IndexOutOfRangeException>(() =>
-                ydbDataReader.GetChars(0, long.MaxValue, null, 0, 6)).Message);
-
-        Assert.Equal("bufferOffset must be between 0 and 10",
-            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, 0, bufferChars, -1, 6)).Message);
-        Assert.Equal("bufferOffset must be between 0 and 10",
-            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, 0, bufferChars, -1, 6)).Message);
-
-        Assert.Equal("length must be between 0 and 10",
-            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, 0, bufferChars, 3, -1)).Message);
-        Assert.Equal("bufferOffset must be between 0 and 5",
-            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetChars(0, 0, bufferChars, 8, 5)).Message);
-
-        Assert.Equal(6, ydbDataReader.GetChars(0, 0, bufferChars, 4, 6));
-        checkBuffer[4] = 'a';
-        checkBuffer[5] = 'b';
-        checkBuffer[6] = 'a';
-        checkBuffer[7] = 'c';
-        checkBuffer[8] = 'a';
-        checkBuffer[9] = 'b';
-        Assert.Equal(checkBuffer, bufferChars);
-        bufferChars = new char[10];
-        checkBuffer = new char[10];
-
-        Assert.Equal(4, ydbDataReader.GetChars(0, 3, bufferChars, 4, 6));
-        checkBuffer[4] = 'c';
-        checkBuffer[5] = 'a';
-        checkBuffer[6] = 'b';
-        checkBuffer[7] = 'a';
-        Assert.Equal(checkBuffer, bufferChars);
-
-        Assert.Equal('a', ydbDataReader.GetChar(0));
-        Assert.False(ydbDataReader.Read());
-    }
-
-    [Fact]
-    public void GetBytes_WhenSelectBytes_MoveBytesToBuffer()
-    {
-        using var connection = CreateOpenConnection();
-        var ydbDataReader = new YdbCommand(connection) { CommandText = "SELECT 'abacaba'" }.ExecuteReader();
-        Assert.True(ydbDataReader.Read());
-        var bufferChars = new byte[10];
-        var checkBuffer = new byte[10];
-
-        Assert.Equal(7, ydbDataReader.GetBytes(0, 4, null, 0, 6));
-        Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}",
-            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetBytes(0, -1, null, 0, 6)).Message);
-        Assert.Equal($"dataOffset must be between 0 and {int.MaxValue}", Assert.Throws<IndexOutOfRangeException>(() =>
-            ydbDataReader.GetBytes(0, long.MaxValue, null, 0, 6)).Message);
-
-        Assert.Equal("bufferOffset must be between 0 and 10",
-            Assert.Throws<IndexOutOfRangeException>(() => ydbDataReader.GetBytes(0, 0, bufferChars, -1, 6)).Message);
-        Assert.Equal("bufferOffset must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(() =>
-            ydbDataReader.GetBytes(0, 0, bufferChars, -1, 6)).Message);
-
-        Assert.Equal("length must be between 0 and 10", Assert.Throws<IndexOutOfRangeException>(() =>
-            ydbDataReader.GetBytes(0, 0, bufferChars, 3, -1)).Message);
-        Assert.Equal("bufferOffset must be between 0 and 5", Assert.Throws<IndexOutOfRangeException>(() =>
-            ydbDataReader.GetBytes(0, 0, bufferChars, 8, 5)).Message);
-
-        Assert.Equal(6, ydbDataReader.GetBytes(0, 0, bufferChars, 4, 6));
-        checkBuffer[4] = (byte)'a';
-        checkBuffer[5] = (byte)'b';
-        checkBuffer[6] = (byte)'a';
-        checkBuffer[7] = (byte)'c';
-        checkBuffer[8] = (byte)'a';
-        checkBuffer[9] = (byte)'b';
-        Assert.Equal(checkBuffer, bufferChars);
-        bufferChars = new byte[10];
-        checkBuffer = new byte[10];
-
-        Assert.Equal(4, ydbDataReader.GetBytes(0, 3, bufferChars, 4, 5));
-        checkBuffer[4] = (byte)'c';
-        checkBuffer[5] = (byte)'a';
-        checkBuffer[6] = (byte)'b';
-        checkBuffer[7] = (byte)'a';
-        Assert.Equal(checkBuffer, bufferChars);
-        Assert.False(ydbDataReader.Read());
-    }
-
-    [Fact]
-    public async Task GetEnumerator_WhenReadMultiSelect_ReadFirstResultSet()
-    {
-        await using var ydbConnection = await CreateOpenConnectionAsync();
-        var ydbCommand = new YdbCommand(ydbConnection)
-        {
-            CommandText = @"
-$new_data = AsList(
-    AsStruct(1 AS Key, 'text' AS Value),
-    AsStruct(1 AS Key, 'text' AS Value)
-);
-
-SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
-        };
-        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
-
-        foreach (var row in ydbDataReader)
-        {
-            Assert.Equal(1, row.GetInt32(0));
-            Assert.Equal("text", row.GetString(1));
-        }
-
-        Assert.True(ydbDataReader.NextResult());
-        Assert.True(ydbDataReader.Read());
-        Assert.Equal(1, ydbDataReader.GetInt32(0));
-        Assert.Equal(Encoding.ASCII.GetBytes("text"), ydbDataReader.GetBytes(1));
-        Assert.False(ydbDataReader.Read());
-
-        ydbDataReader = await ydbCommand.ExecuteReaderAsync();
-        await foreach (var row in ydbDataReader)
-        {
-            Assert.Equal(1, row.GetInt32(0));
-            Assert.Equal("text", row.GetString(1));
-        }
-
-        Assert.True(ydbDataReader.NextResult());
-        Assert.True(ydbDataReader.Read());
-        Assert.Equal(1, ydbDataReader.GetInt32(0));
-        Assert.Equal(Encoding.ASCII.GetBytes("text"), ydbDataReader.GetBytes(1));
-        Assert.False(ydbDataReader.Read());
-    }
 
     [Fact]
     public async Task ExecuteScalar_WhenSelectNull_ReturnDbNull()
@@ -424,50 +204,83 @@ SELECT Key, Cast(Value AS Text) FROM AS_TABLE($new_data); SELECT 1, 'text';"
             .ExecuteScalarAsync());
     }
 
-    [Theory]
-    [InlineData("123e4567-e89b-12d3-a456-426614174000")]
-    [InlineData("2d9e498b-b746-9cfb-084d-de4e1cb4736e")]
-    [InlineData("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")]
-    public async Task Guid_WhenSelectUuid_ReturnThisUuid(string guid)
-    {
-        await using var ydbConnection = await CreateOpenConnectionAsync();
-        var actualGuid = await new YdbCommand(ydbConnection)
-                { CommandText = $"SELECT CAST('{guid}' AS UUID);" }
-            .ExecuteScalarAsync();
 
-        Assert.Equal(new Guid(guid), actualGuid);
-        Assert.Equal(guid.ToLower(), actualGuid?.ToString()); // Guid.ToString() method represents lowercase
+    public class Data<T>(DbType dbType, T expected, bool isNullable = false)
+    {
+        public bool IsNullable { get; } = isNullable || expected == null;
+        public DbType DbType { get; } = dbType;
+        public T Expected { get; } = expected;
     }
 
-    [Theory]
-    [InlineData("123e4567-e89b-12d3-a456-426614174000")]
-    [InlineData("2d9e498b-b746-9cfb-084d-de4e1cb4736e")]
-    [InlineData("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")]
-    public async Task Guid_WhenSetUuid_ReturnThisUtf8Uuid(string guid)
+    private class TestDataGenerator : IEnumerable<object[]>
     {
-        await using var ydbConnection = await CreateOpenConnectionAsync();
-        var ydbCommand = new YdbCommand(ydbConnection)
-        {
-            CommandText = "SELECT CAST(@guid AS Text);"
-        };
-        ydbCommand.Parameters.Add(new YdbParameter("guid", DbType.Guid, new Guid(guid)));
+        private readonly List<object[]> _data =
+        [
+            new object[] { new Data<bool>(DbType.Boolean, true) },
+            new object[] { new Data<bool>(DbType.Boolean, false) },
+            new object[] { new Data<bool?>(DbType.Boolean, true, true) },
+            new object[] { new Data<bool?>(DbType.Boolean, false, true) },
+            new object[] { new Data<bool?>(DbType.Boolean, null) },
+            new object[] { new Data<sbyte>(DbType.SByte, -1) },
+            new object[] { new Data<sbyte?>(DbType.SByte, -2, true) },
+            new object[] { new Data<sbyte?>(DbType.SByte, null) },
+            new object[] { new Data<byte>(DbType.Byte, 200) },
+            new object[] { new Data<byte?>(DbType.Byte, 228, true) },
+            new object[] { new Data<byte?>(DbType.Byte, null) },
+            new object[] { new Data<short>(DbType.Int16, 14000) },
+            new object[] { new Data<short?>(DbType.Int16, 14000, true) },
+            new object[] { new Data<short?>(DbType.Int16, null) },
+            new object[] { new Data<ushort>(DbType.UInt16, 40_000) },
+            new object[] { new Data<ushort?>(DbType.UInt16, 40_000, true) },
+            new object[] { new Data<ushort?>(DbType.UInt16, null) },
+            new object[] { new Data<int>(DbType.Int32, -40_000) },
+            new object[] { new Data<int?>(DbType.Int32, -40_000, true) },
+            new object[] { new Data<int?>(DbType.Int32, null) },
+            new object[] { new Data<uint>(DbType.UInt32, 4_000_000_000) },
+            new object[] { new Data<uint?>(DbType.UInt32, 4_000_000_000, true) },
+            new object[] { new Data<uint?>(DbType.UInt32, null) },
+            new object[] { new Data<long>(DbType.Int64, -4_000_000_000) },
+            new object[] { new Data<long?>(DbType.Int64, -4_000_000_000, true) },
+            new object[] { new Data<long?>(DbType.Int64, null) },
+            new object[] { new Data<ulong>(DbType.UInt64, 10_000_000_000ul) },
+            new object[] { new Data<ulong?>(DbType.UInt64, 10_000_000_000ul, true) },
+            new object[] { new Data<ulong?>(DbType.UInt64, null) },
+            new object[] { new Data<float>(DbType.Single, -1.7f) },
+            new object[] { new Data<float?>(DbType.Single, -1.7f, true) },
+            new object[] { new Data<float?>(DbType.Single, null) },
+            new object[] { new Data<double>(DbType.Double, 123.45) },
+            new object[] { new Data<double?>(DbType.Double, 123.45, true) },
+            new object[] { new Data<double?>(DbType.Double, null) },
+            new object[] { new Data<Guid>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")) },
+            new object[] { new Data<Guid?>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"), true) },
+            new object[] { new Data<Guid?>(DbType.Guid, null) },
+            new object[] { new Data<DateTime>(DbType.Date, new DateTime(2021, 08, 21)) },
+            new object[] { new Data<DateTime?>(DbType.Date, new DateTime(2021, 08, 21), true) },
+            new object[] { new Data<DateTime?>(DbType.Date, null) },
+            new object[] { new Data<DateTime>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47)) },
+            new object[] { new Data<DateTime?>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47), true) },
+            new object[] { new Data<DateTime?>(DbType.DateTime, null) },
+            new object[] { new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-03T06:59:44.8578730Z")) },
+            new object[] { new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-09T17:15:29.6935850Z")) },
+            new object[]
+            {
+                new Data<DateTime?>(DbType.DateTime2, new DateTime(2021, 08, 21, 23, 30, 47, 581, DateTimeKind.Local),
+                    true)
+            },
+            new object[] { new Data<DateTime?>(DbType.DateTime2, null) },
+            new object[] { new Data<byte[]>(DbType.Binary, "test str"u8.ToArray()) },
+            new object[] { new Data<byte[]?>(DbType.Binary, "test str"u8.ToArray(), true) },
+            new object[] { new Data<byte[]?>(DbType.Binary, null) },
+            new object[] { new Data<string>(DbType.String, "unicode str") },
+            new object[] { new Data<string?>(DbType.String, "unicode str", true) },
+            new object[] { new Data<string?>(DbType.String, null) },
+            new object[] { new Data<decimal>(DbType.Decimal, -18446744073.709551616m) },
+            new object[] { new Data<decimal?>(DbType.Decimal, -18446744073.709551616m, true) },
+            new object[] { new Data<decimal?>(DbType.Decimal, null) }
+        ];
 
-        var actualGuidText = await ydbCommand.ExecuteScalarAsync();
+        public IEnumerator<object[]> GetEnumerator() => _data.GetEnumerator();
 
-        Assert.Equal(guid.ToLower(), actualGuidText); // Guid.ToString() method represents lowercase
-    }
-
-    [Fact]
-    public async Task Date_WhenSetDateOnly_ReturnDateTime()
-    {
-        await using var ydbConnection = await CreateOpenConnectionAsync();
-        var ydbCommand = new YdbCommand(ydbConnection) { CommandText = "SELECT @dateOnly;" };
-        ydbCommand.Parameters.AddWithValue("dateOnly", new DateOnly(2002, 2, 24));
-
-        Assert.Equal(new DateTime(2002, 2, 24), await ydbCommand.ExecuteScalarAsync());
-
-        ydbCommand.Parameters.Clear();
-        ydbCommand.Parameters.AddWithValue("dateOnly", DbType.Date, new DateOnly(2102, 2, 24));
-        Assert.Equal(new DateTime(2102, 2, 24), await ydbCommand.ExecuteScalarAsync());
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

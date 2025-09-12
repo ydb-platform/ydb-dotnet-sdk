@@ -1,77 +1,50 @@
-using System.Collections;
 using System.Data;
-using System.Text;
+using System.Globalization;
 using Xunit;
+using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests;
 
-public class YdbParameterTests
+public class YdbParameterTests : TestBase
 {
     [Fact]
-    public void YdbValue_WhenValueIsNullAndDbTypeIsObject_ThrowException()
+    public void YdbParameter_WhenValueIsNullAndDbTypeIsObject_ThrowException()
     {
-        Assert.Equal("Writing value of 'null' is not supported for parameters having DbType 'Object'",
-            Assert.Throws<InvalidOperationException>(() => new YdbParameter().YdbValue).Message);
-        Assert.Equal("Writing value of 'System.Object' is not supported for parameters having DbType 'Object'",
-            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$param", new object()).YdbValue).Message);
+        Assert.Equal("Writing value of 'null' is not supported without explicit mapping to the YdbDbType",
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter().TypedValue).Message);
+        Assert.Equal("Writing value of 'System.Object' is not supported without explicit mapping to the YdbDbType",
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$param", new object()).TypedValue)
+                .Message);
     }
 
     [Fact]
-    public void ParameterName_WhenSetWithoutAnyFormat_ReturnCorrectName()
+    public void YdbParameter_WhenSetWithoutAnyFormat_ReturnCorrectName()
     {
         Assert.Equal("$name", new YdbParameter { ParameterName = "name" }.ParameterName);
         Assert.Equal("$name", new YdbParameter { ParameterName = "@name" }.ParameterName);
         Assert.Equal("$name", new YdbParameter { ParameterName = "$name" }.ParameterName);
     }
 
-    [Theory]
-    [ClassData(typeof(TestDataGenerator))]
-    public void YdbValue_WhenSetDbValue_ReturnYdbValue<T>(Data<T> data)
-    {
-        Assert.Equal(data.Expected, data.FetchFun(new YdbParameter("$parameter", data.DbType, data.Expected)
-            { IsNullable = data.IsNullable }.YdbValue));
-
-        if (!data.IsNullable && data.DbType != DbType.DateTime && data.DbType != DbType.Date && data.Expected != null)
-        {
-            Assert.Equal(data.Expected, data.FetchFun(new YdbParameter("$parameter", data.Expected).YdbValue));
-        }
-    }
-
-    [Fact]
-    public void YdbValue_WhenDateTimeOffset_ReturnTimestamp()
-    {
-        var dateTimeOffset = DateTimeOffset.Parse("2029-08-03T06:59:44.8578730Z");
-
-        Assert.Equal(dateTimeOffset.UtcDateTime,
-            new YdbParameter("$parameter", dateTimeOffset).YdbValue.GetTimestamp());
-        Assert.Equal(dateTimeOffset.UtcDateTime,
-            new YdbParameter("$parameter", DbType.DateTimeOffset, dateTimeOffset).YdbValue.GetTimestamp());
-        Assert.Null(new YdbParameter("$parameter", DbType.DateTimeOffset) { IsNullable = true }
-            .YdbValue.GetOptionalTimestamp());
-        Assert.Equal(dateTimeOffset.UtcDateTime, new YdbParameter("$parameter", DbType.DateTimeOffset, dateTimeOffset)
-            { IsNullable = true }.YdbValue.GetTimestamp());
-    }
-
     [Fact]
     public void YdbValue_WhenYdbValueIsSet_ReturnThis() =>
-        Assert.Equal("{\"type\": \"jsondoc\"}",
-            new YdbParameter("$parameter", YdbValue.MakeJsonDocument("{\"type\": \"jsondoc\"}")).YdbValue
-                .GetJsonDocument());
+        Assert.Equal("{\"type\": \"jsondoc\"}", new YdbParameter("$parameter",
+            YdbValue.MakeJsonDocument("{\"type\": \"jsondoc\"}")).TypedValue.Value.TextValue);
 
     [Fact]
-    public void YdbValue_WhenUnCastTypes_ThrowInvalidCastException()
+    public void YdbParameter_WhenUnCastTypes_ThrowInvalidCastException()
     {
-        Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'Boolean'",
-            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Boolean, 1).YdbValue)
+        Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having YdbDbType 'Bool'",
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Boolean, 1).TypedValue)
                 .Message);
-        Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having DbType 'SByte'",
-            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.SByte, 1).YdbValue).Message);
-        Assert.Equal("Writing value of 'System.String' is not supported for parameters having DbType 'Boolean'",
+        Assert.Equal("Writing value of 'System.Int32' is not supported for parameters having YdbDbType 'Int8'",
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.SByte, 1).TypedValue)
+                .Message);
+        Assert.Equal("Writing value of 'System.String' is not supported for parameters having YdbDbType 'Bool'",
             Assert.Throws<InvalidOperationException>(() => new YdbParameter("$parameter", DbType.Boolean)
-                { Value = "true" }.YdbValue).Message);
-        Assert.Equal("Writing value of 'System.Double' is not supported for parameters having DbType 'Single'",
-            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Single, 1.1).YdbValue)
+                { Value = "true" }.TypedValue).Message);
+        Assert.Equal("Writing value of 'System.Double' is not supported for parameters having YdbDbType 'Float'",
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("$var", DbType.Single, 1.1).TypedValue)
                 .Message);
     }
 
@@ -79,172 +52,395 @@ public class YdbParameterTests
     [InlineData(DbType.VarNumeric, "VarNumeric")]
     [InlineData(DbType.Xml, "Xml")]
     [InlineData(DbType.Time, "Time")]
-    public void YdbValue_WhenNoSupportedDbType_ThrowException(DbType dbType, string name) =>
-        Assert.Equal("Ydb don't supported this DbType: " + name,
-            Assert.Throws<YdbException>(() => new YdbParameter("$parameter", dbType)
-                { IsNullable = true }.YdbValue).Message);
+    public void YdbParameter_WhenNoSupportedDbType_ThrowException(DbType dbType, string name) =>
+        Assert.Equal("Ydb don't supported this DbType: " + name, Assert.Throws<NotSupportedException>(() =>
+            new YdbParameter("$parameter", dbType) { IsNullable = true }.TypedValue).Message);
 
     [Fact]
-    public void Parameter_WhenSetAndNoSet_ReturnValueOrException()
+    public void YdbParameter_WhenSetAndNoSet_ReturnValueOrException()
     {
         Assert.Equal("$parameter", new YdbParameter { ParameterName = "$parameter" }.ParameterName);
         Assert.Equal(string.Empty, new YdbParameter { ParameterName = null }.ParameterName);
     }
 
     [Fact]
-    public void YdbValue_WhenSetDbType_ReturnConvertValue()
+    public void YdbParameter_WhenSetDbType_ReturnValueIsConverted()
     {
-        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt64) { Value = 1U }.YdbValue.GetUint64());
-        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt64) { Value = (ushort)1U }.YdbValue.GetUint64());
-        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt64) { Value = (byte)1U }.YdbValue.GetUint64());
+        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt64) { Value = 1U }.TypedValue.Value.Uint64Value);
+        Assert.Equal(1U,
+            new YdbParameter("$parameter", DbType.UInt64) { Value = (ushort)1U }.TypedValue.Value.Uint64Value);
+        Assert.Equal(1U,
+            new YdbParameter("$parameter", DbType.UInt64) { Value = (byte)1U }.TypedValue.Value.Uint64Value);
 
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = 1 }.YdbValue.GetInt64());
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (uint)1 }.YdbValue.GetInt64());
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (ushort)1 }.YdbValue.GetInt64());
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (byte)1 }.YdbValue.GetInt64());
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (short)1 }.YdbValue.GetInt64());
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (sbyte)1 }.YdbValue.GetInt64());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = 1 }.TypedValue.Value.Int64Value);
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (uint)1 }.TypedValue.Value.Int64Value);
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (ushort)1 }.TypedValue.Value.Int64Value);
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (byte)1 }.TypedValue.Value.Int64Value);
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (short)1 }.TypedValue.Value.Int64Value);
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int64) { Value = (sbyte)1 }.TypedValue.Value.Int64Value);
 
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (ushort)1 }.YdbValue.GetInt32());
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (byte)1 }.YdbValue.GetInt32());
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (short)1 }.YdbValue.GetInt32());
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (sbyte)1 }.YdbValue.GetInt32());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (ushort)1 }.TypedValue.Value.Int32Value);
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (byte)1 }.TypedValue.Value.Int32Value);
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (short)1 }.TypedValue.Value.Int32Value);
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int32) { Value = (sbyte)1 }.TypedValue.Value.Int32Value);
 
-        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt32) { Value = (ushort)1 }.YdbValue.GetUint32());
-        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt32) { Value = (byte)1 }.YdbValue.GetUint32());
+        Assert.Equal(1U,
+            new YdbParameter("$parameter", DbType.UInt32) { Value = (ushort)1 }.TypedValue.Value.Uint32Value);
+        Assert.Equal(1U,
+            new YdbParameter("$parameter", DbType.UInt32) { Value = (byte)1 }.TypedValue.Value.Uint32Value);
 
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int16) { Value = (byte)1 }.YdbValue.GetInt16());
-        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int16) { Value = (sbyte)1 }.YdbValue.GetInt16());
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int16) { Value = (byte)1 }.TypedValue.Value.Int32Value);
+        Assert.Equal(1, new YdbParameter("$parameter", DbType.Int16) { Value = (sbyte)1 }.TypedValue.Value.Int32Value);
 
-        Assert.Equal(1U, new YdbParameter("$parameter", DbType.UInt16) { Value = (byte)1 }.YdbValue.GetUint16());
+        Assert.Equal(1U,
+            new YdbParameter("$parameter", DbType.UInt16) { Value = (byte)1 }.TypedValue.Value.Uint32Value);
 
-        Assert.Equal(1.1f, new YdbParameter("$parameter", DbType.Double) { Value = 1.1f }.YdbValue.GetDouble());
+        Assert.Equal(1.1f, new YdbParameter("$parameter", DbType.Double) { Value = 1.1f }.TypedValue.Value.DoubleValue);
     }
 
-    public class Data<T>
+    [Theory]
+    [InlineData("123e4567-e89b-12d3-a456-426614174000")]
+    [InlineData("2d9e498b-b746-9cfb-084d-de4e1cb4736e")]
+    [InlineData("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")]
+    public async Task Guid_WhenSelectUuid_ReturnThisUuid(string guid)
     {
-        public Data(DbType dbType, T expected, Func<YdbValue, T> fetchFun, bool isNullable = false)
-        {
-            DbType = dbType;
-            Expected = expected;
-            IsNullable = isNullable || expected == null;
-            FetchFun = fetchFun;
-        }
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var actualGuid = await new YdbCommand(ydbConnection)
+                { CommandText = $"SELECT CAST('{guid}' AS UUID);" }
+            .ExecuteScalarAsync();
 
-        public bool IsNullable { get; }
-        public DbType DbType { get; }
-        public T Expected { get; }
-        public Func<YdbValue, T> FetchFun { get; }
+        Assert.Equal(new Guid(guid), actualGuid);
+        Assert.Equal(guid.ToLower(), actualGuid?.ToString()); // Guid.ToString() method represents lowercase
     }
 
-    public class TestDataGenerator : IEnumerable<object[]>
+    [Theory]
+    [InlineData("123e4567-e89b-12d3-a456-426614174000")]
+    [InlineData("2d9e498b-b746-9cfb-084d-de4e1cb4736e")]
+    [InlineData("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")]
+    public async Task Guid_WhenSetUuid_ReturnThisUtf8Uuid(string guid)
     {
-        private readonly List<object[]> _data = new()
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ydbCommand = new YdbCommand(ydbConnection)
         {
-            new object[] { new Data<bool>(DbType.Boolean, true, value => value.GetBool()) },
-            new object[] { new Data<bool>(DbType.Boolean, false, value => value.GetBool()) },
-            new object[] { new Data<bool?>(DbType.Boolean, true, value => value.GetBool(), true) },
-            new object[] { new Data<bool?>(DbType.Boolean, false, value => value.GetBool(), true) },
-            new object[] { new Data<bool?>(DbType.Boolean, null, value => value.GetOptionalBool()) },
-            new object[] { new Data<sbyte>(DbType.SByte, -1, value => value.GetInt8()) },
-            new object[] { new Data<sbyte?>(DbType.SByte, -2, value => value.GetInt8(), true) },
-            new object[] { new Data<sbyte?>(DbType.SByte, null, value => value.GetOptionalInt8()) },
-            new object[] { new Data<byte>(DbType.Byte, 200, value => value.GetUint8()) },
-            new object[] { new Data<byte?>(DbType.Byte, 228, value => value.GetUint8(), true) },
-            new object[] { new Data<byte?>(DbType.Byte, null, value => value.GetOptionalUint8()) },
-            new object[] { new Data<short>(DbType.Int16, 14000, value => value.GetInt16()) },
-            new object[] { new Data<short?>(DbType.Int16, 14000, value => value.GetInt16(), true) },
-            new object[] { new Data<short?>(DbType.Int16, null, value => value.GetOptionalInt16()) },
-            new object[] { new Data<ushort>(DbType.UInt16, 40_000, value => value.GetUint16()) },
-            new object[] { new Data<ushort?>(DbType.UInt16, 40_000, value => value.GetUint16(), true) },
-            new object[] { new Data<ushort?>(DbType.UInt16, null, value => value.GetOptionalUint16()) },
-            new object[] { new Data<int>(DbType.Int32, -40_000, value => value.GetInt32()) },
-            new object[] { new Data<int?>(DbType.Int32, -40_000, value => value.GetInt32(), true) },
-            new object[] { new Data<int?>(DbType.Int32, null, value => value.GetOptionalInt32()) },
-            new object[] { new Data<uint>(DbType.UInt32, 4_000_000_000, value => value.GetUint32()) },
-            new object[] { new Data<uint?>(DbType.UInt32, 4_000_000_000, value => value.GetUint32(), true) },
-            new object[] { new Data<uint?>(DbType.UInt32, null, value => value.GetOptionalUint32()) },
-            new object[] { new Data<long>(DbType.Int64, -4_000_000_000, value => value.GetInt64()) },
-            new object[] { new Data<long?>(DbType.Int64, -4_000_000_000, value => value.GetInt64(), true) },
-            new object[] { new Data<long?>(DbType.Int64, null, value => value.GetOptionalInt64()) },
-            new object[] { new Data<ulong>(DbType.UInt64, 10_000_000_000ul, value => value.GetUint64()) },
-            new object[]
-                { new Data<ulong?>(DbType.UInt64, 10_000_000_000ul, value => value.GetUint64(), true) },
-            new object[] { new Data<ulong?>(DbType.UInt64, null, value => value.GetOptionalUint64()) },
-            new object[] { new Data<float>(DbType.Single, -1.7f, value => value.GetFloat()) },
-            new object[] { new Data<float?>(DbType.Single, -1.7f, value => value.GetFloat(), true) },
-            new object[] { new Data<float?>(DbType.Single, null, value => value.GetOptionalFloat()) },
-            new object[] { new Data<double>(DbType.Double, 123.45, value => value.GetDouble()) },
-            new object[] { new Data<double?>(DbType.Double, 123.45, value => value.GetDouble(), true) },
-            new object[] { new Data<double?>(DbType.Double, null, value => value.GetOptionalDouble()) },
-            new object[]
-            {
-                new Data<Guid>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"),
-                    value => value.GetUuid())
-            },
-            new object[]
-            {
-                new Data<Guid?>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"),
-                    value => value.GetUuid(), true)
-            },
-            new object[] { new Data<Guid?>(DbType.Guid, null, value => value.GetOptionalUuid()) },
-            new object[] { new Data<DateTime>(DbType.Date, new DateTime(2021, 08, 21), value => value.GetDate()) },
-            new object[]
-            {
-                new Data<DateTime?>(DbType.Date, new DateTime(2021, 08, 21), value => value.GetDate(), true)
-            },
-            new object[] { new Data<DateTime?>(DbType.Date, null, value => value.GetOptionalDate()) },
-            new object[]
-            {
-                new Data<DateTime>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47),
-                    value => value.GetDatetime())
-            },
-            new object[]
-            {
-                new Data<DateTime?>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47),
-                    value => value.GetDatetime(), true)
-            },
-            new object[] { new Data<DateTime?>(DbType.DateTime, null, value => value.GetOptionalDatetime()) },
-            new object[]
-            {
-                new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-03T06:59:44.8578730Z"),
-                    value => value.GetTimestamp())
-            },
-            new object[]
-            {
-                new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-09T17:15:29.6935850Z"),
-                    value => value.GetTimestamp())
-            },
-            new object[]
-            {
-                new Data<DateTime?>(DbType.DateTime2, new DateTime(2021, 08, 21, 23, 30, 47, 581, DateTimeKind.Local),
-                    value => value.GetTimestamp(), true)
-            },
-            new object[] { new Data<DateTime?>(DbType.DateTime2, null, value => value.GetOptionalTimestamp()) },
-            new object[]
-            {
-                new Data<byte[]>(DbType.Binary, Encoding.ASCII.GetBytes("test str"),
-                    value => value.GetString())
-            },
-            new object[]
-            {
-                new Data<byte[]?>(DbType.Binary, Encoding.ASCII.GetBytes("test str"),
-                    value => value.GetString(), true)
-            },
-            new object[] { new Data<byte[]?>(DbType.Binary, null, value => value.GetOptionalString()) },
-            new object[] { new Data<string>(DbType.String, "unicode str", value => value.GetUtf8()) },
-            new object[] { new Data<string?>(DbType.String, "unicode str", value => value.GetUtf8(), true) },
-            new object[] { new Data<string?>(DbType.String, null, value => value.GetOptionalUtf8()) },
-            new object[] { new Data<decimal>(DbType.Decimal, -18446744073.709551616m, value => value.GetDecimal()) },
-            new object[]
-            {
-                new Data<decimal?>(DbType.Decimal, -18446744073.709551616m, value => value.GetDecimal(), true)
-            },
-            new object[] { new Data<decimal?>(DbType.Decimal, null, value => value.GetOptionalDecimal()) }
+            CommandText = "SELECT CAST(@guid AS Text);"
         };
+        ydbCommand.Parameters.Add(new YdbParameter("guid", DbType.Guid, new Guid(guid)));
 
-        public IEnumerator<object[]> GetEnumerator() => _data.GetEnumerator();
+        var actualGuidText = await ydbCommand.ExecuteScalarAsync();
 
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        Assert.Equal(guid.ToLower(), actualGuidText); // Guid.ToString() method represents lowercase
+    }
+
+    [Fact]
+    public async Task Date_WhenSetDateOnly_ReturnDateTime()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ydbCommand = new YdbCommand(ydbConnection) { CommandText = "SELECT @dateOnly;" };
+        ydbCommand.Parameters.AddWithValue("dateOnly", new DateOnly(2002, 2, 24));
+
+        Assert.Equal(new DateTime(2002, 2, 24), await ydbCommand.ExecuteScalarAsync());
+
+        ydbCommand.Parameters.Clear();
+        ydbCommand.Parameters.AddWithValue("dateOnly", DbType.Date, new DateOnly(2102, 2, 24));
+        Assert.Equal(new DateTime(2102, 2, 24), await ydbCommand.ExecuteScalarAsync());
+    }
+
+    [Theory]
+    [InlineData("12345", "12345.0000000000", 22, 9)]
+    [InlineData("54321", "54321", 5, 0)]
+    [InlineData("493235.4", "493235.40", 8, 2)]
+    [InlineData("123.46", "123.46", 5, 2)]
+    [InlineData("0.46", "0.46", 2, 2)]
+    [InlineData("-184467434073.70911616", "-184467434073.7091161600", 35, 10)]
+    [InlineData("-18446744074", "-18446744074", 12, 0)]
+    [InlineData("-184467440730709551616", "-184467440730709551616", 21, 0)]
+    [InlineData("-218446744073.709551616", "-218446744073.7095516160", 22, 10)]
+    [InlineData("79228162514264337593543950335", "79228162514264337593543950335", 29, 0)]
+    [InlineData("79228162514264337593543950.335", "79228162514264337593543950.335", 29, 3)]
+    [InlineData("-79228162514264337593543950335", "-79228162514264337593543950335", 29, 0)]
+    [InlineData("-79228162514264337593543950.335", "-79228162514264337593543950.335", 29, 3)]
+    [InlineData(null, null, 22, 9)]
+    [InlineData(null, null, 35, 9)]
+    [InlineData(null, null, 35, 0)]
+    public async Task Decimal_WhenDecimalIsScaleAndPrecision_ReturnDecimal(string? value, string? expected,
+        byte precision, byte scale)
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var tableName = $"DecimalTable_{Random.Shared.Next()}";
+        var decimalValue = value == null ? (decimal?)null : decimal.Parse(value, CultureInfo.InvariantCulture);
+        await new YdbCommand(ydbConnection)
+                { CommandText = $"CREATE TABLE {tableName} (d Decimal({precision}, {scale}), PRIMARY KEY (d))" }
+            .ExecuteNonQueryAsync();
+        await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"INSERT INTO {tableName}(d) VALUES (@d);",
+            Parameters =
+                { new YdbParameter("d", DbType.Decimal, decimalValue) { Precision = precision, Scale = scale } }
+        }.ExecuteNonQueryAsync();
+
+        Assert.Equal(expected == null ? DBNull.Value : decimal.Parse(expected, CultureInfo.InvariantCulture),
+            await new YdbCommand(ydbConnection) { CommandText = $"SELECT d FROM {tableName};" }
+                .ExecuteScalarAsync());
+
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
+    }
+
+    [Theory]
+    [InlineData("123.456", 5, 2)]
+    [InlineData("1.46", 2, 2)]
+    [InlineData("654321", 5, 0)]
+    [InlineData("493235.4", 7, 2)]
+    [InlineData("10.46", 3, 2)]
+    [InlineData("99.999", 5, 2)]
+    [InlineData("0.001", 3, 2)]
+    [InlineData("-12.345", 5, 2)]
+    [InlineData("7.001", 4, 2)]
+    [InlineData("1.0001", 5, 3)]
+    [InlineData("1000.00", 5, 2)]
+    [InlineData("123456.7", 6, 1)]
+    [InlineData("999.99", 5, 4)]
+    [InlineData("-100", 2, 0)]
+    [InlineData("-0.12", 2, 1)]
+    [InlineData("10.0", 2, 0)]
+    [InlineData("-0.1", 1, 0)]
+    [InlineData("10000", 4, 0)]
+    [InlineData("12345", 4, 0)]
+    [InlineData("12.3456", 6, 3)]
+    [InlineData("123.45", 4, 1)]
+    [InlineData("9999.9", 5, 0)]
+    [InlineData("-1234.56", 5, 1)]
+    [InlineData("-1000", 3, 0)]
+    [InlineData("0.0001", 4, 3)]
+    [InlineData("99999", 4, 0)]
+    [InlineData("9.999", 3, 2)]
+    [InlineData("123.4", 3, 0)]
+    [InlineData("1.234", 4, 2)]
+    [InlineData("-98.765", 5, 2)]
+    [InlineData("100.01", 5, 1)]
+    [InlineData("100000", 5, 0)]
+    public async Task Decimal_WhenNotRepresentableBySystemDecimal_ThrowsOverflowException(string value, byte precision,
+        byte scale)
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var tableName = $"DecimalOverflowTable__{Random.Shared.Next()}";
+        var decimalValue = decimal.Parse(value, CultureInfo.InvariantCulture);
+        await new YdbCommand(ydbConnection)
+                { CommandText = $"CREATE TABLE {tableName}(d Decimal(5,2), PRIMARY KEY(d))" }
+            .ExecuteNonQueryAsync();
+
+        Assert.Equal($"Value {decimalValue} does not fit Decimal({precision}, {scale})",
+            (await Assert.ThrowsAsync<OverflowException>(() => new YdbCommand(ydbConnection)
+            {
+                CommandText = $"INSERT INTO {tableName}(d) VALUES (@d);",
+                Parameters =
+                {
+                    new YdbParameter("d", DbType.Decimal, 123.456m)
+                        { Value = decimalValue, Precision = precision, Scale = scale }
+                }
+            }.ExecuteNonQueryAsync())).Message);
+
+        Assert.Equal(0ul,
+            (ulong)(await new YdbCommand(ydbConnection) { CommandText = $"SELECT COUNT(*) FROM {tableName};" }
+                .ExecuteScalarAsync())!
+        );
+
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
+    }
+
+
+    [Fact]
+    public void Decimal_WhenScaleGreaterThanPrecision_ThrowsArgumentOutOfRangeException() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new YdbParameter("d", DbType.Decimal, 0.0m) { Precision = 1, Scale = 2 }.TypedValue);
+
+    [Theory]
+    [InlineData("10000000000000000000000000000000000", 35, 0)]
+    [InlineData("1000000000000000000000000.0000000000", 35, 10)]
+    [InlineData("1000000000000000000000000000000000", 34, 0)]
+    [InlineData("100000000000000000000000.0000000000", 34, 10)]
+    [InlineData("100000000000000000000000000000000", 33, 0)]
+    [InlineData("10000000000000000000000.0000000000", 33, 10)]
+    [InlineData("-10000000000000000000000000000000", 32, 0)]
+    [InlineData("-1000000000000000000000.0000000000", 32, 10)]
+    [InlineData("-1000000000000000000000000000000", 31, 0)]
+    [InlineData("-100000000000000000000.0000000000", 31, 10)]
+    [InlineData("1000000000000000000000000000000", 30, 0)]
+    [InlineData("100000000000000000000.0000000000", 30, 10)]
+    [InlineData("79228162514264337593543950336", 29, 0)]
+    [InlineData("79228162514264337593543950.336", 29, 3)]
+    [InlineData("-79228162514264337593543950336", 29, 0)]
+    [InlineData("-79228162514264337593543950.336", 29, 3)]
+    [InlineData("100000", 4, 0)] // inf
+    public async Task Decimal_WhenYdbReturnsDecimalWithPrecisionGreaterThan28_ThrowsOverflowException(string value,
+        int precision, int scale)
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        Assert.Equal("Value does not fit into decimal", (await Assert.ThrowsAsync<OverflowException>(() =>
+                new YdbCommand(ydbConnection)
+                        { CommandText = $"SELECT (CAST('{value}' AS Decimal({precision}, {scale})));" }
+                    .ExecuteScalarAsync())
+            ).Message);
+    }
+
+    [Fact]
+    public async Task YdbParameter_WhenYdbDbTypeSetAndValueIsNull_ReturnsNullValue()
+    {
+        foreach (var ydbType in Enum.GetValues<YdbDbType>())
+        {
+            if (ydbType == YdbDbType.Unspecified) continue;
+
+            var tableName = $"Null_YdbDbType_{Random.Shared.Next()}";
+            await using var ydbConnection = await CreateOpenConnectionAsync();
+            var ydbTypeStr = ydbType == YdbDbType.Decimal ? "Decimal(22, 9)" : ydbType.ToString();
+            await new YdbCommand(ydbConnection)
+                    { CommandText = $"CREATE TABLE {tableName}(Id Int32, Type {ydbTypeStr}, PRIMARY KEY (Id))" }
+                .ExecuteNonQueryAsync();
+
+            await new YdbCommand(ydbConnection)
+            {
+                CommandText = $"INSERT INTO {tableName}(Id, Type) VALUES (1, @Type);",
+                Parameters = { new YdbParameter("Type", ydbType) }
+            }.ExecuteNonQueryAsync();
+
+            Assert.Equal(DBNull.Value, await new YdbCommand(ydbConnection)
+            {
+                CommandText = $"SELECT Type FROM {tableName} WHERE Id = @Id;",
+                Parameters = { new YdbParameter("Id", DbType.Int32, 1) }
+            }.ExecuteScalarAsync());
+
+            await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task YdbParameter_WhenYdbDbTypeSetAndValueIsNotNull_ReturnsValue()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var tableName = $"NonNull_YdbDbType_{Random.Shared.Next()}";
+        await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"""
+                           CREATE TABLE {tableName} (
+                               Int32Column Int32,
+                               BoolColumn Bool NOT NULL,
+                               Int64Column Int64 NOT NULL,
+                               Int16Column Int16 NOT NULL,
+                               Int8Column Int8 NOT NULL,
+                               FloatColumn Float NOT NULL,
+                               DoubleColumn Double NOT NULL,
+                               DefaultDecimalColumn Decimal(22, 9) NOT NULL,
+                               CustomDecimalColumn Decimal(35, 5) NOT NULL,
+                               Uint8Column Uint8 NOT NULL,
+                               Uint16Column Uint16 NOT NULL,
+                               Uint32Column Uint32 NOT NULL,
+                               Uint64Column Uint64 NOT NULL,
+                               TextColumn Text NOT NULL,
+                               BytesColumn Bytes NOT NULL,
+                               DateColumn Date NOT NULL,
+                               DatetimeColumn Datetime NOT NULL,
+                               TimestampColumn Timestamp NOT NULL,
+                               IntervalColumn Interval NOT NULL,
+                               JsonColumn Json NOT NULL,
+                               JsonDocumentColumn JsonDocument NOT NULL,
+                               Date32Column Date32 NOT NULL,
+                               Datetime64Column DateTime64 NOT NULL,
+                               Timestamp64Column Timestamp64 NOT NULL,
+                               Interval64Column Interval64 NOT NULL,
+                               PRIMARY KEY (Int32Column)
+                           );
+                           """
+        }.ExecuteNonQueryAsync();
+
+        await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"""
+                           INSERT INTO {tableName} (
+                               Int32Column, BoolColumn, Int64Column, Int16Column, Int8Column, FloatColumn, DoubleColumn, 
+                               DefaultDecimalColumn, CustomDecimalColumn, Uint8Column, Uint16Column, Uint32Column, 
+                               Uint64Column, TextColumn, BytesColumn, DateColumn, DatetimeColumn, TimestampColumn,
+                               IntervalColumn, JsonColumn, JsonDocumentColumn, Date32Column, Datetime64Column,
+                               Timestamp64Column,  Interval64Column
+                           ) VALUES (
+                               @Int32Column, @BoolColumn, @Int64Column, @Int16Column, @Int8Column, @FloatColumn, 
+                               @DoubleColumn, @DefaultDecimalColumn, @CustomDecimalColumn, @Uint8Column, @Uint16Column, 
+                               @Uint32Column, @Uint64Column, @TextColumn, @BytesColumn, @DateColumn, @DatetimeColumn, 
+                               @TimestampColumn, @IntervalColumn, @JsonColumn, @JsonDocumentColumn, @Date32Column,
+                               @Datetime64Column,  @Timestamp64Column, @Interval64Column
+                           );
+                           """,
+            Parameters =
+            {
+                new YdbParameter("Int32Column", YdbDbType.Int32, 1),
+                new YdbParameter("BoolColumn", YdbDbType.Bool, true),
+                new YdbParameter("Int64Column", YdbDbType.Int64, 1),
+                new YdbParameter("Int16Column", YdbDbType.Int16, (short)1),
+                new YdbParameter("Int8Column", YdbDbType.Int8, (sbyte)1),
+                new YdbParameter("FloatColumn", YdbDbType.Float, 1.0f),
+                new YdbParameter("DoubleColumn", YdbDbType.Double, 1.0),
+                new YdbParameter("DefaultDecimalColumn", YdbDbType.Decimal, 1m),
+                new YdbParameter("CustomDecimalColumn", YdbDbType.Decimal, 1m) { Precision = 35, Scale = 5 },
+                new YdbParameter("Uint8Column", YdbDbType.UInt8, (byte)1),
+                new YdbParameter("Uint16Column", YdbDbType.UInt16, (ushort)1),
+                new YdbParameter("Uint32Column", YdbDbType.UInt32, (uint)1),
+                new YdbParameter("Uint64Column", YdbDbType.UInt64, (ulong)1),
+                new YdbParameter("TextColumn", YdbDbType.Text, string.Empty),
+                new YdbParameter("BytesColumn", YdbDbType.Bytes, Array.Empty<byte>()),
+                new YdbParameter("DateColumn", YdbDbType.Date, DateTime.UnixEpoch),
+                new YdbParameter("DatetimeColumn", YdbDbType.DateTime, DateTime.UnixEpoch),
+                new YdbParameter("TimestampColumn", YdbDbType.Timestamp, DateTime.UnixEpoch),
+                new YdbParameter("IntervalColumn", YdbDbType.Interval, TimeSpan.Zero),
+                new YdbParameter("JsonColumn", YdbDbType.Json, "{}"),
+                new YdbParameter("JsonDocumentColumn", YdbDbType.JsonDocument, "{}"),
+                new YdbParameter("Date32Column", YdbDbType.Date32, DateTime.MinValue),
+                new YdbParameter("Datetime64Column", YdbDbType.Datetime64, DateTime.MinValue),
+                new YdbParameter("Timestamp64Column", YdbDbType.Timestamp64, DateTime.MinValue),
+                new YdbParameter("Interval64Column", YdbDbType.Interval64,
+                    TimeSpan.FromMilliseconds(TimeSpan.MinValue.Milliseconds))
+            }
+        }.ExecuteNonQueryAsync();
+
+        var ydbDataReader = await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"""
+                           SELECT 
+                               Int32Column, BoolColumn, Int64Column, Int16Column, Int8Column, FloatColumn, DoubleColumn, 
+                               DefaultDecimalColumn, CustomDecimalColumn, Uint8Column, Uint16Column, Uint32Column, 
+                               Uint64Column, TextColumn, BytesColumn, DateColumn, DatetimeColumn, TimestampColumn,
+                               IntervalColumn, JsonColumn, JsonDocumentColumn,  Date32Column, Datetime64Column,  
+                               Timestamp64Column, Interval64Column
+                           FROM {tableName};
+                           """
+        }.ExecuteReaderAsync();
+
+        Assert.True(ydbDataReader.Read());
+        Assert.Equal(1, ydbDataReader.GetInt32(0));
+        Assert.True(ydbDataReader.GetBoolean(1));
+        Assert.Equal(1, ydbDataReader.GetInt64(2));
+        Assert.Equal(1, ydbDataReader.GetInt16(3));
+        Assert.Equal(1, ydbDataReader.GetSByte(4));
+        Assert.Equal(1.0, ydbDataReader.GetFloat(5));
+        Assert.Equal(1.0, ydbDataReader.GetDouble(6));
+        Assert.Equal(1.000000000m, ydbDataReader.GetDecimal(7));
+        Assert.Equal(1.00000m, ydbDataReader.GetDecimal(8));
+        Assert.Equal(1, ydbDataReader.GetByte(9));
+        Assert.Equal(1, ydbDataReader.GetUint16(10));
+        Assert.Equal((uint)1, ydbDataReader.GetUint32(11));
+        Assert.Equal((ulong)1, ydbDataReader.GetUint64(12));
+        Assert.Equal(string.Empty, ydbDataReader.GetString(13));
+        Assert.Equal(Array.Empty<byte>(), ydbDataReader.GetBytes(14));
+        Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(15));
+        Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(16));
+        Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(17));
+        Assert.Equal(TimeSpan.Zero, ydbDataReader.GetInterval(18));
+        Assert.Equal("{}", ydbDataReader.GetJson(19));
+        Assert.Equal("{}", ydbDataReader.GetJsonDocument(20));
+        Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(21));
+        Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(22));
+        Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(23));
+        Assert.Equal(TimeSpan.FromMilliseconds(TimeSpan.MinValue.Milliseconds), ydbDataReader.GetInterval(24));
+        Assert.False(ydbDataReader.Read());
+        await ydbDataReader.CloseAsync();
+
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName}" }.ExecuteNonQueryAsync();
     }
 }

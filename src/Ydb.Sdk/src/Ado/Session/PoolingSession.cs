@@ -2,7 +2,6 @@ using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Internal;
-using Ydb.Sdk.Value;
 using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 using TransactionControl = Ydb.Query.TransactionControl;
 
@@ -43,7 +42,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
-        Dictionary<string, YdbValue> parameters,
+        Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl
     )
@@ -58,7 +57,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             StatsMode = StatsMode.None,
             TxControl = txControl
         };
-        request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
+        request.Parameters.Add(parameters);
 
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
@@ -236,7 +235,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         }
         catch (Exception e)
         {
-            _logger.LogWarning(e, "Error occurred while deleting session[{SessionId}] (NodeId = {NodeId})",
+            _logger.LogDebug(e, "Error occurred while deleting session[{SessionId}] (NodeId = {NodeId})",
                 SessionId, NodeId);
         }
     }

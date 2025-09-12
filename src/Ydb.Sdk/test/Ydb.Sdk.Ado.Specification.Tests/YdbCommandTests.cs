@@ -53,34 +53,4 @@ public class YdbCommandTests(YdbFactoryFixture fixture) : CommandTestBase<YdbFac
             });
         }
     }
-
-    public override async Task ExecuteReaderAsync_is_canceled()
-    {
-        await using var connection = CreateOpenConnection();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT 1;";
-        var task = command.ExecuteReaderAsync(CanceledToken);
-        Assert.Equal(StatusCode.ClientTransportTimeout,
-            (await Assert.ThrowsAnyAsync<YdbException>(() => task)).Code);
-    }
-
-    public override async Task ExecuteNonQueryAsync_is_canceled()
-    {
-        await using var connection = CreateOpenConnection();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT 1;";
-        var task = command.ExecuteNonQueryAsync(CanceledToken);
-        Assert.Equal(StatusCode.ClientTransportTimeout,
-            (await Assert.ThrowsAnyAsync<YdbException>(() => task)).Code);
-    }
-
-    public override async Task ExecuteScalarAsync_is_canceled()
-    {
-        await using var connection = CreateOpenConnection();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT 1;";
-        var task = command.ExecuteScalarAsync(CanceledToken);
-        Assert.Equal(StatusCode.ClientTransportTimeout,
-            (await Assert.ThrowsAnyAsync<YdbException>(() => task)).Code);
-    }
 }

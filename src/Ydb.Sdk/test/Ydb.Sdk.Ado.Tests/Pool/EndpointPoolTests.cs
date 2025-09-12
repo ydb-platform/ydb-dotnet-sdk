@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Moq;
 using Xunit;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Pool;
 
@@ -112,7 +113,7 @@ public class EndpointPoolTests
             listNewEndpointSettings.Add(new EndpointSettings(6, "n6.ydb.tech", "VLA"));
             listNewEndpointSettings.Add(new EndpointSettings(7, "n7.ydb.tech", "MAN"));
 
-            _endpointPool.Reset(listNewEndpointSettings.ToImmutableArray());
+            _endpointPool.Reset([..listNewEndpointSettings]);
 
             for (var it = 0; it < listNewEndpointSettings.Count; it++)
             {
@@ -141,7 +142,7 @@ public class EndpointPoolTests
             listNewEndpointSettings.Add(new EndpointSettings(6, "n6.ydb.tech", "VLA"));
             listNewEndpointSettings.Add(new EndpointSettings(7, "n7.ydb.tech", "MAN"));
 
-            var removed = _endpointPool.Reset(listNewEndpointSettings.ToImmutableArray());
+            var removed = _endpointPool.Reset([..listNewEndpointSettings]);
 
             Assert.Equal(2, removed.Length);
             Assert.Equal("n1.ydb.tech", removed[0]);

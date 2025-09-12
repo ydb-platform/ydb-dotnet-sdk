@@ -36,13 +36,16 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
         if (values.Length != _columns.Count)
             throw new ArgumentException("Values count must match columns count", nameof(values));
 
-        var ydbValues = values.Select(v =>
-            v as YdbValue ?? (v is YdbParameter param ? param.YdbValue : new YdbParameter { Value = v }.YdbValue)
+        var ydbValues = values.Select(v => v switch
+            {
+                YdbValue ydbValue => ydbValue.GetProto(),
+                YdbParameter param => param.TypedValue,
+                _ => new YdbParameter { Value = v }.TypedValue
+            }
         ).ToArray();
 
         var protoStruct = new Ydb.Value();
-        foreach (var value in ydbValues)
-            protoStruct.Items.Add(value.GetProto().Value);
+        foreach (var value in ydbValues) protoStruct.Items.Add(value.Value);
 
         var rowSize = protoStruct.CalculateSize();
 
@@ -55,16 +58,7 @@ public sealed class BulkUpsertImporter : IBulkUpsertImporter
         _currentBytes += rowSize;
 
         _structType ??= new StructType
-        {
-            Members =
-            {
-                _columns.Select((col, i) => new StructMember
-                {
-                    Name = col,
-                    Type = ydbValues[i].GetProto().Type
-                })
-            }
-        };
+            { Members = { _columns.Select((col, i) => new StructMember { Name = col, Type = ydbValues[i].Type }) } };
     }
 
     public async ValueTask FlushAsync()

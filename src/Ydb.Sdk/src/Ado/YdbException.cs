@@ -18,7 +18,6 @@ public class YdbException : DbException
     internal static YdbException FromServer(StatusIds.Types.StatusCode statusCode, IReadOnlyList<IssueMessage> issues)
     {
         var code = statusCode.Code();
-
         var message = code.ToMessage(issues);
 
         return new YdbException(code, message);
@@ -28,16 +27,11 @@ public class YdbException : DbException
         : base(message, innerException)
     {
         Code = statusCode;
-        var policy = RetrySettings.DefaultInstance.GetRetryRule(statusCode).Policy;
-
-        IsTransient = policy == RetryPolicy.Unconditional;
-        IsTransientWhenIdempotent = policy != RetryPolicy.None;
+        IsTransient = statusCode.IsTransient();
         // TODO: Add SQLSTATE message with order with https://en.wikipedia.org/wiki/SQLSTATE
     }
 
     public override bool IsTransient { get; }
-
-    public bool IsTransientWhenIdempotent { get; }
 
     public StatusCode Code { get; }
 }

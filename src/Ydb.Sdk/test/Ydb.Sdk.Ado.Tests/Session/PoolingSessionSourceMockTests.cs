@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using Xunit;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 
@@ -295,6 +294,9 @@ public class PoolingSessionSourceMockTests
                 catch (OperationCanceledException)
                 {
                 }
+                catch (YdbException)
+                {
+                }
             }, cts.Token));
         }
 
@@ -316,7 +318,9 @@ public class PoolingSessionSourceMockTests
         var cts = new CancellationTokenSource();
         cts.CancelAfter(500);
 
-        await Assert.ThrowsAsync<TaskCanceledException>(async () => await sessionSource.OpenSession(cts.Token));
+        Assert.Equal("The connection pool has been exhausted, either raise 'MaxSessionPool' (currently 1) " +
+                     "or 'CreateSessionTimeout' (currently 5 seconds) in your connection string.",
+            (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.OpenSession(cts.Token))).Message);
         session.Close();
 
         Assert.Equal(1, mockFactory.NumSession);
@@ -442,7 +446,7 @@ internal class MockPoolingSession(
 
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
-        Dictionary<string, YdbValue> parameters,
+        Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl
     ) => throw new NotImplementedException();

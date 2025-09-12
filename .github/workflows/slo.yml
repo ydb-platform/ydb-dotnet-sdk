@@ -23,13 +23,13 @@ jobs:
         include:
           - workload: AdoNet
             read_rps: 1000
-            write_rps: 1000
+            write_rps: 100
           - workload: Dapper
             read_rps: 1000
-            write_rps: 1000
+            write_rps: 100
           - workload: EF
-            read_rps: 500
-            write_rps: 500
+            read_rps: 1000
+            write_rps: 100
     
     concurrency:
       group: slo-${{ github.ref }}-${{ matrix.workload }}
@@ -64,8 +64,8 @@ jobs:
             --prom-pgw http://localhost:9091  \
             --report-period 250 \
             --time 600 \
-            --read-rps ${{matrix.read_rps || 1000 }} \
-            --write-rps ${{matrix.write_rps || 1000 }} \
+            --read-rps ${{ matrix.read_rps }} \
+            --write-rps ${{ matrix.write_rps }} \
             --read-timeout 1000 \
             --write-timeout 1000
 

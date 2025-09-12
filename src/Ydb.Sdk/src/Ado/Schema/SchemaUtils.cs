@@ -12,7 +12,7 @@ internal static class SchemaUtils
                 Type.Types.PrimitiveTypeId.String => "Bytes",
                 _ => type.TypeId.ToString()
             },
-        Type.TypeOneofCase.DecimalType => "Decimal(22, 9)",
+        Type.TypeOneofCase.DecimalType => $"Decimal({type.DecimalType.Precision}, {type.DecimalType.Scale})",
         _ => "Unknown"
     };
 

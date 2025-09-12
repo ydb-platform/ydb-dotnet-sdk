@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
+using Ydb.Sdk.Ado;
 
 namespace Internal;
 
@@ -19,6 +20,8 @@ public interface ISloContext
 
 public abstract class SloTableContext<T> : ISloContext
 {
+    private const int IntervalMs = 100;
+
     protected static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContext<T>>();
 
     private volatile int _maxId;
@@ -95,11 +98,13 @@ public abstract class SloTableContext<T> : ISloContext
 
         var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(100), PermitLimit = runConfig.WriteRps / 10, QueueLimit = int.MaxValue
+            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.WriteRps / 10,
+            QueueLimit = int.MaxValue
         });
         var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(100), PermitLimit = runConfig.ReadRps / 10, QueueLimit = int.MaxValue
+            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.ReadRps / 10,
+            QueueLimit = int.MaxValue
         });
 
         var cancellationTokenSource = new CancellationTokenSource();
@@ -124,8 +129,8 @@ public abstract class SloTableContext<T> : ISloContext
         Logger.LogInformation("Run task is finished");
         return;
 
-        Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
-            Func<T, RunConfig, Task<(int, StatusCode)>> action)
+        async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
+            Func<T, RunConfig, Task<int>> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
                 {
@@ -193,64 +198,61 @@ public abstract class SloTableContext<T> : ISloContext
                 ["error_type"]
             );
 
-            // ReSharper disable once MethodSupportsCancellation
-            return Task.Run(async () =>
+            var workJobs = new List<Task>();
+
+            for (var i = 0; i < 10; i++)
             {
-                while (!cancellationTokenSource.Token.IsCancellationRequested)
+                workJobs.Add(Task.Run(async () =>
                 {
-                    using var lease = await rateLimitPolicy
-                        .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
-
-                    if (!lease.IsAcquired)
+                    while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
-                        continue;
-                    }
+                        using var lease = await rateLimitPolicy
+                            .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
 
-                    _ = Task.Run(async () =>
-                    {
+                        if (!lease.IsAcquired)
+                        {
+                            await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
+                        }
+
+                        pendingOperations.Inc();
+                        var sw = Stopwatch.StartNew();
                         try
                         {
-                            pendingOperations.Inc();
-                            var sw = Stopwatch.StartNew();
-                            var (attempts, statusCode) = await action(client, runConfig);
+                            var attempts = await action(client, runConfig);
                             sw.Stop();
-
                             retryAttempts.Set(attempts);
                             operationsTotal.Inc();
                             pendingOperations.Dec();
-
-                            if (statusCode != StatusCode.Success)
-                            {
-                                errorsTotal.WithLabels(statusCode.StatusName()).Inc();
-                                operationsFailureTotal.Inc();
-                                operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
-                            }
-                            else
-                            {
-                                operationsSuccessTotal.Inc();
-                                operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
-                            }
+                            operationsSuccessTotal.Inc();
+                            operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
                         }
-                        catch (Exception e)
+                        catch (YdbException e)
                         {
                             Logger.LogError(e, "Fail operation!");
-                        }
-                    }, cancellationTokenSource.Token);
-                }
 
-                Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
-            });
+                            errorsTotal.WithLabels(e.Code.StatusName()).Inc();
+                            operationsFailureTotal.Inc();
+                            operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
+                        }
+                    }
+                }, cancellationTokenSource.Token));
+            }
+
+            // ReSharper disable once MethodSupportsCancellation
+            await Task.WhenAll(workJobs);
+
+            Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
         }
     }
 
     // return attempt count & StatusCode operation
-    protected abstract Task<(int, StatusCode)> Save(T client, SloTable sloTable, int writeTimeout);
+    protected abstract Task<int> Save(T client, SloTable sloTable, int writeTimeout);
 
-    protected abstract Task<(int, StatusCode, object?)> Select(T client, (Guid Guid, int Id) select, int readTimeout);
+    protected abstract Task<(int, object?)> Select(T client, (Guid Guid, int Id) select, int readTimeout);
 
     protected abstract Task<int> SelectCount(T client);
 
-    private Task<(int, StatusCode)> Save(T client, Config config)
+    private Task<int> Save(T client, Config config)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
@@ -270,13 +272,12 @@ public abstract class SloTableContext<T> : ISloContext
         return Save(client, sloTable, config.WriteTimeout);
     }
 
-    private async Task<(int, StatusCode)> Select(T client, RunConfig config)
+    private async Task<int> Select(T client, RunConfig config)
     {
         var id = Random.Shared.Next(_maxId);
-        var (attempts, code, _) =
-            await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);
+        var (attempts, _) = await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);
 
-        return (attempts, code);
+        return attempts;
     }
 
     private static Guid GuidFromInt(int value)

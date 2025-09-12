@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Ydb.Query;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Session;
 
@@ -126,9 +125,11 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                 continue;
             }
 
-            await using var _ = finalToken.Register(
-                () => waiterTcs.TrySetCanceled(),
-                useSynchronizationContext: false
+            await using var _ = finalToken.Register(() => waiterTcs.TrySetException(
+                    new YdbException($"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
+                                     $"(currently {_maxSessionSize}) or 'CreateSessionTimeout' " +
+                                     $"(currently {_createSessionTimeout} seconds) in your connection string.")
+                ), useSynchronizationContext: false
             );
             await using var disposeRegistration = _disposeCts.Token.Register(
                 () => waiterTcs.TrySetException(new YdbException("The session source has been shut down.")),
@@ -323,9 +324,12 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
 
     internal abstract Task DeleteSession();
 
-    public abstract ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(string query,
-        Dictionary<string, YdbValue> parameters, GrpcRequestSettings settings,
-        TransactionControl? txControl);
+    public abstract ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
+        string query,
+        Dictionary<string, TypedValue> parameters,
+        GrpcRequestSettings settings,
+        TransactionControl? txControl
+    );
 
     public abstract Task CommitTransaction(string txId, CancellationToken cancellationToken = default);
 

@@ -1,5 +1,4 @@
 ﻿using Google.Protobuf.WellKnownTypes;
-using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Value;
 
@@ -150,31 +149,28 @@ public partial class YdbValue
     public decimal GetDecimal()
     {
         EnsureType(Type.TypeOneofCase.DecimalType);
-        var low64 = _protoValue.Low128;
-        var high64 = _protoValue.High128;
-
+        var lo = _protoValue.Low128;
+        var hi = _protoValue.High128;
         var scale = _protoType.DecimalType.Scale;
-
-        var isNegative = false;
+        var isNegative = (hi & 0x8000_0000_0000_0000UL) != 0;
 
         unchecked
         {
-            if (high64 >> 63 == 1) // if negative
+            if (isNegative)
             {
-                isNegative = true;
-                if (low64 == 0)
-                {
-                    high64 -= 1;
-                }
+                if (lo == 0)
+                    hi--;
 
-                low64 -= 1;
-
-                low64 = ~low64;
-                high64 = ~high64;
+                lo--;
+                lo = ~lo;
+                hi = ~hi;
             }
         }
 
-        return new decimal((int)low64, (int)(low64 >> 32), (int)high64, isNegative, (byte)scale);
+        if (hi >> 32 != 0)
+            throw new OverflowException("Value does not fit into decimal");
+
+        return new decimal((int)lo, (int)(lo >> 32), (int)hi, isNegative, (byte)scale);
     }
 
     public bool? GetOptionalBool() => GetOptional()?.GetBool();
@@ -261,7 +257,8 @@ public partial class YdbValue
     {
         if (_protoType.TypeCase != expectedType)
         {
-            ThrowHelper.ThrowInvalidCastException(expectedType.ToString(), TypeId.ToString());
+            throw new InvalidCastException(
+                $"Invalid type of YDB value, expected: {expectedType}, actual: {_protoType}.");
         }
     }
 
@@ -269,7 +266,8 @@ public partial class YdbValue
     {
         if (_protoType.TypeCase != Type.TypeOneofCase.TypeId || _protoType.TypeId != primitiveTypeId)
         {
-            ThrowHelper.ThrowInvalidCastException(primitiveTypeId.ToString(), TypeId.ToString());
+            throw new InvalidCastException(
+                $"Invalid type of YDB value, expected: {primitiveTypeId}, actual: {_protoType}.");
         }
     }
 }

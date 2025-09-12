@@ -1,22 +1,20 @@
 using System.Data;
 using Internal;
-using Microsoft.Extensions.Logging;
-using Polly;
-using Ydb.Sdk;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.RetryPolicy;
 
 namespace AdoNet;
 
 public class SloTableContext : SloTableContext<YdbDataSource>
 {
-    private static readonly AsyncPolicy Policy = Polly.Policy.Handle<YdbException>(exception => exception.IsTransient)
-        .WaitAndRetryAsync(10, attempt => TimeSpan.FromMilliseconds(attempt * 10),
-            (e, _, _, _) => { Logger.LogWarning(e, "Failed read / write operation"); });
-
     protected override string Job => "AdoNet";
 
     protected override YdbDataSource CreateClient(Config config) => new(
-        new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
+        new YdbConnectionStringBuilder(config.ConnectionString)
+        {
+            LoggerFactory = ISloContext.Factory,
+            RetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true })
+        }
     );
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
@@ -39,18 +37,16 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         }.ExecuteNonQueryAsync();
     }
 
-    protected override async Task<(int, StatusCode)> Save(
+    protected override async Task<int> Save(
         YdbDataSource client,
         SloTable sloTable,
         int writeTimeout
     )
     {
         var attempts = 0;
-        var policyResult = await Policy.ExecuteAndCaptureAsync(async _ =>
+        await client.ExecuteAsync(async ydbConnection =>
         {
             attempts++;
-            await using var ydbConnection = await client.OpenConnectionAsync();
-
             var ydbCommand = new YdbCommand(ydbConnection)
             {
                 CommandText = $"""
@@ -94,24 +90,22 @@ public class SloTableContext : SloTableContext<YdbDataSource>
             };
 
             await ydbCommand.ExecuteNonQueryAsync();
-        }, new Context());
+        });
 
 
-        return (attempts, ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success);
+        return attempts;
     }
 
-    protected override async Task<(int, StatusCode, object?)> Select(
+    protected override async Task<(int, object?)> Select(
         YdbDataSource client,
         (Guid Guid, int Id) select,
         int readTimeout
     )
     {
         var attempts = 0;
-        var policyResult = await Policy.ExecuteAndCaptureAsync(async _ =>
+        var policyResult = await client.ExecuteAsync(async ydbConnection =>
         {
             attempts++;
-            await using var ydbConnection = await client.OpenConnectionAsync();
-
             var ydbCommand = new YdbCommand(ydbConnection)
             {
                 CommandText = $"""
@@ -127,9 +121,9 @@ public class SloTableContext : SloTableContext<YdbDataSource>
             };
 
             return await ydbCommand.ExecuteScalarAsync();
-        }, new Context());
+        });
 
-        return (attempts, ((YdbException)policyResult.FinalException)?.Code ?? StatusCode.Success, policyResult.Result);
+        return (attempts, policyResult);
     }
 
     protected override async Task<int> SelectCount(YdbDataSource client)

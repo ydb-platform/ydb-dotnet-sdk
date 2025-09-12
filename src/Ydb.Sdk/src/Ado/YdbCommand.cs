@@ -3,7 +3,6 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Ydb.Sdk.Ado.Internal;
-using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado;
 
@@ -169,6 +168,8 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (YdbConnection.IsBusy)
         {
             throw new YdbOperationInProgressException(YdbConnection);
@@ -183,7 +184,7 @@ public sealed class YdbCommand : DbCommand
                 : throw new InvalidOperationException("CommandText property has not been initialized")
         );
         var preparedSql = new StringBuilder();
-        var ydbParameters = new Dictionary<string, YdbValue>();
+        var ydbParameters = new Dictionary<string, TypedValue>();
 
         foreach (var sqlParam in sqlParams)
         {
@@ -192,14 +193,14 @@ public sealed class YdbCommand : DbCommand
                 continue;
             }
 
-            var ydbValue = sqlParam.YdbValueFetch(ydbParameterCollection);
+            var typedValue = sqlParam.YdbValueFetch(ydbParameterCollection);
 
             if (!sqlParam.IsNative)
             {
-                preparedSql.Append($"DECLARE {sqlParam.Name} AS {ydbValue.ToYql()};\n");
+                preparedSql.Append($"DECLARE {sqlParam.Name} AS {typedValue.ToYql()};\n");
             }
 
-            ydbParameters[sqlParam.Name] = ydbValue;
+            ydbParameters[sqlParam.Name] = typedValue;
         }
 
         preparedSql.Append(sql);
@@ -215,11 +216,9 @@ public sealed class YdbCommand : DbCommand
             throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
         }
 
-        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(
-            await YdbConnection.Session
-                .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl),
-            YdbConnection.OnNotSuccessStatusCode, transaction, cancellationToken
-        );
+        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery(
+            preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl
+        ), YdbConnection.OnNotSuccessStatusCode, transaction, cancellationToken);
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;

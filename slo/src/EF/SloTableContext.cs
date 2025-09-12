@@ -3,7 +3,6 @@ using EntityFrameworkCore.Ydb.Extensions;
 using Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Ydb.Sdk;
 using Ydb.Sdk.Ado;
 
 namespace EF;
@@ -25,7 +24,7 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
         await dbContext.Database.ExecuteSqlRawAsync(SloTable.Options);
     }
 
-    protected override async Task<(int, StatusCode)> Save(
+    protected override async Task<int> Save(
         PooledDbContextFactory<TableDbContext> client,
         SloTable sloTable,
         int writeTimeout
@@ -72,19 +71,18 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
                 });
         });
 
-        return (1, StatusCode.Success);
+        return 0;
     }
 
-    protected override async Task<(int, StatusCode, object?)> Select(
+    protected override async Task<(int, object?)> Select(
         PooledDbContextFactory<TableDbContext> client,
         (Guid Guid, int Id) select,
         int readTimeout
     )
     {
         await using var dbContext = await client.CreateDbContextAsync();
-        return (0, StatusCode.Success,
-            await dbContext.SloEntities.FirstOrDefaultAsync(table =>
-                table.Guid == select.Guid && table.Id == select.Id));
+        return (0, await dbContext.SloEntities.FirstOrDefaultAsync(table =>
+            table.Guid == select.Guid && table.Id == select.Id));
     }
 
     protected override async Task<int> SelectCount(PooledDbContextFactory<TableDbContext> client)
