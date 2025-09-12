@@ -51,15 +51,16 @@ public class NorthwindCompiledQueryYdbTest
     [Fact]
     public async Task Array_All_ILike()
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var count = context.Customers.Count(c => EF.Functions.ILike(c.ContactName, "%M%"));
 
         Assert.Equal(34, count);
+        //TODO: do something with unicode 'u' symbol which appears out of nowhere :\
         AssertSql(
             """
             SELECT CAST(COUNT(*) AS Int32)
-            FROM `Customers` AS c
-            WHERE `c`.`ContactName` ILIKE '%M%'
+            FROM `Customers` AS `c`
+            WHERE `c`.`ContactName` ILIKE '%M%'u
             """);
     }
     
