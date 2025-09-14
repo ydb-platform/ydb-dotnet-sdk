@@ -60,7 +60,7 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
     private readonly GrpcRequestSettings _settings;
 
     private List<ExecuteQueryResponsePart>? _responses;
-    private int _iterator;
+    private int _index = -1;
 
     public InMemoryServerStream(
         ISessionSource sessionSource,
@@ -78,12 +78,7 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
 
     public async Task<bool> MoveNextAsync(CancellationToken cancellationToken = default)
     {
-        if (_responses is not null)
-        {
-            return ++_iterator < _responses.Count;
-        }
-
-        _responses = await _ydbRetryPolicyExecutor.ExecuteAsync<List<ExecuteQueryResponsePart>>(async ct =>
+        _responses ??= await _ydbRetryPolicyExecutor.ExecuteAsync<List<ExecuteQueryResponsePart>>(async ct =>
         {
             using var session = await _sessionSource.OpenSession(ct);
 
@@ -113,12 +108,16 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
             }
         }, cancellationToken);
 
-        return _responses.Count > 0;
+        if (_index + 1 >= _responses.Count)
+            return false;
+        
+        _index++;
+        return true;
     }
 
-    public ExecuteQueryResponsePart Current => _responses is not null && _iterator < _responses.Count
-        ? _responses[_iterator]
-        : throw new InvalidOperationException("No response found");
+    public ExecuteQueryResponsePart Current => _responses is not null && _index < _responses.Count
+        ? _responses[_index]
+        : throw new InvalidOperationException("Enumeration has not started or has already finished");
 
     public void Dispose()
     {

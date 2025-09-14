@@ -42,6 +42,8 @@ public class PoolingSessionTests
     [InlineData(StatusCode.SessionExpired, true)]
     [InlineData(StatusCode.ClientTransportTimeout, true)]
     [InlineData(StatusCode.ClientTransportUnavailable, true)]
+    [InlineData(StatusCode.ClientTransportResourceExhausted, true)]
+    [InlineData(StatusCode.ClientTransportUnknown, true)]
     [InlineData(StatusCode.Overloaded, false)]
     public async Task OnNotSuccessStatusCode_WhenStatusCodeIsNotSuccess_UpdateIsBroken(StatusCode statusCode,
         bool isError)
