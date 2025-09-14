@@ -218,6 +218,7 @@ public class YdbParameterTests : TestBase
     [InlineData("-98.765", 5, 2)]
     [InlineData("100.01", 5, 1)]
     [InlineData("100000", 5, 0)]
+    [InlineData("12345678901", 10, 0)]
     public async Task Decimal_WhenNotRepresentableBySystemDecimal_ThrowsOverflowException(string value, byte precision,
         byte scale)
     {
@@ -225,7 +226,7 @@ public class YdbParameterTests : TestBase
         var tableName = $"DecimalOverflowTable__{Random.Shared.Next()}";
         var decimalValue = decimal.Parse(value, CultureInfo.InvariantCulture);
         await new YdbCommand(ydbConnection)
-                { CommandText = $"CREATE TABLE {tableName}(d Decimal(5,2), PRIMARY KEY(d))" }
+                { CommandText = $"CREATE TABLE {tableName}(d Decimal({precision}, {scale}), PRIMARY KEY(d))" }
             .ExecuteNonQueryAsync();
 
         Assert.Equal($"Value {decimalValue} does not fit Decimal({precision}, {scale})",
@@ -234,7 +235,7 @@ public class YdbParameterTests : TestBase
                 CommandText = $"INSERT INTO {tableName}(d) VALUES (@d);",
                 Parameters =
                 {
-                    new YdbParameter("d", DbType.Decimal, 123.456m)
+                    new YdbParameter("d", DbType.Decimal, decimal.Parse(value, CultureInfo.InvariantCulture))
                         { Value = decimalValue, Precision = precision, Scale = scale }
                 }
             }.ExecuteNonQueryAsync())).Message);

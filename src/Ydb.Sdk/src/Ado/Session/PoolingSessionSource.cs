@@ -337,5 +337,5 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
 
     public abstract void OnNotSuccessStatusCode(StatusCode code);
 
-    public void Close() => _source.Return((T)this);
+    public void Dispose() => _source.Return((T)this);
 }

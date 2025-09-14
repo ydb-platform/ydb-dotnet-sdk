@@ -3,7 +3,7 @@ using TransactionControl = Ydb.Query.TransactionControl;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal interface ISession
+internal interface ISession : IDisposable
 {
     IDriver Driver { get; }
 
@@ -21,6 +21,4 @@ internal interface ISession
     Task RollbackTransaction(string txId, CancellationToken cancellationToken = default);
 
     void OnNotSuccessStatusCode(StatusCode code);
-
-    void Close();
 }

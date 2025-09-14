@@ -6,7 +6,7 @@ public class MockAsyncEnumerator<T>(IEnumerable<T> items) : IServerStream<T>
 
     public T Current => _inner.Current;
 
-    public ValueTask<bool> MoveNextAsync(CancellationToken cancellationToken) => new(_inner.MoveNext());
+    public Task<bool> MoveNextAsync(CancellationToken cancellationToken) => Task.FromResult(_inner.MoveNext());
 
     public void Dispose()
     {
