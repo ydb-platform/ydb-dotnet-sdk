@@ -99,9 +99,12 @@ public class RetryableSessionTests
             null
         );
 
+        Assert.Throws<InvalidOperationException>(() => inMemoryStream.Current);
         var hasItem = await inMemoryStream.MoveNextAsync();
         Assert.True(hasItem);
         Assert.False(inMemoryStream.Current.Status.IsNotSuccess());
+        Assert.False(await inMemoryStream.MoveNextAsync());
+        Assert.Throws<InvalidOperationException>(() => inMemoryStream.Current);
 
         Assert.Equal(3, factory.SessionOpenedCount);
     }

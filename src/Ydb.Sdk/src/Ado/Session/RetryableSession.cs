@@ -48,7 +48,7 @@ internal class RetryableSession : ISession
     {
     }
 
-    private static YdbException NotSupportedTransaction => new("Transactions are not supported in retryable sessions");
+    private static YdbException NotSupportedTransaction => new("Transactions are not supported in retryable session");
 }
 
 internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponsePart>
@@ -108,14 +108,10 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
             }
         }, cancellationToken);
 
-        if (_index + 1 >= _responses.Count)
-            return false;
-        
-        _index++;
-        return true;
+        return ++_index < _responses.Count;
     }
 
-    public ExecuteQueryResponsePart Current => _responses is not null && _index < _responses.Count
+    public ExecuteQueryResponsePart Current => _responses is not null && _index >= 0 && _index < _responses.Count
         ? _responses[_index]
         : throw new InvalidOperationException("Enumeration has not started or has already finished");
 
