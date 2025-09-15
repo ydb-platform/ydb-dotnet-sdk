@@ -3,6 +3,7 @@ namespace Ydb.Sdk.Ado.Session;
 internal sealed class ImplicitSessionSource : ISessionSource
 {
     private readonly IDriver _driver;
+    private readonly ManualResetEventSlim _allReleased = new(false);
     private int _isDisposed;
     private int _activeLeaseCount;
 
@@ -37,18 +38,27 @@ internal sealed class ImplicitSessionSource : ISessionSource
         return true;
     }
 
-    internal void ReleaseLease() => Interlocked.Decrement(ref _activeLeaseCount);
+    internal void ReleaseLease()
+    {
+        if (Interlocked.Decrement(ref _activeLeaseCount) == 0 && Volatile.Read(ref _isDisposed) != 0)
+            _allReleased.Set();
+    }
 
     public async ValueTask DisposeAsync()
     {
-        Interlocked.Exchange(ref _isDisposed, 1);
+        if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) != 0)
+            return;
 
-        var spinner = new SpinWait();
-        while (Volatile.Read(ref _activeLeaseCount) != 0)
+        if (Volatile.Read(ref _activeLeaseCount) != 0)
+            _allReleased.Wait();
+
+        try
         {
-            spinner.SpinOnce();
+            await _driver.DisposeAsync();
         }
-
-        await _driver.DisposeAsync();
+        finally
+        {
+            _allReleased.Dispose();
+        }
     }
 }

@@ -24,26 +24,24 @@ public class YdbImplicitStressTests : TestBase
     {
         var driver = DummyDriver();
 
-        var onEmpty = new Counter();
-        var opened  = new Counter();
-        var closed  = new Counter();
+        var opened = new Counter();
+        var closed = new Counter();
 
         var source = new ImplicitSessionSource(driver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var token = cts.Token;
 
-        var workers = Enumerable.Range(0, 200).Select(async i =>
+        var workers = Enumerable.Range(0, 200).Select(async _ =>
         {
-            var rnd = new Random(i ^ Environment.TickCount);
+            var rnd = Random.Shared;
             for (var j = 0; j < 10; j++)
             {
                 try
                 {
-                    var s = await source.OpenSession(token);
+                    var s = await source.OpenSession(cts.Token);
                     opened.Inc();
 
-                    await Task.Delay(rnd.Next(0, 5), token);
+                    await Task.Delay(rnd.Next(0, 5), cts.Token);
 
                     s.Close();
                     closed.Inc();
@@ -56,9 +54,9 @@ public class YdbImplicitStressTests : TestBase
 
         var disposer = Task.Run(async () =>
         {
-            await Task.Delay(10, token);
+            await Task.Delay(10, cts.Token);
             await source.DisposeAsync();
-        }, token);
+        }, cts.Token);
 
         await Task.WhenAll(workers.Append(disposer));
 
@@ -75,24 +73,22 @@ public class YdbImplicitStressTests : TestBase
 
         var opened = new Counter();
         var closed = new Counter();
-        var onEmpty = new Counter();
 
         var source = new ImplicitSessionSource(driver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var token = cts.Token;
 
-        var workers = Enumerable.Range(0, 200).Select(async i =>
+        var workers = Enumerable.Range(0, 200).Select(async _ =>
         {
-            var rnd = new Random(i ^ Environment.TickCount);
+            var rnd = Random.Shared;
             for (var j = 0; j < 10; j++)
             {
                 try
                 {
-                    var s = await source.OpenSession(token);
+                    var s = await source.OpenSession(cts.Token);
                     opened.Inc();
 
-                    await Task.Delay(rnd.Next(0, 3), token);
+                    await Task.Delay(rnd.Next(0, 3), cts.Token);
 
                     s.Close();
                     closed.Inc();
@@ -103,7 +99,7 @@ public class YdbImplicitStressTests : TestBase
             }
         }).ToArray();
 
-        var disposer = Task.Run(async () => await source.DisposeAsync(), token);
+        var disposer = Task.Run(async () => await source.DisposeAsync(), cts.Token);
 
         await Task.WhenAll(workers.Append(disposer));
 
@@ -118,17 +114,15 @@ public class YdbImplicitStressTests : TestBase
     {
         var driver = DummyDriver();
 
-        var onEmpty = new Counter();
         var source = new ImplicitSessionSource(driver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var token = cts.Token;
 
         var opens = Enumerable.Range(0, 1000).Select(async _ =>
         {
             try
             {
-                var s = await source.OpenSession(token);
+                var s = await source.OpenSession(cts.Token);
                 s.Close();
                 return 1;
             }
@@ -142,7 +136,7 @@ public class YdbImplicitStressTests : TestBase
         {
             await Task.Yield();
             await source.DisposeAsync();
-        }, token);
+        }, cts.Token);
 
         await Task.WhenAll(opens.Append(disposeTask));
 
