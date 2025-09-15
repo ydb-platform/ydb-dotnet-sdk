@@ -22,22 +22,23 @@ public class YdbDataSource
     private readonly YdbConnectionStringBuilder _ydbConnectionStringBuilder;
     private readonly YdbRetryPolicyExecutor _retryPolicyExecutor;
 
+    public YdbDataSource() : this(new YdbDataSourceBuilder())
+    {
+    }
+
+    public YdbDataSource(string connectionString) : this(new YdbDataSourceBuilder(connectionString))
+    {
+    }
+
     public YdbDataSource(YdbConnectionStringBuilder connectionStringBuilder)
+        : this(new YdbDataSourceBuilder(connectionStringBuilder))
     {
-        _ydbConnectionStringBuilder = connectionStringBuilder;
-        _retryPolicyExecutor = _ydbConnectionStringBuilder.YdbRetryPolicyExecutor;
     }
 
-    public YdbDataSource(string connectionString)
+    internal YdbDataSource(YdbDataSourceBuilder builder)
     {
-        _ydbConnectionStringBuilder = new YdbConnectionStringBuilder(connectionString);
-        _retryPolicyExecutor = _ydbConnectionStringBuilder.YdbRetryPolicyExecutor;
-    }
-
-    public YdbDataSource()
-    {
-        _ydbConnectionStringBuilder = new YdbConnectionStringBuilder();
-        _retryPolicyExecutor = _ydbConnectionStringBuilder.YdbRetryPolicyExecutor;
+        _ydbConnectionStringBuilder = builder.ConnectionStringBuilder;
+        _retryPolicyExecutor = new YdbRetryPolicyExecutor(builder.RetryPolicy);
     }
 
     protected
@@ -383,4 +384,58 @@ public class YdbDataSource
         await transaction.CommitAsync(ct);
         return result;
     }, cancellationToken);
+
+    public async ValueTask<YdbConnection> OpenRetryableConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        var ydbConnection = CreateDbConnection();
+        try
+        {
+            await ydbConnection.OpenAsync(_retryPolicyExecutor, cancellationToken);
+
+            return ydbConnection;
+        }
+        catch
+        {
+            await ydbConnection.CloseAsync();
+            throw;
+        }
+    }
+
+    public async ValueTask<YdbConnection> OpenRetryableConnectionAsync(
+        YdbRetryPolicyConfig ydbRetryPolicyConfig,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var ydbConnection = CreateDbConnection();
+        try
+        {
+            await ydbConnection.OpenAsync(GetExecutor(ydbRetryPolicyConfig), cancellationToken);
+
+            return ydbConnection;
+        }
+        catch
+        {
+            await ydbConnection.CloseAsync();
+            throw;
+        }
+    }
+
+    public async ValueTask<YdbConnection> OpenRetryableConnectionAsync(
+        IRetryPolicy retryPolicy,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var ydbConnection = CreateDbConnection();
+        try
+        {
+            await ydbConnection.OpenAsync(new YdbRetryPolicyExecutor(retryPolicy), cancellationToken);
+
+            return ydbConnection;
+        }
+        catch
+        {
+            await ydbConnection.CloseAsync();
+            throw;
+        }
+    }
 }

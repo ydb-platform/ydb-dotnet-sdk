@@ -9,13 +9,9 @@ public class SloTableContext : SloTableContext<YdbDataSource>
 {
     protected override string Job => "Dapper";
 
-    protected override YdbDataSource CreateClient(Config config) => new(
-        new YdbConnectionStringBuilder(config.ConnectionString)
-        {
-            LoggerFactory = ISloContext.Factory,
-            RetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true })
-        }
-    );
+    protected override YdbDataSource CreateClient(Config config) => new YdbDataSourceBuilder(
+        new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
+    ) { RetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true }) }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
     {
@@ -28,45 +24,33 @@ public class SloTableContext : SloTableContext<YdbDataSource>
                                            PayloadDouble    Double,
                                            PayloadTimestamp Timestamp,
                                            PRIMARY KEY (Guid, Id)
-                                       );
+                                       ); 
                                        {SloTable.Options}
                                        """);
     }
 
     protected override async Task<int> Save(YdbDataSource client, SloTable sloTable, int writeTimeout)
     {
-        var attempt = 0;
-        await client.ExecuteAsync(async ydbConnection =>
-            {
-                attempt++;
-                await ydbConnection.ExecuteAsync(
-                    $"""
-                     UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
-                     VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)
-                     """, sloTable);
-            }
-        );
+        await using var ydbConnection = await client.OpenRetryableConnectionAsync();
+        await ydbConnection.ExecuteAsync(
+            $"""
+             UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
+             VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)
+             """, sloTable);
 
-        return attempt;
+        return 1;
     }
 
-    protected override async Task<(int, object?)> Select(YdbDataSource client, (Guid Guid, int Id) select,
+    protected override async Task<object?> Select(YdbDataSource client, (Guid Guid, int Id) select,
         int readTimeout)
     {
-        var attempts = 0;
-        var policyResult = await client.ExecuteAsync(async ydbConnection =>
-        {
-            attempts++;
-            return await ydbConnection.QueryFirstOrDefaultAsync<SloTable>(
-                $"""
-                 SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp
-                 FROM `{SloTable.Name}` WHERE Guid = @Guid AND Id = @Id;
-                 """,
-                new { select.Guid, select.Id }
-            );
-        });
-
-        return (attempts, policyResult);
+        await using var ydbConnection = await client.OpenRetryableConnectionAsync();
+        return await ydbConnection.QueryFirstOrDefaultAsync<SloTable>(
+            $"""
+             SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp
+             FROM `{SloTable.Name}` WHERE Guid = @Guid AND Id = @Id;
+             """, new { select.Guid, select.Id }
+        );
     }
 
     protected override async Task<int> SelectCount(YdbDataSource client)

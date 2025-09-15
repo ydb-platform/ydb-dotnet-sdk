@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Transport;
 
@@ -333,10 +332,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     public ICredentialsProvider? CredentialsProvider { get; init; }
 
     public X509Certificate2Collection? ServerCertificates { get; init; }
-
-    public IRetryPolicy RetryPolicy { get; init; } = YdbRetryPolicy.Default;
-
-    internal YdbRetryPolicyExecutor YdbRetryPolicyExecutor => new(RetryPolicy);
 
     private void SaveValue(string propertyName, object? value)
     {
