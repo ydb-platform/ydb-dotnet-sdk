@@ -43,7 +43,7 @@ public class YdbImplicitStressTests : TestBase
 
                     await Task.Delay(rnd.Next(0, 5), cts.Token);
 
-                    s.Close();
+                    s.Dispose();
                     closed.Inc();
                 }
                 catch (ObjectDisposedException)
@@ -90,7 +90,7 @@ public class YdbImplicitStressTests : TestBase
 
                     await Task.Delay(rnd.Next(0, 3), cts.Token);
 
-                    s.Close();
+                    s.Dispose();
                     closed.Inc();
                 }
                 catch (ObjectDisposedException)
@@ -123,7 +123,7 @@ public class YdbImplicitStressTests : TestBase
             try
             {
                 var s = await source.OpenSession(cts.Token);
-                s.Close();
+                s.Dispose();
                 return 1;
             }
             catch (ObjectDisposedException)

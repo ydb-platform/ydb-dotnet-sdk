@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.Session;
 
 namespace Ydb.Sdk.Ado;
 
@@ -211,14 +212,38 @@ public sealed class YdbCommand : DbCommand
 
         var transaction = YdbConnection.CurrentTransaction;
 
-        if (Transaction != null && Transaction != transaction) // assert on legacy DbTransaction property
+        if (Transaction != null && Transaction != transaction)
         {
             throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
         }
 
-        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery(
-            preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl
-        ), YdbConnection.OnNotSuccessStatusCode, transaction, cancellationToken);
+        var useImplicit = YdbConnection.EnableImplicitSession && transaction is null;
+        var session = useImplicit
+            ? new ImplicitSession(YdbConnection.Session.Driver, new ImplicitSessionSource(YdbConnection.Session.Driver))
+            : YdbConnection.Session;
+
+        YdbDataReader ydbDataReader;
+        try
+        {
+            var execResult = await session.ExecuteQuery(
+                preparedSql.ToString(),
+                ydbParameters,
+                execSettings,
+                transaction?.TransactionControl
+            );
+
+            ydbDataReader = await YdbDataReader.CreateYdbDataReader(
+                execResult,
+                YdbConnection.OnNotSuccessStatusCode,
+                transaction,
+                cancellationToken
+            );
+        }
+        finally
+        {
+            if (useImplicit)
+                session.Dispose();
+        }
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;

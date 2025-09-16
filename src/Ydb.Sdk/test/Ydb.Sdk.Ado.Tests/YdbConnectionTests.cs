@@ -1,5 +1,6 @@
 using System.Data;
 using Xunit;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Ado.YdbType;
 
@@ -487,9 +488,7 @@ public sealed class YdbConnectionTests : TestBase
         var result = Convert.ToInt64(await cmd.ExecuteScalarAsync());
         Assert.Equal(1L, result);
 
-        var implicitSession = conn.GetExecutionSession(useImplicit: true);
-        var pooledSession   = conn.GetExecutionSession(useImplicit: false);
-        Assert.NotEqual(implicitSession, pooledSession);
+        Assert.IsType<ImplicitSession>(conn.Session);
     }
 
     [Fact]
@@ -507,11 +506,7 @@ public sealed class YdbConnectionTests : TestBase
         var result = Convert.ToInt64(await cmd.ExecuteScalarAsync());
         Assert.Equal(1L, result);
 
-        var pooledSession = conn.GetExecutionSession(useImplicit: false);
-        var implicitSession = conn.GetExecutionSession(useImplicit: true);
-
-        Assert.Equal(pooledSession, conn.Session);
-        Assert.NotEqual(pooledSession, implicitSession);
+        Assert.IsNotType<ImplicitSession>(conn.Session);
     }
 
     [Fact]
@@ -527,8 +522,7 @@ public sealed class YdbConnectionTests : TestBase
         var result = (long)(await cmd.ExecuteScalarAsync())!;
         Assert.Equal(1L, result);
 
-        var pooledSession = conn.GetExecutionSession(useImplicit: false);
-        Assert.Equal(pooledSession, conn.Session);
+        Assert.IsNotType<ImplicitSession>(conn.Session);
     }
 
     [Fact]
@@ -539,28 +533,38 @@ public sealed class YdbConnectionTests : TestBase
 
         await using var conn1 = new YdbConnection(cs1);
         await conn1.OpenAsync();
-        var session1 = conn1.GetExecutionSession(useImplicit: true);
+        var s1 = conn1.Session;
 
         await using var conn2 = new YdbConnection(cs2);
         await conn2.OpenAsync();
-        var session2 = conn2.GetExecutionSession(useImplicit: true);
+        var s2 = conn2.Session;
 
-        Assert.NotEqual(session1, session2);
+        Assert.NotEqual(s1, s2);
     }
-    
+
     [Fact]
-    public async Task EnableImplicitSession_TwoSequentialCommands_GetDifferentImplicitSessions()
+    public async Task EnableImplicitSession_TwoSequentialCommands_ReusesSameSession()
     {
         var cs = ConnectionString + ";EnableImplicitSession=true";
         await using var conn = new YdbConnection(cs);
         await conn.OpenAsync();
 
-        var s1 = conn.GetExecutionSession(useImplicit: true);
-        var s2 = conn.GetExecutionSession(useImplicit: true);
+        var cmd1 = conn.CreateCommand();
+        cmd1.CommandText = "SELECT 1;";
+        var result1 = await cmd1.ExecuteScalarAsync();
 
-        Assert.NotEqual(s1, s2);
+        var s1 = conn.Session;
+
+        var cmd2 = conn.CreateCommand();
+        cmd2.CommandText = "SELECT 2;";
+        var result2 = await cmd2.ExecuteScalarAsync();
+
+        var s2 = conn.Session;
+
+        Assert.Equal(s1, s2);
+        
     }
-    
+
     [Fact]
     public async Task ClearPool_FireAndForget_DoesNotBlock_And_PoolsRecreate()
     {
@@ -572,10 +576,9 @@ public sealed class YdbConnectionTests : TestBase
             ";ConnectTimeout=3" +
             ";KeepAlivePingDelay=0;KeepAlivePingTimeout=0";
 
-        var csPooled   = csBase;                          // pooled-пул (без флага)
-        var csImplicit = csBase + ";EnableImplicitSession=true"; // implicit-пул (с флагом)
+        var csPooled = csBase;
+        var csImplicit = csBase + ";EnableImplicitSession=true";
 
-        // 1) Прогреваем оба пула (pooled и implicit), чтобы они точно были созданы.
         await using (var warmPooled = new YdbConnection(csPooled))
         {
             await warmPooled.OpenAsync();
@@ -592,21 +595,16 @@ public sealed class YdbConnectionTests : TestBase
             Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
         }
 
-        // 2) Вызываем ClearPool для ОБОИХ ключей (по вашей реализации ключи разные).
         var clearPooledTask   = YdbConnection.ClearPool(new YdbConnection(csPooled));
         var clearImplicitTask = YdbConnection.ClearPool(new YdbConnection(csImplicit));
 
-        // 3) Убеждаемся, что ClearPool не блокирует — завершается быстро (fail-fast).
-        // (Если вдруг среда перегружена, можно поднять таймаут до 3–5 секунд.)
         var done = await Task.WhenAny(Task.WhenAll(clearPooledTask, clearImplicitTask), Task.Delay(TimeSpan.FromSeconds(2)));
         Assert.True(done is not null && done != Task.Delay(TimeSpan.FromSeconds(2)), "ClearPool() must not block.");
 
-        // 4) Проверяем, что пулы корректно пересоздаются после очистки:
-        //    pooled — без флага, implicit — с флагом.
         await using (var checkPooled = new YdbConnection(csPooled))
         {
             await checkPooled.OpenAsync();
-            using var cmd = checkPooled.CreateCommand();
+            await using var cmd = checkPooled.CreateCommand();
             cmd.CommandText = "SELECT 1";
             Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
         }
@@ -614,12 +612,12 @@ public sealed class YdbConnectionTests : TestBase
         await using (var checkImplicit = new YdbConnection(csImplicit))
         {
             await checkImplicit.OpenAsync();
-            using var cmd = checkImplicit.CreateCommand();
+            await using var cmd = checkImplicit.CreateCommand();
             cmd.CommandText = "SELECT 1";
             Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
         }
     }
-    
+
     [Fact]
     public async Task EnableImplicitSession_ParallelQueries_WorkFine()
     {
@@ -636,7 +634,7 @@ public sealed class YdbConnectionTests : TestBase
         });
         await Task.WhenAll(tasks);
     }
-    
+
     [Fact]
     public async Task EnableImplicitSession_WithDisableDiscovery_Works()
     {

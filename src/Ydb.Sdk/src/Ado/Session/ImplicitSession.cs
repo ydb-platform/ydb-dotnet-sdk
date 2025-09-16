@@ -50,7 +50,7 @@ internal class ImplicitSession : ISession
     {
     }
 
-    public void Close() => _source.ReleaseLease();
+    public void Dispose() => _source.ReleaseLease();
 
     private static YdbException NotSupportedTransaction => new("Transactions are not supported in implicit sessions");
 }
