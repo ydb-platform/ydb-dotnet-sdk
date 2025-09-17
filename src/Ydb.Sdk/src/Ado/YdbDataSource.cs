@@ -88,7 +88,7 @@ public class YdbDataSource
 
         try
         {
-            await ydbConnection.OpenAsync(_retryPolicyExecutor, cancellationToken);
+            await ydbConnection.OpenAsync(cancellationToken);
             return ydbConnection;
         }
         catch

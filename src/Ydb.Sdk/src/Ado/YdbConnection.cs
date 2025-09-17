@@ -100,7 +100,7 @@ public sealed class YdbConnection : DbConnection
 
         ConnectionState = ConnectionState.Open;
     }
-    
+
     internal async ValueTask OpenAsync(
         YdbRetryPolicyExecutor retryPolicyExecutor,
         CancellationToken cancellationToken = default

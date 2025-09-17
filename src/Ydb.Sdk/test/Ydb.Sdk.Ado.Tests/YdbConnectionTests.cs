@@ -535,18 +535,17 @@ public sealed class YdbConnectionTests : TestBase
 
         var cmd1 = conn.CreateCommand();
         cmd1.CommandText = "SELECT 1;";
-        var result1 = await cmd1.ExecuteScalarAsync();
+        await cmd1.ExecuteScalarAsync();
 
         var s1 = conn.Session;
 
         var cmd2 = conn.CreateCommand();
         cmd2.CommandText = "SELECT 2;";
-        var result2 = await cmd2.ExecuteScalarAsync();
+        await cmd2.ExecuteScalarAsync();
 
         var s2 = conn.Session;
 
         Assert.Equal(s1, s2);
-        
     }
 
     [Fact]
@@ -579,11 +578,12 @@ public sealed class YdbConnectionTests : TestBase
             Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
         }
 
-        var clearPooledTask   = YdbConnection.ClearPool(new YdbConnection(csPooled));
+        var clearPooledTask = YdbConnection.ClearPool(new YdbConnection(csPooled));
         var clearImplicitTask = YdbConnection.ClearPool(new YdbConnection(csImplicit));
 
-        var done = await Task.WhenAny(Task.WhenAll(clearPooledTask, clearImplicitTask), Task.Delay(TimeSpan.FromSeconds(2)));
-        Assert.True(done is not null && done != Task.Delay(TimeSpan.FromSeconds(2)), "ClearPool() must not block.");
+        var done = await Task.WhenAny(Task.WhenAll(clearPooledTask, clearImplicitTask),
+            Task.Delay(TimeSpan.FromSeconds(2)));
+        Assert.True(done != Task.Delay(TimeSpan.FromSeconds(2)), "ClearPool() must not block.");
 
         await using (var checkPooled = new YdbConnection(csPooled))
         {

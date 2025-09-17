@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace Ydb.Sdk.Ado.Tests.Session;
+namespace Ydb.Sdk.Ado.Tests;
 
 public class YdbImplictConnectionTests : TestBase
 {
