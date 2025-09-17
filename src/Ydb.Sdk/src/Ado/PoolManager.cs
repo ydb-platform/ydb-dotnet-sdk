@@ -36,8 +36,17 @@ internal static class PoolManager
 
             driver.RegisterOwner();
 
-            var factory = new PoolingSessionFactory(driver, settings);
-            var newSessionPool = new PoolingSessionSource<PoolingSession>(factory, settings);
+            ISessionSource newSessionPool;
+
+            if (settings.MaxSessionPool > 0)
+            {
+                var factory = new PoolingSessionFactory(driver, settings);
+                newSessionPool = new PoolingSessionSource<PoolingSession>(factory, settings);
+            }
+            else
+            {
+                newSessionPool = new ImplicitSessionSource(driver);
+            }
 
             Pools[settings.ConnectionString] = newSessionPool;
 

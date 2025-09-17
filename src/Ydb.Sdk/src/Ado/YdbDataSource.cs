@@ -391,6 +391,7 @@ public class YdbDataSource
         try
         {
             await ydbConnection.OpenAsync(_retryPolicyExecutor, cancellationToken);
+
             return ydbConnection;
         }
         catch
@@ -408,7 +409,8 @@ public class YdbDataSource
         var ydbConnection = CreateDbConnection();
         try
         {
-            await ydbConnection.OpenAsync(_retryPolicyExecutor, cancellationToken);
+            await ydbConnection.OpenAsync(GetExecutor(ydbRetryPolicyConfig), cancellationToken);
+
             return ydbConnection;
         }
         catch
@@ -426,7 +428,8 @@ public class YdbDataSource
         var ydbConnection = CreateDbConnection();
         try
         {
-            await ydbConnection.OpenAsync(_retryPolicyExecutor, cancellationToken);
+            await ydbConnection.OpenAsync(new YdbRetryPolicyExecutor(retryPolicy), cancellationToken);
+
             return ydbConnection;
         }
         catch
