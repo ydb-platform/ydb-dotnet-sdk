@@ -9,7 +9,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-		<PackageReference Include="linq2db" Version="6.0.0-rc.3" />
 		<ProjectReference Include="..\Internal\Internal.csproj" />
 		<PackageReference Include="Grpc.Core" Version="2.46.6" />		  
     </ItemGroup>
