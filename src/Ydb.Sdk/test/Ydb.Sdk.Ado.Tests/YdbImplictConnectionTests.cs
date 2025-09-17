@@ -49,61 +49,6 @@ public class YdbImplictConnectionTests : TestBase
     }
 
     [Fact]
-    public async Task ImplicitSession_DisallowsTransactions_And_AllowsNonTransactionalCommands()
-    {
-        var table = $"Implicit_{Guid.NewGuid():N}";
-
-        await using var connection = CreateConnection();
-        connection.ConnectionString += ";EnableImplicitSession=true";
-        await connection.OpenAsync();
-
-        try
-        {
-            await using (var create = connection.CreateCommand())
-            {
-                create.CommandText = $"""
-                                      CREATE TABLE {table} (
-                                          Id Int32,
-                                          Name Text,
-                                          PRIMARY KEY (Id)
-                                      )
-                                      """;
-                await create.ExecuteNonQueryAsync();
-            }
-
-            await using (var insert = connection.CreateCommand())
-            {
-                insert.CommandText = $"INSERT INTO {table} (Id, Name) VALUES (1, 'A');";
-                await insert.ExecuteNonQueryAsync();
-            }
-
-            var tx = connection.BeginTransaction();
-            await using (var insertTx = connection.CreateCommand())
-            {
-                insertTx.Transaction = tx;
-                insertTx.CommandText = $"INSERT INTO {table} (Id, Name) VALUES (2, 'B');";
-                var ex = await Assert.ThrowsAsync<YdbException>(async () => await insertTx.ExecuteNonQueryAsync());
-                Assert.Contains("Transactions are not supported in implicit sessions", ex.Message);
-            }
-
-            await tx.RollbackAsync();
-
-            await using (var check = connection.CreateCommand())
-            {
-                check.CommandText = $"SELECT COUNT(*) FROM {table};";
-                var count = Convert.ToInt32(await check.ExecuteScalarAsync());
-                Assert.Equal(1, count);
-            }
-        }
-        finally
-        {
-            await using var drop = connection.CreateCommand();
-            drop.CommandText = $"DROP TABLE {table}";
-            await drop.ExecuteNonQueryAsync();
-        }
-    }
-
-    [Fact]
     public async Task ImplicitSession_Cancellation_AfterFirstResult_StillReturnsFirst()
     {
         await using var connection = CreateConnection();

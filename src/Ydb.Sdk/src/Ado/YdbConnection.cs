@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Sdk.Ado.BulkUpsert;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
 using static System.Data.IsolationLevel;
 
@@ -81,11 +82,7 @@ public sealed class YdbConnection : DbConnection
         return CurrentTransaction;
     }
 
-    public override void ChangeDatabase(string databaseName)
-    {
-    }
-    
-    internal bool EnableImplicitSession => ConnectionStringBuilder.EnableImplicitSession;
+    public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
 
     public override void Close() => CloseAsync().GetAwaiter().GetResult();
 
@@ -95,9 +92,25 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        Session = await PoolManager.GetSession(ConnectionStringBuilder, cancellationToken);
+        var sessionSource = await PoolManager.Get(ConnectionStringBuilder, cancellationToken);
+
+        Session = await sessionSource.OpenSession(cancellationToken);
 
         OnStateChange(ClosedToOpenEventArgs);
+
+        ConnectionState = ConnectionState.Open;
+    }
+    
+    internal async ValueTask OpenAsync(
+        YdbRetryPolicyExecutor retryPolicyExecutor,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ThrowIfConnectionOpen();
+
+        var sessionSource = await PoolManager.Get(ConnectionStringBuilder, cancellationToken);
+
+        Session = new RetryableSession(sessionSource, retryPolicyExecutor);
 
         ConnectionState = ConnectionState.Open;
     }
@@ -160,7 +173,7 @@ public sealed class YdbConnection : DbConnection
             ? ConnectionState.Broken
             : ConnectionState;
 
-    private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed;
+    private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
 
     internal void OnNotSuccessStatusCode(StatusCode code) => _session.OnNotSuccessStatusCode(code);
 
