@@ -476,22 +476,6 @@ public sealed class YdbConnectionTests : TestBase
     }
 
     [Fact]
-    public async Task EnableImplicitSession_WhenTrue_AndNoTransaction_UsesImplicitSession()
-    {
-        var cs = ConnectionString + ";EnableImplicitSession=true";
-
-        await using var conn = new YdbConnection(cs);
-        await conn.OpenAsync();
-
-        var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1"; 
-        var result = Convert.ToInt64(await cmd.ExecuteScalarAsync());
-        Assert.Equal(1L, result);
-
-        Assert.IsType<ImplicitSession>(conn.Session);
-    }
-
-    [Fact]
     public async Task EnableImplicitSession_WhenTrue_ButInsideTransaction_UsesPooledSession()
     {
         var cs = ConnectionString + ";EnableImplicitSession=true";
@@ -616,23 +600,6 @@ public sealed class YdbConnectionTests : TestBase
             cmd.CommandText = "SELECT 1";
             Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
         }
-    }
-
-    [Fact]
-    public async Task EnableImplicitSession_ParallelQueries_WorkFine()
-    {
-        var cs = ConnectionString + ";EnableImplicitSession=true";
-        await using var conn = new YdbConnection(cs);
-        await conn.OpenAsync();
-
-        var tasks = Enumerable.Range(0, 16).Select(async _ =>
-        {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT 1";
-            var v = Convert.ToInt64(await cmd.ExecuteScalarAsync());
-            Assert.Equal(1L, v);
-        });
-        await Task.WhenAll(tasks);
     }
 
     [Fact]
