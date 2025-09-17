@@ -210,7 +210,7 @@ public sealed class YdbCommand : DbCommand
             ? new GrpcRequestSettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
             : new GrpcRequestSettings();
 
-        var transaction = Transaction ?? YdbConnection.CurrentTransaction;
+        var transaction = YdbConnection.CurrentTransaction;
 
         if (Transaction != null && Transaction != transaction)
         {

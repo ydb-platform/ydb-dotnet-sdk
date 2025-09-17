@@ -72,17 +72,8 @@ public sealed class YdbConnection : DbConnection
         if (CurrentTransaction is { Completed: false })
         {
             throw new InvalidOperationException(
-                "A transaction is already in progress; nested/concurrent transactions aren't supported.");
-        }
-
-        if (Session is ImplicitSession)
-        {
-            var driver = Session.Driver;
-            Session.Dispose();
-
-            var factory = new PoolingSessionFactory(driver, ConnectionStringBuilder);
-            var pooledSource = new PoolingSessionSource<PoolingSession>(factory, ConnectionStringBuilder);
-            Session = pooledSource.OpenSession(CancellationToken.None).GetAwaiter().GetResult();
+                "A transaction is already in progress; nested/concurrent transactions aren't supported."
+            );
         }
 
         CurrentTransaction = new YdbTransaction(this, transactionMode);
