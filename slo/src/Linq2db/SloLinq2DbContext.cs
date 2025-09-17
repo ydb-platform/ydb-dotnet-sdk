@@ -14,15 +14,10 @@ using Ydb.Sdk.Ado;
 
 namespace Linq2db;
 
-/// <summary>
-/// SLO harness implemented on top of LINQ to DB provider for YDB.
-/// Mirrors behavior of other SLO contexts (ADO.NET/EF/Topic) in this repo.
-/// </summary>
 public sealed class SloLinq2DbContext : ISloContext
 {
     private static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloLinq2DbContext>();
 
-    // Prometheus metrics (shared labels: operation, status)
     private static readonly Counter Requests = Metrics.CreateCounter(
         "ydb_slo_requests_total",
         "Total number of SLO operations processed.",
@@ -116,7 +111,6 @@ public sealed class SloLinq2DbContext : ISloContext
         using var db = new DataConnection(provider, ydb);
         db.AddMappingSchema(CreateMapping());
 
-        // Get current max Id
         var maxId = await db.GetTable<SloTable>().Select(t => (int?)t.Id).MaxAsync() ?? 0;
         var nextWriteId = maxId;
 
