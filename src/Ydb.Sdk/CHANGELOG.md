@@ -1,3 +1,5 @@
+- Added provider support for implicit sessions.
+
 ## v0.23.0
 
 - Feat ADO.NET: `YdbDataSource.OpenRetryableConnectionAsync` opens a retryable connection with automatic retries for transient failures.
