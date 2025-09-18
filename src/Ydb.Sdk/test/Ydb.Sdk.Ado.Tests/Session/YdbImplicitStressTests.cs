@@ -43,6 +43,9 @@ public class YdbImplicitStressTests : TestBase
 
                     s.Dispose();
                     closed.Inc();
+
+                    var s2 = await source.OpenSession(CancellationToken.None);
+                    s2.Dispose();
                 }
                 catch (ObjectDisposedException)
                 {
@@ -88,6 +91,9 @@ public class YdbImplicitStressTests : TestBase
 
                     s.Dispose();
                     closed.Inc();
+
+                    var s2 = await source.OpenSession(CancellationToken.None);
+                    s2.Dispose();
                 }
                 catch (ObjectDisposedException)
                 {
@@ -118,6 +124,10 @@ public class YdbImplicitStressTests : TestBase
             {
                 var s = await source.OpenSession(CancellationToken.None);
                 s.Dispose();
+
+                var s2 = await source.OpenSession(CancellationToken.None);
+                s2.Dispose();
+
                 return 1;
             }
             catch (ObjectDisposedException)

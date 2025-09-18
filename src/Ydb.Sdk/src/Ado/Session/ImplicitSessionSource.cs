@@ -3,7 +3,7 @@ namespace Ydb.Sdk.Ado.Session;
 internal sealed class ImplicitSessionSource : ISessionSource
 {
     private readonly IDriver _driver;
-    private readonly ManualResetEventSlim _allReleased = new(false);
+    private readonly ManualResetEventSlim _allReleased = new(initialState: false);
     private int _isDisposed;
     private int _activeLeaseCount;
 
