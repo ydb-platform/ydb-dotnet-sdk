@@ -106,6 +106,14 @@ public enum YdbDbType
     Text,
 
     /// <summary>
+    /// YSON in binary form (passed/returned as byte[]).
+    /// </summary>
+    /// <remarks>
+    /// Can't be used in the primary key.
+    /// </remarks>
+    Yson,
+
+    /// <summary>
     /// JSON represented as text.
     /// </summary>
     /// <remarks>
