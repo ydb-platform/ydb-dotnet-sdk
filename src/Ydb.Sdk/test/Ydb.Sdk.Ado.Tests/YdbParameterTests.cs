@@ -343,6 +343,7 @@ public class YdbParameterTests : TestBase
                                IntervalColumn Interval NOT NULL,
                                JsonColumn Json NOT NULL,
                                JsonDocumentColumn JsonDocument NOT NULL,
+                               YsonColumn Yson NOT NULL,
                                Date32Column Date32 NOT NULL,
                                Datetime64Column DateTime64 NOT NULL,
                                Timestamp64Column Timestamp64 NOT NULL,
@@ -359,13 +360,13 @@ public class YdbParameterTests : TestBase
                                Int32Column, BoolColumn, Int64Column, Int16Column, Int8Column, FloatColumn, DoubleColumn, 
                                DefaultDecimalColumn, CustomDecimalColumn, Uint8Column, Uint16Column, Uint32Column, 
                                Uint64Column, TextColumn, BytesColumn, DateColumn, DatetimeColumn, TimestampColumn,
-                               IntervalColumn, JsonColumn, JsonDocumentColumn, Date32Column, Datetime64Column,
+                               IntervalColumn, JsonColumn, JsonDocumentColumn, YsonColumn, Date32Column, Datetime64Column,
                                Timestamp64Column,  Interval64Column
                            ) VALUES (
                                @Int32Column, @BoolColumn, @Int64Column, @Int16Column, @Int8Column, @FloatColumn, 
                                @DoubleColumn, @DefaultDecimalColumn, @CustomDecimalColumn, @Uint8Column, @Uint16Column, 
                                @Uint32Column, @Uint64Column, @TextColumn, @BytesColumn, @DateColumn, @DatetimeColumn, 
-                               @TimestampColumn, @IntervalColumn, @JsonColumn, @JsonDocumentColumn, @Date32Column,
+                               @TimestampColumn, @IntervalColumn, @JsonColumn, @JsonDocumentColumn, @YsonColumn, @Date32Column,
                                @Datetime64Column,  @Timestamp64Column, @Interval64Column
                            );
                            """,
@@ -392,6 +393,7 @@ public class YdbParameterTests : TestBase
                 new YdbParameter("IntervalColumn", YdbDbType.Interval, TimeSpan.Zero),
                 new YdbParameter("JsonColumn", YdbDbType.Json, "{}"),
                 new YdbParameter("JsonDocumentColumn", YdbDbType.JsonDocument, "{}"),
+                new YdbParameter("YsonColumn", YdbDbType.Yson, "{a=1u}"u8.ToArray()),
                 new YdbParameter("Date32Column", YdbDbType.Date32, DateTime.MinValue),
                 new YdbParameter("Datetime64Column", YdbDbType.Datetime64, DateTime.MinValue),
                 new YdbParameter("Timestamp64Column", YdbDbType.Timestamp64, DateTime.MinValue),
@@ -407,7 +409,7 @@ public class YdbParameterTests : TestBase
                                Int32Column, BoolColumn, Int64Column, Int16Column, Int8Column, FloatColumn, DoubleColumn, 
                                DefaultDecimalColumn, CustomDecimalColumn, Uint8Column, Uint16Column, Uint32Column, 
                                Uint64Column, TextColumn, BytesColumn, DateColumn, DatetimeColumn, TimestampColumn,
-                               IntervalColumn, JsonColumn, JsonDocumentColumn,  Date32Column, Datetime64Column,  
+                               IntervalColumn, JsonColumn, JsonDocumentColumn, YsonColumn, Date32Column, Datetime64Column,  
                                Timestamp64Column, Interval64Column
                            FROM {tableName};
                            """
@@ -435,10 +437,12 @@ public class YdbParameterTests : TestBase
         Assert.Equal(TimeSpan.Zero, ydbDataReader.GetInterval(18));
         Assert.Equal("{}", ydbDataReader.GetJson(19));
         Assert.Equal("{}", ydbDataReader.GetJsonDocument(20));
-        Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(21));
+        Assert.Equal("{a=1u}"u8.ToArray(), ydbDataReader.GetBytes(21));
+        Assert.Equal("{a=1u}"u8.ToArray(), ydbDataReader.GetYson(21));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(22));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(23));
-        Assert.Equal(TimeSpan.FromMilliseconds(TimeSpan.MinValue.Milliseconds), ydbDataReader.GetInterval(24));
+        Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(24));
+        Assert.Equal(TimeSpan.FromMilliseconds(TimeSpan.MinValue.Milliseconds), ydbDataReader.GetInterval(25));
         Assert.False(ydbDataReader.Read());
         await ydbDataReader.CloseAsync();
 

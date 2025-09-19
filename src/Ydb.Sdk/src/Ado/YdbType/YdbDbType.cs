@@ -104,6 +104,14 @@ public enum YdbDbType
     /// This type is an alias for the deprecated <c>Utf8</c> type.
     /// </remarks>
     Text,
+    
+    /// <summary>
+    /// YSON in binary form (passed/returned as byte[]).
+    /// </summary>
+    /// <remarks>
+    /// Can't be used in the primary key.
+    /// </remarks>
+    Yson,
 
     /// <summary>
     /// JSON represented as text.

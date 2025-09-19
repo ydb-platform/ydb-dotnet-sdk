@@ -119,6 +119,9 @@ internal static class YdbTypedValueExtensions
 
     internal static TypedValue Bytes(this byte[] value) => MakePrimitiveTypedValue(Type.Types.PrimitiveTypeId.String,
         new Ydb.Value { BytesValue = ByteString.CopyFrom(value) });
+    
+    internal static TypedValue Yson(this byte[] value) => MakePrimitiveTypedValue(Type.Types.PrimitiveTypeId.Yson,
+        new Ydb.Value { BytesValue = ByteString.CopyFrom(value) });
 
     internal static TypedValue Json(this string value) => MakeText(Type.Types.PrimitiveTypeId.Json, value);
 

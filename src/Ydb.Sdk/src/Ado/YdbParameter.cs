@@ -33,6 +33,7 @@ public sealed class YdbParameter : DbParameter
         { YdbDbType.Float, Type.Types.PrimitiveTypeId.Float.Null() },
         { YdbDbType.Double, Type.Types.PrimitiveTypeId.Double.Null() },
         { YdbDbType.Uuid, Type.Types.PrimitiveTypeId.Uuid.Null() },
+        { YdbDbType.Yson,  Type.Types.PrimitiveTypeId.Yson.Null() },
         { YdbDbType.Json, Type.Types.PrimitiveTypeId.Json.Null() },
         { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() },
         { YdbDbType.Date32, Type.Types.PrimitiveTypeId.Date32.Null() },
@@ -155,6 +156,7 @@ public sealed class YdbParameter : DbParameter
                 YdbDbType.Double => MakeDouble(value),
                 YdbDbType.Decimal when value is decimal decimalValue => Decimal(decimalValue),
                 YdbDbType.Bytes => MakeBytes(value),
+                YdbDbType.Yson => MakeYson(value),
                 YdbDbType.Json when value is string stringValue => stringValue.Json(),
                 YdbDbType.JsonDocument when value is string stringValue => stringValue.JsonDocument(),
                 YdbDbType.Uuid when value is Guid guidValue => guidValue.Uuid(),
@@ -237,6 +239,13 @@ public sealed class YdbParameter : DbParameter
     {
         byte[] bytesValue => bytesValue.Bytes(),
         MemoryStream memoryStream => memoryStream.ToArray().Bytes(),
+        _ => throw ValueTypeNotSupportedException
+    };
+    
+    private TypedValue MakeYson(object value) => value switch
+    {
+        byte[] bytesValue => bytesValue.Yson(),
+        MemoryStream memoryStream => memoryStream.ToArray().Yson(),
         _ => throw ValueTypeNotSupportedException
     };
 

@@ -94,7 +94,18 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public sbyte GetSByte(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Int8, ordinal).GetInt8();
 
-    public byte[] GetBytes(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.String, ordinal).GetBytes();
+    public byte[] GetBytes(int ordinal)
+    {
+        var type = UnwrapColumnType(ordinal);
+        return type.TypeId switch
+        {
+            Type.Types.PrimitiveTypeId.String => CurrentRow[ordinal].GetBytes(),
+            Type.Types.PrimitiveTypeId.Yson   => CurrentRow[ordinal].GetYson(),
+            _ => throw InvalidCastException(Type.Types.PrimitiveTypeId.String, ordinal)
+        };
+    }
+    
+    public byte[] GetYson(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Yson, ordinal).GetYson();
 
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
     {
@@ -281,6 +292,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 or Type.Types.PrimitiveTypeId.JsonDocument
                 or Type.Types.PrimitiveTypeId.Json => typeof(string),
             Type.Types.PrimitiveTypeId.String => typeof(byte[]),
+            Type.Types.PrimitiveTypeId.Yson => typeof(byte[]),
             Type.Types.PrimitiveTypeId.Uuid => typeof(Guid),
             _ => throw new YdbException($"Unsupported ydb type {type}")
         };
@@ -440,6 +452,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Utf8 => ydbValue.GetText(),
             Type.Types.PrimitiveTypeId.Json => ydbValue.GetJson(),
             Type.Types.PrimitiveTypeId.JsonDocument => ydbValue.GetJsonDocument(),
+            Type.Types.PrimitiveTypeId.Yson => ydbValue.GetYson(),
             Type.Types.PrimitiveTypeId.String => ydbValue.GetBytes(),
             Type.Types.PrimitiveTypeId.Uuid => ydbValue.GetUuid(),
             _ => throw new YdbException($"Unsupported ydb type {GetColumnType(ordinal)}")
@@ -707,7 +720,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         public Metadata(ResultSet resultSet)
         {
             Columns = resultSet.Columns;
-            ColumnNameToOrdinal = ColumnNameToOrdinal = Columns
+            ColumnNameToOrdinal = Columns
                 .Select((c, idx) => (c.Name, Index: idx))
                 .ToDictionary(t => t.Name, t => t.Index);
             RowsCount = resultSet.Rows.Count;

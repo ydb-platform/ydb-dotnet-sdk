@@ -1,3 +1,5 @@
+- Feat ADO.NET: Added YSON type support (YdbDbType.Yson) with byte[] values.
+
 ## v0.23.0
 
 - Feat ADO.NET: `YdbDataSource.OpenRetryableConnectionAsync` opens a retryable connection with automatic retries for transient failures.
