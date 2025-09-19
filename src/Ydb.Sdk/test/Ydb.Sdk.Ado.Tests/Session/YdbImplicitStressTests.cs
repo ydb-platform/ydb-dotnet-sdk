@@ -34,22 +34,24 @@ public class YdbImplicitStressTests : TestBase
             var rnd = Random.Shared;
             for (var j = 0; j < 10; j++)
             {
+                ISession s;
                 try
                 {
-                    var s = await source.OpenSession(CancellationToken.None);
+                    s = await source.OpenSession(CancellationToken.None);
                     opened.Inc();
 
                     await Task.Delay(rnd.Next(0, 5));
-
-                    s.Dispose();
-                    closed.Inc();
-
-                    var s2 = await source.OpenSession(CancellationToken.None);
-                    s2.Dispose();
                 }
                 catch (ObjectDisposedException)
                 {
+                    return;
                 }
+
+                var s2 = await source.OpenSession(CancellationToken.None);
+                s2.Dispose();
+
+                s.Dispose();
+                closed.Inc();
             }
         }).ToArray();
 
@@ -82,22 +84,24 @@ public class YdbImplicitStressTests : TestBase
             var rnd = Random.Shared;
             for (var j = 0; j < 10; j++)
             {
+                ISession s;
                 try
                 {
-                    var s = await source.OpenSession(CancellationToken.None);
+                    s = await source.OpenSession(CancellationToken.None);
                     opened.Inc();
 
                     await Task.Delay(rnd.Next(0, 3));
-
-                    s.Dispose();
-                    closed.Inc();
-
-                    var s2 = await source.OpenSession(CancellationToken.None);
-                    s2.Dispose();
                 }
                 catch (ObjectDisposedException)
                 {
+                    return;
                 }
+
+                var s2 = await source.OpenSession(CancellationToken.None);
+                s2.Dispose();
+
+                s.Dispose();
+                closed.Inc();
             }
         }).ToArray();
 
@@ -120,20 +124,21 @@ public class YdbImplicitStressTests : TestBase
 
         var opens = Enumerable.Range(0, 1000).Select(async _ =>
         {
+            ISession s;
             try
             {
-                var s = await source.OpenSession(CancellationToken.None);
-                s.Dispose();
-
-                var s2 = await source.OpenSession(CancellationToken.None);
-                s2.Dispose();
-
-                return 1;
+                s = await source.OpenSession(CancellationToken.None);
             }
             catch (ObjectDisposedException)
             {
                 return 0;
             }
+
+            var s2 = await source.OpenSession(CancellationToken.None);
+            s2.Dispose();
+
+            s.Dispose();
+            return 1;
         }).ToArray();
 
         var disposeTask = Task.Run(async () =>
