@@ -94,17 +94,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public sbyte GetSByte(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Int8, ordinal).GetInt8();
 
-    public byte[] GetBytes(int ordinal)
-    {
-        var type = UnwrapColumnType(ordinal);
-
-        return type.TypeId switch
-        {
-            Type.Types.PrimitiveTypeId.String => CurrentRow[ordinal].GetBytes(),
-            Type.Types.PrimitiveTypeId.Yson => CurrentRow[ordinal].GetYson(),
-            _ => throw InvalidCastException(Type.Types.PrimitiveTypeId.String, ordinal)
-        };
-    }
+    public byte[] GetBytes(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.String, ordinal).GetBytes();
 
     public byte[] GetYson(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Yson, ordinal).GetYson();
 
