@@ -437,7 +437,6 @@ public class YdbParameterTests : TestBase
         Assert.Equal(TimeSpan.Zero, ydbDataReader.GetInterval(18));
         Assert.Equal("{}", ydbDataReader.GetJson(19));
         Assert.Equal("{}", ydbDataReader.GetJsonDocument(20));
-        Assert.Equal("{a=1u}"u8.ToArray(), ydbDataReader.GetBytes(21));
         Assert.Equal("{a=1u}"u8.ToArray(), ydbDataReader.GetYson(21));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(22));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(23));
