@@ -322,11 +322,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     case ServerMessageOneofCase.CommitOffsetResponse:
                         HandleCommitOffsetResponse(messageFromServer.CommitOffsetResponse);
                         break;
-                    case ServerMessageOneofCase.PartitionSessionStatusResponse:
-                    case ServerMessageOneofCase.UpdateTokenResponse:
                     case ServerMessageOneofCase.StopPartitionSessionRequest:
                         await StopPartitionSessionRequest(messageFromServer.StopPartitionSessionRequest);
                         break;
+                    case ServerMessageOneofCase.PartitionSessionStatusResponse:
+                    case ServerMessageOneofCase.UpdateTokenResponse:
                     case ServerMessageOneofCase.InitResponse:
                     case ServerMessageOneofCase.None:
                     case ServerMessageOneofCase.UpdatePartitionSession:
