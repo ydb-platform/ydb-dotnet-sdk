@@ -97,6 +97,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     public byte[] GetBytes(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
+
         return type.TypeId switch
         {
             Type.Types.PrimitiveTypeId.String => CurrentRow[ordinal].GetBytes(),
