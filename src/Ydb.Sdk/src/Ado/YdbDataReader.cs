@@ -100,11 +100,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return type.TypeId switch
         {
             Type.Types.PrimitiveTypeId.String => CurrentRow[ordinal].GetBytes(),
-            Type.Types.PrimitiveTypeId.Yson   => CurrentRow[ordinal].GetYson(),
+            Type.Types.PrimitiveTypeId.Yson => CurrentRow[ordinal].GetYson(),
             _ => throw InvalidCastException(Type.Types.PrimitiveTypeId.String, ordinal)
         };
     }
-    
+
     public byte[] GetYson(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Yson, ordinal).GetYson();
 
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)

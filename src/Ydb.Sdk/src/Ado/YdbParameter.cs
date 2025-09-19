@@ -33,7 +33,7 @@ public sealed class YdbParameter : DbParameter
         { YdbDbType.Float, Type.Types.PrimitiveTypeId.Float.Null() },
         { YdbDbType.Double, Type.Types.PrimitiveTypeId.Double.Null() },
         { YdbDbType.Uuid, Type.Types.PrimitiveTypeId.Uuid.Null() },
-        { YdbDbType.Yson,  Type.Types.PrimitiveTypeId.Yson.Null() },
+        { YdbDbType.Yson, Type.Types.PrimitiveTypeId.Yson.Null() },
         { YdbDbType.Json, Type.Types.PrimitiveTypeId.Json.Null() },
         { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() },
         { YdbDbType.Date32, Type.Types.PrimitiveTypeId.Date32.Null() },
@@ -241,7 +241,7 @@ public sealed class YdbParameter : DbParameter
         MemoryStream memoryStream => memoryStream.ToArray().Bytes(),
         _ => throw ValueTypeNotSupportedException
     };
-    
+
     private TypedValue MakeYson(object value) => value switch
     {
         byte[] bytesValue => bytesValue.Yson(),

@@ -53,7 +53,7 @@ internal static class YdbValueExtensions
         TimeSpan.FromTicks(value.Int64Value * TimeSpanUtils.TicksPerMicrosecond);
 
     internal static byte[] GetBytes(this Ydb.Value value) => value.BytesValue.ToByteArray();
-    
+
     internal static byte[] GetYson(this Ydb.Value value) => value.BytesValue.ToByteArray();
 
     internal static string GetText(this Ydb.Value value) => value.TextValue;
