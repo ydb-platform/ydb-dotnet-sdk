@@ -96,6 +96,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     public byte[] GetBytes(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.String, ordinal).GetBytes();
 
+    public byte[] GetYson(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Yson, ordinal).GetYson();
+
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
     {
         var bytes = GetBytes(ordinal);
@@ -281,6 +283,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 or Type.Types.PrimitiveTypeId.JsonDocument
                 or Type.Types.PrimitiveTypeId.Json => typeof(string),
             Type.Types.PrimitiveTypeId.String => typeof(byte[]),
+            Type.Types.PrimitiveTypeId.Yson => typeof(byte[]),
             Type.Types.PrimitiveTypeId.Uuid => typeof(Guid),
             _ => throw new YdbException($"Unsupported ydb type {type}")
         };
@@ -440,6 +443,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Utf8 => ydbValue.GetText(),
             Type.Types.PrimitiveTypeId.Json => ydbValue.GetJson(),
             Type.Types.PrimitiveTypeId.JsonDocument => ydbValue.GetJsonDocument(),
+            Type.Types.PrimitiveTypeId.Yson => ydbValue.GetYson(),
             Type.Types.PrimitiveTypeId.String => ydbValue.GetBytes(),
             Type.Types.PrimitiveTypeId.Uuid => ydbValue.GetUuid(),
             _ => throw new YdbException($"Unsupported ydb type {GetColumnType(ordinal)}")
@@ -707,7 +711,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         public Metadata(ResultSet resultSet)
         {
             Columns = resultSet.Columns;
-            ColumnNameToOrdinal = ColumnNameToOrdinal = Columns
+            ColumnNameToOrdinal = Columns
                 .Select((c, idx) => (c.Name, Index: idx))
                 .ToDictionary(t => t.Name, t => t.Index);
             RowsCount = resultSet.Rows.Count;

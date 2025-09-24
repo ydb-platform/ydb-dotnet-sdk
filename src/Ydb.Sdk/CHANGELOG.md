@@ -1,5 +1,10 @@
 - Added provider support for implicit sessions.
 
+## v0.23.1
+
+- Fixed bug Topic Reader: NullReferenceException when handling StopPartitionSessionRequest ([#528](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/528)).
+- Feat ADO.NET: Added YSON type support (YdbDbType.Yson) with byte[] values.
+
 ## v0.23.0
 
 - Feat ADO.NET: `YdbDataSource.OpenRetryableConnectionAsync` opens a retryable connection with automatic retries for transient failures.
