@@ -2,8 +2,6 @@ namespace Ydb.Sdk.Ado.Session;
 
 internal sealed class ImplicitSessionSource : ISessionSource
 {
-    private enum State { Open = 0, Closing = 1, Closed = 2 }
-
     private readonly IDriver _driver;
     private readonly ManualResetEventSlim _allReleased = new(false);
 
@@ -27,12 +25,14 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     private bool TryAcquireLease()
     {
-        if (Volatile.Read(ref _state) == (int)State.Closed)
+        if (Volatile.Read(ref _state) == 2)
             return false;
 
-        Interlocked.Increment(ref _activeLeaseCount);
+        var newCount = Interlocked.Increment(ref _activeLeaseCount);
 
-        if (Volatile.Read(ref _state) == (int)State.Closed)
+        var state = Volatile.Read(ref _state);
+
+        if (state == 2 || (state == 1 && newCount == 1))
         {
             Interlocked.Decrement(ref _activeLeaseCount);
             return false;
@@ -44,7 +44,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
     internal void ReleaseLease()
     {
         if (Interlocked.Decrement(ref _activeLeaseCount) == 0 &&
-            Volatile.Read(ref _state) != (int)State.Open)
+            Volatile.Read(ref _state) != 0)
         {
             _allReleased.Set();
         }
@@ -52,21 +52,15 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     public async ValueTask DisposeAsync()
     {
-        var prev = Interlocked.CompareExchange(ref _state, (int)State.Closing, (int)State.Open);
-        switch (prev)
-        {
-            case (int)State.Closed:
-                return;
-            case (int)State.Closing:
-                break;
-        }
+        if (Interlocked.CompareExchange(ref _state, 1, 0) != 0)
+            return;
 
         if (Volatile.Read(ref _activeLeaseCount) != 0)
             _allReleased.Wait();
 
         try
         {
-            Volatile.Write(ref _state, (int)State.Closed);
+            Volatile.Write(ref _state, 2);
             await _driver.DisposeAsync();
         }
         finally
