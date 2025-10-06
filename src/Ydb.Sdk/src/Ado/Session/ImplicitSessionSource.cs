@@ -1,13 +1,18 @@
+using Microsoft.Extensions.Logging;
+
 namespace Ydb.Sdk.Ado.Session;
 
 internal sealed class ImplicitSessionSource : ISessionSource
 {
+    private const int DisposeTimeoutSeconds = 10;
+
     private readonly IDriver _driver;
-    private readonly ManualResetEventSlim _allReleased = new(false);
+    private readonly TaskCompletionSource _drainedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     private int _isDisposed;
     private int _activeLeaseCount;
 
-    internal ImplicitSessionSource(IDriver driver)
+    internal ImplicitSessionSource(IDriver driver, ILoggerFactory loggerFactory)
     {
         _driver = driver;
     }
@@ -16,10 +21,9 @@ internal sealed class ImplicitSessionSource : ISessionSource
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!TryAcquireLease())
-            throw new ObjectDisposedException(nameof(ImplicitSessionSource));
-
-        return new ValueTask<ISession>(new ImplicitSession(_driver, this));
+        return TryAcquireLease()
+            ? new ValueTask<ISession>(new ImplicitSession(_driver, this))
+            : throw new ObjectDisposedException(nameof(ImplicitSessionSource));
     }
 
     private bool TryAcquireLease()
@@ -38,8 +42,8 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     internal void ReleaseLease()
     {
-        if (Interlocked.Decrement(ref _activeLeaseCount) == 0 && Volatile.Read(ref _isDisposed) != 0)
-            _allReleased.Set();
+        if (Interlocked.Decrement(ref _activeLeaseCount) == 0 && Volatile.Read(ref _isDisposed) == 1)
+            _drainedTcs.SetResult();
     }
 
     public async ValueTask DisposeAsync()
@@ -47,9 +51,28 @@ internal sealed class ImplicitSessionSource : ISessionSource
         if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) != 0)
             return;
 
-        if (Volatile.Read(ref _activeLeaseCount) != 0)
-            _allReleased.Wait();
-
-        await _driver.DisposeAsync();
+        try
+        {
+            if (Volatile.Read(ref _activeLeaseCount) != 0)
+            {
+                await _drainedTcs.Task.WaitAsync(TimeSpan.FromSeconds(DisposeTimeoutSeconds));
+            }
+        }
+        catch (TimeoutException)
+        {
+            throw new YdbException("Timeout while disposing of the pool: some implicit sessions are still active. " +
+                                   "This may indicate a connection leak or suspended operations.");
+        }
+        finally
+        {
+            try
+            {
+                await _driver.DisposeAsync();
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+        }
     }
 }

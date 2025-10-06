@@ -36,7 +36,7 @@ internal static class PoolManager
             driver.RegisterOwner();
 
             return Pools[settings.ConnectionString] = settings.EnableImplicitSession
-                ? new ImplicitSessionSource(driver)
+                ? new ImplicitSessionSource(driver, settings.LoggerFactory)
                 : new PoolingSessionSource<PoolingSession>(new PoolingSessionFactory(driver, settings), settings);
         }
         finally

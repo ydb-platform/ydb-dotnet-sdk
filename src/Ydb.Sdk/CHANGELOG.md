@@ -1,4 +1,4 @@
-- Added provider support for implicit sessions.
+- Feat ADO.NET: Added `EnableImplicitSession` to support implicit sessions.
 
 ## v0.23.1
 
