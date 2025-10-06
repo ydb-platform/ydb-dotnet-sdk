@@ -25,7 +25,7 @@ public class YdbImplicitStressTests
         {
             var driver = DummyDriver();
             var source = new ImplicitSessionSource(driver, TestUtils.LoggerFactory);
-        
+
             var workers = Enumerable.Range(0, 200).Select(async _ =>
             {
                 await Task.Delay(Random.Shared.Next(0, 5));

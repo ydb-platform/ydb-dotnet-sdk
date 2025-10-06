@@ -13,7 +13,7 @@ public class YdbImplicitConnectionTests : TestBase
         await ydbConnection.OpenAsync();
         Assert.Equal(1, await new YdbCommand(ydbConnection) { CommandText = "SELECT 1;" }.ExecuteScalarAsync());
     }
-    
+
     [Fact]
     public async Task EnableImplicitSession_WhenFalse_AlwaysUsesPooledSession()
     {

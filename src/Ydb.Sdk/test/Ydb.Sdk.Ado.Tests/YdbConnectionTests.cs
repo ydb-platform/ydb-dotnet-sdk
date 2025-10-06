@@ -1,6 +1,5 @@
 using System.Data;
 using Xunit;
-using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Ado.YdbType;
 
