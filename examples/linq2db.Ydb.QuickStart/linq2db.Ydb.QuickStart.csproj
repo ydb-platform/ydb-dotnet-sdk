@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\..\linq2db\Source\LinqToDB\LinqToDB.csproj" />
+	    <PackageReference Include="CommandLineParser" Version="2.8.0"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="5.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0"/>
+        <PackageReference Include="Polly" Version="8.4.1" />
+    </ItemGroup>
+
+</Project>
