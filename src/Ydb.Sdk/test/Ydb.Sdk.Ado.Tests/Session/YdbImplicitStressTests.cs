@@ -5,6 +5,7 @@ using Ydb.Sdk.Ado.Tests.Utils;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 
+[Collection("DisableParallelization")]
 public class YdbImplicitStressTests
 {
     private volatile bool _isDisposed;
@@ -26,7 +27,7 @@ public class YdbImplicitStressTests
             var driver = DummyDriver();
             var source = new ImplicitSessionSource(driver, TestUtils.LoggerFactory);
 
-            var workers = Enumerable.Range(0, 200).Select(async _ =>
+            var workers = Enumerable.Range(0, 1000).Select(async _ =>
             {
                 await Task.Delay(Random.Shared.Next(0, 5));
                 try
