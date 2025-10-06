@@ -510,7 +510,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 "DisableServerBalancer", "Disable Server Balancer");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor,
                     (builder, enableImplicitSession) => builder.EnableImplicitSession = enableImplicitSession),
-                "EnableImplicitSession", "ImplicitSession");
+                "EnableImplicitSession", "Enable Implicit Session");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)

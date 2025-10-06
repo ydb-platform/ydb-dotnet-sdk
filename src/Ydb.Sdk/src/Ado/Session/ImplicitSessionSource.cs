@@ -4,8 +4,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
 {
     private readonly IDriver _driver;
     private readonly ManualResetEventSlim _allReleased = new(false);
-
-    private int _state;
+    private int _isDisposed;
     private int _activeLeaseCount;
 
     internal ImplicitSessionSource(IDriver driver)
@@ -25,47 +24,32 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     private bool TryAcquireLease()
     {
-        if (Volatile.Read(ref _state) == 2)
+        if (Volatile.Read(ref _isDisposed) != 0)
             return false;
 
-        var newCount = Interlocked.Increment(ref _activeLeaseCount);
+        Interlocked.Increment(ref _activeLeaseCount);
 
-        var state = Volatile.Read(ref _state);
+        if (Volatile.Read(ref _isDisposed) == 0)
+            return true;
 
-        if (state == 2 || (state == 1 && newCount == 1))
-        {
-            Interlocked.Decrement(ref _activeLeaseCount);
-            return false;
-        }
-
-        return true;
+        Interlocked.Decrement(ref _activeLeaseCount);
+        return false;
     }
 
     internal void ReleaseLease()
     {
-        if (Interlocked.Decrement(ref _activeLeaseCount) == 0 &&
-            Volatile.Read(ref _state) != 0)
-        {
+        if (Interlocked.Decrement(ref _activeLeaseCount) == 0 && Volatile.Read(ref _isDisposed) != 0)
             _allReleased.Set();
-        }
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.CompareExchange(ref _state, 1, 0) != 0)
+        if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) != 0)
             return;
 
         if (Volatile.Read(ref _activeLeaseCount) != 0)
             _allReleased.Wait();
 
-        try
-        {
-            Volatile.Write(ref _state, 2);
-            await _driver.DisposeAsync();
-        }
-        finally
-        {
-            _allReleased.Dispose();
-        }
+        await _driver.DisposeAsync();
     }
 }
