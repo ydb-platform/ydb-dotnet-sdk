@@ -7,6 +7,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
     private const int DisposeTimeoutSeconds = 10;
 
     private readonly IDriver _driver;
+    private readonly ILogger _logger;
     private readonly TaskCompletionSource _drainedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private int _isDisposed;
@@ -15,6 +16,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
     internal ImplicitSessionSource(IDriver driver, ILoggerFactory loggerFactory)
     {
         _driver = driver;
+        _logger = loggerFactory.CreateLogger<ImplicitSessionSource>();
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
@@ -60,6 +62,8 @@ internal sealed class ImplicitSessionSource : ISessionSource
         }
         catch (TimeoutException)
         {
+            _logger.LogCritical("Disposal timed out: Some implicit sessions are still active");
+
             throw new YdbException("Timeout while disposing of the pool: some implicit sessions are still active. " +
                                    "This may indicate a connection leak or suspended operations.");
         }
@@ -69,9 +73,9 @@ internal sealed class ImplicitSessionSource : ISessionSource
             {
                 await _driver.DisposeAsync();
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // ignored
+                _logger.LogError(e, "Failed to dispose the transport driver");
             }
         }
     }
