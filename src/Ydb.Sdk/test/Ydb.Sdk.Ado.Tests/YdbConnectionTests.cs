@@ -479,9 +479,9 @@ public sealed class YdbConnectionTests : TestBase
     public async Task ClearPool_FireAndForget_DoesNotBlock_And_PoolsRecreate()
     {
         var csPooled = ConnectionString +
-                       "UseTls=false;DisableDiscovery=true;" +
-                       "CreateSessionTimeout=3;ConnectTimeout=3;" +
-                       "KeepAlivePingDelay=0;KeepAlivePingTimeout=0";
+                       ";UseTls=false;DisableDiscovery=true" +
+                       ";CreateSessionTimeout=3;ConnectTimeout=3" +
+                       ";KeepAlivePingDelay=0;KeepAlivePingTimeout=0";
         var csImplicit = csPooled + ";EnableImplicitSession=true";
 
         await using (var warmPooled = new YdbConnection(csPooled))
