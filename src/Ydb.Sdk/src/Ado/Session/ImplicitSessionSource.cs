@@ -30,9 +30,6 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     private bool TryAcquireLease()
     {
-        if (Volatile.Read(ref _isDisposed) != 0)
-            return false;
-
         Interlocked.Increment(ref _activeLeaseCount);
 
         if (Volatile.Read(ref _isDisposed) == 0)
