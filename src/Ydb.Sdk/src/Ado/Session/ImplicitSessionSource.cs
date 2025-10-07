@@ -38,7 +38,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
         if (Volatile.Read(ref _isDisposed) == 0)
             return true;
 
-        Interlocked.Decrement(ref _activeLeaseCount);
+        ReleaseLease();
         return false;
     }
 

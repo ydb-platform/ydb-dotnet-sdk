@@ -20,7 +20,7 @@ public class YdbImplicitStressTests
     }
 
     [Fact]
-    public async Task Dispose_WaitsForAllLeases_AndSignalsOnEmptyExactlyOnce()
+    public async Task StressTest_OpenSession_RaceWithDispose_SuccessfulOpensAreNotDisposed()
     {
         for (var it = 0; it < 1000; it++)
         {
