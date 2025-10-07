@@ -45,7 +45,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
     internal void ReleaseLease()
     {
         if (Interlocked.Decrement(ref _activeLeaseCount) == 0 && Volatile.Read(ref _isDisposed) == 1)
-            _drainedTcs.SetResult();
+            _drainedTcs.TrySetResult();
     }
 
     public async ValueTask DisposeAsync()
