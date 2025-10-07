@@ -1,3 +1,5 @@
+- Feat ADO.NET: Added `EnableImplicitSession` to support implicit sessions.
+
 ## v0.23.1
 
 - Fixed bug Topic Reader: NullReferenceException when handling StopPartitionSessionRequest ([#528](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/528)).

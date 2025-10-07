@@ -40,6 +40,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
         _disableDiscovery = GrpcDefaultSettings.DisableDiscovery;
         _disableServerBalancer = false;
+        _enableImplicitSession = false;
     }
 
     public string Host
@@ -314,6 +315,18 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private int _createSessionTimeout;
 
+    public bool EnableImplicitSession
+    {
+        get => _enableImplicitSession;
+        set
+        {
+            _enableImplicitSession = value;
+            SaveValue(nameof(EnableImplicitSession), value);
+        }
+    }
+
+    private bool _enableImplicitSession;
+
     public ILoggerFactory LoggerFactory { get; init; } = NullLoggerFactory.Instance;
 
     public ICredentialsProvider? CredentialsProvider { get; init; }
@@ -495,6 +508,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<bool>(BoolExtractor,
                     (builder, disableServerBalancer) => builder.DisableServerBalancer = disableServerBalancer),
                 "DisableServerBalancer", "Disable Server Balancer");
+            AddOption(new YdbConnectionOption<bool>(BoolExtractor,
+                    (builder, enableImplicitSession) => builder.EnableImplicitSession = enableImplicitSession),
+                "EnableImplicitSession", "Enable Implicit Session");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)

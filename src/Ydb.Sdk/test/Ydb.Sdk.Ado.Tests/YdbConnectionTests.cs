@@ -473,4 +473,51 @@ public sealed class YdbConnectionTests : TestBase
 
         await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
     }
+
+    [Fact]
+    public async Task ClearPool_FireAndForget_DoesNotBlock_And_PoolsRecreate()
+    {
+        var csPooled = ConnectionString +
+                       ";UseTls=false;DisableDiscovery=true" +
+                       ";CreateSessionTimeout=3;ConnectTimeout=3" +
+                       ";KeepAlivePingDelay=0;KeepAlivePingTimeout=0";
+        var csImplicit = csPooled + ";EnableImplicitSession=true";
+
+        await using (var warmPooled = new YdbConnection(csPooled))
+        {
+            await warmPooled.OpenAsync();
+            await using var cmd = warmPooled.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
+        }
+
+        await using (var warmImplicit = new YdbConnection(csImplicit))
+        {
+            await warmImplicit.OpenAsync();
+            await using var cmd = warmImplicit.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
+        }
+
+        var clearPooledTask = YdbConnection.ClearPool(new YdbConnection(csPooled));
+        var clearImplicitTask = YdbConnection.ClearPool(new YdbConnection(csImplicit));
+
+        await Task.WhenAll(clearPooledTask, clearImplicitTask);
+
+        await using (var checkPooled = new YdbConnection(csPooled))
+        {
+            await checkPooled.OpenAsync();
+            await using var cmd = checkPooled.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
+        }
+
+        await using (var checkImplicit = new YdbConnection(csImplicit))
+        {
+            await checkImplicit.OpenAsync();
+            await using var cmd = checkImplicit.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
+        }
+    }
 }

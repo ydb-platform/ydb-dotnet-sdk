@@ -204,7 +204,6 @@ public class YdbCommandTests : TestBase
             .ExecuteScalarAsync());
     }
 
-
     public class Data<T>(DbType dbType, T expected, bool isNullable = false)
     {
         public bool IsNullable { get; } = isNullable || expected == null;
