@@ -43,7 +43,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
     internal void ReleaseLease()
     {
         Interlocked.Decrement(ref _activeLeaseCount);
-        
+
         if (Volatile.Read(ref _isDisposed) == 1 && _activeLeaseCount == 0)
             _drainedTcs.TrySetResult();
     }

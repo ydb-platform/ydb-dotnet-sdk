@@ -306,8 +306,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                                    "This may indicate a connection leak or suspended operations.");
         }
     }
-    
-    private Exception ObjectDisposedException => 
+
+    private Exception ObjectDisposedException =>
         new ObjectDisposedException(nameof(PoolingSessionSource<T>), "The session source has been closed.");
 }
 
