@@ -135,7 +135,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                 ), useSynchronizationContext: false
             );
             await using var disposeRegistration = _disposeCts.Token.Register(
-                () => waiterTcs.TrySetException(new YdbException("The session source has been shut down.")),
+                () => waiterTcs.TrySetException(ObjectDisposedException),
                 useSynchronizationContext: false
             );
             session = await waiterTcs.Task.ConfigureAwait(false);
@@ -159,7 +159,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             try
             {
                 if (IsDisposed)
-                    throw new YdbException("The session source has been shutdown.");
+                    throw ObjectDisposedException;
 
                 var session = _sessionFactory.NewSession(this);
                 await session.Open(cancellationToken);
@@ -306,6 +306,9 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                                    "This may indicate a connection leak or suspended operations.");
         }
     }
+    
+    private Exception ObjectDisposedException => 
+        new ObjectDisposedException(nameof(PoolingSessionSource<T>), "The session source has been closed.");
 }
 
 internal interface IPoolingSessionFactory<T> : IAsyncDisposable where T : PoolingSessionBase<T>

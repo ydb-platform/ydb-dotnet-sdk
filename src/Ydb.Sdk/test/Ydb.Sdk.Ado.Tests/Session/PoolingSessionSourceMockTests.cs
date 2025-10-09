@@ -141,12 +141,12 @@ public class PoolingSessionSourceMockTests
         Assert.Equal(0, mockFactory.NumSession);
         for (var i = 0; i < maxSessionSize; i++)
         {
-            Assert.Equal("The session source has been shut down.",
-                (await Assert.ThrowsAsync<YdbException>(() => waitingSessionTasks[i])).Message);
+            Assert.StartsWith("The session source has been closed.",
+                (await Assert.ThrowsAsync<ObjectDisposedException>(() => waitingSessionTasks[i])).Message);
         }
 
-        Assert.Equal("The session source has been shut down.",
-            (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.OpenSession())).Message);
+        Assert.StartsWith("The session source has been closed.",
+            (await Assert.ThrowsAsync<ObjectDisposedException>(async () => await sessionSource.OpenSession())).Message);
     }
 
     [Fact]
@@ -187,9 +187,9 @@ public class PoolingSessionSourceMockTests
                         await Task.Yield();
                         Assert.False(disposeCalled);
                     }
-                    catch (YdbException e)
+                    catch (ObjectDisposedException e)
                     {
-                        Assert.Equal("The session source has been shut down.", e.Message);
+                        Assert.StartsWith("The session source has been closed.", e.Message);
                     }
                     catch (OperationCanceledException)
                     {
@@ -202,7 +202,7 @@ public class PoolingSessionSourceMockTests
             Assert.True(disposeCalled);
         }
     }
-    
+
     [Fact]
     public async Task DisposeAsync_WhenSessionIsLeaked_ThrowsYdbExceptionWithTimeoutMessage()
     {
@@ -216,9 +216,9 @@ public class PoolingSessionSourceMockTests
                 return ValueTask.CompletedTask;
             }
         };
-        var settings = new YdbConnectionStringBuilder {  MaxSessionPool = maxSessionSize };
+        var settings = new YdbConnectionStringBuilder { MaxSessionPool = maxSessionSize };
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
-        
+
 #pragma warning disable CA2012
         _ = sessionSource.OpenSession(CancellationToken.None);
 #pragma warning restore CA2012
@@ -227,8 +227,8 @@ public class PoolingSessionSourceMockTests
                      "This may indicate a connection leak or suspended operations.",
             (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.DisposeAsync())).Message);
         Assert.True(disposeCalled);
-        Assert.Equal("The session source has been shut down.", (await Assert.ThrowsAsync<YdbException>(
-            () => sessionSource.OpenSession(CancellationToken.None).AsTask())).Message);
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            sessionSource.OpenSession(CancellationToken.None).AsTask());
     }
 
     [Fact]
