@@ -32,6 +32,7 @@ public class YdbImplicitStressTests
                 try
                 {
                     using var s = await source.OpenSession(CancellationToken.None);
+                    await Task.Yield();
                     Assert.False(_isDisposed);
                 }
                 catch (ObjectDisposedException)
@@ -65,6 +66,7 @@ public class YdbImplicitStressTests
                      "This may indicate a connection leak or suspended operations.",
             (await Assert.ThrowsAsync<YdbException>(async () => await source.DisposeAsync())).Message);
         Assert.True(_isDisposed);
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => source.OpenSession(CancellationToken.None).AsTask());
+        Assert.Equal("The implicit session source has been shut down.", (await Assert.ThrowsAsync<YdbException>(
+            () => source.OpenSession(CancellationToken.None).AsTask())).Message);
     }
 }

@@ -185,6 +185,7 @@ public class PoolingSessionSourceMockTests
                     {
                         using var session = await sessionSource.OpenSession();
                         await Task.Yield();
+                        Assert.False(disposeCalled);
                     }
                     catch (YdbException e)
                     {
@@ -200,6 +201,34 @@ public class PoolingSessionSourceMockTests
             Assert.Equal(0, mockFactory.NumSession);
             Assert.True(disposeCalled);
         }
+    }
+    
+    [Fact]
+    public async Task DisposeAsync_WhenSessionIsLeaked_ThrowsYdbExceptionWithTimeoutMessage()
+    {
+        var disposeCalled = false;
+        const int maxSessionSize = 10;
+        var mockFactory = new MockPoolingSessionFactory(maxSessionSize)
+        {
+            Dispose = () =>
+            {
+                Volatile.Write(ref disposeCalled, true);
+                return ValueTask.CompletedTask;
+            }
+        };
+        var settings = new YdbConnectionStringBuilder {  MaxSessionPool = maxSessionSize };
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
+        
+#pragma warning disable CA2012
+        _ = sessionSource.OpenSession(CancellationToken.None);
+#pragma warning restore CA2012
+
+        Assert.Equal("Timeout while disposing of the pool: some sessions are still active. " +
+                     "This may indicate a connection leak or suspended operations.",
+            (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.DisposeAsync())).Message);
+        Assert.True(disposeCalled);
+        Assert.Equal("The session source has been shut down.", (await Assert.ThrowsAsync<YdbException>(
+            () => sessionSource.OpenSession(CancellationToken.None).AsTask())).Message);
     }
 
     [Fact]

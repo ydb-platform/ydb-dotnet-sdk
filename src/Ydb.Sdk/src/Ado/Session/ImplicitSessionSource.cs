@@ -25,7 +25,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
         return TryAcquireLease()
             ? new ValueTask<ISession>(new ImplicitSession(_driver, this))
-            : throw new ObjectDisposedException(nameof(ImplicitSessionSource));
+            : throw new YdbException("The implicit session source has been shut down.");
     }
 
     private bool TryAcquireLease()
