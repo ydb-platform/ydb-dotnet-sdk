@@ -32,6 +32,7 @@ public class YdbImplicitStressTests
                 try
                 {
                     using var s = await source.OpenSession(CancellationToken.None);
+                    await Task.Yield();
                     Assert.False(_isDisposed);
                 }
                 catch (ObjectDisposedException)

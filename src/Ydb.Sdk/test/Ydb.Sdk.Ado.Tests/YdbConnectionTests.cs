@@ -288,7 +288,7 @@ public sealed class YdbConnectionTests : TestBase
             ydbConnection.ConnectionString = connectionString;
             await ydbConnection.OpenAsync();
         }
-        catch (YdbException)
+        catch (ObjectDisposedException)
         {
             Interlocked.Add(ref _counter, i);
             return;

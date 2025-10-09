@@ -25,7 +25,8 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
         return TryAcquireLease()
             ? new ValueTask<ISession>(new ImplicitSession(_driver, this))
-            : throw new ObjectDisposedException(nameof(ImplicitSessionSource));
+            : throw new ObjectDisposedException(nameof(ImplicitSessionSource),
+                "The implicit session source has been closed.");
     }
 
     private bool TryAcquireLease()
@@ -41,7 +42,9 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     internal void ReleaseLease()
     {
-        if (Interlocked.Decrement(ref _activeLeaseCount) == 0 && Volatile.Read(ref _isDisposed) == 1)
+        Interlocked.Decrement(ref _activeLeaseCount);
+
+        if (Volatile.Read(ref _isDisposed) == 1 && _activeLeaseCount == 0)
             _drainedTcs.TrySetResult();
     }
 

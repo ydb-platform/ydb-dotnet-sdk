@@ -1,12 +1,16 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using Ydb.Query;
 
 namespace Ydb.Sdk.Ado.Session;
 
 internal sealed class PoolingSessionSource<T> : ISessionSource where T : PoolingSessionBase<T>
 {
+    private const int DisposeTimeoutSeconds = 10;
+
     private readonly ConcurrentStack<T> _idleSessions = new();
     private readonly ConcurrentQueue<TaskCompletionSource<T?>> _waiters = new();
     private readonly CancellationTokenSource _disposeCts = new();
@@ -18,16 +22,14 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     private readonly int _createSessionTimeout;
     private readonly TimeSpan _sessionIdleTimeout;
     private readonly Timer _cleanerTimer;
+    private readonly ILogger _logger;
 
     private volatile int _numSessions;
     private volatile int _disposed;
 
     private bool IsDisposed => _disposed == 1;
 
-    public PoolingSessionSource(
-        IPoolingSessionFactory<T> sessionFactory,
-        YdbConnectionStringBuilder settings
-    )
+    public PoolingSessionSource(IPoolingSessionFactory<T> sessionFactory, YdbConnectionStringBuilder settings)
     {
         _sessionFactory = sessionFactory;
         _minSessionSize = settings.MinSessionPool;
@@ -43,6 +45,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         _createSessionTimeout = settings.CreateSessionTimeout;
         _sessionIdleTimeout = TimeSpan.FromSeconds(settings.SessionIdleTimeout);
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
+        _logger = settings.LoggerFactory.CreateLogger<PoolingSessionSource<T>>();
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken = default)
@@ -132,7 +135,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                 ), useSynchronizationContext: false
             );
             await using var disposeRegistration = _disposeCts.Token.Register(
-                () => waiterTcs.TrySetException(new YdbException("The session source has been shut down.")),
+                () => waiterTcs.TrySetException(ObjectDisposedException),
                 useSynchronizationContext: false
             );
             session = await waiterTcs.Task.ConfigureAwait(false);
@@ -156,7 +159,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             try
             {
                 if (IsDisposed)
-                    throw new YdbException("The session source has been shut down.");
+                    throw ObjectDisposedException;
 
                 var session = _sessionFactory.NewSession(this);
                 await session.Open(cancellationToken);
@@ -167,8 +170,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                         return session;
                 }
 
-                throw new YdbException(
-                    $"Could not find free slot in {_sessions} when opening. Please report a bug.");
+                throw new YdbException($"Could not find free slot in {_sessions} when opening. Please report a bug.");
             }
             catch
             {
@@ -266,6 +268,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         await _cleanerTimer.DisposeAsync();
         _disposeCts.Cancel();
 
+        var sw = Stopwatch.StartNew();
         var spinWait = new SpinWait();
         do
         {
@@ -280,10 +283,32 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             }
 
             spinWait.SpinOnce();
-        } while (_numSessions > 0);
+        } while (_numSessions > 0 && sw.Elapsed < TimeSpan.FromSeconds(DisposeTimeoutSeconds));
 
-        await _sessionFactory.DisposeAsync();
+        try
+        {
+            await _sessionFactory.DisposeAsync();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Failed to dispose the transport driver");
+        }
+
+        for (var i = 0; i < _maxSessionSize; i++)
+        {
+            var session = Volatile.Read(ref _sessions[i]);
+
+            if (session == null || session.CompareAndSet(PoolingSessionState.Clean, PoolingSessionState.Clean))
+                continue;
+            _logger.LogCritical("Disposal timed out: Some sessions are still active");
+
+            throw new YdbException("Timeout while disposing of the pool: some sessions are still active. " +
+                                   "This may indicate a connection leak or suspended operations.");
+        }
     }
+
+    private Exception ObjectDisposedException =>
+        new ObjectDisposedException(nameof(PoolingSessionSource<T>), "The session source has been closed.");
 }
 
 internal interface IPoolingSessionFactory<T> : IAsyncDisposable where T : PoolingSessionBase<T>

@@ -1,3 +1,4 @@
+- Feat ADO.NET: Added dispose timeout (10 seconds) to `PoolingSessionSource`.
 - Feat ADO.NET: Added `EnableImplicitSession` to support implicit sessions.
 
 ## v0.23.1
