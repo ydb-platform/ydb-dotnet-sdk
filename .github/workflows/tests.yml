@@ -13,7 +13,7 @@ jobs:
   ydb-sdk-tests:
     strategy:
       matrix:
-        ydb-version: [ 'latest', '25.1' ]
+        ydb-version: [ 'latest', 'trunk' ]
         dotnet-version: [ 8.0.x, 9.0.x ]
     runs-on: ubuntu-22.04
     services:
@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ydb-version: [ 'latest', '25.1' ]
+        ydb-version: [ 'latest', 'trunk' ]
         dotnet-version: [ 8.0.x, 9.0.x ]
     services:
       ydb:
