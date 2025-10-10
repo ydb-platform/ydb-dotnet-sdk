@@ -6,6 +6,14 @@ using Ydb.Sdk.Ado.Internal;
 
 namespace Ydb.Sdk.Ado;
 
+/// <summary>
+/// Provides a way of reading a forward-only stream of data rows from a YDB database. This class cannot be inherited.
+/// </summary>
+/// <remarks>
+/// YdbDataReader provides a means of reading a forward-only stream of data rows from a YDB database.
+/// It implements both synchronous and asynchronous data access methods, and supports streaming of large result sets.
+/// The reader is optimized for YDB-specific data types and provides access to YDB-specific functionality.
+/// </remarks>
 // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
 public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord>
 {
@@ -63,6 +71,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         _ydbTransaction = ydbTransaction;
     }
 
+    /// <summary>
+    /// Creates a new instance of YdbDataReader from a result set stream.
+    /// </summary>
+    /// <param name="resultSetStream">The server stream containing query results.</param>
+    /// <param name="onNotSuccessStatusCode">Callback for handling non-success status codes.</param>
+    /// <param name="ydbTransaction">Optional transaction context.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the initialized YdbDataReader.</returns>
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         Action<StatusCode> onNotSuccessStatusCode,
@@ -86,16 +102,41 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         ReaderState = State.ReadResultSet;
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a Boolean.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override bool GetBoolean(int ordinal) =>
         GetPrimitiveValue(Type.Types.PrimitiveTypeId.Bool, ordinal).GetBool();
 
+    /// <summary>
+    /// Gets the value of the specified column as a byte.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override byte GetByte(int ordinal) =>
         GetPrimitiveValue(Type.Types.PrimitiveTypeId.Uint8, ordinal).GetUint8();
 
+    /// <summary>
+    /// Gets the value of the specified column as a signed byte.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public sbyte GetSByte(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Int8, ordinal).GetInt8();
 
+    /// <summary>
+    /// Gets the value of the specified column as a byte array.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public byte[] GetBytes(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.String, ordinal).GetBytes();
 
+    /// <summary>
+    /// Gets the value of the specified column as a YSON byte array.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column as YSON bytes.</returns>
     public byte[] GetYson(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Yson, ordinal).GetYson();
 
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
@@ -174,8 +215,18 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
+    /// <summary>
+    /// Gets the name of the data type of the specified column.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The string representing the data type of the specified column.</returns>
     public override string GetDataTypeName(int ordinal) => ReaderMetadata.GetColumn(ordinal).Type.YqlTableType();
 
+    /// <summary>
+    /// Gets the value of the specified column as a DateTime object.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override DateTime GetDateTime(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -192,6 +243,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a TimeSpan object.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column as a TimeSpan.</returns>
     public TimeSpan GetInterval(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -204,6 +260,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a Decimal object.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override decimal GetDecimal(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -213,6 +274,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             : throw InvalidCastException(Type.TypeOneofCase.DecimalType, ordinal);
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a double-precision floating point number.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override double GetDouble(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -225,6 +291,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as the requested type.
+    /// </summary>
+    /// <typeparam name="T">The type of the value to return.</typeparam>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override T GetFieldValue<T>(int ordinal)
     {
         if (typeof(T) == typeof(TextReader))
@@ -245,6 +317,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return base.GetFieldValue<T>(ordinal);
     }
 
+    /// <summary>
+    /// Gets the Type that is the data type of the object.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The Type that is the data type of the object.</returns>
     public override System.Type GetFieldType(int ordinal)
     {
         var type = ReaderMetadata.GetColumn(ordinal).Type;
@@ -289,11 +366,26 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a single-precision floating point number.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override float GetFloat(int ordinal) =>
         GetPrimitiveValue(Type.Types.PrimitiveTypeId.Float, ordinal).GetFloat();
 
+    /// <summary>
+    /// Gets the value of the specified column as a globally unique identifier (GUID).
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override Guid GetGuid(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Uuid, ordinal).GetUuid();
 
+    /// <summary>
+    /// Gets the value of the specified column as a 16-bit signed integer.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override short GetInt16(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -307,6 +399,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a 16-bit unsigned integer.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public ushort GetUint16(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -319,6 +416,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a 32-bit signed integer.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override int GetInt32(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -334,6 +436,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a 32-bit unsigned integer.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public uint GetUint32(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -347,6 +454,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a 64-bit signed integer.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override long GetInt64(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -364,6 +476,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a 64-bit unsigned integer.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public ulong GetUint64(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -378,8 +495,19 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Gets the name of the specified column.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The name of the specified column.</returns>
     public override string GetName(int ordinal) => ReaderMetadata.GetColumn(ordinal).Name;
 
+    /// <summary>
+    /// Gets the column ordinal given the name of the column.
+    /// </summary>
+    /// <param name="name">The name of the column.</param>
+    /// <returns>The zero-based column ordinal.</returns>
+    /// <exception cref="IndexOutOfRangeException">Thrown when the column name is not found.</exception>
     public override int GetOrdinal(string name)
     {
         if (ReaderMetadata.ColumnNameToOrdinal.TryGetValue(name, out var ordinal))
@@ -390,16 +518,41 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         throw new IndexOutOfRangeException($"Field not found in row: {name}");
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a string.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
     public override string GetString(int ordinal) =>
         GetPrimitiveValue(Type.Types.PrimitiveTypeId.Utf8, ordinal).GetText();
 
+    /// <summary>
+    /// Gets the value of the specified column as a TextReader.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>A TextReader containing the column value.</returns>
     public override TextReader GetTextReader(int ordinal) => new StringReader(GetString(ordinal));
 
+    /// <summary>
+    /// Gets the value of the specified column as a JSON string.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column as JSON.</returns>
     public string GetJson(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Json, ordinal).GetJson();
 
+    /// <summary>
+    /// Gets the value of the specified column as a JSON document string.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column as a JSON document.</returns>
     public string GetJsonDocument(int ordinal) =>
         GetPrimitiveValue(Type.Types.PrimitiveTypeId.JsonDocument, ordinal).GetJsonDocument();
 
+    /// <summary>
+    /// Gets the value of the specified column in its native format.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column in its native format.</returns>
     public override object GetValue(int ordinal)
     {
         var type = GetColumnType(ordinal);
@@ -450,6 +603,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         };
     }
 
+    /// <summary>
+    /// Populates an array of objects with the column values of the current row.
+    /// </summary>
+    /// <param name="values">An array of Object into which to copy the attribute columns.</param>
+    /// <returns>The number of instances of Object in the array.</returns>
     public override int GetValues(object[] values)
     {
         ArgumentNullException.ThrowIfNull(values);
@@ -464,19 +622,65 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return count;
     }
 
+    /// <summary>
+    /// Gets a value that indicates whether the specified column contains null values.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>true if the specified column is equivalent to DBNull; otherwise, false.</returns>
     public override bool IsDBNull(int ordinal) => CurrentRow[ordinal].IsNull();
 
+    /// <summary>
+    /// Gets the number of columns in the current row.
+    /// </summary>
     public override int FieldCount => ReaderMetadata.FieldCount;
+    
+    /// <summary>
+    /// Gets the value of the specified column in its native format given the column ordinal.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column in its native format.</returns>
     public override object this[int ordinal] => GetValue(ordinal);
+    
+    /// <summary>
+    /// Gets the value of the specified column in its native format given the column name.
+    /// </summary>
+    /// <param name="name">The name of the column.</param>
+    /// <returns>The value of the specified column in its native format.</returns>
     public override object this[string name] => GetValue(GetOrdinal(name));
+    
+    /// <summary>
+    /// Gets the number of rows changed, inserted, or deleted by execution of the SQL statement.
+    /// </summary>
+    /// <remarks>For YDB, this always returns -1 as the number of affected records is not available.</remarks>
     public override int RecordsAffected => -1;
+    
+    /// <summary>
+    /// Gets a value that indicates whether the data reader contains one or more rows.
+    /// </summary>
     public override bool HasRows => ReaderMetadata.RowsCount > 0;
+    
+    /// <summary>
+    /// Gets a value that indicates whether the data reader is closed.
+    /// </summary>
     public override bool IsClosed => ReaderState == State.Close;
 
+    /// <summary>
+    /// Advances the data reader to the next result set.
+    /// </summary>
+    /// <returns>true if there are more result sets; otherwise, false.</returns>
     public override bool NextResult() => NextResultAsync().GetAwaiter().GetResult();
 
+    /// <summary>
+    /// Advances the data reader to the next record.
+    /// </summary>
+    /// <returns>true if there are more rows; otherwise, false.</returns>
     public override bool Read() => ReadAsync().GetAwaiter().GetResult();
 
+    /// <summary>
+    /// Asynchronously advances the data reader to the next result set.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result indicates whether there are more result sets.</returns>
     public override async Task<bool> NextResultAsync(CancellationToken cancellationToken)
     {
         ThrowIfClosed();
@@ -501,6 +705,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return ReaderState != State.IsConsumed;
     }
 
+    /// <summary>
+    /// Asynchronously advances the data reader to the next record.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result indicates whether there are more rows.</returns>
     public override async Task<bool> ReadAsync(CancellationToken cancellationToken)
     {
         ThrowIfClosed();

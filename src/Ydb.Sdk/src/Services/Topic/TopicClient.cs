@@ -4,10 +4,21 @@ using Ydb.Topic.V1;
 
 namespace Ydb.Sdk.Services.Topic;
 
+/// <summary>
+/// Client for YDB Topic service operations.
+/// </summary>
+/// <remarks>
+/// TopicClient provides methods for managing YDB topics including creation, modification,
+/// and deletion of topics and their configurations.
+/// </remarks>
 public class TopicClient
 {
     private readonly IDriver _driver;
 
+    /// <summary>
+    /// Initializes a new instance of the TopicClient class.
+    /// </summary>
+    /// <param name="driver">The YDB driver to use for topic operations.</param>
     public TopicClient(IDriver driver)
     {
         _driver = driver;
