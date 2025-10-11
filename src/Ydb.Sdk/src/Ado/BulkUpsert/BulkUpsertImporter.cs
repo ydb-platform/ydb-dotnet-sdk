@@ -6,7 +6,7 @@ using Ydb.Table.V1;
 
 namespace Ydb.Sdk.Ado.BulkUpsert;
 
-public sealed class BulkUpsertImporter : IBulkUpsertImporter
+internal class BulkUpsertImporter : IBulkUpsertImporter
 {
     private readonly IDriver _driver;
     private readonly string _tablePath;

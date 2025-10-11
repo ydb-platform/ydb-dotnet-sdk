@@ -6,6 +6,13 @@ using Ydb.Sdk.Ado.Internal;
 
 namespace Ydb.Sdk.Ado;
 
+/// <summary>
+/// Represents a SQL command to execute against a YDB database. This class cannot be inherited.
+/// </summary>
+/// <remarks>
+/// YdbCommand provides a standard ADO.NET command interface for executing SQL statements
+/// against YDB databases. It supports both synchronous and asynchronous execution methods.
+/// </remarks>
 public sealed class YdbCommand : DbCommand
 {
     private YdbConnection? _ydbConnection;
@@ -14,12 +21,31 @@ public sealed class YdbCommand : DbCommand
     private YdbConnection YdbConnection =>
         _ydbConnection ?? throw new InvalidOperationException("Connection property has not been initialized");
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbCommand"/> class.
+    /// </summary>
     public YdbCommand()
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbCommand"/> class with the specified connection.
+    /// </summary>
+    /// <param name="ydbConnection">A <see cref="YdbConnection"/> that represents the connection to a YDB server.</param>
     public YdbCommand(YdbConnection ydbConnection)
     {
+        _ydbConnection = ydbConnection;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbCommand"/> class with the text of the query, a
+    /// <see cref="YdbConnection"/>, and the <see cref="YdbTransaction"/>.
+    /// </summary>
+    /// <param name="commandText">The text of the query.</param>
+    /// <param name="ydbConnection">A <see cref="YdbConnection"/> that represents the connection to a YDB server.</param>
+    public YdbCommand(string commandText, YdbConnection? ydbConnection = null)
+    {
+        _commandText = commandText;
         _ydbConnection = ydbConnection;
     }
 
