@@ -8,6 +8,9 @@ namespace Ydb.Sdk.Ado;
 /// <remarks>
 /// TransactionMode defines the isolation level and consistency guarantees
 /// for database operations within a transaction.
+/// 
+/// For more information about YDB transaction modes, see:
+/// <see href="https://ydb.tech/docs/en/concepts/transactions">YDB Transactions Documentation</see>
 /// </remarks>
 public enum TransactionMode
 {
@@ -15,8 +18,9 @@ public enum TransactionMode
     /// Serializable read-write transaction mode.
     /// </summary>
     /// <remarks>
-    /// Provides the highest isolation level with full ACID guarantees.
-    /// All reads and writes are serializable, ensuring complete consistency.
+    /// Provides the strictest isolation level for custom transactions.
+    /// Guarantees that the result of successful parallel transactions is equivalent
+    /// to their serial execution, with no read anomalies for successful transactions.
     /// This is the default mode for read-write operations.
     /// </remarks>
     SerializableRw,
@@ -25,8 +29,9 @@ public enum TransactionMode
     /// Snapshot read-only transaction mode.
     /// </summary>
     /// <remarks>
-    /// Provides a consistent snapshot of the database at a specific point in time.
-    /// All reads within the transaction see the same consistent state.
+    /// All read operations within the transaction access the database snapshot.
+    /// All data reads are consistent. The snapshot is taken when the transaction begins,
+    /// meaning the transaction sees all changes committed before it began.
     /// Only read operations are allowed.
     /// </remarks>
     SnapshotRo,
@@ -35,8 +40,9 @@ public enum TransactionMode
     /// Stale read-only transaction mode.
     /// </summary>
     /// <remarks>
-    /// Allows reading potentially stale data for better performance.
-    /// Provides eventual consistency guarantees but may return outdated information.
+    /// Read operations within the transaction may return results that are slightly
+    /// out-of-date (lagging by fractions of a second). Each individual read returns
+    /// consistent data, but no consistency between different reads is guaranteed.
     /// Only read operations are allowed.
     /// </remarks>
     StaleRo,
@@ -45,8 +51,10 @@ public enum TransactionMode
     /// Online read-only transaction mode.
     /// </summary>
     /// <remarks>
-    /// Provides real-time read access with strong consistency.
-    /// Reads the most recent committed data without allowing inconsistent reads.
+    /// Each read operation in the transaction reads the data that is most recent
+    /// at execution time. Each individual read operation returns consistent data,
+    /// but no consistency is guaranteed between reads. Reading the same table range
+    /// twice may return different results.
     /// Only read operations are allowed.
     /// </remarks>
     OnlineRo,
@@ -55,8 +63,10 @@ public enum TransactionMode
     /// Online inconsistent read-only transaction mode.
     /// </summary>
     /// <remarks>
-    /// Provides real-time read access but allows inconsistent reads for better performance.
-    /// May return data from different points in time within the same transaction.
+    /// Each read operation in the transaction reads the data that is most recent
+    /// at execution time. Even the data fetched by a particular read operation may
+    /// contain inconsistent results. This mode provides the highest performance
+    /// but the lowest consistency guarantees.
     /// Only read operations are allowed.
     /// </remarks>
     OnlineInconsistentRo
