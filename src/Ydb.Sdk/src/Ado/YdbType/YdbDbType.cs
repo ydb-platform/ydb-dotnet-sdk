@@ -94,12 +94,13 @@ public enum YdbDbType
     Double,
 
     /// <summary>
-    /// Represents a fixed-point real number type with user-specified precision and scale, stored in 16 bytes.
-    /// Precision is the maximum total number of decimal digits stored (1 to 35).
-    /// Scale is the number of decimal digits to the right of the decimal point (0 to the precision value).
+    /// A real number with the specified precision, 16 bytes in size.
+    /// Precision is the maximum total number of decimal digits stored and can range from 1 to 35.
+    /// Scale is the maximum number of decimal digits stored
+    /// to the right of the decimal point and can range from 0 to the precision value.
     /// </summary>
     /// <remarks>
-    /// Precision and Scale must be specified in <see cref="Ydb.Sdk.Ado.YdbParameter"/>.
+    /// Precision and Scale are specified in the <see cref="Ydb.Sdk.Ado.YdbParameter"/>.
     /// If not specified, the default values (precision: 22, scale: 9) are used.
     /// </remarks>
     Decimal,
