@@ -12,7 +12,10 @@ public interface ICredentialsProvider
     /// <summary>
     /// Gets the authentication information asynchronously.
     /// </summary>
-    /// <returns>A value task that represents the asynchronous operation. The task result contains the authentication token.</returns>
+    /// <returns>
+    /// A value task that represents the asynchronous operation.
+    /// The task result contains the authentication token.
+    /// </returns>
     ValueTask<string> GetAuthInfoAsync();
 }
 

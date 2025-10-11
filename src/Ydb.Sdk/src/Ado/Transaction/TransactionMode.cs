@@ -10,7 +10,7 @@ namespace Ydb.Sdk.Ado;
 /// for database operations within a transaction.
 /// 
 /// For more information about YDB transaction modes, see:
-/// <see href="https://ydb.tech/docs/en/concepts/transactions">YDB Transactions Documentation</see>
+/// <see href="https://ydb.tech/docs/en/concepts/transactions">YDB Transactions Documentation</see>.
 /// </remarks>
 public enum TransactionMode
 {

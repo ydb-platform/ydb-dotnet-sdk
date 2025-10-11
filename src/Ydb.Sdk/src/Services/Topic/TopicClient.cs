@@ -16,7 +16,7 @@ public class TopicClient
     private readonly IDriver _driver;
 
     /// <summary>
-    /// Initializes a new instance of the TopicClient class.
+    /// Initializes a new instance of the <see cref="TopicClient"/> class.
     /// </summary>
     /// <param name="driver">The YDB driver to use for topic operations.</param>
     public TopicClient(IDriver driver)

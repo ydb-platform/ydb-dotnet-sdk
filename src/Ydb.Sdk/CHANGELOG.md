@@ -1,4 +1,4 @@
-- XML documentation for all public APIs in `Ydb.Sdk`.
+- Added XML documentation for all public APIs in `Ydb.Sdk`.
 - Feat ADO.NET: Added dispose timeout (10 seconds) to `PoolingSessionSource`.
 - Feat ADO.NET: Added `EnableImplicitSession` to support implicit sessions.
 
