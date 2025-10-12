@@ -122,23 +122,28 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// Gets the value of the specified column as a signed byte.
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column.</returns>
+    /// <returns>The value of the specified column as a signed byte.</returns>
     public sbyte GetSByte(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Int8, ordinal).GetInt8();
 
     /// <summary>
     /// Gets the value of the specified column as a byte array.
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column.</returns>
+    /// <returns>The value of the specified column as a byte array.</returns>
     public byte[] GetBytes(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.String, ordinal).GetBytes();
 
-    /// <summary>
-    /// Gets the value of the specified column as a YSON byte array.
-    /// </summary>
-    /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column as YSON bytes.</returns>
     public byte[] GetYson(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Yson, ordinal).GetYson();
 
+    /// <summary>
+    /// Reads a stream of bytes from the specified column offset into the buffer as an array.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <param name="dataOffset">The index within the field from which to start the read operation.</param>
+    /// <param name="buffer">The buffer into which to read the stream of bytes.</param>
+    /// <param name="bufferOffset">The index for buffer to start the read operation.</param>
+    /// <param name="length">The maximum length to copy into the buffer.</param>
+    /// <returns>The actual number of bytes read.</returns>
+    /// <exception cref="IndexOutOfRangeException">Thrown when dataOffset, bufferOffset, or length are out of range.</exception>
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
     {
         var bytes = GetBytes(ordinal);
@@ -162,6 +167,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return copyCount;
     }
 
+    /// <summary>
+    /// Gets the value of the specified column as a single character.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column as a character.</returns>
+    /// <exception cref="System.InvalidCastException">
+    /// Thrown when the string is empty or cannot be converted to a character.
+    /// </exception>
     public override char GetChar(int ordinal)
     {
         var str = GetString(ordinal);
@@ -169,6 +182,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         return str.Length == 0 ? throw new InvalidCastException("Could not read char - string was empty") : str[0];
     }
 
+    /// <summary>
+    /// Reads a stream of characters from the specified column offset into the buffer as an array.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <param name="dataOffset">The index within the field from which to start the read operation.</param>
+    /// <param name="buffer">The buffer into which to read the stream of characters.</param>
+    /// <param name="bufferOffset">The index for buffer to start the read operation.</param>
+    /// <param name="length">The maximum length to copy into the buffer.</param>
+    /// <returns>The actual number of characters read.</returns>
+    /// <exception cref="IndexOutOfRangeException">Thrown when dataOffset, bufferOffset, or length are out of range.</exception>
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
     {
         var chars = GetString(ordinal).ToCharArray();
@@ -441,6 +464,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
+    /// <summary>
+    /// Gets the value of the specified column as a 32-bit unsigned integer.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column as a 32-bit unsigned integer.</returns>
     public uint GetUint32(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -633,32 +661,32 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// Gets the number of columns in the current row.
     /// </summary>
     public override int FieldCount => ReaderMetadata.FieldCount;
-    
+
     /// <summary>
     /// Gets the value of the specified column in its native format given the column ordinal.
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column in its native format.</returns>
     public override object this[int ordinal] => GetValue(ordinal);
-    
+
     /// <summary>
     /// Gets the value of the specified column in its native format given the column name.
     /// </summary>
     /// <param name="name">The name of the column.</param>
     /// <returns>The value of the specified column in its native format.</returns>
     public override object this[string name] => GetValue(GetOrdinal(name));
-    
+
     /// <summary>
     /// Gets the number of rows changed, inserted, or deleted by execution of the SQL statement.
     /// </summary>
     /// <remarks>For YDB, this always returns -1 as the number of affected records is not available.</remarks>
     public override int RecordsAffected => -1;
-    
+
     /// <summary>
     /// Gets a value that indicates whether the data reader contains one or more rows.
     /// </summary>
     public override bool HasRows => ReaderMetadata.RowsCount > 0;
-    
+
     /// <summary>
     /// Gets a value that indicates whether the data reader is closed.
     /// </summary>
@@ -743,8 +771,22 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
+    /// <summary>
+    /// Gets a value indicating the depth of nesting for the current row.
+    /// </summary>
+    /// <remarks>
+    /// For YdbDataReader, this always returns 0 as YDB does not support nested result sets.
+    /// </remarks>
     public override int Depth => 0;
 
+    /// <summary>
+    /// Returns an enumerator that iterates through the <see cref="YdbDataReader"/>.
+    /// </summary>
+    /// <returns>An enumerator that can be used to iterate through the <see cref="YdbDataRecord"/> collection.</returns>
+    /// <remarks>
+    /// This method provides synchronous enumeration over the data reader records.
+    /// Each iteration advances the reader to the next row.
+    /// </remarks>
     public override IEnumerator<YdbDataRecord> GetEnumerator()
     {
         while (Read())
@@ -753,6 +795,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
+    /// <summary>
+    /// Asynchronously closes the <see cref="YdbDataReader"/> object.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This method closes the reader and releases any resources associated with it.
+    /// If the reader is closed during a transaction, the transaction will be marked as failed.
+    /// </remarks>
     public override async Task CloseAsync()
     {
         if (ReaderState == State.Close)
@@ -780,6 +830,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
+    /// <summary>
+    /// Closes the <see cref="YdbDataReader"/> object.
+    /// </summary>
+    /// <remarks>
+    /// This method closes the reader and releases any resources associated with it.
+    /// If the reader is closed during a transaction, the transaction will be marked as failed.
+    /// </remarks>
     public override void Close() => CloseAsync().GetAwaiter().GetResult();
 
     private Type UnwrapColumnType(int ordinal)
@@ -864,8 +921,24 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
+    /// <summary>
+    /// Asynchronously releases the unmanaged resources used by the YdbDataReader.
+    /// </summary>
+    /// <returns>A ValueTask representing the asynchronous disposal operation.</returns>
+    /// <remarks>
+    /// This method closes the reader and releases any resources associated with it.
+    /// </remarks>
     public override async ValueTask DisposeAsync() => await CloseAsync();
 
+    /// <summary>
+    /// Returns an async enumerator that iterates through the YdbDataReader asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the enumeration.</param>
+    /// <returns>An async enumerator that can be used to iterate through the YdbDataRecord collection.</returns>
+    /// <remarks>
+    /// This method provides asynchronous enumeration over the data reader records.
+    /// Each iteration advances the reader to the next row asynchronously.
+    /// </remarks>
     public async IAsyncEnumerator<YdbDataRecord> GetAsyncEnumerator(CancellationToken cancellationToken = new())
     {
         while (await ReadAsync(cancellationToken))

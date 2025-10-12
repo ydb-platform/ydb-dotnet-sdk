@@ -516,6 +516,18 @@ public class YdbDataSource
         return result;
     }, cancellationToken);
 
+    /// <summary>
+    /// Executes an operation within a transaction with a custom retry policy configuration.
+    /// </summary>
+    /// <param name="func">The operation to execute within the transaction.</param>
+    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Executes the provided function within a transaction with the specified retry policy configuration.
+    /// The transaction is automatically committed on success or rolled back on failure.
+    /// The connection and transaction are automatically managed and disposed.
+    /// </remarks>
     public Task ExecuteInTransactionAsync(
         Func<YdbConnection, Task> func,
         YdbRetryPolicyConfig retryPolicyConfig,
@@ -528,6 +540,19 @@ public class YdbDataSource
         await transaction.CommitAsync(cancellationToken);
     });
 
+    /// <summary>
+    /// Executes an operation within a transaction with a custom retry policy configuration and returns a result.
+    /// </summary>
+    /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
+    /// <param name="func">The operation to execute within the transaction.</param>
+    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
+    /// <returns>A task representing the asynchronous operation that returns the result.</returns>
+    /// <remarks>
+    /// Executes the provided function within a transaction with the specified retry policy configuration.
+    /// The transaction is automatically committed on success or rolled back on failure.
+    /// The connection and transaction are automatically managed and disposed.
+    /// </remarks>
     public Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<YdbConnection, Task<TResult>> func,
         YdbRetryPolicyConfig retryPolicyConfig,
@@ -541,6 +566,19 @@ public class YdbDataSource
         return result;
     });
 
+    /// <summary>
+    /// Executes an operation within a transaction with a custom retry policy configuration and cancellation token support.
+    /// </summary>
+    /// <param name="func">The operation to execute within the transaction with cancellation token support.</param>
+    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Executes the provided function within a transaction with the specified retry policy configuration and cancellation support.
+    /// The transaction is automatically committed on success or rolled back on failure.
+    /// The connection and transaction are automatically managed and disposed.
+    /// </remarks>
     public Task ExecuteInTransactionAsync(
         Func<YdbConnection, CancellationToken, Task> func,
         YdbRetryPolicyConfig retryPolicyConfig,
@@ -554,6 +592,20 @@ public class YdbDataSource
         await transaction.CommitAsync(ct);
     }, cancellationToken);
 
+    /// <summary>
+    /// Executes an operation within a transaction with a custom retry policy configuration, cancellation token support, and returns a result.
+    /// </summary>
+    /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
+    /// <param name="func">The operation to execute within the transaction with cancellation token support.</param>
+    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation that returns the result.</returns>
+    /// <remarks>
+    /// Executes the provided function within a transaction with the specified retry policy configuration and cancellation support.
+    /// The transaction is automatically committed on success or rolled back on failure.
+    /// The connection and transaction are automatically managed and disposed.
+    /// </remarks>
     public Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<YdbConnection, CancellationToken, Task<TResult>> func,
         YdbRetryPolicyConfig retryPolicyConfig,
@@ -568,6 +620,18 @@ public class YdbDataSource
         return result;
     }, cancellationToken);
 
+    /// <summary>
+    /// Executes an operation within a transaction with a custom retry policy.
+    /// </summary>
+    /// <param name="func">The operation to execute within the transaction.</param>
+    /// <param name="retryPolicy">The custom retry policy to use for this operation.</param>
+    /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Executes the provided function within a transaction with the specified custom retry policy.
+    /// The transaction is automatically committed on success or rolled back on failure.
+    /// The connection and transaction are automatically managed and disposed.
+    /// </remarks>
     public Task ExecuteInTransactionAsync(
         Func<YdbConnection, Task> func,
         IRetryPolicy retryPolicy,
@@ -580,6 +644,19 @@ public class YdbDataSource
         await transaction.CommitAsync(ct);
     });
 
+    /// <summary>
+    /// Executes an operation within a transaction with a custom retry policy and returns a result.
+    /// </summary>
+    /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
+    /// <param name="func">The operation to execute within the transaction.</param>
+    /// <param name="retryPolicy">The custom retry policy to use for this operation.</param>
+    /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
+    /// <returns>A task representing the asynchronous operation that returns the result.</returns>
+    /// <remarks>
+    /// Executes the provided function within a transaction with the specified custom retry policy.
+    /// The transaction is automatically committed on success or rolled back on failure.
+    /// The connection and transaction are automatically managed and disposed.
+    /// </remarks>
     public Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<YdbConnection, Task<TResult>> func,
         IRetryPolicy retryPolicy,
@@ -593,6 +670,19 @@ public class YdbDataSource
         return result;
     });
 
+    /// <summary>
+    /// Executes an operation within a transaction with a custom retry policy and cancellation token support.
+    /// </summary>
+    /// <param name="func">The operation to execute within the transaction with cancellation token support.</param>
+    /// <param name="retryPolicy">The custom retry policy to use for this operation.</param>
+    /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Executes the provided function within a transaction with the specified custom retry policy and cancellation support.
+    /// The transaction is automatically committed on success or rolled back on failure.
+    /// The connection and transaction are automatically managed and disposed.
+    /// </remarks>
     public Task ExecuteInTransactionAsync(
         Func<YdbConnection, CancellationToken, Task> func,
         IRetryPolicy retryPolicy,
@@ -606,6 +696,20 @@ public class YdbDataSource
         await transaction.CommitAsync(ct);
     }, cancellationToken);
 
+    /// <summary>
+    /// Executes an operation within a transaction with a custom retry policy, cancellation token support, and returns a result.
+    /// </summary>
+    /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
+    /// <param name="func">The operation to execute within the transaction with cancellation token support.</param>
+    /// <param name="retryPolicy">The custom retry policy to use for this operation.</param>
+    /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation that returns the result.</returns>
+    /// <remarks>
+    /// Executes the provided function within a transaction with the specified custom retry policy and cancellation support.
+    /// The transaction is automatically committed on success or rolled back on failure.
+    /// The connection and transaction are automatically managed and disposed.
+    /// </remarks>
     public Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<YdbConnection, CancellationToken, Task<TResult>> func,
         IRetryPolicy retryPolicy,
@@ -620,6 +724,20 @@ public class YdbDataSource
         return result;
     }, cancellationToken);
 
+    /// <summary>
+    /// Asynchronously creates and opens a new YDB connection with retry policy support.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation that returns an opened <see cref="YdbConnection"/>.</returns>
+    /// <remarks>
+    /// Creates a new connection and opens it asynchronously with automatic retry logic for transient failures.
+    /// The connection should be disposed when no longer needed.
+    /// 
+    /// 
+    /// <strong>Important limitations:</strong>
+    /// - Retryable connections do not support interactive transactions. Use <see cref="ExecuteInTransactionAsync"/> methods instead.
+    /// - On large result sets, these connections may cause OutOfMemoryException as they read all data into memory. Use with caution.
+    /// </remarks>
     public async ValueTask<YdbConnection> OpenRetryableConnectionAsync(CancellationToken cancellationToken = default)
     {
         var ydbConnection = CreateDbConnection();
@@ -636,6 +754,21 @@ public class YdbDataSource
         }
     }
 
+    /// <summary>
+    /// Asynchronously creates and opens a new YDB connection with a custom retry policy configuration.
+    /// </summary>
+    /// <param name="ydbRetryPolicyConfig">The retry policy configuration to use for opening the connection.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation that returns an opened <see cref="YdbConnection"/>.</returns>
+    /// <remarks>
+    /// Creates a new connection and opens it asynchronously with the specified retry policy configuration.
+    /// The connection should be disposed when no longer needed.
+    /// 
+    /// 
+    /// <strong>Important limitations:</strong>
+    /// - Retryable connections do not support interactive transactions. Use <see cref="ExecuteInTransactionAsync"/> methods instead.
+    /// - On large result sets, these connections may cause OutOfMemoryException as they read all data into memory. Use with caution.
+    /// </remarks>
     public async ValueTask<YdbConnection> OpenRetryableConnectionAsync(
         YdbRetryPolicyConfig ydbRetryPolicyConfig,
         CancellationToken cancellationToken = default
@@ -655,6 +788,26 @@ public class YdbDataSource
         }
     }
 
+    /// <summary>
+    /// Asynchronously creates and opens a new YDB connection with a custom retry policy.
+    /// </summary>
+    /// <param name="retryPolicy">The custom retry policy to use for opening the connection.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation that returns an opened <see cref="YdbConnection"/>.</returns>
+    /// <remarks>
+    /// Creates a new connection and opens it asynchronously with the specified custom retry policy.
+    /// The connection should be disposed when no longer needed.
+    /// 
+    /// <para>Important limitations:</para>
+    /// <para>
+    /// - Retryable connections do not support interactive transactions.
+    /// Use ExecuteInTransactionAsync methods instead.
+    /// </para>
+    /// <para>
+    /// - On large result sets, these connections may cause OutOfMemoryException as they read all data into memory.
+    /// Use with caution.
+    /// </para>
+    /// </remarks>
     public async ValueTask<YdbConnection> OpenRetryableConnectionAsync(
         IRetryPolicy retryPolicy,
         CancellationToken cancellationToken = default
