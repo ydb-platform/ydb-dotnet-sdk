@@ -135,7 +135,6 @@ public sealed class YdbConnection : DbConnection
         ConnectionState = ConnectionState.Open;
     }
 
-    /// <inheritdoc/>
     public override async Task CloseAsync()
     {
         // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault

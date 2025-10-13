@@ -797,6 +797,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <remarks>
     /// This method closes the reader and releases any resources associated with it.
     /// If the reader is closed during a transaction, the transaction will be marked as failed.
+    /// 
+    /// <para>
+    /// Important: If the stream is not fully read to the end, the session associated with this stream
+    /// and the corresponding <see cref="YdbConnection"/> will be marked as invalid to avoid
+    /// <see cref="StatusCode.SessionBusy"/> errors. Because the session may be returned to the pool
+    /// and immediately reused for a new request while the previous one is still not completed.
+    /// </para>
     /// </remarks>
     public override async Task CloseAsync()
     {
@@ -831,6 +838,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <remarks>
     /// This method closes the reader and releases any resources associated with it.
     /// If the reader is closed during a transaction, the transaction will be marked as failed.
+    /// 
+    /// <para>
+    /// Important: If the stream is not fully read to the end, the session associated with this stream
+    /// and the corresponding <see cref="YdbConnection"/> will be marked as invalid to avoid
+    /// <see cref="StatusCode.SessionBusy"/> errors. Because the session may be returned to the pool
+    /// and immediately reused for a new request while the previous one is still not completed.
+    /// </para>
     /// </remarks>
     public override void Close() => CloseAsync().GetAwaiter().GetResult();
 
@@ -922,6 +936,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <returns>A ValueTask representing the asynchronous disposal operation.</returns>
     /// <remarks>
     /// This method closes the reader and releases any resources associated with it.
+    /// 
+    /// <para>
+    /// Important: If the stream is not fully read to the end, the session associated with this stream
+    /// and the corresponding <see cref="YdbConnection"/> will be marked as invalid to avoid
+    /// <see cref="StatusCode.SessionBusy"/> errors. Because the session may be returned to the pool
+    /// and immediately reused for a new request while the previous one is still not completed.
+    /// </para>
     /// </remarks>
     public override async ValueTask DisposeAsync() => await CloseAsync();
 

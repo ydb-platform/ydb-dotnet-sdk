@@ -249,7 +249,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     /// <remarks>
     /// When true, the connection uses TLS encryption (grpcs://).
-    /// <para>When false, the connection uses plain text (grpc://).</para>
+    /// When false, the connection uses plain text (grpc://).
     /// <para>Default value: false.</para>
     /// </remarks>
     public bool UseTls
