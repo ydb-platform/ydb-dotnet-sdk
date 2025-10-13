@@ -10,8 +10,10 @@ namespace Ydb.Sdk.Ado;
 /// It provides methods to create connections, commands, parameters, and other ADO.NET objects
 /// that are specific to the YDB database provider.
 /// 
+/// <para>
 /// For more information about YDB, see:
 /// <see href="https://ydb.tech/docs">YDB Documentation</see>.
+/// </para>
 /// </remarks>
 public class YdbProviderFactory : DbProviderFactory
 {

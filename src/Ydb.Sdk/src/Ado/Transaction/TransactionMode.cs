@@ -8,9 +8,11 @@ namespace Ydb.Sdk.Ado;
 /// <remarks>
 /// TransactionMode defines the isolation level and consistency guarantees
 /// for database operations within a transaction.
-/// 
+///
+/// <para>
 /// For more information about YDB transaction modes, see:
 /// <see href="https://ydb.tech/docs/en/concepts/transactions">YDB Transactions Documentation</see>.
+/// </para>
 /// </remarks>
 public enum TransactionMode
 {

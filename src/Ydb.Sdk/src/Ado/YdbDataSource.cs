@@ -15,8 +15,10 @@ namespace Ydb.Sdk.Ado;
 /// for handling transient failures. The data source can execute operations with automatic
 /// retry logic and transaction management.
 /// 
+/// <para>
 /// For more information about YDB, see:
 /// <see href="https://ydb.tech/docs">YDB Documentation</see>.
+/// </para>
 /// </remarks>
 public class YdbDataSource
 #if NET7_0_OR_GREATER

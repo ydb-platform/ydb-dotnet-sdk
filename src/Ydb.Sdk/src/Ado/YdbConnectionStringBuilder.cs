@@ -16,8 +16,10 @@ namespace Ydb.Sdk.Ado;
 /// YdbConnectionStringBuilder provides strongly-typed properties for building YDB connection strings.
 /// It supports all standard ADO.NET connection string parameters plus YDB-specific options.
 /// 
+/// <para>
 /// For more information about YDB, see:
 /// <see href="https://ydb.tech/docs">YDB Documentation</see>.
+/// </para>
 /// </remarks>
 public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 {
@@ -69,7 +71,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     /// <remarks>
     /// Specifies the hostname or IP address where the YDB server is running.
-    /// Default value: localhost.
+    /// <para>Default value: localhost.</para>
     /// </remarks>
     public string Host
     {
@@ -89,7 +91,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the port number where the YDB server is listening.
     /// Must be between 1 and 65535.
-    /// Default value: 2136.
+    /// <para>Default value: 2136.</para>
     /// </remarks>
     public int Port
     {
@@ -113,7 +115,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     /// <remarks>
     /// Specifies the path to the YDB database to connect to.
-    /// Default value: /local.
+    /// <para>Default value: /local.</para>
     /// </remarks>
     public string Database
     {
@@ -133,7 +135,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the username used for authenticating with the YDB server.
     /// If not specified, authentication using a username and password is disabled.
-    /// Default value: null.
+    /// <para>Default value: null.</para>
     /// </remarks>
     public string? User
     {
@@ -153,7 +155,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the password used for authentication with the YDB server.
     /// If not specified, a password is not used.
-    /// Default value: null.
+    /// <para>Default value: null.</para>
     /// </remarks>
     public string? Password
     {
@@ -173,7 +175,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the maximum number of sessions that can be created and maintained
     /// in the session pool. Must be greater than 0.
-    /// Default value: 100.
+    /// <para>Default value: 100.</para>
     /// </remarks>
     public int MaxSessionPool
     {
@@ -198,7 +200,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the minimum number of sessions to maintain in the session pool.
     /// Must be greater than or equal to 0.
-    /// Default value: 0.
+    /// <para>Default value: 0.</para>
     /// </remarks>
     public int MinSessionPool
     {
@@ -223,7 +225,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies how long a session can remain idle before being closed.
     /// Must be greater than or equal to 0.
-    /// Default value: 300 seconds (5 minutes).
+    /// <para>Default value: 300 seconds (5 minutes).</para>
     /// </remarks>
     public int SessionIdleTimeout
     {
@@ -247,8 +249,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     /// <remarks>
     /// When true, the connection uses TLS encryption (grpcs://).
-    /// When false, the connection uses plain text (grpc://).
-    /// Default value: false.
+    /// <para>When false, the connection uses plain text (grpc://).</para>
+    /// <para>Default value: false.</para>
     /// </remarks>
     public bool UseTls
     {
@@ -268,7 +270,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the path to a PEM-encoded root certificate file for TLS verification.
     /// Setting this property automatically enables TLS (UseTls = true).
-    /// Default value: null.
+    /// <para>Default value: null.</para>
     /// </remarks>
     public string? RootCertificate
     {
@@ -290,7 +292,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the maximum time to wait when establishing a connection to the server.
     /// Must be greater than or equal to 0. Set to 0 for infinite timeout.
-    /// Default value: 10 seconds.
+    /// <para>Default value: 10 seconds.</para>
     /// </remarks>
     public int ConnectTimeout
     {
@@ -315,7 +317,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the interval between keep-alive ping messages to detect broken connections.
     /// Must be greater than or equal to 0. Set to 0 to disable keep-alive pings.
-    /// Default value: 10 seconds.
+    /// <para>Default value: 10 seconds.</para>
     /// </remarks>
     public int KeepAlivePingDelay
     {
@@ -341,7 +343,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// Specifies the maximum time to wait for a keep-alive ping response before
     /// considering the connection broken. Must be greater than or equal to 0.
     /// Set to 0 for infinite timeout.
-    /// Default value: 5 seconds.
+    /// <para>Default value: 5 seconds.</para>
     /// </remarks>
     public int KeepAlivePingTimeout
     {
@@ -369,7 +371,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// to one node of the cluster. This is rarely needed but can improve performance for
     /// high-load scenarios with a single node.
     /// When false, uses a single HTTP/2 connection per node.
-    /// Default value: false.
+    /// <para>Default value: false.</para>
     /// </remarks>
     public bool EnableMultipleHttp2Connections
     {
@@ -390,7 +392,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// Specifies the maximum size of messages that can be sent to the server.
     /// Note: server-side limit is 64 MB. Exceeding this limit may result in
     /// "resource exhausted" errors or unpredictable behavior.
-    /// Default value: 4194304 bytes (4 MB).
+    /// <para>Default value: 4194304 bytes (4 MB).</para>
     /// </remarks>
     public int MaxSendMessageSize
     {
@@ -409,7 +411,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     /// <remarks>
     /// Specifies the maximum size of messages that can be received from the server.
-    /// Default value: 4194304 bytes (4 MB).
+    /// <para>Default value: 4194304 bytes (4 MB).</para>
     /// </remarks>
     public int MaxReceiveMessageSize
     {
@@ -429,7 +431,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// When true, disables server load balancing and uses direct connections.
     /// When false, enables server load balancing for better performance.
-    /// Default value: false.
+    /// <para>Default value: false.</para>
     /// </remarks>
     public bool DisableServerBalancer
     {
@@ -449,7 +451,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// When true, disables automatic service discovery and uses direct gRPC connections.
     /// When false, enables service discovery for automatic endpoint resolution.
-    /// Default value: false.
+    /// <para>Default value: false.</para>
     /// </remarks>
     public bool DisableDiscovery
     {
@@ -469,7 +471,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the maximum time to wait when creating a new session.
     /// Must be greater than or equal to 0. Set to 0 for infinite timeout.
-    /// Default value: 5 seconds.
+    /// <para>Default value: 5 seconds.</para>
     /// </remarks>
     public int CreateSessionTimeout
     {
@@ -498,7 +500,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// and sessions are not stored on the client side. Interactive client transactions are
     /// not supported in this mode.
     /// When false, the standard YDB sessions for tables (YDB has topics, coordination service, etc.) are used.
-    /// Default value: false.
+    /// <para>Default value: false.</para>
     /// </remarks>
     public bool EnableImplicitSession
     {
@@ -517,7 +519,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     /// <remarks>
     /// Specifies the logger factory used for creating loggers throughout the SDK.
-    /// Default value: NullLoggerFactory.Instance (no logging).
+    /// <para>Default value: NullLoggerFactory.Instance (no logging).</para>
     /// </remarks>
     public ILoggerFactory LoggerFactory { get; init; } = NullLoggerFactory.Instance;
 
@@ -527,7 +529,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies the credentials provider used for authenticating with the YDB server.
     /// If not provided, authentication is not used.
-    /// Default value: null.
+    /// <para>Default value: null.</para>
     /// </remarks>
     public ICredentialsProvider? CredentialsProvider { get; init; }
 
@@ -537,7 +539,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// <remarks>
     /// Specifies additional server certificates to trust for TLS verification.
     /// If not provided, the system certificate store is used.
-    /// Default value: null.
+    /// <para>Default value: null.</para>
     /// </remarks>
     public X509Certificate2Collection? ServerCertificates { get; init; }
 

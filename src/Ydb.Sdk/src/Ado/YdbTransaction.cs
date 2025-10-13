@@ -13,8 +13,10 @@ namespace Ydb.Sdk.Ado;
 /// changes made within the transaction. The transaction mode determines the isolation level and
 /// consistency guarantees.
 /// 
-/// For more information about YDB transactions, see:
+/// <para>
+/// For more information about YDB transaction modes, see:
 /// <see href="https://ydb.tech/docs/en/concepts/transactions">YDB Transactions Documentation</see>.
+/// </para>
 /// </remarks>
 public sealed class YdbTransaction : DbTransaction
 {

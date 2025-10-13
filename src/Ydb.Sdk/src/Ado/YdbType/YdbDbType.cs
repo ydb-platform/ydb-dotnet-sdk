@@ -7,9 +7,11 @@ namespace Ydb.Sdk.Ado.YdbType;
 /// </summary>
 /// <remarks>
 /// YdbDbType represents the primitive data types supported by YDB.
-/// 
+///
+/// <para>
 /// For more information about YDB primitive types, see:
-/// <see href="https://ydb.tech/docs/en/yql/reference/types/primitive">YDB Primitive Types Documentation</see>
+/// <see href="https://ydb.tech/docs/en/yql/reference/types/primitive">YDB Primitive Types Documentation</see>.
+/// </para>
 /// </remarks>
 public enum YdbDbType
 {

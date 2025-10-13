@@ -9,9 +9,11 @@ namespace Ydb.Sdk.Ado;
 /// YdbDataSourceBuilder provides a fluent interface for configuring connection strings
 /// and retry policies before building a YdbDataSource instance. It supports both
 /// string-based and strongly-typed connection string configuration.
-/// 
+///
+/// <para>
 /// For more information about YDB, see:
 /// <see href="https://ydb.tech/docs">YDB Documentation</see>.
+/// </para>
 /// </remarks>
 public class YdbDataSourceBuilder
 {
@@ -68,11 +70,11 @@ public class YdbDataSourceBuilder
     public string ConnectionString => ConnectionStringBuilder.ConnectionString;
 
     /// <summary>
-    /// Gets or sets the retry policy for the data source.
+    /// Gets or sets the default retry policy for the data source.
     /// </summary>
     /// <remarks>
     /// Specifies the retry policy to use for handling transient failures.
-    /// Default value is a YdbRetryPolicy with default configuration.
+    /// <para>Default value: <see cref="YdbRetryPolicy"/> with default configuration <see cref="YdbRetryPolicyConfig.Default"/>.</para>
     /// </remarks>
     public IRetryPolicy RetryPolicy { get; set; } = new YdbRetryPolicy(YdbRetryPolicyConfig.Default);
 
