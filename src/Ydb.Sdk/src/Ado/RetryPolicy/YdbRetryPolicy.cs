@@ -59,7 +59,7 @@ public class YdbRetryPolicy : IRetryPolicy
     /// <param name="config">The <see cref="YdbRetryPolicyConfig"/> retry policy configuration.</param>
     /// <param name="random">The random number generator for jitter calculations.</param>
     /// <remarks>
-    /// This constructor is primarily used for testing purposes to provide deterministic behavior.
+    /// This constructor is used for testing purposes to provide deterministic behavior.
     /// In production code, use the constructor that takes only the configuration parameter.
     /// </remarks>
     internal YdbRetryPolicy(YdbRetryPolicyConfig config, IRandom random) : this(config)
