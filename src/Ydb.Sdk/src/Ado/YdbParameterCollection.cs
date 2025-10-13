@@ -4,6 +4,15 @@ using System.Data.Common;
 
 namespace Ydb.Sdk.Ado;
 
+/// <summary>
+/// Collects all parameters relevant to a <see cref="YdbCommand"/> as well as their respective mappings to DataSet columns.
+/// This class cannot be inherited.
+/// </summary>
+/// <remarks>
+/// YdbParameterCollection provides a strongly-typed collection of <see cref="YdbParameter"/> objects
+/// used with YDB commands. It supports both indexed and named parameter access, and provides
+/// methods for adding, removing, and managing parameters.
+/// </remarks>
 public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbParameter>
 {
     private readonly List<YdbParameter> _parameters = new(5);
@@ -28,16 +37,24 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// data type and value.
     /// </summary>
     /// <param name="parameterName">The name of the <see cref="YdbParameter"/>.</param>
-    /// <param name="parameterType">One of the NpgsqlDbType values.</param>
+    /// <param name="parameterType">One of the <see cref="DbType"/> values.</param>
     /// <param name="value">The value of the <see cref="YdbParameter"/> to add to the collection.</param>
     /// <returns>The parameter that was added.</returns>
     public void AddWithValue(string parameterName, DbType parameterType, object? value = null) =>
         Add(new YdbParameter(parameterName, parameterType) { Value = value });
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Adds a <see cref="YdbParameter"/> to the collection.
+    /// </summary>
+    /// <param name="item">The <see cref="YdbParameter"/> to add to the collection.</param>
     void ICollection<YdbParameter>.Add(YdbParameter item) => Add(item);
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Adds a parameter to the collection.
+    /// </summary>
+    /// <param name="value">The parameter to add to the collection.</param>
+    /// <returns>The index of the added parameter.</returns>
+    /// <exception cref="InvalidCastException">Thrown when the value is not of type <see cref="YdbParameter"/>.</exception>
     public override int Add(object value) => Add(Cast(value));
 
     /// <summary>
@@ -63,10 +80,18 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <returns>True if the parameter was found, otherwise false.</returns>
     public bool Contains(YdbParameter item) => _parameters.Contains(item);
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Determines whether the collection contains a specific parameter.
+    /// </summary>
+    /// <param name="value">The parameter to locate in the collection.</param>
+    /// <returns>true if the parameter is found in the collection; otherwise, false.</returns>
     public override bool Contains(object value) => _parameters.Contains(value);
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Copies the elements of the collection to an array, starting at a particular array index.
+    /// </summary>
+    /// <param name="array">The one-dimensional array that is the destination of the elements copied from the collection.</param>
+    /// <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
     public void CopyTo(YdbParameter[] array, int arrayIndex) => _parameters.CopyTo(array, arrayIndex);
 
     /// <summary>
@@ -76,10 +101,19 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <returns>True if the parameter was found and removed, otherwise false.</returns>
     public bool Remove(YdbParameter item) => _parameters.Remove(item);
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Determines the index of a specific parameter in the collection.
+    /// </summary>
+    /// <param name="value">The parameter to locate in the collection.</param>
+    /// <returns>The index of the parameter if found in the collection; otherwise, -1.</returns>
     public override int IndexOf(object? value) => _parameters.IndexOf(Cast(value));
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Inserts a parameter into the collection at the specified index.
+    /// </summary>
+    /// <param name="index">The zero-based index at which the parameter should be inserted.</param>
+    /// <param name="value">The parameter to insert into the collection.</param>
+    /// <exception cref="InvalidCastException">Thrown when the value is not of type <see cref="YdbParameter"/>.</exception>
     public override void Insert(int index, object value) => _parameters.Insert(index, Cast(value));
 
     /// <summary>
@@ -95,7 +129,11 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <returns>Index of the parameter, or -1 if the parameter is not present.</returns>
     public int IndexOf(YdbParameter item) => _parameters.IndexOf(item);
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Inserts a <see cref="YdbParameter"/> into the collection at the specified index.
+    /// </summary>
+    /// <param name="index">The zero-based index at which the parameter should be inserted.</param>
+    /// <param name="item">The <see cref="YdbParameter"/> to insert into the collection.</param>
     public void Insert(int index, YdbParameter item) => _parameters[index] = item;
 
     /// <summary>
@@ -115,13 +153,25 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
         set => _parameters[index] = value;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Removes the <see cref="YdbParameter"/> with the specified name from the collection.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to remove.</param>
     public override void RemoveAt(string parameterName) => RemoveAt(IndexOf(parameterName));
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Sets the parameter at the specified index.
+    /// </summary>
+    /// <param name="index">The zero-based index of the parameter to set.</param>
+    /// <param name="value">The new parameter value.</param>
     protected override void SetParameter(int index, DbParameter value) => Insert(index, Cast(value));
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Sets the parameter with the specified name.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to set.</param>
+    /// <param name="value">The new parameter value.</param>
+    /// <exception cref="ArgumentException">Thrown when the parameter with the specified name is not found.</exception>
     protected override void SetParameter(string parameterName, DbParameter value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -141,10 +191,17 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <value>The number of <see cref="YdbParameter"/> objects in the collection.</value>
     public override int Count => _parameters.Count;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Gets an object that can be used to synchronize access to the collection.
+    /// </summary>
+    /// <value>An object that can be used to synchronize access to the collection.</value>
     public override object SyncRoot => ((ICollection)_parameters).SyncRoot;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Gets the location of a <see cref="YdbParameter"/> in the collection.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to find.</param>
+    /// <returns>The zero-based location of the <see cref="YdbParameter"/> within the collection.</returns>
     public override int IndexOf(string parameterName)
     {
         for (var i = 0; i < _parameters.Count; i++)
@@ -158,22 +215,45 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
         return -1;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Indicates whether a <see cref="YdbParameter"/> with the specified name exists in the collection.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to find.</param>
+    /// <returns>true if the collection contains the parameter; otherwise, false.</returns>
     public override bool Contains(string parameterName) => IndexOf(parameterName) != -1;
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Copies the elements of the collection to an array, starting at a particular array index.
+    /// </summary>
+    /// <param name="array">The one-dimensional array that is the destination of the elements copied from the collection.</param>
+    /// <param name="index">The zero-based index in array at which copying begins.</param>
     public override void CopyTo(Array array, int index) => ((ICollection)_parameters).CopyTo(array, index);
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Returns an enumerator that iterates through the collection.
+    /// </summary>
+    /// <returns>An enumerator that can be used to iterate through the collection.</returns>
     IEnumerator<YdbParameter> IEnumerable<YdbParameter>.GetEnumerator() => _parameters.GetEnumerator();
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Returns an enumerator that iterates through the collection.
+    /// </summary>
+    /// <returns>An enumerator that can be used to iterate through the collection.</returns>
     public override IEnumerator GetEnumerator() => _parameters.GetEnumerator();
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Gets the parameter at the specified index.
+    /// </summary>
+    /// <param name="index">The zero-based index of the parameter to retrieve.</param>
+    /// <returns>The <see cref="YdbParameter"/> at the specified index.</returns>
     protected override YdbParameter GetParameter(int index) => this[index];
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Gets the parameter with the specified name.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to retrieve.</param>
+    /// <returns>The <see cref="YdbParameter"/> with the specified name.</returns>
+    /// <exception cref="ArgumentException">Thrown when the parameter with the specified name is not found.</exception>
     protected override YdbParameter GetParameter(string parameterName)
     {
         var index = IndexOf(parameterName);
@@ -184,7 +264,11 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
         return _parameters[index];
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Adds an array of parameters to the collection.
+    /// </summary>
+    /// <param name="values">An array of parameters to add to the collection.</param>
+    /// <exception cref="InvalidCastException">Thrown when any value in the array is not of type <see cref="YdbParameter"/>.</exception>
     public override void AddRange(Array values)
     {
         foreach (var parameter in values)

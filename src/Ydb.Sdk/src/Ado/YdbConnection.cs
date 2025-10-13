@@ -8,6 +8,13 @@ using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;
 
+/// <summary>
+/// Represents a connection to a YDB database.
+/// </summary>
+/// <remarks>
+/// YdbConnection provides a standard ADO.NET connection interface for YDB databases.
+/// It manages database sessions and provides access to YDB-specific functionality.
+/// </remarks>
 public sealed class YdbConnection : DbConnection
 {
     private static readonly StateChangeEventArgs ClosedToOpenEventArgs =
@@ -39,15 +46,28 @@ public sealed class YdbConnection : DbConnection
 
     private ISession _session = null!;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbConnection"/> class.
+    /// </summary>
     public YdbConnection()
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbConnection"/> class with the specified connection string.
+    /// </summary>
+    /// <param name="connectionString">The connection string used to establish the connection.</param>
     public YdbConnection(string connectionString)
     {
         ConnectionStringBuilder = new YdbConnectionStringBuilder(connectionString);
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbConnection"/> class with the specified connection string builder.
+    /// </summary>
+    /// <param name="connectionStringBuilder">
+    /// The <see cref="YdbConnectionStringBuilder"/> used to establish the connection.
+    /// </param>
     public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
     {
         ConnectionStringBuilder = connectionStringBuilder;
