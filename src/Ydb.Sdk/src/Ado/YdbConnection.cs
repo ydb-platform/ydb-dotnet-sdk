@@ -47,14 +47,14 @@ public sealed class YdbConnection : DbConnection
     private ISession _session = null!;
 
     /// <summary>
-    /// Initializes a new instance of the YdbConnection class.
+    /// Initializes a new instance of the <see cref="YdbConnection"/> class.
     /// </summary>
     public YdbConnection()
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the YdbConnection class with the specified connection string.
+    /// Initializes a new instance of the <see cref="YdbConnection"/> class with the specified connection string.
     /// </summary>
     /// <param name="connectionString">The connection string used to establish the connection.</param>
     public YdbConnection(string connectionString)
@@ -62,6 +62,12 @@ public sealed class YdbConnection : DbConnection
         ConnectionStringBuilder = new YdbConnectionStringBuilder(connectionString);
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbConnection"/> class with the specified connection string builder.
+    /// </summary>
+    /// <param name="connectionStringBuilder">
+    /// The <see cref="YdbConnectionStringBuilder"/> used to establish the connection.
+    /// </param>
     public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
     {
         ConnectionStringBuilder = connectionStringBuilder;
@@ -129,6 +135,7 @@ public sealed class YdbConnection : DbConnection
         ConnectionState = ConnectionState.Open;
     }
 
+    /// <inheritdoc/>
     public override async Task CloseAsync()
     {
         // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault

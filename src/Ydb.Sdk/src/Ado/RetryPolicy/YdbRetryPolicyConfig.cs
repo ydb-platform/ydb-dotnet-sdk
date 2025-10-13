@@ -25,7 +25,7 @@ public class YdbRetryPolicyConfig
     /// <remarks>
     /// The total number of attempts will be MaxAttempts (including the initial attempt).
     /// Setting this to 1 disables retries entirely.
-    /// Default value: 10.
+    /// <para>Default value: 10.</para>
     /// </remarks>
     public int MaxAttempts { get; init; } = 10;
 
@@ -36,7 +36,7 @@ public class YdbRetryPolicyConfig
     /// This is used for errors that typically resolve quickly, such as temporary
     /// unavailability or TLI (Transaction Lock Invalidated).
     /// The actual delay will be calculated using exponential backoff with jitter.
-    /// Default value: 5 ms.
+    /// <para>Default value: 5 ms.</para>
     /// </remarks>
     public int FastBackoffBaseMs { get; init; } = 5;
 
@@ -47,7 +47,7 @@ public class YdbRetryPolicyConfig
     /// This is used for errors that may take longer to resolve, such as overload
     /// or resource exhaustion. The actual delay will be calculated using
     /// exponential backoff with jitter.
-    /// Default value: 50 ms.
+    /// <para>Default value: 50 ms.</para>
     /// </remarks>
     public int SlowBackoffBaseMs { get; init; } = 50;
 
@@ -57,7 +57,7 @@ public class YdbRetryPolicyConfig
     /// <remarks>
     /// This caps the maximum delay for fast backoff to prevent excessively long waits.
     /// The exponential backoff will not exceed this value.
-    /// Default value: 500 ms.
+    /// <para>Default value: 500 ms.</para>
     /// </remarks>
     public int FastCapBackoffMs { get; init; } = 500;
 
@@ -67,7 +67,7 @@ public class YdbRetryPolicyConfig
     /// <remarks>
     /// This caps the maximum delay for slow backoff to prevent excessively long waits.
     /// The exponential backoff will not exceed this value.
-    /// Default value: 5000 ms.
+    /// <para>Default value: 5000 ms.</para>
     /// </remarks>
     public int SlowCapBackoffMs { get; init; } = 5_000;
 
@@ -80,7 +80,7 @@ public class YdbRetryPolicyConfig
     /// some statuses (like unavailable) don't indicate whether the server processed the
     /// operation - the connection might have been lost during the response. Enable this
     /// only if you are certain that the operations being retried are idempotent.
-    /// Default value: false.
+    /// <para>Default value: false.</para>
     /// </remarks>
     public bool EnableRetryIdempotence { get; init; } = false;
 

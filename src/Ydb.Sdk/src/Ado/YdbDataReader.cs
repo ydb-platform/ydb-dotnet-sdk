@@ -464,11 +464,6 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
-    /// <summary>
-    /// Gets the value of the specified column as a 32-bit unsigned integer.
-    /// </summary>
-    /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column as a 32-bit unsigned integer.</returns>
     public uint GetUint32(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);

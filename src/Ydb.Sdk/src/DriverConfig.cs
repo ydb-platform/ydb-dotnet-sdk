@@ -19,12 +19,12 @@ public class DriverConfig
     /// Gets the YDB server endpoint URL.
     /// </summary>
     public string Endpoint { get; }
-    
+
     /// <summary>
     /// Gets the database path.
     /// </summary>
     public string Database { get; }
-    
+
     /// <summary>
     /// Gets the credentials provider for authentication.
     /// </summary>
@@ -52,7 +52,7 @@ public class DriverConfig
     /// Gets or sets the username for basic authentication.
     /// </summary>
     public string? User { get; init; }
-    
+
     /// <summary>
     /// Gets or sets the password for basic authentication.
     /// </summary>
@@ -67,7 +67,7 @@ public class DriverConfig
     /// Gets or sets the maximum send message size in bytes.
     /// </summary>
     public int MaxSendMessageSize { get; init; } = GrpcDefaultSettings.MaxSendMessageSize;
-    
+
     /// <summary>
     /// Gets or sets the maximum receive message size in bytes.
     /// </summary>

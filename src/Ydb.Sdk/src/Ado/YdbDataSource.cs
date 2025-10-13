@@ -99,7 +99,7 @@ public class YdbDataSource
     }
 
     /// <summary>
-    /// Creates a new YDB connection.
+    /// Creates a new <see cref="YdbConnection"/>.
     /// </summary>
     /// <returns>A new <see cref="YdbConnection"/> instance.</returns>
     /// <remarks>
@@ -113,7 +113,7 @@ public class YdbDataSource
         YdbConnection CreateConnection() => CreateDbConnection();
 
     /// <summary>
-    /// Creates and opens a new YDB connection.
+    /// Creates and opens a new <see cref="YdbConnection"/>.
     /// </summary>
     /// <returns>A new opened <see cref="YdbConnection"/> instance.</returns>
     /// <exception cref="YdbException">Thrown when the connection cannot be opened.</exception>
@@ -128,7 +128,7 @@ public class YdbDataSource
         YdbConnection OpenConnection() => OpenDbConnection();
 
     /// <summary>
-    /// Asynchronously creates and opens a new YDB connection.
+    /// Asynchronously creates and opens a new <see cref="YdbConnection"/>.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation that returns an opened <see cref="YdbConnection"/>.</returns>
@@ -187,7 +187,7 @@ public class YdbDataSource
     /// <summary>
     /// Executes an operation with automatic retry policy support.
     /// </summary>
-    /// <param name="func">The operation to execute with a YDB connection.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/>.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// Executes the provided function with automatic retry logic for transient failures.
@@ -201,10 +201,10 @@ public class YdbDataSource
         });
 
     /// <summary>
-    /// Executes an operation with automatic retry policy support and returns a result.
+    /// Executes an operation with retry policy support and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
-    /// <param name="func">The operation to execute with a YDB connection.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/>.</param>
     /// <returns>A task representing the asynchronous operation that returns the result.</returns>
     /// <remarks>
     /// Executes the provided function with automatic retry logic for transient failures.
@@ -218,9 +218,9 @@ public class YdbDataSource
         });
 
     /// <summary>
-    /// Executes an operation with automatic retry policy support and cancellation token support.
+    /// Executes an operation with retry policy and cancellation token support.
     /// </summary>
-    /// <param name="func">The operation to execute with a YDB connection and cancellation token.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/> and cancellation token.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
@@ -237,10 +237,10 @@ public class YdbDataSource
     }, cancellationToken);
 
     /// <summary>
-    /// Executes an operation with automatic retry policy support, cancellation token support, and returns a result.
+    /// Executes an operation with retry policy and cancellation token support and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
-    /// <param name="func">The operation to execute with a YDB connection and cancellation token.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/> and cancellation token.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation that returns the result.</returns>
     /// <remarks>
@@ -257,13 +257,13 @@ public class YdbDataSource
     }, cancellationToken);
 
     /// <summary>
-    /// Executes an operation with a custom retry policy configuration.
+    /// Executes an operation with a custom <see cref="YdbRetryPolicyConfig"/>.
     /// </summary>
-    /// <param name="func">The operation to execute with a YDB connection.</param>
-    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/>.</param>
+    /// <param name="retryPolicyConfig">The <see cref="YdbRetryPolicyConfig"/> to use for this operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
-    /// Executes the provided function with the specified retry policy configuration.
+    /// Executes the provided function with the specified <see cref="YdbRetryPolicyConfig"/>.
     /// The connection is automatically managed and disposed after the operation.
     /// </remarks>
     public Task ExecuteAsync(
@@ -278,7 +278,7 @@ public class YdbDataSource
     /// <summary>
     /// Executes an operation with a custom retry policy.
     /// </summary>
-    /// <param name="func">The operation to execute with a YDB connection.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/>.</param>
     /// <param name="retryPolicy">The custom retry policy to use for this operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
@@ -295,14 +295,14 @@ public class YdbDataSource
     });
 
     /// <summary>
-    /// Executes an operation with a custom retry policy configuration and returns a result.
+    /// Executes an operation with a custom <see cref="YdbRetryPolicyConfig"/> and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
-    /// <param name="func">The operation to execute with a YDB connection.</param>
-    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/>.</param>
+    /// <param name="retryPolicyConfig">The <see cref="YdbRetryPolicyConfig"/> to use for this operation.</param>
     /// <returns>A task representing the asynchronous operation that returns the result.</returns>
     /// <remarks>
-    /// Executes the provided function with the specified retry policy configuration.
+    /// Executes the provided function with the specified <see cref="YdbRetryPolicyConfig"/>.
     /// The connection is automatically managed and disposed after the operation.
     /// </remarks>
     public Task<TResult> ExecuteAsync<TResult>(
@@ -318,7 +318,7 @@ public class YdbDataSource
     /// Executes an operation with a custom retry policy and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
-    /// <param name="func">The operation to execute with a YDB connection.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/>.</param>
     /// <param name="retryPolicy">The custom retry policy to use for this operation.</param>
     /// <returns>A task representing the asynchronous operation that returns the result.</returns>
     /// <remarks>
@@ -335,14 +335,14 @@ public class YdbDataSource
     });
 
     /// <summary>
-    /// Executes an operation with a custom retry policy configuration and cancellation token support.
+    /// Executes an operation with a custom <see cref="YdbRetryPolicyConfig"/> and cancellation token support.
     /// </summary>
-    /// <param name="func">The operation to execute with a YDB connection and cancellation token.</param>
-    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/> and cancellation token.</param>
+    /// <param name="retryPolicyConfig">The <see cref="YdbRetryPolicyConfig"/> to use for this operation.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
-    /// Executes the provided function with the specified retry policy configuration and cancellation support.
+    /// Executes the provided function with the specified <see cref="YdbRetryPolicyConfig"/> and cancellation support.
     /// The connection is automatically managed and disposed after the operation.
     /// </remarks>
     public Task ExecuteAsync(
@@ -358,7 +358,7 @@ public class YdbDataSource
     /// <summary>
     /// Executes an operation with a custom retry policy and cancellation token support.
     /// </summary>
-    /// <param name="func">The operation to execute with a YDB connection and cancellation token.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/> and cancellation token.</param>
     /// <param name="retryPolicy">The custom retry policy to use for this operation.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
@@ -377,15 +377,15 @@ public class YdbDataSource
     }, cancellationToken);
 
     /// <summary>
-    /// Executes an operation with a custom retry policy configuration, cancellation token support, and returns a result.
+    /// Executes an operation with a custom <see cref="YdbRetryPolicyConfig"/>, cancellation token support and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
-    /// <param name="func">The operation to execute with a YDB connection and cancellation token.</param>
-    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/> and cancellation token.</param>
+    /// <param name="retryPolicyConfig">The <see cref="YdbRetryPolicyConfig"/> to use for this operation.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation that returns the result.</returns>
     /// <remarks>
-    /// Executes the provided function with the specified retry policy configuration and cancellation support.
+    /// Executes the provided function with the specified <see cref="YdbRetryPolicyConfig"/> and cancellation support.
     /// The connection is automatically managed and disposed after the operation.
     /// </remarks>
     public Task<TResult> ExecuteAsync<TResult>(
@@ -399,10 +399,10 @@ public class YdbDataSource
     }, cancellationToken);
 
     /// <summary>
-    /// Executes an operation with a custom retry policy, cancellation token support, and returns a result.
+    /// Executes an operation with a custom retry policy, cancellation token support and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
-    /// <param name="func">The operation to execute with a YDB connection and cancellation token.</param>
+    /// <param name="func">The operation to execute with a <see cref="YdbConnection"/> and cancellation token.</param>
     /// <param name="retryPolicy">The custom retry policy to use for this operation.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation that returns the result.</returns>
@@ -491,7 +491,7 @@ public class YdbDataSource
     }, cancellationToken);
 
     /// <summary>
-    /// Executes an operation within a transaction with automatic retry policy support, cancellation token support, and returns a result.
+    /// Executes an operation within a transaction with retry policy and cancellation token support and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
     /// <param name="func">The operation to execute within the transaction with cancellation token support.</param>
@@ -517,14 +517,14 @@ public class YdbDataSource
     }, cancellationToken);
 
     /// <summary>
-    /// Executes an operation within a transaction with a custom retry policy configuration.
+    /// Executes an operation within a transaction with a custom <see cref="YdbRetryPolicyConfig"/>.
     /// </summary>
     /// <param name="func">The operation to execute within the transaction.</param>
-    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="retryPolicyConfig">The <see cref="YdbRetryPolicyConfig"/> to use for this operation.</param>
     /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
-    /// Executes the provided function within a transaction with the specified retry policy configuration.
+    /// Executes the provided function within a transaction with the specified <see cref="YdbRetryPolicyConfig"/>.
     /// The transaction is automatically committed on success or rolled back on failure.
     /// The connection and transaction are automatically managed and disposed.
     /// </remarks>
@@ -541,15 +541,15 @@ public class YdbDataSource
     });
 
     /// <summary>
-    /// Executes an operation within a transaction with a custom retry policy configuration and returns a result.
+    /// Executes an operation within a transaction with a custom <see cref="YdbRetryPolicyConfig"/> and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
     /// <param name="func">The operation to execute within the transaction.</param>
-    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="retryPolicyConfig">The <see cref="YdbRetryPolicyConfig"/> to use for this operation.</param>
     /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
     /// <returns>A task representing the asynchronous operation that returns the result.</returns>
     /// <remarks>
-    /// Executes the provided function within a transaction with the specified retry policy configuration.
+    /// Executes the provided function within a transaction with the specified <see cref="YdbRetryPolicyConfig"/>.
     /// The transaction is automatically committed on success or rolled back on failure.
     /// The connection and transaction are automatically managed and disposed.
     /// </remarks>
@@ -567,15 +567,15 @@ public class YdbDataSource
     });
 
     /// <summary>
-    /// Executes an operation within a transaction with a custom retry policy configuration and cancellation token support.
+    /// Executes an operation within a transaction with a custom <see cref="YdbRetryPolicyConfig"/> and cancellation token support.
     /// </summary>
     /// <param name="func">The operation to execute within the transaction with cancellation token support.</param>
-    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="retryPolicyConfig">The <see cref="YdbRetryPolicyConfig"/> to use for this operation.</param>
     /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
-    /// Executes the provided function within a transaction with the specified retry policy configuration and cancellation support.
+    /// Executes the provided function within a transaction with the specified <see cref="YdbRetryPolicyConfig"/> and cancellation support.
     /// The transaction is automatically committed on success or rolled back on failure.
     /// The connection and transaction are automatically managed and disposed.
     /// </remarks>
@@ -593,16 +593,16 @@ public class YdbDataSource
     }, cancellationToken);
 
     /// <summary>
-    /// Executes an operation within a transaction with a custom retry policy configuration, cancellation token support, and returns a result.
+    /// Executes an operation within a transaction with a custom <see cref="YdbRetryPolicyConfig"/>, cancellation token support and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
     /// <param name="func">The operation to execute within the transaction with cancellation token support.</param>
-    /// <param name="retryPolicyConfig">The retry policy configuration to use for this operation.</param>
+    /// <param name="retryPolicyConfig">The <see cref="YdbRetryPolicyConfig"/> to use for this operation.</param>
     /// <param name="transactionMode">The transaction mode to use. Default is SerializableRw.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation that returns the result.</returns>
     /// <remarks>
-    /// Executes the provided function within a transaction with the specified retry policy configuration and cancellation support.
+    /// Executes the provided function within a transaction with the specified <see cref="YdbRetryPolicyConfig"/> and cancellation support.
     /// The transaction is automatically committed on success or rolled back on failure.
     /// The connection and transaction are automatically managed and disposed.
     /// </remarks>
@@ -697,7 +697,7 @@ public class YdbDataSource
     }, cancellationToken);
 
     /// <summary>
-    /// Executes an operation within a transaction with a custom retry policy, cancellation token support, and returns a result.
+    /// Executes an operation within a transaction with a custom retry policy, cancellation token support and returns a result.
     /// </summary>
     /// <typeparam name="TResult">The type of the result returned by the operation.</typeparam>
     /// <param name="func">The operation to execute within the transaction with cancellation token support.</param>
@@ -725,7 +725,7 @@ public class YdbDataSource
     }, cancellationToken);
 
     /// <summary>
-    /// Asynchronously creates and opens a new YDB connection with retry policy support.
+    /// Asynchronously creates and opens a new <see cref="YdbConnection"/> with retry policy support.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation that returns an opened <see cref="YdbConnection"/>.</returns>
@@ -734,9 +734,13 @@ public class YdbDataSource
     /// The connection should be disposed when no longer needed.
     /// 
     /// 
-    /// <strong>Important limitations:</strong>
-    /// - Retryable connections do not support interactive transactions. Use <see cref="ExecuteInTransactionAsync"/> methods instead.
-    /// - On large result sets, these connections may cause OutOfMemoryException as they read all data into memory. Use with caution.
+    /// <para>Important limitations:</para>
+    /// <para>
+    /// - Retryable connections do not support interactive transactions. Use ExecuteInTransactionAsync methods instead.
+    /// </para>
+    /// <para>
+    /// - On large result sets, these connections may cause <see cref="OutOfMemoryException"/> as they read all data into memory. Use with caution.
+    /// </para>
     /// </remarks>
     public async ValueTask<YdbConnection> OpenRetryableConnectionAsync(CancellationToken cancellationToken = default)
     {
@@ -755,19 +759,23 @@ public class YdbDataSource
     }
 
     /// <summary>
-    /// Asynchronously creates and opens a new YDB connection with a custom retry policy configuration.
+    /// Asynchronously creates and opens a new <see cref="YdbConnection"/> with a custom <see cref="YdbRetryPolicyConfig"/>.
     /// </summary>
-    /// <param name="ydbRetryPolicyConfig">The retry policy configuration to use for opening the connection.</param>
+    /// <param name="ydbRetryPolicyConfig">The <see cref="YdbRetryPolicyConfig"/> to use for opening the connection.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation that returns an opened <see cref="YdbConnection"/>.</returns>
     /// <remarks>
-    /// Creates a new connection and opens it asynchronously with the specified retry policy configuration.
+    /// Creates a new connection and opens it asynchronously with the specified <see cref="YdbRetryPolicyConfig"/>.
     /// The connection should be disposed when no longer needed.
     /// 
     /// 
-    /// <strong>Important limitations:</strong>
-    /// - Retryable connections do not support interactive transactions. Use <see cref="ExecuteInTransactionAsync"/> methods instead.
-    /// - On large result sets, these connections may cause OutOfMemoryException as they read all data into memory. Use with caution.
+    /// <para>Important limitations:</para>
+    /// <para>
+    /// - Retryable connections do not support interactive transactions. Use ExecuteInTransactionAsync methods instead.
+    /// </para>
+    /// <para>
+    /// - On large result sets, these connections may cause <see cref="OutOfMemoryException"/> as they read all data into memory. Use with caution.
+    /// </para>
     /// </remarks>
     public async ValueTask<YdbConnection> OpenRetryableConnectionAsync(
         YdbRetryPolicyConfig ydbRetryPolicyConfig,
@@ -789,7 +797,7 @@ public class YdbDataSource
     }
 
     /// <summary>
-    /// Asynchronously creates and opens a new YDB connection with a custom retry policy.
+    /// Asynchronously creates and opens a new <see cref="YdbConnection"/> with a custom retry policy.
     /// </summary>
     /// <param name="retryPolicy">The custom retry policy to use for opening the connection.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>

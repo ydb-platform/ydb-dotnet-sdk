@@ -69,14 +69,14 @@ public class YdbRetryPolicy : IRetryPolicy
 
     /// <inheritdoc/>
     /// <remarks>
-    /// This method implements different retry strategies based on the error type:
-    /// - BadSession/SessionBusy: Immediate retry (TimeSpan.Zero)
-    /// - Aborted/Undetermined: Fast backoff with full jitter
-    /// - Unavailable/Transport errors: Fast backoff with equal jitter
-    /// - Overloaded/Resource exhausted: Slow backoff with equal jitter
-    /// - Other errors: No retry (null)
+    /// <para>This method implements different retry strategies based on the YDB status code:</para>
+    /// <para>- BadSession/SessionBusy: Immediate retry (TimeSpan.Zero)</para>
+    /// <para>- Aborted/Undetermined: Fast backoff with full jitter</para>
+    /// <para>- Unavailable/Transport errors: Fast backoff with equal jitter</para>
+    /// <para>- Overloaded/Resource exhausted: Slow backoff with equal jitter</para>
+    /// <para>- Other errors: No retry (null)</para>
     /// 
-    /// The policy respects the maximum attempt limit and idempotence settings.
+    /// <para>The policy respects the maximum attempt limit and idempotence settings.</para>
     /// </remarks>
     public TimeSpan? GetNextDelay(YdbException ydbException, int attempt)
     {
