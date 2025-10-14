@@ -16,8 +16,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     private readonly CancellationTokenSource _disposeCts = new();
 
     private readonly IPoolingSessionFactory<T> _sessionFactory;
-    private readonly int _minSessionSize;
-    private readonly int _maxSessionSize;
+    private readonly int _minSizePool;
+    private readonly int _maxSizePool;
     private readonly T?[] _sessions;
     private readonly int _createSessionTimeout;
     private readonly TimeSpan _sessionIdleTimeout;
@@ -32,16 +32,16 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     public PoolingSessionSource(IPoolingSessionFactory<T> sessionFactory, YdbConnectionStringBuilder settings)
     {
         _sessionFactory = sessionFactory;
-        _minSessionSize = settings.MinSessionPool;
-        _maxSessionSize = settings.MaxSessionPool;
+        _minSizePool = settings.MinPoolSize;
+        _maxSizePool = settings.MaxPoolSize;
 
-        if (_minSessionSize > _maxSessionSize)
+        if (_minSizePool > _maxSizePool)
         {
             throw new ArgumentException(
-                $"Connection can't have 'Max Session Pool' {_maxSessionSize} under 'Min Session Pool' {_minSessionSize}");
+                $"Connection can't have 'Max Session Pool' {_maxSizePool} under 'Min Session Pool' {_minSizePool}");
         }
 
-        _sessions = new T?[_maxSessionSize];
+        _sessions = new T?[_maxSizePool];
         _createSessionTimeout = settings.CreateSessionTimeout;
         _sessionIdleTimeout = TimeSpan.FromSeconds(settings.SessionIdleTimeout);
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
@@ -129,8 +129,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             }
 
             await using var _ = finalToken.Register(() => waiterTcs.TrySetException(
-                    new YdbException($"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
-                                     $"(currently {_maxSessionSize}) or 'CreateSessionTimeout' " +
+                    new YdbException($"The connection pool has been exhausted, either raise 'MaxPoolSize' " +
+                                     $"(currently {_maxSizePool}) or 'CreateSessionTimeout' " +
                                      $"(currently {_createSessionTimeout} seconds) in your connection string.")
                 ), useSynchronizationContext: false
             );
@@ -151,7 +151,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
     private async ValueTask<T?> OpenNewSession(CancellationToken cancellationToken)
     {
-        for (var numSessions = _numSessions; numSessions < _maxSessionSize; numSessions = _numSessions)
+        for (var numSessions = _numSessions; numSessions < _maxSizePool; numSessions = _numSessions)
         {
             if (Interlocked.CompareExchange(ref _numSessions, numSessions + 1, numSessions) != numSessions)
                 continue;
@@ -164,7 +164,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                 var session = _sessionFactory.NewSession(this);
                 await session.Open(cancellationToken);
 
-                for (var i = 0; i < _maxSessionSize; i++)
+                for (var i = 0; i < _maxSizePool; i++)
                 {
                     if (Interlocked.CompareExchange(ref _sessions[i], session, null) == null)
                         return session;
@@ -221,11 +221,11 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     private void CloseSession(T session)
     {
         var i = 0;
-        for (; i < _maxSessionSize; i++)
+        for (; i < _maxSizePool; i++)
             if (Interlocked.CompareExchange(ref _sessions[i], null, session) == session)
                 break;
 
-        if (i == _maxSessionSize)
+        if (i == _maxSizePool)
             return;
 
         _ = session.DeleteSession();
@@ -242,13 +242,13 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         var pool = (PoolingSessionSource<T>)state!;
         var now = DateTime.Now;
 
-        for (var i = 0; i < pool._maxSessionSize; i++)
+        for (var i = 0; i < pool._maxSizePool; i++)
         {
             var session = Volatile.Read(ref pool._sessions[i]);
 
             if (
                 session != null &&
-                pool._numSessions > pool._minSessionSize &&
+                pool._numSessions > pool._minSizePool &&
                 session.IdleStartTime + pool._sessionIdleTimeout <= now &&
                 session.CompareAndSet(PoolingSessionState.In, PoolingSessionState.Clean)
             )
@@ -272,7 +272,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         var spinWait = new SpinWait();
         do
         {
-            for (var i = 0; i < _maxSessionSize; i++)
+            for (var i = 0; i < _maxSizePool; i++)
             {
                 var session = Volatile.Read(ref _sessions[i]);
 
@@ -294,7 +294,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             _logger.LogError(e, "Failed to dispose the transport driver");
         }
 
-        for (var i = 0; i < _maxSessionSize; i++)
+        for (var i = 0; i < _maxSizePool; i++)
         {
             var session = Volatile.Read(ref _sessions[i]);
 

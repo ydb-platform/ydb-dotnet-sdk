@@ -15,7 +15,7 @@ public class SessionSourceBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        var settings = new YdbConnectionStringBuilder { MaxSessionPool = SessionPoolSize };
+        var settings = new YdbConnectionStringBuilder { MaxPoolSize = SessionPoolSize };
 
         _poolingSessionSource = new PoolingSessionSource<MockPoolingSession>(new MockSessionFactory(), settings);
     }

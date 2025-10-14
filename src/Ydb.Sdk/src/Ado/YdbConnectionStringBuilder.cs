@@ -50,8 +50,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _host = "localhost";
         _port = 2136;
         _database = "/local";
-        _minSessionPool = 0;
-        _maxSessionPool = 100;
+        _minPoolSize = 0;
+        _maxPoolSize = 100;
         _createSessionTimeout = 5;
         _sessionIdleTimeout = 300;
         _useTls = false;
@@ -177,9 +177,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// in the session pool. Must be greater than 0.
     /// <para>Default value: 100.</para>
     /// </remarks>
-    public int MaxSessionPool
+    public int MaxPoolSize
     {
-        get => _maxSessionPool;
+        get => _maxPoolSize;
         set
         {
             if (value <= 0)
@@ -187,12 +187,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid max session pool: " + value);
             }
 
-            _maxSessionPool = value;
-            SaveValue(nameof(MaxSessionPool), value);
+            _maxPoolSize = value;
+            SaveValue(nameof(MaxPoolSize), value);
         }
     }
 
-    private int _maxSessionPool;
+    private int _maxPoolSize;
 
     /// <summary>
     /// Gets or sets the minimum number of sessions in the pool.
@@ -202,9 +202,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// Must be greater than or equal to 0.
     /// <para>Default value: 0.</para>
     /// </remarks>
-    public int MinSessionPool
+    public int MinPoolSize
     {
-        get => _minSessionPool;
+        get => _minPoolSize;
         set
         {
             if (value < 0)
@@ -212,12 +212,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid min session pool: " + value);
             }
 
-            _minSessionPool = value;
-            SaveValue(nameof(MinSessionPool), value);
+            _minPoolSize = value;
+            SaveValue(nameof(MinPoolSize), value);
         }
     }
 
-    private int _minSessionPool;
+    private int _minPoolSize;
 
     /// <summary>
     /// Gets or sets the session idle timeout in seconds.
@@ -392,7 +392,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// Specifies the maximum size of messages that can be sent to the server.
     /// Note: server-side limit is 64 MB. Exceeding this limit may result in
     /// "resource exhausted" errors or unpredictable behavior.
-    /// <para>Default value: 4194304 bytes (4 MB).</para>
+    /// <para>Default value: 67108864 bytes (64 MB).</para>
     /// </remarks>
     public int MaxSendMessageSize
     {
@@ -411,7 +411,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     /// <remarks>
     /// Specifies the maximum size of messages that can be received from the server.
-    /// <para>Default value: 4194304 bytes (4 MB).</para>
+    /// <para>Default value: 67108864 bytes (64 MB).</para>
     /// </remarks>
     public int MaxReceiveMessageSize
     {
@@ -679,12 +679,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
                 (builder, user) => builder.User = user), "User", "Username", "UserId", "User Id");
             AddOption(new YdbConnectionOption<string>(StringExtractor,
                 (builder, password) => builder.Password = password), "Password", "PWD", "PSW");
-            AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, maxSessionPool) =>
-                    builder.MaxSessionPool = maxSessionPool), "MaxSessionPool", "Max Session Pool", "Maximum Pool Size",
-                "MaximumPoolSize", "Max Pool Size", "MaxPoolSize", "MaxSessionSize", "Max Session Size");
-            AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, minSessionSize) =>
-                    builder.MinSessionPool = minSessionSize), "MinSessionPool", "Min Session Pool", "Minimum Pool Size",
-                "MinimumPoolSize", "Min Pool Size", "MinPoolSize", "MinSessionSize", "Min Session Size");
+            AddOption(new YdbConnectionOption<int>(IntExtractor,
+                    (builder, maxPoolSize) => builder.MaxPoolSize = maxPoolSize),
+                "Maximum Pool Size", "MaximumPoolSize", "Max Pool Size", "MaxPoolSize");
+            AddOption(new YdbConnectionOption<int>(IntExtractor,
+                    (builder, minPoolSize) => builder.MinPoolSize = minPoolSize),
+                "Minimum Pool Size", "MinimumPoolSize", "Min Pool Size", "MinPoolSize");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, useTls) => builder.UseTls = useTls),
                 "UseTls", "Use Tls");
             AddOption(new YdbConnectionOption<string>(StringExtractor,
