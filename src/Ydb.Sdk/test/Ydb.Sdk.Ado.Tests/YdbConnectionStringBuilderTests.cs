@@ -14,8 +14,8 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(2136, ydbConnectionStringBuilder.Port);
         Assert.Equal("localhost", ydbConnectionStringBuilder.Host);
         Assert.Equal("/local", ydbConnectionStringBuilder.Database);
-        Assert.Equal(0, ydbConnectionStringBuilder.MinSessionPool);
-        Assert.Equal(100, ydbConnectionStringBuilder.MaxSessionPool);
+        Assert.Equal(0, ydbConnectionStringBuilder.MinPoolSize);
+        Assert.Equal(100, ydbConnectionStringBuilder.MaxPoolSize);
         Assert.Equal(5, ydbConnectionStringBuilder.CreateSessionTimeout);
         Assert.Equal(300, ydbConnectionStringBuilder.SessionIdleTimeout);
         Assert.Null(ydbConnectionStringBuilder.User);
@@ -61,8 +61,8 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(2135, ydbConnectionStringBuilder.Port);
         Assert.Equal("server", ydbConnectionStringBuilder.Host);
         Assert.Equal("/my/path", ydbConnectionStringBuilder.Database);
-        Assert.Equal(10, ydbConnectionStringBuilder.MinSessionPool);
-        Assert.Equal(50, ydbConnectionStringBuilder.MaxSessionPool);
+        Assert.Equal(10, ydbConnectionStringBuilder.MinPoolSize);
+        Assert.Equal(50, ydbConnectionStringBuilder.MaxPoolSize);
         Assert.Equal(30, ydbConnectionStringBuilder.CreateSessionTimeout);
         Assert.Equal(600, ydbConnectionStringBuilder.SessionIdleTimeout);
         Assert.Equal("Kirill", ydbConnectionStringBuilder.User);

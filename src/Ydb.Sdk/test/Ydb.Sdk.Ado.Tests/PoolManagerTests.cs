@@ -9,31 +9,31 @@ public class PoolManagerTests
     [Theory]
     [InlineData(new[]
     {
-        "MinSessionSize=1", "MinSessionSize=2", "MinSessionSize=3",
-        "MinSessionSize=1;DisableDiscovery=True", "MinSessionSize=2;DisableDiscovery=True"
+        "MinPoolSize=1", "MinPoolSize=2", "MinPoolSize=3",
+        "MinPoolSize=1;DisableDiscovery=True", "MinPoolSize=2;DisableDiscovery=True"
     }, 2, 5)] // 2 transports (by the DisableDiscovery flag), 5 pools
     [InlineData(
-        new[] { "MinSessionSize=1", "MinSessionSize=2", "MinSessionSize=3", "MinSessionSize=4", "MinSessionSize=5" },
+        new[] { "MinPoolSize=1", "MinPoolSize=2", "MinPoolSize=3", "MinPoolSize=4", "MinPoolSize=5" },
         1, 5)] // 1 transport, 5 five pools
     [InlineData(new[]
-            { "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=3" }, 1,
+            { "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=3" }, 1,
         3)] // duplicate rows — we expect 1 transport, 3 pools
     [InlineData(new[]
     {
-        "MinSessionSize=1;ConnectTimeout=5", "MinSessionSize=1;ConnectTimeout=6", "MinSessionSize=1;ConnectTimeout=7",
-        "MinSessionSize=1;ConnectTimeout=8", "MinSessionSize=1;ConnectTimeout=9"
+        "MinPoolSize=1;ConnectTimeout=5", "MinPoolSize=1;ConnectTimeout=6", "MinPoolSize=1;ConnectTimeout=7",
+        "MinPoolSize=1;ConnectTimeout=8", "MinPoolSize=1;ConnectTimeout=9"
     }, 5, 5)] // 5 transport, 5 five pools
-    [InlineData(new[] { "MinSessionSize=1" }, 1, 1)] // simple case
+    [InlineData(new[] { "MinPoolSize=1" }, 1, 1)] // simple case
     [InlineData(new[]
     {
-        "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1",
-        "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1",
-        "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1",
-        "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1", "MinSessionSize=1",
-        "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2",
-        "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2",
-        "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=2", "MinSessionSize=3",
-        "MinSessionSize=3", "MinSessionSize=3", "MinSessionSize=3", "MinSessionSize=3", "MinSessionSize=3"
+        "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1",
+        "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1",
+        "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1",
+        "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1", "MinPoolSize=1",
+        "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=2",
+        "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=2",
+        "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=2", "MinPoolSize=3",
+        "MinPoolSize=3", "MinPoolSize=3", "MinPoolSize=3", "MinPoolSize=3", "MinPoolSize=3"
     }, 1, 3)] // duplicate rows — we expect 1 transport, 3 pools, stress test
     public async Task PoolManager_CachingAndCleanup(string[] connectionStrings, int expectedDrivers, int expectedPools)
     {

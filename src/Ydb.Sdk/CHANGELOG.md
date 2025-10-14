@@ -1,3 +1,6 @@
+- **Breaking Change**: Renamed properties in `YdbConnectionStringBuilder`:
+  - `MaxSessionPool` -> `MaxPoolSize`.
+  - `MinSessionPool` -> `MinPoolSize`.
 - Added XML documentation for all public APIs in `Ydb.Sdk`.
 - Feat ADO.NET: Added dispose timeout (10 seconds) to `PoolingSessionSource`.
 - Feat ADO.NET: Added `EnableImplicitSession` to support implicit sessions.
@@ -43,8 +46,8 @@
 - Fixed bug: Grpc.Core.StatusCode.Cancelled was mapped to server's Canceled status.
 - Feat ADO.NET: PoolingSessionSource 2.0 based on lock-free FIFO pooling algorithm.
 - Added new ADO.NET options:
-  - `MinSessionPool`: The minimum connection pool size.
-  - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all sessions exceeds `MinSessionPool`.
+  - `MinPoolSize`: The minimum session pool size.
+  - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all sessions exceeds `MinPoolSize`.
 - Fixed bug `Reader`: unhandled exception in `TryReadRequestBytes(long bytes)`.
 - Handle `YdbException` on `DeleteSession`.
 - Do not invoke `DeleteSession` if the session is not active.
