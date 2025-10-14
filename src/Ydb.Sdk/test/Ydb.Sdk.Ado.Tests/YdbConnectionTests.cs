@@ -10,7 +10,7 @@ public sealed class YdbConnectionTests : TestBase
     private static readonly TemporaryTables<YdbConnectionTests> Tables = new();
 
     private readonly string _connectionStringTls =
-        "Host=localhost;Port=2135;Database=/local;MaxSessionPool=10;RootCertificate=" +
+        "Host=localhost;Port=2135;Database=/local;MaxPoolSize=10;RootCertificate=" +
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem");
 
     private volatile int _counter;
@@ -19,7 +19,7 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
-        var connectionString = ConnectionString + ";MaxSessionPool=100";
+        var connectionString = ConnectionString + ";MaxPoolSize=100";
 
         var tasks = GenerateTasks(connectionString);
         tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));

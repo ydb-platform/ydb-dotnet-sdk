@@ -7,7 +7,7 @@ namespace Ydb.Sdk.Ado.Tests.Session;
 public class PoolingSessionSourceMockTests
 {
     [Fact]
-    public void MinSessionPool_bigger_than_MaxSessionPool_throws() => Assert.Throws<ArgumentException>(() =>
+    public void MinSessionPool_bigger_than_MaxPoolSize_throws() => Assert.Throws<ArgumentException>(() =>
         new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(1),
             new YdbConnectionStringBuilder { MaxPoolSize = 1, MinPoolSize = 2 })
     );
@@ -349,7 +349,7 @@ public class PoolingSessionSourceMockTests
         var cts = new CancellationTokenSource();
         cts.CancelAfter(500);
 
-        Assert.Equal("The connection pool has been exhausted, either raise 'MaxSessionPool' (currently 1) " +
+        Assert.Equal("The connection pool has been exhausted, either raise 'MaxPoolSize' (currently 1) " +
                      "or 'CreateSessionTimeout' (currently 5 seconds) in your connection string.",
             (await Assert.ThrowsAsync<YdbException>(async () => await sessionSource.OpenSession(cts.Token))).Message);
 

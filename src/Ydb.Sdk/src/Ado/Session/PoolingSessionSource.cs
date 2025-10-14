@@ -129,7 +129,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             }
 
             await using var _ = finalToken.Register(() => waiterTcs.TrySetException(
-                    new YdbException($"The connection pool has been exhausted, either raise 'MaxSessionPool' " +
+                    new YdbException($"The connection pool has been exhausted, either raise 'MaxPoolSize' " +
                                      $"(currently {_maxSizePool}) or 'CreateSessionTimeout' " +
                                      $"(currently {_createSessionTimeout} seconds) in your connection string.")
                 ), useSynchronizationContext: false
