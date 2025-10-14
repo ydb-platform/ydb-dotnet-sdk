@@ -52,7 +52,7 @@ public class YdbConnectionStringBuilderTests
     public void InitConnectionStringBuilder_WhenExpectedKeys_ReturnUpdatedConnectionString()
     {
         var ydbConnectionStringBuilder = new YdbConnectionStringBuilder(
-            "Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true;MaxPoolSize=10;MaxPoolSize=50;" +
+            "Host=server;Port=2135;Database=/my/path;User=Kirill;UseTls=true;MinPoolSize=10;MaxPoolSize=50;" +
             "CreateSessionTimeout=30;SessionIdleTimeout=600;ConnectTimeout=30;KeepAlivePingDelay=30;" +
             "KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=true;MaxSendMessageSize=1000000;" +
             "MaxReceiveMessageSize=1000000;DisableDiscovery=true;DisableServerBalancer=true;EnableImplicitSession=true;"

@@ -680,10 +680,10 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<string>(StringExtractor,
                 (builder, password) => builder.Password = password), "Password", "PWD", "PSW");
             AddOption(new YdbConnectionOption<int>(IntExtractor,
-                    (builder, maxPoolSize) => builder.MaxPoolSize = maxPoolSize), 
+                    (builder, maxPoolSize) => builder.MaxPoolSize = maxPoolSize),
                 "Maximum Pool Size", "MaximumPoolSize", "Max Pool Size", "MaxPoolSize");
-            AddOption(new YdbConnectionOption<int>(IntExtractor, 
-                    (builder, minPoolSize) => builder.MinPoolSize = minPoolSize), 
+            AddOption(new YdbConnectionOption<int>(IntExtractor,
+                    (builder, minPoolSize) => builder.MinPoolSize = minPoolSize),
                 "Minimum Pool Size", "MinimumPoolSize", "Min Pool Size", "MinPoolSize");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, useTls) => builder.UseTls = useTls),
                 "UseTls", "Use Tls");

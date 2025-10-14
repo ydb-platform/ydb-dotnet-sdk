@@ -196,7 +196,7 @@ public sealed class YdbConnectionTests : TestBase
     public async Task OpenAsync_WhenCancelTokenIsCanceled_ThrowYdbException()
     {
         await using var connection = CreateConnection();
-        connection.ConnectionString = ConnectionString + ";MinSessionPool=1";
+        connection.ConnectionString = ConnectionString + ";MinPoolSize=1";
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await connection.OpenAsync(cts.Token));
