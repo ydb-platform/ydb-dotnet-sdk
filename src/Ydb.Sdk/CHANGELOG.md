@@ -1,3 +1,5 @@
+## v0.24.0
+
 - **Breaking Change**: Renamed properties in `YdbConnectionStringBuilder`:
   - `MaxSessionPool` -> `MaxPoolSize`.
   - `MinSessionPool` -> `MinPoolSize`.
