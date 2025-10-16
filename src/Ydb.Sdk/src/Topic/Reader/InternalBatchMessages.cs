@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Topic;
 
-namespace Ydb.Sdk.Services.Topic.Reader;
+namespace Ydb.Sdk.Topic.Reader;
 
 internal class InternalBatchMessages<TValue>
 {
@@ -66,7 +66,7 @@ internal class InternalBatchMessages<TValue>
             partitionSessionId: _partitionSession.PartitionSessionId,
             producerId: _batch.ProducerId,
             createdAt: messageData.CreatedAt.ToDateTime(),
-            metadata: messageData.MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray()))
+            metadata: messageData.MetadataItems.Select(item => new Sdk.Topic.Metadata(item.Key, item.Value.ToByteArray()))
                 .ToImmutableArray(),
             seqNo: messageData.SeqNo,
             offsetsRange: new OffsetsRange

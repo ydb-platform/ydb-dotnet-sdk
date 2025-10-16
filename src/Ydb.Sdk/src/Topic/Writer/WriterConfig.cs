@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Ydb.Sdk.Services.Topic.Writer;
+namespace Ydb.Sdk.Topic.Writer;
 
 internal class WriterConfig
 {

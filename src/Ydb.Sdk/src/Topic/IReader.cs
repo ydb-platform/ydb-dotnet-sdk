@@ -1,6 +1,6 @@
-using Ydb.Sdk.Services.Topic.Reader;
+using Ydb.Sdk.Topic.Reader;
 
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Topic;
 
 public interface IReader<TValue> : IAsyncDisposable
 {

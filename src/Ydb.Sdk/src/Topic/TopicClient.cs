@@ -2,7 +2,7 @@ using Google.Protobuf.WellKnownTypes;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Topic;
 
 /// <summary>
 /// Client for YDB Topic service operations.

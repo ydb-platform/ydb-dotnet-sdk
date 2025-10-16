@@ -7,7 +7,7 @@ using Ydb.Topic;
 using Ydb.Topic.V1;
 using static Ydb.Topic.StreamReadMessage.Types.FromServer;
 
-namespace Ydb.Sdk.Services.Topic.Reader;
+namespace Ydb.Sdk.Topic.Reader;
 
 using MessageFromClient = StreamReadMessage.Types.FromClient;
 using MessageFromServer = StreamReadMessage.Types.FromServer;

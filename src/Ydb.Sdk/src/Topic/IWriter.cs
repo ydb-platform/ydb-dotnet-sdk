@@ -1,6 +1,6 @@
-using Ydb.Sdk.Services.Topic.Writer;
+using Ydb.Sdk.Topic.Writer;
 
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Topic;
 
 public interface IWriter<TValue> : IAsyncDisposable
 {
