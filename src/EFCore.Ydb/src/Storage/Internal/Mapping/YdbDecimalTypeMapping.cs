@@ -12,26 +12,15 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
 
     public new static YdbDecimalTypeMapping Default => new();
 
-    static YdbDecimalTypeMapping()
-    {
-        WithMaxPrecision = GetWithMaxPrecision();
-    }
-    
-    public static YdbDecimalTypeMapping WithMaxPrecision { get; }
-
-    private static YdbDecimalTypeMapping GetWithMaxPrecision()
-    {
-        var result = new YdbDecimalTypeMapping(new RelationalTypeMappingParameters(
-                new CoreTypeMappingParameters(
-                    typeof(decimal)),
-                    storeType: "Decimal",
-                    dbType: System.Data.DbType.Decimal,
-                    precision: MaxPrecision,
-                    scale: DefaultScale)
-            );
-        
-        return result;
-    }
+    public static YdbDecimalTypeMapping GetWithMaxPrecision(int? scale) =>
+        new(new RelationalTypeMappingParameters(
+            new CoreTypeMappingParameters(
+                typeof(decimal)),
+            storeType: "Decimal",
+            dbType: System.Data.DbType.Decimal,
+            precision: MaxPrecision,
+            scale: scale ?? DefaultScale)
+        );
 
     public YdbDecimalTypeMapping() : this(
         new RelationalTypeMappingParameters(
@@ -65,8 +54,5 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
             parameter.Scale = (byte)s;
     }
 
-    protected override string GenerateNonNullSqlLiteral(object value)
-    {
-        return $"Decimal('{base.GenerateNonNullSqlLiteral(value)}', {this.Precision ?? MaxPrecision}, {this.Scale ?? DefaultScale})";
-    }
+    protected override string GenerateNonNullSqlLiteral(object value) => $"Decimal('{base.GenerateNonNullSqlLiteral(value)}', {this.Precision ?? MaxPrecision}, {this.Scale ?? DefaultScale})";
 }
