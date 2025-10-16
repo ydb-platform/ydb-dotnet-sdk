@@ -47,7 +47,7 @@ public class Message<TValue>
 
     public DateTime CreatedAt { get; }
 
-    public IReadOnlyCollection<Sdk.Topic.Metadata> Metadata { get; }
+    public IReadOnlyCollection<Metadata> Metadata { get; }
 
     public long SeqNo { get; }
 
