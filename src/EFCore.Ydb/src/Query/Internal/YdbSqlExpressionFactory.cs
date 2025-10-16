@@ -17,22 +17,25 @@ public class YdbSqlExpressionFactory(SqlExpressionFactoryDependencies dependenci
         RelationalTypeMapping? typeMapping = null)
     {
         // For .Sum(x => x.Decimal) EF generates coalesce(sum(x.Decimal), 0.0)) because SUM must have value
-        var funcExpression = left as SqlFunctionExpression;
-        var constExpression = right as SqlConstantExpression;
-        
-        if (funcExpression != null && constExpression != null && constExpression.TypeMapping != null
+
+        if (left is SqlFunctionExpression funcExpression 
+            && 
+            right is SqlConstantExpression constExpression && constExpression.TypeMapping != null
             &&
             funcExpression.Name.Equals("SUM", StringComparison.OrdinalIgnoreCase)
+            &&
+            funcExpression.Arguments != null
             &&
             constExpression.TypeMapping.DbType == DbType.Decimal
             &&
             constExpression.Value != null)
         {
+            // get column expression for SUM function expression
+            var columnExpression = funcExpression.Arguments[0] as ColumnExpression;
+
             var correctRight = new SqlConstantExpression(constExpression.Value,
-                YdbDecimalTypeMapping.WithMaxPrecision); // in the feature change static max precision/scale to
-                                                         // to dynamically created correct precision/scale
-                                                         // it depends on db scheme and can not correctly define only in code
-            
+                YdbDecimalTypeMapping.GetWithMaxPrecision(columnExpression?.TypeMapping?.Scale)); 
+
             return base.Coalesce(left, correctRight, typeMapping);
         }
         
