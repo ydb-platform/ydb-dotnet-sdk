@@ -5,6 +5,7 @@ using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
+
 namespace EntityFrameworkCore.Ydb.Query.Internal;
 
 public class YdbSqlExpressionFactory(SqlExpressionFactoryDependencies dependencies) : SqlExpressionFactory(dependencies)
@@ -18,8 +19,8 @@ public class YdbSqlExpressionFactory(SqlExpressionFactoryDependencies dependenci
     {
         // For .Sum(x => x.Decimal) EF generates coalesce(sum(x.Decimal), 0.0)) because SUM must have value
 
-        if (left is SqlFunctionExpression funcExpression 
-            && 
+        if (left is SqlFunctionExpression funcExpression
+            &&
             right is SqlConstantExpression constExpression && constExpression.TypeMapping != null
             &&
             funcExpression.Name.Equals("SUM", StringComparison.OrdinalIgnoreCase)
@@ -34,11 +35,11 @@ public class YdbSqlExpressionFactory(SqlExpressionFactoryDependencies dependenci
             var columnExpression = funcExpression.Arguments[0] as ColumnExpression;
 
             var correctRight = new SqlConstantExpression(constExpression.Value,
-                YdbDecimalTypeMapping.GetWithMaxPrecision(columnExpression?.TypeMapping?.Scale)); 
+                YdbDecimalTypeMapping.GetWithMaxPrecision(columnExpression?.TypeMapping?.Scale));
 
             return base.Coalesce(left, correctRight, typeMapping);
         }
-        
+
         return base.Coalesce(left, right, typeMapping);
     }
 }
