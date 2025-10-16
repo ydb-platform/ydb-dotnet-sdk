@@ -13,7 +13,7 @@ public interface IWriter<TValue> : IAsyncDisposable
     /// A Task which will complete with a delivery report corresponding to the produce request,
     /// or an exception if an error occured.
     /// </returns>
-    /// <exception cref="T:Ydb.Sdk.Services.Topic.WriterException">
+    /// <exception cref="Ydb.Sdk.Topic.WriterException">
     /// Thrown in response to any write request that was unsuccessful for any reason.
     /// </exception>
     public Task<WriteResult> WriteAsync(TValue data, CancellationToken cancellationToken = default);
@@ -27,7 +27,7 @@ public interface IWriter<TValue> : IAsyncDisposable
     /// A Task which will complete with a delivery report corresponding to the produce request,
     /// or an exception if an error occured.
     /// </returns>
-    /// <exception cref="T:Ydb.Sdk.Services.Topic.WriterException">
+    /// <exception cref="Ydb.Sdk.Topic.WriterException">
     /// Thrown in response to any write request that was unsuccessful for any reason.
     /// </exception>
     public Task<WriteResult> WriteAsync(Message<TValue> message, CancellationToken cancellationToken = default);
