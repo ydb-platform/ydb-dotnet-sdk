@@ -7,7 +7,7 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
 {
     private const byte DefaultPrecision = 22;
     private const byte DefaultScale = 9;
-    
+
     private const byte MaxPrecision = 35;
 
     public new static YdbDecimalTypeMapping Default => new();
@@ -54,5 +54,6 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
             parameter.Scale = (byte)s;
     }
 
-    protected override string GenerateNonNullSqlLiteral(object value) => $"Decimal('{base.GenerateNonNullSqlLiteral(value)}', {this.Precision ?? MaxPrecision}, {this.Scale ?? DefaultScale})";
+    protected override string GenerateNonNullSqlLiteral(object value) =>
+        $"Decimal('{base.GenerateNonNullSqlLiteral(value)}', {Precision ?? DefaultScale}, {Scale ?? DefaultScale})";
 }
