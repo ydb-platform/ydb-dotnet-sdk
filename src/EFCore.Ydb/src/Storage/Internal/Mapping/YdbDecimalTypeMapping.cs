@@ -55,5 +55,5 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
     }
 
     protected override string GenerateNonNullSqlLiteral(object value) =>
-        $"Decimal('{base.GenerateNonNullSqlLiteral(value)}', {Precision ?? DefaultScale}, {Scale ?? DefaultScale})";
+        $"Decimal('{base.GenerateNonNullSqlLiteral(value)}', {Precision ?? DefaultPrecision}, {Scale ?? DefaultScale})";
 }
