@@ -1,6 +1,6 @@
 using Ydb.Topic;
 
-namespace Ydb.Sdk.Services.Topic.Writer;
+namespace Ydb.Sdk.Topic.Writer;
 
 public class WriteResult
 {

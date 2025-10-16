@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Topic;
 
 public interface IDeserializer<out TValue>
 {

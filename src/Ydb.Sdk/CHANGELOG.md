@@ -1,3 +1,5 @@
+- **Breaking Change**: `Ydb.Sdk.Services.Topic` moved to `Ydb.Sdk.Topic`.
+
 ## v0.24.0
 
 - **Breaking Change**: Renamed properties in `YdbConnectionStringBuilder`:
@@ -18,7 +20,7 @@
 - Fixed bug ADO.NET/PoolManager: `SemaphoreSlim.WaitAsync` over-release on cancellation.
 - Feat ADO.NET: Mark `YdbConnection.State` as `Broken` when the underlying session is broken, including background deactivation.
 - Feat ADO.NET: Added  YdbDataSource `ExecuteAsync` and `ExecuteInTransaction` convenience methods.
-- **Breaking Change**: moved and renamed `Ydb.Sdk.Services.Query.TxMode` -> `Ydb.Sdk.Ado.TransactionMode`.
+- **Breaking Change**: `Ydb.Sdk.Services.Query.TxMode` moved to `Ydb.Sdk.Ado.TransactionMode`.
 - Feat ADO.NET: Cache gRPC transport by `gRPCConnectionString` to reuse channels.
 - Fixed bug wrap-around ADO.NET: Big parameterized Decimal — `((ulong)bits[1] << 32)` -> `((ulong)(uint)bits[1] << 32)`.
 - Feat ADO.NET: Parameterized Decimal overflow check: `Precision` and `Scale`.

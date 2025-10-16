@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Ydb.Sdk.Services.Topic.Reader;
+namespace Ydb.Sdk.Topic.Reader;
 
 internal class ReaderConfig
 {

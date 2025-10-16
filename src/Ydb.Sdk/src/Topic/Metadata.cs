@@ -1,3 +1,3 @@
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Topic;
 
 public record Metadata(string Key, byte[] Value);

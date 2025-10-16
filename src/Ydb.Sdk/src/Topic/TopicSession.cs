@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Topic;
 
 internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposable
 {

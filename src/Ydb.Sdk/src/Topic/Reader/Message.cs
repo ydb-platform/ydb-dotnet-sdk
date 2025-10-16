@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Ydb.Topic;
 
-namespace Ydb.Sdk.Services.Topic.Reader;
+namespace Ydb.Sdk.Topic.Reader;
 
 public class Message<TValue>
 {
