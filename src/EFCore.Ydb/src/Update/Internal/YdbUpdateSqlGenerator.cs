@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Update;
 
 namespace EntityFrameworkCore.Ydb.Update.Internal;
@@ -18,9 +19,8 @@ public class YdbUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies) 
         var name = command.TableName;
         var schema = command.Schema;
         var operations = command.ColumnModifications;
-
-        var writeOperations = operations.Where(o => o.IsWrite).ToList();
-        var readOperations = operations.Where(o => o.IsRead).ToList();
+        var writeOperations = operations.Where(o => o.IsWrite && !IsStoreGeneratedAndIgnoredBeforeSave(o)).ToList();
+        var readOperations = operations.Where(o => o.IsRead||IsStoreGeneratedAndIgnoredBeforeSave(o)).ToList();
 
         AppendInsertCommand(
             commandStringBuilder,
@@ -42,10 +42,9 @@ public class YdbUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies) 
         var name = command.TableName;
         var schema = command.Schema;
         var operations = command.ColumnModifications;
-
-        var writeOperations = operations.Where(o => o.IsWrite).ToList();
+        var writeOperations = operations.Where(o => o.IsWrite && !IsStoreGeneratedAndIgnoredBeforeSave(o)).ToList();
         var conditionOperations = operations.Where(o => o.IsCondition).ToList();
-        var readOperations = operations.Where(o => o.IsRead).ToList();
+        var readOperations = operations.Where(o => o.IsRead||IsStoreGeneratedAndIgnoredBeforeSave(o)).ToList();
 
         requiresTransaction = false;
 
@@ -105,7 +104,16 @@ public class YdbUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies) 
         bool appendReturningOneClause = false
     )
     {
-        AppendUpdateCommandHeader(commandStringBuilder, name, schema, writeOperations);
+        var effectiveWrites = writeOperations;
+        if (effectiveWrites.Count == 0)
+        {
+            var noOpColumn = GetNoOpSetColumn(conditionOperations, readOperations);
+            AppendUpdateCommandHeader(commandStringBuilder, name, schema, noOpColumn is null ? effectiveWrites : new[] { noOpColumn });
+        }
+        else
+        {
+            AppendUpdateCommandHeader(commandStringBuilder, name, schema, effectiveWrites);
+        }
         AppendWhereClause(commandStringBuilder, conditionOperations);
         AppendReturningClause(commandStringBuilder, readOperations);
         commandStringBuilder.AppendLine(SqlGenerationHelper.StatementTerminator);
@@ -137,17 +145,12 @@ public class YdbUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies) 
         string? additionalValues = null
     )
     {
-        if (operations.Count <= 0) return;
+        if (operations.Count <= 0 && string.IsNullOrEmpty(additionalValues)) return;
 
-        commandStringBuilder
-            .AppendLine()
-            .Append("RETURNING ");
-
-        commandStringBuilder.AppendJoin(
-            ',',
-            operations
-                .Select(operation => SqlGenerationHelper.DelimitIdentifier(operation.ColumnName))
-        );
+        commandStringBuilder.AppendLine().Append("RETURNING ");
+        var columns = operations.Select(o => SqlGenerationHelper.DelimitIdentifier(o.ColumnName)).ToList();
+        if (!string.IsNullOrEmpty(additionalValues)) columns.Add(additionalValues!);
+        commandStringBuilder.AppendJoin(',', columns);
     }
 
     public override string GenerateNextSequenceValueOperation(string name, string? schema)
@@ -163,4 +166,21 @@ public class YdbUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies) 
     public override void AppendObtainNextSequenceValueOperation(
         StringBuilder commandStringBuilder, string name, string? schema
     ) => throw new NotSupportedException("Iterating over serial is not supported in YDB");
+
+    private static bool IsStoreGeneratedAndIgnoredBeforeSave(IColumnModification op)
+    {
+        var p = op.Property;
+        if (p == null) return false;
+        if (p.ValueGenerated != ValueGenerated.OnAdd && p.ValueGenerated != ValueGenerated.OnAddOrUpdate) return false;
+        return p.GetBeforeSaveBehavior() == PropertySaveBehavior.Ignore;
+    }
+
+    private static IColumnModification? GetNoOpSetColumn(
+        IReadOnlyList<IColumnModification> conditionOperations,
+        IReadOnlyList<IColumnModification> readOperations
+    )
+    {
+        var candidate = conditionOperations.FirstOrDefault() ?? readOperations.FirstOrDefault();
+        return candidate;
+    }
 }
