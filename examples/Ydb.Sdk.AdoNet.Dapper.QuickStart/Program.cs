@@ -2,7 +2,7 @@ using Dapper;
 using Ydb.Sdk.Ado;
 
 // Init Users table
-await using var connection = await new YdbDataSource().OpenConnectionAsync();
+await using var connection = await new YdbDataSource().OpenRetryableConnectionAsync();
 
 await connection.ExecuteAsync("DROP TABLE IF EXISTS Users");
 await connection.ExecuteAsync("""
@@ -17,8 +17,7 @@ await connection.ExecuteAsync("""
 await connection.ExecuteAsync("INSERT INTO Users(Id, Name, Email) VALUES (@Id, @Name, @Email)",
     new User { Id = 1, Name = "Name", Email = "Email" });
 
-Console.WriteLine(await connection.QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = @Id",
-    new { Id = 1 }));
+Console.WriteLine(await connection.QuerySingleAsync<User>("SELECT * FROM Users WHERE Id = @Id", new { Id = 1 }));
 
 internal class User
 {
