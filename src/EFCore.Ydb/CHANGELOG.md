@@ -1,3 +1,5 @@
+## v0.1.0
+
 - Fixed bug: incompatible coalesce types ([#531](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/531)).
 - Upgraded ADO.NET provider version: `0.17.0` → `0.24.0`.
 - Fixed Decimal precision/scale mapping in EF provider.
