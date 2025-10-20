@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Ydb.Extensions;
+using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -46,7 +47,10 @@ public class DecimalParameterizedYdbTest
     [MemberData(nameof(SuccessCases))]
     public async Task Should_RoundtripDecimal_When_ValueFitsPrecisionAndScale(int p, int s, decimal value)
     {
+        await using var testStore = YdbTestStoreFactory.Instance.Create("DecimalParameterizedYdb");
+
         await using var ctx = NewCtx(p, s);
+        await testStore.CleanAsync(ctx);
         await ctx.Database.EnsureCreatedAsync();
         try
         {
@@ -71,7 +75,10 @@ public class DecimalParameterizedYdbTest
     [MemberData(nameof(OverflowCases))]
     public async Task Should_ThrowOverflow_When_ValueExceedsPrecisionOrScale(int p, int s, decimal value)
     {
+        await using var testStore = YdbTestStoreFactory.Instance.Create("DecimalParameterizedYdb");
+
         await using var ctx = NewCtx(p, s);
+        await testStore.CleanAsync(ctx);
         await ctx.Database.EnsureCreatedAsync();
         try
         {
@@ -88,8 +95,11 @@ public class DecimalParameterizedYdbTest
     [MemberData(nameof(SuccessCases))]
     public async Task Should_SumDecimal_When_ValueFitsPrecisionAndScale(int p, int s, decimal value)
     {
+        await using var testStore = YdbTestStoreFactory.Instance.Create("DecimalParameterizedYdb");
+
         const int multiplier = 5;
         await using var ctx = NewCtx(p, s);
+        await testStore.CleanAsync(ctx);
         await ctx.Database.EnsureCreatedAsync();
         try
         {
@@ -119,7 +129,7 @@ public class DecimalParameterizedYdbTest
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) => modelBuilder.Entity<ParamItem>(b =>
         {
-            b.ToTable($"Items_{p}_{s}_{Guid.NewGuid():N}");
+            b.ToTable($"Items_{p}_{s}");
             b.HasKey(x => x.Id);
             b.Property(x => x.Price).HasPrecision(p, s);
         });
@@ -130,4 +140,6 @@ public class DecimalParameterizedYdbTest
         public int Id { get; init; }
         public decimal Price { get; init; }
     }
+
+    public Task DisposeAsync() => throw new NotImplementedException();
 }
