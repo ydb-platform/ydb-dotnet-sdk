@@ -10,7 +10,7 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
 
     public new static YdbDecimalTypeMapping Default => new();
 
-    public YdbDecimalTypeMapping() : this(
+    private YdbDecimalTypeMapping() : this(
         new RelationalTypeMappingParameters(
             new CoreTypeMappingParameters(typeof(decimal)),
             storeType: "Decimal",
@@ -41,4 +41,7 @@ public class YdbDecimalTypeMapping : DecimalTypeMapping
         if (Scale is { } s)
             parameter.Scale = (byte)s;
     }
+
+    protected override string GenerateNonNullSqlLiteral(object value) =>
+        $"Decimal('{base.GenerateNonNullSqlLiteral(value)}', {Precision ?? DefaultPrecision}, {Scale ?? DefaultScale})";
 }

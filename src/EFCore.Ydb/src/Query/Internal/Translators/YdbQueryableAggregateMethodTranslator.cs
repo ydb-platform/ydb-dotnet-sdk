@@ -133,7 +133,7 @@ public class YdbQueryableAggregateMethodTranslator(
                             [sumSqlExpression],
                             nullable: true,
                             argumentsPropagateNullability: ArrayUtil.FalseArrays[1],
-                            typeof(decimal)),
+                            typeof(long)),
                         sumInputType,
                         sumSqlExpression.TypeMapping);
                 }
