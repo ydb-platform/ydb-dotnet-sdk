@@ -48,17 +48,13 @@ public class DecimalParameterizedYdbTest
     {
         await using var ctx = NewCtx(p, s);
         await ctx.Database.EnsureCreatedAsync();
-
         try
         {
             var e = new ParamItem { Price = value };
             ctx.Add(e);
             await ctx.SaveChangesAsync();
-
             var got = await ctx.Items.SingleAsync(x => x.Id == e.Id);
-
             Assert.Equal(value, got.Price);
-
             var tms = ctx.GetService<IRelationalTypeMappingSource>();
             var et = ctx.Model.FindEntityType(typeof(ParamItem))!;
             var prop = et.FindProperty(nameof(ParamItem.Price))!;
@@ -97,7 +93,7 @@ public class DecimalParameterizedYdbTest
         await ctx.Database.EnsureCreatedAsync();
         try
         {
-            for (var i = 0; i < multiplier; i++) 
+            for (var i = 0; i < multiplier; i++)
                 ctx.Add(new ParamItem { Price = value });
             await ctx.SaveChangesAsync();
             var got = await ctx.Items.Select(x => x.Price).SumAsync();
@@ -123,7 +119,7 @@ public class DecimalParameterizedYdbTest
 
         protected override void OnModelCreating(ModelBuilder modelBuilder) => modelBuilder.Entity<ParamItem>(b =>
         {
-            b.ToTable($"Items_{p}_{s}");
+            b.ToTable($"Items_{p}_{s}_{Guid.NewGuid():N}");
             b.HasKey(x => x.Id);
             b.Property(x => x.Price).HasPrecision(p, s);
         });
