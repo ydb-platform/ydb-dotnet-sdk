@@ -12,6 +12,7 @@ public class DecimalParameterizedYdbTest
         new DbContextOptionsBuilder<ParametricDecimalContext>()
             .UseYdb("Host=localhost;Port=2136")
             .EnableServiceProviderCaching(false)
+            .LogTo(Console.WriteLine)
             .Options;
 
     public static TheoryData<int, int, decimal> SuccessCases => new()
@@ -99,7 +100,7 @@ public class DecimalParameterizedYdbTest
             for (var i = 0; i < multiplier; i++) 
                 ctx.Add(new ParamItem { Price = value });
             await ctx.SaveChangesAsync();
-            var got = await ctx.Items.SumAsync(x => x.Price);
+            var got = await ctx.Items.Select(x => x.Price).SumAsync();
 
             Assert.Equal(value * multiplier, got);
 
