@@ -140,6 +140,4 @@ public class DecimalParameterizedYdbTest
         public int Id { get; init; }
         public decimal Price { get; init; }
     }
-
-    public Task DisposeAsync() => throw new NotImplementedException();
 }
