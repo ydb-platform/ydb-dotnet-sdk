@@ -1,3 +1,4 @@
+- Upgraded ADO.NET provider version: `0.17.0` → `0.24.0`.
 - Fixed Decimal precision/scale mapping in EF provider.
 - Supported Guid (Uuid YDB type).
 - PrivateAssets="none" is set to flow the EF Core analyzer to users referencing this package [issue](https://github.com/aspnet/EntityFrameworkCore/pull/11350).
