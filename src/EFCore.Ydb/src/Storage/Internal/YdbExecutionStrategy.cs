@@ -28,10 +28,10 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
 
     protected override bool ShouldRetryOn(Exception exception) =>
         exception is YdbException ydbException &&
-        (ydbException.IsTransient || retryPolicyConfig.EnableRetryIdempotence && ydbException.Code is
+        (ydbException.IsTransient || (retryPolicyConfig.EnableRetryIdempotence && ydbException.Code is
             StatusCode.ClientTransportUnknown or
             StatusCode.ClientTransportUnavailable or
-            StatusCode.Undetermined);
+            StatusCode.Undetermined));
 
     protected override TimeSpan? GetNextDelay(Exception lastException) =>
         _retryPolicy.GetNextDelay((YdbException)lastException, ExceptionsEncountered.Count - 1);
