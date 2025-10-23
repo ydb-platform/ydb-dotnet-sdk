@@ -7,19 +7,19 @@ using Ydb.Sdk.Ado.RetryPolicy;
 namespace EntityFrameworkCore.Ydb.Storage.Internal;
 
 /// <summary>
-/// Retry strategy for YDB.
+/// Retry strategy for YDB.<br/>
 ///
-/// IMPORTANT:
-/// <br/>- The maximum number of attempts and backoff logic are encapsulated in <see cref="IRetryPolicy"/>.
+/// <br/>IMPORTANT:
+/// <br/>- The maximum number of attempts and backoff logic are encapsulated in <see cref="YdbRetryPolicy"/>.
 /// The base ExecutionStrategy parameters (maxRetryCount, maxRetryDelay) are not used.
 /// <br/>- This strategy must be invoked in the correct EF Core context/connection (YDB),
 /// so that exception types and ShouldRetryOn semantics match the provider.
-/// <br/>- This base <see cref="ExecutionStrategy"/> is a good place to emit metrics/logs (attempt number, delay, exception type, etc.).
+/// <br/>- The base <see cref="ExecutionStrategy"/> is a good place to emit metrics/logs (attempt number, delay, exception type, etc.).
 /// </summary>
 public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, YdbRetryPolicyConfig retryPolicyConfig)
 // We pass "placeholders" to the base class:
-// - TimeSpan.Zero is not used in the real retry logic.
-// - Actual limits/delays are driven by IRetryPolicy.
+// - MaxAttempts and TimeSpan.Zero are not used in the real retry logic.
+// - Actual limits/delays are driven by YdbRetryPolicy.
     : ExecutionStrategy(dependencies, retryPolicyConfig.MaxAttempts, TimeSpan.Zero /* unused! */)
 {
     private readonly YdbRetryPolicy _retryPolicy = new(retryPolicyConfig);
