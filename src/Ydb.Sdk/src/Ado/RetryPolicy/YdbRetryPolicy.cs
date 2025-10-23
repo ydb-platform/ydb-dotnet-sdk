@@ -85,7 +85,7 @@ public class YdbRetryPolicy : IRetryPolicy
 
         return ydbException.Code switch
         {
-            StatusCode.BadSession or StatusCode.SessionBusy => TimeSpan.Zero,
+            StatusCode.BadSession or StatusCode.SessionBusy or StatusCode.SessionExpired => TimeSpan.Zero,
             StatusCode.Aborted or StatusCode.Undetermined =>
                 FullJitter(_fastBackoffBaseMs, _fastCapBackoffMs, _fastCeiling, attempt, _random),
             StatusCode.Unavailable or StatusCode.ClientTransportUnknown or StatusCode.ClientTransportUnavailable =>

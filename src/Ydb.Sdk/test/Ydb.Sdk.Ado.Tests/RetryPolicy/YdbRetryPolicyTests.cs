@@ -10,6 +10,7 @@ public class YdbRetryPolicyTests
     [Theory]
     [InlineData(StatusCode.BadSession)]
     [InlineData(StatusCode.SessionBusy)]
+    [InlineData(StatusCode.SessionExpired)]
     public void GetNextDelay_WhenStatusIsBadSessionOrBusySession_ReturnTimeSpanZero(StatusCode statusCode)
     {
         var ydbRetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 2 });

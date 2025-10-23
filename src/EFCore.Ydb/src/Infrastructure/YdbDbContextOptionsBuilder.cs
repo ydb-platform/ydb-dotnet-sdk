@@ -22,10 +22,7 @@ public sealed class YdbDbContextOptionsBuilder(DbContextOptionsBuilder optionsBu
         => UseRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
 
     public YdbDbContextOptionsBuilder UseRetryPolicy(YdbRetryPolicyConfig retryPolicyConfig)
-        => ExecutionStrategy(d => new YdbExecutionStrategy(d, new YdbRetryPolicy(retryPolicyConfig)));
-
-    public YdbDbContextOptionsBuilder UseRetryPolicy(IRetryPolicy retryPolicy)
-        => ExecutionStrategy(d => new YdbExecutionStrategy(d, retryPolicy));
+        => ExecutionStrategy(d => new YdbExecutionStrategy(d, retryPolicyConfig));
 
     public YdbDbContextOptionsBuilder DisableRetryOnFailure() =>
         ExecutionStrategy(d => new NonRetryingExecutionStrategy(d));

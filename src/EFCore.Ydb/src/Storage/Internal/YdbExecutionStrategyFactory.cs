@@ -7,5 +7,5 @@ public class YdbExecutionStrategyFactory(ExecutionStrategyDependencies dependenc
     : RelationalExecutionStrategyFactory(dependencies)
 {
     protected override IExecutionStrategy CreateDefaultStrategy(ExecutionStrategyDependencies dependencies) =>
-        new YdbExecutionStrategy(dependencies, YdbRetryPolicy.Default);
+        new YdbExecutionStrategy(dependencies, YdbRetryPolicyConfig.Default);
 }
