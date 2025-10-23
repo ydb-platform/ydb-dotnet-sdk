@@ -1,3 +1,7 @@
+- Added support for the YDB retry policy (ADO.NET) and new configuration methods in `YdbDbContextOptionsBuilder`:
+  - `EnableRetryIdempotence()`: enables retries for errors classified as idempotent. You must ensure the operation itself is idempotent.
+  - `UseRetryPolicy(YdbRetryPolicyConfig retryPolicyConfig)`: configures custom backoff parameters and the maximum number of retry attempts.
+
 ## v0.1.0
 
 - Fixed bug: incompatible coalesce types ([#531](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/531)).

@@ -13,7 +13,6 @@ public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConne
 {
     private readonly ICredentialsProvider? _credentialsProvider;
     private readonly X509Certificate2Collection? _serverCertificates;
-    private readonly bool _disableRetryExecuteStrategy;
 
     public YdbRelationalConnection(RelationalConnectionDependencies dependencies) : base(dependencies)
     {
@@ -22,7 +21,6 @@ public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConne
 
         _credentialsProvider = ydbOptionsExtension.CredentialsProvider;
         _serverCertificates = ydbOptionsExtension.ServerCertificates;
-        _disableRetryExecuteStrategy = ydbOptionsExtension.DisableRetryExecutionStrategy;
     }
 
     protected override DbConnection CreateDbConnection()
@@ -40,12 +38,8 @@ public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConne
     {
         var options = new DbContextOptionsBuilder().UseYdb(GetValidatedConnectionString(), builder =>
         {
-            builder.WithCredentialsProvider(_credentialsProvider);
-            builder.WithServerCertificates(_serverCertificates);
-            if (_disableRetryExecuteStrategy)
-            {
-                builder.DisableRetryOnFailure();
-            }
+            builder.UseCredentialsProvider(_credentialsProvider);
+            builder.UseServerCertificates(_serverCertificates);
         }).Options;
 
         return new YdbRelationalConnection(Dependencies with { ContextOptions = options });
