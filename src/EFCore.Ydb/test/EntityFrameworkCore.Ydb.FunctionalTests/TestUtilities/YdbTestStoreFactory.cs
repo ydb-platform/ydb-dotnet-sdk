@@ -1,4 +1,6 @@
 using EntityFrameworkCore.Ydb.Extensions;
+using EntityFrameworkCore.Ydb.Storage.Internal;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -10,7 +10,7 @@ public class YdbDesignTimeServices : IDesignTimeServices
 {
     public void ConfigureDesignTimeServices(IServiceCollection serviceCollection)
     {
-        serviceCollection.AddEntityFrameworkYdb(useYdbExecutionStrategy: false);
+        serviceCollection.AddEntityFrameworkYdb();
 
         new EntityFrameworkRelationalDesignServicesBuilder(serviceCollection)
             .TryAdd<IDatabaseModelFactory, YdbDatabaseModelFactory>()
