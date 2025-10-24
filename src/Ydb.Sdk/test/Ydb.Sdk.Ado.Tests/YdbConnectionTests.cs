@@ -19,7 +19,7 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
-        var connectionString = ConnectionString + ";MaxPoolSize=100";
+        var connectionString = ConnectionString + ";MaxPoolSize=100;CreateSessionTimeout=20";
 
         var tasks = GenerateTasks(connectionString);
         tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
