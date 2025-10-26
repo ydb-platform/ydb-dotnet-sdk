@@ -151,11 +151,6 @@ public abstract class SloTableContext<T> : ISloContext
                 "Total number of successful operations, categorized by type."
             );
 
-            var operationsFailureTotal = metricFactory.CreateCounter(
-                "sdk_operations_failure_total",
-                "Total number of failed operations, categorized by type."
-            );
-
             var operationLatencySeconds = metricFactory.CreateHistogram(
                 "sdk_operation_latency_seconds",
                 "Latency of operations performed by the SDK in seconds, categorized by type and status.",
@@ -210,23 +205,12 @@ public abstract class SloTableContext<T> : ISloContext
 
                         pendingOperations.Inc();
                         var sw = Stopwatch.StartNew();
-                        try
-                        {
-                            await action(client, runConfig);
-                            sw.Stop();
-                            operationsTotal.Inc();
-                            pendingOperations.Dec();
-                            operationsSuccessTotal.Inc();
-                            operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
-                        }
-                        catch (YdbException e)
-                        {
-                            Logger.LogError(e, "Fail operation!");
-
-                            errorsTotal.WithLabels(e.Code.StatusName()).Inc();
-                            operationsFailureTotal.Inc();
-                            operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
-                        }
+                        await action(client, runConfig);
+                        sw.Stop();
+                        operationsTotal.Inc();
+                        pendingOperations.Dec();
+                        operationsSuccessTotal.Inc();
+                        operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
                     }
                 }, cancellationTokenSource.Token));
             }
