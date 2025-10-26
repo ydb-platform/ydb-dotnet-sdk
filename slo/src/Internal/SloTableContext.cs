@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
-using Ydb.Sdk.Ado;
 
 namespace Internal;
 
@@ -179,12 +178,6 @@ public abstract class SloTableContext<T> : ISloContext
             var pendingOperations = metricFactory.CreateGauge(
                 "sdk_pending_operations",
                 "Current number of pending operations, categorized by type."
-            );
-
-            var errorsTotal = metricFactory.CreateCounter(
-                "sdk_errors_total",
-                "Total number of errors encountered, categorized by error type.",
-                ["error_type"]
             );
 
             var workJobs = new List<Task>();
