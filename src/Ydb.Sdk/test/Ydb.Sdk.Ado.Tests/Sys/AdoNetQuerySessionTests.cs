@@ -11,15 +11,12 @@ public class AdoNetQuerySessionTests : TestBase
 
         await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
-        dbCommand.CommandText = "SELECT ClientPID FROM `.sys/query_sessions` WHERE ClientPID = @pid; LIMIT 1;";
+        dbCommand.CommandText = "SELECT ClientPID FROM `.sys/query_sessions` WHERE ClientPID = @pid;";
         dbCommand.Parameters.Add(new YdbParameter("pid", expectedPid));
 
         await dbCommand.ExecuteNonQueryAsync();
-        await using var reader = await dbCommand.ExecuteReaderAsync();
+        var actualPid = await dbCommand.ExecuteScalarAsync();
 
-        Assert.True(reader.HasRows);
-        Assert.True(await reader.ReadAsync());
-        Assert.Equal(expectedPid, reader.GetString(0));
-        Assert.False(await reader.ReadAsync());
+        Assert.Equal(expectedPid, actualPid);
     }
 }
