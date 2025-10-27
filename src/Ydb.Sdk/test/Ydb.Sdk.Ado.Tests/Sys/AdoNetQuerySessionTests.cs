@@ -7,17 +7,16 @@ public class AdoNetQuerySessionTests : TestBase
     [Fact]
     public async Task QuerySessionPidTest()
     {
-        await using var connection = await CreateOpenConnectionAsync();
-        var dbCommand = connection.CreateCommand();
-        dbCommand.CommandText = "SELECT ClientPID FROM `.sys/query_sessions` LIMIT 1;";
-
         var expectedPid = Environment.ProcessId.ToString();
 
-        await dbCommand.ExecuteNonQueryAsync();
-        await using var reader = await dbCommand.ExecuteReaderAsync();
+        await using var connection = await CreateOpenConnectionAsync();
+        var dbCommand = connection.CreateCommand();
+        dbCommand.CommandText = "SELECT ClientPID FROM `.sys/query_sessions` WHERE ClientPID = @pid;";
+        dbCommand.Parameters.Add(new YdbParameter("pid", expectedPid));
 
-        Assert.True(reader.HasRows);
-        Assert.True(await reader.ReadAsync());
-        Assert.Equal(reader.GetString(0), expectedPid);
+        await dbCommand.ExecuteNonQueryAsync();
+        var actualPid = await dbCommand.ExecuteScalarAsync();
+
+        Assert.Equal(expectedPid, actualPid);
     }
 }
