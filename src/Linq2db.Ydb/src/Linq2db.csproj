@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>LinqToDB.DataProvider.Ydb</AssemblyName>
+    <RootNamespace>LinqToDB.Internal.DataProvider.Ydb</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- .csproj -->
+<ItemGroup>
+  <PackageReference Include="linq2db" Version="6.0.0-rc.3" />
+  <PackageReference Include="Ydb.Sdk" Version="0.24.0" />
+  <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.8.0" PrivateAssets="all" />
+</ItemGroup>
+<ItemGroup>
+  <IgnoresAccessChecksTo Include="linq2db" />
+</ItemGroup>
+
+
+  <!-- T4-шаблон нам не нужен в сборке -->
+  <ItemGroup>
+    <None Update="YdbHints.tt">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
