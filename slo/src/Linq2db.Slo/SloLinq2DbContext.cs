@@ -1,8 +1,5 @@
-﻿using System;
-using System.Threading.Tasks;
-using Internal;
-using LinqToDB;
-using LinqToDB.Data; // <= вот это нужно для DataConnection
+﻿using Internal;
+using LinqToDB.Data;
 
 namespace Linq2db;
 
