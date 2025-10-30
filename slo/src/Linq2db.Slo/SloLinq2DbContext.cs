@@ -13,15 +13,12 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
 {
     protected override string Job => "Linq2DB";
 
-    // ВКЛЮЧАЕМ ретраи SDK глобально для всех DataConnection
     static SloTableContext()
     {
+        // Включаем ретраи SDK глобально (как и раньше)
         YdbSdkRetryPolicyRegistration.UseGloballyWithIdempotence(
             maxAttempts: 10,
-            onRetry: (attempt, ex, delay) =>
-            {
-                // метрики/логи при желании
-            }
+            onRetry: (attempt, ex, delay) => { /* лог/метрики при желании */ }
         );
     }
 
@@ -32,8 +29,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         public DataConnection Open() => new DataConnection("YDB", _connectionString);
     }
 
-    protected override Linq2dbClient CreateClient(Config config)
-        => new Linq2dbClient(config.ConnectionString);
+    protected override Linq2dbClient CreateClient(Config config) => new(config.ConnectionString);
 
     protected override async Task Create(Linq2dbClient client, int operationTimeout)
     {
@@ -46,7 +42,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
 CREATE TABLE `{SloTable.Name}` (
     Guid             Uuid,
     Id               Int32,
-    PayloadStr       Utf8,
+    PayloadStr       Text,
     PayloadDouble    Double,
     PayloadTimestamp Timestamp,
     PRIMARY KEY (Guid, Id)
@@ -54,7 +50,7 @@ CREATE TABLE `{SloTable.Name}` (
         }
         catch
         {
-            // YDB не поддерживает IF NOT EXISTS; если таблица есть — это норм
+            // Таблица уже есть — ок
         }
 
         if (!string.IsNullOrWhiteSpace(SloTable.Options))
@@ -67,12 +63,13 @@ CREATE TABLE `{SloTable.Name}` (
         await using var db = client.Open();
         db.CommandTimeout = writeTimeout;
 
-        await db.ExecuteAsync($@"
+        // rowsAffected >= 0 (для UPSERT в YDB может быть 0), поэтому страхуемся и возвращаем минимум 1
+        var rowsAffected = await db.ExecuteAsync($@"
 UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
 VALUES ({sloTable.Guid}, {sloTable.Id}, {sloTable.PayloadStr}, {sloTable.PayloadDouble}, {sloTable.PayloadTimestamp});
 ");
 
-        return 1;
+        return rowsAffected > 0 ? rowsAffected : 1;
     }
 
     protected override async Task<object?> Select(Linq2dbClient client, (Guid Guid, int Id) select, int readTimeout)
