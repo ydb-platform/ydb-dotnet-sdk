@@ -108,7 +108,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
     public override bool GetBoolean(int ordinal) =>
-        GetPrimitiveValue(Type.Types.PrimitiveTypeId.Bool, ordinal).GetBool();
+        GetPrimitiveValue(Type.Types.PrimitiveTypeId.Bool, ordinal).UnpackBool();
 
     /// <summary>
     /// Gets the value of the specified column as a byte.
@@ -116,23 +116,28 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
     public override byte GetByte(int ordinal) =>
-        GetPrimitiveValue(Type.Types.PrimitiveTypeId.Uint8, ordinal).GetUint8();
+        GetPrimitiveValue(Type.Types.PrimitiveTypeId.Uint8, ordinal).UnpackUint8();
 
     /// <summary>
     /// Gets the value of the specified column as a signed byte.
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column as a signed byte.</returns>
-    public sbyte GetSByte(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Int8, ordinal).GetInt8();
+    public sbyte GetSByte(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Int8, ordinal).UnpackInt8();
 
     /// <summary>
     /// Gets the value of the specified column as a byte array.
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column as a byte array.</returns>
-    public byte[] GetBytes(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.String, ordinal).GetBytes();
+    public byte[] GetBytes(int ordinal)
+    {
+        var type = UnwrapColumnType(ordinal);
 
-    public byte[] GetYson(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Yson, ordinal).GetYson();
+        return type.TypeId is Type.Types.PrimitiveTypeId.String or Type.Types.PrimitiveTypeId.Yson
+            ? CurrentRow[ordinal].UnpackBytes()
+            : throw InvalidCastException<byte[]>(ordinal);
+    }
 
     /// <summary>
     /// Reads a stream of bytes from the specified column offset into the buffer as an array.
@@ -256,12 +261,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Timestamp => CurrentRow[ordinal].GetTimestamp(),
-            Type.Types.PrimitiveTypeId.Datetime => CurrentRow[ordinal].GetDatetime(),
-            Type.Types.PrimitiveTypeId.Date => CurrentRow[ordinal].GetDate(),
-            Type.Types.PrimitiveTypeId.Timestamp64 => CurrentRow[ordinal].GetTimestamp64(),
-            Type.Types.PrimitiveTypeId.Datetime64 => CurrentRow[ordinal].GetDatetime64(),
-            Type.Types.PrimitiveTypeId.Date32 => CurrentRow[ordinal].GetDate32(),
+            Type.Types.PrimitiveTypeId.Timestamp => CurrentRow[ordinal].UnpackTimestamp(),
+            Type.Types.PrimitiveTypeId.Datetime => CurrentRow[ordinal].UnpackDatetime(),
+            Type.Types.PrimitiveTypeId.Date => CurrentRow[ordinal].UnpackDate(),
+            Type.Types.PrimitiveTypeId.Timestamp64 => CurrentRow[ordinal].UnpackTimestamp64(),
+            Type.Types.PrimitiveTypeId.Datetime64 => CurrentRow[ordinal].UnpackDatetime64(),
+            Type.Types.PrimitiveTypeId.Date32 => CurrentRow[ordinal].UnpackDate32(),
             _ => throw InvalidCastException<DateTime>(ordinal)
         };
     }
@@ -277,8 +282,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Interval => CurrentRow[ordinal].GetInterval(),
-            Type.Types.PrimitiveTypeId.Interval64 => CurrentRow[ordinal].GetInterval64(),
+            Type.Types.PrimitiveTypeId.Interval => CurrentRow[ordinal].UnpackInterval(),
+            Type.Types.PrimitiveTypeId.Interval64 => CurrentRow[ordinal].UnpackInterval64(),
             _ => throw InvalidCastException<TimeSpan>(ordinal)
         };
     }
@@ -293,7 +298,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         var type = UnwrapColumnType(ordinal);
 
         return type.TypeCase == Type.TypeOneofCase.DecimalType
-            ? CurrentRow[ordinal].GetDecimal((byte)type.DecimalType.Scale)
+            ? CurrentRow[ordinal].UnpackDecimal((byte)type.DecimalType.Scale)
             : throw InvalidCastException(Type.TypeOneofCase.DecimalType, ordinal);
     }
 
@@ -308,8 +313,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Double => CurrentRow[ordinal].GetDouble(),
-            Type.Types.PrimitiveTypeId.Float => CurrentRow[ordinal].GetFloat(),
+            Type.Types.PrimitiveTypeId.Double => CurrentRow[ordinal].UnpackDouble(),
+            Type.Types.PrimitiveTypeId.Float => CurrentRow[ordinal].UnpackFloat(),
             _ => throw InvalidCastException<double>(ordinal)
         };
     }
@@ -395,14 +400,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
     public override float GetFloat(int ordinal) =>
-        GetPrimitiveValue(Type.Types.PrimitiveTypeId.Float, ordinal).GetFloat();
+        GetPrimitiveValue(Type.Types.PrimitiveTypeId.Float, ordinal).UnpackFloat();
 
     /// <summary>
     /// Gets the value of the specified column as a globally unique identifier (GUID).
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
-    public override Guid GetGuid(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Uuid, ordinal).GetUuid();
+    public override Guid GetGuid(int ordinal) =>
+        GetPrimitiveValue(Type.Types.PrimitiveTypeId.Uuid, ordinal).UnpackUuid();
 
     /// <summary>
     /// Gets the value of the specified column as a 16-bit signed integer.
@@ -415,9 +421,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Int16 => CurrentRow[ordinal].GetInt16(),
-            Type.Types.PrimitiveTypeId.Int8 => CurrentRow[ordinal].GetInt8(),
-            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].GetUint8(),
+            Type.Types.PrimitiveTypeId.Int16 => CurrentRow[ordinal].UnpackInt16(),
+            Type.Types.PrimitiveTypeId.Int8 => CurrentRow[ordinal].UnpackInt8(),
+            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
             _ => throw InvalidCastException<short>(ordinal)
         };
     }
@@ -433,8 +439,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].GetUint16(),
-            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].GetUint8(),
+            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].UnpackUint16(),
+            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
             _ => throw InvalidCastException<ushort>(ordinal)
         };
     }
@@ -450,11 +456,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Int32 => CurrentRow[ordinal].GetInt32(),
-            Type.Types.PrimitiveTypeId.Int16 => CurrentRow[ordinal].GetInt16(),
-            Type.Types.PrimitiveTypeId.Int8 => CurrentRow[ordinal].GetInt8(),
-            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].GetUint16(),
-            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].GetUint8(),
+            Type.Types.PrimitiveTypeId.Int32 => CurrentRow[ordinal].UnpackInt32(),
+            Type.Types.PrimitiveTypeId.Int16 => CurrentRow[ordinal].UnpackInt16(),
+            Type.Types.PrimitiveTypeId.Int8 => CurrentRow[ordinal].UnpackInt8(),
+            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].UnpackUint16(),
+            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
             _ => throw InvalidCastException<int>(ordinal)
         };
     }
@@ -470,9 +476,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Uint32 => CurrentRow[ordinal].GetUint32(),
-            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].GetUint16(),
-            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].GetUint8(),
+            Type.Types.PrimitiveTypeId.Uint32 => CurrentRow[ordinal].UnpackUint32(),
+            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].UnpackUint16(),
+            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
             _ => throw InvalidCastException<uint>(ordinal)
         };
     }
@@ -488,13 +494,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Int64 => CurrentRow[ordinal].GetInt64(),
-            Type.Types.PrimitiveTypeId.Int32 => CurrentRow[ordinal].GetInt32(),
-            Type.Types.PrimitiveTypeId.Int16 => CurrentRow[ordinal].GetInt16(),
-            Type.Types.PrimitiveTypeId.Int8 => CurrentRow[ordinal].GetInt8(),
-            Type.Types.PrimitiveTypeId.Uint32 => CurrentRow[ordinal].GetUint32(),
-            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].GetUint16(),
-            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].GetUint8(),
+            Type.Types.PrimitiveTypeId.Int64 => CurrentRow[ordinal].UnpackInt64(),
+            Type.Types.PrimitiveTypeId.Int32 => CurrentRow[ordinal].UnpackInt32(),
+            Type.Types.PrimitiveTypeId.Int16 => CurrentRow[ordinal].UnpackInt16(),
+            Type.Types.PrimitiveTypeId.Int8 => CurrentRow[ordinal].UnpackInt8(),
+            Type.Types.PrimitiveTypeId.Uint32 => CurrentRow[ordinal].UnpackUint32(),
+            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].UnpackUint16(),
+            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
             _ => throw InvalidCastException<long>(ordinal)
         };
     }
@@ -510,10 +516,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Uint64 => CurrentRow[ordinal].GetUint64(),
-            Type.Types.PrimitiveTypeId.Uint32 => CurrentRow[ordinal].GetUint32(),
-            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].GetUint16(),
-            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].GetUint8(),
+            Type.Types.PrimitiveTypeId.Uint64 => CurrentRow[ordinal].UnpackUint64(),
+            Type.Types.PrimitiveTypeId.Uint32 => CurrentRow[ordinal].UnpackUint32(),
+            Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].UnpackUint16(),
+            Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
             _ => throw InvalidCastException<ulong>(ordinal)
         };
     }
@@ -546,8 +552,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
-    public override string GetString(int ordinal) =>
-        GetPrimitiveValue(Type.Types.PrimitiveTypeId.Utf8, ordinal).GetText();
+    public override string GetString(int ordinal)
+    {
+        var type = UnwrapColumnType(ordinal);
+
+        return type.TypeId is Type.Types.PrimitiveTypeId.Utf8 or Type.Types.PrimitiveTypeId.Json
+            or Type.Types.PrimitiveTypeId.JsonDocument
+            ? CurrentRow[ordinal].UnpackText()
+            : throw InvalidCastException<ulong>(ordinal);
+    }
 
     /// <summary>
     /// Gets the value of the specified column as a TextReader.
@@ -555,21 +568,6 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>A TextReader containing the column value.</returns>
     public override TextReader GetTextReader(int ordinal) => new StringReader(GetString(ordinal));
-
-    /// <summary>
-    /// Gets the value of the specified column as a JSON string.
-    /// </summary>
-    /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column as JSON.</returns>
-    public string GetJson(int ordinal) => GetPrimitiveValue(Type.Types.PrimitiveTypeId.Json, ordinal).GetJson();
-
-    /// <summary>
-    /// Gets the value of the specified column as a JSON document string.
-    /// </summary>
-    /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column as a JSON document.</returns>
-    public string GetJsonDocument(int ordinal) =>
-        GetPrimitiveValue(Type.Types.PrimitiveTypeId.JsonDocument, ordinal).GetJsonDocument();
 
     /// <summary>
     /// Gets the value of the specified column in its native format.
@@ -593,35 +591,34 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
         if (type.TypeCase == Type.TypeOneofCase.DecimalType)
         {
-            return ydbValue.GetDecimal(type.DecimalType.Scale);
+            return ydbValue.UnpackDecimal(type.DecimalType.Scale);
         }
 
         return type.TypeId switch
         {
-            Type.Types.PrimitiveTypeId.Date => ydbValue.GetDate(),
-            Type.Types.PrimitiveTypeId.Date32 => ydbValue.GetDate32(),
-            Type.Types.PrimitiveTypeId.Datetime => ydbValue.GetDatetime(),
-            Type.Types.PrimitiveTypeId.Datetime64 => ydbValue.GetDatetime64(),
-            Type.Types.PrimitiveTypeId.Timestamp => ydbValue.GetTimestamp(),
-            Type.Types.PrimitiveTypeId.Timestamp64 => ydbValue.GetTimestamp64(),
-            Type.Types.PrimitiveTypeId.Bool => ydbValue.GetBool(),
-            Type.Types.PrimitiveTypeId.Int8 => ydbValue.GetInt8(),
-            Type.Types.PrimitiveTypeId.Uint8 => ydbValue.GetUint8(),
-            Type.Types.PrimitiveTypeId.Int16 => ydbValue.GetInt16(),
-            Type.Types.PrimitiveTypeId.Uint16 => ydbValue.GetUint16(),
-            Type.Types.PrimitiveTypeId.Int32 => ydbValue.GetInt32(),
-            Type.Types.PrimitiveTypeId.Uint32 => ydbValue.GetUint32(),
-            Type.Types.PrimitiveTypeId.Int64 => ydbValue.GetInt64(),
-            Type.Types.PrimitiveTypeId.Uint64 => ydbValue.GetUint64(),
-            Type.Types.PrimitiveTypeId.Float => ydbValue.GetFloat(),
-            Type.Types.PrimitiveTypeId.Double => ydbValue.GetDouble(),
-            Type.Types.PrimitiveTypeId.Interval => ydbValue.GetInterval(),
-            Type.Types.PrimitiveTypeId.Utf8 => ydbValue.GetText(),
-            Type.Types.PrimitiveTypeId.Json => ydbValue.GetJson(),
-            Type.Types.PrimitiveTypeId.JsonDocument => ydbValue.GetJsonDocument(),
-            Type.Types.PrimitiveTypeId.Yson => ydbValue.GetYson(),
-            Type.Types.PrimitiveTypeId.String => ydbValue.GetBytes(),
-            Type.Types.PrimitiveTypeId.Uuid => ydbValue.GetUuid(),
+            Type.Types.PrimitiveTypeId.Date => ydbValue.UnpackDate(),
+            Type.Types.PrimitiveTypeId.Date32 => ydbValue.UnpackDate32(),
+            Type.Types.PrimitiveTypeId.Datetime => ydbValue.UnpackDatetime(),
+            Type.Types.PrimitiveTypeId.Datetime64 => ydbValue.UnpackDatetime64(),
+            Type.Types.PrimitiveTypeId.Timestamp => ydbValue.UnpackTimestamp(),
+            Type.Types.PrimitiveTypeId.Timestamp64 => ydbValue.UnpackTimestamp64(),
+            Type.Types.PrimitiveTypeId.Bool => ydbValue.UnpackBool(),
+            Type.Types.PrimitiveTypeId.Int8 => ydbValue.UnpackInt8(),
+            Type.Types.PrimitiveTypeId.Uint8 => ydbValue.UnpackUint8(),
+            Type.Types.PrimitiveTypeId.Int16 => ydbValue.UnpackInt16(),
+            Type.Types.PrimitiveTypeId.Uint16 => ydbValue.UnpackUint16(),
+            Type.Types.PrimitiveTypeId.Int32 => ydbValue.UnpackInt32(),
+            Type.Types.PrimitiveTypeId.Uint32 => ydbValue.UnpackUint32(),
+            Type.Types.PrimitiveTypeId.Int64 => ydbValue.UnpackInt64(),
+            Type.Types.PrimitiveTypeId.Uint64 => ydbValue.UnpackUint64(),
+            Type.Types.PrimitiveTypeId.Float => ydbValue.UnpackFloat(),
+            Type.Types.PrimitiveTypeId.Double => ydbValue.UnpackDouble(),
+            Type.Types.PrimitiveTypeId.Interval => ydbValue.UnpackInterval(),
+            Type.Types.PrimitiveTypeId.Utf8
+                or Type.Types.PrimitiveTypeId.Json
+                or Type.Types.PrimitiveTypeId.JsonDocument => ydbValue.UnpackText(),
+            Type.Types.PrimitiveTypeId.Yson or Type.Types.PrimitiveTypeId.String => ydbValue.UnpackBytes(),
+            Type.Types.PrimitiveTypeId.Uuid => ydbValue.UnpackUuid(),
             _ => throw new YdbException($"Unsupported ydb type {GetColumnType(ordinal)}")
         };
     }

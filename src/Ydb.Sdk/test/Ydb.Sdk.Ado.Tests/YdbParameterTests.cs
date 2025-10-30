@@ -381,14 +381,14 @@ public class YdbParameterTests : TestBase
                 new YdbParameter("DoubleColumn", YdbDbType.Double, 1.0),
                 new YdbParameter("DefaultDecimalColumn", YdbDbType.Decimal, 1m),
                 new YdbParameter("CustomDecimalColumn", YdbDbType.Decimal, 1m) { Precision = 35, Scale = 5 },
-                new YdbParameter("Uint8Column", YdbDbType.UInt8, (byte)1),
-                new YdbParameter("Uint16Column", YdbDbType.UInt16, (ushort)1),
-                new YdbParameter("Uint32Column", YdbDbType.UInt32, (uint)1),
-                new YdbParameter("Uint64Column", YdbDbType.UInt64, (ulong)1),
+                new YdbParameter("Uint8Column", YdbDbType.Uint8, (byte)1),
+                new YdbParameter("Uint16Column", YdbDbType.Uint16, (ushort)1),
+                new YdbParameter("Uint32Column", YdbDbType.Uint32, (uint)1),
+                new YdbParameter("Uint64Column", YdbDbType.Uint64, (ulong)1),
                 new YdbParameter("TextColumn", YdbDbType.Text, string.Empty),
                 new YdbParameter("BytesColumn", YdbDbType.Bytes, Array.Empty<byte>()),
                 new YdbParameter("DateColumn", YdbDbType.Date, DateTime.UnixEpoch),
-                new YdbParameter("DatetimeColumn", YdbDbType.DateTime, DateTime.UnixEpoch),
+                new YdbParameter("DatetimeColumn", YdbDbType.Datetime, DateTime.UnixEpoch),
                 new YdbParameter("TimestampColumn", YdbDbType.Timestamp, DateTime.UnixEpoch),
                 new YdbParameter("IntervalColumn", YdbDbType.Interval, TimeSpan.Zero),
                 new YdbParameter("JsonColumn", YdbDbType.Json, "{}"),
@@ -435,9 +435,9 @@ public class YdbParameterTests : TestBase
         Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(16));
         Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(17));
         Assert.Equal(TimeSpan.Zero, ydbDataReader.GetInterval(18));
-        Assert.Equal("{}", ydbDataReader.GetJson(19));
-        Assert.Equal("{}", ydbDataReader.GetJsonDocument(20));
-        Assert.Equal("{a=1u}"u8.ToArray(), ydbDataReader.GetYson(21));
+        Assert.Equal("{}", ydbDataReader.GetString(19));
+        Assert.Equal("{}", ydbDataReader.GetString(20));
+        Assert.Equal("{a=1u}"u8.ToArray(), ydbDataReader.GetBytes(21));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(22));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(23));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(24));
