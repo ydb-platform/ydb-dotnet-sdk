@@ -1,4 +1,6 @@
-﻿using LinqToDB;
+﻿using System;
+using System.Threading.Tasks;
+using LinqToDB;
 using LinqToDB.Data;
 using LinqToDB.Mapping;
 using Internal;
@@ -18,7 +20,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
             maxAttempts: 10,
             onRetry: (attempt, ex, delay) =>
             {
-                // здесь при желании снимать метрики: attempt, delay, ((YdbException)ex).Code
+                // метрики/логи при желании
             }
         );
     }
@@ -26,14 +28,8 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     public sealed class Linq2dbClient
     {
         private readonly string _connectionString;
-
-        public Linq2dbClient(string connectionString)
-        {
-            _connectionString = connectionString;
-        }
-
-        public DataConnection Open()
-            => new DataConnection("YDB", _connectionString);
+        public Linq2dbClient(string connectionString) => _connectionString = connectionString;
+        public DataConnection Open() => new DataConnection("YDB", _connectionString);
     }
 
     protected override Linq2dbClient CreateClient(Config config)
@@ -58,15 +54,14 @@ CREATE TABLE `{SloTable.Name}` (
         }
         catch
         {
-            // YDB не поддерживает IF NOT EXISTS; если таблица есть — окей
+            // YDB не поддерживает IF NOT EXISTS; если таблица есть — это норм
         }
 
         if (!string.IsNullOrWhiteSpace(SloTable.Options))
-        {
             await db.ExecuteAsync(SloTable.Options);
-        }
     }
 
+    // ВАЖНО: вернуть >0 при успехе, иначе write-графики будут пустые.
     protected override async Task<int> Save(Linq2dbClient client, SloTable sloTable, int writeTimeout)
     {
         await using var db = client.Open();
@@ -77,7 +72,7 @@ UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimes
 VALUES ({sloTable.Guid}, {sloTable.Id}, {sloTable.PayloadStr}, {sloTable.PayloadDouble}, {sloTable.PayloadTimestamp});
 ");
 
-        return 0;
+        return 1;
     }
 
     protected override async Task<object?> Select(Linq2dbClient client, (Guid Guid, int Id) select, int readTimeout)

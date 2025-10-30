@@ -1,7 +1,6 @@
-﻿// для DataConnection в Factory
-using L2RetryOptions = LinqToDB.Data.RetryPolicy.RetryPolicyOptions;
+﻿using L2RetryOptions = LinqToDB.Data.RetryPolicy.RetryPolicyOptions;
 using L2IRetryPolicy = LinqToDB.Data.RetryPolicy.IRetryPolicy;
-using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado; // <== важно: тут YdbException
 using Ydb.Sdk.Ado.RetryPolicy;
 
 namespace LinqToDB.Internal.DataProvider.Ydb.Internal
@@ -127,10 +126,6 @@ namespace LinqToDB.Internal.DataProvider.Ydb.Internal
     /// </summary>
     public static class YdbSdkRetryPolicyRegistration
     {
-        /// <summary>
-        /// Подключить ретраи SDK глобально для всех новых DataConnection.
-        /// Вызывать один раз при старте/перед SLO-тестом.
-        /// </summary>
         public static void UseGlobally(YdbRetryPolicyConfig? config = null, Action<int, Exception, TimeSpan?>? onRetry = null)
         {
             L2RetryOptions.Default = L2RetryOptions.Default with
@@ -151,11 +146,11 @@ namespace LinqToDB.Internal.DataProvider.Ydb.Internal
             var cfg = new YdbRetryPolicyConfig
             {
                 EnableRetryIdempotence = true,
-                MaxAttempts      = maxAttempts   ?? YdbRetryPolicyConfig.Default.MaxAttempts,
-                FastBackoffBaseMs = fastBaseMs   ?? YdbRetryPolicyConfig.Default.FastBackoffBaseMs,
-                SlowBackoffBaseMs = slowBaseMs   ?? YdbRetryPolicyConfig.Default.SlowBackoffBaseMs,
-                FastCapBackoffMs  = fastCapMs    ?? YdbRetryPolicyConfig.Default.FastCapBackoffMs,
-                SlowCapBackoffMs  = slowCapMs    ?? YdbRetryPolicyConfig.Default.SlowCapBackoffMs
+                MaxAttempts       = maxAttempts   ?? YdbRetryPolicyConfig.Default.MaxAttempts,
+                FastBackoffBaseMs = fastBaseMs    ?? YdbRetryPolicyConfig.Default.FastBackoffBaseMs,
+                SlowBackoffBaseMs = slowBaseMs    ?? YdbRetryPolicyConfig.Default.SlowBackoffBaseMs,
+                FastCapBackoffMs  = fastCapMs     ?? YdbRetryPolicyConfig.Default.FastCapBackoffMs,
+                SlowCapBackoffMs  = slowCapMs     ?? YdbRetryPolicyConfig.Default.SlowCapBackoffMs
             };
 
             UseGlobally(cfg, onRetry);
