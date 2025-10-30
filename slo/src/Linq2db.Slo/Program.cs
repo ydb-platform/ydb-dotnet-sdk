@@ -1,3 +1,4 @@
-﻿using Internal;
+﻿using Linq2db;
+using Internal;
 
-await Cli.Run(new Linq2db.SloTableContext(), args);
+await Cli.Run(new SloTableContext(), args);
