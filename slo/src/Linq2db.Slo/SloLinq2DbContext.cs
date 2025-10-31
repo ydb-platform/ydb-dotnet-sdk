@@ -4,6 +4,7 @@ using LinqToDB;
 using LinqToDB.Data;
 using LinqToDB.Mapping;
 using Internal;
+using Linq2db.Ydb;
 using Linq2db.Ydb.Internal;
 using LinqToDB.Async;
 using LinqToDB.Internal.DataProvider.Ydb.Internal;
@@ -12,15 +13,15 @@ namespace Linq2db;
 
 public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbClient>
 {
-    protected override string Job => "Linq2DB";
+    protected override string Job => "Linq2db";
 
     static SloTableContext()
     {
-        // Включаем ретраи SDK глобально (как и раньше)
         YdbSdkRetryPolicyRegistration.UseGloballyWithIdempotence(
             maxAttempts: 10,
-            onRetry: (attempt, ex, delay) => { /* лог/метрики при желании */ }
+            onRetry: (attempt, ex, delay) => {  }
         );
+        DataConnection.AddProviderDetector(YdbTools.ProviderDetector);
     }
 
     public sealed class Linq2dbClient
