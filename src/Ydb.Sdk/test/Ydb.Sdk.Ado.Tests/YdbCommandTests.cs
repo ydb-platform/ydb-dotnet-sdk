@@ -204,6 +204,38 @@ public class YdbCommandTests : TestBase
             .ExecuteScalarAsync());
     }
 
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenParamsHaveDifferentTypes_ThrowArgumentException()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => new YdbCommand(ydbConnection)
+        {
+            CommandText = "SELECT * FROM T WHERE Ids in (@id1, @id2);",
+            Parameters =
+            {
+                new YdbParameter("id1", DbType.String, "text"),
+                new YdbParameter("id2", DbType.Int32, 1)
+            }
+        }.ExecuteReaderAsync());
+        Assert.Equal("All elements in the list must have the same type. " +
+                     "Expected: { \"typeId\": \"UTF8\" }, actual: { \"typeId\": \"INT32\" }", ex.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenEmptyList_ReturnEmptyResultSet()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var tempTable = $"temp_table_{Guid.NewGuid()}";
+        await new YdbCommand(ydbConnection) { CommandText = $"CREATE TABLE `{tempTable}` (a Int32, PRIMARY KEY (a));" }
+            .ExecuteNonQueryAsync();
+        await new YdbCommand(ydbConnection) { CommandText = $"INSERT INTO `{tempTable}` (a) VALUES (1);" }
+            .ExecuteNonQueryAsync();
+        var reader = await new YdbCommand(ydbConnection) { CommandText = $"SELECT * FROM `{tempTable}` WHERE a IN ()" }
+            .ExecuteReaderAsync();
+        Assert.False(await reader.ReadAsync());
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE `{tempTable}`" }.ExecuteNonQueryAsync();
+    }
+
     public class Data<T>(DbType dbType, T expected, bool isNullable = false)
     {
         public bool IsNullable { get; } = isNullable || expected == null;

@@ -1,3 +1,7 @@
+- **Breaking Change**: Removed unused methods `GetJson`, `GetJsonDocument`, and `GetYson` from YdbDataReader.
+- Feat ADO.NET: Add support for reading `Yson` from `YdbDataReader.GetBytes`.
+- Feat ADO.NET: Add support for reading `Json` and `JsonDocument` from `YdbDataReader.GetString`.
+- Feat ADO.NET: Added type checking in the parameter list in sql statement `IN (@id1, @id2)`.
 - **Breaking Change**: `Ydb.Sdk.Services.Topic` moved to `Ydb.Sdk.Topic`.
 
 ## v0.24.0

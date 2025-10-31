@@ -222,7 +222,8 @@ public sealed class YdbParameter : DbParameter
                        (_ydbDbType == YdbDbType.Decimal
                            ? DecimalNull(Precision, Scale)
                            : _ydbDbType.HasFlag(YdbDbType.List)
-                               ? ListNull((~YdbDbType.List & _ydbDbType)!.PrimitiveTypeInfo().YdbType)
+                               ? ListNull((~YdbDbType.List & _ydbDbType).PrimitiveTypeInfo()?.YdbType ??
+                                          DecimalType(Precision, Scale) /* only decimal is possible */)
                                : throw new InvalidOperationException(
                                    "Writing value of 'null' is not supported without explicit mapping to the YdbDbType")
                        );
@@ -238,7 +239,7 @@ public sealed class YdbParameter : DbParameter
                 YdbDbType.Decimal when value is decimal decimalValue => PackDecimal(decimalValue),
                 YdbDbType.Unspecified => PackObject(value),
                 _ when YdbDbType.HasFlag(YdbDbType.List) && value is IList itemsValue =>
-                    PackList(itemsValue, _ydbDbType & ~YdbDbType.List),
+                    PackList(itemsValue, ~YdbDbType.List & _ydbDbType),
                 _ => throw ValueTypeNotSupportedException
             };
         }
@@ -290,32 +291,57 @@ public sealed class YdbParameter : DbParameter
         if (primitiveTypeInfo != null)
         {
             var value = new Ydb.Value();
+            var isOptional = false;
+
             foreach (var item in items)
             {
-                value.Items.Add(item == null
-                    ? YdbValueNull
-                    : primitiveTypeInfo.Pack(item)
-                      ?? throw ValueTypeNotSupportedException);
+                if (item == null)
+                {
+                    isOptional = true;
+                    value.Items.Add(YdbValueNull);
+                }
+                else
+                {
+                    value.Items.Add(primitiveTypeInfo.Pack(item) ?? throw ValueTypeNotSupportedException);
+                }
             }
 
-            return new TypedValue { Type = ListType(primitiveTypeInfo.YdbType), Value = value };
+            var type = primitiveTypeInfo.YdbType;
+            if (isOptional)
+            {
+                type = type.OptionalType();
+            }
+
+            return new TypedValue { Type = type.ListType(), Value = value };
         }
 
         if (ydbDbType == YdbDbType.Decimal || elementType == typeof(decimal))
         {
             var value = new Ydb.Value();
+            var isOptional = false;
 
             foreach (var item in items)
             {
-                value.Items.Add(item switch
+                if (item == null)
                 {
-                    null => YdbValueNull,
-                    decimal decimalItem => decimalItem.PackDecimal(Precision, Scale),
-                    _ => throw ValueTypeNotSupportedException
-                });
+                    isOptional = true;
+                    value.Items.Add(YdbValueNull);
+                }
+                else
+                {
+                    value.Items.Add(item is decimal decimalValue
+                        ? decimalValue.PackDecimal(Precision, Scale)
+                        : throw ValueTypeNotSupportedException);
+                }
             }
 
-            return new TypedValue { Type = ListType(DecimalType(Precision, Scale)), Value = value };
+            var type = DecimalType(Precision, Scale);
+            if (isOptional)
+            {
+                type = type.OptionalType();
+            }
+
+            return new TypedValue { Type = type.ListType(), Value = value };
         }
 
         return (from object? item in items select PackObject(item)).ToArray().List();

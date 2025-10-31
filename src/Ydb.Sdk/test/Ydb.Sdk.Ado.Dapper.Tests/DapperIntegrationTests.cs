@@ -261,7 +261,19 @@ VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn,
         await connection.ExecuteAsync($"DROP TABLE {tableName};");
     }
 
-    private record NullableFields
+    [Fact]
+    public async Task Read_Json_JsonDocument_Yson_Fields()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var jsonModel = await connection.QueryFirstAsync<JsonModel>(
+            "SELECT 1 as Id, Json('{}') as Json, JsonDocument('{}') as JsonDocument,  Yson('{a=1u}') as Yson");
+        Assert.Equal(1, jsonModel.Id);
+        Assert.Equal("{}", jsonModel.Json);
+        Assert.Equal("{}", jsonModel.JsonDocument);
+        Assert.Equal("{a=1u}"u8.ToArray(), jsonModel.Yson);
+    }
+
+    private class NullableFields
     {
 #pragma warning disable CollectionNeverQueried.Local
         public int? Id { get; init; }
@@ -282,12 +294,20 @@ VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn,
 #pragma warning restore CollectionNeverQueried.Local
     }
 
-    private record Episode
+    private class Episode
     {
         [Column("series_id")] public uint SeriesId { get; init; }
         [Column("season_id")] public uint SeasonId { get; init; }
         [Column("episode_id")] public uint EpisodeId { get; init; }
         [Column("title")] public string Title { get; init; } = null!;
         [Column("air_date")] public DateTime AirDate { get; init; }
+    }
+
+    private class JsonModel
+    {
+        public int Id { get; init; }
+        public string Json { get; init; } = null!;
+        public string JsonDocument { get; init; } = null!;
+        public byte[] Yson { get; init; } = null!;
     }
 }

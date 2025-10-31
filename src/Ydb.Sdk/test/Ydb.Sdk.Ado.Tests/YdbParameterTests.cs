@@ -179,8 +179,30 @@ public class YdbParameterTests : TestBase
         }.ExecuteNonQueryAsync();
 
         Assert.Equal(expected == null ? DBNull.Value : decimal.Parse(expected, CultureInfo.InvariantCulture),
-            await new YdbCommand(ydbConnection) { CommandText = $"SELECT d FROM {tableName};" }
-                .ExecuteScalarAsync());
+            await new YdbCommand(ydbConnection) { CommandText = $"SELECT d FROM {tableName};" }.ExecuteScalarAsync());
+
+        // IN (NULL) returns empty result set
+        Assert.Equal(expected == null ? null : decimal.Parse(expected, CultureInfo.InvariantCulture),
+            await new YdbCommand(ydbConnection)
+            {
+                CommandText = $"SELECT d FROM {tableName} WHERE d IN @d;",
+                Parameters =
+                {
+                    new YdbParameter("d", YdbDbType.List | YdbDbType.Decimal, new[] { decimalValue })
+                        { Precision = precision, Scale = scale }
+                }
+            }.ExecuteScalarAsync());
+
+        // IN NULL always returns an empty result set
+        Assert.Null(await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"SELECT d FROM {tableName} WHERE d IN @d;",
+            Parameters =
+            {
+                new YdbParameter("d", YdbDbType.List | YdbDbType.Decimal)
+                    { Precision = precision, Scale = scale }
+            }
+        }.ExecuteScalarAsync());
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
     }
@@ -277,22 +299,21 @@ public class YdbParameterTests : TestBase
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
         Assert.Equal("Value does not fit into decimal", (await Assert.ThrowsAsync<OverflowException>(() =>
-                new YdbCommand(ydbConnection)
-                        { CommandText = $"SELECT (CAST('{value}' AS Decimal({precision}, {scale})));" }
-                    .ExecuteScalarAsync())
-            ).Message);
+            new YdbCommand(ydbConnection)
+                    { CommandText = $"SELECT (CAST('{value}' AS Decimal({precision}, {scale})));" }
+                .ExecuteScalarAsync())).Message);
     }
 
     [Fact]
     public async Task YdbParameter_WhenYdbDbTypeSetAndValueIsNull_ReturnsNullValue()
     {
-        foreach (var ydbType in Enum.GetValues<YdbDbType>())
+        foreach (var ydbDbType in Enum.GetValues<YdbDbType>())
         {
-            if (ydbType == YdbDbType.Unspecified) continue;
+            if (ydbDbType is YdbDbType.Unspecified or YdbDbType.List) continue;
 
             var tableName = $"Null_YdbDbType_{Random.Shared.Next()}";
             await using var ydbConnection = await CreateOpenConnectionAsync();
-            var ydbTypeStr = ydbType == YdbDbType.Decimal ? "Decimal(22, 9)" : ydbType.ToString();
+            var ydbTypeStr = ydbDbType == YdbDbType.Decimal ? "Decimal(22, 9)" : ydbDbType.ToString();
             await new YdbCommand(ydbConnection)
                     { CommandText = $"CREATE TABLE {tableName}(Id Int32, Type {ydbTypeStr}, PRIMARY KEY (Id))" }
                 .ExecuteNonQueryAsync();
@@ -300,7 +321,7 @@ public class YdbParameterTests : TestBase
             await new YdbCommand(ydbConnection)
             {
                 CommandText = $"INSERT INTO {tableName}(Id, Type) VALUES (1, @Type);",
-                Parameters = { new YdbParameter("Type", ydbType) }
+                Parameters = { new YdbParameter("Type", ydbDbType) }
             }.ExecuteNonQueryAsync();
 
             Assert.Equal(DBNull.Value, await new YdbCommand(ydbConnection)
@@ -308,6 +329,14 @@ public class YdbParameterTests : TestBase
                 CommandText = $"SELECT Type FROM {tableName} WHERE Id = @Id;",
                 Parameters = { new YdbParameter("Id", DbType.Int32, 1) }
             }.ExecuteScalarAsync());
+
+            // Error: Can't lookup Optional<T> in collection of JsonDocument: types Optional<T> and T are not comparable
+            if (ydbDbType is not (YdbDbType.Yson or YdbDbType.Json or YdbDbType.JsonDocument))
+                Assert.Null(await new YdbCommand(ydbConnection)
+                {
+                    CommandText = $"SELECT Type FROM {tableName} WHERE Type IN @Type;",
+                    Parameters = { new YdbParameter("Type", YdbDbType.List | ydbDbType) }
+                }.ExecuteScalarAsync()); // return empty
 
             await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
         }

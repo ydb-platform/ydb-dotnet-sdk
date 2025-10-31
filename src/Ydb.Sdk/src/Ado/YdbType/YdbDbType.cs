@@ -291,6 +291,6 @@ internal static class YdbDbTypeExtensions
     };
 
     internal static string ToYdbTypeName(this YdbDbType ydbDbType) => ydbDbType.HasFlag(YdbDbType.List)
-        ? $"List<${YdbDbType.List & ydbDbType}>"
+        ? $"List<${~YdbDbType.List & ydbDbType}>"
         : ydbDbType.ToString();
 }

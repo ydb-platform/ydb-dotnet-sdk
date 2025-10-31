@@ -28,17 +28,18 @@ internal static class YdbTypedValueExtensions
         foreach (var v in values)
         {
             first ??= v;
-            if (first.Type.Equals(v.Type))
+            if (!first.Type.Equals(v.Type))
             {
-                throw new InvalidOperationException();
+                throw new ArgumentException("All elements in the list must have the same type. " +
+                                            $"Expected: {first.Type}, actual: {v.Type}");
             }
 
             value.Items.Add(v.Value);
         }
 
-        if (first is null) throw new ArgumentOutOfRangeException(nameof(values));
+        if (first is null) throw new ArgumentException("The list must contain at least one element");
 
-        return new TypedValue { Type = ListType(first.Type), Value = value };
+        return new TypedValue { Type = first.Type.ListType(), Value = value };
     }
 
     internal static TypedValue DecimalNull(byte precision, byte scale) => precision == 0 && scale == 0
@@ -49,6 +50,6 @@ internal static class YdbTypedValueExtensions
             Value = YdbValueNull
         };
 
-    internal static TypedValue ListNull(Type type) => new()
-        { Type = new Type { OptionalType = { Item = ListType(type) } }, Value = YdbValueNull };
+    internal static TypedValue ListNull(Type type) =>
+        new() { Type = type.ListType().OptionalType(), Value = YdbValueNull };
 }
