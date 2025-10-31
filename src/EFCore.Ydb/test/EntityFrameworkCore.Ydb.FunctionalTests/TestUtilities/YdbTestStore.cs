@@ -181,7 +181,7 @@ public class YdbTestStore(
     }
 
 
-    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder { MaxSessionPool = 10 });
+    private static YdbConnection CreateConnection() => new(new YdbConnectionStringBuilder { MaxPoolSize = 10 });
 
     public override async Task CleanAsync(DbContext context)
     {

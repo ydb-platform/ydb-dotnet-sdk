@@ -1,10 +1,8 @@
 using Google.Protobuf.WellKnownTypes;
 using Xunit;
-using Ydb.Sdk.Services.Topic;
-using Ydb.Sdk.Services.Topic.Writer;
+using Ydb.Sdk.Topic.Writer;
 using Ydb.Topic;
 using Ydb.Topic.V1;
-using Consumer = Ydb.Sdk.Services.Topic.Consumer;
 
 namespace Ydb.Sdk.Topic.Tests;
 

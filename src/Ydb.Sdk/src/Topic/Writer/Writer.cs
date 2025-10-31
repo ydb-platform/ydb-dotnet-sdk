@@ -6,7 +6,7 @@ using Ydb.Sdk.Ado.Internal;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 
-namespace Ydb.Sdk.Services.Topic.Writer;
+namespace Ydb.Sdk.Topic.Writer;
 
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
 using MessageFromClient = StreamWriteMessage.Types.FromClient;

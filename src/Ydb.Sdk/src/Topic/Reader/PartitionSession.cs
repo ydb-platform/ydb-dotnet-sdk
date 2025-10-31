@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 
-namespace Ydb.Sdk.Services.Topic.Reader;
+namespace Ydb.Sdk.Topic.Reader;
 
 internal class PartitionSession
 {

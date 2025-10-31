@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Topic;
 
-namespace Ydb.Sdk.Services.Topic.Reader;
+namespace Ydb.Sdk.Topic.Reader;
 
 internal class InternalBatchMessages<TValue>
 {

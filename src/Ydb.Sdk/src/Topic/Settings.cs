@@ -1,4 +1,4 @@
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Topic;
 
 /// <summary>
 /// Create topic request sent from client to server.

@@ -1,5 +1,4 @@
 using Xunit;
-using Ydb.Sdk.Services.Topic;
 
 namespace Ydb.Sdk.Topic.Tests;
 

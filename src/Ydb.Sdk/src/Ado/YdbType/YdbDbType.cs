@@ -3,10 +3,27 @@ using System.Data;
 namespace Ydb.Sdk.Ado.YdbType;
 
 /// <summary>
-/// See <a href="https://ydb.tech/docs/en/yql/reference/types/primitive">YDB Primitive Types</a> for details.
+/// Specifies the data type of the <see cref="YdbParameter"/>.
 /// </summary>
+/// <remarks>
+/// YdbDbType represents the primitive data types supported by YDB.
+///
+/// <para>
+/// For more information about YDB primitive types, see:
+/// <see href="https://ydb.tech/docs/en/yql/reference/types/primitive">YDB Primitive Types Documentation</see>.
+/// </para>
+/// </remarks>
 public enum YdbDbType
 {
+    /// <summary>
+    /// Unspecified data type.
+    /// </summary>
+    /// <remarks>
+    /// When this type is used, the <see cref="YdbParameter"/> tries to automatically determine
+    /// the appropriate YDB data type based on the system type of the parameter value.
+    /// This provides convenience, but it may not always match the intended YDB type and
+    /// doesn't support null values.
+    /// </remarks>
     Unspecified,
 
     /// <summary>
@@ -86,6 +103,7 @@ public enum YdbDbType
     /// </summary>
     /// <remarks>
     /// Precision and Scale are specified in the <see cref="Ydb.Sdk.Ado.YdbParameter"/>.
+    /// If not specified, the default values (precision: 22, scale: 9) are used.
     /// </remarks>
     Decimal,
 
@@ -104,6 +122,14 @@ public enum YdbDbType
     /// This type is an alias for the deprecated <c>Utf8</c> type.
     /// </remarks>
     Text,
+
+    /// <summary>
+    /// YSON in binary form (passed/returned as byte[]).
+    /// </summary>
+    /// <remarks>
+    /// Can't be used in the primary key.
+    /// </remarks>
+    Yson,
 
     /// <summary>
     /// JSON represented as text.
@@ -156,16 +182,44 @@ public enum YdbDbType
     /// </summary>
     /// <remarks>
     /// Value range: From -136 years to +136 years. Internal representation: Signed 64-bit integer.
-    /// Can't be used in the primary key.
     /// </remarks>
     Interval,
 
+    /// <summary>
+    /// Date with extended range, precision to the day.
+    /// </summary>
+    /// <remarks>
+    /// Extended range date type that supports dates before 01.01.1970 and beyond the standard Date range.
+    /// Provides better support for historical dates and future dates.
+    /// </remarks>
     Date32,
 
+    /// <summary>
+    /// Date/time with extended range, precision to the second.
+    /// </summary>
+    /// <remarks>
+    /// Extended range datetime type that supports date/time values before 01.01.1970 and
+    /// beyond the standard Datetime range.
+    /// Provides better support for historical timestamps and future timestamps.
+    /// </remarks>
     Datetime64,
 
+    /// <summary>
+    /// Date/time with extended range, precision to the microsecond.
+    /// </summary>
+    /// <remarks>
+    /// Extended range timestamp type that supports microsecond-precision timestamps
+    /// before 01.01.1970 and beyond the standard Timestamp range. Provides better support for historical and future timestamps.
+    /// </remarks>
     Timestamp64,
 
+    /// <summary>
+    /// Time interval with extended range, precision to microseconds.
+    /// </summary>
+    /// <remarks>
+    /// Extended range interval type that supports larger time intervals
+    /// beyond the standard Interval range.
+    /// </remarks>
     Interval64
 }
 

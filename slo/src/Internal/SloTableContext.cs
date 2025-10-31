@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
-using Ydb.Sdk.Ado;
 
 namespace Internal;
 
@@ -151,11 +150,6 @@ public abstract class SloTableContext<T> : ISloContext
                 "Total number of successful operations, categorized by type."
             );
 
-            var operationsFailureTotal = metricFactory.CreateCounter(
-                "sdk_operations_failure_total",
-                "Total number of failed operations, categorized by type."
-            );
-
             var operationLatencySeconds = metricFactory.CreateHistogram(
                 "sdk_operation_latency_seconds",
                 "Latency of operations performed by the SDK in seconds, categorized by type and status.",
@@ -186,12 +180,6 @@ public abstract class SloTableContext<T> : ISloContext
                 "Current number of pending operations, categorized by type."
             );
 
-            var errorsTotal = metricFactory.CreateCounter(
-                "sdk_errors_total",
-                "Total number of errors encountered, categorized by error type.",
-                ["error_type"]
-            );
-
             var workJobs = new List<Task>();
 
             for (var i = 0; i < 10; i++)
@@ -210,23 +198,12 @@ public abstract class SloTableContext<T> : ISloContext
 
                         pendingOperations.Inc();
                         var sw = Stopwatch.StartNew();
-                        try
-                        {
-                            await action(client, runConfig);
-                            sw.Stop();
-                            operationsTotal.Inc();
-                            pendingOperations.Dec();
-                            operationsSuccessTotal.Inc();
-                            operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
-                        }
-                        catch (YdbException e)
-                        {
-                            Logger.LogError(e, "Fail operation!");
-
-                            errorsTotal.WithLabels(e.Code.StatusName()).Inc();
-                            operationsFailureTotal.Inc();
-                            operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
-                        }
+                        await action(client, runConfig);
+                        sw.Stop();
+                        operationsTotal.Inc();
+                        pendingOperations.Dec();
+                        operationsSuccessTotal.Inc();
+                        operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
                     }
                 }, cancellationTokenSource.Token));
             }

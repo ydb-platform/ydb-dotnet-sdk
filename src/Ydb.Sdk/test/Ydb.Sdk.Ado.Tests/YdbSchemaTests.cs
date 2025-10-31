@@ -176,8 +176,8 @@ public class YdbSchemaTests : TestBase
         var dataTable = await ydbConnection.GetSchemaAsync("Columns", [_allTypesTable, null]);
         var dataTableNullable = await ydbConnection.GetSchemaAsync("Columns", [_allTypesTableNullable, null]);
 
-        Assert.Equal(17, dataTable.Rows.Count);
-        Assert.Equal(17, dataTableNullable.Rows.Count);
+        Assert.Equal(18, dataTable.Rows.Count);
+        Assert.Equal(18, dataTableNullable.Rows.Count);
 
         CheckAllColumns(dataTable, false);
         CheckAllColumns(dataTableNullable, true);
@@ -202,6 +202,7 @@ public class YdbSchemaTests : TestBase
             CheckColumn(pDataTable.Rows[14], "DateColumn", 14, isNullableTable);
             CheckColumn(pDataTable.Rows[15], "DatetimeColumn", 15, isNullableTable);
             CheckColumn(pDataTable.Rows[16], "TimestampColumn", 16, isNullableTable);
+            CheckColumn(pDataTable.Rows[17], "YsonColumn", 17, isNullableTable, "Yson");
         }
 
         void CheckColumn(DataRow column, string columnName, int ordinal, bool isNullable, string? dataType = null)
@@ -243,6 +244,7 @@ public class YdbSchemaTests : TestBase
                                DateColumn Date NOT NULL,
                                DatetimeColumn Datetime NOT NULL,
                                TimestampColumn Timestamp NOT NULL,
+                               YsonColumn Yson NOT NULL,
                                PRIMARY KEY (Int32Column)
                            );
 
@@ -264,6 +266,7 @@ public class YdbSchemaTests : TestBase
                                DateColumn Date,
                                DatetimeColumn Datetime,
                                TimestampColumn Timestamp,
+                               YsonColumn Yson,
                                PRIMARY KEY (Int32Column)
                            );
                            """

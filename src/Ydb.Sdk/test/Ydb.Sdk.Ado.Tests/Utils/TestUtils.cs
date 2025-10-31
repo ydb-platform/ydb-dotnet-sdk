@@ -4,7 +4,7 @@ namespace Ydb.Sdk.Ado.Tests.Utils;
 
 public static class TestUtils
 {
-    private const string DefaultConnectionString = "Host=localhost;Port=2136;Database=local;MaxSessionPool=10";
+    private const string DefaultConnectionString = "Host=localhost;Port=2136;Database=local;MaxPoolSize=10";
 
     public static string ConnectionString =>
         Environment.GetEnvironmentVariable("YDB_TEST_DB") ?? DefaultConnectionString;

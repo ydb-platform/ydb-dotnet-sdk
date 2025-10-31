@@ -4,10 +4,8 @@ using Moq.Language;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Services.Topic;
-using Ydb.Sdk.Services.Topic.Writer;
+using Ydb.Sdk.Topic.Writer;
 using Ydb.Topic;
-using Codec = Ydb.Sdk.Services.Topic.Codec;
 using Range = Moq.Range;
 
 namespace Ydb.Sdk.Topic.Tests;

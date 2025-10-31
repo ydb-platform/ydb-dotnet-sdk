@@ -4,7 +4,7 @@ using Ydb.Sdk.Ado.Session;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 
-internal class MockPoolingSessionFactory(int maxSessionSize) : IPoolingSessionFactory<MockPoolingSession>
+internal class MockPoolingSessionFactory(int maxPoolSize) : IPoolingSessionFactory<MockPoolingSession>
 {
     private int _sessionOpened;
     private int _numSession;
@@ -25,7 +25,7 @@ internal class MockPoolingSessionFactory(int maxSessionSize) : IPoolingSessionFa
             {
                 await Open(sessionCountOpened);
 
-                Assert.True(Interlocked.Increment(ref _numSession) <= maxSessionSize);
+                Assert.True(Interlocked.Increment(ref _numSession) <= maxPoolSize);
 
                 await Task.Yield();
             },

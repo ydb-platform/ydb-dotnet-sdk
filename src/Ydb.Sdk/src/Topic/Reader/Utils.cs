@@ -1,4 +1,4 @@
-namespace Ydb.Sdk.Services.Topic.Reader;
+namespace Ydb.Sdk.Topic.Reader;
 
 internal static class Utils
 {

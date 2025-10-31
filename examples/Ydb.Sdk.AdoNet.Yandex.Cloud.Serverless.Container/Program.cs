@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Dapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
@@ -18,18 +19,17 @@ var logger = loggerFactory.CreateLogger<Program>();
 var stopwatch = Stopwatch.StartNew();
 stopwatch.Start();
 
-await using var dataSource = new YdbDataSource(
-    new YdbConnectionStringBuilder(connectionString)
-    {
-        CredentialsProvider = new MetadataProvider(loggerFactory: loggerFactory),
-        LoggerFactory = loggerFactory,
-        DisableDiscovery = true
-    }
-);
+await using var ydbDataSource = new YdbDataSource(new YdbConnectionStringBuilder(connectionString)
+{
+    CredentialsProvider = new MetadataProvider(loggerFactory: loggerFactory),
+    LoggerFactory = loggerFactory,
+    DisableDiscovery = true,
+    EnableImplicitSession = true
+});
 
-await using var ydbCommand = dataSource.CreateCommand();
-ydbCommand.CommandText = "SELECT 'Hello Serverless YDB from Yandex Cloud Serverless Container!'u";
-var scalar = await ydbCommand.ExecuteScalarAsync();
+await using var ydbConnection = await ydbDataSource.OpenRetryableConnectionAsync();
+var scalar = await ydbConnection.ExecuteScalarAsync<string>(
+    "SELECT 'Hello Serverless YDB from Yandex Cloud Serverless Container!'u");
 stopwatch.Stop();
 
 logger.LogInformation("Success request! [Ms: {Ms}], {Select}", stopwatch.ElapsedMilliseconds, scalar);
