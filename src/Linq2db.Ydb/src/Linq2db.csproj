@@ -10,7 +10,6 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
-  <!-- .csproj -->
 <ItemGroup>
   <PackageReference Include="linq2db" Version="6.0.0-rc.3" />
   <PackageReference Include="Ydb.Sdk" Version="0.24.0" />
@@ -20,8 +19,6 @@
   <IgnoresAccessChecksTo Include="linq2db" />
 </ItemGroup>
 
-
-  <!-- T4-шаблон нам не нужен в сборке -->
   <ItemGroup>
     <None Update="YdbHints.tt">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>

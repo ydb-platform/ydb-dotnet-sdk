@@ -1,4 +1,6 @@
-﻿namespace Linq2db.QuickStart;
+﻿using LinqToDB.Internal.DataProvider.Ydb;
+
+namespace Linq2db.QuickStart;
 
 using Microsoft.Extensions.Logging;
 using Polly;
@@ -157,8 +159,8 @@ internal class AppContext
 
     private async Task InitTables()
     {
+        DataConnection.AddProviderDetector(YdbTools.ProviderDetector);
         await using var db = new MyYdb(BuildOptions());
-
         try { await db.CreateTableAsync<Series>();  } catch { _logger.LogDebug("series exists"); }
         try { await db.CreateTableAsync<Season>();  } catch { _logger.LogDebug("seasons exists"); }
         try { await db.CreateTableAsync<Episode>(); } catch { _logger.LogDebug("episodes exists"); }
