@@ -31,7 +31,7 @@ internal class ListPrimitiveParam : ISqlParam
     public bool IsNative => false;
 
     public TypedValue YdbValueFetch(Dictionary<string, TypedValue> ydbParameters) =>
-        _paramNames.Select(ydbParameters.Get).ToArray().List();
+        _paramNames.Select(ydbParameters.Get).List();
 }
 
 internal static class YdbParametersExtension
