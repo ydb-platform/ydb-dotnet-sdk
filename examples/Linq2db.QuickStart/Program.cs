@@ -71,7 +71,7 @@ public sealed class Episode
 internal sealed class MyYdb : DataConnection
 {
     public MyYdb(string connectionString)
-        : base(new DataOptions().UseConnectionString("YDB", connectionString)) {}
+        : base(new DataOptions().UseConnectionString("YDB", connectionString)) { }
 
 
     public MyYdb(DataOptions options) : base(options)
@@ -381,18 +381,27 @@ internal class AppContext(ILogger<AppContext> logger)
 
         await db.InsertAsync(new Episode
         {
-            SeriesId = 2, SeasonId = 5, EpisodeId = 13,
-            Title = "Test Episode", AirDate = new DateTime(2018, 08, 27)
+            SeriesId = 2,
+            SeasonId = 5,
+            EpisodeId = 13,
+            Title = "Test Episode",
+            AirDate = new DateTime(2018, 08, 27)
         });
         await db.InsertAsync(new Episode
         {
-            SeriesId = 2, SeasonId = 5, EpisodeId = 21,
-            Title = "Test 21", AirDate = new DateTime(2018, 08, 27)
+            SeriesId = 2,
+            SeasonId = 5,
+            EpisodeId = 21,
+            Title = "Test 21",
+            AirDate = new DateTime(2018, 08, 27)
         });
         await db.InsertAsync(new Episode
         {
-            SeriesId = 2, SeasonId = 5, EpisodeId = 22,
-            Title = "Test 22", AirDate = new DateTime(2018, 08, 27)
+            SeriesId = 2,
+            SeasonId = 5,
+            EpisodeId = 22,
+            Title = "Test 22",
+            AirDate = new DateTime(2018, 08, 27)
         });
 
         await tr.CommitAsync();
