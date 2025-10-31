@@ -1,4 +1,5 @@
 ﻿using Internal;
+using JetBrains.Annotations;
 using Linq2db.Ydb;
 using Linq2db.Ydb.Internal;
 using LinqToDB;
@@ -29,7 +30,6 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     {
         await using var db = client.Open();
         db.CommandTimeout = operationTimeout;
-
 
         await db.ExecuteAsync($@"
             CREATE TABLE `{SloTable.Name}` (
@@ -80,8 +80,9 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
         return await db.GetTable<SloRow>().CountAsync();
     }
 
+    [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
     [Table(SloTable.Name)]
-    private sealed class SloRow
+    public sealed class SloRow
     {
         [Column] public Guid Guid { get; set; }
         [Column] public int Id { get; set; }
