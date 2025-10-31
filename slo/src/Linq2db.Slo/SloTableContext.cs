@@ -1,5 +1,4 @@
 ﻿using Internal;
-using JetBrains.Annotations;
 using Linq2db.Ydb;
 using Linq2db.Ydb.Internal;
 using LinqToDB;
@@ -21,7 +20,8 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
 
     public sealed class Linq2dbClient(string connectionString)
     {
-        public DataConnection Open() => new(new DataOptions().UseConnectionString("YDB", connectionString));
+        public DataConnection Open()
+            => new(new DataOptions().UseConnectionString("YDB", connectionString));
     }
 
     protected override Linq2dbClient CreateClient(Config config) => new(config.ConnectionString);
@@ -71,7 +71,21 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
         db.CommandTimeout = readTimeout;
 
         var t = db.GetTable<SloRow>();
-        return await t.FirstOrDefaultAsync(r => r.Guid == select.Guid && r.Id == select.Id);
+
+        // Намеренно «используем» все столбцы, чтобы ReSharper не ругался на «неиспользуемые» поля.
+        var row = await t
+            .Where(r => r.Guid == select.Guid && r.Id == select.Id)
+            .Select(r => new
+            {
+                r.Guid,
+                r.Id,
+                r.PayloadStr,
+                r.PayloadDouble,
+                r.PayloadTimestamp
+            })
+            .FirstOrDefaultAsync();
+
+        return row;
     }
 
     protected override async Task<int> SelectCount(Linq2dbClient client)
@@ -80,14 +94,13 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
         return await db.GetTable<SloRow>().CountAsync();
     }
 
-    [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
     [Table(SloTable.Name)]
-    public sealed class SloRow
+    private sealed class SloRow(DateTime payloadTimestamp, double payloadDouble, string? payloadStr, int id, Guid guid)
     {
-        [Column] public Guid Guid { get; set; }
-        [Column] public int Id { get; set; }
-        [Column] public string? PayloadStr { get; set; }
-        [Column] public double PayloadDouble { get; set; }
-        [Column] public DateTime PayloadTimestamp { get; set; }
+        [Column] public Guid Guid { get; } = guid;
+        [Column] public int Id { get; } = id;
+        [Column] public string?  PayloadStr { get; } = payloadStr;
+        [Column] public double   PayloadDouble { get; } = payloadDouble;
+        [Column] public DateTime PayloadTimestamp { get; } = payloadTimestamp;
     }
 }

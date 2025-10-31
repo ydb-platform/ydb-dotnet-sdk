@@ -15,6 +15,5 @@
 		</ItemGroup>
 		<ItemGroup>
 			<PackageReference Include="linq2db" Version="6.0.0-rc.3" />
-			<PackageReference Include="JetBrains.Annotations" Version="2025.2.2" />
 		</ItemGroup>	
 </Project>
