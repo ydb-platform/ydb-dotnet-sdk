@@ -174,8 +174,8 @@ internal class AppContext(ILogger<AppContext> logger)
         };
         await db.BulkCopyAsync(eps);
 
-        _ = series.Sum(x => x.ReleaseDate.Ticks + (x.SeriesInfo?.Length ?? 0));
-        _ = seasons.Sum(x => x.FirstAired.Ticks + x.LastAired.Ticks);
+        _ = series[0].ReleaseDate.Ticks + (series[0].SeriesInfo?.Length ?? 0);
+        _ = seasons[0].FirstAired.Ticks  + seasons[0].LastAired.Ticks;
 
         logger.LogInformation("Loaded data");
     }
