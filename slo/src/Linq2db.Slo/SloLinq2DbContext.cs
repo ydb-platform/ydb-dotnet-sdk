@@ -1,33 +1,26 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using Internal;
+using Linq2db.Ydb;
+using Linq2db.Ydb.Internal;
 using LinqToDB;
+using LinqToDB.Async;
 using LinqToDB.Data;
 using LinqToDB.Mapping;
-using Internal;
-using Linq2db.Ydb.Internal;
-using LinqToDB.Async;
-using LinqToDB.Internal.DataProvider.Ydb.Internal;
 
 namespace Linq2db;
 
 public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbClient>
 {
-    protected override string Job => "Linq2DB";
+    protected override string Job => "linq2db";
 
     static SloTableContext()
     {
-        // Включаем ретраи SDK глобально (как и раньше)
-        YdbSdkRetryPolicyRegistration.UseGloballyWithIdempotence(
-            maxAttempts: 10,
-            onRetry: (attempt, ex, delay) => { /* лог/метрики при желании */ }
-        );
+        YdbSdkRetryPolicyRegistration.UseGloballyWithIdempotence();
+        DataConnection.AddProviderDetector(YdbTools.ProviderDetector);
     }
 
-    public sealed class Linq2dbClient
+    public sealed class Linq2dbClient(string connectionString)
     {
-        private readonly string _connectionString;
-        public Linq2dbClient(string connectionString) => _connectionString = connectionString;
-        public DataConnection Open() => new DataConnection("YDB", _connectionString);
+        public DataConnection Open() => new(new DataOptions().UseConnectionString("YDB", connectionString));
     }
 
     protected override Linq2dbClient CreateClient(Config config) => new(config.ConnectionString);
@@ -37,47 +30,39 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         await using var db = client.Open();
         db.CommandTimeout = operationTimeout;
 
-        try
-        {
-            await db.ExecuteAsync($@"
-CREATE TABLE `{SloTable.Name}` (
-    Guid             Uuid,
-    Id               Int32,
-    PayloadStr       Text,
-    PayloadDouble    Double,
-    PayloadTimestamp Timestamp,
-    PRIMARY KEY (Guid, Id)
-)");
-        }
-        catch
-        {
-            // Таблица уже есть — ок
-        }
 
-        if (!string.IsNullOrWhiteSpace(SloTable.Options))
-            await db.ExecuteAsync(SloTable.Options);
+        await db.ExecuteAsync($@"
+            CREATE TABLE `{SloTable.Name}` (
+                Guid             Uuid,
+                Id               Int32,
+                PayloadStr       Text,
+                PayloadDouble    Double,
+                PayloadTimestamp Timestamp,
+                PRIMARY KEY (Guid, Id)
+            )");
+
+        await db.ExecuteAsync(SloTable.Options);
     }
 
-    // ВАЖНО: вернуть >0 при успехе, иначе write-графики будут пустые.
     protected override async Task<int> Save(Linq2dbClient client, SloTable sloTable, int writeTimeout)
     {
         await using var db = client.Open();
         db.CommandTimeout = writeTimeout;
 
-        var sql = $@"
+        const string sql = @"
 UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
 VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
 
         var affected = await db.ExecuteAsync(
             sql,
-            new DataParameter("Guid",            sloTable.Guid,            DataType.Guid),
-            new DataParameter("Id",              sloTable.Id,              DataType.Int32),
-            new DataParameter("PayloadStr",      sloTable.PayloadStr,      DataType.NVarChar),
-            new DataParameter("PayloadDouble",   sloTable.PayloadDouble,   DataType.Double),
-            new DataParameter("PayloadTimestamp",sloTable.PayloadTimestamp,DataType.DateTime2)
+            new DataParameter("Guid", sloTable.Guid, DataType.Guid),
+            new DataParameter("Id", sloTable.Id, DataType.Int32),
+            new DataParameter("PayloadStr", sloTable.PayloadStr, DataType.NVarChar),
+            new DataParameter("PayloadDouble", sloTable.PayloadDouble, DataType.Double),
+            new DataParameter("PayloadTimestamp", sloTable.PayloadTimestamp, DataType.DateTime2)
         );
-        
-        return affected > 0 ? affected : 1;
+
+        return affected;
     }
 
     protected override async Task<object?> Select(Linq2dbClient client, (Guid Guid, int Id) select, int readTimeout)
@@ -100,8 +85,8 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
     {
         [Column] public Guid Guid { get; set; }
         [Column] public int Id { get; set; }
-        [Column] public string?  PayloadStr { get; set; }
-        [Column] public double   PayloadDouble { get; set; }
+        [Column] public string? PayloadStr { get; set; }
+        [Column] public double PayloadDouble { get; set; }
         [Column] public DateTime PayloadTimestamp { get; set; }
     }
 }
