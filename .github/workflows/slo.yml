@@ -34,7 +34,7 @@ jobs:
           - workload: Linq2db.Slo
             read_rps: 1000
             write_rps: 100
-    
+
     concurrency:
       group: slo-${{ github.ref }}-${{ matrix.workload }}
       cancel-in-progress: true
