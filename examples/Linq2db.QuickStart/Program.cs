@@ -71,9 +71,9 @@ public sealed class Episode
 
 internal sealed class MyYdb : DataConnection
 {
-    public MyYdb(string connectionString) : base("YDB", connectionString)
-    {
-    }
+    public MyYdb(string connectionString)
+        : base(new DataOptions().UseConnectionString("YDB", connectionString)) {}
+
 
     public MyYdb(DataOptions options) : base(options)
     {
@@ -366,8 +366,8 @@ internal class AppContext
                 .GroupBy(e => new { e.SeriesId, e.SeasonId })
                 .Select(g => new
                 {
-                    SeriesId = g.Key.SeriesId,
-                    SeasonId = g.Key.SeasonId,
+                    g.Key.SeriesId,
+                    g.Key.SeasonId,
                     Cnt = g.Count()
                 })
                 .ToListAsync();
@@ -453,24 +453,24 @@ internal class AppContext
 
     private async Task ConnectionWithLoggerFactory()
     {
-        await using var db = new MyYdb(BuildOptions(
-            $"Host={_settings.Host};Port={_settings.Port}"));
-
-        db.OnTraceConnection = ti =>
-        {
-            switch (ti.TraceInfoStep)
+        var options = BuildOptions($"Host={_settings.Host};Port={_settings.Port}")
+            .UseTracing(ti =>
             {
-                case TraceInfoStep.BeforeExecute:
-                    _logger.LogInformation("BeforeExecute: {sql}", ti.SqlText);
-                    break;
-                case TraceInfoStep.AfterExecute:
-                    _logger.LogInformation("AfterExecute: {time} {records} recs", ti.ExecutionTime, ti.RecordsAffected);
-                    break;
-                case TraceInfoStep.Error:
-                    _logger.LogError(ti.Exception, "SQL error");
-                    break;
-            }
-        };
+                switch (ti.TraceInfoStep)
+                {
+                    case TraceInfoStep.BeforeExecute:
+                        _logger.LogInformation("BeforeExecute: {sql}", ti.SqlText);
+                        break;
+                    case TraceInfoStep.AfterExecute:
+                        _logger.LogInformation("AfterExecute: {time} {records} recs", ti.ExecutionTime, ti.RecordsAffected);
+                        break;
+                    case TraceInfoStep.Error:
+                        _logger.LogError(ti.Exception, "SQL error");
+                        break;
+                }
+            });
+
+        await using var db = new MyYdb(options);
 
         _logger.LogInformation("Dropping tables of examples");
         try
