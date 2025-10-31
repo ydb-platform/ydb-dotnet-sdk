@@ -1,0 +1,13 @@
+﻿using LinqToDB.DataProvider;
+using LinqToDB.DataProvider.Ydb;
+
+namespace LinqToDB.Internal.DataProvider.Ydb.Internal
+{
+	sealed class YdbSpecificTable<TSource>
+		: DatabaseSpecificTable<TSource>,
+			IYdbSpecificTable<TSource>
+		where TSource : notnull
+	{
+		public YdbSpecificTable(ITable<TSource> table) : base(table) { }
+	}
+}
