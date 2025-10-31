@@ -1,5 +1,4 @@
 ﻿using Linq2db.Ydb;
-using LinqToDB.Internal.DataProvider.Ydb;
 
 namespace Linq2db.QuickStart;
 
@@ -25,14 +24,11 @@ internal static class Program
 [Table("series")]
 public sealed class Series
 {
-    [PrimaryKey, Column("series_id")]
-    public ulong SeriesId { get; set; }
+    [PrimaryKey, Column("series_id")] public ulong SeriesId { get; set; }
 
-    [Column("title"), NotNull]
-    public string Title { get; set; } = null!;
+    [Column("title"), NotNull] public string Title { get; set; } = null!;
 
-    [Column("series_info")]
-    public string? SeriesInfo { get; set; }
+    [Column("series_info")] public string? SeriesInfo { get; set; }
 
     [Column("release_date"), DataType(DataType.Date)]
     public DateTime ReleaseDate { get; set; }
@@ -41,14 +37,11 @@ public sealed class Series
 [Table("seasons")]
 public sealed class Season
 {
-    [PrimaryKey, Column("series_id")]
-    public ulong SeriesId { get; set; }
+    [PrimaryKey, Column("series_id")] public ulong SeriesId { get; set; }
 
-    [PrimaryKey, Column("season_id")]
-    public ulong SeasonId { get; set; }
+    [PrimaryKey, Column("season_id")] public ulong SeasonId { get; set; }
 
-    [Column("title"), NotNull]
-    public string Title { get; set; } = null!;
+    [Column("title"), NotNull] public string Title { get; set; } = null!;
 
     [Column("first_aired"), DataType(DataType.Date)]
     public DateTime FirstAired { get; set; }
@@ -60,17 +53,13 @@ public sealed class Season
 [Table("episodes")]
 public sealed class Episode
 {
-    [PrimaryKey, Column("series_id")]
-    public ulong SeriesId { get; set; }
+    [PrimaryKey, Column("series_id")] public ulong SeriesId { get; set; }
 
-    [PrimaryKey, Column("season_id")]
-    public ulong SeasonId { get; set; }
+    [PrimaryKey, Column("season_id")] public ulong SeasonId { get; set; }
 
-    [PrimaryKey, Column("episode_id")]
-    public ulong EpisodeId { get; set; }
+    [PrimaryKey, Column("episode_id")] public ulong EpisodeId { get; set; }
 
-    [Column("title"), NotNull]
-    public string Title { get; set; } = null!;
+    [Column("title"), NotNull] public string Title { get; set; } = null!;
 
     [Column("air_date"), DataType(DataType.Date)]
     public DateTime AirDate { get; set; }
@@ -82,11 +71,16 @@ public sealed class Episode
 
 internal sealed class MyYdb : DataConnection
 {
-    public MyYdb(string connectionString) : base("YDB", connectionString) { }
-    public MyYdb(DataOptions options)     : base(options) { }
+    public MyYdb(string connectionString) : base("YDB", connectionString)
+    {
+    }
 
-    public ITable<Series>  Series   => this.GetTable<Series>();
-    public ITable<Season>  Seasons  => this.GetTable<Season>();
+    public MyYdb(DataOptions options) : base(options)
+    {
+    }
+
+    public ITable<Series> Series => this.GetTable<Series>();
+    public ITable<Season> Seasons => this.GetTable<Season>();
     public ITable<Episode> Episodes => this.GetTable<Episode>();
 }
 
@@ -109,15 +103,15 @@ internal static class SettingsLoader
 {
     public static Settings Load()
     {
-        string host   = Environment.GetEnvironmentVariable("YDB_HOST") ?? "localhost";
-        int    port   = TryInt(Environment.GetEnvironmentVariable("YDB_PORT"), 2136);
-        string db     = Environment.GetEnvironmentVariable("YDB_DB")   ?? "/local";
-        bool   useTls = TryBool(Environment.GetEnvironmentVariable("YDB_USE_TLS"), false);
-        int    tls    = TryInt(Environment.GetEnvironmentVariable("YDB_TLS_PORT"), 2135);
+        string host = Environment.GetEnvironmentVariable("YDB_HOST") ?? "localhost";
+        int port = TryInt(Environment.GetEnvironmentVariable("YDB_PORT"), 2136);
+        string db = Environment.GetEnvironmentVariable("YDB_DB") ?? "/local";
+        bool useTls = TryBool(Environment.GetEnvironmentVariable("YDB_USE_TLS"), false);
+        int tls = TryInt(Environment.GetEnvironmentVariable("YDB_TLS_PORT"), 2135);
 
         return new Settings(host, port, db, useTls, tls);
 
-        static int  TryInt(string? s, int d)   => int.TryParse(s, out var v) ? v : d;
+        static int TryInt(string? s, int d) => int.TryParse(s, out var v) ? v : d;
         static bool TryBool(string? s, bool d) => bool.TryParse(s, out var v) ? v : d;
     }
 }
@@ -131,7 +125,7 @@ internal class AppContext
 
     public AppContext(ILogger<AppContext> logger)
     {
-        _logger   = logger;
+        _logger = logger;
         _settings = SettingsLoader.Load();
     }
 
@@ -149,7 +143,7 @@ internal class AppContext
         await LoadData();
         await SelectWithParameters();
         await RetryPolicy();
-        
+
 
         await InteractiveTransaction();
         await TlsConnectionExample();
@@ -162,9 +156,32 @@ internal class AppContext
     {
         DataConnection.AddProviderDetector(YdbTools.ProviderDetector);
         await using var db = new MyYdb(BuildOptions());
-        try { await db.CreateTableAsync<Series>();  } catch { _logger.LogDebug("series exists"); }
-        try { await db.CreateTableAsync<Season>();  } catch { _logger.LogDebug("seasons exists"); }
-        try { await db.CreateTableAsync<Episode>(); } catch { _logger.LogDebug("episodes exists"); }
+        try
+        {
+            await db.CreateTableAsync<Series>();
+        }
+        catch
+        {
+            _logger.LogDebug("series exists");
+        }
+
+        try
+        {
+            await db.CreateTableAsync<Season>();
+        }
+        catch
+        {
+            _logger.LogDebug("seasons exists");
+        }
+
+        try
+        {
+            await db.CreateTableAsync<Episode>();
+        }
+        catch
+        {
+            _logger.LogDebug("episodes exists");
+        }
 
         _logger.LogInformation("Created tables");
     }
@@ -175,41 +192,135 @@ internal class AppContext
 
         var series = new[]
         {
-            new Series { SeriesId = 1, Title = "IT Crowd",       ReleaseDate = new DateTime(2006,02,03), SeriesInfo="British sitcom..." },
-            new Series { SeriesId = 2, Title = "Silicon Valley", ReleaseDate = new DateTime(2014,04,06), SeriesInfo="American comedy..." }
+            new Series
+            {
+                SeriesId = 1, Title = "IT Crowd", ReleaseDate = new DateTime(2006, 02, 03),
+                SeriesInfo = "British sitcom..."
+            },
+            new Series
+            {
+                SeriesId = 2, Title = "Silicon Valley", ReleaseDate = new DateTime(2014, 04, 06),
+                SeriesInfo = "American comedy..."
+            }
         };
         foreach (var s in series) await db.InsertAsync(s);
 
         var seasons = new List<Season>
         {
-            new() { SeriesId=1, SeasonId=1, Title="Season 1", FirstAired=new DateTime(2006,02,03), LastAired=new DateTime(2006,03,03)},
-            new() { SeriesId=1, SeasonId=2, Title="Season 2", FirstAired=new DateTime(2007,08,24), LastAired=new DateTime(2007,09,28)},
-            new() { SeriesId=1, SeasonId=3, Title="Season 3", FirstAired=new DateTime(2008,11,21), LastAired=new DateTime(2008,12,26)},
-            new() { SeriesId=1, SeasonId=4, Title="Season 4", FirstAired=new DateTime(2010,06,25), LastAired=new DateTime(2010,07,30)},
-            new() { SeriesId=2, SeasonId=1, Title="Season 1", FirstAired=new DateTime(2014,04,06), LastAired=new DateTime(2014,06,01)},
-            new() { SeriesId=2, SeasonId=2, Title="Season 2", FirstAired=new DateTime(2015,04,12), LastAired=new DateTime(2015,06,14)},
-            new() { SeriesId=2, SeasonId=3, Title="Season 3", FirstAired=new DateTime(2016,04,24), LastAired=new DateTime(2016,06,26)},
-            new() { SeriesId=2, SeasonId=4, Title="Season 4", FirstAired=new DateTime(2017,04,23), LastAired=new DateTime(2017,06,25)},
-            new() { SeriesId=2, SeasonId=5, Title="Season 5", FirstAired=new DateTime(2018,03,25), LastAired=new DateTime(2018,05,13)},
+            new()
+            {
+                SeriesId = 1, SeasonId = 1, Title = "Season 1", FirstAired = new DateTime(2006, 02, 03),
+                LastAired = new DateTime(2006, 03, 03)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 2, Title = "Season 2", FirstAired = new DateTime(2007, 08, 24),
+                LastAired = new DateTime(2007, 09, 28)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 3, Title = "Season 3", FirstAired = new DateTime(2008, 11, 21),
+                LastAired = new DateTime(2008, 12, 26)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 4, Title = "Season 4", FirstAired = new DateTime(2010, 06, 25),
+                LastAired = new DateTime(2010, 07, 30)
+            },
+            new()
+            {
+                SeriesId = 2, SeasonId = 1, Title = "Season 1", FirstAired = new DateTime(2014, 04, 06),
+                LastAired = new DateTime(2014, 06, 01)
+            },
+            new()
+            {
+                SeriesId = 2, SeasonId = 2, Title = "Season 2", FirstAired = new DateTime(2015, 04, 12),
+                LastAired = new DateTime(2015, 06, 14)
+            },
+            new()
+            {
+                SeriesId = 2, SeasonId = 3, Title = "Season 3", FirstAired = new DateTime(2016, 04, 24),
+                LastAired = new DateTime(2016, 06, 26)
+            },
+            new()
+            {
+                SeriesId = 2, SeasonId = 4, Title = "Season 4", FirstAired = new DateTime(2017, 04, 23),
+                LastAired = new DateTime(2017, 06, 25)
+            },
+            new()
+            {
+                SeriesId = 2, SeasonId = 5, Title = "Season 5", FirstAired = new DateTime(2018, 03, 25),
+                LastAired = new DateTime(2018, 05, 13)
+            },
         };
         await db.BulkCopyAsync(seasons);
 
         var eps = new List<Episode>
         {
-            new() { SeriesId=1, SeasonId=1, EpisodeId=1, Title="Yesterday's Jam", AirDate=new DateTime(2006,02,03)},
-            new() { SeriesId=1, SeasonId=1, EpisodeId=2, Title="Calamity Jen",    AirDate=new DateTime(2006,02,03)},
-            new() { SeriesId=1, SeasonId=1, EpisodeId=3, Title="Fifty-Fifty",     AirDate=new DateTime(2006,02,10)},
-            new() { SeriesId=1, SeasonId=1, EpisodeId=4, Title="The Red Door",    AirDate=new DateTime(2006,02,17)},
-            new() { SeriesId=1, SeasonId=2, EpisodeId=1, Title="The Work Outing",            AirDate=new DateTime(2007,08,24)},
-            new() { SeriesId=1, SeasonId=2, EpisodeId=2, Title="Return of the Golden Child", AirDate=new DateTime(2007,08,31)},
-            new() { SeriesId=1, SeasonId=3, EpisodeId=1, Title="From Hell",       AirDate=new DateTime(2008,11,21)},
-            new() { SeriesId=1, SeasonId=3, EpisodeId=2, Title="Are We Not Men?", AirDate=new DateTime(2008,11,28)},
-            new() { SeriesId=1, SeasonId=4, EpisodeId=1, Title="Jen The Fredo",          AirDate=new DateTime(2010,06,25)},
-            new() { SeriesId=1, SeasonId=4, EpisodeId=2, Title="The Final Countdown",    AirDate=new DateTime(2010,07,02)},
-            new() { SeriesId=2, SeasonId=2, EpisodeId=1, Title="Minimum Viable Product", AirDate=new DateTime(2014,04,06)},
-            new() { SeriesId=2, SeasonId=2, EpisodeId=2, Title="The Cap Table",          AirDate=new DateTime(2014,04,13)},
-            new() { SeriesId=2, SeasonId=1, EpisodeId=3, Title="Articles of Incorporation", AirDate=new DateTime(2014,04,20)},
-            new() { SeriesId=2, SeasonId=1, EpisodeId=4, Title="Fiduciary Duties",         AirDate=new DateTime(2014,04,27)},
+            new()
+            {
+                SeriesId = 1, SeasonId = 1, EpisodeId = 1, Title = "Yesterday's Jam",
+                AirDate = new DateTime(2006, 02, 03)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 1, EpisodeId = 2, Title = "Calamity Jen", AirDate = new DateTime(2006, 02, 03)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 1, EpisodeId = 3, Title = "Fifty-Fifty", AirDate = new DateTime(2006, 02, 10)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 1, EpisodeId = 4, Title = "The Red Door", AirDate = new DateTime(2006, 02, 17)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 2, EpisodeId = 1, Title = "The Work Outing",
+                AirDate = new DateTime(2007, 08, 24)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 2, EpisodeId = 2, Title = "Return of the Golden Child",
+                AirDate = new DateTime(2007, 08, 31)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 3, EpisodeId = 1, Title = "From Hell", AirDate = new DateTime(2008, 11, 21)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 3, EpisodeId = 2, Title = "Are We Not Men?",
+                AirDate = new DateTime(2008, 11, 28)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 4, EpisodeId = 1, Title = "Jen The Fredo", AirDate = new DateTime(2010, 06, 25)
+            },
+            new()
+            {
+                SeriesId = 1, SeasonId = 4, EpisodeId = 2, Title = "The Final Countdown",
+                AirDate = new DateTime(2010, 07, 02)
+            },
+            new()
+            {
+                SeriesId = 2, SeasonId = 2, EpisodeId = 1, Title = "Minimum Viable Product",
+                AirDate = new DateTime(2014, 04, 06)
+            },
+            new()
+            {
+                SeriesId = 2, SeasonId = 2, EpisodeId = 2, Title = "The Cap Table", AirDate = new DateTime(2014, 04, 13)
+            },
+            new()
+            {
+                SeriesId = 2, SeasonId = 1, EpisodeId = 3, Title = "Articles of Incorporation",
+                AirDate = new DateTime(2014, 04, 20)
+            },
+            new()
+            {
+                SeriesId = 2, SeasonId = 1, EpisodeId = 4, Title = "Fiduciary Duties",
+                AirDate = new DateTime(2014, 04, 27)
+            },
         };
 
         await db.BulkCopyAsync(eps);
@@ -223,7 +334,7 @@ internal class AppContext
 
         ulong seriesId = 1;
         ulong seasonId = 1;
-        ulong limit    = 3;
+        ulong limit = 3;
 
         var rows = await db.Episodes
             .Where(e => e.SeriesId == seriesId && e.SeasonId > seasonId)
@@ -257,7 +368,7 @@ internal class AppContext
                 {
                     SeriesId = g.Key.SeriesId,
                     SeasonId = g.Key.SeasonId,
-                    Cnt      = g.Count()
+                    Cnt = g.Count()
                 })
                 .ToListAsync();
 
@@ -362,9 +473,33 @@ internal class AppContext
         };
 
         _logger.LogInformation("Dropping tables of examples");
-        try { await db.DropTableAsync<Episode>(); } catch { /* ignore */ }
-        try { await db.DropTableAsync<Season>();  } catch { /* ignore */ }
-        try { await db.DropTableAsync<Series>();  } catch { /* ignore */ }
+        try
+        {
+            await db.DropTableAsync<Episode>();
+        }
+        catch
+        {
+            /* ignore */
+        }
+
+        try
+        {
+            await db.DropTableAsync<Season>();
+        }
+        catch
+        {
+            /* ignore */
+        }
+
+        try
+        {
+            await db.DropTableAsync<Series>();
+        }
+        catch
+        {
+            /* ignore */
+        }
+
         _logger.LogInformation("Dropped tables of examples");
     }
 }
