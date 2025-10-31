@@ -6,8 +6,7 @@ using Moq;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Services.Topic;
-using Ydb.Sdk.Services.Topic.Reader;
+using Ydb.Sdk.Topic.Reader;
 using Ydb.Topic;
 using Range = Moq.Range;
 

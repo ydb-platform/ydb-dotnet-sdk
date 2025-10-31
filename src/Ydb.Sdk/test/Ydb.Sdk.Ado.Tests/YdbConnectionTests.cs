@@ -10,7 +10,7 @@ public sealed class YdbConnectionTests : TestBase
     private static readonly TemporaryTables<YdbConnectionTests> Tables = new();
 
     private readonly string _connectionStringTls =
-        "Host=localhost;Port=2135;Database=/local;MaxSessionPool=10;RootCertificate=" +
+        "Host=localhost;Port=2135;Database=/local;MaxPoolSize=10;RootCertificate=" +
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem");
 
     private volatile int _counter;
@@ -19,7 +19,7 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
-        var connectionString = ConnectionString + ";MaxSessionPool=100";
+        var connectionString = ConnectionString + ";MaxPoolSize=100;CreateSessionTimeout=20";
 
         var tasks = GenerateTasks(connectionString);
         tasks.Add(YdbConnection.ClearPool(new YdbConnection(connectionString)));
@@ -196,7 +196,7 @@ public sealed class YdbConnectionTests : TestBase
     public async Task OpenAsync_WhenCancelTokenIsCanceled_ThrowYdbException()
     {
         await using var connection = CreateConnection();
-        connection.ConnectionString = ConnectionString + ";MinSessionPool=1";
+        connection.ConnectionString = ConnectionString + ";MinPoolSize=1";
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await connection.OpenAsync(cts.Token));
@@ -288,7 +288,7 @@ public sealed class YdbConnectionTests : TestBase
             ydbConnection.ConnectionString = connectionString;
             await ydbConnection.OpenAsync();
         }
-        catch (YdbException)
+        catch (ObjectDisposedException)
         {
             Interlocked.Add(ref _counter, i);
             return;
@@ -472,5 +472,52 @@ public sealed class YdbConnectionTests : TestBase
         await importer.AddRowAsync(1, "NotExists");
 
         await Assert.ThrowsAsync<YdbException>(async () => { await importer.FlushAsync(); });
+    }
+
+    [Fact]
+    public async Task ClearPool_FireAndForget_DoesNotBlock_And_PoolsRecreate()
+    {
+        var csPooled = ConnectionString +
+                       ";UseTls=false;DisableDiscovery=true" +
+                       ";CreateSessionTimeout=3;ConnectTimeout=3" +
+                       ";KeepAlivePingDelay=0;KeepAlivePingTimeout=0";
+        var csImplicit = csPooled + ";EnableImplicitSession=true";
+
+        await using (var warmPooled = new YdbConnection(csPooled))
+        {
+            await warmPooled.OpenAsync();
+            await using var cmd = warmPooled.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
+        }
+
+        await using (var warmImplicit = new YdbConnection(csImplicit))
+        {
+            await warmImplicit.OpenAsync();
+            await using var cmd = warmImplicit.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
+        }
+
+        var clearPooledTask = YdbConnection.ClearPool(new YdbConnection(csPooled));
+        var clearImplicitTask = YdbConnection.ClearPool(new YdbConnection(csImplicit));
+
+        await Task.WhenAll(clearPooledTask, clearImplicitTask);
+
+        await using (var checkPooled = new YdbConnection(csPooled))
+        {
+            await checkPooled.OpenAsync();
+            await using var cmd = checkPooled.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
+        }
+
+        await using (var checkImplicit = new YdbConnection(csImplicit))
+        {
+            await checkImplicit.OpenAsync();
+            await using var cmd = checkImplicit.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            Assert.Equal(1L, Convert.ToInt64(await cmd.ExecuteScalarAsync()));
+        }
     }
 }

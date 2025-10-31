@@ -43,7 +43,7 @@ public class LoadTank
         var workers = new List<Task>();
         ctsStep1.CancelAfter(_config.TotalTestTimeSeconds * 500);
 
-        for (var i = 0; i < _settings.MaxSessionPool; i++)
+        for (var i = 0; i < _settings.MaxPoolSize; i++)
         {
             workers.Add(Task.Run(async () =>
             {
@@ -72,7 +72,7 @@ public class LoadTank
         _logger.LogInformation("[{Now}] Starting shooting without PoolingSessionSource...", DateTime.Now);
         var ctsStep2 = new CancellationTokenSource();
         ctsStep2.CancelAfter(_config.TotalTestTimeSeconds * 500);
-        for (var i = 0; i < _settings.MaxSessionPool; i++)
+        for (var i = 0; i < _settings.MaxPoolSize; i++)
         {
             workers.Add(Task.Run(async () =>
             {

@@ -7,7 +7,7 @@ using Ydb.Topic;
 using Ydb.Topic.V1;
 using static Ydb.Topic.StreamReadMessage.Types.FromServer;
 
-namespace Ydb.Sdk.Services.Topic.Reader;
+namespace Ydb.Sdk.Topic.Reader;
 
 using MessageFromClient = StreamReadMessage.Types.FromClient;
 using MessageFromServer = StreamReadMessage.Types.FromServer;
@@ -322,11 +322,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     case ServerMessageOneofCase.CommitOffsetResponse:
                         HandleCommitOffsetResponse(messageFromServer.CommitOffsetResponse);
                         break;
-                    case ServerMessageOneofCase.PartitionSessionStatusResponse:
-                    case ServerMessageOneofCase.UpdateTokenResponse:
                     case ServerMessageOneofCase.StopPartitionSessionRequest:
                         await StopPartitionSessionRequest(messageFromServer.StopPartitionSessionRequest);
                         break;
+                    case ServerMessageOneofCase.PartitionSessionStatusResponse:
+                    case ServerMessageOneofCase.UpdateTokenResponse:
                     case ServerMessageOneofCase.InitResponse:
                     case ServerMessageOneofCase.None:
                     case ServerMessageOneofCase.UpdatePartitionSession:

@@ -1,4 +1,4 @@
-namespace Ydb.Sdk.Services.Topic;
+namespace Ydb.Sdk.Topic;
 
 public class WriterException : Exception
 {

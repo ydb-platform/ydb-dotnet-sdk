@@ -1,7 +1,6 @@
 using Xunit;
-using Ydb.Sdk.Services.Topic;
-using Ydb.Sdk.Services.Topic.Reader;
-using Ydb.Sdk.Services.Topic.Writer;
+using Ydb.Sdk.Topic.Reader;
+using Ydb.Sdk.Topic.Writer;
 
 namespace Ydb.Sdk.Topic.Tests;
 

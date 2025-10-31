@@ -54,6 +54,8 @@ internal static class YdbValueExtensions
 
     internal static byte[] GetBytes(this Ydb.Value value) => value.BytesValue.ToByteArray();
 
+    internal static byte[] GetYson(this Ydb.Value value) => value.BytesValue.ToByteArray();
+
     internal static string GetText(this Ydb.Value value) => value.TextValue;
 
     internal static string GetJson(this Ydb.Value value) => value.TextValue;

@@ -9,6 +9,14 @@ using static Ydb.Sdk.Ado.Internal.YdbTypedValueExtensions;
 
 namespace Ydb.Sdk.Ado;
 
+/// <summary>
+/// Represents a parameter to a <see cref="YdbCommand"/> and optionally its mapping to a DataSet column.
+/// This class cannot be inherited.
+/// </summary>
+/// <remarks>
+/// YdbParameter provides a way to pass parameters to YDB commands, supporting both standard ADO.NET DbType
+/// and YDB-specific YdbDbType values. It handles type conversion and null value representation for YDB operations.
+/// </remarks>
 public sealed class YdbParameter : DbParameter
 {
     private static readonly TypedValue NullDefaultDecimal = NullDecimal(22, 9);
@@ -33,6 +41,7 @@ public sealed class YdbParameter : DbParameter
         { YdbDbType.Float, Type.Types.PrimitiveTypeId.Float.Null() },
         { YdbDbType.Double, Type.Types.PrimitiveTypeId.Double.Null() },
         { YdbDbType.Uuid, Type.Types.PrimitiveTypeId.Uuid.Null() },
+        { YdbDbType.Yson, Type.Types.PrimitiveTypeId.Yson.Null() },
         { YdbDbType.Json, Type.Types.PrimitiveTypeId.Json.Null() },
         { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() },
         { YdbDbType.Date32, Type.Types.PrimitiveTypeId.Date32.Null() },
@@ -43,16 +52,31 @@ public sealed class YdbParameter : DbParameter
 
     private string _parameterName = string.Empty;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbParameter"/> class.
+    /// </summary>
     public YdbParameter()
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbParameter"/> class with the specified parameter name and value.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter.</param>
+    /// <param name="value">The value of the parameter.</param>
     public YdbParameter(string parameterName, object value)
     {
         ParameterName = parameterName;
         Value = value;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbParameter"/> class with the specified parameter name,
+    /// database type, and optional value.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter.</param>
+    /// <param name="dbType">The <see cref="DbType"/> of the parameter.</param>
+    /// <param name="value">The value of the parameter, or null if not specified.</param>
     public YdbParameter(string parameterName, DbType dbType, object? value = null)
     {
         ParameterName = parameterName;
@@ -60,6 +84,13 @@ public sealed class YdbParameter : DbParameter
         Value = value;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbParameter"/> class with the specified parameter name,
+    /// YDB database type, and optional value.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter.</param>
+    /// <param name="ydbDbType">The <see cref="YdbDbType"/> of the parameter.</param>
+    /// <param name="value">The value of the parameter, or null if not specified.</param>
     public YdbParameter(string parameterName, YdbDbType ydbDbType, object? value = null)
     {
         ParameterName = parameterName;
@@ -67,6 +98,12 @@ public sealed class YdbParameter : DbParameter
         Value = value;
     }
 
+    /// <summary>
+    /// Resets the DbType property to its original state.
+    /// </summary>
+    /// <remarks>
+    /// This method resets the YdbDbType to Unspecified, DbType to Object, and IsNullable to false.
+    /// </remarks>
     public override void ResetDbType()
     {
         YdbDbType = YdbDbType.Unspecified;
@@ -74,10 +111,24 @@ public sealed class YdbParameter : DbParameter
         IsNullable = false;
     }
 
+    /// <summary>
+    /// Gets or sets the YDB database type of the parameter.
+    /// </summary>
+    /// <remarks>
+    /// YdbDbType provides YDB-specific data types that may not have direct equivalents in standard DbType.
+    /// When set, this property automatically updates the corresponding DbType value.
+    /// </remarks>
     public YdbDbType YdbDbType { get; set; } = YdbDbType.Unspecified;
 
     private DbType _dbType = DbType.Object;
 
+    /// <summary>
+    /// Gets or sets the DbType of the parameter.
+    /// </summary>
+    /// <remarks>
+    /// When setting the DbType, the corresponding YdbDbType is automatically updated.
+    /// This ensures compatibility with standard ADO.NET while maintaining YDB-specific functionality.
+    /// </remarks>
     public override DbType DbType
     {
         get => _dbType;
@@ -89,9 +140,25 @@ public sealed class YdbParameter : DbParameter
     }
 
     public override ParameterDirection Direction { get; set; } = ParameterDirection.Input;
+
     public override DataRowVersion SourceVersion { get; set; } = DataRowVersion.Current;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the parameter accepts null values.
+    /// </summary>
+    /// <remarks>
+    /// When true, the parameter can accept null values. This affects how null values
+    /// are handled during parameter binding and execution.
+    /// </remarks>
     public override bool IsNullable { get; set; }
 
+    /// <summary>
+    /// Gets or sets the name of the parameter.
+    /// </summary>
+    /// <remarks>
+    /// The parameter name is automatically formatted to use YDB's parameter syntax ($parameterName).
+    /// If the name starts with @, it's converted to $ syntax. If it doesn't start with $, the $ prefix is added.
+    /// </remarks>
     [AllowNull]
     [DefaultValue("")]
     public override string ParameterName
@@ -116,11 +183,35 @@ public sealed class YdbParameter : DbParameter
         set => _sourceColumn = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Gets or sets the value of the parameter.
+    /// </summary>
+    /// <remarks>
+    /// The value can be any object that is compatible with the parameter's data type.
+    /// Null values are handled according to the IsNullable property setting.
+    /// </remarks>
     public override object? Value { get; set; }
+
     public override bool SourceColumnNullMapping { get; set; }
+
     public override int Size { get; set; }
 
+    /// <summary>
+    /// Gets or sets the number of digits used to represent the Value property.
+    /// </summary>
+    /// <remarks>
+    /// This property is used for decimal data type to specify
+    /// the total number of digits to the left and right of the decimal point.
+    /// </remarks>
     public override byte Precision { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of decimal places to which Value is resolved.
+    /// </summary>
+    /// <remarks>
+    /// This property is used for decimal data type to specify
+    /// the number of digits to the right of the decimal point.
+    /// </remarks>
     public override byte Scale { get; set; }
 
     internal TypedValue TypedValue
@@ -155,6 +246,7 @@ public sealed class YdbParameter : DbParameter
                 YdbDbType.Double => MakeDouble(value),
                 YdbDbType.Decimal when value is decimal decimalValue => Decimal(decimalValue),
                 YdbDbType.Bytes => MakeBytes(value),
+                YdbDbType.Yson => MakeYson(value),
                 YdbDbType.Json when value is string stringValue => stringValue.Json(),
                 YdbDbType.JsonDocument when value is string stringValue => stringValue.JsonDocument(),
                 YdbDbType.Uuid when value is Guid guidValue => guidValue.Uuid(),
@@ -237,6 +329,13 @@ public sealed class YdbParameter : DbParameter
     {
         byte[] bytesValue => bytesValue.Bytes(),
         MemoryStream memoryStream => memoryStream.ToArray().Bytes(),
+        _ => throw ValueTypeNotSupportedException
+    };
+
+    private TypedValue MakeYson(object value) => value switch
+    {
+        byte[] bytesValue => bytesValue.Yson(),
+        MemoryStream memoryStream => memoryStream.ToArray().Yson(),
         _ => throw ValueTypeNotSupportedException
     };
 

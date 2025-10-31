@@ -125,12 +125,7 @@ public sealed class YdbTypeMappingSource(
         var clrType = mappingInfo.ClrType;
         var storeTypeName = mappingInfo.StoreTypeName;
 
-        if (storeTypeName is null)
-        {
-            return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
-        }
-
-        if (!StoreTypeMapping.TryGetValue(storeTypeName, out var mappings))
+        if (storeTypeName is null || !StoreTypeMapping.TryGetValue(storeTypeName, out var mappings))
         {
             return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
         }

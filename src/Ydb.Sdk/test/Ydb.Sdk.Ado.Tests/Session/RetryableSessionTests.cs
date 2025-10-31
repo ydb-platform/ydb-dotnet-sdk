@@ -21,7 +21,7 @@ public class RetryableSessionTests
 
         var retryableSession = new RetryableSession(new PoolingSessionSource<MockPoolingSession>(
                 factory,
-                new YdbConnectionStringBuilder { MaxSessionPool = 1 }),
+                new YdbConnectionStringBuilder { MaxPoolSize = 1 }),
             new YdbRetryPolicyExecutor(new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 5 }))
         );
 
@@ -49,7 +49,7 @@ public class RetryableSessionTests
 
         var retryableSession = new RetryableSession(new PoolingSessionSource<MockPoolingSession>(
                 factory,
-                new YdbConnectionStringBuilder { MaxSessionPool = 1 }),
+                new YdbConnectionStringBuilder { MaxPoolSize = 1 }),
             new YdbRetryPolicyExecutor(new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 5 }))
         );
 
@@ -89,7 +89,7 @@ public class RetryableSessionTests
 
         var retryableSession = new RetryableSession(new PoolingSessionSource<MockPoolingSession>(
                 factory,
-                new YdbConnectionStringBuilder { MaxSessionPool = 1 }),
+                new YdbConnectionStringBuilder { MaxPoolSize = 1 }),
             new YdbRetryPolicyExecutor(new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 5 }))
         );
         var inMemoryStream = await retryableSession.ExecuteQuery(

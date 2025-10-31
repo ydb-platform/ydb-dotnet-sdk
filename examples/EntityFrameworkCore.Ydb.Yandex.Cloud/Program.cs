@@ -12,8 +12,8 @@ await Parser.Default.ParseArguments<CmdOptions>(args).WithParsedAsync(async cmd 
 
     var options = new DbContextOptionsBuilder<AppDbContext>()
         .UseYdb(cmd.ConnectionString, builder => builder
-            .WithCredentialsProvider(saProvider)
-            .WithServerCertificates(YcCerts.GetYcServerCertificates())
+            .UseCredentialsProvider(saProvider)
+            .UseServerCertificates(YcCerts.GetYcServerCertificates())
         )
         .Options;
 
