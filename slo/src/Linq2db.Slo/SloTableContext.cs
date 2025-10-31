@@ -20,8 +20,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
 
     public sealed class Linq2dbClient(string connectionString)
     {
-        public DataConnection Open()
-            => new(new DataOptions().UseConnectionString("YDB", connectionString));
+        public DataConnection Open() => new(new DataOptions().UseConnectionString("YDB", connectionString));
     }
 
     protected override Linq2dbClient CreateClient(Config config) => new(config.ConnectionString);
@@ -30,17 +29,8 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     {
         await using var db = client.Open();
         db.CommandTimeout = operationTimeout;
-
-        await db.ExecuteAsync($@"
-            CREATE TABLE `{SloTable.Name}` (
-                Guid             Uuid,
-                Id               Int32,
-                PayloadStr       Text,
-                PayloadDouble    Double,
-                PayloadTimestamp Timestamp,
-                PRIMARY KEY (Guid, Id)
-            )");
-
+        await db.ExecuteAsync(
+            $@" CREATE TABLE {SloTable.Name} ( Guid Uuid, Id Int32, PayloadStr Text, PayloadDouble Double, PayloadTimestamp Timestamp, PRIMARY KEY (Guid, Id) )");
         await db.ExecuteAsync(SloTable.Options);
     }
 
@@ -48,20 +38,13 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     {
         await using var db = client.Open();
         db.CommandTimeout = writeTimeout;
-
-        const string sql = @"
-UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
-VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
-
-        var affected = await db.ExecuteAsync(
-            sql,
-            new DataParameter("Guid", sloTable.Guid, DataType.Guid),
+        const string sql =
+            @" UPSERT INTO {SloTable.Name} (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp) VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
+        var affected = await db.ExecuteAsync(sql, new DataParameter("Guid", sloTable.Guid, DataType.Guid),
             new DataParameter("Id", sloTable.Id, DataType.Int32),
             new DataParameter("PayloadStr", sloTable.PayloadStr, DataType.NVarChar),
             new DataParameter("PayloadDouble", sloTable.PayloadDouble, DataType.Double),
-            new DataParameter("PayloadTimestamp", sloTable.PayloadTimestamp, DataType.DateTime2)
-        );
-
+            new DataParameter("PayloadTimestamp", sloTable.PayloadTimestamp, DataType.DateTime2));
         return affected;
     }
 
@@ -69,23 +52,8 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
     {
         await using var db = client.Open();
         db.CommandTimeout = readTimeout;
-
         var t = db.GetTable<SloRow>();
-
-        // Намеренно «используем» все столбцы, чтобы ReSharper не ругался на «неиспользуемые» поля.
-        var row = await t
-            .Where(r => r.Guid == select.Guid && r.Id == select.Id)
-            .Select(r => new
-            {
-                r.Guid,
-                r.Id,
-                r.PayloadStr,
-                r.PayloadDouble,
-                r.PayloadTimestamp
-            })
-            .FirstOrDefaultAsync();
-
-        return row;
+        return await t.FirstOrDefaultAsync(r => r.Guid == select.Guid && r.Id == select.Id);
     }
 
     protected override async Task<int> SelectCount(Linq2dbClient client)
@@ -95,12 +63,12 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
     }
 
     [Table(SloTable.Name)]
-    private sealed class SloRow(DateTime payloadTimestamp, double payloadDouble, string? payloadStr, int id, Guid guid)
+    private sealed class SloRow(double payloadDouble, string? payloadStr, DateTime payloadTimestamp, Guid guid)
     {
-        [Column] public Guid Guid { get; } = guid;
-        [Column] public int Id { get; } = id;
-        [Column] public string?  PayloadStr { get; } = payloadStr;
-        [Column] public double   PayloadDouble { get; } = payloadDouble;
-        [Column] public DateTime PayloadTimestamp { get; } = payloadTimestamp;
+        [Column] public Guid Guid { get; set; } = guid;
+        [Column] public int Id { get; set; }
+        [Column] public string? PayloadStr { get; set; } = payloadStr;
+        [Column] public double PayloadDouble { get; set; } = payloadDouble;
+        [Column] public DateTime PayloadTimestamp { get; set; } = payloadTimestamp;
     }
 }
