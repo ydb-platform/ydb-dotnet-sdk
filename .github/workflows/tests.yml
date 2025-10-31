@@ -140,3 +140,8 @@ jobs:
           dotnet ef migrations add InitialCreate
           dotnet ef database update
           dotnet run
+      - name: Run Linq2db.QuickStart
+        run: |
+          cd ./examples/Linq2db.QuickStart
+          dotnet run
+    
