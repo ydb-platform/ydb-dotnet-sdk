@@ -1,13 +1,12 @@
 ﻿using Linq2db.Ydb;
-
-namespace Linq2db.QuickStart;
-
-using Microsoft.Extensions.Logging;
-using Polly;
 using LinqToDB;
 using LinqToDB.Async;
 using LinqToDB.Data;
 using LinqToDB.Mapping;
+using Microsoft.Extensions.Logging;
+using Polly;
+
+namespace Linq2db.QuickStart;
 
 internal static class Program
 {
@@ -24,9 +23,9 @@ internal static class Program
 [Table("series")]
 public sealed class Series
 {
-    [PrimaryKey, Column("series_id")] public ulong SeriesId { get; set; }
+    [PrimaryKey, Column("series_id")] public ulong SeriesId { get; init; }
 
-    [Column("title"), NotNull] public string Title { get; set; } = null!;
+    [Column("title"), NotNull] public string Title { get; init; } = null!;
 
     [Column("series_info")] public string? SeriesInfo { get; set; }
 
@@ -37,11 +36,11 @@ public sealed class Series
 [Table("seasons")]
 public sealed class Season
 {
-    [PrimaryKey, Column("series_id")] public ulong SeriesId { get; set; }
+    [PrimaryKey, Column("series_id")] public ulong SeriesId { get; init; }
 
-    [PrimaryKey, Column("season_id")] public ulong SeasonId { get; set; }
+    [PrimaryKey, Column("season_id")] public ulong SeasonId { get; init; }
 
-    [Column("title"), NotNull] public string Title { get; set; } = null!;
+    [Column("title"), NotNull] public string Title { get; init; } = null!;
 
     [Column("first_aired"), DataType(DataType.Date)]
     public DateTime FirstAired { get; set; }
@@ -118,16 +117,9 @@ internal static class SettingsLoader
 
 #endregion
 
-internal class AppContext
+internal class AppContext(ILogger<AppContext> logger)
 {
-    private readonly ILogger<AppContext> _logger;
-    private readonly Settings _settings;
-
-    public AppContext(ILogger<AppContext> logger)
-    {
-        _logger = logger;
-        _settings = SettingsLoader.Load();
-    }
+    private readonly Settings _settings = SettingsLoader.Load();
 
     DataOptions BuildOptions(string? overrideConnectionString = null)
     {
@@ -137,7 +129,7 @@ internal class AppContext
 
     public async Task Run()
     {
-        _logger.LogInformation("Start app example");
+        logger.LogInformation("Start app example");
 
         await InitTables();
         await LoadData();
@@ -149,7 +141,7 @@ internal class AppContext
         await TlsConnectionExample();
         await ConnectionWithLoggerFactory();
 
-        _logger.LogInformation("Finish app example");
+        logger.LogInformation("Finish app example");
     }
 
     private async Task InitTables()
@@ -162,7 +154,7 @@ internal class AppContext
         }
         catch
         {
-            _logger.LogDebug("series exists");
+            logger.LogDebug("series exists");
         }
 
         try
@@ -171,7 +163,7 @@ internal class AppContext
         }
         catch
         {
-            _logger.LogDebug("seasons exists");
+            logger.LogDebug("seasons exists");
         }
 
         try
@@ -180,10 +172,10 @@ internal class AppContext
         }
         catch
         {
-            _logger.LogDebug("episodes exists");
+            logger.LogDebug("episodes exists");
         }
 
-        _logger.LogInformation("Created tables");
+        logger.LogInformation("Created tables");
     }
 
     private async Task LoadData()
@@ -325,7 +317,7 @@ internal class AppContext
 
         await db.BulkCopyAsync(eps);
 
-        _logger.LogInformation("Loaded data");
+        logger.LogInformation("Loaded data");
     }
 
     private async Task SelectWithParameters()
@@ -345,9 +337,9 @@ internal class AppContext
             .Select(e => new { e.SeriesId, e.SeasonId, e.EpisodeId, e.AirDate, e.Title })
             .ToListAsync();
 
-        _logger.LogInformation("Selected rows:");
+        logger.LogInformation("Selected rows:");
         foreach (var r in rows)
-            _logger.LogInformation(
+            logger.LogInformation(
                 "series_id: {series_id}, season_id: {season_id}, episode_id: {episode_id}, air_date: {air_date}, title: {title}",
                 r.SeriesId, r.SeasonId, r.EpisodeId, r.AirDate, r.Title);
     }
@@ -355,7 +347,7 @@ internal class AppContext
     private async Task RetryPolicy()
     {
         var policy = Policy
-            .Handle<Exception>(_ => true)
+            .Handle<Exception>()
             .WaitAndRetryAsync(10, _ => TimeSpan.FromSeconds(1));
 
         await policy.ExecuteAsync(async () =>
@@ -377,7 +369,7 @@ internal class AppContext
                 .ThenBy(x => x.SeasonId);
 
             foreach (var x in stats)
-                _logger.LogInformation("series_id: {series_id}, season_id: {season_id}, cnt: {cnt}",
+                logger.LogInformation("series_id: {series_id}, season_id: {season_id}, cnt: {cnt}",
                     x.SeriesId, x.SeasonId, x.Cnt);
         });
     }
@@ -385,7 +377,7 @@ internal class AppContext
     private async Task InteractiveTransaction()
     {
         await using var db = new MyYdb(BuildOptions());
-        using var tr = await db.BeginTransactionAsync();
+        await using var tr = await db.BeginTransactionAsync();
 
         await db.InsertAsync(new Episode
         {
@@ -404,32 +396,32 @@ internal class AppContext
         });
 
         await tr.CommitAsync();
-        _logger.LogInformation("Commit transaction");
+        logger.LogInformation("Commit transaction");
 
         string title21 = await db.Episodes
             .Where(e => e.SeriesId == 2 && e.SeasonId == 5 && e.EpisodeId == 21)
             .Select(e => e.Title)
             .SingleAsync();
-        _logger.LogInformation("New episode title: {title}", title21);
+        logger.LogInformation("New episode title: {title}", title21);
 
         string title22 = await db.Episodes
             .Where(e => e.SeriesId == 2 && e.SeasonId == 5 && e.EpisodeId == 22)
             .Select(e => e.Title)
             .SingleAsync();
-        _logger.LogInformation("New episode title: {title}", title22);
+        logger.LogInformation("New episode title: {title}", title22);
 
         string title13 = await db.Episodes
             .Where(e => e.SeriesId == 2 && e.SeasonId == 5 && e.EpisodeId == 13)
             .Select(e => e.Title)
             .SingleAsync();
-        _logger.LogInformation("Updated episode title: {title}", title13);
+        logger.LogInformation("Updated episode title: {title}", title13);
     }
 
     private async Task TlsConnectionExample()
     {
         if (!_settings.UseTls)
         {
-            _logger.LogInformation("Tls example was ignored");
+            logger.LogInformation("Tls example was ignored");
             return;
         }
 
@@ -446,7 +438,7 @@ internal class AppContext
             .ToListAsync();
 
         foreach (var r in rows)
-            _logger.LogInformation(
+            logger.LogInformation(
                 "season_title: {SeasonTitle}, series_title: {SeriesTitle}, series_id: {SeriesId}, season_id: {SeasonId}",
                 r.SeasonTitle, r.SeriesTitle, r.SeriesId, r.SeasonId);
     }
@@ -459,20 +451,20 @@ internal class AppContext
                 switch (ti.TraceInfoStep)
                 {
                     case TraceInfoStep.BeforeExecute:
-                        _logger.LogInformation("BeforeExecute: {sql}", ti.SqlText);
+                        logger.LogInformation("BeforeExecute: {sql}", ti.SqlText);
                         break;
                     case TraceInfoStep.AfterExecute:
-                        _logger.LogInformation("AfterExecute: {time} {records} recs", ti.ExecutionTime, ti.RecordsAffected);
+                        logger.LogInformation("AfterExecute: {time} {records} recs", ti.ExecutionTime, ti.RecordsAffected);
                         break;
                     case TraceInfoStep.Error:
-                        _logger.LogError(ti.Exception, "SQL error");
+                        logger.LogError(ti.Exception, "SQL error");
                         break;
                 }
             });
 
         await using var db = new MyYdb(options);
 
-        _logger.LogInformation("Dropping tables of examples");
+        logger.LogInformation("Dropping tables of examples");
         try
         {
             await db.DropTableAsync<Episode>();
@@ -500,6 +492,6 @@ internal class AppContext
             /* ignore */
         }
 
-        _logger.LogInformation("Dropped tables of examples");
+        logger.LogInformation("Dropped tables of examples");
     }
 }
