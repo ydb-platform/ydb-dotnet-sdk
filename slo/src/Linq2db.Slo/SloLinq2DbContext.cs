@@ -63,13 +63,20 @@ CREATE TABLE `{SloTable.Name}` (
         await using var db = client.Open();
         db.CommandTimeout = writeTimeout;
 
-        // rowsAffected >= 0 (для UPSERT в YDB может быть 0), поэтому страхуемся и возвращаем минимум 1
-        var rowsAffected = await db.ExecuteAsync($@"
+        var sql = $@"
 UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
-VALUES ({sloTable.Guid}, {sloTable.Id}, {sloTable.PayloadStr}, {sloTable.PayloadDouble}, {sloTable.PayloadTimestamp});
-");
+VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
 
-        return rowsAffected > 0 ? rowsAffected : 1;
+        var affected = await db.ExecuteAsync(
+            sql,
+            new DataParameter("Guid",            sloTable.Guid,            DataType.Guid),
+            new DataParameter("Id",              sloTable.Id,              DataType.Int32),
+            new DataParameter("PayloadStr",      sloTable.PayloadStr,      DataType.NVarChar),
+            new DataParameter("PayloadDouble",   sloTable.PayloadDouble,   DataType.Double),
+            new DataParameter("PayloadTimestamp",sloTable.PayloadTimestamp,DataType.DateTime2)
+        );
+        
+        return affected > 0 ? affected : 1;
     }
 
     protected override async Task<object?> Select(Linq2dbClient client, (Guid Guid, int Id) select, int readTimeout)
