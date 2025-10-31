@@ -20,6 +20,7 @@ jobs:
           - AdoNet
           - Dapper
           - EF
+          - Linq2db.Slo
         include:
           - workload: AdoNet
             read_rps: 1000
@@ -28,6 +29,9 @@ jobs:
             read_rps: 1000
             write_rps: 100
           - workload: EF
+            read_rps: 1000
+            write_rps: 100
+          - workload: Linq2db.Slo
             read_rps: 1000
             write_rps: 100
     
