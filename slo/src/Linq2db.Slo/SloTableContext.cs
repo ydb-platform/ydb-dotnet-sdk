@@ -31,10 +31,8 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     {
         await using var db = client.Open();
         db.CommandTimeout = operationTimeout;
-
-        try
-        {
-            await db.ExecuteAsync($@"
+        
+        await db.ExecuteAsync($@"
 CREATE TABLE `{SloTable.Name}` (
     Guid             Uuid,
     Id               Int32,
@@ -43,14 +41,8 @@ CREATE TABLE `{SloTable.Name}` (
     PayloadTimestamp Timestamp,
     PRIMARY KEY (Guid, Id)
 )");
-        }
-        catch
-        {
-            // ignored
-        }
 
-        if (!string.IsNullOrWhiteSpace(SloTable.Options))
-            await db.ExecuteAsync(SloTable.Options);
+        await db.ExecuteAsync(SloTable.Options);
     }
 
     protected override async Task<int> Save(Linq2dbClient client, SloTable sloTable, int writeTimeout)
