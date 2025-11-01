@@ -45,28 +45,28 @@ internal class YdbPrimitiveTypeInfo
 
     internal static YdbPrimitiveTypeInfo? TryResolve(System.Type type)
     {
-        if (type == typeof(bool)) return Bool;
+        if (type.IsAssignableFrom(typeof(bool))) return Bool;
 
-        if (type == typeof(sbyte)) return Int8;
-        if (type == typeof(short)) return Int16;
-        if (type == typeof(int)) return Int32;
-        if (type == typeof(long)) return Int64;
+        if (type.IsAssignableFrom(typeof(sbyte))) return Int8;
+        if (type.IsAssignableFrom(typeof(short))) return Int16;
+        if (type.IsAssignableFrom(typeof(int))) return Int32;
+        if (type.IsAssignableFrom(typeof(long))) return Int64;
 
-        if (type == typeof(byte)) return Uint8;
-        if (type == typeof(ushort)) return Uint16;
-        if (type == typeof(uint)) return Uint32;
-        if (type == typeof(ulong)) return Uint64;
+        if (type.IsAssignableFrom(typeof(byte))) return Uint8;
+        if (type.IsAssignableFrom(typeof(ushort))) return Uint16;
+        if (type.IsAssignableFrom(typeof(uint))) return Uint32;
+        if (type.IsAssignableFrom(typeof(ulong))) return Uint64;
 
-        if (type == typeof(float)) return Float;
-        if (type == typeof(double)) return Double;
+        if (type.IsAssignableFrom(typeof(float))) return Float;
+        if (type.IsAssignableFrom(typeof(double))) return Double;
 
-        if (type == typeof(byte[]) || type == typeof(MemoryStream)) return Bytes;
-        if (type == typeof(string)) return Text;
-        if (type == typeof(Guid)) return Uuid;
+        if (type.IsAssignableFrom(typeof(byte[])) || type.IsAssignableFrom(typeof(MemoryStream))) return Bytes;
+        if (type.IsAssignableFrom(typeof(string))) return Text;
+        if (type.IsAssignableFrom(typeof(Guid))) return Uuid;
 
-        if (type == typeof(DateOnly)) return Date;
-        if (type == typeof(DateTime)) return Timestamp;
-        if (type == typeof(TimeSpan)) return Interval;
+        if (type.IsAssignableFrom(typeof(DateOnly))) return Date;
+        if (type.IsAssignableFrom(typeof(DateTime))) return Timestamp;
+        if (type.IsAssignableFrom(typeof(TimeSpan))) return Interval;
 
         return null;
     }

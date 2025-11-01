@@ -14,41 +14,23 @@ public class DapperIntegrationTests : TestBase
     [Fact]
     public async Task DapperYqlTutorialTests()
     {
-        SqlMapper.SetTypeMap(
-            typeof(Episode),
-            new CustomPropertyTypeMap(
-                typeof(Episode),
-                (type, columnName) =>
-                    type.GetProperties().FirstOrDefault(prop =>
-                        prop.GetCustomAttributes(false)
-                            .OfType<ColumnAttribute>()
-                            .Any(attr => attr.Name == columnName)) ?? throw new InvalidOperationException()));
+        SqlMapper.SetTypeMap(typeof(Episode), new CustomPropertyTypeMap(typeof(Episode), (type, columnName) =>
+            type.GetProperties().FirstOrDefault(prop => prop.GetCustomAttributes(false)
+                .OfType<ColumnAttribute>()
+                .Any(attr => attr.Name == columnName)) ?? throw new InvalidOperationException()));
 
         await using var connection = await CreateOpenConnectionAsync();
         await connection.ExecuteAsync(Tables.CreateTables); // create tables
         await connection.ExecuteAsync(Tables.UpsertData); // adding data to table
-        var selectedEpisodes = (await connection.QueryAsync<Episode>($@"
-SELECT
-   series_id,
-   season_id,
-   episode_id,
-   title,
-   air_date
-
-FROM {Tables.Episodes}
-WHERE
-   series_id = @series_id     -- List of conditions to build the result
-   AND season_id > @season_id  -- Logical AND is used for complex conditions
-
-ORDER BY              -- Sorting the results.
-   series_id,         -- ORDER BY sorts the values by one or multiple
-   season_id,         -- columns. Columns are separated by commas.
-   episode_id
-
-LIMIT 3               -- LIMIT N after ORDER BY means
-                      -- ""get top N"" or ""get bottom N"" results,
-;                     -- depending on sort order.
- ", new { series_id = 1, season_id = 1 })).ToArray();
+        var selectedEpisodes = (await connection.QueryAsync<Episode>(
+                $"""
+                 SELECT series_id, season_id, episode_id, title, air_date
+                 FROM {Tables.Episodes}
+                 WHERE series_id = @series_id AND season_id > @season_id
+                 ORDER BY series_id, season_id, episode_id
+                 LIMIT 3;
+                 """, new { series_id = 1, season_id = 1 }))
+            .ToArray();
 
         Assert.Equal(
             new[]
@@ -71,24 +53,14 @@ LIMIT 3               -- LIMIT N after ORDER BY means
             }, selectedEpisodes);
 
 
-        var selectedTitlesSeasonAndSeries = (await connection.QueryAsync<dynamic>($@"
-SELECT
-    sa.title AS season_title,    -- sa and sr are ""join names"",
-    sr.title AS series_title,    -- table aliases declared below using AS.
-    sr.series_id,                -- They are used to avoid
-    sa.season_id                 -- ambiguity in the column names used.
-
-FROM
-    {Tables.Seasons} AS sa
-INNER JOIN
-    {Tables.Series} AS sr
-ON sa.series_id = sr.series_id
-WHERE sa.series_id = @series_id
-ORDER BY                         -- Sorting of the results.
-    sr.series_id,
-    sa.season_id                 -- ORDER BY sorts the values by one column
-;                                -- or multiple columns.
-                                 -- Columns are separated by commas.", new { series_id = 1 })).ToArray();
+        var selectedTitlesSeasonAndSeries = (await connection.QueryAsync<dynamic>(
+            $"""
+             SELECT sa.title AS season_title, sr.title AS series_title, sr.series_id, sa.season_id
+             FROM {Tables.Seasons} AS sa
+             INNER JOIN {Tables.Series} AS sr
+             ON sa.series_id = sr.series_id
+             WHERE sa.series_id = @series_id ORDER BY sr.series_id, sa.season_id;
+             """, new { series_id = 1 })).ToArray();
 
         for (var i = 0; i < selectedTitlesSeasonAndSeries.Length; i++)
         {
@@ -111,24 +83,11 @@ ORDER BY                         -- Sorting of the results.
         parameters1.Add("title", episode1.Title, DbType.String);
         parameters1.Add("air_date", episode1.AirDate, DbType.Date);
 
-        await connection.ExecuteAsync($@"
-UPSERT INTO {Tables.Episodes}
-(
-    series_id,
-    season_id,
-    episode_id,
-    title,
-    air_date
-)
-VALUES
-(
-    @series_id,
-    @season_id,
-    @episode_id,
-    @title,
-    @air_date
-);
-;", parameters1, transaction);
+        await connection.ExecuteAsync(
+            $"""
+             UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+             VALUES (@series_id, @season_id, @episode_id, @title,  @air_date );
+             """, parameters1, transaction);
         await using (var otherConn = await CreateOpenConnectionAsync())
         {
             Assert.Null(await otherConn.QuerySingleOrDefaultAsync(
@@ -164,32 +123,12 @@ VALUES
         await transaction.CommitAsync();
 
         var rollbackTransaction = connection.BeginTransaction();
-        await connection.ExecuteAsync($@"
-INSERT INTO {Tables.Episodes}
-(
-    series_id,
-    season_id,
-    episode_id,
-    title,
-    air_date
-)
-VALUES
-(
-    2,
-    5,
-    21,
-    ""Test 21"",
-    Date(""2018-08-27"")
-),                                        -- Rows are separated by commas.
-(
-    2,
-    5,
-    22,
-    ""Test 22"",
-    Date(""2018-08-27"")
-)
-;
-;", transaction: rollbackTransaction);
+        await connection.ExecuteAsync(
+            $"""
+             INSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date) VALUES 
+                 (2, 5, 21, "Test 21", Date("2018-08-27")),
+                 (2, 5, 22, "Test 22", Date("2018-08-27"));
+             """, transaction: rollbackTransaction);
         await rollbackTransaction.RollbackAsync();
 
         Assert.Equal((ulong)72, await connection.ExecuteScalarAsync<ulong>($"SELECT COUNT(*) FROM {Tables.Episodes}"));
@@ -203,37 +142,38 @@ VALUES
         var tableName = "DapperNullableTypes_" + Random.Shared.Next();
 
         await using var connection = await CreateOpenConnectionAsync();
-        await connection.ExecuteAsync(@$"
-CREATE TABLE {tableName} (
-    Id INT32,
-    BoolColumn BOOL,
-    LongColumn INT64,
-    ShortColumn INT16,
-    SbyteColumn INT8,
-    FloatColumn FLOAT,
-    DoubleColumn DOUBLE,
-    DecimalColumn DECIMAL(22,9),
-    ByteColumn UINT8,
-    UshortColumn UINT16,
-    UintColumn UINT32,
-    UlongColumn UINT64,
-    TextColumn TEXT,
-    BytesColumn BYTES,
-    TimestampColumn TIMESTAMP,
-    PRIMARY KEY (Id)
-)
-");
+        await connection.ExecuteAsync($"""
+                                       CREATE TABLE {tableName} (
+                                           Id INT32,
+                                           BoolColumn BOOL,
+                                           LongColumn INT64,
+                                           ShortColumn INT16,
+                                           SbyteColumn INT8,
+                                           FloatColumn FLOAT,
+                                           DoubleColumn DOUBLE,
+                                           DecimalColumn DECIMAL(22,9),
+                                           ByteColumn UINT8,
+                                           UshortColumn UINT16,
+                                           UintColumn UINT32,
+                                           UlongColumn UINT64,
+                                           TextColumn TEXT,
+                                           BytesColumn BYTES,
+                                           TimestampColumn TIMESTAMP,
+                                           PRIMARY KEY (Id)
+                                       )
+                                       """);
 
         var entity = new NullableFields();
         SqlMapper.AddTypeMap(typeof(DateTime), DbType.DateTime2);
 
-        await connection.ExecuteAsync($@"
-INSERT INTO {tableName} (Id, BoolColumn, LongColumn, ShortColumn, SbyteColumn, FloatColumn, DoubleColumn, DecimalColumn, 
-        ByteColumn, UshortColumn, UintColumn, UlongColumn, TextColumn, BytesColumn, TimestampColumn)
-VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn, 
-        @FloatColumn, @DoubleColumn, @DecimalColumn,
-        @ByteColumn, @UshortColumn, @UintColumn,
-        @UlongColumn, @TextColumn, @BytesColumn, @TimestampColumn)", entity);
+        await connection.ExecuteAsync(
+            $"""
+             INSERT INTO {tableName} (Id, BoolColumn, LongColumn, ShortColumn, SbyteColumn, FloatColumn, DoubleColumn, 
+             DecimalColumn, ByteColumn, UshortColumn, UintColumn, UlongColumn, TextColumn, BytesColumn, TimestampColumn)
+             VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn,  @FloatColumn, @DoubleColumn, 
+                     @DecimalColumn, @ByteColumn, @UshortColumn, @UintColumn, @UlongColumn, @TextColumn, @BytesColumn,
+                     @TimestampColumn)
+             """, entity);
 
         Assert.Equal(entity,
             await connection.QuerySingleAsync<NullableFields>($"SELECT * FROM {tableName} WHERE Id IS NULL"));
@@ -273,7 +213,7 @@ VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn,
         Assert.Equal("{a=1u}"u8.ToArray(), jsonModel.Yson);
     }
 
-    private class NullableFields
+    private record NullableFields
     {
 #pragma warning disable CollectionNeverQueried.Local
         public int? Id { get; init; }
@@ -294,7 +234,7 @@ VALUES (@Id, @BoolColumn, @LongColumn, @ShortColumn, @SbyteColumn,
 #pragma warning restore CollectionNeverQueried.Local
     }
 
-    private class Episode
+    private record Episode
     {
         [Column("series_id")] public uint SeriesId { get; init; }
         [Column("season_id")] public uint SeasonId { get; init; }

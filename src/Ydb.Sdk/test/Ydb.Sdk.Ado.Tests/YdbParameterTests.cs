@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Data;
 using System.Globalization;
 using Xunit;
@@ -186,11 +187,7 @@ public class YdbParameterTests : TestBase
             await new YdbCommand(ydbConnection)
             {
                 CommandText = $"SELECT d FROM {tableName} WHERE d IN @d;",
-                Parameters =
-                {
-                    new YdbParameter("d", YdbDbType.List | YdbDbType.Decimal, new[] { decimalValue })
-                        { Precision = precision, Scale = scale }
-                }
+                Parameters = { new YdbParameter("d", new[] { decimalValue }) { Precision = precision, Scale = scale } }
             }.ExecuteScalarAsync());
 
         // IN NULL always returns an empty result set
@@ -262,10 +259,8 @@ public class YdbParameterTests : TestBase
                 }
             }.ExecuteNonQueryAsync())).Message);
 
-        Assert.Equal(0ul,
-            (ulong)(await new YdbCommand(ydbConnection) { CommandText = $"SELECT COUNT(*) FROM {tableName};" }
-                .ExecuteScalarAsync())!
-        );
+        Assert.Equal(0ul, (ulong)(await new YdbCommand(ydbConnection)
+            { CommandText = $"SELECT COUNT(*) FROM {tableName};" }.ExecuteScalarAsync())!);
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
     }
@@ -475,5 +470,144 @@ public class YdbParameterTests : TestBase
         await ydbDataReader.CloseAsync();
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName}" }.ExecuteNonQueryAsync();
+    }
+
+    public static TheoryData<object, IList> NotNullListParams => new()
+    {
+        { YdbDbType.Bool, new List<bool> { false, true } },
+        { YdbDbType.Bool, (bool[])[false, true] },
+        { YdbDbType.Int8, new List<sbyte> { 1, 2, 3 } },
+        { YdbDbType.Int8, new sbyte[] { 1, 2, 3 } },
+        { YdbDbType.Int16, new List<short> { 1, 2, 3 } },
+        { YdbDbType.Int16, new short[] { 1, 2, 3 } },
+        { YdbDbType.Int32, new List<int> { 1, 2, 3 } },
+        { YdbDbType.Int32, (int[])[1, 2, 3] },
+        { YdbDbType.Int64, new List<long> { 1, 2, 3 } },
+        { YdbDbType.Int64, new long[] { 1, 2, 3 } },
+        { YdbDbType.Uint8, new List<byte> { 1, 2, 3 } },
+        { YdbDbType.Uint16, new List<ushort> { 1, 2, 3 } },
+        { YdbDbType.Uint16, new ushort[] { 1, 2, 3 } },
+        { YdbDbType.Uint32, new List<uint> { 1, 2, 3 } },
+        { YdbDbType.Uint32, new uint[] { 1, 2, 3 } },
+        { YdbDbType.Uint64, new List<ulong> { 1, 2, 3 } },
+        { YdbDbType.Uint64, new ulong[] { 1, 2, 3 } },
+        { YdbDbType.Float, new List<float> { 1, 2, 3 } },
+        { YdbDbType.Float, new float[] { 1, 2, 3 } },
+        { YdbDbType.Double, new List<double> { 1, 2, 3 } },
+        { YdbDbType.Double, new double[] { 1, 2, 3 } },
+        { "Decimal(22, 9)", new List<decimal> { 1, 2, 3 } },
+        { "Decimal(22, 9)", new decimal[] { 1, 2, 3 } },
+        { YdbDbType.Text, new List<string> { "1", "2", "3" } },
+        { YdbDbType.Text, (string[])["1", "2", "3"] },
+        { YdbDbType.Bytes, new List<byte[]> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 } } },
+        { YdbDbType.Bytes, (byte[][])[[1, 1], [2, 2], [3, 3]] },
+        {
+            YdbDbType.Timestamp,
+            new List<DateTime> { DateTime.Now.AddDays(1), DateTime.Now.AddDays(2), DateTime.Now.AddDays(3) }
+        },
+        {
+            YdbDbType.Timestamp,
+            (DateTime[])[DateTime.Now.AddDays(1), DateTime.Now.AddDays(2), DateTime.Now.AddDays(3)]
+        },
+        {
+            YdbDbType.Interval, (TimeSpan[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3)]
+        }
+    };
+
+    [Theory]
+    [MemberData(nameof(NotNullListParams))]
+    public async Task YdbParameter_WhenListOrArrayParams_AutoCastYdbList(object dbType, IList list)
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var testTable = $"auto_cast_ydb_list_{Guid.NewGuid()}";
+        await new YdbCommand(ydbConnection)
+                { CommandText = $"CREATE TABLE `{testTable}`(id Uuid, type {dbType}, PRIMARY KEY(id));" }
+            .ExecuteNonQueryAsync();
+        await new YdbCommand(ydbConnection)
+        {
+            CommandText =
+                $"INSERT INTO `{testTable}`(id, type) " +
+                "SELECT id, type FROM AS_TABLE(ListMap($list, ($x) -> { RETURN <|id: RandomUuid($x), type: $x|> }));",
+            Parameters = { new YdbParameter("list", list) }
+        }.ExecuteNonQueryAsync();
+
+        var readerAsync = await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"SELECT type FROM `{testTable}` WHERE type IN $list ORDER BY type",
+            Parameters = { new YdbParameter("list", list) }
+        }.ExecuteReaderAsync();
+
+        foreach (var id in list)
+        {
+            await readerAsync.ReadAsync();
+            Assert.Equal(id, readerAsync.GetValue(0));
+        }
+
+        Assert.False(await readerAsync.ReadAsync());
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE `{testTable}`" }.ExecuteNonQueryAsync();
+    }
+
+    public static TheoryData<object, IList> NullListParams => new()
+    {
+        { YdbDbType.Bool, new List<bool?> { false, true, null } },
+        { YdbDbType.Bool, (bool?[])[false, true, null] },
+        { YdbDbType.Int8, new List<sbyte?> { 1, 2, 3, null } },
+        { YdbDbType.Int8, new sbyte?[] { 1, 2, 3, null } },
+        { YdbDbType.Int16, new List<short?> { 1, 2, 3, null } },
+        { YdbDbType.Int16, new short?[] { 1, 2, 3, null } },
+        { YdbDbType.Int32, new List<int?> { 1, 2, 3, null } },
+        { YdbDbType.Int32, (int?[])[1, 2, 3, null] },
+        { YdbDbType.Int64, new List<long?> { 1, 2, 3, null } },
+        { YdbDbType.Int64, new long?[] { 1, 2, 3, null } },
+        { YdbDbType.Uint8, new List<byte?> { 1, 2, 3, null } },
+        { YdbDbType.Uint16, new List<ushort?> { 1, 2, 3, null } },
+        { YdbDbType.Uint16, new ushort?[] { 1, 2, 3, null } },
+        { YdbDbType.Uint32, new List<uint?> { 1, 2, 3, null } },
+        { YdbDbType.Uint32, new uint?[] { 1, 2, 3, null } },
+        { YdbDbType.Uint64, new List<ulong?> { 1, 2, 3, null } },
+        { YdbDbType.Uint64, new ulong?[] { 1, 2, 3, null } },
+        { YdbDbType.Float, new List<float?> { 1, 2, 3, null } },
+        { YdbDbType.Float, new float?[] { 1, 2, 3, null } },
+        { YdbDbType.Double, new List<double?> { 1, 2, 3, null } },
+        { YdbDbType.Double, new double?[] { 1, 2, 3, null } },
+        { "Decimal(22, 9)", new List<decimal?> { 1, 2, 3, null } },
+        { "Decimal(22, 9)", new decimal?[] { 1, 2, 3, null } },
+        { YdbDbType.Text, new List<string?> { "1", "2", "3", null } },
+        { YdbDbType.Text, (string?[])["1", "2", "3", null] },
+        { YdbDbType.Bytes, new List<byte[]?> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 }, null } },
+        { YdbDbType.Bytes, (byte[]?[])[[1, 1], [2, 2], [3, 3], null] },
+        {
+            YdbDbType.Timestamp,
+            (DateTime?[])[DateTime.Now.AddDays(1), DateTime.Now.AddDays(2), DateTime.Now.AddDays(3), null]
+        },
+        { YdbDbType.Interval, (TimeSpan?[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null] }
+    };
+
+    [Theory]
+    [MemberData(nameof(NullListParams))]
+    public async Task YdbParameter_WhenNullableListOrArrayParams_AutoCastYdbList(object dbType, IList list)
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var testTable = $"auto_cast_ydb_nullable_list_{Guid.NewGuid()}";
+        await new YdbCommand(ydbConnection)
+                { CommandText = $"CREATE TABLE `{testTable}`(id Uuid, type {dbType}, PRIMARY KEY(id));" }
+            .ExecuteNonQueryAsync();
+        await new YdbCommand(ydbConnection)
+        {
+            CommandText =
+                $"INSERT INTO `{testTable}`(id, type) " +
+                "SELECT id, type FROM AS_TABLE(ListMap($list, ($x) -> { RETURN <|id: RandomUuid($x), type: $x|> }));",
+            Parameters = { new YdbParameter("list", list) }
+        }.ExecuteNonQueryAsync();
+
+        var count = await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"SELECT COUNT(*) FROM `{testTable}` WHERE type IN $list",
+            Parameters = { new YdbParameter("list", list) }
+        }.ExecuteScalarAsync();
+
+        Assert.Equal((ulong)list.Count - 1, count);
+
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE `{testTable}`" }.ExecuteNonQueryAsync();
     }
 }

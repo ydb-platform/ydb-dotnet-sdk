@@ -267,7 +267,7 @@ public sealed class YdbParameter : DbParameter
             { Type = YdbPrimitiveTypeInfo.Timestamp.YdbType, Value = PackTimestamp(dateTimeValue) },
         DateOnly dateOnlyValue => new TypedValue
             { Type = YdbPrimitiveTypeInfo.Date.YdbType, Value = PackDate(dateOnlyValue.ToDateTime(TimeOnly.MinValue)) },
-        byte[] bytesValue => new TypedValue
+        byte[] bytesValue when value.GetType().GetElementType() == typeof(byte) /* array covariance */ => new TypedValue
             { Type = YdbPrimitiveTypeInfo.Bytes.YdbType, Value = PackBytes(bytesValue) },
         string stringValue => new TypedValue
             { Type = YdbPrimitiveTypeInfo.Text.YdbType, Value = PackText(stringValue) },
@@ -315,7 +315,7 @@ public sealed class YdbParameter : DbParameter
             return new TypedValue { Type = type.ListType(), Value = value };
         }
 
-        if (ydbDbType == YdbDbType.Decimal || elementType == typeof(decimal))
+        if (ydbDbType == YdbDbType.Decimal || elementType.IsAssignableFrom(typeof(decimal)))
         {
             var value = new Ydb.Value();
             var isOptional = false;
@@ -344,7 +344,8 @@ public sealed class YdbParameter : DbParameter
             return new TypedValue { Type = type.ListType(), Value = value };
         }
 
-        return (from object? item in items select PackObject(item)).ToArray().List();
+        return (from object? item in items select PackObject(item ?? throw ValueTypeNotSupportedException)).ToArray()
+            .List();
     }
 
     private InvalidOperationException ValueTypeNotSupportedException =>
