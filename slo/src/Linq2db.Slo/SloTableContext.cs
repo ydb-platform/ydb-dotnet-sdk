@@ -1,10 +1,10 @@
-﻿using LinqToDB;
-using LinqToDB.Data;
-using LinqToDB.Mapping;
-using Internal;
+﻿using Internal;
 using Linq2db.Ydb;
 using Linq2db.Ydb.Internal;
+using LinqToDB;
 using LinqToDB.Async;
+using LinqToDB.Data;
+using LinqToDB.Mapping;
 
 namespace Linq2db;
 
@@ -18,16 +18,10 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         DataConnection.AddProviderDetector(YdbTools.ProviderDetector);
     }
 
-    public sealed class Linq2dbClient
+    public sealed class Linq2dbClient(string connectionString)
     {
-        private readonly string _connectionString;
-
-        public Linq2dbClient(string connectionString)
-        {
-            _connectionString = connectionString;
-        }
-
-        public DataConnection Open() => new("YDB", _connectionString);
+        public DataConnection Open()
+            => new(new DataOptions().UseConnectionString("YDB", connectionString));
     }
 
     protected override Linq2dbClient CreateClient(Config config) => new(config.ConnectionString);
@@ -38,14 +32,14 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         db.CommandTimeout = operationTimeout;
 
         await db.ExecuteAsync($@"
-CREATE TABLE `{SloTable.Name}` (
-    Guid             Uuid,
-    Id               Int32,
-    PayloadStr       Text,
-    PayloadDouble    Double,
-    PayloadTimestamp Timestamp,
-    PRIMARY KEY (Guid, Id)
-)");
+            CREATE TABLE `{SloTable.Name}` (
+                Guid             Uuid,
+                Id               Int32,
+                PayloadStr       Text,
+                PayloadDouble    Double,
+                PayloadTimestamp Timestamp,
+                PRIMARY KEY (Guid, Id)
+            )");
 
         await db.ExecuteAsync(SloTable.Options);
     }
@@ -77,7 +71,20 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
         db.CommandTimeout = readTimeout;
 
         var t = db.GetTable<SloRow>();
-        return await t.FirstOrDefaultAsync(r => r.Guid == select.Guid && r.Id == select.Id);
+
+        var row = await t
+            .Where(r => r.Guid == select.Guid && r.Id == select.Id)
+            .Select(r => new
+            {
+                r.Guid,
+                r.Id,
+                r.PayloadStr,
+                r.PayloadDouble,
+                r.PayloadTimestamp
+            })
+            .FirstOrDefaultAsync();
+
+        return row;
     }
 
     protected override async Task<int> SelectCount(Linq2dbClient client)
@@ -87,12 +94,12 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
     }
 
     [Table(SloTable.Name)]
-    private sealed class SloRow
+    private sealed class SloRow(Guid guid, int id, string? payloadStr, double payloadDouble, DateTime payloadTimestamp)
     {
-        [Column] public Guid Guid { get; set; }
-        [Column] public int Id { get; set; }
-        [Column] public string? PayloadStr { get; set; }
-        [Column] public double PayloadDouble { get; set; }
-        [Column] public DateTime PayloadTimestamp { get; set; }
+        [Column] public Guid Guid { get; } = guid;
+        [Column] public int Id { get; } = id;
+        [Column] public string? PayloadStr { get; } = payloadStr;
+        [Column] public double PayloadDouble { get; } = payloadDouble;
+        [Column] public DateTime PayloadTimestamp { get; } = payloadTimestamp;
     }
 }
