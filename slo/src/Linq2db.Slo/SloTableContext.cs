@@ -21,8 +21,13 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     public sealed class Linq2dbClient
     {
         private readonly string _connectionString;
-        public Linq2dbClient(string connectionString) => _connectionString = connectionString;
-        public DataConnection Open() => new DataConnection("YDB", _connectionString);
+
+        public Linq2dbClient(string connectionString)
+        {
+            _connectionString = connectionString;
+        }
+
+        public DataConnection Open() => new("YDB", _connectionString);
     }
 
     protected override Linq2dbClient CreateClient(Config config) => new(config.ConnectionString);
@@ -31,7 +36,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     {
         await using var db = client.Open();
         db.CommandTimeout = operationTimeout;
-        
+
         await db.ExecuteAsync($@"
 CREATE TABLE `{SloTable.Name}` (
     Guid             Uuid,
@@ -56,13 +61,13 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
 
         var affected = await db.ExecuteAsync(
             sql,
-            new DataParameter("Guid",            sloTable.Guid,            DataType.Guid),
-            new DataParameter("Id",              sloTable.Id,              DataType.Int32),
-            new DataParameter("PayloadStr",      sloTable.PayloadStr,      DataType.NVarChar),
-            new DataParameter("PayloadDouble",   sloTable.PayloadDouble,   DataType.Double),
-            new DataParameter("PayloadTimestamp",sloTable.PayloadTimestamp,DataType.DateTime2)
+            new DataParameter("Guid", sloTable.Guid, DataType.Guid),
+            new DataParameter("Id", sloTable.Id, DataType.Int32),
+            new DataParameter("PayloadStr", sloTable.PayloadStr, DataType.NVarChar),
+            new DataParameter("PayloadDouble", sloTable.PayloadDouble, DataType.Double),
+            new DataParameter("PayloadTimestamp", sloTable.PayloadTimestamp, DataType.DateTime2)
         );
-        
+
         return affected > 0 ? affected : 1;
     }
 
@@ -86,8 +91,8 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
     {
         [Column] public Guid Guid { get; set; }
         [Column] public int Id { get; set; }
-        [Column] public string?  PayloadStr { get; set; }
-        [Column] public double   PayloadDouble { get; set; }
+        [Column] public string? PayloadStr { get; set; }
+        [Column] public double PayloadDouble { get; set; }
         [Column] public DateTime PayloadTimestamp { get; set; }
     }
 }
