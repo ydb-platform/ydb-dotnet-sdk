@@ -222,6 +222,24 @@ public class YdbCommandTests : TestBase
     }
 
     [Fact]
+    public async Task ExecuteReaderAsync_WhenParamsHaveNullOrNotNullTypes_ThrowArgumentException()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => new YdbCommand(ydbConnection)
+        {
+            CommandText = "SELECT * FROM T WHERE Ids in (@id1, @id2);",
+            Parameters =
+            {
+                new YdbParameter("id1", DbType.Int32),
+                new YdbParameter("id2", DbType.Int32, 1)
+            }
+        }.ExecuteReaderAsync());
+        Assert.Equal("All elements in the list must have the same type. " +
+                     "Expected: { \"optionalType\": { \"item\": { \"typeId\": \"INT32\" } } }, " +
+                     "actual: { \"typeId\": \"INT32\" }", ex.Message);
+    }
+
+    [Fact]
     public async Task ExecuteReaderAsync_WhenEmptyList_ReturnEmptyResultSet()
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();

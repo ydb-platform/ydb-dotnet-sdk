@@ -228,7 +228,7 @@ public enum YdbDbType
     /// another type. This value must be combined with another value from <see cref="YdbDbType"/>
     /// via a bit OR (e.g. YdbDbType.List | YdbDbType.Int32)
     /// </summary>
-    List = int.MinValue,
+    List = int.MinValue
 }
 
 internal static class YdbDbTypeExtensions
@@ -291,6 +291,6 @@ internal static class YdbDbTypeExtensions
     };
 
     internal static string ToYdbTypeName(this YdbDbType ydbDbType) => ydbDbType.HasFlag(YdbDbType.List)
-        ? $"List<${~YdbDbType.List & ydbDbType}>"
+        ? $"List<{~YdbDbType.List & ydbDbType}>"
         : ydbDbType.ToString();
 }
