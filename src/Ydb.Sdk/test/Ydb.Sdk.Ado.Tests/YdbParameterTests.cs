@@ -696,7 +696,7 @@ public class YdbParameterTests : TestBase
 
         Assert.Equal(3ul, count);
         Assert.Equal(list.Count, await new YdbCommand(ydbConnection)
-            { CommandText = $"SELECT COUNT(*) FROM `{testTable}`" }.ExecuteNonQueryAsync());
+            { CommandText = $"SELECT COUNT(*) FROM `{testTable}`" }.ExecuteScalarAsync());
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE `{testTable}`" }.ExecuteNonQueryAsync();
     }
