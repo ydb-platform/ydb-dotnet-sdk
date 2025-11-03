@@ -1,3 +1,9 @@
+- **Breaking Change**: Renamed `YdbDbType` enum members to match the [ydb.tech](https://ydb.tech/docs/en/yql/reference/types/primitive) naming:
+    - `UInt8` -> `Uint8`.
+    - `UInt16` -> `Uint16`.
+    - `UInt32` -> `Uint32`.
+    - `Uint64` -> `Uint64`.
+    - `DateTime` -> `Datetime`.
 - **Breaking Change**: Removed unused methods `GetJson`, `GetJsonDocument`, and `GetYson` from YdbDataReader.
 - Feat ADO.NET: Add support for reading `Yson` from `YdbDataReader.GetBytes`.
 - Feat ADO.NET: Add support for reading `Json` and `JsonDocument` from `YdbDataReader.GetString`.

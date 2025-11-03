@@ -285,6 +285,7 @@ public sealed class YdbParameter : DbParameter
     private TypedValue PackList(IList items, YdbDbType ydbDbType = YdbDbType.Unspecified)
     {
         var elementType = GetElementType(items) ?? throw ValueTypeNotSupportedException;
+        elementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
         var primitiveTypeInfo = ydbDbType.PrimitiveTypeInfo() ?? YdbPrimitiveTypeInfo.TryResolve(elementType);
 
         if (primitiveTypeInfo != null)
@@ -314,7 +315,7 @@ public sealed class YdbParameter : DbParameter
             return new TypedValue { Type = type.ListType(), Value = value };
         }
 
-        if (ydbDbType == YdbDbType.Decimal || elementType.IsAssignableFrom(typeof(decimal)))
+        if (ydbDbType == YdbDbType.Decimal || elementType == typeof(decimal))
         {
             var value = new Ydb.Value();
             var isOptional = false;
@@ -343,8 +344,11 @@ public sealed class YdbParameter : DbParameter
             return new TypedValue { Type = type.ListType(), Value = value };
         }
 
-        return (from object? item in items select PackObject(item ?? throw ValueTypeNotSupportedException)).ToArray()
-            .List();
+        return (from object? item in items
+                select PackObject(item ?? throw new ArgumentException(
+                    $"Collection of type '{items.GetType()}' contains null. " +
+                    $"Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) or use a strongly-typed collection (e.g., List<T?>)."))
+            ).ToArray().List();
     }
 
     private InvalidOperationException ValueTypeNotSupportedException =>
