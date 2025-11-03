@@ -505,6 +505,8 @@ public class YdbParameterTests : TestBase
         { YdbDbType.Text, (string[])["1", "2", "3"] },
         { YdbDbType.Bytes, new List<byte[]> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 } } },
         { YdbDbType.Bytes, (byte[][])[[1, 1], [2, 2], [3, 3]] },
+        { YdbDbType.Date, new List<DateOnly> { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) } },
+        { YdbDbType.Date, new DateOnly[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) } },
         {
             YdbDbType.Timestamp,
             new List<DateTime> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3) }
@@ -542,6 +544,11 @@ public class YdbParameterTests : TestBase
         { YdbDbType.Text, (string?[])["1", "2", "3", null] },
         { YdbDbType.Bytes, new List<byte[]?> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 }, null } },
         { YdbDbType.Bytes, (byte[]?[])[[1, 1], [2, 2], [3, 3], null] },
+        {
+            YdbDbType.Date, new List<DateOnly?>
+                { new DateOnly(2001, 2, 26), new DateOnly(2002, 2, 24), new DateOnly(2010, 3, 14), null }
+        },
+        { YdbDbType.Date, new DateOnly?[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14), null } },
         {
             YdbDbType.Timestamp,
             new List<DateTime?> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null }
