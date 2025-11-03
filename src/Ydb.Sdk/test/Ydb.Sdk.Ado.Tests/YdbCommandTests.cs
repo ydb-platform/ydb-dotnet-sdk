@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Data;
 using Xunit;
 using Ydb.Sdk.Value;
@@ -8,30 +7,27 @@ namespace Ydb.Sdk.Ado.Tests;
 public class YdbCommandTests : TestBase
 {
     [Theory]
-    [ClassData(typeof(TestDataGenerator))]
-    public async Task ExecuteScalarAsync_WhenSetYdbParameter_ReturnThisValue<T>(Data<T> data)
+    [MemberData(nameof(DbTypeTestCases))]
+    [MemberData(nameof(DbTypeTestNullCases))]
+    public async Task ExecuteScalarAsync_WhenSetYdbParameter_ReturnThisValue(DbType dbType, object? value,
+        bool isNullable)
     {
         await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = "SELECT @var as var;";
 
         var dbParameter = new YdbParameter
-        {
-            ParameterName = "var",
-            DbType = data.DbType,
-            Value = data.Expected,
-            IsNullable = data.IsNullable
-        };
+            { ParameterName = "var", DbType = dbType, Value = value, IsNullable = isNullable };
 
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected == null ? DBNull.Value : data.Expected, await dbCommand.ExecuteScalarAsync());
+        Assert.Equal(value ?? DBNull.Value, await dbCommand.ExecuteScalarAsync());
         var ydbDataReader = await dbCommand.ExecuteReaderAsync();
         Assert.Equal(1, ydbDataReader.FieldCount);
         Assert.Equal("var", ydbDataReader.GetName(0));
-        if (!data.IsNullable)
+        if (value != null)
         {
-            Assert.Equal(typeof(T), ydbDataReader.GetFieldType(0));
+            Assert.Equal(value.GetType(), ydbDataReader.GetFieldType(0));
         }
 
         while (await ydbDataReader.NextResultAsync())
@@ -40,23 +36,20 @@ public class YdbCommandTests : TestBase
     }
 
     [Theory]
-    [ClassData(typeof(TestDataGenerator))]
-    public async Task ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue<T>(Data<T> data)
+    [MemberData(nameof(DbTypeTestCases))]
+    [MemberData(nameof(DbTypeTestNullCases))]
+    public async Task ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue(DbType dbType, object? value,
+        bool isNullable)
     {
         await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = "SELECT @var;";
 
         var dbParameter = new YdbParameter
-        {
-            ParameterName = "@var",
-            DbType = data.DbType,
-            Value = data.Expected,
-            IsNullable = data.IsNullable
-        };
+            { ParameterName = "@var", DbType = dbType, Value = value, IsNullable = isNullable };
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected == null ? DBNull.Value : data.Expected, await dbCommand.ExecuteScalarAsync());
+        Assert.Equal(value ?? DBNull.Value, await dbCommand.ExecuteScalarAsync());
     }
 
     [Fact]
@@ -83,14 +76,9 @@ public class YdbCommandTests : TestBase
     }
 
     [Theory]
-    [ClassData(typeof(TestDataGenerator))]
-    public async Task ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue<T>(Data<T> data)
+    [MemberData(nameof(DbTypeTestCases))]
+    public async Task ExecuteScalarAsync_WhenDbTypeIsObject_ReturnThisValue(DbType _, object value, bool isNullable)
     {
-        if (data.IsNullable)
-        {
-            return;
-        }
-
         await using var connection = await CreateOpenConnectionAsync();
         var dbCommand = connection.CreateCommand();
         dbCommand.CommandText = "SELECT @var;";
@@ -98,12 +86,12 @@ public class YdbCommandTests : TestBase
         var dbParameter = new YdbParameter
         {
             ParameterName = "@var",
-            Value = data.Expected,
-            IsNullable = data.IsNullable
+            Value = value,
+            IsNullable = isNullable
         };
         dbCommand.Parameters.Add(dbParameter);
 
-        Assert.Equal(data.Expected, await dbCommand.ExecuteScalarAsync());
+        Assert.Equal(value, await dbCommand.ExecuteScalarAsync());
     }
 
     [Fact]
@@ -177,7 +165,6 @@ public class YdbCommandTests : TestBase
         Assert.True(ydbDataReader.IsClosed);
     }
 
-
     [Fact]
     public async Task ExecuteScalar_WhenSelectNull_ReturnDbNull()
     {
@@ -204,6 +191,56 @@ public class YdbCommandTests : TestBase
             .ExecuteScalarAsync());
     }
 
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenParamsHaveDifferentTypes_ThrowArgumentException()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => new YdbCommand(ydbConnection)
+        {
+            CommandText = "SELECT * FROM T WHERE Ids in (@id1, @id2);",
+            Parameters =
+            {
+                new YdbParameter("id1", DbType.String, "text"),
+                new YdbParameter("id2", DbType.Int32, 1)
+            }
+        }.ExecuteReaderAsync());
+        Assert.Equal("All elements in the list must have the same type. " +
+                     "Expected: { \"typeId\": \"UTF8\" }, actual: { \"typeId\": \"INT32\" }", ex.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenParamsHaveNullOrNotNullTypes_ThrowArgumentException()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => new YdbCommand(ydbConnection)
+        {
+            CommandText = "SELECT * FROM T WHERE Ids in (@id1, @id2);",
+            Parameters =
+            {
+                new YdbParameter("id1", DbType.Int32),
+                new YdbParameter("id2", DbType.Int32, 1)
+            }
+        }.ExecuteReaderAsync());
+        Assert.Equal("All elements in the list must have the same type. " +
+                     "Expected: { \"optionalType\": { \"item\": { \"typeId\": \"INT32\" } } }, " +
+                     "actual: { \"typeId\": \"INT32\" }", ex.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenEmptyList_ReturnEmptyResultSet()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var tempTable = $"temp_table_{Guid.NewGuid()}";
+        await new YdbCommand(ydbConnection) { CommandText = $"CREATE TABLE `{tempTable}` (a Int32, PRIMARY KEY (a));" }
+            .ExecuteNonQueryAsync();
+        await new YdbCommand(ydbConnection) { CommandText = $"INSERT INTO `{tempTable}` (a) VALUES (1);" }
+            .ExecuteNonQueryAsync();
+        var reader = await new YdbCommand(ydbConnection) { CommandText = $"SELECT * FROM `{tempTable}` WHERE a IN ()" }
+            .ExecuteReaderAsync();
+        Assert.False(await reader.ReadAsync());
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE `{tempTable}`" }.ExecuteNonQueryAsync();
+    }
+
     public class Data<T>(DbType dbType, T expected, bool isNullable = false)
     {
         public bool IsNullable { get; } = isNullable || expected == null;
@@ -211,75 +248,87 @@ public class YdbCommandTests : TestBase
         public T Expected { get; } = expected;
     }
 
-    private class TestDataGenerator : IEnumerable<object[]>
+
+    public static readonly TheoryData<DbType, object, bool> DbTypeTestCases = new()
     {
-        private readonly List<object[]> _data =
-        [
-            new object[] { new Data<bool>(DbType.Boolean, true) },
-            new object[] { new Data<bool>(DbType.Boolean, false) },
-            new object[] { new Data<bool?>(DbType.Boolean, true, true) },
-            new object[] { new Data<bool?>(DbType.Boolean, false, true) },
-            new object[] { new Data<bool?>(DbType.Boolean, null) },
-            new object[] { new Data<sbyte>(DbType.SByte, -1) },
-            new object[] { new Data<sbyte?>(DbType.SByte, -2, true) },
-            new object[] { new Data<sbyte?>(DbType.SByte, null) },
-            new object[] { new Data<byte>(DbType.Byte, 200) },
-            new object[] { new Data<byte?>(DbType.Byte, 228, true) },
-            new object[] { new Data<byte?>(DbType.Byte, null) },
-            new object[] { new Data<short>(DbType.Int16, 14000) },
-            new object[] { new Data<short?>(DbType.Int16, 14000, true) },
-            new object[] { new Data<short?>(DbType.Int16, null) },
-            new object[] { new Data<ushort>(DbType.UInt16, 40_000) },
-            new object[] { new Data<ushort?>(DbType.UInt16, 40_000, true) },
-            new object[] { new Data<ushort?>(DbType.UInt16, null) },
-            new object[] { new Data<int>(DbType.Int32, -40_000) },
-            new object[] { new Data<int?>(DbType.Int32, -40_000, true) },
-            new object[] { new Data<int?>(DbType.Int32, null) },
-            new object[] { new Data<uint>(DbType.UInt32, 4_000_000_000) },
-            new object[] { new Data<uint?>(DbType.UInt32, 4_000_000_000, true) },
-            new object[] { new Data<uint?>(DbType.UInt32, null) },
-            new object[] { new Data<long>(DbType.Int64, -4_000_000_000) },
-            new object[] { new Data<long?>(DbType.Int64, -4_000_000_000, true) },
-            new object[] { new Data<long?>(DbType.Int64, null) },
-            new object[] { new Data<ulong>(DbType.UInt64, 10_000_000_000ul) },
-            new object[] { new Data<ulong?>(DbType.UInt64, 10_000_000_000ul, true) },
-            new object[] { new Data<ulong?>(DbType.UInt64, null) },
-            new object[] { new Data<float>(DbType.Single, -1.7f) },
-            new object[] { new Data<float?>(DbType.Single, -1.7f, true) },
-            new object[] { new Data<float?>(DbType.Single, null) },
-            new object[] { new Data<double>(DbType.Double, 123.45) },
-            new object[] { new Data<double?>(DbType.Double, 123.45, true) },
-            new object[] { new Data<double?>(DbType.Double, null) },
-            new object[] { new Data<Guid>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B")) },
-            new object[] { new Data<Guid?>(DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"), true) },
-            new object[] { new Data<Guid?>(DbType.Guid, null) },
-            new object[] { new Data<DateTime>(DbType.Date, new DateTime(2021, 08, 21)) },
-            new object[] { new Data<DateTime?>(DbType.Date, new DateTime(2021, 08, 21), true) },
-            new object[] { new Data<DateTime?>(DbType.Date, null) },
-            new object[] { new Data<DateTime>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47)) },
-            new object[] { new Data<DateTime?>(DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47), true) },
-            new object[] { new Data<DateTime?>(DbType.DateTime, null) },
-            new object[] { new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-03T06:59:44.8578730Z")) },
-            new object[] { new Data<DateTime>(DbType.DateTime2, DateTime.Parse("2029-08-09T17:15:29.6935850Z")) },
-            new object[]
-            {
-                new Data<DateTime?>(DbType.DateTime2, new DateTime(2021, 08, 21, 23, 30, 47, 581, DateTimeKind.Local),
-                    true)
-            },
-            new object[] { new Data<DateTime?>(DbType.DateTime2, null) },
-            new object[] { new Data<byte[]>(DbType.Binary, "test str"u8.ToArray()) },
-            new object[] { new Data<byte[]?>(DbType.Binary, "test str"u8.ToArray(), true) },
-            new object[] { new Data<byte[]?>(DbType.Binary, null) },
-            new object[] { new Data<string>(DbType.String, "unicode str") },
-            new object[] { new Data<string?>(DbType.String, "unicode str", true) },
-            new object[] { new Data<string?>(DbType.String, null) },
-            new object[] { new Data<decimal>(DbType.Decimal, -18446744073.709551616m) },
-            new object[] { new Data<decimal?>(DbType.Decimal, -18446744073.709551616m, true) },
-            new object[] { new Data<decimal?>(DbType.Decimal, null) }
-        ];
+        { DbType.Boolean, true, false },
+        { DbType.Boolean, false, false },
+        { DbType.Boolean, true, true },
+        { DbType.Boolean, false, true },
+        { DbType.SByte, (sbyte)-1, false },
+        { DbType.SByte, (sbyte)-2, true },
+        { DbType.Byte, (byte)200, false },
+        { DbType.Byte, (byte)228, true },
+        { DbType.Int16, (short)14000, false },
+        { DbType.Int16, (short)14000, true },
+        { DbType.UInt16, (ushort)40_000, false },
+        { DbType.UInt16, (ushort)40_000, true },
+        { DbType.Int32, -40_000, false },
+        { DbType.Int32, -40_000, true },
+        { DbType.UInt32, 4_000_000_000, true },
+        { DbType.UInt32, 4_000_000_000, true },
+        { DbType.Int64, -4_000_000_000, false },
+        { DbType.Int64, -4_000_000_000, true },
+        { DbType.UInt64, 10_000_000_000ul, false },
+        { DbType.UInt64, 10_000_000_000ul, true },
+        { DbType.Single, -1.7f, false },
+        { DbType.Single, -1.7f, true },
+        { DbType.Double, 123.45, false },
+        { DbType.Double, 123.45, true },
+        { DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"), false },
+        { DbType.Guid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"), true },
+        { DbType.Date, new DateTime(2021, 08, 21), false },
+        { DbType.Date, new DateTime(2021, 08, 21), true },
+        { DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47), false },
+        { DbType.DateTime, new DateTime(2021, 08, 21, 23, 30, 47), true },
+        { DbType.DateTime2, DateTime.Parse("2029-08-03T06:59:44.8578730Z"), false },
+        { DbType.DateTime2, DateTime.Parse("2029-08-09T17:15:29.6935850Z"), false },
+        { DbType.DateTime2, new DateTime(2021, 08, 21, 23, 30, 47, 581, DateTimeKind.Local), true },
+        { DbType.Binary, "test str"u8.ToArray(), false },
+        { DbType.Binary, "test str"u8.ToArray(), true },
+        { DbType.String, "unicode str", false },
+        { DbType.String, "unicode str", true },
+        { DbType.Decimal, -18446744073.709551616m, false },
+        { DbType.Decimal, -18446744073.709551616m, true }
+    };
 
-        public IEnumerator<object[]> GetEnumerator() => _data.GetEnumerator();
-
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-    }
+    public static readonly TheoryData<DbType, object?, bool> DbTypeTestNullCases = new()
+    {
+        { DbType.Boolean, null, false },
+        { DbType.Boolean, null, true },
+        { DbType.SByte, null, false },
+        { DbType.SByte, null, true },
+        { DbType.Byte, null, false },
+        { DbType.Byte, null, true },
+        { DbType.Int16, null, false },
+        { DbType.Int16, null, true },
+        { DbType.UInt16, null, false },
+        { DbType.UInt16, null, true },
+        { DbType.Int32, null, false },
+        { DbType.Int32, null, true },
+        { DbType.UInt32, null, false },
+        { DbType.UInt32, null, true },
+        { DbType.Int64, null, false },
+        { DbType.Int64, null, true },
+        { DbType.UInt64, null, false },
+        { DbType.UInt64, null, true },
+        { DbType.Single, null, false },
+        { DbType.Single, null, true },
+        { DbType.Double, null, false },
+        { DbType.Double, null, true },
+        { DbType.Guid, null, false },
+        { DbType.Guid, null, true },
+        { DbType.Date, null, false },
+        { DbType.Date, null, true },
+        { DbType.DateTime, null, false },
+        { DbType.DateTime, null, true },
+        { DbType.DateTime2, null, false },
+        { DbType.DateTime2, null, true },
+        { DbType.Binary, null, false },
+        { DbType.Binary, null, true },
+        { DbType.String, null, false },
+        { DbType.String, null, true },
+        { DbType.Decimal, null, false },
+        { DbType.Decimal, null, true }
+    };
 }

@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Data;
 using System.Globalization;
 using Xunit;
@@ -179,8 +180,26 @@ public class YdbParameterTests : TestBase
         }.ExecuteNonQueryAsync();
 
         Assert.Equal(expected == null ? DBNull.Value : decimal.Parse(expected, CultureInfo.InvariantCulture),
-            await new YdbCommand(ydbConnection) { CommandText = $"SELECT d FROM {tableName};" }
-                .ExecuteScalarAsync());
+            await new YdbCommand(ydbConnection) { CommandText = $"SELECT d FROM {tableName};" }.ExecuteScalarAsync());
+
+        // IN (NULL) returns empty result set
+        Assert.Equal(expected == null ? null : decimal.Parse(expected, CultureInfo.InvariantCulture),
+            await new YdbCommand(ydbConnection)
+            {
+                CommandText = $"SELECT d FROM {tableName} WHERE d IN @d;",
+                Parameters = { new YdbParameter("d", new[] { decimalValue }) { Precision = precision, Scale = scale } }
+            }.ExecuteScalarAsync());
+
+        // IN NULL always returns an empty result set
+        Assert.Null(await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"SELECT d FROM {tableName} WHERE d IN @d;",
+            Parameters =
+            {
+                new YdbParameter("d", YdbDbType.List | YdbDbType.Decimal)
+                    { Precision = precision, Scale = scale }
+            }
+        }.ExecuteScalarAsync());
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
     }
@@ -240,10 +259,8 @@ public class YdbParameterTests : TestBase
                 }
             }.ExecuteNonQueryAsync())).Message);
 
-        Assert.Equal(0ul,
-            (ulong)(await new YdbCommand(ydbConnection) { CommandText = $"SELECT COUNT(*) FROM {tableName};" }
-                .ExecuteScalarAsync())!
-        );
+        Assert.Equal(0ul, (ulong)(await new YdbCommand(ydbConnection)
+            { CommandText = $"SELECT COUNT(*) FROM {tableName};" }.ExecuteScalarAsync())!);
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
     }
@@ -277,22 +294,21 @@ public class YdbParameterTests : TestBase
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
         Assert.Equal("Value does not fit into decimal", (await Assert.ThrowsAsync<OverflowException>(() =>
-                new YdbCommand(ydbConnection)
-                        { CommandText = $"SELECT (CAST('{value}' AS Decimal({precision}, {scale})));" }
-                    .ExecuteScalarAsync())
-            ).Message);
+            new YdbCommand(ydbConnection)
+                    { CommandText = $"SELECT (CAST('{value}' AS Decimal({precision}, {scale})));" }
+                .ExecuteScalarAsync())).Message);
     }
 
     [Fact]
     public async Task YdbParameter_WhenYdbDbTypeSetAndValueIsNull_ReturnsNullValue()
     {
-        foreach (var ydbType in Enum.GetValues<YdbDbType>())
+        foreach (var ydbDbType in Enum.GetValues<YdbDbType>())
         {
-            if (ydbType == YdbDbType.Unspecified) continue;
+            if (ydbDbType is YdbDbType.Unspecified or YdbDbType.List) continue;
 
             var tableName = $"Null_YdbDbType_{Random.Shared.Next()}";
             await using var ydbConnection = await CreateOpenConnectionAsync();
-            var ydbTypeStr = ydbType == YdbDbType.Decimal ? "Decimal(22, 9)" : ydbType.ToString();
+            var ydbTypeStr = ydbDbType == YdbDbType.Decimal ? "Decimal(22, 9)" : ydbDbType.ToString();
             await new YdbCommand(ydbConnection)
                     { CommandText = $"CREATE TABLE {tableName}(Id Int32, Type {ydbTypeStr}, PRIMARY KEY (Id))" }
                 .ExecuteNonQueryAsync();
@@ -300,7 +316,7 @@ public class YdbParameterTests : TestBase
             await new YdbCommand(ydbConnection)
             {
                 CommandText = $"INSERT INTO {tableName}(Id, Type) VALUES (1, @Type);",
-                Parameters = { new YdbParameter("Type", ydbType) }
+                Parameters = { new YdbParameter("Type", ydbDbType) }
             }.ExecuteNonQueryAsync();
 
             Assert.Equal(DBNull.Value, await new YdbCommand(ydbConnection)
@@ -308,6 +324,14 @@ public class YdbParameterTests : TestBase
                 CommandText = $"SELECT Type FROM {tableName} WHERE Id = @Id;",
                 Parameters = { new YdbParameter("Id", DbType.Int32, 1) }
             }.ExecuteScalarAsync());
+
+            // Error: Can't lookup Optional<T> in collection of JsonDocument: types Optional<T> and T are not comparable
+            if (ydbDbType is not (YdbDbType.Yson or YdbDbType.Json or YdbDbType.JsonDocument))
+                Assert.Null(await new YdbCommand(ydbConnection)
+                {
+                    CommandText = $"SELECT Type FROM {tableName} WHERE Type IN @Type;",
+                    Parameters = { new YdbParameter("Type", YdbDbType.List | ydbDbType) }
+                }.ExecuteScalarAsync()); // return empty
 
             await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName};" }.ExecuteNonQueryAsync();
         }
@@ -381,14 +405,14 @@ public class YdbParameterTests : TestBase
                 new YdbParameter("DoubleColumn", YdbDbType.Double, 1.0),
                 new YdbParameter("DefaultDecimalColumn", YdbDbType.Decimal, 1m),
                 new YdbParameter("CustomDecimalColumn", YdbDbType.Decimal, 1m) { Precision = 35, Scale = 5 },
-                new YdbParameter("Uint8Column", YdbDbType.UInt8, (byte)1),
-                new YdbParameter("Uint16Column", YdbDbType.UInt16, (ushort)1),
-                new YdbParameter("Uint32Column", YdbDbType.UInt32, (uint)1),
-                new YdbParameter("Uint64Column", YdbDbType.UInt64, (ulong)1),
+                new YdbParameter("Uint8Column", YdbDbType.Uint8, (byte)1),
+                new YdbParameter("Uint16Column", YdbDbType.Uint16, (ushort)1),
+                new YdbParameter("Uint32Column", YdbDbType.Uint32, (uint)1),
+                new YdbParameter("Uint64Column", YdbDbType.Uint64, (ulong)1),
                 new YdbParameter("TextColumn", YdbDbType.Text, string.Empty),
                 new YdbParameter("BytesColumn", YdbDbType.Bytes, Array.Empty<byte>()),
                 new YdbParameter("DateColumn", YdbDbType.Date, DateTime.UnixEpoch),
-                new YdbParameter("DatetimeColumn", YdbDbType.DateTime, DateTime.UnixEpoch),
+                new YdbParameter("DatetimeColumn", YdbDbType.Datetime, DateTime.UnixEpoch),
                 new YdbParameter("TimestampColumn", YdbDbType.Timestamp, DateTime.UnixEpoch),
                 new YdbParameter("IntervalColumn", YdbDbType.Interval, TimeSpan.Zero),
                 new YdbParameter("JsonColumn", YdbDbType.Json, "{}"),
@@ -435,9 +459,9 @@ public class YdbParameterTests : TestBase
         Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(16));
         Assert.Equal(DateTime.UnixEpoch, ydbDataReader.GetDateTime(17));
         Assert.Equal(TimeSpan.Zero, ydbDataReader.GetInterval(18));
-        Assert.Equal("{}", ydbDataReader.GetJson(19));
-        Assert.Equal("{}", ydbDataReader.GetJsonDocument(20));
-        Assert.Equal("{a=1u}"u8.ToArray(), ydbDataReader.GetYson(21));
+        Assert.Equal("{}", ydbDataReader.GetString(19));
+        Assert.Equal("{}", ydbDataReader.GetString(20));
+        Assert.Equal("{a=1u}"u8.ToArray(), ydbDataReader.GetBytes(21));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(22));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(23));
         Assert.Equal(DateTime.MinValue, ydbDataReader.GetDateTime(24));
@@ -447,4 +471,315 @@ public class YdbParameterTests : TestBase
 
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName}" }.ExecuteNonQueryAsync();
     }
+
+    private static readonly DateTime SomeTimestamp = DateTime.Parse("2025-11-02T18:47:14.112353");
+    private static readonly DateTime SomeDatetime = DateTime.Parse("2025-11-02T18:47");
+    private static readonly DateTime SomeDate = DateTime.Parse("2025-11-02");
+
+    public static TheoryData<YdbDbType, IList> ListParams => new()
+    {
+        { YdbDbType.Bool, new List<bool> { false, true, false } },
+        { YdbDbType.Bool, (bool[])[false, true, false] },
+        { YdbDbType.Int8, new List<sbyte> { 1, 2, 3 } },
+        { YdbDbType.Int8, new sbyte[] { 1, 2, 3 } },
+        { YdbDbType.Int16, new List<short> { 1, 2, 3 } },
+        { YdbDbType.Int16, new short[] { 1, 2, 3 } },
+        { YdbDbType.Int32, new List<int> { 1, 2, 3 } },
+        { YdbDbType.Int32, (int[])[1, 2, 3] },
+        { YdbDbType.Int64, new List<long> { 1, 2, 3 } },
+        { YdbDbType.Int64, new long[] { 1, 2, 3 } },
+        { YdbDbType.Uint8, new List<byte> { 1, 2, 3 } },
+        { YdbDbType.Uint16, new List<ushort> { 1, 2, 3 } },
+        { YdbDbType.Uint16, new ushort[] { 1, 2, 3 } },
+        { YdbDbType.Uint32, new List<uint> { 1, 2, 3 } },
+        { YdbDbType.Uint32, new uint[] { 1, 2, 3 } },
+        { YdbDbType.Uint64, new List<ulong> { 1, 2, 3 } },
+        { YdbDbType.Uint64, new ulong[] { 1, 2, 3 } },
+        { YdbDbType.Float, new List<float> { 1, 2, 3 } },
+        { YdbDbType.Float, new float[] { 1, 2, 3 } },
+        { YdbDbType.Double, new List<double> { 1, 2, 3 } },
+        { YdbDbType.Double, new double[] { 1, 2, 3 } },
+        { YdbDbType.Decimal, new List<decimal> { 1, 2, 3 } },
+        { YdbDbType.Decimal, new decimal[] { 1, 2, 3 } },
+        { YdbDbType.Text, new List<string> { "1", "2", "3" } },
+        { YdbDbType.Text, (string[])["1", "2", "3"] },
+        { YdbDbType.Bytes, new List<byte[]> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 } } },
+        { YdbDbType.Bytes, (byte[][])[[1, 1], [2, 2], [3, 3]] },
+        { YdbDbType.Date, new List<DateOnly> { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) } },
+        { YdbDbType.Date, new DateOnly[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) } },
+        {
+            YdbDbType.Timestamp,
+            new List<DateTime> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3) }
+        },
+        {
+            YdbDbType.Timestamp,
+            (DateTime[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3)]
+        },
+        { YdbDbType.Interval, new List<TimeSpan> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3) } },
+        { YdbDbType.Interval, (TimeSpan[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3)] },
+        { YdbDbType.Bool, new List<bool?> { false, true, false, null } },
+        { YdbDbType.Bool, (bool?[])[false, true, false, null] },
+        { YdbDbType.Int8, new List<sbyte?> { 1, 2, 3, null } },
+        { YdbDbType.Int8, new sbyte?[] { 1, 2, 3, null } },
+        { YdbDbType.Int16, new List<short?> { 1, 2, 3, null } },
+        { YdbDbType.Int16, new short?[] { 1, 2, 3, null } },
+        { YdbDbType.Int32, new List<int?> { 1, 2, 3, null } },
+        { YdbDbType.Int32, (int?[])[1, 2, 3, null] },
+        { YdbDbType.Int64, new List<long?> { 1, 2, 3, null } },
+        { YdbDbType.Int64, new long?[] { 1, 2, 3, null } },
+        { YdbDbType.Uint8, new List<byte?> { 1, 2, 3, null } },
+        { YdbDbType.Uint16, new List<ushort?> { 1, 2, 3, null } },
+        { YdbDbType.Uint16, new ushort?[] { 1, 2, 3, null } },
+        { YdbDbType.Uint32, new List<uint?> { 1, 2, 3, null } },
+        { YdbDbType.Uint32, new uint?[] { 1, 2, 3, null } },
+        { YdbDbType.Uint64, new List<ulong?> { 1, 2, 3, null } },
+        { YdbDbType.Uint64, new ulong?[] { 1, 2, 3, null } },
+        { YdbDbType.Float, new List<float?> { 1, 2, 3, null } },
+        { YdbDbType.Float, new float?[] { 1, 2, 3, null } },
+        { YdbDbType.Double, new List<double?> { 1, 2, 3, null } },
+        { YdbDbType.Double, new double?[] { 1, 2, 3, null } },
+        { YdbDbType.Decimal, new List<decimal?> { 1, 2, 3, null } },
+        { YdbDbType.Decimal, new decimal?[] { 1, 2, 3, null } },
+        { YdbDbType.Text, new List<string?> { "1", "2", "3", null } },
+        { YdbDbType.Text, (string?[])["1", "2", "3", null] },
+        { YdbDbType.Bytes, new List<byte[]?> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 }, null } },
+        { YdbDbType.Bytes, (byte[]?[])[[1, 1], [2, 2], [3, 3], null] },
+        {
+            YdbDbType.Date, new List<DateOnly?>
+                { new DateOnly(2001, 2, 26), new DateOnly(2002, 2, 24), new DateOnly(2010, 3, 14), null }
+        },
+        { YdbDbType.Date, new DateOnly?[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14), null } },
+        {
+            YdbDbType.Timestamp,
+            new List<DateTime?> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null }
+        },
+        {
+            YdbDbType.Timestamp,
+            (DateTime?[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null]
+        },
+        {
+            YdbDbType.Interval,
+            new List<TimeSpan?> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null }
+        },
+        { YdbDbType.Interval, (TimeSpan?[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null] }
+    };
+
+    public static TheoryData<YdbDbType, IList> ExtraParams = new()
+    {
+        {
+            YdbDbType.Timestamp64, new List<DateTime>
+                { SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300) }
+        },
+        {
+            YdbDbType.Timestamp64,
+            (DateTime[])[SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300)]
+        },
+        {
+            YdbDbType.Timestamp64, new List<DateTime?>
+                { SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300), null }
+        },
+        {
+            YdbDbType.Timestamp64,
+            (DateTime?[])[SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300), null]
+        },
+        {
+            YdbDbType.Datetime64, new List<DateTime>
+                { SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300) }
+        },
+        {
+            YdbDbType.Datetime64,
+            (DateTime[])[SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300)]
+        },
+        {
+            YdbDbType.Datetime64, new List<DateTime?>
+                { SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300), null }
+        },
+        {
+            YdbDbType.Datetime64,
+            (DateTime?[])[SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300), null]
+        },
+        {
+            YdbDbType.Date32, new List<DateTime>
+                { SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300) }
+        },
+        {
+            YdbDbType.Date32,
+            (DateTime[])[SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300)]
+        },
+        {
+            YdbDbType.Date32, new List<DateTime?>
+                { SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300), null }
+        },
+        {
+            YdbDbType.Date32,
+            (DateTime?[])[SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300), null]
+        },
+        {
+            YdbDbType.Datetime, new List<DateTime>
+                { SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3) }
+        },
+        {
+            YdbDbType.Datetime,
+            (DateTime[])[SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3)]
+        },
+        {
+            YdbDbType.Datetime, new List<DateTime?>
+                { SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3), null }
+        },
+        {
+            YdbDbType.Datetime,
+            (DateTime?[])[SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3), null]
+        },
+        { YdbDbType.Date, new List<DateTime> { SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3) } },
+        {
+            YdbDbType.Date,
+            (DateTime[])[SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3)]
+        },
+        {
+            YdbDbType.Date,
+            new List<DateTime?> { SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3), null }
+        },
+        {
+            YdbDbType.Date,
+            (DateTime?[])[SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3), null]
+        },
+        {
+            YdbDbType.Interval64,
+            new List<TimeSpan?> { TimeSpan.FromDays(-1), TimeSpan.FromDays(2), TimeSpan.FromDays(-3), null }
+        },
+        {
+            YdbDbType.Interval64,
+            (TimeSpan?[])[TimeSpan.FromDays(-1), TimeSpan.FromDays(2), TimeSpan.FromDays(-3), null]
+        },
+        {
+            YdbDbType.Json,
+            new List<string?> { "{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null }
+        },
+        {
+            YdbDbType.Json,
+            (string?[])["{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null]
+        },
+        {
+            YdbDbType.JsonDocument,
+            new List<string?> { "{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null }
+        },
+        {
+            YdbDbType.JsonDocument,
+            (string?[])["{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null]
+        },
+        {
+            YdbDbType.Yson,
+            new List<byte[]?> { "{a=1u}"u8.ToArray(), "{a=2u}"u8.ToArray(), null }
+        },
+        {
+            YdbDbType.Yson,
+            (byte[]?[])["{a=1u}"u8.ToArray(), "{a=2u}"u8.ToArray(), null]
+        },
+        { YdbDbType.Int64, new List<object> { 1, 2u, (byte)3 } },
+        { YdbDbType.Int64, new object[] { 1, 2u, (byte)3 } } // only not null objects
+    };
+
+    [Theory]
+    [MemberData(nameof(ListParams))]
+    public async Task YdbParameter_SetValue_ArrayOrList_ConvertsToYdbList(YdbDbType ydbDbType, IList list)
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var testTable = $"auto_cast_ydb_list_{Guid.NewGuid()}";
+        var dbTypeStr = ydbDbType == YdbDbType.Decimal ? "Decimal(22, 9)" : ydbDbType.ToString();
+        await new YdbCommand(ydbConnection)
+                { CommandText = $"CREATE TABLE `{testTable}`(id Uuid, type {dbTypeStr}, PRIMARY KEY(id));" }
+            .ExecuteNonQueryAsync();
+        await new YdbCommand(ydbConnection)
+        {
+            CommandText =
+                $"INSERT INTO `{testTable}`(id, type) " +
+                "SELECT id, type FROM AS_TABLE(ListMap($list, ($x) -> { RETURN <|id: RandomUuid($x), type: $x|> }));",
+            Parameters = { new YdbParameter("list", list) }
+        }.ExecuteNonQueryAsync();
+
+        var count = await new YdbCommand(ydbConnection)
+        {
+            CommandText = $"SELECT COUNT(*) FROM `{testTable}` WHERE type IN $list",
+            Parameters = { new YdbParameter("list", list) }
+        }.ExecuteScalarAsync();
+
+        Assert.Equal(3ul, count);
+        Assert.Equal((ulong)list.Count, await new YdbCommand(ydbConnection)
+            { CommandText = $"SELECT COUNT(*) FROM `{testTable}`" }.ExecuteScalarAsync());
+
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE `{testTable}`" }.ExecuteNonQueryAsync();
+    }
+
+    [Theory]
+    [MemberData(nameof(ListParams))]
+    [MemberData(nameof(ExtraParams))]
+    public async Task YdbParameter_Value_WithYdbDbTypeList_ProducesListOfSpecifiedType(YdbDbType ydbDbType, IList list)
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var testTable = $"ydb_list_{Guid.NewGuid()}";
+        var dbTypeStr = ydbDbType == YdbDbType.Decimal ? "Decimal(22, 9)" : ydbDbType.ToString();
+        await new YdbCommand(ydbConnection)
+                { CommandText = $"CREATE TABLE `{testTable}`(id Uuid, type {dbTypeStr}, PRIMARY KEY(id));" }
+            .ExecuteNonQueryAsync();
+        await new YdbCommand(ydbConnection)
+        {
+            CommandText =
+                $"INSERT INTO `{testTable}`(id, type) " +
+                "SELECT id, type FROM AS_TABLE(ListMap($list, ($x) -> { RETURN <|id: RandomUuid($x), type: $x|> }));",
+            Parameters = { new YdbParameter("list", YdbDbType.List | ydbDbType, list) }
+        }.ExecuteNonQueryAsync();
+
+        if (ydbDbType is not (YdbDbType.Json or YdbDbType.JsonDocument or YdbDbType.Yson))
+        {
+            Assert.Equal(3ul, await new YdbCommand(ydbConnection)
+            {
+                CommandText = $"SELECT COUNT(*) FROM `{testTable}` WHERE type IN $list",
+                Parameters = { new YdbParameter("list", YdbDbType.List | ydbDbType, list) }
+            }.ExecuteScalarAsync());
+        }
+
+        Assert.Equal((ulong)list.Count, await new YdbCommand(ydbConnection)
+            { CommandText = $"SELECT COUNT(*) FROM `{testTable}`" }.ExecuteScalarAsync());
+
+        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE `{testTable}`" }.ExecuteNonQueryAsync();
+    }
+
+
+    [Fact]
+    public void YdbParameter_SetValue_ListOrArray_InvalidInputs_Throws()
+    {
+        Assert.Equal("Writing value of 'System.Object[]' is not supported for parameters having YdbDbType 'List<Bool>'",
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("list",
+                YdbDbType.List | YdbDbType.Bool, new object[] { true, false, "string" }).TypedValue).Message);
+
+        Assert.Equal(
+            "Writing value of 'System.Object[]' is not supported for parameters having YdbDbType 'List<Decimal>'",
+            Assert.Throws<InvalidOperationException>(() => new YdbParameter("list",
+                YdbDbType.List | YdbDbType.Decimal, new object[] { 1.0m, false, 2.0m }).TypedValue).Message);
+
+        Assert.Equal("All elements in the list must have the same type. Expected: { \"typeId\": \"INT32\" }, " +
+                     "actual: { \"typeId\": \"UINT32\" }", Assert.Throws<ArgumentException>(() =>
+            new YdbParameter("list", new List<object> { 1, 2u, (byte)3 }).TypedValue).Message);
+
+        Assert.Equal("All elements in the list must have the same type. Expected: { \"typeId\": \"INT32\" }, " +
+                     "actual: { \"typeId\": \"UINT32\" }", Assert.Throws<ArgumentException>(() =>
+            new YdbParameter("list", new object[] { 1, 2u, (byte)3 }).TypedValue).Message);
+
+        Assert.Equal("Collection of type 'System.Collections.Generic.List`1[System.Object]' contains null. " +
+                     "Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) " +
+                     "or use a strongly-typed collection (e.g., List<T?>).", Assert.Throws<ArgumentException>(() =>
+            new YdbParameter("list", new List<object?> { 1, null }).TypedValue).Message);
+
+        Assert.Equal("Collection of type 'System.Object[]' contains null. " +
+                     "Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) " +
+                     "or use a strongly-typed collection (e.g., List<T?>).", Assert.Throws<ArgumentException>(() =>
+            new YdbParameter("list", new object?[] { 1, null }).TypedValue).Message);
+    }
+
+    [Fact]
+    public void YdbParameter_SetYdbDbTypeList_Throws() =>
+        Assert.Equal("Cannot set YdbDbType to just List. " +
+                     "Use Binary-Or with the element type (e.g. Array of dates is YdbDbType.List | YdbDbType.Date). " +
+                     "(Parameter 'value')",
+            Assert.Throws<ArgumentOutOfRangeException>(() => new YdbParameter("list", YdbDbType.List)).Message);
 }

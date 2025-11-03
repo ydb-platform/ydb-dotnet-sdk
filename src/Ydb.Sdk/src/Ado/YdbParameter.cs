@@ -1,3 +1,4 @@
+using System.Collections;
 using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
@@ -6,6 +7,8 @@ using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
 using static Ydb.Sdk.Ado.Internal.YdbTypedValueExtensions;
+using static Ydb.Sdk.Ado.Internal.YdbTypeExtensions;
+using static Ydb.Sdk.Ado.Internal.YdbValueExtensions;
 
 namespace Ydb.Sdk.Ado;
 
@@ -19,37 +22,8 @@ namespace Ydb.Sdk.Ado;
 /// </remarks>
 public sealed class YdbParameter : DbParameter
 {
-    private static readonly TypedValue NullDefaultDecimal = NullDecimal(22, 9);
-
-    private static readonly Dictionary<YdbDbType, TypedValue> YdbNullByDbType = new()
-    {
-        { YdbDbType.Text, Type.Types.PrimitiveTypeId.Utf8.Null() },
-        { YdbDbType.Bytes, Type.Types.PrimitiveTypeId.String.Null() },
-        { YdbDbType.Bool, Type.Types.PrimitiveTypeId.Bool.Null() },
-        { YdbDbType.Int8, Type.Types.PrimitiveTypeId.Int8.Null() },
-        { YdbDbType.Int16, Type.Types.PrimitiveTypeId.Int16.Null() },
-        { YdbDbType.Int32, Type.Types.PrimitiveTypeId.Int32.Null() },
-        { YdbDbType.Int64, Type.Types.PrimitiveTypeId.Int64.Null() },
-        { YdbDbType.UInt8, Type.Types.PrimitiveTypeId.Uint8.Null() },
-        { YdbDbType.UInt16, Type.Types.PrimitiveTypeId.Uint16.Null() },
-        { YdbDbType.UInt32, Type.Types.PrimitiveTypeId.Uint32.Null() },
-        { YdbDbType.UInt64, Type.Types.PrimitiveTypeId.Uint64.Null() },
-        { YdbDbType.Date, Type.Types.PrimitiveTypeId.Date.Null() },
-        { YdbDbType.DateTime, Type.Types.PrimitiveTypeId.Datetime.Null() },
-        { YdbDbType.Timestamp, Type.Types.PrimitiveTypeId.Timestamp.Null() },
-        { YdbDbType.Interval, Type.Types.PrimitiveTypeId.Interval.Null() },
-        { YdbDbType.Float, Type.Types.PrimitiveTypeId.Float.Null() },
-        { YdbDbType.Double, Type.Types.PrimitiveTypeId.Double.Null() },
-        { YdbDbType.Uuid, Type.Types.PrimitiveTypeId.Uuid.Null() },
-        { YdbDbType.Yson, Type.Types.PrimitiveTypeId.Yson.Null() },
-        { YdbDbType.Json, Type.Types.PrimitiveTypeId.Json.Null() },
-        { YdbDbType.JsonDocument, Type.Types.PrimitiveTypeId.JsonDocument.Null() },
-        { YdbDbType.Date32, Type.Types.PrimitiveTypeId.Date32.Null() },
-        { YdbDbType.Datetime64, Type.Types.PrimitiveTypeId.Datetime64.Null() },
-        { YdbDbType.Timestamp64, Type.Types.PrimitiveTypeId.Timestamp64.Null() },
-        { YdbDbType.Interval64, Type.Types.PrimitiveTypeId.Interval64.Null() }
-    };
-
+    private YdbPrimitiveTypeInfo? _ydbPrimitiveTypeInfo;
+    private YdbDbType _ydbDbType = YdbDbType.Unspecified;
     private string _parameterName = string.Empty;
 
     /// <summary>
@@ -118,7 +92,23 @@ public sealed class YdbParameter : DbParameter
     /// YdbDbType provides YDB-specific data types that may not have direct equivalents in standard DbType.
     /// When set, this property automatically updates the corresponding DbType value.
     /// </remarks>
-    public YdbDbType YdbDbType { get; set; } = YdbDbType.Unspecified;
+    public YdbDbType YdbDbType
+    {
+        get => _ydbDbType;
+        set
+        {
+            _ydbPrimitiveTypeInfo = value.PrimitiveTypeInfo();
+            if (value == YdbDbType.List)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value),
+                    "Cannot set YdbDbType to just List. " +
+                    "Use Binary-Or with the element type (e.g. Array of dates is YdbDbType.List | YdbDbType.Date)."
+                );
+            }
+
+            _ydbDbType = value;
+        }
+    }
 
     private DbType _dbType = DbType.Object;
 
@@ -227,179 +217,155 @@ public sealed class YdbParameter : DbParameter
 
             if (value == null || value == DBNull.Value)
             {
-                return NullTypedValue();
+                return _ydbPrimitiveTypeInfo?.NullValue ??
+                       (_ydbDbType == YdbDbType.Decimal
+                           ? DecimalNull(Precision, Scale)
+                           : _ydbDbType.HasFlag(YdbDbType.List)
+                               ? ListNull((~YdbDbType.List & _ydbDbType).PrimitiveTypeInfo()?.YdbType ??
+                                          DecimalType(Precision, Scale) /* only decimal is possible */)
+                               : throw new InvalidOperationException(
+                                   "Writing value of 'null' is not supported without explicit mapping to the YdbDbType")
+                       );
             }
 
-            return YdbDbType switch
+            return _ydbDbType switch
             {
-                YdbDbType.Text when value is string stringValue => stringValue.Text(),
-                YdbDbType.Bool when value is bool boolValue => boolValue.Bool(),
-                YdbDbType.Int8 when value is sbyte sbyteValue => sbyteValue.Int8(),
-                YdbDbType.Int16 => MakeInt16(value),
-                YdbDbType.Int32 => MakeInt32(value),
-                YdbDbType.Int64 => MakeInt64(value),
-                YdbDbType.UInt8 when value is byte byteValue => byteValue.Uint8(),
-                YdbDbType.UInt16 => MakeUint16(value),
-                YdbDbType.UInt32 => MakeUint32(value),
-                YdbDbType.UInt64 => MakeUint64(value),
-                YdbDbType.Float when value is float floatValue => floatValue.Float(),
-                YdbDbType.Double => MakeDouble(value),
-                YdbDbType.Decimal when value is decimal decimalValue => Decimal(decimalValue),
-                YdbDbType.Bytes => MakeBytes(value),
-                YdbDbType.Yson => MakeYson(value),
-                YdbDbType.Json when value is string stringValue => stringValue.Json(),
-                YdbDbType.JsonDocument when value is string stringValue => stringValue.JsonDocument(),
-                YdbDbType.Uuid when value is Guid guidValue => guidValue.Uuid(),
-                YdbDbType.Date => MakeDate(value),
-                YdbDbType.Date32 => MakeDate32(value),
-                YdbDbType.DateTime when value is DateTime dateTimeValue => dateTimeValue.Datetime(),
-                YdbDbType.Datetime64 when value is DateTime dateTimeValue => dateTimeValue.Datetime64(),
-                YdbDbType.Timestamp when value is DateTime dateTimeValue => dateTimeValue.Timestamp(),
-                YdbDbType.Timestamp64 when value is DateTime dateTimeValue => dateTimeValue.Timestamp64(),
-                YdbDbType.Interval when value is TimeSpan timeSpanValue => timeSpanValue.Interval(),
-                YdbDbType.Interval64 when value is TimeSpan timeSpanValue => timeSpanValue.Interval64(),
-                YdbDbType.Unspecified => Cast(value),
+                _ when _ydbPrimitiveTypeInfo != null => new TypedValue
+                {
+                    Type = _ydbPrimitiveTypeInfo.YdbType,
+                    Value = _ydbPrimitiveTypeInfo.Pack(value) ?? throw ValueTypeNotSupportedException
+                },
+                YdbDbType.Decimal when value is decimal decimalValue => PackDecimal(decimalValue),
+                YdbDbType.Unspecified => PackObject(value),
+                _ when YdbDbType.HasFlag(YdbDbType.List) && value is IList itemsValue =>
+                    PackList(itemsValue, ~YdbDbType.List & _ydbDbType),
                 _ => throw ValueTypeNotSupportedException
             };
         }
     }
 
-    private TypedValue MakeInt16(object value) => value switch
+    private TypedValue PackObject(object value) => value switch
     {
-        short shortValue => shortValue.Int16(),
-        sbyte sbyteValue => YdbTypedValueExtensions.Int16(sbyteValue),
-        byte byteValue => YdbTypedValueExtensions.Int16(byteValue),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeInt32(object value) => value switch
-    {
-        int intValue => intValue.Int32(),
-        sbyte sbyteValue => YdbTypedValueExtensions.Int32(sbyteValue),
-        byte byteValue => YdbTypedValueExtensions.Int32(byteValue),
-        short shortValue => YdbTypedValueExtensions.Int32(shortValue),
-        ushort ushortValue => YdbTypedValueExtensions.Int32(ushortValue),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeInt64(object value) => value switch
-    {
-        long longValue => longValue.Int64(),
-        sbyte sbyteValue => YdbTypedValueExtensions.Int64(sbyteValue),
-        byte byteValue => YdbTypedValueExtensions.Int64(byteValue),
-        short shortValue => YdbTypedValueExtensions.Int64(shortValue),
-        ushort ushortValue => YdbTypedValueExtensions.Int64(ushortValue),
-        int intValue => YdbTypedValueExtensions.Int64(intValue),
-        uint uintValue => YdbTypedValueExtensions.Int64(uintValue),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeUint16(object value) => value switch
-    {
-        ushort shortValue => shortValue.Uint16(),
-        byte byteValue => YdbTypedValueExtensions.Uint16(byteValue),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeUint32(object value) => value switch
-    {
-        uint intValue => intValue.Uint32(),
-        byte byteValue => YdbTypedValueExtensions.Uint32(byteValue),
-        ushort ushortValue => YdbTypedValueExtensions.Uint32(ushortValue),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeUint64(object value) => value switch
-    {
-        ulong longValue => longValue.Uint64(),
-        byte byteValue => YdbTypedValueExtensions.Uint64(byteValue),
-        ushort ushortValue => YdbTypedValueExtensions.Uint64(ushortValue),
-        uint uintValue => YdbTypedValueExtensions.Uint64(uintValue),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeDouble(object value) => value switch
-    {
-        double doubleValue => doubleValue.Double(),
-        float floatValue => YdbTypedValueExtensions.Double(floatValue),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeBytes(object value) => value switch
-    {
-        byte[] bytesValue => bytesValue.Bytes(),
-        MemoryStream memoryStream => memoryStream.ToArray().Bytes(),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeYson(object value) => value switch
-    {
-        byte[] bytesValue => bytesValue.Yson(),
-        MemoryStream memoryStream => memoryStream.ToArray().Yson(),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeDate(object value) => value switch
-    {
-        DateTime dateTimeValue => dateTimeValue.Date(),
-        DateOnly dateOnlyValue => dateOnlyValue.ToDateTime(TimeOnly.MinValue).Date(),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue MakeDate32(object value) => value switch
-    {
-        DateTime dateTimeValue => dateTimeValue.Date32(),
-        DateOnly dateOnlyValue => dateOnlyValue.ToDateTime(TimeOnly.MinValue).Date32(),
-        _ => throw ValueTypeNotSupportedException
-    };
-
-    private TypedValue Cast(object value) => value switch
-    {
-        string stringValue => stringValue.Text(),
-        bool boolValue => boolValue.Bool(),
-        sbyte sbyteValue => sbyteValue.Int8(),
-        short shortValue => shortValue.Int16(),
-        int intValue => intValue.Int32(),
-        long longValue => longValue.Int64(),
-        byte byteValue => byteValue.Uint8(),
-        ushort ushortValue => ushortValue.Uint16(),
-        uint uintValue => uintValue.Uint32(),
-        ulong ulongValue => ulongValue.Uint64(),
-        float floatValue => floatValue.Float(),
-        double doubleValue => doubleValue.Double(),
-        decimal decimalValue => Decimal(decimalValue),
-        Guid guidValue => guidValue.Uuid(),
-        DateTime dateTimeValue => dateTimeValue.Timestamp(),
-        DateOnly dateOnlyValue => dateOnlyValue.ToDateTime(TimeOnly.MinValue).Date(),
-        byte[] bytesValue => bytesValue.Bytes(),
-        TimeSpan timeSpanValue => timeSpanValue.Interval(),
-        MemoryStream memoryStream => memoryStream.ToArray().Bytes(),
+        bool boolValue => new TypedValue { Type = YdbPrimitiveTypeInfo.Bool.YdbType, Value = PackBool(boolValue) },
+        sbyte sbyteValue => new TypedValue { Type = YdbPrimitiveTypeInfo.Int8.YdbType, Value = PackInt8(sbyteValue) },
+        short shortValue => new TypedValue { Type = YdbPrimitiveTypeInfo.Int16.YdbType, Value = PackInt16(shortValue) },
+        int intValue => new TypedValue { Type = YdbPrimitiveTypeInfo.Int32.YdbType, Value = PackInt32(intValue) },
+        long longValue => new TypedValue { Type = YdbPrimitiveTypeInfo.Int64.YdbType, Value = PackInt64(longValue) },
+        byte byteValue => new TypedValue { Type = YdbPrimitiveTypeInfo.Uint8.YdbType, Value = PackUint8(byteValue) },
+        ushort ushortValue => new TypedValue
+            { Type = YdbPrimitiveTypeInfo.Uint16.YdbType, Value = PackUint16(ushortValue) },
+        uint uintValue => new TypedValue { Type = YdbPrimitiveTypeInfo.Uint32.YdbType, Value = PackUint32(uintValue) },
+        ulong ulongValue => new TypedValue
+            { Type = YdbPrimitiveTypeInfo.Uint64.YdbType, Value = PackUint64(ulongValue) },
+        float floatValue => new TypedValue { Type = YdbPrimitiveTypeInfo.Float.YdbType, Value = PackFloat(floatValue) },
+        double doubleValue => new TypedValue
+            { Type = YdbPrimitiveTypeInfo.Double.YdbType, Value = PackDouble(doubleValue) },
+        decimal decimalValue => PackDecimal(decimalValue),
+        Guid guidValue => new TypedValue { Type = YdbPrimitiveTypeInfo.Uuid.YdbType, Value = PackUuid(guidValue) },
+        DateTime dateTimeValue => new TypedValue
+            { Type = YdbPrimitiveTypeInfo.Timestamp.YdbType, Value = PackTimestamp(dateTimeValue) },
+        DateOnly dateOnlyValue => new TypedValue
+            { Type = YdbPrimitiveTypeInfo.Date.YdbType, Value = PackDate(dateOnlyValue.ToDateTime(TimeOnly.MinValue)) },
+        byte[] bytesValue when value.GetType().GetElementType() == typeof(byte) /* array covariance */ => new TypedValue
+            { Type = YdbPrimitiveTypeInfo.Bytes.YdbType, Value = PackBytes(bytesValue) },
+        string stringValue => new TypedValue
+            { Type = YdbPrimitiveTypeInfo.Text.YdbType, Value = PackText(stringValue) },
+        TimeSpan timeSpanValue => new TypedValue
+            { Type = YdbPrimitiveTypeInfo.Interval.YdbType, Value = PackInterval(timeSpanValue) },
+        MemoryStream memoryStream => new TypedValue
+            { Type = YdbPrimitiveTypeInfo.Bytes.YdbType, Value = PackBytes(memoryStream.ToArray()) },
+        IList itemsValue => PackList(itemsValue),
         _ => throw new InvalidOperationException(
             $"Writing value of '{value.GetType()}' is not supported without explicit mapping to the YdbDbType")
     };
 
-    private TypedValue Decimal(decimal value) =>
-        Precision == 0 && Scale == 0 ? value.Decimal(22, 9) : value.Decimal(Precision, Scale);
+    private TypedValue PackDecimal(decimal value) => new()
+        { Type = DecimalType(Precision, Scale), Value = value.PackDecimal(Precision, Scale) };
 
-    private TypedValue NullTypedValue()
+    private TypedValue PackList(IList items, YdbDbType ydbDbType = YdbDbType.Unspecified)
     {
-        if (YdbNullByDbType.TryGetValue(YdbDbType, out var value))
+        var elementType = GetElementType(items) ?? throw ValueTypeNotSupportedException;
+        elementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+        var primitiveTypeInfo = ydbDbType.PrimitiveTypeInfo() ?? YdbPrimitiveTypeInfo.TryResolve(elementType);
+
+        if (primitiveTypeInfo != null)
         {
-            return value;
+            var value = new Ydb.Value();
+            var isOptional = false;
+
+            foreach (var item in items)
+            {
+                if (item == null)
+                {
+                    isOptional = true;
+                    value.Items.Add(YdbValueNull);
+                }
+                else
+                {
+                    value.Items.Add(primitiveTypeInfo.Pack(item) ?? throw ValueTypeNotSupportedException);
+                }
+            }
+
+            var type = primitiveTypeInfo.YdbType;
+            if (isOptional)
+            {
+                type = type.OptionalType();
+            }
+
+            return new TypedValue { Type = type.ListType(), Value = value };
         }
 
-        if (YdbDbType == YdbDbType.Decimal)
+        if (ydbDbType == YdbDbType.Decimal || elementType == typeof(decimal))
         {
-            return Precision == 0 && Scale == 0
-                ? NullDefaultDecimal
-                : NullDecimal(Precision, Scale);
+            var value = new Ydb.Value();
+            var isOptional = false;
+
+            foreach (var item in items)
+            {
+                if (item == null)
+                {
+                    isOptional = true;
+                    value.Items.Add(YdbValueNull);
+                }
+                else
+                {
+                    value.Items.Add(item is decimal decimalValue
+                        ? decimalValue.PackDecimal(Precision, Scale)
+                        : throw ValueTypeNotSupportedException);
+                }
+            }
+
+            var type = DecimalType(Precision, Scale);
+            if (isOptional)
+            {
+                type = type.OptionalType();
+            }
+
+            return new TypedValue { Type = type.ListType(), Value = value };
         }
 
-        throw new InvalidOperationException(
-            "Writing value of 'null' is not supported without explicit mapping to the YdbDbType"
-        );
+        return (from object? item in items
+                select PackObject(item ?? throw new ArgumentException(
+                    $"Collection of type '{items.GetType()}' contains null. " +
+                    $"Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) or use a strongly-typed collection (e.g., List<T?>)."))
+            ).ToArray().List();
     }
 
     private InvalidOperationException ValueTypeNotSupportedException =>
-        new($"Writing value of '{Value!.GetType()}' is not supported for parameters having YdbDbType '{YdbDbType}'");
+        new($"Writing value of '{Value!.GetType()}' is not supported" +
+            $" for parameters having YdbDbType '{YdbDbType.ToYdbTypeName()}'");
+
+    private static System.Type? GetElementType(IList value)
+    {
+        var typeValue = value.GetType();
+
+        if (typeValue.IsArray)
+        {
+            return typeValue.GetElementType();
+        }
+
+        return typeValue.GetInterfaces()
+            .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>))?
+            .GetGenericArguments()[0];
+    }
 }
