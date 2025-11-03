@@ -554,9 +554,7 @@ public class YdbParameterTests : TestBase
             YdbDbType.Interval,
             new List<TimeSpan?> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null }
         },
-        { YdbDbType.Interval, (TimeSpan?[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null] },
-        { YdbDbType.Int64, new List<object> { 1, 2u, (byte)3 } },
-        { YdbDbType.Int64, new object[] { 1, 2u, (byte)3 } } // only not null objects
+        { YdbDbType.Interval, (TimeSpan?[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null] }
     };
 
     public static TheoryData<YdbDbType, IList> ExtraParams = new()
@@ -669,7 +667,9 @@ public class YdbParameterTests : TestBase
         {
             YdbDbType.Yson,
             (byte[]?[])["{a=1u}"u8.ToArray(), "{a=2u}"u8.ToArray(), null]
-        }
+        },
+        { YdbDbType.Int64, new List<object> { 1, 2u, (byte)3 } },
+        { YdbDbType.Int64, new object[] { 1, 2u, (byte)3 } } // only not null objects
     };
 
     [Theory]
