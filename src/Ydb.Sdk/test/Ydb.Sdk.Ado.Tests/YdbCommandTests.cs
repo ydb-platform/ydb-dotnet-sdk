@@ -289,7 +289,7 @@ public class YdbCommandTests : TestBase
         { DbType.String, "unicode str", false },
         { DbType.String, "unicode str", true },
         { DbType.Decimal, -18446744073.709551616m, false },
-        { DbType.Decimal, -18446744073.709551616m, true },
+        { DbType.Decimal, -18446744073.709551616m, true }
     };
 
     public static readonly TheoryData<DbType, object?, bool> DbTypeTestNullCases = new()
