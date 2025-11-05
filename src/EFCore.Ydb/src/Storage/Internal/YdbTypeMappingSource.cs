@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
@@ -48,6 +49,8 @@ public sealed class YdbTypeMappingSource(
 
     // TODO: Await interval in Ydb.Sdk
     private static readonly TimeSpanTypeMapping Interval = new("Interval", DbType.Object);
+    
+    private static readonly YdbListTypeMapping List = YdbListTypeMapping.Default;
 
     #endregion
 
@@ -125,6 +128,11 @@ public sealed class YdbTypeMappingSource(
         var clrType = mappingInfo.ClrType;
         var storeTypeName = mappingInfo.StoreTypeName;
 
+        if (clrType != null && clrType.IsAssignableTo(typeof(IList)))
+        {
+            return List;
+        }
+        
         if (storeTypeName is null || !StoreTypeMapping.TryGetValue(storeTypeName, out var mappings))
         {
             return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);

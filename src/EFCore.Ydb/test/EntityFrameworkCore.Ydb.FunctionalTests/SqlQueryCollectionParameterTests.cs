@@ -16,13 +16,17 @@ public class SqlQueryCollectionParameterTests
         await testDbContext.Database.EnsureCreatedAsync();
 
         var ids = new List<int> { 1, 2, 3 };
-        testDbContext.Items.AddRange(new TestEntity { Id = 1, Price = 1 }, new TestEntity { Id = 2, Price = 2 });
+        testDbContext.Items.AddRange(
+            new TestEntity { Id = 1, Price = 1 },
+            new TestEntity { Id = 2, Price = 2 },
+            new TestEntity { Id = 3, Price = 3 }
+        );
         await testDbContext.SaveChangesAsync();
-        
+
         var rows = await testDbContext.Database.SqlQuery<TestEntity>(
-            $"SELECT * FROM TestEntity WHERE Id = ({ids})").ToListAsync();
-        
-        Assert.Equal(2, rows.Count);
+            $"SELECT * FROM TestEntity WHERE Id IN {ids}").ToListAsync();
+
+        Assert.Equal(3, rows.Count);
     }
 
     public sealed class TestDbContext : DbContext
@@ -36,8 +40,8 @@ public class SqlQueryCollectionParameterTests
         });
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder
-                .UseYdb("Host=localhost;Port=2136")
-                .EnableServiceProviderCaching(false);
+            .UseYdb("Host=localhost;Port=2136")
+            .EnableServiceProviderCaching(false);
     }
 
     public sealed class TestEntity
