@@ -150,28 +150,23 @@ public sealed class YdbTypeMappingSource(
         return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
     }
 
-    protected override RelationalTypeMapping? FindCollectionMapping(
-        RelationalTypeMappingInfo info,
-        Type modelType,
-        Type? providerType,
-        CoreTypeMapping? elementMapping
-    )
+    public override RelationalTypeMapping? FindMapping(Type type)
     {
-        var elementType = modelType.IsArray
-            ? modelType.GetElementType()
-            : modelType.GetInterfaces()
+        var elementType = type.IsArray
+            ? type.GetElementType()
+            : type.GetInterfaces()
                 .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>))?
                 .GetGenericArguments()[0];
 
         if (elementType == null)
-            return null;
+            return base.FindMapping(type);
 
         elementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
 
         var elementTypeMapping = FindMapping(elementType);
 
         if (elementTypeMapping == null)
-            return null;
+            return base.FindMapping(type);
 
         var ydbDbType = elementTypeMapping is IYdbTypeMapping ydbTypeMapping
             ? ydbTypeMapping.YdbDbType

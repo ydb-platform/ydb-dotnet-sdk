@@ -9,7 +9,7 @@ public class YdbBytesTypeMapping : RelationalTypeMapping
     public static YdbBytesTypeMapping Default { get; } = new();
 
     private YdbBytesTypeMapping() : base("Bytes", typeof(byte[]), System.Data.DbType.Binary,
-        jsonValueReaderWriter: JsonByteArrayReaderWriter.Instance)
+        jsonValueReaderWriter: JsonByteArrayReaderWriter.Instance, unicode: false)
     {
     }
 
