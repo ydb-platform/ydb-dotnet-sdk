@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
-// TODO: Await DateOnly support in Ydb.Sdk
 public class YdbDateOnlyTypeMapping : RelationalTypeMapping
 {
     private const string DateOnlyFormatConst = "{0:yyyy-MM-dd}";
@@ -24,8 +23,7 @@ public class YdbDateOnlyTypeMapping : RelationalTypeMapping
     {
     }
 
-    protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-        => new YdbDateOnlyTypeMapping(parameters);
+    protected override YdbDateOnlyTypeMapping Clone(RelationalTypeMappingParameters parameters) => new(parameters);
 
     protected override string GenerateNonNullSqlLiteral(object value)
     {

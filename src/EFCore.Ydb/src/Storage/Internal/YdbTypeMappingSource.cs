@@ -3,9 +3,11 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Text.Json;
 using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk.Ado.YdbType;
 using Type = System.Type;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal;
@@ -49,8 +51,6 @@ public sealed class YdbTypeMappingSource(
 
     // TODO: Await interval in Ydb.Sdk
     private static readonly TimeSpanTypeMapping Interval = new("Interval", DbType.Object);
-    
-    private static readonly YdbListTypeMapping List = YdbListTypeMapping.Default;
 
     #endregion
 
@@ -128,24 +128,56 @@ public sealed class YdbTypeMappingSource(
         var clrType = mappingInfo.ClrType;
         var storeTypeName = mappingInfo.StoreTypeName;
 
-        if (clrType != null && clrType.IsAssignableTo(typeof(IList)))
+        if (storeTypeName is not null && StoreTypeMapping.TryGetValue(storeTypeName, out var mappings))
         {
-            return List;
-        }
-        
-        if (storeTypeName is null || !StoreTypeMapping.TryGetValue(storeTypeName, out var mappings))
-        {
-            return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
-        }
-
-        foreach (var m in mappings)
-        {
-            if (m.ClrType == clrType)
+            // We found the user-specified store type. No CLR type was provided - we're probably
+            // scaffolding from an existing database, take the first mapping as the default.
+            if (clrType is null)
             {
-                return m;
+                return mappings[0];
+            }
+
+            // A CLR type was provided - look for a mapping between the store and CLR types. If not found, fail
+            // immediately.
+            foreach (var m in mappings)
+            {
+                if (m.ClrType == clrType)
+                {
+                    return m;
+                }
             }
         }
 
         return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
+    }
+
+    protected override RelationalTypeMapping? FindCollectionMapping(
+        RelationalTypeMappingInfo info,
+        Type modelType,
+        Type? providerType,
+        CoreTypeMapping? elementMapping
+    )
+    {
+        var elementType = modelType.IsArray
+            ? modelType.GetElementType()
+            : modelType.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>))?
+                .GetGenericArguments()[0];
+
+        if (elementType == null)
+            return null;
+
+        elementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+
+        var typeMapping = ClrTypeMapping.GetValueOrDefault(elementType);
+
+        if (typeMapping == null)
+            return null;
+
+        var ydbDbType = typeMapping is IYdbTypeMapping ydbTypeMapping
+            ? ydbTypeMapping.YdbDbType
+            : (typeMapping.DbType ?? DbType.Object).ToYdbDbType();
+        
+        return new YdbListTypeMapping(ydbDbType, )
     }
 }

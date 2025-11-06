@@ -7,10 +7,12 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
-public class YdbJsonTypeMapping : JsonTypeMapping
+public class YdbJsonTypeMapping : JsonTypeMapping, IYdbTypeMapping
 {
     public YdbJsonTypeMapping(string storeType, Type clrType, DbType? dbType) : base(storeType, clrType, dbType)
     {
@@ -32,8 +34,7 @@ public class YdbJsonTypeMapping : JsonTypeMapping
     private static readonly ConstructorInfo? MemoryStreamConstructor
         = typeof(MemoryStream).GetConstructor([typeof(byte[])]);
 
-    protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-        => new YdbJsonTypeMapping(parameters);
+    protected override YdbJsonTypeMapping Clone(RelationalTypeMappingParameters parameters) => new(parameters);
 
     public override MethodInfo GetDataReaderMethod() => GetStringMethod;
 
@@ -72,4 +73,9 @@ public class YdbJsonTypeMapping : JsonTypeMapping
             EncodingGetBytesMethod ?? throw new Exception(),
             expression)
     );
+
+    public YdbDbType YdbDbType => YdbDbType.Json;
+
+    protected override void ConfigureParameter(DbParameter parameter) =>
+        ((YdbParameter)parameter).YdbDbType = YdbDbType;
 }

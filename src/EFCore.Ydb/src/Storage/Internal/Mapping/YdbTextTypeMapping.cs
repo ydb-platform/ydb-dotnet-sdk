@@ -31,7 +31,7 @@ public sealed class YdbTextTypeMapping : RelationalTypeMapping
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new YdbTextTypeMapping(parameters);
 
-    private string EscapeSqlLiteral(string literal) => literal.Replace("'", "\\'");
+    private static string EscapeSqlLiteral(string literal) => literal.Replace("'", "\\'");
 
     protected override string GenerateNonNullSqlLiteral(object value) => $"'{EscapeSqlLiteral((string)value)}'u";
 }

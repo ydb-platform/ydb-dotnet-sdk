@@ -53,7 +53,7 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
 
                 return new YdbMigrationDatabaseLock(this);
             }
-            catch (YdbException)
+            catch (YdbException ex)
             {
                 await Task.Delay(100 + Random.Shared.Next(1000), cancellationToken);
             }

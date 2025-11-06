@@ -1,17 +1,19 @@
 using System.Collections;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
-internal class YdbListTypeMapping() : RelationalTypeMapping(
-    new RelationalTypeMappingParameters(
-        new CoreTypeMappingParameters(typeof(IList)),
-        storeType: "List",
-        dbType: System.Data.DbType.Object
-    )
-)
+internal class YdbListTypeMapping(
+    YdbDbType ydbDbType,
+    string storeTypeElement
+) : RelationalTypeMapping(storeType: $"List<{storeTypeElement}>", typeof(IList))
 {
-    internal static readonly YdbListTypeMapping Default = new();
+    protected override YdbListTypeMapping Clone(RelationalTypeMappingParameters parameters) =>
+        new(ydbDbType, storeTypeElement);
 
-    protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters) => this;
+    protected override void ConfigureParameter(DbParameter parameter)
+    {
+    }
 }
