@@ -51,7 +51,7 @@ public class DecimalParameterizedYdbTest
         await using var ctx = NewCtx(p, s);
         await testStore.CleanAsync(ctx);
         await ctx.Database.EnsureCreatedAsync();
-        
+
         var e = new ParamItem { Price = value };
         ctx.Add(e);
         await ctx.SaveChangesAsync();
