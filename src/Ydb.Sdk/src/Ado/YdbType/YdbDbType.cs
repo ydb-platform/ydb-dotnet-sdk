@@ -25,7 +25,7 @@ public enum YdbDbType
     /// This provides convenience, but it may not always match the intended YDB type and
     /// doesn't support null values.
     /// </remarks>
-    Unspecified,
+    Unspecified = 1,
 
     /// <summary>
     /// Boolean value.

@@ -1,3 +1,5 @@
+- Fixed bug ADO.NET: `ArgumentOutOfRangeException` when using `YdbParameter` with `YdbDbType = YdbDbType.List | YdbDbType.Unspecified`;
+
 ## v0.25.0
 
 - **Breaking Change**: Renamed `YdbDbType` enum members to match the [ydb.tech](https://ydb.tech/docs/en/yql/reference/types/primitive) naming:

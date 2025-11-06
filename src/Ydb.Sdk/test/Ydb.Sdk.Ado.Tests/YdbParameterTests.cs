@@ -782,4 +782,9 @@ public class YdbParameterTests : TestBase
                      "Use Binary-Or with the element type (e.g. Array of dates is YdbDbType.List | YdbDbType.Date). " +
                      "(Parameter 'value')",
             Assert.Throws<ArgumentOutOfRangeException>(() => new YdbParameter("list", YdbDbType.List)).Message);
+
+    [Fact]
+    public void YdbParameter_SetYdbDbTypeListWithUnspecified() => Assert.True(
+        new YdbParameter("list", YdbDbType.List | YdbDbType.Unspecified).YdbDbType.HasFlag(YdbDbType.List)
+    );
 }
