@@ -194,9 +194,9 @@ VALUES
                 new { Id = i, Name = $"Name {i}", DateTime.Now });
         }
 
-        Assert.Equal(sizeBatch, await connection.ExecuteScalarAsync($@"
+        Assert.Equal(sizeBatch, Convert.ToInt32(await connection.ExecuteScalarAsync($@"
             SELECT COUNT(*) FROM {tableName} WHERE Id IN @Ids;", new { Ids = Enumerable.Range(0, sizeBatch).ToList() }
-        ));
+        )));
         await connection.ExecuteAsync($"DROP TABLE {tableName};");
     }
 

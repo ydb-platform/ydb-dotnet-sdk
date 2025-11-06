@@ -119,6 +119,6 @@ public class SqlQueryCollectionParameterTests
     public sealed class TestEntity<TValue>
     {
         public Guid Id { get; init; }
-        public TValue Value { get; init; }
+        public TValue Value { get; set; } = default!;
     }
 }

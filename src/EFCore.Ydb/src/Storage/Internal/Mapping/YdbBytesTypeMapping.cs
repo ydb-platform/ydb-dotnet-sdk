@@ -1,7 +1,6 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
-using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
