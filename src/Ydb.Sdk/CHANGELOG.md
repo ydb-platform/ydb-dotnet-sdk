@@ -1,3 +1,5 @@
+## v0.25.1
+
 - Fixed bug ADO.NET: `ArgumentOutOfRangeException` when using `YdbParameter` with `YdbDbType = YdbDbType.List | YdbDbType.Unspecified`;
 
 ## v0.25.0
