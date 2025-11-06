@@ -11,79 +11,71 @@ public class SqlQueryCollectionParameterTests
 
     public static IEnumerable<object[]> GetCollectionTestCases()
     {
-        // yield return [new List<bool> { false, true, false }];
-        // yield return [(bool[])[false, true, false]];
-        // yield return [new List<sbyte> { 1, 2, 3 }];
-        // yield return [new sbyte[] { 1, 2, 3 }];
-        // yield return [new List<short> { 1, 2, 3 }];
-        // yield return [new short[] { 1, 2, 3 }];
-        // yield return [new List<int> { 1, 2, 3 }];
-        // yield return [(int[])[1, 2, 3]];
-        // yield return [new List<long> { 1, 2, 3 }];
-        // yield return [new long[] { 1, 2, 3 }];
-        // yield return [new List<byte> { 1, 2, 3 }];
-        // yield return [new List<ushort> { 1, 2, 3 }];
-        // yield return [new ushort[] { 1, 2, 3 }];
-        // yield return [new List<uint> { 1, 2, 3 }];
-        // yield return [new uint[] { 1, 2, 3 }];
-        // yield return [new List<ulong> { 1, 2, 3 }];
-        // yield return [new ulong[] { 1, 2, 3 }];
-        // yield return [new List<float> { 1, 2, 3 }];
-        // yield return [new float[] { 1, 2, 3 }];
-        // yield return [new List<double> { 1, 2, 3 }];
-        // yield return [new double[] { 1, 2, 3 }];
-        // yield return [new List<decimal> { 1, 2, 3 }];
-        // yield return [new decimal[] { 1, 2, 3 }];
-        // yield return [new List<string> { "1", "2", "3" }];
-        // yield return [(string[])["1", "2", "3"]];
-        // yield return [new List<byte[]> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 } }];
-        // yield return [(byte[][])[[1, 1], [2, 2], [3, 3]]];
-        // yield return [new List<DateOnly> { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) }];
-        // yield return [new DateOnly[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) }];
-        // yield return
-        //     [new List<DateTime> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3) }];
-        // yield return [(DateTime[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3)]];
-        // yield return [new List<TimeSpan> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3) }];
-        // yield return [(TimeSpan[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3)]];
-        // yield return [new List<bool?> { false, true, false, null }];
-        // yield return [(bool?[])[false, true, false, null]];
-        // yield return [new List<sbyte?> { 1, 2, 3, null }];
-        // yield return [new sbyte?[] { 1, 2, 3, null }];
-        // yield return [new List<short?> { 1, 2, 3, null }];
-        // yield return [new short?[] { 1, 2, 3, null }];
-        // yield return [new List<int?> { 1, 2, 3, null }];
-        // yield return [(int?[])[1, 2, 3, null]];
-        // yield return [new List<long?> { 1, 2, 3, null }];
-        // yield return [new long?[] { 1, 2, 3, null }];
-        // yield return [new List<byte?> { 1, 2, 3, null }];
-        // yield return [new List<ushort?> { 1, 2, 3, null }];
-        // yield return [new ushort?[] { 1, 2, 3, null }];
-        // yield return [new List<uint?> { 1, 2, 3, null }];
-        // yield return [new uint?[] { 1, 2, 3, null }];
-        // yield return [new List<ulong?> { 1, 2, 3, null }];
-        // yield return [new ulong?[] { 1, 2, 3, null }];
-        // yield return [new List<float?> { 1, 2, 3, null }];
-        // yield return [new float?[] { 1, 2, 3, null }];
-        // yield return [new List<double?> { 1, 2, 3, null }];
-        // yield return [new double?[] { 1, 2, 3, null }];
-        // yield return [new List<decimal?> { 1, 2, 3, null }];
-        // yield return [new decimal?[] { 1, 2, 3, null }];
-        // yield return [new List<string?> { "1", "2", "3", null }];
-        // yield return [(string?[])["1", "2", "3", null]];
-        // yield return [new List<byte[]?> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 }, null }];
-        // yield return [(byte[]?[])[[1, 1], [2, 2], [3, 3], null]];
-        // yield return
-        // [
-        //     new List<DateOnly?>
-        //         { new DateOnly(2001, 2, 26), new DateOnly(2002, 2, 24), new DateOnly(2010, 3, 14), null }
-        // ];
-        // yield return [new DateOnly?[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14), null }];
-        // yield return
-        // [
-        //     new List<DateTime?> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null }
-        // ];
-        // yield return
-        //     [(DateTime?[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null]];
+        yield return [new List<bool> { false, true, false }];
+        yield return [(bool[])[false, true, false]];
+        yield return [new List<sbyte> { 1, 2, 3 }];
+        yield return [new sbyte[] { 1, 2, 3 }];
+        yield return [new List<short> { 1, 2, 3 }];
+        yield return [new short[] { 1, 2, 3 }];
+        yield return [new List<int> { 1, 2, 3 }];
+        yield return [(int[])[1, 2, 3]];
+        yield return [new List<long> { 1, 2, 3 }];
+        yield return [new long[] { 1, 2, 3 }];
+        yield return [new List<byte> { 1, 2, 3 }];
+        yield return [new List<ushort> { 1, 2, 3 }];
+        yield return [new ushort[] { 1, 2, 3 }];
+        yield return [new List<uint> { 1, 2, 3 }];
+        yield return [new uint[] { 1, 2, 3 }];
+        yield return [new List<ulong> { 1, 2, 3 }];
+        yield return [new ulong[] { 1, 2, 3 }];
+        yield return [new List<float> { 1, 2, 3 }];
+        yield return [new float[] { 1, 2, 3 }];
+        yield return [new List<double> { 1, 2, 3 }];
+        yield return [new double[] { 1, 2, 3 }];
+        yield return [new List<decimal> { 1, 2, 3 }];
+        yield return [new decimal[] { 1, 2, 3 }];
+        yield return [new List<string> { "1", "2", "3" }];
+        yield return [(string[])["1", "2", "3"]];
+        yield return [new List<byte[]> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 } }];
+        yield return [(byte[][])[[1, 1], [2, 2], [3, 3]]];
+        yield return
+            [new List<DateTime> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3) }];
+        yield return [(DateTime[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3)]];
+        yield return [new List<TimeSpan> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3) }];
+        yield return [(TimeSpan[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3)]];
+        yield return [new List<bool?> { false, true, false, null }];
+        yield return [(bool?[])[false, true, false, null]];
+        yield return [new List<sbyte?> { 1, 2, 3, null }];
+        yield return [new sbyte?[] { 1, 2, 3, null }];
+        yield return [new List<short?> { 1, 2, 3, null }];
+        yield return [new short?[] { 1, 2, 3, null }];
+        yield return [new List<int?> { 1, 2, 3, null }];
+        yield return [(int?[])[1, 2, 3, null]];
+        yield return [new List<long?> { 1, 2, 3, null }];
+        yield return [new long?[] { 1, 2, 3, null }];
+        yield return [new List<byte?> { 1, 2, 3, null }];
+        yield return [new List<ushort?> { 1, 2, 3, null }];
+        yield return [new ushort?[] { 1, 2, 3, null }];
+        yield return [new List<uint?> { 1, 2, 3, null }];
+        yield return [new uint?[] { 1, 2, 3, null }];
+        yield return [new List<ulong?> { 1, 2, 3, null }];
+        yield return [new ulong?[] { 1, 2, 3, null }];
+        yield return [new List<float?> { 1, 2, 3, null }];
+        yield return [new float?[] { 1, 2, 3, null }];
+        yield return [new List<double?> { 1, 2, 3, null }];
+        yield return [new double?[] { 1, 2, 3, null }];
+        yield return [new List<decimal?> { 1, 2, 3, null }];
+        yield return [new decimal?[] { 1, 2, 3, null }];
+        yield return [new List<string?> { "1", "2", "3", null }];
+        yield return [(string?[])["1", "2", "3", null]];
+        yield return [new List<byte[]?> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 }, null }];
+        yield return [(byte[]?[])[[1, 1], [2, 2], [3, 3], null]];
+        yield return
+        [
+            new List<DateTime?> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null }
+        ];
+        yield return
+            [(DateTime?[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null]];
         yield return
             [new List<TimeSpan?> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null }];
         yield return [(TimeSpan?[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null]];
