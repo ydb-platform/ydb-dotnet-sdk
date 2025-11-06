@@ -169,15 +169,15 @@ public sealed class YdbTypeMappingSource(
 
         elementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
 
-        var typeMapping = ClrTypeMapping.GetValueOrDefault(elementType);
+        var elementTypeMapping = FindMapping(elementType);
 
-        if (typeMapping == null)
+        if (elementTypeMapping == null)
             return null;
 
-        var ydbDbType = typeMapping is IYdbTypeMapping ydbTypeMapping
+        var ydbDbType = elementTypeMapping is IYdbTypeMapping ydbTypeMapping
             ? ydbTypeMapping.YdbDbType
-            : (typeMapping.DbType ?? DbType.Object).ToYdbDbType();
-        
-        return new YdbListTypeMapping(ydbDbType, )
+            : (elementTypeMapping.DbType ?? DbType.Object).ToYdbDbType();
+
+        return new YdbListTypeMapping(ydbDbType, elementTypeMapping.StoreType);
     }
 }

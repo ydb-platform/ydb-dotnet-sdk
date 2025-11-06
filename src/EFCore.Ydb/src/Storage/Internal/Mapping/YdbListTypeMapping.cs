@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
@@ -13,7 +14,6 @@ internal class YdbListTypeMapping(
     protected override YdbListTypeMapping Clone(RelationalTypeMappingParameters parameters) =>
         new(ydbDbType, storeTypeElement);
 
-    protected override void ConfigureParameter(DbParameter parameter)
-    {
-    }
+    protected override void ConfigureParameter(DbParameter parameter) =>
+        ((YdbParameter)parameter).YdbDbType = YdbDbType.List | ydbDbType;
 }
