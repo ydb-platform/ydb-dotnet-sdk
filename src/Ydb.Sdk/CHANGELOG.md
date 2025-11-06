@@ -1,3 +1,5 @@
+## v0.25.0
+
 - **Breaking Change**: Renamed `YdbDbType` enum members to match the [ydb.tech](https://ydb.tech/docs/en/yql/reference/types/primitive) naming:
     - `UInt8` -> `Uint8`.
     - `UInt16` -> `Uint16`.
