@@ -176,6 +176,12 @@ public sealed class YdbTypeMappingSource(
             ? ydbTypeMapping.YdbDbType
             : (elementTypeMapping.DbType ?? DbType.Object).ToYdbDbType();
 
-        return ListMappings.GetOrAdd(ydbDbType, _ => new YdbListTypeMapping(ydbDbType, elementTypeMapping.StoreType));
+        if (ListMappings.TryGetValue(ydbDbType, out var mapping))
+            return mapping;
+
+        mapping = new YdbListTypeMapping(ydbDbType, elementTypeMapping.StoreType);
+        ListMappings.TryAdd(ydbDbType, mapping);
+
+        return mapping;
     }
 }
