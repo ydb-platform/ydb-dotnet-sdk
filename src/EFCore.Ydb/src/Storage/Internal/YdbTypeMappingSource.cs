@@ -153,6 +153,9 @@ public sealed class YdbTypeMappingSource(
 
     public override RelationalTypeMapping? FindMapping(Type type)
     {
+        if (type == typeof(byte[]))
+            return base.FindMapping(type);
+
         var elementType = type.IsArray
             ? type.GetElementType()
             : type.GetInterfaces()

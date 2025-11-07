@@ -83,7 +83,7 @@ public class SqlQueryCollectionParameterTests
 
     [Theory]
     [MemberData(nameof(GetCollectionTestCases))]
-    public async Task SqlQuery_DoesNotExpandCollectionParameter_InClause<T>(IEnumerable<T> listValues)
+    public async Task SqlQuery_UsesListParameterForInClause<T>(IEnumerable<T> listValues)
     {
         await using var testStore = YdbTestStoreFactory.Instance.Create("SqlQueryCollectionParameterTests");
         await using var testDbContext = new TestDbContext<T>();
@@ -98,6 +98,24 @@ public class SqlQueryCollectionParameterTests
             $"SELECT * FROM TestEntity WHERE Value IN {listValues}").ToListAsync();
 
         Assert.Equal(3, rows.Count);
+    }
+
+    [Fact]
+    public async Task SqlQuery_UsesBytesForWhereClause()
+    {
+        await using var testStore = YdbTestStoreFactory.Instance.Create("SqlQueryCollectionParameterTests");
+        await using var testDbContext = new TestDbContext<byte[]>();
+        await testStore.CleanAsync(testDbContext);
+        await testDbContext.Database.EnsureCreatedAsync();
+
+        var bytes = new byte[] { 1, 2, 3 };
+        testDbContext.Items.Add(new TestEntity<byte[]> { Id = Guid.NewGuid(), Value = [1, 2, 3] });
+        await testDbContext.SaveChangesAsync();
+
+        var rows = await testDbContext.Database.SqlQuery<TestEntity<byte[]>>(
+            $"SELECT * FROM TestEntity WHERE Value = {bytes}").ToListAsync();
+
+        Assert.Single(rows);
     }
 
     public sealed class TestDbContext<TValue> : DbContext
