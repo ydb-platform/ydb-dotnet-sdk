@@ -17,6 +17,7 @@ public sealed class YdbTypeMappingSource(
 ) : RelationalTypeMappingSource(dependencies, relationalDependencies)
 {
     private static readonly ConcurrentDictionary<RelationalTypeMappingInfo, RelationalTypeMapping> DecimalCache = new();
+    private static readonly ConcurrentDictionary<YdbDbType, YdbListTypeMapping> ListMappings = new();
 
     #region Mappings
 
@@ -172,6 +173,6 @@ public sealed class YdbTypeMappingSource(
             ? ydbTypeMapping.YdbDbType
             : (elementTypeMapping.DbType ?? DbType.Object).ToYdbDbType();
 
-        return new YdbListTypeMapping(ydbDbType, elementTypeMapping.StoreType);
+        return ListMappings.GetOrAdd(ydbDbType, _ => new YdbListTypeMapping(ydbDbType, elementTypeMapping.StoreType));
     }
 }

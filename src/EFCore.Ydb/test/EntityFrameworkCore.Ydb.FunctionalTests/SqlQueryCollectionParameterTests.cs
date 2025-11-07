@@ -83,19 +83,19 @@ public class SqlQueryCollectionParameterTests
 
     [Theory]
     [MemberData(nameof(GetCollectionTestCases))]
-    public async Task SqlQuery_DoesNotExpandCollectionParameter_InClause<T>(IEnumerable<T> listIds)
+    public async Task SqlQuery_DoesNotExpandCollectionParameter_InClause<T>(IEnumerable<T> listValues)
     {
         await using var testStore = YdbTestStoreFactory.Instance.Create("SqlQueryCollectionParameterTests");
         await using var testDbContext = new TestDbContext<T>();
         await testStore.CleanAsync(testDbContext);
         await testDbContext.Database.EnsureCreatedAsync();
 
-        testDbContext.Items.AddRange(listIds.Where(value => value != null)
+        testDbContext.Items.AddRange(listValues.Where(value => value != null)
             .Select(value => new TestEntity<T> { Id = Guid.NewGuid(), Value = value }));
         await testDbContext.SaveChangesAsync();
 
         var rows = await testDbContext.Database.SqlQuery<TestEntity<T>>(
-            $"SELECT * FROM TestEntity WHERE Value IN {listIds}").ToListAsync();
+            $"SELECT * FROM TestEntity WHERE Value IN {listValues}").ToListAsync();
 
         Assert.Equal(3, rows.Count);
     }
