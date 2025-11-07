@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 
-namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
+namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
 public class DecimalParameterizedYdbTest
 {
@@ -13,7 +13,6 @@ public class DecimalParameterizedYdbTest
         new DbContextOptionsBuilder<ParametricDecimalContext>()
             .UseYdb("Host=localhost;Port=2136")
             .EnableServiceProviderCaching(false)
-            .LogTo(Console.WriteLine)
             .Options;
 
     public static TheoryData<int, int, decimal> SuccessCases => new()
@@ -52,23 +51,17 @@ public class DecimalParameterizedYdbTest
         await using var ctx = NewCtx(p, s);
         await testStore.CleanAsync(ctx);
         await ctx.Database.EnsureCreatedAsync();
-        try
-        {
-            var e = new ParamItem { Price = value };
-            ctx.Add(e);
-            await ctx.SaveChangesAsync();
-            var got = await ctx.Items.SingleAsync(x => x.Id == e.Id);
-            Assert.Equal(value, got.Price);
-            var tms = ctx.GetService<IRelationalTypeMappingSource>();
-            var et = ctx.Model.FindEntityType(typeof(ParamItem))!;
-            var prop = et.FindProperty(nameof(ParamItem.Price))!;
-            var mapping = tms.FindMapping(prop)!;
-            Assert.Equal($"Decimal({p}, {s})", mapping.StoreType);
-        }
-        finally
-        {
-            await ctx.Database.EnsureDeletedAsync();
-        }
+
+        var e = new ParamItem { Price = value };
+        ctx.Add(e);
+        await ctx.SaveChangesAsync();
+        var got = await ctx.Items.SingleAsync(x => x.Id == e.Id);
+        Assert.Equal(value, got.Price);
+        var tms = ctx.GetService<IRelationalTypeMappingSource>();
+        var et = ctx.Model.FindEntityType(typeof(ParamItem))!;
+        var prop = et.FindProperty(nameof(ParamItem.Price))!;
+        var mapping = tms.FindMapping(prop)!;
+        Assert.Equal($"Decimal({p}, {s})", mapping.StoreType);
     }
 
     [Theory]
@@ -80,15 +73,9 @@ public class DecimalParameterizedYdbTest
         await using var ctx = NewCtx(p, s);
         await testStore.CleanAsync(ctx);
         await ctx.Database.EnsureCreatedAsync();
-        try
-        {
-            ctx.Add(new ParamItem { Price = value });
-            await Assert.ThrowsAsync<DbUpdateException>(() => ctx.SaveChangesAsync());
-        }
-        finally
-        {
-            await ctx.Database.EnsureDeletedAsync();
-        }
+
+        ctx.Add(new ParamItem { Price = value });
+        await Assert.ThrowsAsync<DbUpdateException>(() => ctx.SaveChangesAsync());
     }
 
     [Theory]
@@ -101,25 +88,19 @@ public class DecimalParameterizedYdbTest
         await using var ctx = NewCtx(p, s);
         await testStore.CleanAsync(ctx);
         await ctx.Database.EnsureCreatedAsync();
-        try
-        {
-            for (var i = 0; i < multiplier; i++)
-                ctx.Add(new ParamItem { Price = value });
-            await ctx.SaveChangesAsync();
-            var got = await ctx.Items.Select(x => x.Price).SumAsync();
 
-            Assert.Equal(value * multiplier, got);
+        for (var i = 0; i < multiplier; i++)
+            ctx.Add(new ParamItem { Price = value });
+        await ctx.SaveChangesAsync();
+        var got = await ctx.Items.Select(x => x.Price).SumAsync();
 
-            var tms = ctx.GetService<IRelationalTypeMappingSource>();
-            var et = ctx.Model.FindEntityType(typeof(ParamItem))!;
-            var prop = et.FindProperty(nameof(ParamItem.Price))!;
-            var mapping = tms.FindMapping(prop)!;
-            Assert.Equal($"Decimal({p}, {s})", mapping.StoreType);
-        }
-        finally
-        {
-            await ctx.Database.EnsureDeletedAsync();
-        }
+        Assert.Equal(value * multiplier, got);
+
+        var tms = ctx.GetService<IRelationalTypeMappingSource>();
+        var et = ctx.Model.FindEntityType(typeof(ParamItem))!;
+        var prop = et.FindProperty(nameof(ParamItem.Price))!;
+        var mapping = tms.FindMapping(prop)!;
+        Assert.Equal($"Decimal({p}, {s})", mapping.StoreType);
     }
 
     public sealed class ParametricDecimalContext(DbContextOptions<ParametricDecimalContext> options, int p, int s)

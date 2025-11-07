@@ -2,9 +2,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Text.Json;
 using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk.Ado.YdbType;
 using Type = System.Type;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal;
@@ -15,6 +17,7 @@ public sealed class YdbTypeMappingSource(
 ) : RelationalTypeMappingSource(dependencies, relationalDependencies)
 {
     private static readonly ConcurrentDictionary<RelationalTypeMappingInfo, RelationalTypeMapping> DecimalCache = new();
+    private static readonly ConcurrentDictionary<YdbDbType, YdbListTypeMapping> ListMappings = new();
 
     #region Mappings
 
@@ -125,19 +128,60 @@ public sealed class YdbTypeMappingSource(
         var clrType = mappingInfo.ClrType;
         var storeTypeName = mappingInfo.StoreTypeName;
 
-        if (storeTypeName is null || !StoreTypeMapping.TryGetValue(storeTypeName, out var mappings))
+        if (storeTypeName is not null && StoreTypeMapping.TryGetValue(storeTypeName, out var mappings))
         {
-            return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
-        }
-
-        foreach (var m in mappings)
-        {
-            if (m.ClrType == clrType)
+            // We found the user-specified store type. No CLR type was provided - we're probably
+            // scaffolding from an existing database, take the first mapping as the default.
+            if (clrType is null)
             {
-                return m;
+                return mappings[0];
+            }
+
+            // A CLR type was provided - look for a mapping between the store and CLR types. If not found, fail
+            // immediately.
+            foreach (var m in mappings)
+            {
+                if (m.ClrType == clrType)
+                {
+                    return m;
+                }
             }
         }
 
         return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
+    }
+
+    public override RelationalTypeMapping? FindMapping(Type type)
+    {
+        if (type == typeof(byte[]))
+            return base.FindMapping(type);
+
+        var elementType = type.IsArray
+            ? type.GetElementType()
+            : type.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>))?
+                .GetGenericArguments()[0];
+
+        if (elementType == null)
+            return base.FindMapping(type);
+
+        elementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+
+        var elementTypeMapping = FindMapping(elementType);
+
+        if (elementTypeMapping == null)
+            return base.FindMapping(type);
+
+        var ydbDbType = elementTypeMapping is IYdbTypeMapping ydbTypeMapping
+            ? ydbTypeMapping.YdbDbType
+            : (elementTypeMapping.DbType ?? DbType.Object).ToYdbDbType();
+
+        if (ListMappings.TryGetValue(ydbDbType, out var mapping))
+            return mapping;
+
+        mapping = new YdbListTypeMapping(ydbDbType, elementTypeMapping.StoreType);
+        ListMappings.TryAdd(ydbDbType, mapping);
+
+        return mapping;
     }
 }

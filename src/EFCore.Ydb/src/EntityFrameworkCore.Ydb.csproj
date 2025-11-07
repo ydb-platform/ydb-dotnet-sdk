@@ -14,7 +14,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Ydb.Sdk" Version="0.24.0"/>
+        <PackageReference Include="Ydb.Sdk" Version="0.25.1"/>
     </ItemGroup>
 
     <ItemGroup>

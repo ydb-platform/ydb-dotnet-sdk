@@ -24,8 +24,7 @@ public class YdbDateOnlyTypeMapping : RelationalTypeMapping
     {
     }
 
-    protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-        => new YdbDateOnlyTypeMapping(parameters);
+    protected override YdbDateOnlyTypeMapping Clone(RelationalTypeMappingParameters parameters) => new(parameters);
 
     protected override string GenerateNonNullSqlLiteral(object value)
     {

@@ -182,22 +182,21 @@ VALUES
     [Fact]
     public async Task WhereIds_WhenInListSizeParametersIs15_000_ExecutedQuery()
     {
-        const ulong sizeBatch = 15_000;
+        const int sizeBatch = 15_000;
         const string tableName = "table_dapper_when_size_parameters";
         await using var connection = await CreateOpenConnectionAsync();
         await connection.ExecuteAsync(
             $"CREATE TABLE {tableName} (Id Int32, Name Text, Now Timestamp, PRIMARY KEY(Id));");
 
-        for (var i = 0; i < 15_000; i++)
+        for (var i = 0; i < sizeBatch; i++)
         {
             await connection.ExecuteAsync($"INSERT INTO {tableName}(Id, Name, Now) VALUES(@Id, @Name, @Now)",
                 new { Id = i, Name = $"Name {i}", DateTime.Now });
         }
 
-        Assert.Equal(sizeBatch, await connection.ExecuteScalarAsync($@"
-            SELECT COUNT(*) FROM {tableName}
-            WHERE Id IN @Ids;", new { Ids = Enumerable.Range(0, 15_000).ToList() }
-        ));
+        Assert.Equal(sizeBatch, Convert.ToInt32(await connection.ExecuteScalarAsync($@"
+            SELECT COUNT(*) FROM {tableName} WHERE Id IN @Ids;", new { Ids = Enumerable.Range(0, sizeBatch).ToList() }
+        )));
         await connection.ExecuteAsync($"DROP TABLE {tableName};");
     }
 
