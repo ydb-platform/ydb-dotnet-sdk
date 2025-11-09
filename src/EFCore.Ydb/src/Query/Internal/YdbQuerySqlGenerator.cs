@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
+using EntityFrameworkCore.Ydb.Query.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -319,5 +320,40 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
             .Append("END");
 
         return caseExpression;
+    }
+    
+
+    protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
+    {
+        if (sqlUnaryExpression.OperatorType == ExpressionType.Not && sqlUnaryExpression.Type == typeof(bool) 
+            && 
+            sqlUnaryExpression.Operand is YdbILikeExpression iLikeExpression)
+        {
+            VisitILike(iLikeExpression, true);
+            return sqlUnaryExpression;
+        }
+        
+        return base.VisitSqlUnary(sqlUnaryExpression);
+    }
+
+    protected override Expression VisitExtension(Expression extensionExpression) => 
+        extensionExpression switch
+        {
+            YdbILikeExpression ilikeExpression => VisitILike(ilikeExpression, false),
+            _ => base.VisitExtension(extensionExpression)
+        };
+
+
+
+    private Expression VisitILike(YdbILikeExpression ilikeExpression, bool not)
+    {
+        Visit(ilikeExpression.Match);
+        if (not)
+        {
+            Sql.Append(" NOT");
+        }
+        Sql.Append(" ILIKE ");
+        Visit(ilikeExpression.Pattern);
+        return ilikeExpression;
     }
 }

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;
 
-public sealed class YdbMethodCallTranslatorProvider : RelationalMethodCallTranslatorProvider
+public class YdbMethodCallTranslatorProvider : RelationalMethodCallTranslatorProvider
 {
     public YdbMethodCallTranslatorProvider(RelationalMethodCallTranslatorProviderDependencies dependencies) :
         base(dependencies)
@@ -14,7 +14,8 @@ public sealed class YdbMethodCallTranslatorProvider : RelationalMethodCallTransl
             [
                 new YdbDateTimeMethodTranslator(sqlExpressionFactory),
                 new YdbMathTranslator(sqlExpressionFactory),
-                new YdbByteArrayMethodTranslator(sqlExpressionFactory)
+                new YdbByteArrayMethodTranslator(sqlExpressionFactory),
+                new YdbILikeMethodTranslator(sqlExpressionFactory)
             ]
         );
     }
