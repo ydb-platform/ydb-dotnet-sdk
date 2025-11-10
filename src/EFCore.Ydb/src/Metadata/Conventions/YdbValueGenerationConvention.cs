@@ -14,25 +14,32 @@ public class YdbValueGenerationConvention(
 {
     protected override ValueGenerated? GetValueGenerated(IConventionProperty property)
     {
-        if (property.DeclaringType.IsMappedToJson()
-#pragma warning disable EF1001 // Internal EF Core API usage.
-            && property.IsOrdinalKeyProperty()
-#pragma warning restore EF1001 // Internal EF Core API usage.
-            && (property.DeclaringType as IReadOnlyEntityType)?.FindOwnership()!.IsUnique == false)
-        {
-            return ValueGenerated.OnAdd;
-        }
+        var table = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
 
-        var declaringTable = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
-        if (declaringTable.Name == null)
-        {
-            return null;
-        }
+        return !MappingStrategyAllowsValueGeneration(property, property.DeclaringType.GetMappingStrategy())
+            ? null
+            : table.Name != null
+                ? GetValueGenerated(property, table)
+                : property.DeclaringType.IsMappedToJson()
+                  && property.IsOrdinalKeyProperty()
+                  && (property.DeclaringType as IReadOnlyEntityType)?.FindOwnership()!.IsUnique == false
+                    ? ValueGenerated.OnAddOrUpdate
+                    : property.GetMappedStoreObjects(StoreObjectType.InsertStoredProcedure).Any()
+                        ? GetValueGenerated((IReadOnlyProperty)property)
+                        : null;
+    }
 
-        return property.GetComputedColumnSql(declaringTable) != null
-            ? ValueGenerated.OnAddOrUpdate
-            : property.GetDefaultValueSql(declaringTable) != null
-                ? ValueGenerated.OnAdd
-                : null;
+    private new static ValueGenerated? GetValueGenerated(
+        IReadOnlyProperty property,
+        in StoreObjectIdentifier storeObject
+    )
+    {
+        var valueGenerated = GetValueGenerated(property);
+        return valueGenerated
+               ?? (property.GetComputedColumnSql(storeObject) != null
+                   ? ValueGenerated.OnAddOrUpdate
+                   : property.GetDefaultValueSql(storeObject) != null
+                       ? ValueGenerated.OnAdd
+                       : null);
     }
 }
