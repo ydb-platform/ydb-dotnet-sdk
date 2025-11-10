@@ -21,7 +21,9 @@ public class YdbValueGenerationConvention(
             : table.Name != null
                 ? GetValueGenerated(property, table)
                 : property.DeclaringType.IsMappedToJson()
+#pragma warning disable EF1001 // Internal EF Core API usage.
                   && property.IsOrdinalKeyProperty()
+#pragma warning restore EF1001 // Internal EF Core API usage.
                   && (property.DeclaringType as IReadOnlyEntityType)?.FindOwnership()!.IsUnique == false
                     ? ValueGenerated.OnAddOrUpdate
                     : property.GetMappedStoreObjects(StoreObjectType.InsertStoredProcedure).Any()
