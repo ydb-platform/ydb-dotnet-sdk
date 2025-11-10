@@ -13,6 +13,7 @@ public class YdbConventionSetBuilder(
     {
         var coreConventions = base.CreateConventionSet();
         coreConventions.Add(new YdbStringAttributeConvention(Dependencies));
+        coreConventions.Add(new YdbValueGenerationConvention(Dependencies, RelationalDependencies));
         return coreConventions;
     }
 }
