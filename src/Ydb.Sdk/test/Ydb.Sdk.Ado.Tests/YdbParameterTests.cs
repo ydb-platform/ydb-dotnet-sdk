@@ -140,10 +140,19 @@ public class YdbParameterTests : TestBase
         ydbCommand.Parameters.AddWithValue("dateOnly", new DateOnly(2002, 2, 24));
 
         Assert.Equal(new DateTime(2002, 2, 24), await ydbCommand.ExecuteScalarAsync());
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
+        await ydbDataReader.ReadAsync();
+        Assert.Equal(new DateOnly(2002, 2, 24), ydbDataReader.GetFieldValue<DateOnly>(0));
+        Assert.False(await ydbDataReader.ReadAsync());
 
         ydbCommand.Parameters.Clear();
         ydbCommand.Parameters.AddWithValue("dateOnly", DbType.Date, new DateOnly(2102, 2, 24));
         Assert.Equal(new DateTime(2102, 2, 24), await ydbCommand.ExecuteScalarAsync());
+
+        ydbDataReader = await ydbCommand.ExecuteReaderAsync();
+        await ydbDataReader.ReadAsync();
+        Assert.Equal(new DateOnly(2102, 2, 24), ydbDataReader.GetFieldValue<DateOnly>(0));
+        Assert.False(await ydbDataReader.ReadAsync());
     }
 
     [Theory]

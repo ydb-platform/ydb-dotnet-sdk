@@ -1,3 +1,5 @@
+- Feat ADO.NET: Added support for the `DateOnly` type in `YdbDataReader.GetFieldValue<T>`.
+
 ## v0.25.1
 
 - Fixed bug ADO.NET: `ArgumentOutOfRangeException` when using `YdbParameter` with `YdbDbType = YdbDbType.List | YdbDbType.Unspecified`;

@@ -45,7 +45,7 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
             {
                 await Dependencies.MigrationCommandExecutor.ExecuteNonQueryAsync(
                     AcquireDatabaseLockCommand(),
-                    ((IYdbRelationalConnection)Dependencies.Connection).Clone(), // TODO usage ExecutionContext
+                    Dependencies.Connection,
                     new MigrationExecutionState(),
                     commitTransaction: true,
                     cancellationToken: cancellationToken
@@ -85,9 +85,7 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
             try
             {
                 await Dependencies.MigrationCommandExecutor.ExecuteNonQueryAsync(
-                    ReleaseDatabaseLockCommand(),
-                    ((IYdbRelationalConnection)Dependencies.Connection).Clone()
-                ).ConfigureAwait(false);
+                    ReleaseDatabaseLockCommand(), Dependencies.Connection).ConfigureAwait(false);
 
                 return;
             }
@@ -98,10 +96,8 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
         }
     }
 
-    private IReadOnlyList<MigrationCommand> ReleaseDatabaseLockCommand() =>
-        Dependencies.MigrationsSqlGenerator.Generate(new List<MigrationOperation>
-            { new SqlOperation { Sql = GetDeleteScript(LockKey) } }
-        );
+    private IReadOnlyList<MigrationCommand> ReleaseDatabaseLockCommand() => Dependencies.MigrationsSqlGenerator
+        .Generate(new List<MigrationOperation> { new SqlOperation { Sql = GetDeleteScript(LockKey) } });
 
     bool IHistoryRepository.CreateIfNotExists() => CreateIfNotExistsAsync().GetAwaiter().GetResult();
 
@@ -135,13 +131,7 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
 
     private IReadOnlyList<MigrationCommand> GetCreateIfNotExistsCommands() =>
         Dependencies.MigrationsSqlGenerator.Generate(new List<MigrationOperation>
-        {
-            new SqlOperation
-            {
-                Sql = GetCreateIfNotExistsScript(),
-                SuppressTransaction = true
-            }
-        });
+            { new SqlOperation { Sql = GetCreateIfNotExistsScript(), SuppressTransaction = true } });
 
     public override string GetCreateIfNotExistsScript()
         => GetCreateScript().Replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS");
@@ -179,8 +169,8 @@ public class YdbHistoryRepository(HistoryRepositoryDependencies dependencies)
         {
             new SqlOperation
             {
-                Sql = $"SELECT * FROM {SqlGenerationHelper.DelimitIdentifier(TableName, TableSchema)}" +
-                      $" WHERE '{MigrationIdColumnName}' = '{LockKey}';"
+                Sql = $"SELECT * FROM {SqlGenerationHelper.DelimitIdentifier(TableName, TableSchema)} " +
+                      $"WHERE '{MigrationIdColumnName}' = CAST(RandomUuid(0) AS Text)"
             }
         });
 

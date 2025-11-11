@@ -1,3 +1,4 @@
+- Fixed bug: Error when saving an entity without specifying a default value ()
 - Fixed bug: SqlQuery throws exception when using list parameters ([#540](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/540)).
 - Added support for the YDB retry policy (ADO.NET) and new configuration methods in `YdbDbContextOptionsBuilder`:
   - `EnableRetryIdempotence()`: enables retries for errors classified as idempotent. You must ensure the operation itself is idempotent.
