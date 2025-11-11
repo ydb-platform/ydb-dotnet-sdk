@@ -29,13 +29,13 @@ public abstract class YdbTypeMapping(
 
     protected override void ConfigureParameter(DbParameter parameter)
     {
-        if (parameter is not YdbParameter npgsqlParameter)
+        if (parameter is not YdbParameter ydbParameter)
         {
             throw new InvalidOperationException(
                 $"Ydb-specific type mapping {GetType().Name} being used with non-Ydb parameter type {parameter.GetType().Name}");
         }
 
         base.ConfigureParameter(parameter);
-        npgsqlParameter.YdbDbType = YdbDbType;
+        ydbParameter.YdbDbType = YdbDbType;
     }
 }
