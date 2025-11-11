@@ -143,7 +143,7 @@ internal static class YdbValueExtensions
     }
 
     internal static Ydb.Value PackDate(DateTime value) =>
-        new() { Uint32Value = (uint)(value.Subtract(DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerDay) };
+        new() { Uint32Value = checked((uint)(value.Subtract(DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerDay)) };
 
     internal static DateTime UnpackDate(this Ydb.Value value) =>
         UnixEpoch.AddTicks(value.Uint32Value * TimeSpan.TicksPerDay);
@@ -155,7 +155,7 @@ internal static class YdbValueExtensions
         UnixEpoch.AddTicks(value.Int32Value * TimeSpan.TicksPerDay);
 
     internal static Ydb.Value PackDatetime(DateTime value) => new()
-        { Uint32Value = (uint)(value.Subtract(DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerSecond) };
+        { Uint32Value = checked((uint)(value.Subtract(DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerSecond)) };
 
     internal static DateTime UnpackDatetime(this Ydb.Value value) =>
         UnixEpoch.AddTicks(value.Uint32Value * TimeSpan.TicksPerSecond);
@@ -167,7 +167,7 @@ internal static class YdbValueExtensions
         UnixEpoch.AddTicks(value.Int64Value * TimeSpan.TicksPerSecond);
 
     internal static Ydb.Value PackTimestamp(DateTime value) => new()
-        { Uint64Value = (ulong)(value.Ticks - DateTime.UnixEpoch.Ticks) / TimeSpanUtils.TicksPerMicrosecond };
+        { Uint64Value = checked((ulong)(value.Ticks - DateTime.UnixEpoch.Ticks) / TimeSpanUtils.TicksPerMicrosecond) };
 
     internal static DateTime UnpackTimestamp(this Ydb.Value value) =>
         UnixEpoch.AddTicks((long)(value.Uint64Value * TimeSpanUtils.TicksPerMicrosecond));
