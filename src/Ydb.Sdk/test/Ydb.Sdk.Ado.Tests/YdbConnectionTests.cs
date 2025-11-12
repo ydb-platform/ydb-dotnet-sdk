@@ -126,12 +126,17 @@ public sealed class YdbConnectionTests : TestBase
                                       uint64_column UINT64,
                                       text_column TEXT,
                                       binary_column BYTES,
+                                      yson_column YSON,
                                       json_column JSON,
                                       jsondocument_column JSONDOCUMENT,
                                       date_column DATE,
                                       datetime_column DATETIME,
                                       timestamp_column TIMESTAMP,
                                       interval_column INTERVAL,
+                                      date32_column DATE32,
+                                      datetime64_column DATETIME64,
+                                      timestamp64_column TIMESTAMP64,
+                                      interval64_column INTERVAL64,
                                       PRIMARY KEY (id)
                                   )
                                   """;
@@ -140,41 +145,47 @@ public sealed class YdbConnectionTests : TestBase
             $"""
              INSERT INTO {tableName} (id, bool_column, bigint_column, smallint_column, tinyint_column, float_column,
              double_column, decimal_column, uint8_column, uint16_column, uint32_column, uint64_column, text_column, 
-             binary_column, json_column, jsondocument_column, date_column, datetime_column, timestamp_column, 
-             interval_column) VALUES (@name1, @name2, @name3, @name4, @name5, @name6, @name7, @name8, @name9, @name10, 
-             @name11, @name12, @name13, @name14, @name15, @name16, @name17, @name18, @name19, @name20); 
+             binary_column, yson_column, json_column, jsondocument_column, date_column, datetime_column, timestamp_column, 
+             interval_column, date32_column, datetime64_column, timestamp64_column, interval64_column) VALUES 
+             (@name1, @name2, @name3, @name4, @name5, @name6, @name7, @name8, @name9, @name10, @name11, @name12,
+             @name13, @name14, @name15, @name16, @name17, @name18, @name19, @name20, @name21, @name22, @name23, @name24, @name25); 
              """;
 
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name1", DbType = DbType.Int32, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name2", DbType = DbType.Boolean, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name3", DbType = DbType.Int64, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name4", DbType = DbType.Int16, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name5", DbType = DbType.SByte, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name6", DbType = DbType.Single, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name7", DbType = DbType.Double, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name8", DbType = DbType.Decimal, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name9", DbType = DbType.Byte, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name10", DbType = DbType.UInt16, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name11", DbType = DbType.UInt32, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name12", DbType = DbType.UInt64, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name13", DbType = DbType.String, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name14", DbType = DbType.Binary, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name15", YdbDbType = YdbDbType.Json });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name16", YdbDbType = YdbDbType.JsonDocument });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name17", DbType = DbType.Date, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter
-            { ParameterName = "name18", DbType = DbType.DateTime, Value = null });
-        ydbCommand.Parameters.Add(
-            new YdbParameter { ParameterName = "name19", DbType = DbType.DateTime2, Value = null });
-        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name20", YdbDbType = YdbDbType.Interval });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name1", DbType = DbType.Int32 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name2", DbType = DbType.Boolean });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name3", DbType = DbType.Int64 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name4", DbType = DbType.Int16 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name5", DbType = DbType.SByte });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name6", DbType = DbType.Single });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name7", DbType = DbType.Double });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name8", DbType = DbType.Decimal });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name9", DbType = DbType.Byte });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name10", DbType = DbType.UInt16 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name11", DbType = DbType.UInt32 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name12", DbType = DbType.UInt64 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name13", DbType = DbType.String });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name14", DbType = DbType.Binary });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name15", YdbDbType = YdbDbType.Yson });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name16", YdbDbType = YdbDbType.Json });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name17", YdbDbType = YdbDbType.JsonDocument });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name18", DbType = DbType.Date });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name19", DbType = DbType.DateTime });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name20", DbType = DbType.DateTime2 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name21", YdbDbType = YdbDbType.Interval });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name22", YdbDbType = YdbDbType.Date32 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name23", YdbDbType = YdbDbType.Datetime64 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name24", YdbDbType = YdbDbType.Timestamp64 });
+        ydbCommand.Parameters.Add(new YdbParameter { ParameterName = "name25", YdbDbType = YdbDbType.Interval64 });
 
         await ydbCommand.ExecuteNonQueryAsync();
         ydbCommand.CommandText = $"SELECT NULL, t.* FROM {tableName} t";
         var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
         Assert.True(await ydbDataReader.ReadAsync());
-        for (var i = 0; i < 21; i++)
+        Assert.Equal(26, ydbDataReader.FieldCount);
+        for (var i = 0; i < 26; i++)
         {
             Assert.True(ydbDataReader.IsDBNull(i));
+            Assert.Equal(DBNull.Value, ydbDataReader.GetValue(i));
         }
 
         Assert.False(await ydbDataReader.ReadAsync());

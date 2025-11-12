@@ -390,7 +390,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Uint64 => typeof(ulong),
             Type.Types.PrimitiveTypeId.Float => typeof(float),
             Type.Types.PrimitiveTypeId.Double => typeof(double),
-            Type.Types.PrimitiveTypeId.Interval => typeof(TimeSpan),
+            Type.Types.PrimitiveTypeId.Interval 
+                or Type.Types.PrimitiveTypeId.Interval64 => typeof(TimeSpan),
             Type.Types.PrimitiveTypeId.Utf8
                 or Type.Types.PrimitiveTypeId.JsonDocument
                 or Type.Types.PrimitiveTypeId.Json => typeof(string),
@@ -621,6 +622,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Float => ydbValue.UnpackFloat(),
             Type.Types.PrimitiveTypeId.Double => ydbValue.UnpackDouble(),
             Type.Types.PrimitiveTypeId.Interval => ydbValue.UnpackInterval(),
+            Type.Types.PrimitiveTypeId.Interval64 => ydbValue.UnpackInterval64(),
             Type.Types.PrimitiveTypeId.Utf8
                 or Type.Types.PrimitiveTypeId.Json
                 or Type.Types.PrimitiveTypeId.JsonDocument => ydbValue.UnpackText(),

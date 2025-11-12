@@ -456,7 +456,8 @@ public class YdbParameterTests : TestBase
                            """
         }.ExecuteReaderAsync();
 
-        Assert.True(ydbDataReader.Read());
+        Assert.Equal(26, ydbDataReader.FieldCount);
+        Assert.True(await ydbDataReader.ReadAsync());
         Assert.Equal(1, ydbDataReader.GetInt32(0));
         Assert.True(ydbDataReader.GetBoolean(1));
         Assert.Equal(1, ydbDataReader.GetInt64(2));
