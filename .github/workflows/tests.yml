@@ -126,7 +126,7 @@ jobs:
       - name: Run EntityFrameworkCore.Ydb.QuickStart
         run: |
           cd ./examples/EntityFrameworkCore.Ydb.QuickStart
-          dotnet tool install --global dotnet-ef
+          dotnet tool install --global dotnet-ef --version 9.*
           dotnet add package Microsoft.EntityFrameworkCore.Design
           dotnet ef migrations add InitialCreate
           dotnet ef database update
@@ -135,7 +135,7 @@ jobs:
       - name: Run EntityFrameworkCore.Ydb.Samples/Database.Operations.Tutorial
         run: |
           cd ./examples/EntityFrameworkCore.Ydb.Samples/Database.Operations.Tutorial
-          dotnet tool install --global dotnet-ef
+          dotnet tool install --global dotnet-ef --version 9.*
           dotnet add package Microsoft.EntityFrameworkCore.Design
           dotnet ef migrations add InitialCreate
           dotnet ef database update

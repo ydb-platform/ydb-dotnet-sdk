@@ -37,7 +37,7 @@ public class LazyLoadProxyYdbTest(LazyLoadProxyYdbTest.LoadYdbFixture fixture)
             modelBuilder.Entity<Parson>()
                 .Property(e => e.Birthday)
                 .HasColumnType("Timestamp64");
-            
+
             modelBuilder.Entity<Quest>()
                 .Property(e => e.Birthday)
                 .HasColumnType("Timestamp64");
