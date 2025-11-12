@@ -57,6 +57,14 @@ public class YdbParameterTests : TestBase
         Assert.Equal("Ydb don't supported this DbType: " + name, Assert.Throws<NotSupportedException>(() =>
             new YdbParameter("$parameter", dbType) { IsNullable = true }.TypedValue).Message);
 
+    [Theory]
+    [InlineData(YdbDbType.Date)]
+    [InlineData(YdbDbType.Datetime)]
+    [InlineData(YdbDbType.Timestamp)]
+    public void YdbParameter_WhenDateTimeBeforeEpoch_ForDateDatetimeTimestamp_ThrowsOverflowException(
+        YdbDbType ydbDbType) => Assert.Throws<OverflowException>(() => new YdbParameter("$parameter", ydbDbType)
+            { Value = new DateTime(1950, 1, 1) }.TypedValue);
+
     [Fact]
     public void YdbParameter_WhenSetAndNoSet_ReturnValueOrException()
     {

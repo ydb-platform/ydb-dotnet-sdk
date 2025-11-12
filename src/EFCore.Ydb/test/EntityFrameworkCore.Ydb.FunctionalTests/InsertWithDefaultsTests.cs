@@ -108,7 +108,7 @@ public class InsertWithDefaultsTests
         [Precision(25, 5)] public decimal DecimalValue { get; set; }
 
         public Guid GuidValue { get; set; }
-        
+
         public string TextValue { get; set; } = null!;
         public byte[] BytesValue { get; set; } = null!;
 

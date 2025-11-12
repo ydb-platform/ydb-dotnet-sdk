@@ -9,7 +9,7 @@ public class YdbDateOnlyTypeMapping : YdbTypeMapping
     {
     }
 
-    private YdbDateOnlyTypeMapping(RelationalTypeMappingParameters parameters, YdbDbType ydbDbType) 
+    private YdbDateOnlyTypeMapping(RelationalTypeMappingParameters parameters, YdbDbType ydbDbType)
         : base(parameters, ydbDbType)
     {
     }

@@ -26,7 +26,7 @@ public class TPTGearsOfWarQueryYdbFixture : TPTGearsOfWarQueryRelationalFixture
                 v => new DateTime(2000, 1, 1).Add(v.ToTimeSpan()), // Time → DateTime
                 v => new TimeOnly(v.TimeOfDay.Ticks)
             ); // DateTime → Time
-                
+
         modelBuilder.Entity<CogTag>()
             .Property(e => e.IssueDate)
             .HasColumnType("Date32");

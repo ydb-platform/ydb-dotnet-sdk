@@ -11,7 +11,7 @@ Based on the [tutorial](https://www.csharptutorial.net/entity-framework-core-tut
 
 2. Install the EF Core CLI tool and dependencies (if needed):
     ```bash
-    dotnet tool install --global dotnet-ef
+    dotnet tool install --global dotnet-ef --version 9.0.10
     dotnet add package Microsoft.EntityFrameworkCore.Design
     ```
 
