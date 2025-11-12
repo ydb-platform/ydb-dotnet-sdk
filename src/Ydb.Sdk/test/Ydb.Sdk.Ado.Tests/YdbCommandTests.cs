@@ -25,6 +25,8 @@ public class YdbCommandTests : TestBase
 
         Assert.Equal(1, ydbDataReader.FieldCount);
         Assert.Equal("var", ydbDataReader.GetName(0));
+        Assert.True(await ydbDataReader.ReadAsync());
+
         if (value != null)
         {
             Assert.False(ydbDataReader.IsDBNull(0));
@@ -71,7 +73,8 @@ public class YdbCommandTests : TestBase
 
         Assert.Equal(1, ydbDataReader.FieldCount);
         Assert.Equal("var", ydbDataReader.GetName(0));
-        await ydbDataReader.ReadAsync();
+        Assert.True(await ydbDataReader.ReadAsync());
+
         if (value != null)
         {
             Assert.False(ydbDataReader.IsDBNull(0));
@@ -407,6 +410,6 @@ public class YdbCommandTests : TestBase
         { YdbDbType.Datetime64, new DateTime(1021, 08, 21, 23, 30, 47), typeof(DateTime) },
         { YdbDbType.Datetime64, null, typeof(DateTime) },
         { YdbDbType.Timestamp64, DateTime.Parse("1029-08-03T06:59:44.8578730Z"), typeof(DateTime) },
-        { YdbDbType.Timestamp64, null, typeof(DateTime) },
+        { YdbDbType.Timestamp64, null, typeof(DateTime) }
     };
 }

@@ -1,4 +1,4 @@
-- Fixed bug ADO.NET: `YdbDataReader.[GetFieldType / GetValue]` miss support for `Interval64` YDB type.
+- Fixed bug ADO.NET: missing support for the YDB `Interval64` type in `YdbDataReader.GetFieldType / GetValue` ([#561](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/561)).
 - Feat ADO.NET: Added overflow-checked int-to-uint cast for YDB `Date`, `Datetime`, and `Timestamp`. `DateTime` before epoch now throws `OverflowException`.
 - Feat ADO.NET: Added support for the `DateOnly` type in `YdbDataReader.GetFieldValue<T>`.
 
