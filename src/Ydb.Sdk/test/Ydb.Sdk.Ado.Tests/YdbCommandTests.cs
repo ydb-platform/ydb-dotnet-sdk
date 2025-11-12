@@ -410,6 +410,8 @@ public class YdbCommandTests : TestBase
         { YdbDbType.Datetime64, new DateTime(1021, 08, 21, 23, 30, 47), typeof(DateTime) },
         { YdbDbType.Datetime64, null, typeof(DateTime) },
         { YdbDbType.Timestamp64, DateTime.Parse("1029-08-03T06:59:44.8578730Z"), typeof(DateTime) },
-        { YdbDbType.Timestamp64, null, typeof(DateTime) }
+        { YdbDbType.Timestamp64, null, typeof(DateTime) },
+        { YdbDbType.Interval64, TimeSpan.FromMilliseconds(TimeSpan.MinValue.Milliseconds), typeof(TimeSpan) },
+        { YdbDbType.Interval64, null, typeof(TimeSpan) },
     };
 }
