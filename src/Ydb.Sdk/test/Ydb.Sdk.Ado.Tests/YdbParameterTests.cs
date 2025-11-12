@@ -63,7 +63,7 @@ public class YdbParameterTests : TestBase
     [InlineData(YdbDbType.Timestamp)]
     public void YdbParameter_WhenDateTimeBeforeEpoch_ForDateDatetimeTimestamp_ThrowsOverflowException(
         YdbDbType ydbDbType) => Assert.Throws<OverflowException>(() => new YdbParameter("$parameter", ydbDbType)
-            { Value = new DateTime(1950, 1, 1) }.TypedValue);
+        { Value = new DateTime(1950, 1, 1) }.TypedValue);
 
     [Fact]
     public void YdbParameter_WhenSetAndNoSet_ReturnValueOrException()
