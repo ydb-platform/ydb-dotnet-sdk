@@ -38,6 +38,8 @@ public class SqlQueryCollectionParameterTests
         yield return [(string[])["1", "2", "3"]];
         yield return [new List<byte[]> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 } }];
         yield return [(byte[][])[[1, 1], [2, 2], [3, 3]]];
+        yield return [new List<DateOnly> { new(2002, 2, 24), new(2012, 2, 24), new(2102, 2, 24) }];
+        yield return [new DateOnly[] { new(2002, 2, 24), new(2012, 2, 24), new(2102, 2, 24) }];
         yield return
             [new List<DateTime> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3) }];
         yield return [(DateTime[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3)]];
@@ -70,6 +72,16 @@ public class SqlQueryCollectionParameterTests
         yield return [(string?[])["1", "2", "3", null]];
         yield return [new List<byte[]?> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 }, null }];
         yield return [(byte[]?[])[[1, 1], [2, 2], [3, 3], null]];
+        yield return
+        [
+            new List<DateOnly?>
+                { new DateOnly(2002, 2, 24), new DateOnly(2012, 2, 24), new DateOnly(2102, 2, 24), null }
+        ];
+        yield return
+        [
+            new DateOnly?[]
+                { new DateOnly(2002, 2, 24), new DateOnly(2012, 2, 24), new DateOnly(2102, 2, 24), null }
+        ];
         yield return
         [
             new List<DateTime?> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null }

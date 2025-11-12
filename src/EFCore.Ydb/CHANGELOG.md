@@ -1,3 +1,6 @@
+- Fixed bug: Missing/removed __EFMigrationsHistory caused INSERT errors (LockMigration); migrations now handle table recreation and locking properly ([#544](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/544)).
+- Added support for new YDB data types - `Date32`, `Datetime64`, `Timestamp64` and `Interval64`.
+- Fixed bug: Missing `DEFAULT` clause generation in `YdbMigrationsSqlGenerator` (handles defaultValue/defaultValueSql) ([#552](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/552)).
 - Fixed bug: SqlQuery throws exception when using list parameters ([#540](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/540)).
 - Added support for the YDB retry policy (ADO.NET) and new configuration methods in `YdbDbContextOptionsBuilder`:
   - `EnableRetryIdempotence()`: enables retries for errors classified as idempotent. You must ensure the operation itself is idempotent.

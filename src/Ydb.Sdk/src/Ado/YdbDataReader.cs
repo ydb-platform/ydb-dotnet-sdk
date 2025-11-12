@@ -342,6 +342,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return (T)(object)GetChar(ordinal);
         }
 
+        if (typeof(T) == typeof(DateOnly))
+        {
+            var dateTime = GetDateTime(ordinal);
+
+            return (T)(object)DateOnly.FromDateTime(dateTime);
+        }
+
         return base.GetFieldValue<T>(ordinal);
     }
 

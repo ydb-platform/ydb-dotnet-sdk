@@ -1,17 +1,27 @@
-using System.Data;
-using Microsoft.EntityFrameworkCore.Storage;
+using System;
+using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
-public class YdbDateTimeTypeMapping(
-    string storeType,
-    DbType? dbType
-) : DateTimeTypeMapping(storeType, dbType)
+public class YdbDateTimeTypeMapping : YdbTypeMapping
 {
-    private const string DateTimeFormatConst = @"{0:yyyy-MM-dd HH\:mm\:ss.fffffff}";
+    public YdbDateTimeTypeMapping(YdbDbType ydbDbType) : base(typeof(DateTime), ydbDbType)
+    {
+    }
 
-    private string StoreTypeLiteral { get; } = storeType;
+    private YdbDateTimeTypeMapping(RelationalTypeMappingParameters parameters, YdbDbType ydbDbType)
+        : base(parameters, ydbDbType)
+    {
+    }
 
-    protected override string SqlLiteralFormatString
-        => "CAST('" + DateTimeFormatConst + $"' AS {StoreTypeLiteral})";
+    protected override YdbDateTimeTypeMapping Clone(RelationalTypeMappingParameters parameters) =>
+        new(parameters, YdbDbType);
+
+    protected override string SqlLiteralFormatString => YdbDbType switch
+    {
+        YdbDbType.Timestamp or YdbDbType.Timestamp64 => $@"{YdbDbType}('{{0:yyyy-MM-ddTHH\:mm\:ss.ffffffZ}}')",
+        YdbDbType.Datetime or YdbDbType.Datetime64 => $@"{YdbDbType}('{{0:yyyy-MM-ddTHH\:mm\:ssZ}}')",
+        YdbDbType.Date or YdbDbType.Date32 => $"{YdbDbType}('{{0:yyyy-MM-dd}}')",
+        _ => throw new ArgumentOutOfRangeException(nameof(YdbDbType), YdbDbType, null)
+    };
 }

@@ -81,6 +81,11 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
             .Append(" ")
             .Append(columnType)
             .Append(operation.IsNullable ? string.Empty : " NOT NULL");
+
+        if (autoincrement == true)
+            return;
+
+        DefaultValue(operation.DefaultValue, operation.DefaultValueSql, columnType, builder);
     }
 
     protected override void CreateTablePrimaryKeyConstraint(

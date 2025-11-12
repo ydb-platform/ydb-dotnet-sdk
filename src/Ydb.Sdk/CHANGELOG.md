@@ -1,3 +1,6 @@
+- Feat ADO.NET: Added overflow-checked int-to-uint cast for YDB `Date`, `Datetime`, and `Timestamp`. `DateTime` before epoch now throws `OverflowException`.
+- Feat ADO.NET: Added support for the `DateOnly` type in `YdbDataReader.GetFieldValue<T>`.
+
 ## v0.25.1
 
 - Fixed bug ADO.NET: `ArgumentOutOfRangeException` when using `YdbParameter` with `YdbDbType = YdbDbType.List | YdbDbType.Unspecified`;

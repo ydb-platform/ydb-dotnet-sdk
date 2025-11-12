@@ -38,19 +38,26 @@ public sealed class YdbTypeMappingSource(
 
     private static readonly YdbDecimalTypeMapping Decimal = YdbDecimalTypeMapping.Default;
 
-    private static readonly GuidTypeMapping Guid = YdbGuidTypeMapping.Default;
+    private static readonly GuidTypeMapping Uuid = YdbGuidTypeMapping.Default;
 
     private static readonly YdbTextTypeMapping Text = YdbTextTypeMapping.Default;
     private static readonly YdbBytesTypeMapping Bytes = YdbBytesTypeMapping.Default;
     private static readonly YdbJsonTypeMapping Json = new("Json", typeof(JsonElement), null);
 
-    private static readonly YdbDateOnlyTypeMapping Date = new("Date");
-    private static readonly DateTimeTypeMapping DateTime = new("DateTime");
+    private static readonly YdbDateOnlyTypeMapping DateDateOnly = new(YdbDbType.Date);
+    private static readonly YdbDateOnlyTypeMapping Date32DateOnly = new(YdbDbType.Date32);
 
-    private static readonly YdbDateTimeTypeMapping Timestamp = new("Timestamp", DbType.DateTime);
+    private static readonly YdbDateTimeTypeMapping DateDateTime = new(YdbDbType.Date);
+    private static readonly YdbDateTimeTypeMapping Date32DateTime = new(YdbDbType.Date32);
 
-    // TODO: Await interval in Ydb.Sdk
-    private static readonly TimeSpanTypeMapping Interval = new("Interval", DbType.Object);
+    private static readonly YdbDateTimeTypeMapping Datetime = new(YdbDbType.Datetime);
+    private static readonly YdbDateTimeTypeMapping Datetime64 = new(YdbDbType.Datetime64);
+
+    private static readonly YdbDateTimeTypeMapping Timestamp = new(YdbDbType.Timestamp);
+    private static readonly YdbDateTimeTypeMapping Timestamp64 = new(YdbDbType.Timestamp64);
+
+    private static readonly YdbTimeSpanTypeMapping Interval = new(YdbDbType.Interval);
+    private static readonly YdbTimeSpanTypeMapping Interval64 = new(YdbDbType.Interval64);
 
     #endregion
 
@@ -72,17 +79,20 @@ public sealed class YdbTypeMappingSource(
             { "Float", [Float] },
             { "Double", [Double] },
 
-            { "Guid", [Guid] },
-
-            { "Date", [Date] },
-            { "DateTime", [DateTime] },
-            { "Timestamp", [Timestamp] },
-            { "Interval", [Interval] },
+            { "Guid", [Uuid] },
 
             { "Text", [Text] },
             { "Bytes", [Bytes] },
 
-            { "Json", [Json] }
+            { "Date", [DateDateTime, DateDateOnly] },
+            { "DateTime", [Datetime] },
+            { "Timestamp", [Timestamp] },
+            { "Interval", [Interval] },
+
+            { "Date32", [Date32DateTime, Date32DateOnly] },
+            { "Datetime64", [Datetime64] },
+            { "Timestamp64", [Timestamp64] },
+            { "Interval64", [Interval64] }
         };
 
     private static readonly Dictionary<Type, RelationalTypeMapping> ClrTypeMapping = new()
@@ -102,13 +112,13 @@ public sealed class YdbTypeMappingSource(
         { typeof(float), Float },
         { typeof(double), Double },
 
-        { typeof(Guid), Guid },
+        { typeof(Guid), Uuid },
 
         { typeof(string), Text },
         { typeof(byte[]), Bytes },
         { typeof(JsonElement), Json },
 
-        { typeof(DateOnly), Date },
+        { typeof(DateOnly), DateDateOnly },
         { typeof(DateTime), Timestamp },
         { typeof(TimeSpan), Interval }
     };

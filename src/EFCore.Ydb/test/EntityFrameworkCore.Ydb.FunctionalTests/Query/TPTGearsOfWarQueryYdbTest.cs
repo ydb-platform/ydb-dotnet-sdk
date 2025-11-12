@@ -5,10 +5,10 @@ using Xunit.Abstractions;
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
 // TODO: Correlated subqueries right now are not supported in YDB
-public class TptGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TptGearsOfWarQueryYdbFixture>
+public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TPTGearsOfWarQueryYdbFixture>
 {
     // ReSharper disable once UnusedParameter.Local
-    public TptGearsOfWarQueryYdbTest(TptGearsOfWarQueryYdbFixture fixture, ITestOutputHelper testOutputHelper)
+    public TPTGearsOfWarQueryYdbTest(TPTGearsOfWarQueryYdbFixture fixture, ITestOutputHelper testOutputHelper)
         : base(fixture)
     {
         Fixture.TestSqlLoggerFactory.Clear();

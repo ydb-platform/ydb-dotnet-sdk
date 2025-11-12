@@ -57,6 +57,14 @@ public class YdbParameterTests : TestBase
         Assert.Equal("Ydb don't supported this DbType: " + name, Assert.Throws<NotSupportedException>(() =>
             new YdbParameter("$parameter", dbType) { IsNullable = true }.TypedValue).Message);
 
+    [Theory]
+    [InlineData(YdbDbType.Date)]
+    [InlineData(YdbDbType.Datetime)]
+    [InlineData(YdbDbType.Timestamp)]
+    public void YdbParameter_WhenDateTimeBeforeEpoch_ForDateDatetimeTimestamp_ThrowsOverflowException(
+        YdbDbType ydbDbType) => Assert.Throws<OverflowException>(() => new YdbParameter("$parameter", ydbDbType)
+        { Value = new DateTime(1950, 1, 1) }.TypedValue);
+
     [Fact]
     public void YdbParameter_WhenSetAndNoSet_ReturnValueOrException()
     {
@@ -140,10 +148,19 @@ public class YdbParameterTests : TestBase
         ydbCommand.Parameters.AddWithValue("dateOnly", new DateOnly(2002, 2, 24));
 
         Assert.Equal(new DateTime(2002, 2, 24), await ydbCommand.ExecuteScalarAsync());
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
+        await ydbDataReader.ReadAsync();
+        Assert.Equal(new DateOnly(2002, 2, 24), ydbDataReader.GetFieldValue<DateOnly>(0));
+        Assert.False(await ydbDataReader.ReadAsync());
 
         ydbCommand.Parameters.Clear();
         ydbCommand.Parameters.AddWithValue("dateOnly", DbType.Date, new DateOnly(2102, 2, 24));
         Assert.Equal(new DateTime(2102, 2, 24), await ydbCommand.ExecuteScalarAsync());
+
+        ydbDataReader = await ydbCommand.ExecuteReaderAsync();
+        await ydbDataReader.ReadAsync();
+        Assert.Equal(new DateOnly(2102, 2, 24), ydbDataReader.GetFieldValue<DateOnly>(0));
+        Assert.False(await ydbDataReader.ReadAsync());
     }
 
     [Theory]
