@@ -1,5 +1,6 @@
 using System.Data;
 using Xunit;
+using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -12,22 +13,30 @@ public class YdbCommandTests : TestBase
     public async Task ExecuteScalarAsync_WhenSetYdbParameter_ReturnThisValue(DbType dbType, object? value,
         bool isNullable)
     {
-        await using var connection = await CreateOpenConnectionAsync();
-        var dbCommand = connection.CreateCommand();
-        dbCommand.CommandText = "SELECT @var as var;";
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ydbDataReader = await new YdbCommand(ydbConnection)
+        {
+            CommandText = "SELECT @var as var;",
+            Parameters =
+            {
+                new YdbParameter { ParameterName = "var", DbType = dbType, Value = value, IsNullable = isNullable }
+            }
+        }.ExecuteReaderAsync();
 
-        var dbParameter = new YdbParameter
-            { ParameterName = "var", DbType = dbType, Value = value, IsNullable = isNullable };
-
-        dbCommand.Parameters.Add(dbParameter);
-
-        Assert.Equal(value ?? DBNull.Value, await dbCommand.ExecuteScalarAsync());
-        var ydbDataReader = await dbCommand.ExecuteReaderAsync();
         Assert.Equal(1, ydbDataReader.FieldCount);
         Assert.Equal("var", ydbDataReader.GetName(0));
+        Assert.True(await ydbDataReader.ReadAsync());
+
         if (value != null)
         {
+            Assert.False(ydbDataReader.IsDBNull(0));
+            Assert.Equal(value, ydbDataReader.GetValue(0));
             Assert.Equal(value.GetType(), ydbDataReader.GetFieldType(0));
+        }
+        else
+        {
+            Assert.True(ydbDataReader.IsDBNull(0));
+            Assert.Equal(DBNull.Value, ydbDataReader.GetValue(0));
         }
 
         while (await ydbDataReader.NextResultAsync())
@@ -41,15 +50,47 @@ public class YdbCommandTests : TestBase
     public async Task ExecuteScalarAsync_WhenSetYdbParameterThenPrepare_ReturnThisValue(DbType dbType, object? value,
         bool isNullable)
     {
-        await using var connection = await CreateOpenConnectionAsync();
-        var dbCommand = connection.CreateCommand();
-        dbCommand.CommandText = "SELECT @var;";
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        Assert.Equal(value ?? DBNull.Value, await new YdbCommand(ydbConnection)
+        {
+            CommandText = "SELECT @var;",
+            Parameters =
+                { new YdbParameter { ParameterName = "@var", DbType = dbType, Value = value, IsNullable = isNullable } }
+        }.ExecuteScalarAsync());
+    }
 
-        var dbParameter = new YdbParameter
-            { ParameterName = "@var", DbType = dbType, Value = value, IsNullable = isNullable };
-        dbCommand.Parameters.Add(dbParameter);
+    [Theory]
+    [MemberData(nameof(YdbDbTypeTestCases))]
+    public async Task ExecuteReaderAsync_WhenSetYdbDbType_ReturnThisValue(YdbDbType ydbDbType, object? value,
+        System.Type expectedType)
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ydbDataReader = await new YdbCommand(ydbConnection)
+        {
+            CommandText = "SELECT @var as var;",
+            Parameters = { new YdbParameter { ParameterName = "var", YdbDbType = ydbDbType, Value = value } }
+        }.ExecuteReaderAsync();
 
-        Assert.Equal(value ?? DBNull.Value, await dbCommand.ExecuteScalarAsync());
+        Assert.Equal(1, ydbDataReader.FieldCount);
+        Assert.Equal("var", ydbDataReader.GetName(0));
+        Assert.True(await ydbDataReader.ReadAsync());
+
+        if (value != null)
+        {
+            Assert.False(ydbDataReader.IsDBNull(0));
+            Assert.Equal(value, ydbDataReader.GetValue(0));
+        }
+        else
+        {
+            Assert.True(ydbDataReader.IsDBNull(0));
+            Assert.Equal(DBNull.Value, ydbDataReader.GetValue(0));
+        }
+
+        Assert.Equal(expectedType, ydbDataReader.GetFieldType(0));
+
+        while (await ydbDataReader.NextResultAsync())
+        {
+        }
     }
 
     [Fact]
@@ -241,14 +282,6 @@ public class YdbCommandTests : TestBase
         await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE `{tempTable}`" }.ExecuteNonQueryAsync();
     }
 
-    public class Data<T>(DbType dbType, T expected, bool isNullable = false)
-    {
-        public bool IsNullable { get; } = isNullable || expected == null;
-        public DbType DbType { get; } = dbType;
-        public T Expected { get; } = expected;
-    }
-
-
     public static readonly TheoryData<DbType, object, bool> DbTypeTestCases = new()
     {
         { DbType.Boolean, true, false },
@@ -330,5 +363,55 @@ public class YdbCommandTests : TestBase
         { DbType.String, null, true },
         { DbType.Decimal, null, false },
         { DbType.Decimal, null, true }
+    };
+
+    public static readonly TheoryData<YdbDbType, object?, System.Type> YdbDbTypeTestCases = new()
+    {
+        { YdbDbType.Bool, true, typeof(bool) },
+        { YdbDbType.Bool, null, typeof(bool) },
+        { YdbDbType.Int8, (sbyte)-1, typeof(sbyte) },
+        { YdbDbType.Int8, null, typeof(sbyte) },
+        { YdbDbType.Int16, (short)1400, typeof(short) },
+        { YdbDbType.Int16, null, typeof(short) },
+        { YdbDbType.Int32, -40_000, typeof(int) },
+        { YdbDbType.Int32, null, typeof(int) },
+        { YdbDbType.Int64, -4_000_000_000, typeof(long) },
+        { YdbDbType.Int64, null, typeof(long) },
+        { YdbDbType.Uint8, (byte)200, typeof(byte) },
+        { YdbDbType.Uint8, null, typeof(byte) },
+        { YdbDbType.Uint16, (ushort)40_000, typeof(ushort) },
+        { YdbDbType.Uint16, null, typeof(ushort) },
+        { YdbDbType.Uint32, 4_000_000_000, typeof(uint) },
+        { YdbDbType.Uint32, null, typeof(uint) },
+        { YdbDbType.Uint64, 10_000_000_000ul, typeof(ulong) },
+        { YdbDbType.Uint64, null, typeof(ulong) },
+        { YdbDbType.Float, -1.7f, typeof(float) },
+        { YdbDbType.Float, null, typeof(float) },
+        { YdbDbType.Double, 123.45, typeof(double) },
+        { YdbDbType.Double, null, typeof(double) },
+        { YdbDbType.Decimal, -1844073.709551616m, typeof(decimal) },
+        { YdbDbType.Decimal, null, typeof(decimal) },
+        { YdbDbType.Uuid, new Guid("6E73B41C-4EDE-4D08-9CFB-B7462D9E498B"), typeof(Guid) },
+        { YdbDbType.Uuid, null, typeof(Guid) },
+        { YdbDbType.Bytes, "test str"u8.ToArray(), typeof(byte[]) },
+        { YdbDbType.Bytes, null, typeof(byte[]) },
+        { YdbDbType.Text, "unicode str", typeof(string) },
+        { YdbDbType.Text, null, typeof(string) },
+        { YdbDbType.Date, new DateTime(2021, 08, 21), typeof(DateTime) },
+        { YdbDbType.Date, null, typeof(DateTime) },
+        { YdbDbType.Datetime, new DateTime(2021, 08, 21, 23, 30, 47), typeof(DateTime) },
+        { YdbDbType.Datetime, null, typeof(DateTime) },
+        { YdbDbType.Timestamp, DateTime.Parse("2029-08-03T06:59:44.8578730Z"), typeof(DateTime) },
+        { YdbDbType.Timestamp, null, typeof(DateTime) },
+        { YdbDbType.Interval, TimeSpan.FromMilliseconds(TimeSpan.MinValue.Milliseconds), typeof(TimeSpan) },
+        { YdbDbType.Interval, null, typeof(TimeSpan) },
+        { YdbDbType.Date32, new DateTime(1021, 08, 21), typeof(DateTime) },
+        { YdbDbType.Date32, null, typeof(DateTime) },
+        { YdbDbType.Datetime64, new DateTime(1021, 08, 21, 23, 30, 47), typeof(DateTime) },
+        { YdbDbType.Datetime64, null, typeof(DateTime) },
+        { YdbDbType.Timestamp64, DateTime.Parse("1029-08-03T06:59:44.8578730Z"), typeof(DateTime) },
+        { YdbDbType.Timestamp64, null, typeof(DateTime) },
+        { YdbDbType.Interval64, TimeSpan.FromMilliseconds(TimeSpan.MinValue.Milliseconds), typeof(TimeSpan) },
+        { YdbDbType.Interval64, null, typeof(TimeSpan) }
     };
 }
