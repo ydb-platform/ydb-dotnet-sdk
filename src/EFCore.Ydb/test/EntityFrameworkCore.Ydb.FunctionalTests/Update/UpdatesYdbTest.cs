@@ -6,11 +6,6 @@ using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Update;
 
-// Tests:
-// Ignore_before_save_property_is_still_generated_graph,
-// Ignore_before_save_property_is_still_generated,
-// SaveChanges_processes_all_tracked_entities.
-// They're failing, but I cannot ignore them because they're not virtual
 #pragma warning disable xUnit1000
 internal class UpdatesYdbTest
 #pragma warning restore xUnit1000
@@ -56,7 +51,7 @@ internal class UpdatesYdbTest
     public override Task Update_non_indexed_values()
         => TestIgnoringBase(base.Update_non_indexed_values);
 
-    [ConditionalTheory(Skip = "TODO: need fix")]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public override Task Can_change_type_of_pk_to_pk_dependent_by_replacing_with_new_dependent(bool async)
