@@ -268,19 +268,17 @@ public class YdbCommandTests : TestBase
     }
 
     [Fact]
-    public async Task ExecuteReaderAsync_WhenEmptyList_ReturnEmptyResultSet()
-    {
-        await using var ydbConnection = await CreateOpenConnectionAsync();
-        var tempTable = $"temp_table_{Guid.NewGuid()}";
-        await new YdbCommand(ydbConnection) { CommandText = $"CREATE TABLE `{tempTable}` (a Int32, PRIMARY KEY (a));" }
-            .ExecuteNonQueryAsync();
-        await new YdbCommand(ydbConnection) { CommandText = $"INSERT INTO `{tempTable}` (a) VALUES (1);" }
-            .ExecuteNonQueryAsync();
-        var reader = await new YdbCommand(ydbConnection) { CommandText = $"SELECT * FROM `{tempTable}` WHERE a IN ()" }
-            .ExecuteReaderAsync();
-        Assert.False(await reader.ReadAsync());
-        await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE `{tempTable}`" }.ExecuteNonQueryAsync();
-    }
+    public Task ExecuteReaderAsync_WhenEmptyList_ReturnEmptyResultSet() => RunTestWithTemporaryTable(
+        "CREATE TABLE `{0}` (a Int32, PRIMARY KEY (a));", $"temp_table_{Guid.NewGuid()}",
+        async (ydbConnection, tableName) =>
+        {
+            await new YdbCommand(ydbConnection) { CommandText = $"INSERT INTO `{tableName}` (a) VALUES (1);" }
+                .ExecuteNonQueryAsync();
+            var reader = await new YdbCommand(ydbConnection)
+                    { CommandText = $"SELECT * FROM `{tableName}` WHERE a IN ()" }
+                .ExecuteReaderAsync();
+            Assert.False(await reader.ReadAsync());
+        });
 
     public static readonly TheoryData<DbType, object, bool> DbTypeTestCases = new()
     {

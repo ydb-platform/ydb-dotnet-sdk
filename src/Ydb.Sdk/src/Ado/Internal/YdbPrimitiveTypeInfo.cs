@@ -34,12 +34,13 @@ internal class YdbPrimitiveTypeInfo
     private YdbPrimitiveTypeInfo(Type.Types.PrimitiveTypeId primitiveTypeId, Func<object, Ydb.Value?> pack)
     {
         YdbType = new Type { TypeId = primitiveTypeId };
-        NullValue = new TypedValue
-            { Type = new Type { OptionalType = new OptionalType { Item = YdbType } }, Value = YdbValueNull };
+        OptionalYdbType = YdbType.OptionalType();
+        NullValue = new TypedValue { Type = OptionalYdbType, Value = YdbValueNull };
         Pack = pack;
     }
 
     internal Type YdbType { get; }
+    internal Type OptionalYdbType { get; }
     internal TypedValue NullValue { get; }
     internal Func<object, Ydb.Value?> Pack { get; }
 

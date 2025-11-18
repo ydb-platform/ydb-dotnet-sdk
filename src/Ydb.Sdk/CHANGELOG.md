@@ -1,3 +1,5 @@
+- Feat ADO.NET: Support `YdbStruct` support.
+
 ## v0.25.2
 
 - Fixed bug ADO.NET: Missing support for the YDB `Interval64` type in `YdbDataReader.GetFieldType / GetValue` ([#561](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/561)).

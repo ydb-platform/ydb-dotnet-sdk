@@ -275,6 +275,8 @@ public sealed class YdbParameter : DbParameter
         MemoryStream memoryStream => new TypedValue
             { Type = YdbPrimitiveTypeInfo.Bytes.YdbType, Value = PackBytes(memoryStream.ToArray()) },
         IList itemsValue => PackList(itemsValue),
+        YdbStruct ydbStructValue => new TypedValue
+            { Type = new Type { StructType = ydbStructValue.StructType }, Value = ydbStructValue.Value },
         _ => throw new InvalidOperationException(
             $"Writing value of '{value.GetType()}' is not supported without explicit mapping to the YdbDbType")
     };
@@ -306,11 +308,7 @@ public sealed class YdbParameter : DbParameter
                 }
             }
 
-            var type = primitiveTypeInfo.YdbType;
-            if (isOptional)
-            {
-                type = type.OptionalType();
-            }
+            var type = isOptional ? primitiveTypeInfo.OptionalYdbType : primitiveTypeInfo.YdbType;
 
             return new TypedValue { Type = type.ListType(), Value = value };
         }
@@ -344,11 +342,58 @@ public sealed class YdbParameter : DbParameter
             return new TypedValue { Type = type.ListType(), Value = value };
         }
 
-        return (from object? item in items
-                select PackObject(item ?? throw new ArgumentException(
-                    $"Collection of type '{items.GetType()}' contains null. " +
-                    $"Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) or use a strongly-typed collection (e.g., List<T?>)."))
-            ).ToArray().List();
+        if (elementType == typeof(YdbStruct))
+        {
+            if (items.Count == 0)
+                throw new InvalidOperationException("Collection of 'YdbStruct' can't be empty.");
+
+            var value = new Ydb.Value();
+            StructType? structType = null;
+
+            foreach (var item in items)
+            {
+                if (item is not YdbStruct ydbStruct)
+                    throw new InvalidOperationException(
+                        "Collection of 'YdbStruct' can't contain null or items of another type.");
+
+                structType ??= ydbStruct.StructType;
+
+                if (structType.Members.Count != ydbStruct.StructType.Members.Count)
+                    throw new InvalidOperationException($"YdbStruct schema mismatch: " +
+                                                        $"expected {structType.Members.Count} members, actual {ydbStruct.StructType.Members.Count}.");
+
+                for (var i = 0; i < ydbStruct.StructType.Members.Count; i++)
+                {
+                    var structMember = structType.Members[i];
+                    var currentMember = ydbStruct.StructType.Members[i];
+                    var isStructMemberOptional = structMember.Type.TypeCase == Type.TypeOneofCase.OptionalType;
+                    var isCurrentMemberOptional = currentMember.Type.TypeCase == Type.TypeOneofCase.OptionalType;
+                    var structMemberType =
+                        isStructMemberOptional ? structMember.Type.OptionalType.Item : structMember.Type;
+                    var currentMemberType =
+                        isCurrentMemberOptional ? currentMember.Type.OptionalType.Item : currentMember.Type;
+
+                    if (!structMember.Name.Equals(currentMember.Name) || !structMemberType.Equals(currentMemberType))
+                    {
+                        throw new InvalidOperationException(
+                            $"YdbStruct schema mismatch: expected member '{structMember}', actual member '{currentMember}'.");
+                    }
+
+                    if (!isStructMemberOptional && isCurrentMemberOptional) // update on optional
+                    {
+                        structMember.Type = currentMember.Type;
+                    }
+                }
+
+                value.Items.Add(ydbStruct.Value);
+            }
+
+            return new TypedValue { Type = new Type { StructType = structType! }.ListType(), Value = value };
+        }
+
+        throw new InvalidOperationException($"Collection of type '{items.GetType()}' isn't supported. " +
+                                            "Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) " +
+                                            "or use a strongly-typed collection (e.g., List<T?>).");
     }
 
     private InvalidOperationException ValueTypeNotSupportedException =>

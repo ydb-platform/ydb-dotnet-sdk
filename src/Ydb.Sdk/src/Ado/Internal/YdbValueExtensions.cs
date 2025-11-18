@@ -55,7 +55,7 @@ internal static class YdbValueExtensions
     internal static Ydb.Value PackDouble(double value) => new() { DoubleValue = value };
     internal static double UnpackDouble(this Ydb.Value value) => value.DoubleValue;
 
-    internal static Ydb.Value PackDecimal(this decimal value, byte precision, byte scale)
+    internal static Ydb.Value PackDecimal(this decimal value, byte precision = 0, byte scale = 0)
     {
         if (precision == 0 && scale == 0)
         {
