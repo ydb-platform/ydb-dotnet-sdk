@@ -30,8 +30,27 @@ internal class ListPrimitiveParam : ISqlParam
 
     public bool IsNative => false;
 
-    public TypedValue YdbValueFetch(Dictionary<string, TypedValue> ydbParameters) =>
-        _paramNames.Select(ydbParameters.Get).List();
+    public TypedValue YdbValueFetch(Dictionary<string, TypedValue> ydbParameters)
+    {
+        TypedValue? first = null;
+        var value = new Ydb.Value();
+
+        foreach (var v in _paramNames.Select(ydbParameters.Get))
+        {
+            first ??= v;
+            if (!first.Type.Equals(v.Type))
+            {
+                throw new ArgumentException("All elements in the list must have the same type. " +
+                                            $"Expected: {first.Type}, actual: {v.Type}");
+            }
+
+            value.Items.Add(v.Value);
+        }
+
+        return first is null
+            ? throw new ArgumentException("The list must contain at least one element")
+            : new TypedValue { Type = first.Type.ListType(), Value = value };
+    }
 }
 
 internal static class YdbParametersExtension

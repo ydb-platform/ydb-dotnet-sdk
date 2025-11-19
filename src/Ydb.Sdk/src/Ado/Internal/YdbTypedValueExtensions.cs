@@ -20,28 +20,6 @@ internal static class YdbTypedValueExtensions
             _ => "Unknown"
         };
 
-    internal static TypedValue List(this IEnumerable<TypedValue> values)
-    {
-        TypedValue? first = null;
-        var value = new Ydb.Value();
-
-        foreach (var v in values)
-        {
-            first ??= v;
-            if (!first.Type.Equals(v.Type))
-            {
-                throw new ArgumentException("All elements in the list must have the same type. " +
-                                            $"Expected: {first.Type}, actual: {v.Type}");
-            }
-
-            value.Items.Add(v.Value);
-        }
-
-        if (first is null) throw new ArgumentException("The list must contain at least one element");
-
-        return new TypedValue { Type = first.Type.ListType(), Value = value };
-    }
-
     internal static TypedValue DecimalNull(byte precision, byte scale) => precision == 0 && scale == 0
         ? DecimalDefaultNull
         : new TypedValue
