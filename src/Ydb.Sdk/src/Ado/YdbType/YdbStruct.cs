@@ -15,7 +15,7 @@ public class YdbStruct : IEnumerable
         if (value is decimal decimalValue)
         {
             StructType.Members.Add(new StructMember { Name = name, Type = DecimalType(precision, scale) });
-            Value.Items.Add(decimalValue.PackDecimal());
+            Value.Items.Add(decimalValue.PackDecimal(precision, scale));
             return;
         }
 

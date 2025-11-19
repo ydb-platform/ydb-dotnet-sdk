@@ -154,7 +154,7 @@ public class YdbStructTest : TestBase
                         { "FloatColumn", 1.0f },
                         { "DoubleColumn", 1.0 },
                         { "DefaultDecimalColumn", 1m },
-                        { "CustomDecimalColumn", 1m, YdbDbType.Decimal, 35, 5 },
+                        { "CustomDecimalColumn", 1m, 35, 5 },
                         { "Uint8Column", (byte)1 },
                         { "Uint16Column", (ushort)1 },
                         { "Uint32Column", (uint)1 },
@@ -369,7 +369,7 @@ public class YdbStructTest : TestBase
     public void Add_WhenTypeIsDecimalValueIsFloat_ThrowsArgumentException() => Assert.Equal(
         "Packing failed for field 'Id'. (Parameter 'value')",
         Assert.Throws<ArgumentException>(() => new YdbStruct { { "Id", 1, YdbDbType.Float } }).Message);
-    
+
     [Fact]
     public void Add_WhenTypeIsList_ThrowsArgumentException() => Assert.Equal(
         "Unsupported YdbDbType 'List' in YdbStruct. (Parameter 'ydbDbType')",

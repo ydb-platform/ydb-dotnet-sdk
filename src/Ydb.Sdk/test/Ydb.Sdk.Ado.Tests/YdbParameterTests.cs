@@ -733,7 +733,7 @@ public class YdbParameterTests : TestBase
 
 
     [Fact]
-    public void YdbParameter_SetValue_ListOrArray_InvalidInputs_Throws()
+    public void YdbParameter_SetValue_ListOrArray_InvalidInputs_ThrowsInvalidOperationException()
     {
         Assert.Equal("Writing value of 'System.Object[]' is not supported for parameters having YdbDbType 'List<Bool>'",
             Assert.Throws<InvalidOperationException>(() => new YdbParameter("list",
@@ -744,21 +744,25 @@ public class YdbParameterTests : TestBase
             Assert.Throws<InvalidOperationException>(() => new YdbParameter("list",
                 YdbDbType.List | YdbDbType.Decimal, new object[] { 1.0m, false, 2.0m }).TypedValue).Message);
 
-        Assert.Equal("All elements in the list must have the same type. Expected: { \"typeId\": \"INT32\" }, " +
-                     "actual: { \"typeId\": \"UINT32\" }", Assert.Throws<ArgumentException>(() =>
+        Assert.Equal("Collection of type 'System.Collections.Generic.List`1[System.Object]' isn't supported. " +
+                     "Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) or use a strongly-typed collection " +
+                     "(e.g., List<T?>).", Assert.Throws<InvalidOperationException>(() =>
             new YdbParameter("list", new List<object> { 1, 2u, (byte)3 }).TypedValue).Message);
 
-        Assert.Equal("All elements in the list must have the same type. Expected: { \"typeId\": \"INT32\" }, " +
-                     "actual: { \"typeId\": \"UINT32\" }", Assert.Throws<ArgumentException>(() =>
-            new YdbParameter("list", new object[] { 1, 2u, (byte)3 }).TypedValue).Message);
+        Assert.Equal("Collection of type 'System.Object[]' isn't supported. " +
+                     "Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) or use a strongly-typed collection " +
+                     "(e.g., List<T?>).",
+            Assert.Throws<InvalidOperationException>(() =>
+                    new YdbParameter("list", new object[] { 1, 2u, (byte)3 }).TypedValue)
+                .Message);
 
-        Assert.Equal("Collection of type 'System.Collections.Generic.List`1[System.Object]' contains null. " +
+        Assert.Equal("Collection of type 'System.Collections.Generic.List`1[System.Object]' isn't supported. " +
                      "Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) " +
                      "or use a strongly-typed collection (e.g., List<T?>).",
             Assert.Throws<InvalidOperationException>(() =>
                 new YdbParameter("list", new List<object?> { 1, null }).TypedValue).Message);
 
-        Assert.Equal("Collection of type 'System.Object[]' contains null. " +
+        Assert.Equal("Collection of type 'System.Object[]' isn't supported. " +
                      "Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) " +
                      "or use a strongly-typed collection (e.g., List<T?>).", Assert
             .Throws<InvalidOperationException>(() =>
