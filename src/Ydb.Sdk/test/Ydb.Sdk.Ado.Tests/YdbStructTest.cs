@@ -327,7 +327,7 @@ public class YdbStructTest : TestBase
             new()
             {
                 { "id", 1 },
-                { "name", "name" },
+                { "name", "name" }
             },
             new()
             {
