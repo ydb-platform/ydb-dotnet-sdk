@@ -10,11 +10,11 @@ public class YdbStruct : IEnumerable
     internal readonly StructType StructType = new();
     internal readonly Ydb.Value Value = new();
 
-    public void Add(string name, object value)
+    public void Add(string name, object value, byte precision = 0, byte scale = 0)
     {
         if (value is decimal decimalValue)
         {
-            StructType.Members.Add(new StructMember { Name = name, Type = DefaultDecimalType });
+            StructType.Members.Add(new StructMember { Name = name, Type = DecimalType(precision, scale) });
             Value.Items.Add(decimalValue.PackDecimal());
             return;
         }
@@ -23,17 +23,16 @@ public class YdbStruct : IEnumerable
         if (info != null)
         {
             StructType.Members.Add(new StructMember { Name = name, Type = info.YdbType });
-            Value.Items.Add(info.Pack(value) ?? throw new InvalidOperationException($"Packing failed for '{name}'."));
+            Value.Items.Add(info.Pack(value)!);
             return;
         }
 
-        throw new ArgumentException($"Type {value.GetType()} is not supported. Use the YdbDbType overload.",
-            nameof(value));
+        throw new ArgumentException($"Type '{value.GetType()}' is not supported in YdbStruct.");
     }
 
-    public void Add(string name, object? value, YdbDbType type, byte precision = 0, byte scale = 0)
+    public void Add(string name, object? value, YdbDbType ydbDbType, byte precision = 0, byte scale = 0)
     {
-        if (type == YdbDbType.Decimal)
+        if (ydbDbType == YdbDbType.Decimal)
         {
             var ydbType = DecimalType(precision, scale);
             if (value is null)
@@ -51,8 +50,8 @@ public class YdbStruct : IEnumerable
             return;
         }
 
-        var info = type.PrimitiveTypeInfo() ??
-                   throw new ArgumentException($"Unsupported YdbDbType '{type}'.", nameof(type));
+        var info = ydbDbType.PrimitiveTypeInfo() ??
+                   throw new ArgumentException($"Unsupported YdbDbType '{ydbDbType}' in YdbStruct.", nameof(ydbDbType));
         if (value is null)
         {
             StructType.Members.Add(new StructMember { Name = name, Type = info.OptionalYdbType });
@@ -61,7 +60,8 @@ public class YdbStruct : IEnumerable
         }
 
         StructType.Members.Add(new StructMember { Name = name, Type = info.YdbType });
-        Value.Items.Add(info.Pack(value) ?? throw new InvalidOperationException($"Packing failed for '{name}'."));
+        Value.Items.Add(info.Pack(value) ??
+                        throw new ArgumentException($"Packing failed for field '{name}'.", nameof(value)));
     }
 
     public void Add(YdbParameter ydbParameter)

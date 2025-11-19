@@ -754,13 +754,15 @@ public class YdbParameterTests : TestBase
 
         Assert.Equal("Collection of type 'System.Collections.Generic.List`1[System.Object]' contains null. " +
                      "Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) " +
-                     "or use a strongly-typed collection (e.g., List<T?>).", Assert.Throws<ArgumentException>(() =>
-            new YdbParameter("list", new List<object?> { 1, null }).TypedValue).Message);
+                     "or use a strongly-typed collection (e.g., List<T?>).",
+            Assert.Throws<InvalidOperationException>(() =>
+                new YdbParameter("list", new List<object?> { 1, null }).TypedValue).Message);
 
         Assert.Equal("Collection of type 'System.Object[]' contains null. " +
                      "Specify YdbDbType (e.g. YdbDbType.List | YdbDbType.<T>) " +
-                     "or use a strongly-typed collection (e.g., List<T?>).", Assert.Throws<ArgumentException>(() =>
-            new YdbParameter("list", new object?[] { 1, null }).TypedValue).Message);
+                     "or use a strongly-typed collection (e.g., List<T?>).", Assert
+            .Throws<InvalidOperationException>(() =>
+                new YdbParameter("list", new object?[] { 1, null }).TypedValue).Message);
     }
 
     [Fact]

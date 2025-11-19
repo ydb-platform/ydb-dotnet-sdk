@@ -5,7 +5,7 @@ internal static class YdbTypeExtensions
     internal const byte DefaultDecimalPrecision = 22;
     internal const byte DefaultDecimalScale = 9;
 
-    internal static readonly Type DefaultDecimalType = DecimalType(DefaultDecimalPrecision, DefaultDecimalScale);
+    private static readonly Type DefaultDecimalType = DecimalType(DefaultDecimalPrecision, DefaultDecimalScale);
 
     internal static Type DecimalType(byte precision, byte scale) => precision == 0 && scale == 0
         ? DefaultDecimalType

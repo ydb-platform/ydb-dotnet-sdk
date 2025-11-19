@@ -18,20 +18,20 @@ public class YdbExceptionTests : TestBase
         "CREATE TABLE `{0}`(id Int32, amount Int32, PRIMARY KEY (id))", $"BankTable_{Guid.NewGuid()}",
         async (ydbConnection, tableName) =>
         {
-            var ydbCommand = new YdbCommand($"INSERT INTO {tableName}(id, amount) VALUES (1, 100)", ydbConnection);
+            var ydbCommand = new YdbCommand($"INSERT INTO `{tableName}` (id, amount) VALUES (1, 100)", ydbConnection);
             await ydbCommand.ExecuteNonQueryAsync();
 
             ydbCommand.Transaction = ydbConnection.BeginTransaction();
-            ydbCommand.CommandText = $"SELECT amount FROM {tableName} WHERE id = 1";
+            ydbCommand.CommandText = $"SELECT amount FROM `{tableName}` WHERE id = 1";
             var select = (int)(await ydbCommand.ExecuteScalarAsync())!;
             Assert.Equal(100, select);
 
             await using var anotherConnection = await CreateOpenConnectionAsync();
             await new YdbCommand(anotherConnection)
-                    { CommandText = $"UPDATE {tableName} SET amount = amount + 50 WHERE id = 1" }
+                    { CommandText = $"UPDATE `{tableName}` SET amount = amount + 50 WHERE id = 1" }
                 .ExecuteNonQueryAsync();
 
-            ydbCommand.CommandText = $"UPDATE {tableName} SET amount = amount + @var WHERE id = 1";
+            ydbCommand.CommandText = $"UPDATE `{tableName}` SET amount = amount + @var WHERE id = 1";
             ydbCommand.Parameters.AddWithValue("var", DbType.Int32, select);
             Assert.True((await Assert.ThrowsAsync<YdbException>(async () =>
             {

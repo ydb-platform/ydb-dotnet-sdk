@@ -316,8 +316,9 @@ public class YdbStructTest : TestBase
     [Fact]
     public void YdbParameter_WhenYdbStructListIsEmpty_ThrowsInvalidOperationException() => Assert.Equal(
         "Collection of 'YdbStruct' can't be empty.",
-        Assert.Throws<InvalidOperationException>(() => new YdbParameter("name", new List<YdbStruct>()).TypedValue).Message);
-    
+        Assert.Throws<InvalidOperationException>(() => new YdbParameter("name", new List<YdbStruct>()).TypedValue)
+            .Message);
+
     [Fact]
     public void YdbParameter_WhenSchemaMemberCountDiffers_ThrowsInvalidOperationException() => Assert.Equal(
         "YdbStruct schema mismatch: expected 2 members, actual 3.",
@@ -335,7 +336,7 @@ public class YdbStructTest : TestBase
                 { "surname", "surname" }
             }
         }).TypedValue).Message);
-    
+
     [Fact]
     public void YdbParameter_WhenSchemaMembersDiffer_ThrowsInvalidOperationException() => Assert.Equal(
         "YdbStruct schema mismatch: expected member '{ \"name\": \"name\", \"type\": { \"typeId\": \"UTF8\" } }', " +
@@ -353,4 +354,24 @@ public class YdbStructTest : TestBase
                 { "surname", "surname" }
             }
         }).TypedValue).Message);
+
+    [Fact]
+    public void Add_WhenTypeIsUnknown_ThrowsArgumentException() => Assert.Equal(
+        "Type 'System.Object' is not supported in YdbStruct.",
+        Assert.Throws<ArgumentException>(() => new YdbStruct { { "Id", new object() } }).Message);
+
+    [Fact]
+    public void Add_WhenTypeIsDecimalValueIsNotDecimal_ThrowsArgumentException() => Assert.Equal(
+        "Value for decimal field 'Id' must be decimal. (Parameter 'value')",
+        Assert.Throws<ArgumentException>(() => new YdbStruct { { "Id", 1, YdbDbType.Decimal } }).Message);
+
+    [Fact]
+    public void Add_WhenTypeIsDecimalValueIsFloat_ThrowsArgumentException() => Assert.Equal(
+        "Packing failed for field 'Id'. (Parameter 'value')",
+        Assert.Throws<ArgumentException>(() => new YdbStruct { { "Id", 1, YdbDbType.Float } }).Message);
+    
+    [Fact]
+    public void Add_WhenTypeIsList_ThrowsArgumentException() => Assert.Equal(
+        "Unsupported YdbDbType 'List' in YdbStruct. (Parameter 'ydbDbType')",
+        Assert.Throws<ArgumentException>(() => new YdbStruct { { "Id", null, YdbDbType.List } }).Message);
 }
