@@ -73,6 +73,20 @@ public class DriverConfig
     /// </summary>
     public int MaxReceiveMessageSize { get; init; } = GrpcDefaultSettings.MaxReceiveMessageSize;
 
+    /// <summary>
+    /// Gets or sets the idle timeout for pooled HTTP/2 connections.
+    /// This helps prevent connection corruption from long-lived connections.
+    /// </summary>
+    public TimeSpan PooledConnectionIdleTimeout { get; init; } =
+        TimeSpan.FromSeconds(GrpcDefaultSettings.PooledConnectionIdleTimeoutSeconds);
+
+    /// <summary>
+    /// Gets or sets the lifetime for pooled HTTP/2 connections.
+    /// This helps prevent connection corruption from long-lived connections.
+    /// </summary>
+    public TimeSpan PooledConnectionLifetime { get; init; } =
+        TimeSpan.FromSeconds(GrpcDefaultSettings.PooledConnectionLifetimeSeconds);
+
     internal X509Certificate2Collection CustomServerCertificates { get; } = new();
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);

@@ -61,6 +61,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         _enableMultipleHttp2Connections = GrpcDefaultSettings.EnableMultipleHttp2Connections;
         _maxSendMessageSize = GrpcDefaultSettings.MaxSendMessageSize;
         _maxReceiveMessageSize = GrpcDefaultSettings.MaxReceiveMessageSize;
+        _pooledConnectionIdleTimeout = GrpcDefaultSettings.PooledConnectionIdleTimeoutSeconds;
+        _pooledConnectionLifetime = GrpcDefaultSettings.PooledConnectionLifetimeSeconds;
         _disableDiscovery = GrpcDefaultSettings.DisableDiscovery;
         _disableServerBalancer = false;
         _enableImplicitSession = false;
@@ -426,6 +428,46 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     private int _maxReceiveMessageSize;
 
     /// <summary>
+    /// Gets or sets the idle timeout for pooled HTTP/2 connections in seconds.
+    /// </summary>
+    /// <remarks>
+    /// Specifies how long a pooled connection can remain idle before being closed.
+    /// This helps prevent HTTP/2 protocol errors from long-lived connections.
+    /// <para>Default value: 60 seconds.</para>
+    /// </remarks>
+    public int PooledConnectionIdleTimeout
+    {
+        get => _pooledConnectionIdleTimeout;
+        set
+        {
+            _pooledConnectionIdleTimeout = value;
+            SaveValue(nameof(PooledConnectionIdleTimeout), value);
+        }
+    }
+
+    private int _pooledConnectionIdleTimeout;
+
+    /// <summary>
+    /// Gets or sets the lifetime for pooled HTTP/2 connections in seconds.
+    /// </summary>
+    /// <remarks>
+    /// Specifies the maximum lifetime for a pooled connection before being closed.
+    /// This helps prevent HTTP/2 protocol errors from long-lived connections.
+    /// <para>Default value: 300 seconds (5 minutes).</para>
+    /// </remarks>
+    public int PooledConnectionLifetime
+    {
+        get => _pooledConnectionLifetime;
+        set
+        {
+            _pooledConnectionLifetime = value;
+            SaveValue(nameof(PooledConnectionLifetime), value);
+        }
+    }
+
+    private int _pooledConnectionLifetime;
+
+    /// <summary>
     /// Gets or sets a value indicating whether to disable server load balancing.
     /// </summary>
     /// <remarks>
@@ -585,7 +627,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         $"UseTls={UseTls};Host={Host};Port={Port};Database={Database};User={User};Password={Password};" +
         $"ConnectTimeout={ConnectTimeout};KeepAlivePingDelay={KeepAlivePingDelay};KeepAlivePingTimeout={KeepAlivePingTimeout};" +
         $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
-        $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery}";
+        $"MaxReceiveMessageSize={MaxReceiveMessageSize};PooledConnectionIdleTimeout={PooledConnectionIdleTimeout};" +
+        $"PooledConnectionLifetime={PooledConnectionLifetime};DisableDiscovery={DisableDiscovery}";
 
     internal async Task<IDriver> BuildDriver()
     {
@@ -611,7 +654,13 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             Password = Password,
             EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
             MaxSendMessageSize = MaxSendMessageSize,
-            MaxReceiveMessageSize = MaxReceiveMessageSize
+            MaxReceiveMessageSize = MaxReceiveMessageSize,
+            PooledConnectionIdleTimeout = PooledConnectionIdleTimeout == 0
+                ? Timeout.InfiniteTimeSpan
+                : TimeSpan.FromSeconds(PooledConnectionIdleTimeout),
+            PooledConnectionLifetime = PooledConnectionLifetime == 0
+                ? Timeout.InfiniteTimeSpan
+                : TimeSpan.FromSeconds(PooledConnectionLifetime)
         };
 
         return DisableDiscovery
@@ -707,6 +756,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, maxReceiveMessageSize) =>
                     builder.MaxReceiveMessageSize = maxReceiveMessageSize),
                 "MaxReceiveMessageSize", "Max Receive Message Size");
+            AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, pooledConnectionIdleTimeout) =>
+                    builder.PooledConnectionIdleTimeout = pooledConnectionIdleTimeout),
+                "PooledConnectionIdleTimeout", "Pooled Connection Idle Timeout");
+            AddOption(new YdbConnectionOption<int>(IntExtractor, (builder, pooledConnectionLifetime) =>
+                    builder.PooledConnectionLifetime = pooledConnectionLifetime),
+                "PooledConnectionLifetime", "Pooled Connection Lifetime");
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, disableDiscovery) =>
                 builder.DisableDiscovery = disableDiscovery), "DisableDiscovery", "Disable Discovery");
             AddOption(new YdbConnectionOption<int>(IntExtractor,

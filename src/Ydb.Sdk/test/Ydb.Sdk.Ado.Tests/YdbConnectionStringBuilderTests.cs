@@ -27,6 +27,8 @@ public class YdbConnectionStringBuilderTests
         Assert.False(ydbConnectionStringBuilder.EnableMultipleHttp2Connections);
         Assert.Equal(MessageSize, ydbConnectionStringBuilder.MaxSendMessageSize);
         Assert.Equal(MessageSize, ydbConnectionStringBuilder.MaxReceiveMessageSize);
+        Assert.Equal(60, ydbConnectionStringBuilder.PooledConnectionIdleTimeout);
+        Assert.Equal(300, ydbConnectionStringBuilder.PooledConnectionLifetime);
         Assert.False(ydbConnectionStringBuilder.DisableDiscovery);
         Assert.False(ydbConnectionStringBuilder.DisableServerBalancer);
         Assert.False(ydbConnectionStringBuilder.UseTls);
@@ -34,7 +36,8 @@ public class YdbConnectionStringBuilderTests
 
         Assert.Equal("UseTls=False;Host=localhost;Port=2136;Database=/local;User=;Password=;ConnectTimeout=5;" +
                      "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
-                     $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False",
+                     $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};PooledConnectionIdleTimeout=60;" +
+                     "PooledConnectionLifetime=300;DisableDiscovery=False",
             ydbConnectionStringBuilder.GrpcConnectionString);
     }
 
@@ -86,7 +89,8 @@ public class YdbConnectionStringBuilderTests
         Assert.True(ydbConnectionStringBuilder.EnableImplicitSession);
         Assert.Equal("UseTls=True;Host=server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=30;" +
                      "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=True;" +
-                     "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;DisableDiscovery=True",
+                     "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;PooledConnectionIdleTimeout=60;" +
+                     "PooledConnectionLifetime=300;DisableDiscovery=True",
             ydbConnectionStringBuilder.GrpcConnectionString);
     }
 
@@ -98,7 +102,8 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(
             "UseTls=False;Host=server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=5;" +
             "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
-            $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False",
+            $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};PooledConnectionIdleTimeout=60;" +
+            "PooledConnectionLifetime=300;DisableDiscovery=False",
             ydbConnectionStringBuilder.GrpcConnectionString);
         Assert.Equal("server", ydbConnectionStringBuilder.Host);
         ydbConnectionStringBuilder.Host = "new_server";
@@ -106,7 +111,8 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal(
             "UseTls=False;Host=new_server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=5;" +
             "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
-            $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False",
+            $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};PooledConnectionIdleTimeout=60;" +
+            "PooledConnectionLifetime=300;DisableDiscovery=False",
             ydbConnectionStringBuilder.GrpcConnectionString);
         Assert.Equal("Host=new_server;Port=2135;Database=/my/path;User=Kirill",
             ydbConnectionStringBuilder.ConnectionString);
