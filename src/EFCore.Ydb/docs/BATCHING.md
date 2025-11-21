@@ -150,5 +150,5 @@ We welcome contributions to implement full LIST<STRUCT> batching support! See th
 
 ## Related
 
-- [YDB SDK List<YdbStruct> Tests](../../../../../../src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests/YdbStructTest.cs)
+- [YDB SDK List<YdbStruct> Tests](../../../Ydb.Sdk/test/Ydb.Sdk.Ado.Tests/YdbStructTest.cs)
 - [YDB Documentation: AS_TABLE](https://ydb.tech/docs/en/yql/reference/syntax/insert_into#as-table)
