@@ -458,6 +458,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
+    /// <remarks>
+    /// For Date32 type, this method returns the raw value as a signed 32-bit integer
+    /// representing the number of days from Unix epoch (1970-01-01).
+    /// This allows reading dates outside the DateTime supported range.
+    /// </remarks>
     public override int GetInt32(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -469,6 +474,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Int8 => CurrentRow[ordinal].UnpackInt8(),
             Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].UnpackUint16(),
             Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
+            Type.Types.PrimitiveTypeId.Date32 => CurrentRow[ordinal].Int32Value,
             _ => throw InvalidCastException<int>(ordinal)
         };
     }
@@ -496,6 +502,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
+    /// <remarks>
+    /// For Datetime64 type, this method returns the raw value as a signed 64-bit integer
+    /// representing the number of seconds from Unix epoch (1970-01-01).
+    /// For Timestamp64 type, this method returns the raw value as a signed 64-bit integer
+    /// representing the number of microseconds from Unix epoch (1970-01-01).
+    /// For Interval64 type, this method returns the raw value as a signed 64-bit integer
+    /// representing the number of microseconds.
+    /// This allows reading values outside the DateTime/TimeSpan supported range.
+    /// </remarks>
     public override long GetInt64(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -509,6 +524,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Uint32 => CurrentRow[ordinal].UnpackUint32(),
             Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].UnpackUint16(),
             Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
+            Type.Types.PrimitiveTypeId.Datetime64 => CurrentRow[ordinal].Int64Value,
+            Type.Types.PrimitiveTypeId.Timestamp64 => CurrentRow[ordinal].Int64Value,
+            Type.Types.PrimitiveTypeId.Interval64 => CurrentRow[ordinal].Int64Value,
             _ => throw InvalidCastException<long>(ordinal)
         };
     }

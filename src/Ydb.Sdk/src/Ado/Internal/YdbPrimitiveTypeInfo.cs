@@ -25,11 +25,11 @@ internal class YdbPrimitiveTypeInfo
         Date = new(Type.Types.PrimitiveTypeId.Date, TryPackDate),
         Date32 = new(Type.Types.PrimitiveTypeId.Date32, TryPackDate32),
         Datetime = new(Type.Types.PrimitiveTypeId.Datetime, TryPack<DateTime>(PackDatetime)),
-        Datetime64 = new(Type.Types.PrimitiveTypeId.Datetime64, TryPack<DateTime>(PackDatetime64)),
+        Datetime64 = new(Type.Types.PrimitiveTypeId.Datetime64, TryPackDatetime64),
         Timestamp = new(Type.Types.PrimitiveTypeId.Timestamp, TryPack<DateTime>(PackTimestamp)),
-        Timestamp64 = new(Type.Types.PrimitiveTypeId.Timestamp64, TryPack<DateTime>(PackTimestamp64)),
+        Timestamp64 = new(Type.Types.PrimitiveTypeId.Timestamp64, TryPackTimestamp64),
         Interval = new(Type.Types.PrimitiveTypeId.Interval, TryPack<TimeSpan>(PackInterval)),
-        Interval64 = new(Type.Types.PrimitiveTypeId.Interval64, TryPack<TimeSpan>(PackInterval64));
+        Interval64 = new(Type.Types.PrimitiveTypeId.Interval64, TryPackInterval64);
 
     private YdbPrimitiveTypeInfo(Type.Types.PrimitiveTypeId primitiveTypeId, Func<object, Ydb.Value?> pack)
     {
@@ -154,6 +154,28 @@ internal class YdbPrimitiveTypeInfo
     {
         DateTime dateTimeValue => PackDate32(dateTimeValue),
         DateOnly dateOnlyValue => PackDate32(dateOnlyValue.ToDateTime(TimeOnly.MinValue)),
+        int intValue => new Ydb.Value { Int32Value = intValue },
+        _ => null
+    };
+
+    private static Ydb.Value? TryPackDatetime64(object value) => value switch
+    {
+        DateTime dateTimeValue => PackDatetime64(dateTimeValue),
+        long longValue => new Ydb.Value { Int64Value = longValue },
+        _ => null
+    };
+
+    private static Ydb.Value? TryPackTimestamp64(object value) => value switch
+    {
+        DateTime dateTimeValue => PackTimestamp64(dateTimeValue),
+        long longValue => new Ydb.Value { Int64Value = longValue },
+        _ => null
+    };
+
+    private static Ydb.Value? TryPackInterval64(object value) => value switch
+    {
+        TimeSpan timeSpanValue => PackInterval64(timeSpanValue),
+        long longValue => new Ydb.Value { Int64Value = longValue },
         _ => null
     };
 }
