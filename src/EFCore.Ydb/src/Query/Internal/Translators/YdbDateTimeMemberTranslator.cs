@@ -79,7 +79,7 @@ public class YdbDateTimeMemberTranslator(
         SqlExpression UtcNow()
         {
             return sqlExpressionFactory.Function(
-                "CurrentUtc" + returnType.Name == "DateOnly" ? "Date" : returnType.Name,
+                "CurrentUtc" + (returnType.Name == "DateOnly" ? "Date" : returnType.Name),
                 [],
                 nullable: false,
                 argumentsPropagateNullability: ArrayUtil.TrueArrays[0],
