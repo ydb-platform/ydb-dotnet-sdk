@@ -16,15 +16,21 @@ With traditional batching, large batches (>100-200 operations) can exceed the 13
 
 ## Current Implementation
 
-**Batch Size**: 500 operations (increased from 100)
+**Batch Size**: 1000 operations (increased from 100)
 
-This provides a balance between:
-- Avoiding the 131KB YQL text limit with traditional SQL generation
-- Enabling reasonable batch sizes for common use cases
+The implementation uses LIST<STRUCT> batching when possible:
+- When all commands in a batch are for the same table, operation type, and schema
+- Commands are grouped and executed using YDB's `AS_TABLE($values)` pattern
+- Falls back to traditional statement-by-statement execution for mixed batches
 
-## LIST<STRUCT> Batching (Future Enhancement)
+This provides:
+- 10x increase in batch capacity (100 → 1000)
+- Significantly reduced query text size for homogeneous batches
+- Maintained compatibility with mixed operation scenarios
 
-YDB supports a more compact batching pattern using `LIST<STRUCT<...>>`:
+## LIST<STRUCT> Batching
+
+YDB supports a compact batching pattern using `LIST<STRUCT<...>>`. The EF Core YDB provider now automatically uses this pattern in `SaveChanges()` when batching homogeneous operations:
 
 ### Example: Bulk Insert
 ```csharp
@@ -90,63 +96,76 @@ await cmd.ExecuteNonQueryAsync();
 - **Better Performance**: Can batch 1000+ operations without hitting text limits
 - **Reduced Network Overhead**: Single parameter instead of hundreds of individual parameters
 
-### Integration with EF Core (Roadmap)
+### How It Works in EF Core
 
-To integrate LIST<STRUCT> batching with EF Core:
+The YDB provider automatically uses struct-based batching in `SaveChanges()` when:
 
-1. **Override Batch SQL Generation**:
-   - Group `ModificationCommand` objects by operation type and table
-   - Generate struct-based SQL instead of individual statements
-   - Convert column modifications to `YdbStruct` objects
+1. **Detects homogeneous batches**: All operations are the same type (INSERT/UPDATE/DELETE) and target the same table
+2. **Generates compact SQL**: Creates a single query using `AS_TABLE($batch_values)` pattern
+3. **Packages data efficiently**: Converts all entity changes into a `List<YdbStruct>` parameter
+4. **Falls back gracefully**: Uses traditional batching for mixed operations or cross-table changes
 
-2. **Handle Parameters**:
-   - Create `List<YdbStruct>` from command collections
-   - Pass as single `YdbParameter` instead of multiple individual parameters
-
-3. **Maintain Compatibility**:
-   - Fall back to traditional batching for mixed operations
-   - Handle commands with RETURNING clauses properly
-   - Preserve transaction semantics
-
-### Implementation Challenges
-
-- **EF Core Architecture**: The framework generates SQL statement-by-statement
-- **Complex Override**: Requires deep integration with EF Core's update pipeline
-- **Result Mapping**: RETURNING clauses need proper handling for generated values
-- **Mixed Batches**: Different operations/tables need appropriate grouping strategy
-
-## Workaround for Large Batches
-
-If you need to batch more than 500 operations today, you can:
-
-1. **Use SaveChanges() More Frequently**: Call `SaveChanges()` every 500 entities
-2. **Use Raw YDB SDK**: Bypass EF Core for bulk operations using the examples above
-3. **Split Operations**: Group by entity type to get better batching per type
+Example of what happens internally when you save 500 new entities:
 
 ```csharp
-// Example: Saving 2000 entities
-for (int i = 0; i < 2000; i += 500)
+// Your code
+context.Products.AddRange(products);  // 500 products
+await context.SaveChangesAsync();
+
+// What the provider generates (simplified):
+// INSERT INTO `Products` (Id, Name, Price)
+// SELECT Id, Name, Price FROM AS_TABLE($batch_values)
+// 
+// Where $batch_values contains all 500 products as a compact List<YdbStruct>
+```
+
+### Implementation Details
+
+The struct-based batching is implemented in `YdbModificationCommandBatch`:
+- Checks if batching is possible via `CanUseStructBatching()`
+- Overrides `Execute/ExecuteAsync` to generate struct-based SQL
+- Converts entity changes to `YdbStruct` objects automatically
+- Handles nullable columns and type mappings
+
+## Working with Large Batches
+
+With struct-based batching, you can now safely batch up to 1000 operations:
+
+```csharp
+// Efficient: SaveChanges will use struct batching automatically
+for (int i = 0; i < 5000; i++)
 {
-    var batch = entities.Skip(i).Take(500);
+    context.Products.Add(new Product { Name = $"Product {i}", Price = i * 10 });
+}
+await context.SaveChangesAsync();  // Processes in batches of 1000 using struct-based SQL
+```
+
+For batches exceeding 1000 operations, chunk your saves:
+
+```csharp
+// Example: Saving 5000 entities in chunks
+for (int i = 0; i < 5000; i += 1000)
+{
+    var batch = entities.Skip(i).Take(1000);
     context.AddRange(batch);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync();  // Each uses struct batching
 }
 ```
+
+For mixed operations (different entity types or operation types), EF Core will still batch them but may use traditional SQL if they can't be grouped homogeneously.
 
 ## Performance Benchmarks
 
 | Batch Size | Traditional SQL Size | LIST<STRUCT> Size | Status |
 |------------|----------------------|-------------------|--------|
-| 100 | ~50KB | ~10KB | ✅ Supported |
-| 500 | ~250KB | ~50KB | ✅ Supported (current limit) |
-| 1000 | ~500KB | ~100KB | ❌ Exceeds limit / ✅ With LIST<STRUCT> |
-| 5000 | ~2.5MB | ~500KB | ❌ / ✅ With LIST<STRUCT> |
+| 100 | ~50KB | ~10KB | ✅ Supported (both modes) |
+| 500 | ~250KB | ~50KB | ✅ Supported (both modes) |
+| 1000 | ~500KB | ~100KB | ❌ Traditional / ✅ Struct-based (default) |
+| 5000 | ~2.5MB | ~500KB | ❌ / ✅ Struct-based with chunking |
 
 *Sizes are approximate and vary based on column count and data types*
 
-## Contributing
-
-We welcome contributions to implement full LIST<STRUCT> batching support! See the implementation challenges section above for guidance.
+**Note**: Struct-based batching is automatically used for homogeneous batches (same operation + table). Mixed batches fall back to traditional mode with appropriate batch size limits.
 
 ## Related
 
