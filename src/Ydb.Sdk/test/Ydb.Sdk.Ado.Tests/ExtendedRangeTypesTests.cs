@@ -322,8 +322,4 @@ public class ExtendedRangeTypesTests : TestBase
             Assert.Equal(testDate.Date, readDate.Date);
         });
     }
-
-    public Task InitializeAsync() => Task.CompletedTask;
-
-    public Task DisposeAsync() => Task.CompletedTask;
 }
