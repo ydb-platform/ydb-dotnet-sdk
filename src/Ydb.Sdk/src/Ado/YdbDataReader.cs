@@ -459,9 +459,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
     /// <remarks>
-    /// For Date32 type, this method returns the raw value as a signed 32-bit integer
-    /// representing the number of days from Unix epoch (1970-01-01).
-    /// This allows reading dates outside the DateTime supported range.
+    /// <para>
+    /// For <b>Date32</b> type, this method returns the raw storage value as a signed 32-bit integer
+    /// representing the number of days since Unix epoch (1970-01-01).
+    /// </para>
+    /// <para>
+    /// This allows reading dates outside the DateTime supported range without conversion errors.
+    /// </para>
     /// </remarks>
     public override int GetInt32(int ordinal)
     {
@@ -503,13 +507,23 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
     /// <remarks>
-    /// For Datetime64 type, this method returns the raw value as a signed 64-bit integer
-    /// representing the number of seconds from Unix epoch (1970-01-01).
-    /// For Timestamp64 type, this method returns the raw value as a signed 64-bit integer
-    /// representing the number of microseconds from Unix epoch (1970-01-01).
-    /// For Interval64 type, this method returns the raw value as a signed 64-bit integer
-    /// representing the number of microseconds.
-    /// This allows reading values outside the DateTime/TimeSpan supported range.
+    /// <para>
+    /// For extended range date/time types, this method returns the raw storage value:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>
+    /// <b>Datetime64</b>: Returns the number of seconds since Unix epoch (1970-01-01 00:00:00 UTC).
+    /// </description></item>
+    /// <item><description>
+    /// <b>Timestamp64</b>: Returns the number of microseconds since Unix epoch (1970-01-01 00:00:00 UTC).
+    /// </description></item>
+    /// <item><description>
+    /// <b>Interval64</b>: Returns the number of microseconds in the time interval.
+    /// </description></item>
+    /// </list>
+    /// <para>
+    /// This allows reading values outside the DateTime/TimeSpan supported range without conversion errors.
+    /// </para>
     /// </remarks>
     public override long GetInt64(int ordinal)
     {
