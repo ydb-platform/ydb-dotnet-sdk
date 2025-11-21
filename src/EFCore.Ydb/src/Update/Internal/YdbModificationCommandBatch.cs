@@ -105,11 +105,11 @@ public class YdbModificationCommandBatch : AffectedCountModificationCommandBatch
 
         command.CommandTimeout = connection.CommandTimeout ?? command.CommandTimeout;
 
-        // Execute and update affected rows
-        var affectedRows = command.ExecuteNonQuery();
+        // Execute the batch
+        command.ExecuteNonQuery();
         
         // For struct batching, each command in the batch is considered executed
-        // The base class will handle row count propagation through Complete() method
+        // The base class AffectedCountModificationCommandBatch will handle row count tracking
     }
 
     private async Task ExecuteStructBatchAsync(
@@ -133,11 +133,11 @@ public class YdbModificationCommandBatch : AffectedCountModificationCommandBatch
 
         command.CommandTimeout = connection.CommandTimeout ?? command.CommandTimeout;
 
-        // Execute and update affected rows
-        var affectedRows = await command.ExecuteNonQueryAsync(cancellationToken);
+        // Execute the batch
+        await command.ExecuteNonQueryAsync(cancellationToken);
         
         // For struct batching, each command in the batch is considered executed
-        // The base class will handle row count propagation through Complete() method
+        // The base class AffectedCountModificationCommandBatch will handle row count tracking
     }
 
     private (string sql, List<DbParameter> parameters) GenerateStructBatchSql()
@@ -317,6 +317,8 @@ public class YdbModificationCommandBatch : AffectedCountModificationCommandBatch
 
     private static YdbDbType MapToYdbDbType(DbType? dbType)
     {
+        // For nullable columns without explicit type mapping, use Unspecified
+        // and let YdbStruct infer the type
         if (dbType == null)
         {
             return YdbDbType.Unspecified;
