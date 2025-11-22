@@ -1,3 +1,5 @@
+- Fixed bug: DateTime.UtcNow generating invalid SQL in ExecuteUpdate ([#555](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/555)).
+
 ## v0.2.0
 
 - Fixed bug: Missing/removed __EFMigrationsHistory caused INSERT errors (LockMigration); migrations now handle table recreation and locking properly ([#544](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/544)).

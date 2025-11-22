@@ -10,12 +10,12 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
 
-public class YdbDateTimeMemberTranslator(
+public sealed class YdbDateTimeMemberTranslator(
     IRelationalTypeMappingSource typeMappingSource,
     YdbSqlExpressionFactory sqlExpressionFactory)
     : IMemberTranslator
 {
-    public virtual SqlExpression? Translate(
+    public SqlExpression? Translate(
         SqlExpression? instance,
         MemberInfo member,
         Type returnType,
@@ -58,8 +58,14 @@ public class YdbDateTimeMemberTranslator(
             // nameof(DateTime.Now) => ???,
             // nameof(DateTime.Today) => ???
 
-            nameof(DateTime.UtcNow) => UtcNow(),
-
+            nameof(DateTime.UtcNow) => sqlExpressionFactory.Function(
+                "CurrentUtcTimestamp",
+                [],
+                nullable: false,
+                argumentsPropagateNullability: ArrayUtil.TrueArrays[0],
+                returnType,
+                typeMappingSource.FindMapping(returnType)
+            ),
             nameof(DateTime.Year) => DatePart(instance!, "GetYear"),
             nameof(DateTime.Month) => DatePart(instance!, "GetMonth"),
             nameof(DateTime.Day) => DatePart(instance!, "GetDayOfMonth"),
@@ -75,18 +81,6 @@ public class YdbDateTimeMemberTranslator(
             nameof(DateTime.Ticks) => null,
             _ => null
         };
-
-        SqlExpression UtcNow()
-        {
-            return sqlExpressionFactory.Function(
-                "CurrentUtc" + returnType.Name == "DateOnly" ? "Date" : returnType.Name,
-                [],
-                nullable: false,
-                argumentsPropagateNullability: ArrayUtil.TrueArrays[0],
-                returnType,
-                typeMappingSource.FindMapping(returnType)
-            );
-        }
     }
 
     private SqlExpression DatePart(SqlExpression instance, string partName)

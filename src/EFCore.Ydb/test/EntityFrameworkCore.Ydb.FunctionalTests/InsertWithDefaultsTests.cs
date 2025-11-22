@@ -83,8 +83,7 @@ public class InsertWithDefaultsTests
             .UseYdb("Host=localhost;Port=2136", builder => builder
                 .DisableRetryOnFailure()
                 .MigrationsAssembly(typeof(TestEntityMigration).Assembly.FullName))
-            .EnableServiceProviderCaching(false)
-            .LogTo(Console.WriteLine);
+            .EnableServiceProviderCaching(false);
     }
 
     public class TestEntity
