@@ -1,4 +1,5 @@
 - Fixed bug: DateTime.UtcNow generating invalid SQL in ExecuteUpdate ([#555](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/555)).
+- Updated Entity Framework Core dependencies from 9.0.0 to 9.0.10 to fix one-to-many relationship Include() runtime errors.
 
 ## v0.2.0
 
