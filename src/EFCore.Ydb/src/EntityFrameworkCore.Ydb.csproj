@@ -9,8 +9,8 @@
 
     <ItemGroup>
         <!-- PrivateAssets="none" is set to flow the EF Core analyzer to users referencing this package https://github.com/aspnet/EntityFrameworkCore/pull/11350 -->
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" PrivateAssets="none"/>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" PrivateAssets="none"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" PrivateAssets="none"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.10" PrivateAssets="none"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -19,7 +19,7 @@
 
     <ItemGroup>
         <Reference Include="Microsoft.EntityFrameworkCore.Relational">
-            <HintPath>..\..\..\..\..\.nuget\packages\microsoft.entityframeworkcore.relational\9.0.0\lib\net8.0\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+            <HintPath>..\..\..\..\..\.nuget\packages\microsoft.entityframeworkcore.relational\9.0.10\lib\net8.0\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
         </Reference>
     </ItemGroup>
 </Project>
