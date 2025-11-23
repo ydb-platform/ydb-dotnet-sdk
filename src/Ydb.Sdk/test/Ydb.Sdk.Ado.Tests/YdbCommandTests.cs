@@ -370,11 +370,31 @@ public class YdbCommandTests : TestBase
                         new YdbParameter("@Timestamp64List", YdbDbType.List | YdbDbType.Timestamp64,
                             new[] { minTimestamp64, maxTimestamp64 }),
                         new YdbParameter("@Interval64List", YdbDbType.List | YdbDbType.Interval64,
-                            new[] { -maxInterval64, maxInterval64 }),
+                            new[] { -maxInterval64, maxInterval64 })
                     }
                 }.ExecuteScalarAsync());
             }
         );
+
+    [Fact]
+    public async Task OutsideOfDateTime_ThrowsArgumentOutOfRangeException()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var ydbDataReader = await new YdbCommand("""
+                                                 SELECT 
+                                                    CAST(-1000000 AS Date32),
+                                                    CAST(-100000000000 AS Datetime64),
+                                                    CAST(-100000000000000000 AS Timestamp64)
+                                                 """, ydbConnection).ExecuteReaderAsync();
+
+        await ydbDataReader.ReadAsync();
+        Assert.Equal(-1000000, ydbDataReader.GetInt32(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ydbDataReader.GetDateTime(0));
+        Assert.Equal(-100000000000, ydbDataReader.GetInt64(1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ydbDataReader.GetDateTime(1));
+        Assert.Equal(-100000000000000000, ydbDataReader.GetInt64(2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ydbDataReader.GetDateTime(2));
+    }
 
     public static readonly TheoryData<DbType, object, bool> DbTypeTestCases = new()
     {
