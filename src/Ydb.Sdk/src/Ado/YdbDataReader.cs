@@ -458,6 +458,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
+    /// <remarks>
+    /// <para>
+    /// For <b>Date32</b> type, this method returns the raw storage value as a signed 32-bit integer
+    /// representing the number of days since Unix epoch (1970-01-01).
+    /// </para>
+    /// <para>
+    /// This allows reading dates outside the DateTime supported range without conversion errors.
+    /// </para>
+    /// </remarks>
     public override int GetInt32(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -469,6 +478,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Int8 => CurrentRow[ordinal].UnpackInt8(),
             Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].UnpackUint16(),
             Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
+            Type.Types.PrimitiveTypeId.Date32 => CurrentRow[ordinal].Int32Value,
             _ => throw InvalidCastException<int>(ordinal)
         };
     }
@@ -496,6 +506,25 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column.</returns>
+    /// <remarks>
+    /// <para>
+    /// For extended range date/time types, this method returns the raw storage value:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>
+    /// <b>Datetime64</b>: Returns the number of seconds since Unix epoch (1970-01-01 00:00:00 UTC).
+    /// </description></item>
+    /// <item><description>
+    /// <b>Timestamp64</b>: Returns the number of microseconds since Unix epoch (1970-01-01 00:00:00 UTC).
+    /// </description></item>
+    /// <item><description>
+    /// <b>Interval64</b>: Returns the number of microseconds in the time interval.
+    /// </description></item>
+    /// </list>
+    /// <para>
+    /// This allows reading values outside the DateTime/TimeSpan supported range without conversion errors.
+    /// </para>
+    /// </remarks>
     public override long GetInt64(int ordinal)
     {
         var type = UnwrapColumnType(ordinal);
@@ -509,6 +538,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Uint32 => CurrentRow[ordinal].UnpackUint32(),
             Type.Types.PrimitiveTypeId.Uint16 => CurrentRow[ordinal].UnpackUint16(),
             Type.Types.PrimitiveTypeId.Uint8 => CurrentRow[ordinal].UnpackUint8(),
+            Type.Types.PrimitiveTypeId.Datetime64 => CurrentRow[ordinal].Int64Value,
+            Type.Types.PrimitiveTypeId.Timestamp64 => CurrentRow[ordinal].Int64Value,
+            Type.Types.PrimitiveTypeId.Interval64 => CurrentRow[ordinal].Int64Value,
             _ => throw InvalidCastException<long>(ordinal)
         };
     }
