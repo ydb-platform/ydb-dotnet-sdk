@@ -280,6 +280,102 @@ public class YdbCommandTests : TestBase
             Assert.False(await reader.ReadAsync());
         });
 
+    [Fact]
+    public Task Write_ReadRowValue_When_Date32_Datetime64_Timestamp64_Interval64_WithGetInt32_GetInt64() =>
+        RunTestWithTemporaryTable("""
+                                  CREATE TABLE `{0}` (
+                                      Id Serial,
+                                      Date32Column Date32,
+                                      Datetime64Column Datetime64,
+                                      Timestamp64Column Timestamp64,
+                                      Interval64Column Interval64,
+                                      PRIMARY KEY (Id)
+                                  )
+                                  """, $"ReadRowValue_ExtendedDateTypes_{Guid.NewGuid()}",
+            async (ydbConnection, tableName) =>
+            {
+                const int minDate32 = -53375809;
+                const long minDatetime64 = -4611669897600;
+                const long minTimestamp64 = -4611669897600000000;
+                const int maxDate32 = 53375807;
+                const long maxDatetime64 = 4611669811199;
+                const long maxTimestamp64 = 4611669811199999999;
+                const long maxInterval64 = maxTimestamp64 - minTimestamp64;
+
+                await new YdbCommand($"""
+                                      INSERT INTO `{tableName}` 
+                                      (Date32Column, Datetime64Column, Timestamp64Column, Interval64Column) 
+                                      VALUES 
+                                      (@Date32Min, @Datetime64Min, @Timestamp64Min, @Interval64Min),
+                                      (@Date32Max, @Datetime64Max, @Timestamp64Max, @Interval64Max);
+                                      """,
+                    ydbConnection)
+                {
+                    Parameters =
+                    {
+                        new YdbParameter("@Date32Min", YdbDbType.Date32, minDate32),
+                        new YdbParameter("@Datetime64Min", YdbDbType.Datetime64, minDatetime64),
+                        new YdbParameter("@Timestamp64Min", YdbDbType.Timestamp64, minTimestamp64),
+                        new YdbParameter("@Interval64Min", YdbDbType.Interval64, -maxInterval64),
+                        new YdbParameter("@Date32Max", YdbDbType.Date32, maxDate32),
+                        new YdbParameter("@Datetime64Max", YdbDbType.Datetime64, maxDatetime64),
+                        new YdbParameter("@Timestamp64Max", YdbDbType.Timestamp64, maxTimestamp64),
+                        new YdbParameter("@Interval64Max", YdbDbType.Interval64, maxInterval64)
+                    }
+                }.ExecuteNonQueryAsync();
+
+                var ydbDataReader = await new YdbCommand(
+                    $"""
+                     SELECT Date32Column, Datetime64Column, Timestamp64Column, Interval64Column 
+                     FROM `{tableName}` ORDER BY Id
+                     """, ydbConnection).ExecuteReaderAsync();
+
+                await ydbDataReader.ReadAsync();
+                Assert.Equal(minDate32, ydbDataReader.GetInt32(0));
+                Assert.Throws<OverflowException>(() => ydbDataReader.GetDateTime(0));
+                Assert.Equal(minDatetime64, ydbDataReader.GetInt64(1));
+                Assert.Throws<OverflowException>(() => ydbDataReader.GetDateTime(1));
+                Assert.Equal(minTimestamp64, ydbDataReader.GetInt64(2));
+                Assert.Throws<OverflowException>(() => ydbDataReader.GetDateTime(2));
+                Assert.Equal(-maxInterval64, ydbDataReader.GetInt64(3));
+                Assert.Throws<OverflowException>(() => ydbDataReader.GetInterval(3));
+
+                await ydbDataReader.ReadAsync();
+                Assert.Equal(maxDate32, ydbDataReader.GetInt32(0));
+                Assert.Throws<OverflowException>(() => ydbDataReader.GetDateTime(0));
+                Assert.Equal(maxDatetime64, ydbDataReader.GetInt64(1));
+                Assert.Throws<OverflowException>(() => ydbDataReader.GetDateTime(1));
+                Assert.Equal(maxTimestamp64, ydbDataReader.GetInt64(2));
+                Assert.Throws<OverflowException>(() => ydbDataReader.GetDateTime(2));
+                Assert.Equal(maxInterval64, ydbDataReader.GetInt64(3));
+                Assert.Throws<OverflowException>(() => ydbDataReader.GetInterval(3));
+
+                Assert.False(await ydbDataReader.ReadAsync());
+
+                Assert.Equal(2ul, await new YdbCommand(
+                    $"""
+                     SELECT COUNT(*) FROM `{tableName}` WHERE
+                         Date32Column IN @Date32List AND
+                         Datetime64Column IN @Datetime64List AND
+                         Timestamp64Column IN @Timestamp64List AND
+                         Interval64Column IN @Interval64List;
+                     """, ydbConnection)
+                {
+                    Parameters =
+                    {
+                        new YdbParameter("@Date32List", YdbDbType.List | YdbDbType.Date32,
+                            new[] { minDate32, maxDate32 }),
+                        new YdbParameter("@Datetime64List", YdbDbType.List | YdbDbType.Datetime64,
+                            new[] { minDatetime64, maxDatetime64 }),
+                        new YdbParameter("@Timestamp64List", YdbDbType.List | YdbDbType.Timestamp64,
+                            new[] { minTimestamp64, maxTimestamp64 }),
+                        new YdbParameter("@Interval64List", YdbDbType.List | YdbDbType.Interval64,
+                            new[] { -maxInterval64, maxInterval64 }),
+                    }
+                }.ExecuteScalarAsync());
+            }
+        );
+
     public static readonly TheoryData<DbType, object, bool> DbTypeTestCases = new()
     {
         { DbType.Boolean, true, false },

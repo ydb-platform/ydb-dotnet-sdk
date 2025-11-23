@@ -152,7 +152,7 @@ internal static class YdbValueExtensions
         { Int32Value = (int)(value.Subtract(DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerDay) };
 
     internal static DateTime UnpackDate32(this Ydb.Value value) =>
-        UnixEpoch.AddTicks(value.Int32Value * TimeSpan.TicksPerDay);
+        UnixEpoch.AddTicks(checked(value.Int32Value * TimeSpan.TicksPerDay));
 
     internal static Ydb.Value PackDatetime(DateTime value) => new()
         { Uint32Value = checked((uint)(value.Subtract(DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerSecond)) };
@@ -164,7 +164,7 @@ internal static class YdbValueExtensions
         { Int64Value = value.Subtract(DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerSecond };
 
     internal static DateTime UnpackDatetime64(this Ydb.Value value) =>
-        UnixEpoch.AddTicks(value.Int64Value * TimeSpan.TicksPerSecond);
+        UnixEpoch.AddTicks(checked(value.Int64Value * TimeSpan.TicksPerSecond));
 
     internal static Ydb.Value PackTimestamp(DateTime value) => new()
         { Uint64Value = checked((ulong)(value.Ticks - DateTime.UnixEpoch.Ticks) / TimeSpanUtils.TicksPerMicrosecond) };
@@ -176,7 +176,7 @@ internal static class YdbValueExtensions
         { Int64Value = (value.Ticks - DateTime.UnixEpoch.Ticks) / TimeSpanUtils.TicksPerMicrosecond };
 
     internal static DateTime UnpackTimestamp64(this Ydb.Value value) =>
-        UnixEpoch.AddTicks(value.Int64Value * TimeSpanUtils.TicksPerMicrosecond);
+        UnixEpoch.AddTicks(checked(value.Int64Value * TimeSpanUtils.TicksPerMicrosecond));
 
     internal static Ydb.Value PackInterval(TimeSpan value) => new()
         { Int64Value = value.Ticks / TimeSpanUtils.TicksPerMicrosecond };
@@ -188,5 +188,5 @@ internal static class YdbValueExtensions
         { Int64Value = value.Ticks / TimeSpanUtils.TicksPerMicrosecond };
 
     internal static TimeSpan UnpackInterval64(this Ydb.Value value) =>
-        TimeSpan.FromTicks(value.Int64Value * TimeSpanUtils.TicksPerMicrosecond);
+        TimeSpan.FromTicks(checked(value.Int64Value * TimeSpanUtils.TicksPerMicrosecond));
 }

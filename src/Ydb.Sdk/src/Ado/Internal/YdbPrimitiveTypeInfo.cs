@@ -162,6 +162,7 @@ internal class YdbPrimitiveTypeInfo
     {
         DateTime dateTimeValue => PackDatetime64(dateTimeValue),
         long longValue => new Ydb.Value { Int64Value = longValue },
+        int intValue => new Ydb.Value { Int64Value = intValue },
         _ => null
     };
 
@@ -169,6 +170,7 @@ internal class YdbPrimitiveTypeInfo
     {
         DateTime dateTimeValue => PackTimestamp64(dateTimeValue),
         long longValue => new Ydb.Value { Int64Value = longValue },
+        int intValue => new Ydb.Value { Int64Value = intValue },
         _ => null
     };
 
@@ -176,6 +178,7 @@ internal class YdbPrimitiveTypeInfo
     {
         TimeSpan timeSpanValue => PackInterval64(timeSpanValue),
         long longValue => new Ydb.Value { Int64Value = longValue },
+        int intValue => new Ydb.Value { Int64Value = intValue },
         _ => null
     };
 }

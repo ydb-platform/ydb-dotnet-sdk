@@ -1,3 +1,4 @@
+- Feat ADO.NET: Added raw integer / long value support for extended-range `DateTime` types.
 - Feat ADO.NET: Support `YdbStruct` support.
 
 ## v0.25.2
