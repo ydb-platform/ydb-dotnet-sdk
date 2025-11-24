@@ -21,4 +21,16 @@ internal static class GrpcDefaultSettings
     internal const bool EnableMultipleHttp2Connections = false;
 
     internal const bool DisableDiscovery = false;
+
+    /// <summary>
+    /// Default idle timeout (in seconds) for pooled HTTP/2 connections.
+    /// Set to prevent connection corruption from long-lived connections.
+    /// </summary>
+    internal const int PooledConnectionIdleTimeoutSeconds = 60;
+
+    /// <summary>
+    /// Default lifetime (in seconds) for pooled HTTP/2 connections.
+    /// Set to prevent connection corruption from long-lived connections.
+    /// </summary>
+    internal const int PooledConnectionLifetimeSeconds = 300; // 5 minutes
 }
