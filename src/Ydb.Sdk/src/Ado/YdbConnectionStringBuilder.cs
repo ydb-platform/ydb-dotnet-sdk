@@ -224,7 +224,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     /// <remarks>
     /// Specifies how long a session can remain idle before being closed.
-    /// Must be greater than or equal to 0.
+    /// Must be greater than 0.
     /// <para>Default value: 300 seconds (5 minutes).</para>
     /// </remarks>
     public int SessionIdleTimeout
@@ -232,7 +232,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         get => _sessionIdleTimeout;
         set
         {
-            if (value < 0)
+            if (value <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid session idle timeout: " + value);
             }
@@ -429,8 +429,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// Gets or sets a value indicating whether to disable server load balancing.
     /// </summary>
     /// <remarks>
-    /// When true, disables server load balancing and uses direct connections.
-    /// When false, enables server load balancing for better performance.
+    /// The value true disables load balancing on the server.
+    /// The false value enables load balancing on the server.
     /// <para>Default value: false.</para>
     /// </remarks>
     public bool DisableServerBalancer

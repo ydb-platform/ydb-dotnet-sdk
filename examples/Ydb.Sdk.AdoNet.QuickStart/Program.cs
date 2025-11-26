@@ -163,7 +163,7 @@ async Task LoadData()
 
 async Task ExecuteReaderAsync()
 {
-    await using var connection = await ydbDataSource.OpenRetryableConnectionAsync();
+    await using var connection = await ydbDataSource.OpenConnectionAsync();
 
     var ydbCommand = connection.CreateCommand();
     ydbCommand.CommandText = """
