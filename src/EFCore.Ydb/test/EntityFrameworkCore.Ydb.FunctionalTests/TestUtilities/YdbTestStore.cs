@@ -49,7 +49,7 @@ public class YdbTestStore(
 
             if (scriptPath is not null)
             {
-                //await ExecuteScript(scriptPath);
+                await ExecuteScript(scriptPath);
 
                 if (additionalSql is not null)
                 {
@@ -204,7 +204,7 @@ public class YdbTestStore(
             command.CommandText += $"DROP TABLE IF EXISTS `{table}`;";
         }
 
-        //await command.ExecuteNonQueryAsync();
+        await command.ExecuteNonQueryAsync();
 
         await connection.CloseAsync();
     }
