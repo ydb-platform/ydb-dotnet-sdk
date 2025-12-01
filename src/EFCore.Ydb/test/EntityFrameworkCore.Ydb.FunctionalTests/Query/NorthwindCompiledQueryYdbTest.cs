@@ -64,7 +64,6 @@ public class NorthwindCompiledQueryYdbTest
             """);
     }
     
-    //TODO: почему то не резолвится признак что надо с эскейп символом работать
     [Fact]
     public void String_ILike_Literal_With_Escape()
     {
