@@ -7,12 +7,9 @@ using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
-public class LazyLoadProxyYdbTest : LazyLoadProxyTestBase<LazyLoadProxyYdbTest.LoadYdbFixture>
+public class LazyLoadProxyYdbTest(LazyLoadProxyYdbTest.LoadYdbFixture fixture)
+    : LazyLoadProxyTestBase<LazyLoadProxyYdbTest.LoadYdbFixture>(fixture)
 {
-    public LazyLoadProxyYdbTest(LoadYdbFixture fixture) : base(fixture)
-    {
-    }
-
     [ConditionalFact(Skip = "TODO: Fix precision")]
     public override void Can_serialize_proxies_to_JSON() => base.Can_serialize_proxies_to_JSON();
 
@@ -32,5 +29,18 @@ public class LazyLoadProxyYdbTest : LazyLoadProxyTestBase<LazyLoadProxyYdbTest.L
 
         protected override ITestStoreFactory TestStoreFactory
             => YdbTestStoreFactory.Instance;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
+        {
+            base.OnModelCreating(modelBuilder, context);
+
+            modelBuilder.Entity<Parson>()
+                .Property(e => e.Birthday)
+                .HasColumnType("Timestamp64");
+
+            modelBuilder.Entity<Quest>()
+                .Property(e => e.Birthday)
+                .HasColumnType("Timestamp64");
+        }
     }
 }

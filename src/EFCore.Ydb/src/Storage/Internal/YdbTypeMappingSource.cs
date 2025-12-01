@@ -2,9 +2,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Text.Json;
 using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk.Ado.YdbType;
 using Type = System.Type;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal;
@@ -15,6 +17,7 @@ public sealed class YdbTypeMappingSource(
 ) : RelationalTypeMappingSource(dependencies, relationalDependencies)
 {
     private static readonly ConcurrentDictionary<RelationalTypeMappingInfo, RelationalTypeMapping> DecimalCache = new();
+    private static readonly ConcurrentDictionary<YdbDbType, YdbListTypeMapping> ListMappings = new();
 
     #region Mappings
 
@@ -35,19 +38,26 @@ public sealed class YdbTypeMappingSource(
 
     private static readonly YdbDecimalTypeMapping Decimal = YdbDecimalTypeMapping.Default;
 
-    private static readonly GuidTypeMapping Guid = YdbGuidTypeMapping.Default;
+    private static readonly GuidTypeMapping Uuid = YdbGuidTypeMapping.Default;
 
     private static readonly YdbTextTypeMapping Text = YdbTextTypeMapping.Default;
     private static readonly YdbBytesTypeMapping Bytes = YdbBytesTypeMapping.Default;
     private static readonly YdbJsonTypeMapping Json = new("Json", typeof(JsonElement), null);
 
-    private static readonly YdbDateOnlyTypeMapping Date = new("Date");
-    private static readonly DateTimeTypeMapping DateTime = new("DateTime");
+    private static readonly YdbDateOnlyTypeMapping DateDateOnly = new(YdbDbType.Date);
+    private static readonly YdbDateOnlyTypeMapping Date32DateOnly = new(YdbDbType.Date32);
 
-    private static readonly YdbDateTimeTypeMapping Timestamp = new("Timestamp", DbType.DateTime);
+    private static readonly YdbDateTimeTypeMapping DateDateTime = new(YdbDbType.Date);
+    private static readonly YdbDateTimeTypeMapping Date32DateTime = new(YdbDbType.Date32);
 
-    // TODO: Await interval in Ydb.Sdk
-    private static readonly TimeSpanTypeMapping Interval = new("Interval", DbType.Object);
+    private static readonly YdbDateTimeTypeMapping Datetime = new(YdbDbType.Datetime);
+    private static readonly YdbDateTimeTypeMapping Datetime64 = new(YdbDbType.Datetime64);
+
+    private static readonly YdbDateTimeTypeMapping Timestamp = new(YdbDbType.Timestamp);
+    private static readonly YdbDateTimeTypeMapping Timestamp64 = new(YdbDbType.Timestamp64);
+
+    private static readonly YdbTimeSpanTypeMapping Interval = new(YdbDbType.Interval);
+    private static readonly YdbTimeSpanTypeMapping Interval64 = new(YdbDbType.Interval64);
 
     #endregion
 
@@ -69,17 +79,20 @@ public sealed class YdbTypeMappingSource(
             { "Float", [Float] },
             { "Double", [Double] },
 
-            { "Guid", [Guid] },
-
-            { "Date", [Date] },
-            { "DateTime", [DateTime] },
-            { "Timestamp", [Timestamp] },
-            { "Interval", [Interval] },
+            { "Guid", [Uuid] },
 
             { "Text", [Text] },
             { "Bytes", [Bytes] },
 
-            { "Json", [Json] }
+            { "Date", [DateDateTime, DateDateOnly] },
+            { "DateTime", [Datetime] },
+            { "Timestamp", [Timestamp] },
+            { "Interval", [Interval] },
+
+            { "Date32", [Date32DateTime, Date32DateOnly] },
+            { "Datetime64", [Datetime64] },
+            { "Timestamp64", [Timestamp64] },
+            { "Interval64", [Interval64] }
         };
 
     private static readonly Dictionary<Type, RelationalTypeMapping> ClrTypeMapping = new()
@@ -99,13 +112,13 @@ public sealed class YdbTypeMappingSource(
         { typeof(float), Float },
         { typeof(double), Double },
 
-        { typeof(Guid), Guid },
+        { typeof(Guid), Uuid },
 
         { typeof(string), Text },
         { typeof(byte[]), Bytes },
         { typeof(JsonElement), Json },
 
-        { typeof(DateOnly), Date },
+        { typeof(DateOnly), DateDateOnly },
         { typeof(DateTime), Timestamp },
         { typeof(TimeSpan), Interval }
     };
@@ -125,24 +138,60 @@ public sealed class YdbTypeMappingSource(
         var clrType = mappingInfo.ClrType;
         var storeTypeName = mappingInfo.StoreTypeName;
 
-        if (storeTypeName is null)
+        if (storeTypeName is not null && StoreTypeMapping.TryGetValue(storeTypeName, out var mappings))
         {
-            return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
-        }
-
-        if (!StoreTypeMapping.TryGetValue(storeTypeName, out var mappings))
-        {
-            return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
-        }
-
-        foreach (var m in mappings)
-        {
-            if (m.ClrType == clrType)
+            // We found the user-specified store type. No CLR type was provided - we're probably
+            // scaffolding from an existing database, take the first mapping as the default.
+            if (clrType is null)
             {
-                return m;
+                return mappings[0];
+            }
+
+            // A CLR type was provided - look for a mapping between the store and CLR types. If not found, fail
+            // immediately.
+            foreach (var m in mappings)
+            {
+                if (m.ClrType == clrType)
+                {
+                    return m;
+                }
             }
         }
 
         return clrType is null ? null : ClrTypeMapping.GetValueOrDefault(clrType);
+    }
+
+    public override RelationalTypeMapping? FindMapping(Type type)
+    {
+        if (type == typeof(byte[]))
+            return base.FindMapping(type);
+
+        var elementType = type.IsArray
+            ? type.GetElementType()
+            : type.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>))?
+                .GetGenericArguments()[0];
+
+        if (elementType == null)
+            return base.FindMapping(type);
+
+        elementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+
+        var elementTypeMapping = FindMapping(elementType);
+
+        if (elementTypeMapping == null)
+            return base.FindMapping(type);
+
+        var ydbDbType = elementTypeMapping is IYdbTypeMapping ydbTypeMapping
+            ? ydbTypeMapping.YdbDbType
+            : (elementTypeMapping.DbType ?? DbType.Object).ToYdbDbType();
+
+        if (ListMappings.TryGetValue(ydbDbType, out var mapping))
+            return mapping;
+
+        mapping = new YdbListTypeMapping(ydbDbType, elementTypeMapping.StoreType);
+        ListMappings.TryAdd(ydbDbType, mapping);
+
+        return mapping;
     }
 }

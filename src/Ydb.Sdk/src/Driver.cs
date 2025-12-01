@@ -10,14 +10,29 @@ using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk;
 
+/// <summary>
+/// Main YDB driver implementation that handles endpoint discovery and connection management.
+/// </summary>
+/// <remarks>
+/// The Driver class provides the primary interface for connecting to YDB clusters.
+/// It automatically discovers available endpoints and manages gRPC connections.
+/// </remarks>
 public sealed class Driver : BaseDriver
 {
     private const int AttemptDiscovery = 10;
 
     private readonly EndpointPool _endpointPool;
 
+    /// <summary>
+    /// Gets the database path for this driver instance.
+    /// </summary>
     internal string Database => Config.Database;
 
+    /// <summary>
+    /// Initializes a new instance of the Driver class.
+    /// </summary>
+    /// <param name="config">Driver configuration settings.</param>
+    /// <param name="loggerFactory">Optional logger factory for logging. If null, NullLoggerFactory will be used.</param>
     public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null)
         : base(config, loggerFactory ?? NullLoggerFactory.Instance,
             (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>()
@@ -26,6 +41,13 @@ public sealed class Driver : BaseDriver
         _endpointPool = new EndpointPool(LoggerFactory);
     }
 
+    /// <summary>
+    /// Creates and initializes a new Driver instance in one operation.
+    /// </summary>
+    /// <param name="config">Driver configuration settings.</param>
+    /// <param name="loggerFactory">Optional logger factory for logging. If null, NullLoggerFactory will be used.</param>
+    /// <returns>A fully initialized Driver instance ready for use.</returns>
+    /// <exception cref="YdbException">Thrown when endpoint discovery fails after all retry attempts.</exception>
     public static async Task<Driver> CreateInitialized(DriverConfig config, ILoggerFactory? loggerFactory = null)
     {
         var driver = new Driver(config, loggerFactory);
@@ -33,6 +55,14 @@ public sealed class Driver : BaseDriver
         return driver;
     }
 
+    /// <summary>
+    /// Initializes the driver by discovering available endpoints.
+    /// </summary>
+    /// <remarks>
+    /// This method performs initial endpoint discovery and starts periodic discovery.
+    /// It will retry up to 10 times with exponential backoff if discovery fails.
+    /// </remarks>
+    /// <exception cref="YdbException">Thrown when endpoint discovery fails after all retry attempts.</exception>
     public async Task Initialize()
     {
         Logger.LogInformation("Started initial endpoint discovery");

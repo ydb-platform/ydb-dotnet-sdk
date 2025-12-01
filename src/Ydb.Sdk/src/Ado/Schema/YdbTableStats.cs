@@ -1,6 +1,6 @@
 namespace Ydb.Sdk.Ado.Schema;
 
-public class YdbTableStats
+internal class YdbTableStats
 {
     public YdbTableStats(Table.TableStats tableStats)
     {

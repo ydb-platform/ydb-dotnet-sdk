@@ -31,7 +31,7 @@ jobs:
       - name: Restore
         run: dotnet restore ${{ matrix.source-dir }}${{ matrix.solutionFile }}
       - name: Install ReSharper
-        run: dotnet tool install -g JetBrains.ReSharper.GlobalTools
+        run: dotnet tool install -g JetBrains.ReSharper.GlobalTools --version 2025.2.1
       - name: format all files with auto-formatter
         run: bash ./.github/scripts/format-all-dotnet-code.sh ${{ matrix.source-dir }} ${{ matrix.solutionFile }}
       - name: Check repository diff
@@ -63,6 +63,7 @@ jobs:
             **.cshtml
           minimumReportSeverity: WARNING
           dotnetVersion: ${{ steps.setup-dotnet.outputs.dotnet-version }}
+          version: 2025.2.1
           ignoreIssueType: | 
             UnusedField.Compiler,
             UnusedVariable.Compiler,
@@ -95,3 +96,4 @@ jobs:
             EmptyStatement,
             ObjectCreationAsStatement,
             ParameterOnlyUsedForPreconditionCheck.Local
+            BitwiseOperatorOnEnumWithoutFlags

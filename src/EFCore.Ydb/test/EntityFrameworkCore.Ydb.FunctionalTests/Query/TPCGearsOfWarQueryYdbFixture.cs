@@ -16,17 +16,19 @@ public class TPCGearsOfWarQueryYdbFixture : TPCGearsOfWarQueryRelationalFixture
         base.OnModelCreating(modelBuilder, context);
 
         modelBuilder.Entity<Mission>()
-            .Property(e => e.Time)
-            .HasConversion(
-                v => new DateTime(2000, 1, 1).Add(v.ToTimeSpan()), // Time → DateTime
-                v => new TimeOnly(v.TimeOfDay.Ticks)) // DateTime → Time
-            .HasColumnType("DATETIME");
+            .Property(e => e.Date)
+            .HasColumnType("Date32");
 
         modelBuilder.Entity<Mission>()
-            .Property(e => e.Duration)
+            .Property(e => e.Time)
+            .HasColumnType("Datetime64")
             .HasConversion(
-                v => new DateTime(2000, 1, 1).Add(v), // TimeSpan → DateTime
-                v => v.TimeOfDay) // DateTime → TimeSpan
-            .HasColumnType("DATETIME");
+                v => new DateTime(2000, 1, 1).Add(v.ToTimeSpan()), // Time → DateTime
+                v => new TimeOnly(v.TimeOfDay.Ticks)
+            ); // DateTime → Time
+
+        modelBuilder.Entity<CogTag>()
+            .Property(e => e.IssueDate)
+            .HasColumnType("Date32");
     }
 }

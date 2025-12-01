@@ -15,7 +15,7 @@ public class SessionSourceBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        var settings = new YdbConnectionStringBuilder { MaxSessionPool = SessionPoolSize };
+        var settings = new YdbConnectionStringBuilder { MaxPoolSize = SessionPoolSize };
 
         _poolingSessionSource = new PoolingSessionSource<MockPoolingSession>(new MockSessionFactory(), settings);
     }
@@ -23,8 +23,7 @@ public class SessionSourceBenchmark
     [Benchmark]
     public async Task SingleThreaded_OpenClose()
     {
-        var session = await _poolingSessionSource.OpenSession();
-        session.Close();
+        using var session = await _poolingSessionSource.OpenSession();
     }
 
     [Benchmark]
@@ -36,9 +35,8 @@ public class SessionSourceBenchmark
         {
             tasks[i] = Task.Run(async () =>
             {
-                var session = await _poolingSessionSource.OpenSession();
+                using var session = await _poolingSessionSource.OpenSession();
                 await Task.Yield();
-                session.Close();
             });
         }
 
@@ -55,9 +53,8 @@ public class SessionSourceBenchmark
         {
             tasks[i] = Task.Run(async () =>
             {
-                var session = await _poolingSessionSource.OpenSession();
+                using var session = await _poolingSessionSource.OpenSession();
                 await Task.Yield();
-                session.Close();
             });
         }
 
@@ -76,9 +73,8 @@ public class SessionSourceBenchmark
             {
                 for (var j = 0; j < iterations; j++)
                 {
-                    var session = await _poolingSessionSource.OpenSession();
+                    using var session = await _poolingSessionSource.OpenSession();
                     await Task.Yield();
-                    session.Close();
                 }
             });
         }
@@ -99,9 +95,8 @@ public class SessionSourceBenchmark
             {
                 for (var j = 0; j < iterations; j++)
                 {
-                    var session = await _poolingSessionSource.OpenSession();
+                    using var session = await _poolingSessionSource.OpenSession();
                     await Task.Yield();
-                    session.Close();
                 }
             });
         }
@@ -121,9 +116,8 @@ public class SessionSourceBenchmark
             {
                 for (var j = 0; j < iterations; j++)
                 {
-                    var session = await _poolingSessionSource.OpenSession();
+                    using var session = await _poolingSessionSource.OpenSession();
                     await Task.Yield();
-                    session.Close();
                 }
             });
         }

@@ -6,8 +6,7 @@ using Moq;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Services.Topic;
-using Ydb.Sdk.Services.Topic.Reader;
+using Ydb.Sdk.Topic.Reader;
 using Ydb.Topic;
 using Range = Moq.Range;
 
@@ -27,7 +26,7 @@ public class ReaderUnitTests
 
     private readonly Mock<IDriver> _mockIDriver = new();
     private readonly Mock<ReaderStream> _mockStream = new();
-    private readonly ValueTask<bool> _lastMoveNext;
+    private readonly Task<bool> _lastMoveNext;
 
     public ReaderUnitTests()
     {
@@ -40,7 +39,7 @@ public class ReaderUnitTests
 
         var tcsLastMoveNext = new TaskCompletionSource<bool>();
 
-        _lastMoveNext = new ValueTask<bool>(tcsLastMoveNext.Task);
+        _lastMoveNext = tcsLastMoveNext.Task;
         _mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
         {
             tcsLastMoveNext.TrySetResult(false);
@@ -97,8 +96,8 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNext.Task)
+            .Returns(tcsCommitMessage.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -190,8 +189,8 @@ public class ReaderUnitTests
             .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNext.Task)
+            .Returns(tcsCommitMessage.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -289,8 +288,8 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNext.Task)
+            .Returns(tcsCommitMessage.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -445,8 +444,8 @@ public class ReaderUnitTests
             .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNext.Task)
+            .Returns(tcsCommitMessage.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -584,13 +583,13 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextFirst.Task))
+            .Returns(tcsMoveNextFirst.Task)
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextSecond.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage1.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage2.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage3.Task))
+            .Returns(tcsMoveNextSecond.Task)
+            .Returns(tcsCommitMessage1.Task)
+            .Returns(tcsCommitMessage2.Task)
+            .Returns(tcsCommitMessage3.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -740,12 +739,12 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextFirst.Task))
-            .Returns(new ValueTask<bool>(tcsMoveNextSecond.Task))
+            .Returns(tcsMoveNextFirst.Task)
+            .Returns(tcsMoveNextSecond.Task)
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNextThird.Task)
+            .Returns(tcsCommitMessage.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -876,12 +875,12 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextFirst.Task))
-            .Returns(new ValueTask<bool>(tcsMoveNextSecond.Task))
+            .Returns(tcsMoveNextFirst.Task)
+            .Returns(tcsMoveNextSecond.Task)
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNextThird.Task)
+            .Returns(tcsCommitMessage.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -1052,12 +1051,12 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextFirst.Task))
-            .Returns(new ValueTask<bool>(tcsMoveNextSecond.Task))
+            .Returns(tcsMoveNextFirst.Task)
+            .Returns(tcsMoveNextSecond.Task)
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNextThird.Task)
+            .Returns(tcsCommitMessage.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -1185,12 +1184,12 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextFirst.Task))
-            .Returns(new ValueTask<bool>(tcsMoveNextSecond.Task))
+            .Returns(tcsMoveNextFirst.Task)
+            .Returns(tcsMoveNextSecond.Task)
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNextThird.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNextThird.Task)
+            .Returns(tcsCommitMessage.Task)
             .ReturnsAsync(true)
             .Returns(_lastMoveNext);
 
@@ -1294,8 +1293,8 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
-            .Returns(new ValueTask<bool>(stopPartitionSessionRequest.Task))
+            .Returns(tcsMoveNext.Task)
+            .Returns(stopPartitionSessionRequest.Task)
             .ReturnsAsync(true)
             .Returns(_lastMoveNext);
 
@@ -1384,7 +1383,7 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
+            .Returns(tcsMoveNext.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -1459,8 +1458,8 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNext.Task)
+            .Returns(tcsCommitMessage.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -1526,8 +1525,8 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsMoveNext.Task))
-            .Returns(new ValueTask<bool>(tcsCommitMessage.Task))
+            .Returns(tcsMoveNext.Task)
+            .Returns(tcsCommitMessage.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)

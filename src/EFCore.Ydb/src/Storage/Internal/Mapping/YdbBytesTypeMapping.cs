@@ -8,17 +8,8 @@ public class YdbBytesTypeMapping : RelationalTypeMapping
 {
     public static YdbBytesTypeMapping Default { get; } = new();
 
-    private YdbBytesTypeMapping() : base(
-        new RelationalTypeMappingParameters(
-            new CoreTypeMappingParameters(
-                typeof(byte[]),
-                jsonValueReaderWriter: JsonByteArrayReaderWriter.Instance
-            ),
-            storeType: "Bytes",
-            dbType: System.Data.DbType.Binary,
-            unicode: false
-        )
-    )
+    private YdbBytesTypeMapping() : base("Bytes", typeof(byte[]), System.Data.DbType.Binary,
+        jsonValueReaderWriter: JsonByteArrayReaderWriter.Instance, unicode: false)
     {
     }
 
@@ -26,8 +17,7 @@ public class YdbBytesTypeMapping : RelationalTypeMapping
     {
     }
 
-    protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-        => new YdbBytesTypeMapping(parameters);
+    protected override YdbBytesTypeMapping Clone(RelationalTypeMappingParameters parameters) => new(parameters);
 
     protected override string GenerateNonNullSqlLiteral(object value)
     {

@@ -2,11 +2,19 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Sdk.Ado.BulkUpsert;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
 using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;
 
+/// <summary>
+/// Represents a connection to a YDB database.
+/// </summary>
+/// <remarks>
+/// YdbConnection provides a standard ADO.NET connection interface for YDB databases.
+/// It manages database sessions and provides access to YDB-specific functionality.
+/// </remarks>
 public sealed class YdbConnection : DbConnection
 {
     private static readonly StateChangeEventArgs ClosedToOpenEventArgs =
@@ -38,15 +46,28 @@ public sealed class YdbConnection : DbConnection
 
     private ISession _session = null!;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbConnection"/> class.
+    /// </summary>
     public YdbConnection()
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbConnection"/> class with the specified connection string.
+    /// </summary>
+    /// <param name="connectionString">The connection string used to establish the connection.</param>
     public YdbConnection(string connectionString)
     {
         ConnectionStringBuilder = new YdbConnectionStringBuilder(connectionString);
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YdbConnection"/> class with the specified connection string builder.
+    /// </summary>
+    /// <param name="connectionStringBuilder">
+    /// The <see cref="YdbConnectionStringBuilder"/> used to establish the connection.
+    /// </param>
     public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
     {
         ConnectionStringBuilder = connectionStringBuilder;
@@ -81,9 +102,7 @@ public sealed class YdbConnection : DbConnection
         return CurrentTransaction;
     }
 
-    public override void ChangeDatabase(string databaseName)
-    {
-    }
+    public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
 
     public override void Close() => CloseAsync().GetAwaiter().GetResult();
 
@@ -93,9 +112,25 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        Session = await PoolManager.GetSession(ConnectionStringBuilder, cancellationToken);
+        var sessionSource = await PoolManager.Get(ConnectionStringBuilder, cancellationToken);
+
+        Session = await sessionSource.OpenSession(cancellationToken);
 
         OnStateChange(ClosedToOpenEventArgs);
+
+        ConnectionState = ConnectionState.Open;
+    }
+
+    internal async ValueTask OpenAsync(
+        YdbRetryPolicyExecutor retryPolicyExecutor,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ThrowIfConnectionOpen();
+
+        var sessionSource = await PoolManager.Get(ConnectionStringBuilder, cancellationToken);
+
+        Session = new RetryableSession(sessionSource, retryPolicyExecutor);
 
         ConnectionState = ConnectionState.Open;
     }
@@ -109,7 +144,7 @@ public sealed class YdbConnection : DbConnection
                 return;
             case ConnectionState.Broken:
                 ConnectionState = ConnectionState.Closed;
-                _session.Close();
+                _session.Dispose();
                 return;
             default:
                 try
@@ -130,7 +165,7 @@ public sealed class YdbConnection : DbConnection
                 }
                 finally
                 {
-                    _session.Close();
+                    _session.Dispose();
                 }
 
                 break;

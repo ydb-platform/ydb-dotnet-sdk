@@ -6,23 +6,32 @@ to [Yandex Cloud Serverless Containers](https://yandex.cloud/en/docs/serverless-
 ## Getting started
 
 1. **Setup** [Yandex Container Registry](https://yandex.cloud/en/docs/container-registry/operations/registry/registry-create).
-2. **Build and Push Docker Image**
+2. **Configure YDB Connection String**. Update the `appsettings.json` file with your YDB connection details:
+   ```json
+   {
+     "ConnectionStrings": {
+       "ServerlessYDB": "UseTls=true;Host=<your-ydb-host>;Port=2135;Database=<your-database-path>"
+     }
+   }
+   ```
+   Replace `<your-ydb-host>` with your YDB endpoint host and `<your-database-path>` with your database path (e.g., `/ru-central1/b1g8ejbxxxxxxxx/etn8xxxxxxxx`).
+3. **Build and Push Docker Image**
    ```bash 
    docker build . -t cr.yandex/<container-registry-id>/ado-net-app:latest
    docker push cr.yandex/<container-registry-id>/ado-net-app:latest
    ```
    Replace <container-registry-id> with your actual Container Registry ID.
-3. **Grant Required Permissions**. To enable your Serverless Container to access both YDB and your container image in
+4. **Grant Required Permissions**. To enable your Serverless Container to access both YDB and your container image in
    the Container Registry, grant the following roles to your Service Account:
 
     - `ydb.editor` — access to YDB,
     - `container-registry.images.puller` — permission to pull images from Container Registry.
 
-4. **Create a new revision**. After pushing your image, create a new version of the Serverless Container as described in
+5. **Create a new revision**. After pushing your image, create a new version of the Serverless Container as described in
    the [official guide](https://yandex.cloud/en/docs/serverless-containers/quickstart/container#create-revision).
    Specify your image and the necessary environment variables and secrets.
 
-5. **Running the Yandex Serverless Container**.
+6. **Running the Yandex Serverless Container**.
    After the new revision has been rolled out, you can use your container (e.g., for a health check) by executing the
    following command:
    ```bash

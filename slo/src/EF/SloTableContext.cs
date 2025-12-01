@@ -12,7 +12,8 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
     protected override string Job => "EF";
 
     protected override PooledDbContextFactory<TableDbContext> CreateClient(Config config) =>
-        new(new DbContextOptionsBuilder<TableDbContext>().UseYdb(config.ConnectionString).Options);
+        new(new DbContextOptionsBuilder<TableDbContext>().UseYdb(config.ConnectionString,
+            builder => builder.EnableRetryIdempotence()).Options);
 
     protected override async Task Create(
         PooledDbContextFactory<TableDbContext> client,
@@ -74,15 +75,15 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
         return 0;
     }
 
-    protected override async Task<(int, object?)> Select(
+    protected override async Task<object?> Select(
         PooledDbContextFactory<TableDbContext> client,
         (Guid Guid, int Id) select,
         int readTimeout
     )
     {
         await using var dbContext = await client.CreateDbContextAsync();
-        return (0, await dbContext.SloEntities.FirstOrDefaultAsync(table =>
-            table.Guid == select.Guid && table.Id == select.Id));
+        return await dbContext.SloEntities.FirstOrDefaultAsync(table =>
+            table.Guid == select.Guid && table.Id == select.Id);
     }
 
     protected override async Task<int> SelectCount(PooledDbContextFactory<TableDbContext> client)

@@ -15,8 +15,7 @@ public class YdbBoolTypeMapping : BoolTypeMapping
     {
     }
 
-    protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-        => new YdbBoolTypeMapping(parameters);
+    protected override YdbBoolTypeMapping Clone(RelationalTypeMappingParameters parameters) => new(parameters);
 
     protected override string GenerateNonNullSqlLiteral(object value)
         => (bool)value ? "TRUE" : "FALSE";

@@ -1,7 +1,53 @@
+## v0.26.0
+
+- Feat ADO.NET: Added raw integer / long value support for extended-range `DateTime` types.
+- Feat ADO.NET: Support `YdbStruct` support.
+
+## v0.25.2
+
+- Fixed bug ADO.NET: Missing support for the YDB `Interval64` type in `YdbDataReader.GetFieldType / GetValue` ([#561](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/561)).
+- Feat ADO.NET: Added overflow-checked int-to-uint cast for YDB `Date`, `Datetime`, and `Timestamp`. `DateTime` before epoch now throws `OverflowException`.
+- Feat ADO.NET: Added support for the `DateOnly` type in `YdbDataReader.GetFieldValue<T>`.
+
+## v0.25.1
+
+- Fixed bug ADO.NET: `ArgumentOutOfRangeException` when using `YdbParameter` with `YdbDbType = YdbDbType.List | YdbDbType.Unspecified`;
+
+## v0.25.0
+
+- **Breaking Change**: Renamed `YdbDbType` enum members to match the [ydb.tech](https://ydb.tech/docs/en/yql/reference/types/primitive) naming:
+    - `UInt8` -> `Uint8`.
+    - `UInt16` -> `Uint16`.
+    - `UInt32` -> `Uint32`.
+    - `Uint64` -> `Uint64`.
+    - `DateTime` -> `Datetime`.
+- **Breaking Change**: Removed unused methods `GetJson`, `GetJsonDocument`, and `GetYson` from YdbDataReader.
+- Feat ADO.NET: Add support for reading `Yson` from `YdbDataReader.GetBytes`.
+- Feat ADO.NET: Add support for reading `Json` and `JsonDocument` from `YdbDataReader.GetString`.
+- Feat ADO.NET: Added type checking in the parameter list in sql statement `IN (@id1, @id2)`.
+- **Breaking Change**: `Ydb.Sdk.Services.Topic` moved to `Ydb.Sdk.Topic`.
+
+## v0.24.0
+
+- **Breaking Change**: Renamed properties in `YdbConnectionStringBuilder`:
+  - `MaxSessionPool` -> `MaxPoolSize`.
+  - `MinSessionPool` -> `MinPoolSize`.
+- Added XML documentation for all public APIs in `Ydb.Sdk`.
+- Feat ADO.NET: Added dispose timeout (10 seconds) to `PoolingSessionSource`.
+- Feat ADO.NET: Added `EnableImplicitSession` to support implicit sessions.
+
+## v0.23.1
+
+- Fixed bug Topic Reader: NullReferenceException when handling StopPartitionSessionRequest ([#528](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/528)).
+- Feat ADO.NET: Added YSON type support (YdbDbType.Yson) with byte[] values.
+
+## v0.23.0
+
+- Feat ADO.NET: `YdbDataSource.OpenRetryableConnectionAsync` opens a retryable connection with automatic retries for transient failures.
 - Fixed bug ADO.NET/PoolManager: `SemaphoreSlim.WaitAsync` over-release on cancellation.
 - Feat ADO.NET: Mark `YdbConnection.State` as `Broken` when the underlying session is broken, including background deactivation.
 - Feat ADO.NET: Added  YdbDataSource `ExecuteAsync` and `ExecuteInTransaction` convenience methods.
-- **Breaking Change**: moved and renamed `Ydb.Sdk.Services.Query.TxMode` -> `Ydb.Sdk.Ado.TransactionMode`.
+- **Breaking Change**: `Ydb.Sdk.Services.Query.TxMode` moved to `Ydb.Sdk.Ado.TransactionMode`.
 - Feat ADO.NET: Cache gRPC transport by `gRPCConnectionString` to reuse channels.
 - Fixed bug wrap-around ADO.NET: Big parameterized Decimal — `((ulong)bits[1] << 32)` -> `((ulong)(uint)bits[1] << 32)`.
 - Feat ADO.NET: Parameterized Decimal overflow check: `Precision` and `Scale`.
@@ -31,8 +77,8 @@
 - Fixed bug: Grpc.Core.StatusCode.Cancelled was mapped to server's Canceled status.
 - Feat ADO.NET: PoolingSessionSource 2.0 based on lock-free FIFO pooling algorithm.
 - Added new ADO.NET options:
-  - `MinSessionPool`: The minimum connection pool size.
-  - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all sessions exceeds `MinSessionPool`.
+  - `MinPoolSize`: The minimum session pool size.
+  - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all sessions exceeds `MinPoolSize`.
 - Fixed bug `Reader`: unhandled exception in `TryReadRequestBytes(long bytes)`.
 - Handle `YdbException` on `DeleteSession`.
 - Do not invoke `DeleteSession` if the session is not active.

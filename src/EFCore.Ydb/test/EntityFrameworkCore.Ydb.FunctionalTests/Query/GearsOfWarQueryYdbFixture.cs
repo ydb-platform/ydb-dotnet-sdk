@@ -20,14 +20,18 @@ public class GearsOfWarQueryYdbFixture : GearsOfWarQueryRelationalFixture
 
         modelBuilder.Entity<Mission>()
             .Property(e => e.Date)
-            .HasConversion(
-                v => v.ToDateTime(TimeOnly.MinValue),
-                v => DateOnly.FromDateTime(v));
+            .HasColumnType("Date32");
 
         modelBuilder.Entity<Mission>()
-            .Property(e => e.Duration)
+            .Property(e => e.Time)
+            .HasColumnType("Datetime64")
             .HasConversion(
-                v => new DateTime(1970, 1, 1).Add(v),
-                v => v.TimeOfDay);
+                v => new DateTime(2000, 1, 1).Add(v.ToTimeSpan()), // Time → DateTime
+                v => new TimeOnly(v.TimeOfDay.Ticks)
+            ); // DateTime → Time
+
+        modelBuilder.Entity<CogTag>()
+            .Property(e => e.IssueDate)
+            .HasColumnType("Date32");
     }
 }

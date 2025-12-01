@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Ydb.Sdk.Ado.RetryPolicy;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
@@ -28,7 +29,7 @@ public abstract class QueryExpressionInterceptionYdbTestBase(
         {
             new YdbDbContextOptionsBuilder(base.AddOptions(builder))
 #pragma warning disable EF1001
-                .ExecutionStrategy(d => new YdbExecutionStrategy(d));
+                .ExecutionStrategy(d => new YdbExecutionStrategy(d, YdbRetryPolicyConfig.Default));
 #pragma warning restore EF1001
             return builder;
         }

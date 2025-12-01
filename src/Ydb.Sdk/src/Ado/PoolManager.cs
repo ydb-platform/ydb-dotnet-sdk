@@ -10,14 +10,14 @@ internal static class PoolManager
     internal static readonly ConcurrentDictionary<string, IDriver> Drivers = new();
     internal static readonly ConcurrentDictionary<string, ISessionSource> Pools = new();
 
-    internal static async Task<ISession> GetSession(
+    internal static async ValueTask<ISessionSource> Get(
         YdbConnectionStringBuilder settings,
         CancellationToken cancellationToken
     )
     {
         if (Pools.TryGetValue(settings.ConnectionString, out var sessionPool))
         {
-            return await sessionPool.OpenSession(cancellationToken);
+            return sessionPool;
         }
 
         await SemaphoreSlim.WaitAsync(cancellationToken);
@@ -26,7 +26,7 @@ internal static class PoolManager
         {
             if (Pools.TryGetValue(settings.ConnectionString, out var pool))
             {
-                return await pool.OpenSession(cancellationToken);
+                return pool;
             }
 
             var driver = Drivers.TryGetValue(settings.GrpcConnectionString, out var cacheDriver) &&
@@ -35,12 +35,9 @@ internal static class PoolManager
                 : Drivers[settings.GrpcConnectionString] = await settings.BuildDriver();
             driver.RegisterOwner();
 
-            var factory = new PoolingSessionFactory(driver, settings);
-            var newSessionPool = new PoolingSessionSource<PoolingSession>(factory, settings);
-
-            Pools[settings.ConnectionString] = newSessionPool;
-
-            return await newSessionPool.OpenSession(cancellationToken);
+            return Pools[settings.ConnectionString] = settings.EnableImplicitSession
+                ? new ImplicitSessionSource(driver, settings.LoggerFactory)
+                : new PoolingSessionSource<PoolingSession>(new PoolingSessionFactory(driver, settings), settings);
         }
         finally
         {

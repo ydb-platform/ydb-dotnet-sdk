@@ -42,6 +42,8 @@ public class PoolingSessionTests
     [InlineData(StatusCode.SessionExpired, true)]
     [InlineData(StatusCode.ClientTransportTimeout, true)]
     [InlineData(StatusCode.ClientTransportUnavailable, true)]
+    [InlineData(StatusCode.ClientTransportResourceExhausted, true)]
+    [InlineData(StatusCode.ClientTransportUnknown, true)]
     [InlineData(StatusCode.Overloaded, false)]
     public async Task OnNotSuccessStatusCode_WhenStatusCodeIsNotSuccess_UpdateIsBroken(StatusCode statusCode,
         bool isError)
@@ -281,7 +283,7 @@ public class PoolingSessionTests
 
         _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(tcsSecondMoveAttachStream.Task));
+            .Returns(tcsSecondMoveAttachStream.Task);
         _mockAttachStream.SetupSequence(attachStream => attachStream.Current)
             .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success })
             .Returns(new SessionState { Status = StatusIds.Types.StatusCode.BadSession });

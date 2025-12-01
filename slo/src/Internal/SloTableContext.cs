@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using Prometheus;
 using Ydb.Sdk;
-using Ydb.Sdk.Ado;
 
 namespace Internal;
 
@@ -22,7 +21,7 @@ public abstract class SloTableContext<T> : ISloContext
 {
     private const int IntervalMs = 100;
 
-    protected static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContext<T>>();
+    private static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContext<T>>();
 
     private volatile int _maxId;
 
@@ -129,8 +128,7 @@ public abstract class SloTableContext<T> : ISloContext
         Logger.LogInformation("Run task is finished");
         return;
 
-        async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType,
-            Func<T, RunConfig, Task<int>> action)
+        async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, RunConfig, Task> action)
         {
             var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
                 {
@@ -150,11 +148,6 @@ public abstract class SloTableContext<T> : ISloContext
             var operationsSuccessTotal = metricFactory.CreateCounter(
                 "sdk_operations_success_total",
                 "Total number of successful operations, categorized by type."
-            );
-
-            var operationsFailureTotal = metricFactory.CreateCounter(
-                "sdk_operations_failure_total",
-                "Total number of failed operations, categorized by type."
             );
 
             var operationLatencySeconds = metricFactory.CreateHistogram(
@@ -182,20 +175,9 @@ public abstract class SloTableContext<T> : ISloContext
                 }
             );
 
-            var retryAttempts = metricFactory.CreateGauge(
-                "sdk_retry_attempts",
-                "Current retry attempts, categorized by operation type."
-            );
-
             var pendingOperations = metricFactory.CreateGauge(
                 "sdk_pending_operations",
                 "Current number of pending operations, categorized by type."
-            );
-
-            var errorsTotal = metricFactory.CreateCounter(
-                "sdk_errors_total",
-                "Total number of errors encountered, categorized by error type.",
-                ["error_type"]
             );
 
             var workJobs = new List<Task>();
@@ -216,24 +198,12 @@ public abstract class SloTableContext<T> : ISloContext
 
                         pendingOperations.Inc();
                         var sw = Stopwatch.StartNew();
-                        try
-                        {
-                            var attempts = await action(client, runConfig);
-                            sw.Stop();
-                            retryAttempts.Set(attempts);
-                            operationsTotal.Inc();
-                            pendingOperations.Dec();
-                            operationsSuccessTotal.Inc();
-                            operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
-                        }
-                        catch (YdbException e)
-                        {
-                            Logger.LogError(e, "Fail operation!");
-
-                            errorsTotal.WithLabels(e.Code.StatusName()).Inc();
-                            operationsFailureTotal.Inc();
-                            operationLatencySeconds.WithLabels("err").Observe(sw.Elapsed.TotalSeconds);
-                        }
+                        await action(client, runConfig);
+                        sw.Stop();
+                        operationsTotal.Inc();
+                        pendingOperations.Dec();
+                        operationsSuccessTotal.Inc();
+                        operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
                     }
                 }, cancellationTokenSource.Token));
             }
@@ -248,7 +218,7 @@ public abstract class SloTableContext<T> : ISloContext
     // return attempt count & StatusCode operation
     protected abstract Task<int> Save(T client, SloTable sloTable, int writeTimeout);
 
-    protected abstract Task<(int, object?)> Select(T client, (Guid Guid, int Id) select, int readTimeout);
+    protected abstract Task<object?> Select(T client, (Guid Guid, int Id) select, int readTimeout);
 
     protected abstract Task<int> SelectCount(T client);
 
@@ -272,12 +242,10 @@ public abstract class SloTableContext<T> : ISloContext
         return Save(client, sloTable, config.WriteTimeout);
     }
 
-    private async Task<int> Select(T client, RunConfig config)
+    private async Task Select(T client, RunConfig config)
     {
         var id = Random.Shared.Next(_maxId);
-        var (attempts, _) = await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);
-
-        return attempts;
+        _ = await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);
     }
 
     private static Guid GuidFromInt(int value)

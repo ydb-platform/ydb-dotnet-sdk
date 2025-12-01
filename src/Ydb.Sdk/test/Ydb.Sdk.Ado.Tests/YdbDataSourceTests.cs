@@ -10,7 +10,7 @@ public class YdbDataSourceTests : TestBase
     private readonly YdbDataSource _dataSource = new(ConnectionString);
 
     [Fact]
-    public async Task OpenConnectionAsync_WhenMaxSessionPool10_ReturnOpenConnection()
+    public async Task OpenConnectionAsync_WhenMaxPoolSizeIs10_ReturnOpenConnection()
     {
         var tasks = new Task[SelectedCount];
         for (var i = 0; i < SelectedCount; i++)
@@ -29,7 +29,7 @@ public class YdbDataSourceTests : TestBase
     [Fact]
     public void CreateCommand_FromDataSource_ReturnDbCommand()
     {
-        var dataSource = new YdbDataSource(ConnectionString + ";MaxSessionPool=5");
+        var dataSource = new YdbDataSource(ConnectionString + ";MaxPoolSize=5");
         for (var i = 0; i < SelectedCount; i++)
         {
             using var command = dataSource.CreateCommand("SELECT 1;");
@@ -233,7 +233,7 @@ public class YdbDataSourceTests : TestBase
                     CommandText = $"UPDATE {tableName} SET count = @count + 1 WHERE id = 1",
                     Parameters = { new YdbParameter { Value = count, ParameterName = "count" } }
                 }.ExecuteNonQueryAsync();
-            }, new YdbRetryPolicyConfig { FastBackoffBaseMs = 100 }));
+            }, new YdbRetryPolicyConfig { MaxAttempts = concurrentJob }));
         }
 
         await Task.WhenAll(tasks);
@@ -245,5 +245,16 @@ public class YdbDataSourceTests : TestBase
 
             await new YdbCommand(ydbConnection) { CommandText = $"DROP TABLE {tableName}" }.ExecuteNonQueryAsync();
         }
+    }
+
+    [Fact]
+    public async Task RetryableConnection_WhenOpenTransaction_Throws()
+    {
+        await using var ydbConnection = await _dataSource.OpenRetryableConnectionAsync();
+        await using var transaction = ydbConnection.BeginTransaction();
+
+        Assert.Equal("Transactions are not supported in retryable session",
+            (await Assert.ThrowsAsync<YdbException>(async () => await new YdbCommand(ydbConnection)
+                { CommandText = "SELECT 1" }.ExecuteScalarAsync())).Message);
     }
 }

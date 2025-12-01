@@ -4,10 +4,8 @@ using Moq.Language;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Services.Topic;
-using Ydb.Sdk.Services.Topic.Writer;
+using Ydb.Sdk.Topic.Writer;
 using Ydb.Topic;
-using Codec = Ydb.Sdk.Services.Topic.Codec;
 using Range = Moq.Range;
 
 namespace Ydb.Sdk.Topic.Tests;
@@ -19,7 +17,7 @@ public class WriterUnitTests
 {
     private readonly Mock<IDriver> _mockIDriver = new();
     private readonly Mock<WriterStream> _mockStream = new();
-    private readonly ValueTask<bool> _lastMoveNext;
+    private readonly Task<bool> _lastMoveNext;
 
     public WriterUnitTests()
     {
@@ -32,7 +30,7 @@ public class WriterUnitTests
 
         var tcsLastMoveNext = new TaskCompletionSource<bool>();
 
-        _lastMoveNext = new ValueTask<bool>(tcsLastMoveNext.Task);
+        _lastMoveNext = tcsLastMoveNext.Task;
         _mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
         {
             tcsLastMoveNext.TrySetResult(false);
@@ -92,7 +90,7 @@ public class WriterUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(false)
             .ReturnsAsync(true)
-            .Returns(() => new ValueTask<bool>(taskNextComplete.Task))
+            .Returns(taskNextComplete.Task)
             .Returns(_lastMoveNext);
 
         SetupReadOneWriteAckMessage();
@@ -136,7 +134,7 @@ public class WriterUnitTests
             });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .Returns(() => new ValueTask<bool>(taskNextComplete.Task))
+            .Returns(taskNextComplete.Task)
             .Returns(_lastMoveNext);
 
         SetupReadOneWriteAckMessage();
@@ -184,7 +182,7 @@ public class WriterUnitTests
             .ThrowsAsync(new YdbException(
                 new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))))
             .ReturnsAsync(true)
-            .Returns(() => new ValueTask<bool>(taskNextComplete.Task))
+            .Returns(taskNextComplete.Task)
             .Returns(_lastMoveNext);
 
         SetupReadOneWriteAckMessage();
@@ -232,7 +230,7 @@ public class WriterUnitTests
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(() => new ValueTask<bool>(taskNextComplete.Task))
+            .Returns(taskNextComplete.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
@@ -284,7 +282,7 @@ public class WriterUnitTests
         _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
         _mockStream.Setup(stream => stream.MoveNextAsync())
-            .Returns(new ValueTask<bool>(true));
+            .ReturnsAsync(true);
         _mockStream.Setup(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
@@ -311,7 +309,7 @@ public class WriterUnitTests
         _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask);
         _mockStream.Setup(stream => stream.MoveNextAsync())
-            .Returns(new ValueTask<bool>(true));
+            .ReturnsAsync(true);
         _mockStream.Setup(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
@@ -374,9 +372,9 @@ public class WriterUnitTests
             });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(moveTcs.Task))
+            .Returns(moveTcs.Task)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(moveTcsRetry.Task))
+            .Returns(moveTcsRetry.Task)
             .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -450,7 +448,7 @@ public class WriterUnitTests
             .ReturnsAsync(true)
             .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
             .ReturnsAsync(true)
-            .Returns(() => new ValueTask<bool>(moveTcs.Task)) // retry init writer session
+            .Returns(moveTcs.Task) // retry init writer session
             .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -525,7 +523,7 @@ public class WriterUnitTests
             .ReturnsAsync(true)
             .ReturnsAsync(false)
             .ReturnsAsync(true)
-            .Returns(() => new ValueTask<bool>(moveTcs.Task)) // retry init writer session
+            .Returns(moveTcs.Task) // retry init writer session
             .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -584,7 +582,7 @@ public class WriterUnitTests
             { ProducerId = "producerId" }.Build();
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
-        cancellationTokenSource.Cancel();
+        await cancellationTokenSource.CancelAsync();
 
         await Assert.ThrowsAsync<TaskCanceledException>(() => task);
     }
@@ -598,7 +596,7 @@ public class WriterUnitTests
             .Returns(Task.CompletedTask);
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(nextCompleted.Task))
+            .Returns(nextCompleted.Task)
             .Returns(_lastMoveNext);
         SetupReadOneWriteAckMessage();
 
@@ -608,7 +606,7 @@ public class WriterUnitTests
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
         nextCompleted.SetResult(true);
         Assert.Equal(PersistenceStatus.Written, (await task).Status);
-        cancellationTokenSource.Cancel();
+        await cancellationTokenSource.CancelAsync();
     }
 
 
@@ -667,9 +665,9 @@ public class WriterUnitTests
 
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(moveTcs.Task))
+            .Returns(moveTcs.Task)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(moveTcsRetry.Task))
+            .Returns(moveTcsRetry.Task)
             .Returns(_lastMoveNext);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -707,7 +705,7 @@ public class WriterUnitTests
         var ctx = new CancellationTokenSource();
         var runTaskWithCancel = writer.WriteAsync(100L, ctx.Token);
         await writeTcs1.Task;
-        ctx.Cancel(); // reconnect write invoke cancel on cancellation token
+        await ctx.CancelAsync(); // reconnect write invoke cancel on cancellation token
 
         // ReSharper disable once MethodSupportsCancellation
         var runTask1 = writer.WriteAsync(100L);
@@ -803,9 +801,9 @@ public class WriterUnitTests
 
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(writeTcs1.Task))
-            .Returns(new ValueTask<bool>(writeTcs2.Task))
-            .Returns(new ValueTask<bool>(writeTcs3.Task))
+            .Returns(writeTcs1.Task)
+            .Returns(writeTcs2.Task)
+            .Returns(writeTcs3.Task)
             .Returns(_lastMoveNext);
 
         SetupReadOneWriteAckMessage()
@@ -885,9 +883,9 @@ public class WriterUnitTests
             });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(writeTcs1.Task))
+            .Returns(writeTcs1.Task)
             .ReturnsAsync(true)
-            .Returns(new ValueTask<bool>(moveTcsRetry.Task))
+            .Returns(moveTcsRetry.Task)
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)

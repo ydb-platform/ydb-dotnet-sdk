@@ -3,11 +3,11 @@ using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
-public class YdbTextTypeMapping : RelationalTypeMapping
+public sealed class YdbTextTypeMapping : RelationalTypeMapping
 {
     public static YdbTextTypeMapping Default { get; } = new("Text");
 
-    public YdbTextTypeMapping(string storeType)
+    private YdbTextTypeMapping(string storeType)
         : base(
             new RelationalTypeMappingParameters(
                 new CoreTypeMappingParameters(
@@ -23,7 +23,7 @@ public class YdbTextTypeMapping : RelationalTypeMapping
     {
     }
 
-    protected YdbTextTypeMapping(RelationalTypeMappingParameters parameters)
+    private YdbTextTypeMapping(RelationalTypeMappingParameters parameters)
         : base(parameters)
     {
     }
@@ -31,7 +31,7 @@ public class YdbTextTypeMapping : RelationalTypeMapping
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new YdbTextTypeMapping(parameters);
 
-    protected virtual string EscapeSqlLiteral(string literal) => literal.Replace("'", "\\'");
+    private static string EscapeSqlLiteral(string literal) => literal.Replace("'", "\\'");
 
     protected override string GenerateNonNullSqlLiteral(object value) => $"'{EscapeSqlLiteral((string)value)}'";
 }

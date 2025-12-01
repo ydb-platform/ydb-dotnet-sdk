@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Ydb.Sdk;
-using Ydb.Sdk.Services.Topic;
-using Ydb.Sdk.Services.Topic.Reader;
-using Ydb.Sdk.Services.Topic.Writer;
+using Ydb.Sdk.Topic;
+using Ydb.Sdk.Topic.Reader;
+using Ydb.Sdk.Topic.Writer;
 
 const int countMessages = 100;
 const string topicName = "topic_name";

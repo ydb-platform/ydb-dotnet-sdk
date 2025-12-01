@@ -8,8 +8,24 @@ using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk;
 
+/// <summary>
+/// Core interface for YDB driver operations.
+/// </summary>
+/// <remarks>
+/// The IDriver interface defines the contract for YDB client drivers.
+/// It provides methods for executing gRPC calls and managing driver lifecycle.
+/// </remarks>
 public interface IDriver : IAsyncDisposable, IDisposable
 {
+    /// <summary>
+    /// Executes a unary gRPC call.
+    /// </summary>
+    /// <typeparam name="TRequest">The request message type.</typeparam>
+    /// <typeparam name="TResponse">The response message type.</typeparam>
+    /// <param name="method">The gRPC method to call.</param>
+    /// <param name="request">The request message.</param>
+    /// <param name="settings">gRPC request settings.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the response message.</returns>
     public Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
@@ -17,6 +33,15 @@ public interface IDriver : IAsyncDisposable, IDisposable
         where TRequest : class
         where TResponse : class;
 
+    /// <summary>
+    /// Executes a server streaming gRPC call.
+    /// </summary>
+    /// <typeparam name="TRequest">The request message type.</typeparam>
+    /// <typeparam name="TResponse">The response message type.</typeparam>
+    /// <param name="method">The gRPC method to call.</param>
+    /// <param name="request">The request message.</param>
+    /// <param name="settings">gRPC request settings.</param>
+    /// <returns>A value task that represents the asynchronous operation. The task result contains the server stream.</returns>
     public ValueTask<IServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         TRequest request,
@@ -24,39 +49,104 @@ public interface IDriver : IAsyncDisposable, IDisposable
         where TRequest : class
         where TResponse : class;
 
+    /// <summary>
+    /// Executes a bidirectional streaming gRPC call.
+    /// </summary>
+    /// <typeparam name="TRequest">The request message type.</typeparam>
+    /// <typeparam name="TResponse">The response message type.</typeparam>
+    /// <param name="method">The gRPC method to call.</param>
+    /// <param name="settings">gRPC request settings.</param>
+    /// <returns>A value task that represents the asynchronous operation. The task result contains the bidirectional stream.</returns>
     public ValueTask<IBidirectionalStream<TRequest, TResponse>> BidirectionalStreamCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
         GrpcRequestSettings settings)
         where TRequest : class
         where TResponse : class;
 
+    /// <summary>
+    /// Gets the logger factory used by this driver.
+    /// </summary>
     ILoggerFactory LoggerFactory { get; }
 
+    /// <summary>
+    /// Registers a new owner of this driver instance.
+    /// </summary>
+    /// <remarks>
+    /// This method is used to track how many components are using this driver.
+    /// The driver will not be disposed until all owners are released.
+    /// </remarks>
     void RegisterOwner();
 
+    /// <summary>
+    /// Gets a value indicating whether this driver has been disposed.
+    /// </summary>
     bool IsDisposed { get; }
 }
 
+/// <summary>
+/// Represents a bidirectional gRPC stream for sending requests and receiving responses.
+/// </summary>
+/// <typeparam name="TRequest">The type of request messages.</typeparam>
+/// <typeparam name="TResponse">The type of response messages.</typeparam>
 public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 {
+    /// <summary>
+    /// Writes a request message to the stream.
+    /// </summary>
+    /// <param name="request">The request message to write.</param>
+    /// <returns>A task that represents the asynchronous write operation.</returns>
     public Task Write(TRequest request);
 
-    public ValueTask<bool> MoveNextAsync();
+    /// <summary>
+    /// Advances the stream to the next response message.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous operation. The task result indicates whether a response was available.</returns>
+    public Task<bool> MoveNextAsync();
 
+    /// <summary>
+    /// Gets the current response message.
+    /// </summary>
     public TResponse Current { get; }
 
+    /// <summary>
+    /// Gets the current authentication token.
+    /// </summary>
+    /// <returns>A value task that represents the asynchronous operation. The task result contains the authentication token.</returns>
     public ValueTask<string?> AuthToken();
 
+    /// <summary>
+    /// Completes the request stream.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     public Task RequestStreamComplete();
 }
 
+/// <summary>
+/// Represents a server streaming gRPC stream for receiving response messages.
+/// </summary>
+/// <typeparam name="TResponse">The type of response messages.</typeparam>
 public interface IServerStream<out TResponse> : IDisposable
 {
-    public ValueTask<bool> MoveNextAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Advances the stream to the next response message.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result indicates whether a response was available.</returns>
+    public Task<bool> MoveNextAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Gets the current response message.
+    /// </summary>
     public TResponse Current { get; }
 }
 
+/// <summary>
+/// Base implementation of the IDriver interface providing common functionality.
+/// </summary>
+/// <remarks>
+/// BaseDriver provides the core implementation for YDB drivers including gRPC channel management,
+/// authentication handling, request metadata management, and error handling.
+/// </remarks>
 public abstract class BaseDriver : IDriver
 {
     private readonly ICredentialsProvider? _credentialsProvider;
@@ -237,7 +327,7 @@ public sealed class ServerStream<TResponse> : IServerStream<TResponse>
         _rpcErrorAction = rpcErrorAction;
     }
 
-    public async ValueTask<bool> MoveNextAsync(CancellationToken cancellationToken = default)
+    public async Task<bool> MoveNextAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -294,7 +384,7 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
         }
     }
 
-    public async ValueTask<bool> MoveNextAsync()
+    public async Task<bool> MoveNextAsync()
     {
         try
         {

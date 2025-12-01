@@ -71,9 +71,5 @@ public class YdbDataRecord : DbDataRecord
 
     public ulong GetUint64(int i) => _ydbDataReader.GetUint64(i);
 
-    public string GetJson(int i) => _ydbDataReader.GetJson(i);
-
-    public string GetJsonDocument(int i) => _ydbDataReader.GetJsonDocument(i);
-
     public TimeSpan GetInterval(int i) => _ydbDataReader.GetInterval(i);
 }

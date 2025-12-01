@@ -4,9 +4,9 @@ using Internal;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Services.Topic;
-using Ydb.Sdk.Services.Topic.Reader;
-using Ydb.Sdk.Services.Topic.Writer;
+using Ydb.Sdk.Topic;
+using Ydb.Sdk.Topic.Reader;
+using Ydb.Sdk.Topic.Writer;
 
 namespace TopicService;
 
@@ -332,7 +332,7 @@ public class SloTopicContext : ISloContext
     }
 
     private static void CheckMessage(ConcurrentDictionary<long, ConcurrentQueue<string>> localStore,
-        Ydb.Sdk.Services.Topic.Reader.Message<string> message)
+        Ydb.Sdk.Topic.Reader.Message<string> message)
     {
         if (localStore.TryGetValue(message.PartitionId, out var partition))
         {
@@ -363,7 +363,7 @@ public class SloTopicContext : ISloContext
         string.Join("\n", localStore.Select(pair => pair.Key + ": " + string.Join(", ", pair.Value))) +
         "]";
 
-    private static void AssertMessage(Ydb.Sdk.Services.Topic.Reader.Message<string> message, string expectedMessageData)
+    private static void AssertMessage(Ydb.Sdk.Topic.Reader.Message<string> message, string expectedMessageData)
     {
         if (expectedMessageData == message.Data)
         {

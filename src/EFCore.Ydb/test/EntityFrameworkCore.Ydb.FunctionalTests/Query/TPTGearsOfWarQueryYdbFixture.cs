@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
-public class TptGearsOfWarQueryYdbFixture : TPTGearsOfWarQueryRelationalFixture
+public class TPTGearsOfWarQueryYdbFixture : TPTGearsOfWarQueryRelationalFixture
 {
     protected override ITestStoreFactory TestStoreFactory
         => YdbTestStoreFactory.Instance;
@@ -16,17 +16,19 @@ public class TptGearsOfWarQueryYdbFixture : TPTGearsOfWarQueryRelationalFixture
         base.OnModelCreating(modelBuilder, context);
 
         modelBuilder.Entity<Mission>()
-            .Property(e => e.Time)
-            .HasConversion(
-                v => new DateTime(2000, 1, 1).Add(v.ToTimeSpan()), // Time → DateTime
-                v => new TimeOnly(v.TimeOfDay.Ticks)) // DateTime → Time
-            .HasColumnType("DATETIME");
+            .Property(e => e.Date)
+            .HasColumnType("Date32");
 
         modelBuilder.Entity<Mission>()
-            .Property(e => e.Date)
+            .Property(e => e.Time)
+            .HasColumnType("Datetime64")
             .HasConversion(
-                v => new DateTime(v.Year, v.Month, v.Day), // DateOnly → DateTime
-                v => new DateOnly(v.Year, v.Month, v.Day)) // DateTime → DateOnly
-            .HasColumnType("DATETIME");
+                v => new DateTime(2000, 1, 1).Add(v.ToTimeSpan()), // Time → DateTime
+                v => new TimeOnly(v.TimeOfDay.Ticks)
+            ); // DateTime → Time
+
+        modelBuilder.Entity<CogTag>()
+            .Property(e => e.IssueDate)
+            .HasColumnType("Date32");
     }
 }
