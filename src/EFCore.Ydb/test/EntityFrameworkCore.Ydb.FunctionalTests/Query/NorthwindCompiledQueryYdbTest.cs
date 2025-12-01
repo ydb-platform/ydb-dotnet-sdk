@@ -55,7 +55,7 @@ public class NorthwindCompiledQueryYdbTest
         var count = context.Customers.Count(c => EF.Functions.ILike(c.ContactName, "%M%"));
 
         Assert.Equal(34, count);
-        //TODO: do something with unicode 'u' symbol which appears out of nowhere :\
+        
         AssertSql(
             """
             SELECT CAST(COUNT(*) AS Int32)
