@@ -30,7 +30,7 @@ public class YdbILikeExpression(SqlExpression match,
         SqlExpression match,
         SqlExpression pattern,
         SqlExpression? escapeChar)
-        => match == Match && pattern == Pattern && escapeChar == EscapeChar
+        => Equals(match, Match) && Equals(pattern, Pattern) && Equals(escapeChar, EscapeChar)
             ? this
             : new YdbILikeExpression(match, pattern, escapeChar, TypeMapping);
 

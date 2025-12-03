@@ -86,5 +86,5 @@ public class YdbSqlNullabilityProcessor(RelationalParameterBasedSqlProcessorDepe
         
     private bool IsNull(SqlExpression? expression)
         => expression is SqlConstantExpression { Value: null }
-           || expression is SqlParameterExpression { Name: string parameterName };
+           || expression is SqlParameterExpression;
 }
