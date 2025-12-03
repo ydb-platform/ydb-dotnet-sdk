@@ -27,13 +27,17 @@ public class YdbILikeFunctionTranslator(YdbSqlExpressionFactory sqlExpressionFac
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        (SqlExpression match, SqlExpression pattern) = (arguments[1], arguments[2]);
-        
         if (method == ILikeWithEscape)
         {
-            return sqlExpressionFactory.ILike(match, pattern, arguments[3]);
+            return sqlExpressionFactory.ILike(arguments[1], arguments[2], arguments[3]);
         }
         
-        return sqlExpressionFactory.ILike(match, pattern);
+        if (method == ILike)
+        {
+            return sqlExpressionFactory.ILike(arguments[1], arguments[2]);
+        }
+        
+        return null;
     }
 }
+
