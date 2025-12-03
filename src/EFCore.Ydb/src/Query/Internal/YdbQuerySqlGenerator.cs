@@ -302,7 +302,15 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         if (likeExpression.EscapeChar is not null)
         {
             Sql.Append(" ESCAPE ");
-            Visit(likeExpression.EscapeChar);
+            // For escape character, we don't need the 'u' suffix 
+            if (likeExpression.EscapeChar is SqlConstantExpression { Value: string escapeValue })
+            {
+                Sql.Append($"'{escapeValue.Replace("'", "''")}'");
+            }
+            else
+            {
+                Visit(likeExpression.EscapeChar);
+            }
         }
 
         return likeExpression;
