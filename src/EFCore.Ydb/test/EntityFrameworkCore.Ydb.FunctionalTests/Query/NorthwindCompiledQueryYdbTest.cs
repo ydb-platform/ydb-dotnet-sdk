@@ -59,7 +59,7 @@ public class NorthwindCompiledQueryYdbTest
             """
             SELECT CAST(COUNT(*) AS Int32)
             FROM `Customers` AS `c`
-            WHERE `c`.`ContactName` ILIKE '%M%u'
+            WHERE `c`.`ContactName` ILIKE '%M%'u
             """);
     }
     
@@ -87,7 +87,7 @@ public class NorthwindCompiledQueryYdbTest
         Assert.Equal(57, count);
         AssertSql(
             """
-            SELECT count(*)::int
+            SELECT CAST(COUNT(*) AS Int32)
             FROM `Customers` AS `c`
             WHERE `c`.`ContactName` NOT ILIKE '%M%' OR c."ContactName" IS NULL
             """);
