@@ -89,7 +89,7 @@ public class NorthwindCompiledQueryYdbTest
             """
             SELECT CAST(COUNT(*) AS Int32)
             FROM `Customers` AS `c`
-            WHERE NOT (`c`.`ContactName` ILIKE '%M%'u) OR c."ContactName" IS NULL
+            WHERE NOT (`c`.`ContactName` ILIKE '%M%'u) OR `c`."ContactName" IS NULL
             """);
     }
     
