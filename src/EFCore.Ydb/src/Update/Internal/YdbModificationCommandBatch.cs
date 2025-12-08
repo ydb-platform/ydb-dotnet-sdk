@@ -1,12 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -73,6 +69,11 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
         if (firstCommand.EntityState != EntityState.Added)
         {
             base.AddCommand(firstCommand);
+            _currentBatchCommands.Clear();
+            _currentBatchState = firstCommand.EntityState;
+            _currentBatchTableName = null!;
+            _currentBatchSchema = null;
+            _currentBatchColumns.Clear();
             return;
         }
 
@@ -91,15 +92,13 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
 
     private void FlushBatch()
     {
-        if (_currentBatchCommands.Count == 0)
+        switch (_currentBatchCommands.Count)
         {
-            return;
-        }
-
-        if (_currentBatchCommands.Count == 1)
-        {
-            base.AddCommand(_currentBatchCommands[0]);
-            return;
+            case 0:
+                return;
+            case 1:
+                base.AddCommand(_currentBatchCommands[0]);
+                return;
         }
 
         var batchParamName = $"$batch_value_{_batchNumber++}";
@@ -116,7 +115,7 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
             SqlBuilder.AppendJoin(", ", readColumns.Select(c => SqlGenerationHelper.DelimitIdentifier(c.ColumnName)));
         }
 
-        SqlBuilder.Append(SqlGenerationHelper.StatementTerminator);
+        SqlBuilder.AppendLine(SqlGenerationHelper.StatementTerminator);
 
         var ydbStructValues = new List<YdbStruct>();
         for (var i = 0; i < _currentBatchCommands.Count - 1; i++)
@@ -153,7 +152,9 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
 
         ydbStruct.Add(
             columnModification.ColumnName,
-            columnModification.Value,
+            mapping.Converter != null
+                ? mapping.Converter.ConvertToProvider(columnModification.Value)
+                : columnModification.Value,
             ydbDbType,
             (byte)(mapping.Precision ?? 0),
             (byte)(mapping.Scale ?? 0)
