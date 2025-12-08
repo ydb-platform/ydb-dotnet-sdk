@@ -36,7 +36,6 @@ public static class YdbServiceCollectionExtensions
             .TryAdd<IModelValidator, YdbModelValidator>()
             .TryAdd<IProviderConventionSetBuilder, YdbConventionSetBuilder>()
             .TryAdd<IUpdateSqlGenerator, YdbUpdateSqlGenerator>()
-            .TryAdd<IModificationCommandFactory, YdbModificationCommandFactory>()
             .TryAdd<IRelationalTransactionFactory, YdbRelationalTransactionFactory>()
             .TryAdd<IModificationCommandBatchFactory, YdbModificationCommandBatchFactory>()
             .TryAdd<IRelationalConnection>(p => p.GetRequiredService<IYdbRelationalConnection>())

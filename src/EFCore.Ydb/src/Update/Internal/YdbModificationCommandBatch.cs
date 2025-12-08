@@ -1,11 +1,13 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
@@ -16,334 +18,178 @@ namespace EntityFrameworkCore.Ydb.Update.Internal;
 
 /// <summary>
 /// YDB modification command batch using LIST&lt;STRUCT&gt; pattern for efficient batching.
-/// Uses YDB's AS_TABLE($values) pattern to avoid YQL text size limits (131KB),
+/// Uses YDB's AS_TABLE($values) pattern to avoid YQL text size limits,
 /// enabling batch sizes up to 1000+ instead of the previous limit of 100.
 /// 
 /// When possible, groups commands of the same type and table into struct-based batches.
 /// Falls back to traditional statement-by-statement generation for mixed batches.
 /// </summary>
-public class YdbModificationCommandBatch : AffectedCountModificationCommandBatch
+public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependencies dependencies)
+    : AffectedCountModificationCommandBatch(dependencies, StructBatchSize)
 {
-    private const int StructBatchSize = 1000;
-    private bool _useStructBatching;
+    private const int StructBatchSize = 15_000;
 
-    public YdbModificationCommandBatch(
-        ModificationCommandBatchFactoryDependencies dependencies
-    ) : base(dependencies, StructBatchSize)
-    {
-    }
+    private readonly List<IReadOnlyModificationCommand> _currentBatchCommands = [];
+    private readonly List<string> _currentBatchColumns = [];
 
-    /// <summary>
-    /// Checks if we can use struct-based batching for this batch.
-    /// Returns true if all commands are for the same entity state, table, and schema.
-    /// </summary>
-    private bool CanUseStructBatching()
+    private EntityState _currentBatchState = EntityState.Detached;
+    private string _currentBatchTableName = null!;
+    private string? _currentBatchSchema;
+#pragma warning disable CA1859
+    private IBatchHelper _batchHelper = null!; // TODO UPDATE / DELETE BatchHelper
+#pragma warning restore CA1859
+    private int _batchNumber;
+
+    private ISqlGenerationHelper SqlGenerationHelper => Dependencies.SqlGenerationHelper;
+
+    protected override void AddCommand(IReadOnlyModificationCommand modificationCommand)
     {
-        if (ModificationCommands.Count <= 1)
+        if (_currentBatchColumns.Count == 0)
         {
-            return false; // Not worth the complexity for single commands
+            StartNewBatch(modificationCommand);
+            return;
         }
 
-        var firstCommand = ModificationCommands[0];
-        var firstState = firstCommand.EntityState;
-        var firstTable = firstCommand.TableName;
-        var firstSchema = firstCommand.Schema;
-
-        // Check if all commands match the first command's characteristics
-        return ModificationCommands.All(c =>
-            c.EntityState == firstState &&
-            c.TableName == firstTable &&
-            c.Schema == firstSchema);
-    }
-
-    public override void Execute(IRelationalConnection connection)
-    {
-        _useStructBatching = CanUseStructBatching();
-
-        if (_useStructBatching)
+        if (CanJoinBatch(modificationCommand))
         {
-            ExecuteStructBatch(connection);
+            _currentBatchCommands.Add(modificationCommand);
         }
         else
         {
-            base.Execute(connection);
+            FlushBatch();
+            StartNewBatch(modificationCommand);
         }
     }
 
-    public override async Task ExecuteAsync(
-        IRelationalConnection connection,
-        CancellationToken cancellationToken = default)
-    {
-        _useStructBatching = CanUseStructBatching();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool CanJoinBatch(IReadOnlyModificationCommand modificationCommand) =>
+        _currentBatchState == modificationCommand.EntityState
+        && string.Equals(_currentBatchTableName, modificationCommand.TableName)
+        && string.Equals(_currentBatchSchema, modificationCommand.Schema)
+        && _batchHelper.StructColumns(modificationCommand)
+            .Select((t, i) => t.ColumnName)
+            .SequenceEqual(_currentBatchColumns);
 
-        if (_useStructBatching)
+    public override void Complete(bool moreBatchesExpected)
+    {
+        FlushBatch();
+        base.Complete(moreBatchesExpected);
+    }
+
+    private void StartNewBatch(IReadOnlyModificationCommand firstCommand)
+    {
+        if (firstCommand.EntityState != EntityState.Added)
         {
-            await ExecuteStructBatchAsync(connection, cancellationToken);
+            base.AddCommand(firstCommand);
+            return;
         }
-        else
+
+        _batchHelper = InsertBatchHelper.Instance;
+        _currentBatchCommands.Clear();
+        _currentBatchCommands.Add(firstCommand);
+        _currentBatchState = firstCommand.EntityState;
+        _currentBatchTableName = firstCommand.TableName;
+        _currentBatchSchema = firstCommand.Schema;
+        _currentBatchColumns.Clear();
+        foreach (var columnModification in _batchHelper.StructColumns(firstCommand))
         {
-            await base.ExecuteAsync(connection, cancellationToken);
+            _currentBatchColumns.Add(columnModification.ColumnName);
         }
     }
 
-    private void ExecuteStructBatch(IRelationalConnection connection)
+    private void FlushBatch()
     {
-        var (sql, parameters) = GenerateStructBatchSql();
-
-        using var command = connection.DbConnection.CreateCommand();
-        command.CommandText = sql;
-
-        foreach (var param in parameters)
+        if (_currentBatchCommands.Count == 0)
         {
-            command.Parameters.Add(param);
+            return;
         }
 
-        if (connection.CurrentTransaction != null)
+        if (_currentBatchColumns.Count == 1)
         {
-            command.Transaction = connection.CurrentTransaction.GetDbTransaction();
+            base.AddCommand(_currentBatchCommands[0]);
+            return;
         }
 
-        command.CommandTimeout = connection.CommandTimeout ?? command.CommandTimeout;
+        var batchParamName = $"$batch_value_{_batchNumber++}";
+        var firstBatchCommand = _currentBatchCommands[0];
+        _batchHelper.AppendSql(SqlBuilder,
+            SqlGenerationHelper.DelimitIdentifier(_currentBatchTableName, _currentBatchSchema), batchParamName);
+        var readColumns = firstBatchCommand.ColumnModifications.Where(c => c.IsRead).ToList();
+        var hasReadColumns = readColumns.Count > 0;
 
-        // Execute the batch
-        command.ExecuteNonQuery();
-        
-        // For struct batching, each command in the batch is considered executed
-        // The base class AffectedCountModificationCommandBatch will handle row count tracking
+        if (hasReadColumns)
+        {
+            SqlBuilder.AppendLine();
+            SqlBuilder.Append("RETURNING ");
+            SqlBuilder.AppendJoin(", ", readColumns.Select(c => SqlGenerationHelper.DelimitIdentifier(c.ColumnName)));
+        }
+
+        SqlBuilder.Append(SqlGenerationHelper.StatementTerminator);
+
+        var ydbStructValues = new List<YdbStruct>();
+        for (var i = 0; i < _currentBatchCommands.Count; i++)
+        {
+            ydbStructValues.Add(YdbStruct(i));
+            ResultSetMappings.Add(hasReadColumns ? ResultSetMapping.NotLastInResultSet : ResultSetMapping.NoResults);
+        }
+
+        ydbStructValues.Add(YdbStruct(_currentBatchCommands.Count - 1));
+        ResultSetMappings.Add(hasReadColumns ? ResultSetMapping.LastInResultSet : ResultSetMapping.NoResults);
+        RelationalCommandBuilder.AddRawParameter(batchParamName, new YdbParameter(batchParamName, ydbStructValues));
     }
 
-    private async Task ExecuteStructBatchAsync(
-        IRelationalConnection connection,
-        CancellationToken cancellationToken)
+    private YdbStruct YdbStruct(int i)
     {
-        var (sql, parameters) = GenerateStructBatchSql();
-
-        await using var command = connection.DbConnection.CreateCommand();
-        command.CommandText = sql;
-
-        foreach (var param in parameters)
+        var ydbStruct = new YdbStruct();
+        foreach (var columnModification in _batchHelper.StructColumns(_currentBatchCommands[i]))
         {
-            command.Parameters.Add(param);
+            AddColumnToStruct(ydbStruct, columnModification);
         }
 
-        if (connection.CurrentTransaction != null)
-        {
-            command.Transaction = connection.CurrentTransaction.GetDbTransaction();
-        }
-
-        command.CommandTimeout = connection.CommandTimeout ?? command.CommandTimeout;
-
-        // Execute the batch
-        await command.ExecuteNonQueryAsync(cancellationToken);
-        
-        // For struct batching, each command in the batch is considered executed
-        // The base class AffectedCountModificationCommandBatch will handle row count tracking
+        return ydbStruct;
     }
 
-    private (string sql, List<DbParameter> parameters) GenerateStructBatchSql()
+    private static void AddColumnToStruct(YdbStruct ydbStruct, IColumnModification columnModification)
     {
-        var firstCommand = ModificationCommands[0];
-        var entityState = firstCommand.EntityState;
-        var tableName = firstCommand.TableName;
-        var schema = firstCommand.Schema;
+        var mapping = columnModification.TypeMapping ?? throw new InvalidOperationException(
+            $"TypeMapping is null for column '{columnModification.ColumnName}'.");
 
-        var sqlBuilder = new StringBuilder();
-        var parameters = new List<DbParameter>();
+        var ydbDbType = mapping is IYdbTypeMapping ydbTypeMapping
+            ? ydbTypeMapping.YdbDbType
+            : mapping.DbType?.ToYdbDbType() ?? throw new InvalidOperationException(
+                $"Could not determine YDB type for column '{columnModification.ColumnName}' (no IYdbTypeMapping and DbType is null).");
 
-        switch (entityState)
-        {
-            case EntityState.Added:
-                GenerateInsertStructBatch(sqlBuilder, parameters, tableName, schema);
-                break;
-            case EntityState.Modified:
-                GenerateUpdateStructBatch(sqlBuilder, parameters, tableName, schema);
-                break;
-            case EntityState.Deleted:
-                GenerateDeleteStructBatch(sqlBuilder, parameters, tableName, schema);
-                break;
-            default:
-                throw new InvalidOperationException($"Unsupported entity state: {entityState}");
-        }
-
-        return (sqlBuilder.ToString(), parameters);
+        ydbStruct.Add(
+            columnModification.ColumnName,
+            columnModification.Value,
+            ydbDbType,
+            (byte)(mapping.Precision ?? 0),
+            (byte)(mapping.Scale ?? 0)
+        );
     }
 
-    private void GenerateInsertStructBatch(
-        StringBuilder sql,
-        List<DbParameter> parameters,
-        string tableName,
-        string? schema)
+    private interface IBatchHelper
     {
-        var firstCommand = ModificationCommands[0];
-        var writeColumns = firstCommand.ColumnModifications.Where(c => c.IsWrite).ToList();
-        var readColumns = firstCommand.ColumnModifications.Where(c => c.IsRead).ToList();
+        IEnumerable<IColumnModification> StructColumns(IReadOnlyModificationCommand modificationCommand);
 
-        // Build the struct list
-        var structs = new List<YdbStruct>();
-        foreach (var command in ModificationCommands)
-        {
-            var ydbStruct = new YdbStruct();
-            foreach (var column in command.ColumnModifications.Where(c => c.IsWrite))
-            {
-                AddColumnToStruct(ydbStruct, column, column.Value);
-            }
-            structs.Add(ydbStruct);
-        }
-
-        // Generate INSERT INTO ... SELECT * FROM AS_TABLE($values)
-        sql.Append("INSERT INTO ");
-        DelimitIdentifier(sql, tableName, schema);
-        sql.Append(" (");
-        sql.AppendJoin(", ", writeColumns.Select(c => DelimitIdentifier(c.ColumnName)));
-        sql.AppendLine(")");
-        sql.Append("SELECT ");
-        sql.AppendJoin(", ", writeColumns.Select(c => DelimitIdentifier(c.ColumnName)));
-        sql.Append(" FROM AS_TABLE($batch_values)");
-
-        if (readColumns.Count > 0)
-        {
-            sql.AppendLine();
-            sql.Append("RETURNING ");
-            sql.AppendJoin(", ", readColumns.Select(c => DelimitIdentifier(c.ColumnName)));
-        }
-
-        sql.AppendLine(";");
-
-        // Add the parameter
-        var parameter = new YdbParameter("batch_values", structs);
-        parameters.Add(parameter);
+        void AppendSql(StringBuilder sql, string tableName, string paramName);
     }
 
-    private void GenerateUpdateStructBatch(
-        StringBuilder sql,
-        List<DbParameter> parameters,
-        string tableName,
-        string? schema)
+    private class InsertBatchHelper : IBatchHelper
     {
-        var firstCommand = ModificationCommands[0];
-        var readColumns = firstCommand.ColumnModifications.Where(c => c.IsRead).ToList();
+        public static readonly InsertBatchHelper Instance = new();
 
-        // Build the struct list
-        var structs = new List<YdbStruct>();
-        foreach (var command in ModificationCommands)
+        public IEnumerable<IColumnModification> StructColumns(IReadOnlyModificationCommand modificationCommand) =>
+            modificationCommand.ColumnModifications.Where(c => c.IsWrite);
+
+        public void AppendSql(StringBuilder sql, string tableName, string paramName)
         {
-            var ydbStruct = new YdbStruct();
-            foreach (var column in command.ColumnModifications)
-            {
-                var value = column.UseCurrentValueParameter || column.IsWrite
-                    ? column.Value
-                    : column.OriginalValue;
-                AddColumnToStruct(ydbStruct, column, value);
-            }
-            structs.Add(ydbStruct);
+            // Generate INSERT INTO {TableName} SELECT * FROM AS_TABLE($param)
+            sql.Append("INSERT INTO ");
+            sql.Append(tableName);
+            sql.Append(" SELECT * FROM AS_TABLE(");
+            sql.Append(paramName);
+            sql.Append(')');
         }
-
-        // Generate UPDATE ... ON SELECT * FROM AS_TABLE($values)
-        sql.Append("UPDATE ");
-        DelimitIdentifier(sql, tableName, schema);
-        sql.AppendLine(" ON");
-        sql.Append("SELECT * FROM AS_TABLE($batch_values)");
-
-        if (readColumns.Count > 0)
-        {
-            sql.AppendLine();
-            sql.Append("RETURNING ");
-            sql.AppendJoin(", ", readColumns.Select(c => DelimitIdentifier(c.ColumnName)));
-        }
-
-        sql.AppendLine(";");
-
-        // Add the parameter
-        var parameter = new YdbParameter("batch_values", structs);
-        parameters.Add(parameter);
-    }
-
-    private void GenerateDeleteStructBatch(
-        StringBuilder sql,
-        List<DbParameter> parameters,
-        string tableName,
-        string? schema)
-    {
-        // Build the struct list (only key columns needed for delete)
-        var structs = new List<YdbStruct>();
-        foreach (var command in ModificationCommands)
-        {
-            var ydbStruct = new YdbStruct();
-            foreach (var column in command.ColumnModifications.Where(c => c.IsKey || c.IsCondition))
-            {
-                AddColumnToStruct(ydbStruct, column, column.OriginalValue);
-            }
-            structs.Add(ydbStruct);
-        }
-
-        // Generate DELETE FROM ... ON SELECT * FROM AS_TABLE($values)
-        sql.Append("DELETE FROM ");
-        DelimitIdentifier(sql, tableName, schema);
-        sql.AppendLine(" ON");
-        sql.Append("SELECT * FROM AS_TABLE($batch_values)");
-        sql.AppendLine(";");
-
-        // Add the parameter
-        var parameter = new YdbParameter("batch_values", structs);
-        parameters.Add(parameter);
-    }
-
-    private static string DelimitIdentifier(string identifier)
-    {
-        return $"`{identifier}`";
-    }
-
-    private static void DelimitIdentifier(StringBuilder builder, string name, string? schema)
-    {
-        if (!string.IsNullOrEmpty(schema))
-        {
-            builder.Append('`').Append(schema).Append('`').Append('.');
-        }
-        builder.Append('`').Append(name).Append('`');
-    }
-
-    private void AddColumnToStruct(YdbStruct ydbStruct, IColumnModification column, object? value)
-    {
-        if (value == null || value == DBNull.Value)
-        {
-            var ydbDbType = MapToYdbDbType(column.TypeMapping?.DbType);
-            ydbStruct.Add(column.ColumnName, null, ydbDbType);
-        }
-        else
-        {
-            ydbStruct.Add(column.ColumnName, value);
-        }
-    }
-
-    private static YdbDbType MapToYdbDbType(DbType? dbType)
-    {
-        // For nullable columns without explicit type mapping, use Unspecified
-        // and let YdbStruct infer the type
-        if (dbType == null)
-        {
-            return YdbDbType.Unspecified;
-        }
-
-        return dbType switch
-        {
-            DbType.Boolean => YdbDbType.Bool,
-            DbType.Byte => YdbDbType.Uint8,
-            DbType.SByte => YdbDbType.Int8,
-            DbType.Int16 => YdbDbType.Int16,
-            DbType.Int32 => YdbDbType.Int32,
-            DbType.Int64 => YdbDbType.Int64,
-            DbType.UInt16 => YdbDbType.Uint16,
-            DbType.UInt32 => YdbDbType.Uint32,
-            DbType.UInt64 => YdbDbType.Uint64,
-            DbType.Single => YdbDbType.Float,
-            DbType.Double => YdbDbType.Double,
-            DbType.Decimal => YdbDbType.Decimal,
-            DbType.String => YdbDbType.Text,
-            DbType.Binary => YdbDbType.Bytes,
-            DbType.Date => YdbDbType.Date,
-            DbType.DateTime => YdbDbType.Datetime,
-            DbType.DateTime2 => YdbDbType.Timestamp,
-            _ => YdbDbType.Unspecified
-        };
     }
 }
