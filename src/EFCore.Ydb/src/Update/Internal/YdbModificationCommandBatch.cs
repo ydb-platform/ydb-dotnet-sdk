@@ -16,14 +16,6 @@ using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Update.Internal;
 
-/// <summary>
-/// YDB modification command batch using LIST&lt;STRUCT&gt; pattern for efficient batching.
-/// Uses YDB's AS_TABLE($values) pattern to avoid YQL text size limits,
-/// enabling batch sizes up to 1000+ instead of the previous limit of 100.
-/// 
-/// When possible, groups commands of the same type and table into struct-based batches.
-/// Falls back to traditional statement-by-statement generation for mixed batches.
-/// </summary>
 public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependencies dependencies)
     : AffectedCountModificationCommandBatch(dependencies, StructBatchSize)
 {
@@ -104,7 +96,7 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
             return;
         }
 
-        if (_currentBatchColumns.Count == 1)
+        if (_currentBatchCommands.Count == 1)
         {
             base.AddCommand(_currentBatchCommands[0]);
             return;
@@ -127,7 +119,7 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
         SqlBuilder.Append(SqlGenerationHelper.StatementTerminator);
 
         var ydbStructValues = new List<YdbStruct>();
-        for (var i = 0; i < _currentBatchCommands.Count; i++)
+        for (var i = 0; i < _currentBatchCommands.Count - 1; i++)
         {
             ydbStructValues.Add(YdbStruct(i));
             ResultSetMappings.Add(hasReadColumns ? ResultSetMapping.NotLastInResultSet : ResultSetMapping.NoResults);
