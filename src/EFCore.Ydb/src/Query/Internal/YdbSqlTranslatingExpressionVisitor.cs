@@ -39,11 +39,6 @@ public class YdbSqlTranslatingExpressionVisitor(
     private static readonly MethodInfo EscapeLikePatternParameterMethod =
         typeof(YdbSqlTranslatingExpressionVisitor).GetTypeInfo()
             .GetDeclaredMethod(nameof(ConstructLikePatternParameter))!;
-    
-    private static readonly MethodInfo ILike2MethodInfo
-        = typeof(YdbFunctionExtension).GetRuntimeMethod(
-            nameof(YdbFunctionExtension.ILike), [typeof(DbFunctions), typeof(string), typeof(string)])!;
-
 
     protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
     {
