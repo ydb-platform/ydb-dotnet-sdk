@@ -92,7 +92,7 @@ public class NorthwindCompiledQueryYdbTest
             WHERE NOT (`c`.`ContactName` ILIKE '%M%'u) OR `c`.`ContactName` IS NULL
             """);
     }
-    
+
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 }
