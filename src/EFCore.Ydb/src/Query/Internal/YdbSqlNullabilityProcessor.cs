@@ -4,19 +4,22 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;
 
-public class YdbSqlNullabilityProcessor(RelationalParameterBasedSqlProcessorDependencies dependencies,
+public class YdbSqlNullabilityProcessor(
+    RelationalParameterBasedSqlProcessorDependencies dependencies,
     RelationalParameterBasedSqlProcessorParameters parameters)
     : SqlNullabilityProcessor(dependencies, parameters)
 {
     private readonly ISqlExpressionFactory _sqlExpressionFactory = dependencies.SqlExpressionFactory;
 
-    protected override SqlExpression VisitCustomSqlExpression(SqlExpression sqlExpression, bool allowOptimizedExpansion, out bool nullable) => sqlExpression switch
+    protected override SqlExpression VisitCustomSqlExpression(SqlExpression sqlExpression, bool allowOptimizedExpansion,
+        out bool nullable) => sqlExpression switch
     {
         YdbILikeExpression e => VisitILike(e, allowOptimizedExpansion, out nullable),
         _ => base.VisitCustomSqlExpression(sqlExpression, allowOptimizedExpansion, out nullable)
     };
 
-    protected virtual SqlExpression VisitILike(YdbILikeExpression iLikeExpression, bool allowOptimizedExpansion, out bool nullable)
+    protected virtual SqlExpression VisitILike(YdbILikeExpression iLikeExpression, bool allowOptimizedExpansion,
+        out bool nullable)
     {
         // Note: this is largely duplicated from relational SqlNullabilityProcessor.VisitLike.
         // We unfortunately can't reuse that since it may return arbitrary expression tree structures with LikeExpression embedded, but
@@ -77,13 +80,15 @@ public class YdbSqlNullabilityProcessor(RelationalParameterBasedSqlProcessorDepe
 
             // TODO: This revisits the operand; ideally we'd call ProcessNullNotNull directly but that's private
             SqlExpression GenerateNotNullCheck(SqlExpression operand)
-                => _sqlExpressionFactory.Not(
+            {
+                return _sqlExpressionFactory.Not(
                     Visit(_sqlExpressionFactory.IsNull(operand), allowOptimizedExpansion, out _));
+            }
         }
 
         return result;
     }
-        
+
     private bool IsNull(SqlExpression? expression)
         => expression is SqlConstantExpression { Value: null }
            || expression is SqlParameterExpression;

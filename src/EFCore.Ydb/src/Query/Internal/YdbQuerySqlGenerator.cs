@@ -315,6 +315,7 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
 
         return likeExpression;
     }
+
     protected override Expression VisitCase(CaseExpression caseExpression)
     {
         Sql.Append("CASE");

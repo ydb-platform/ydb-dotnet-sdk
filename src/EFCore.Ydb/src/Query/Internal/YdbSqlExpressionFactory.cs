@@ -15,9 +15,9 @@ public class YdbSqlExpressionFactory : SqlExpressionFactory
     public YdbSqlExpressionFactory(SqlExpressionFactoryDependencies dependencies) : base(dependencies)
     {
         _typeMappingSource = (YdbTypeMappingSource)dependencies.TypeMappingSource;
-        _boolTypeMapping = _typeMappingSource.FindMapping(typeof(bool), dependencies.Model)!; 
+        _boolTypeMapping = _typeMappingSource.FindMapping(typeof(bool), dependencies.Model)!;
     }
-    
+
     [return: NotNullIfNotNull("sqlExpression")]
     public override SqlExpression? ApplyTypeMapping(SqlExpression? sqlExpression, RelationalTypeMapping? typeMapping)
     {
@@ -26,7 +26,7 @@ public class YdbSqlExpressionFactory : SqlExpressionFactory
             sqlExpression = sqlExpression switch
             {
                 YdbILikeExpression e => ApplyTypeMappingOnILike(e),
-                _ => base.ApplyTypeMapping(sqlExpression, typeMapping),
+                _ => base.ApplyTypeMapping(sqlExpression, typeMapping)
             };
         }
 

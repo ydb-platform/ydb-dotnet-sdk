@@ -8,8 +8,8 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Ydb.Query.Expressions.Internal;
 
-
-public class YdbILikeExpression(SqlExpression match,
+public class YdbILikeExpression(
+    SqlExpression match,
     SqlExpression pattern, // expression
     SqlExpression? escapeChar, // escape char - optional
     RelationalTypeMapping? typeMapping)
@@ -25,7 +25,7 @@ public class YdbILikeExpression(SqlExpression match,
             (SqlExpression)visitor.Visit(Match),
             (SqlExpression)visitor.Visit(Pattern),
             EscapeChar is null ? null : (SqlExpression)visitor.Visit(EscapeChar));
-    
+
     public virtual YdbILikeExpression Update(
         SqlExpression match,
         SqlExpression pattern,
@@ -49,11 +49,11 @@ public class YdbILikeExpression(SqlExpression match,
 
     public virtual bool Equals(YdbILikeExpression? other)
         => ReferenceEquals(this, other)
-            || other is not null
-            && base.Equals(other)
-            && Equals(Match, other.Match)
-            && Equals(Pattern, other.Pattern)
-            && Equals(EscapeChar, other.EscapeChar);
+           || (other is not null
+               && base.Equals(other)
+               && Equals(Match, other.Match)
+               && Equals(Pattern, other.Pattern)
+               && Equals(EscapeChar, other.EscapeChar));
 
     public override int GetHashCode()
         => HashCode.Combine(base.GetHashCode(), Match, Pattern, EscapeChar);

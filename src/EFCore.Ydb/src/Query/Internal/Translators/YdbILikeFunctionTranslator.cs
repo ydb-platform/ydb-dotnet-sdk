@@ -13,12 +13,11 @@ public class YdbILikeFunctionTranslator(YdbSqlExpressionFactory sqlExpressionFac
         typeof(YdbFunctionExtension).GetRuntimeMethod(
             nameof(YdbFunctionExtension.ILike),
             [typeof(DbFunctions), typeof(string), typeof(string)])!;
-    
+
     private static readonly MethodInfo ILikeWithEscape =
         typeof(YdbFunctionExtension).GetRuntimeMethod(
             nameof(YdbFunctionExtension.ILike),
             [typeof(DbFunctions), typeof(string), typeof(string), typeof(string)])!;
-    
 
     /// <inheritdoc />
     public virtual SqlExpression? Translate(
@@ -31,13 +30,12 @@ public class YdbILikeFunctionTranslator(YdbSqlExpressionFactory sqlExpressionFac
         {
             return sqlExpressionFactory.ILike(arguments[1], arguments[2], arguments[3]);
         }
-        
+
         if (method == ILike)
         {
             return sqlExpressionFactory.ILike(arguments[1], arguments[2]);
         }
-        
+
         return null;
     }
 }
-

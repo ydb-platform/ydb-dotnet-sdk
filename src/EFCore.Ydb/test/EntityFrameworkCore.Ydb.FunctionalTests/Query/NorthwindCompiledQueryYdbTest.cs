@@ -46,7 +46,7 @@ public class NorthwindCompiledQueryYdbTest
     public override Task Query_with_array_parameter_async() => Task.CompletedTask;
 
     public override Task Compiled_query_with_max_parameters() => Task.CompletedTask;
-    
+
     [Fact]
     public async Task Array_All_ILike()
     {
@@ -54,7 +54,7 @@ public class NorthwindCompiledQueryYdbTest
         var count = context.Customers.Count(c => EF.Functions.ILike(c.ContactName, "%M%"));
 
         Assert.Equal(34, count);
-        
+
         AssertSql(
             """
             SELECT CAST(COUNT(*) AS Int32)
@@ -62,7 +62,7 @@ public class NorthwindCompiledQueryYdbTest
             WHERE `c`.`ContactName` ILIKE '%M%'u
             """);
     }
-    
+
     [Fact]
     public void String_ILike_Literal_With_Escape()
     {
@@ -77,7 +77,7 @@ public class NorthwindCompiledQueryYdbTest
             WHERE `c`.`ContactName` ILIKE '!%'u ESCAPE '!'
             """);
     }
-    
+
     [Fact]
     public void String_ILike_negated()
     {
