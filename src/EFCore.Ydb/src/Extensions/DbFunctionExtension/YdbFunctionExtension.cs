@@ -1,4 +1,5 @@
-﻿using System;
+﻿// ReSharper disable once CheckNamespace
+using System;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Microsoft.EntityFrameworkCore;
