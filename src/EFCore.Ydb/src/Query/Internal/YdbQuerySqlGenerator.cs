@@ -43,146 +43,22 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
 
     protected override Expression VisitDelete(DeleteExpression deleteExpression)
     {
-        Sql.Append("DELETE FROM ");
-
         SkipAliases = true;
-        Visit(deleteExpression.Table);
+        base.VisitDelete(deleteExpression);
         SkipAliases = false;
-
-        var select = deleteExpression.SelectExpression;
-
-        var complexSelect = IsComplexSelect(deleteExpression.SelectExpression, deleteExpression.Table);
-
-        if (select.Predicate is InExpression predicate)
-        {
-            Sql.Append(" ON ");
-            Visit(predicate.Subquery);
-        }
-        else if (!complexSelect)
-        {
-            GenerateSimpleWhere(select, skipAliases: true);
-        }
-        else
-        {
-            // I'm not sure if this always work.
-            // But for now I didn't find test where it fails
-            GenerateOnSubquery(null, select);
-        }
 
         return deleteExpression;
     }
 
     protected override Expression VisitUpdate(UpdateExpression updateExpression)
     {
-        Sql.Append("UPDATE ");
-
         SkipAliases = true;
-        Visit(updateExpression.Table);
+        base.VisitUpdate(updateExpression);
         SkipAliases = false;
-
-        var select = updateExpression.SelectExpression;
-
-        var complexSelect = IsComplexSelect(updateExpression.SelectExpression, updateExpression.Table);
-
-        if (!complexSelect)
-        {
-            GenerateUpdateColumnSetters(updateExpression);
-            GenerateSimpleWhere(select, skipAliases: true);
-        }
-        else
-        {
-            // I'm not sure if this always work.
-            // But for now I didn't find test where it fails
-            GenerateOnSubquery(updateExpression.ColumnValueSetters, select);
-        }
 
         return updateExpression;
     }
 
-    private void GenerateSimpleWhere(SelectExpression select, bool skipAliases)
-    {
-        var predicate = select.Predicate;
-        if (predicate == null) return;
-
-        Sql.AppendLine().Append("WHERE ");
-        if (skipAliases) SkipAliases = true;
-        Visit(predicate);
-        if (skipAliases) SkipAliases = false;
-    }
-
-    private void GenerateUpdateColumnSetters(UpdateExpression updateExpression)
-    {
-        Sql.AppendLine()
-            .Append("SET ")
-            .Append(SqlGenerationHelper.DelimitIdentifier(updateExpression.ColumnValueSetters[0].Column.Name))
-            .Append(" = ");
-
-        SkipAliases = true;
-        Visit(updateExpression.ColumnValueSetters[0].Value);
-        SkipAliases = false;
-
-        using (Sql.Indent())
-        {
-            foreach (var columnValueSetter in updateExpression.ColumnValueSetters.Skip(1))
-            {
-                Sql.AppendLine(",")
-                    .Append(SqlGenerationHelper.DelimitIdentifier(columnValueSetter.Column.Name))
-                    .Append(" = ");
-                SkipAliases = true;
-                Visit(columnValueSetter.Value);
-                SkipAliases = false;
-            }
-        }
-    }
-
-    private void GenerateOnSubquery(
-        IReadOnlyList<ColumnValueSetter>? columnValueSetters,
-        SelectExpression select
-    )
-    {
-        Sql.Append(" ON ").AppendLine().Append("SELECT ");
-
-        if (columnValueSetters == null)
-        {
-            Sql.Append(" * ");
-        }
-        else
-        {
-            var columnName = columnValueSetters[0].Column.Name;
-            Visit(columnValueSetters[0].Value);
-            Sql.Append(" AS ").Append(columnName);
-
-            foreach (var columnValueSetter in columnValueSetters.Skip(1))
-            {
-                Sql.Append(", ");
-                Visit(columnValueSetter.Value);
-                Sql.Append(" AS ").Append(columnValueSetter.Column.Name);
-            }
-        }
-
-        if (!TryGenerateWithoutWrappingSelect(select))
-        {
-            GenerateFrom(select);
-            if (select.Predicate != null)
-            {
-                Sql.AppendLine().Append("WHERE ");
-                Visit(select.Predicate);
-            }
-
-            GenerateOrderings(select);
-            GenerateLimitOffset(select);
-        }
-
-        if (select.Alias != null)
-        {
-            Sql.AppendLine()
-                .Append(")")
-                .Append(AliasSeparator)
-                .Append(SqlGenerationHelper.DelimitIdentifier(select.Alias));
-        }
-    }
-
-    /// <inheritdoc />    
     protected override void GenerateLimitOffset(SelectExpression selectExpression)
     {
         if (selectExpression.Limit == null && selectExpression.Offset == null)
@@ -208,17 +84,6 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
             Visit(selectExpression.Offset);
         }
     }
-
-    private static bool IsComplexSelect(SelectExpression select, TableExpressionBase fromTable) =>
-        select.Offset != null
-        || select.Limit != null
-        || select.Having != null
-        || select.Orderings.Count > 0
-        || select.GroupBy.Count > 0
-        || select.Projection.Count > 0
-        || select.Tables.Count > 1
-        || select.Predicate is InExpression
-        || !(select.Tables.Count == 1 && select.Tables[0].Equals(fromTable));
 
     protected override string GetOperator(SqlBinaryExpression binaryExpression)
         => binaryExpression.OperatorType == ExpressionType.Add
@@ -247,8 +112,7 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
             switch (pathSegment)
             {
                 case { PropertyName: { } propertyName }:
-                    Sql
-                        .Append(isFirst ? "" : ".")
+                    Sql.Append(isFirst ? "" : ".")
                         .Append(Dependencies.SqlGenerationHelper.DelimitJsonPathElement(propertyName));
                     break;
                 case { ArrayIndex: SqlConstantExpression arrayIndex }:
@@ -293,9 +157,7 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         {
             foreach (var whenClause in caseExpression.WhenClauses)
             {
-                Sql
-                    .AppendLine()
-                    .Append("WHEN ");
+                Sql.AppendLine().Append("WHEN ");
                 Visit(whenClause.Test);
                 Sql.Append(" THEN ");
                 Visit(whenClause.Result);
