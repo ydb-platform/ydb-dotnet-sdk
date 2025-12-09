@@ -1,4 +1,3 @@
-
 ## v0.26.0
 
 - Feat ADO.NET: Added raw integer / long value support for extended-range `DateTime` types.
@@ -17,11 +16,11 @@
 ## v0.25.0
 
 - **Breaking Change**: Renamed `YdbDbType` enum members to match the [ydb.tech](https://ydb.tech/docs/en/yql/reference/types/primitive) naming:
-  - `UInt8` -> `Uint8`.
-  - `UInt16` -> `Uint16`.
-  - `UInt32` -> `Uint32`.
-  - `Uint64` -> `Uint64`.
-  - `DateTime` -> `Datetime`.
+    - `UInt8` -> `Uint8`.
+    - `UInt16` -> `Uint16`.
+    - `UInt32` -> `Uint32`.
+    - `Uint64` -> `Uint64`.
+    - `DateTime` -> `Datetime`.
 - **Breaking Change**: Removed unused methods `GetJson`, `GetJsonDocument`, and `GetYson` from YdbDataReader.
 - Feat ADO.NET: Add support for reading `Yson` from `YdbDataReader.GetBytes`.
 - Feat ADO.NET: Add support for reading `Json` and `JsonDocument` from `YdbDataReader.GetString`.
@@ -95,7 +94,7 @@
 
 ## v0.20.0
 
-- Fixed bug: SQL parser skips token after param.
+- Fixed bug: SQL parser skips token after param. 
 - ADO.NET: Added support for conversion from IN (?, ?, ?) to IN $list ([#447](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/447)).
 
 ## v0.19.0
@@ -191,8 +190,10 @@
 - Dev: added `ValueTask<string?> GetAuthInfoAsync()` in ICredentialProvider.
 - Feat: `Writer.DisposeAsync()` waits for all in-flight messages to complete.
 - Feat: `Reader.DisposeAsync()` waits for all pending commits to be completed.
-- **Breaking Change**: `IReader` now implements `IAsyncDisposable` instead of `IDisposable`.This change requires updates to code that disposes `IReader` instances. Use `await using` instead of `using`.
-- **Breaking Change**: `IWriter` now implements `IAsyncDisposable` instead of `IDisposable`.This change requires updates to code that disposes `IWriter` instances. Use `await using` instead of `using`.
+- **Breaking Change**: `IReader` now implements `IAsyncDisposable` instead of `IDisposable`.  
+  This change requires updates to code that disposes `IReader` instances. Use `await using` instead of `using`.
+- **Breaking Change**: `IWriter` now implements `IAsyncDisposable` instead of `IDisposable`.  
+  This change requires updates to code that disposes `IWriter` instances. Use `await using` instead of `using`.
 - Topic `Reader` & `Writer`: update auth token in bidirectional stream.
 
 ## v0.14.1
@@ -210,7 +211,7 @@
 - PartitioningSettings were changed to change the PartitionCountLimit to MaxActivePartitions.
 - Dev: updated System.IdentityModel.Tokens.Jwt from version 0.7.0 to version 8.5.0.
 - PartitionSession.Stop uses committedOffset to complete commit tasks.
-- Changed batch type: IReadOnlyCollection<Message`<TValue>`> -> IReadOnlyList<Message`<TValue>`>.
+- Changed batch type: IReadOnlyCollection<Message<TValue>> -> IReadOnlyList<Message<TValue>>.
 - Invoking TryReadRequestBytes before deserializing message.
 - Updated Ydb.Protos 1.0.6 -> 1.1.1: Updated version of the Grpc.Net.Client library to 2.67.0 and proto messages.
 - Fixed: YdbDataReader.GetDataTypeName for optional values.
@@ -258,11 +259,11 @@
 - Fixed bug in Topic Writer: race condition when session fails, then write operation starts on previous session and new
   session is created. Messages may be lost.
 - Supported in ADO.NET GetSchema(Async). CollectionNames:
-  * Tables
-  * TablesWithCollections
-  * DataSourceInformation
-  * MetaDataCollections
-  * Restrictions
+    * Tables
+    * TablesWithCollections
+    * DataSourceInformation
+    * MetaDataCollections
+    * Restrictions
 - Rename field _onStatus -> _onNotSuccessStatus in YdbDataReader
 - If session is not active, do not invoke DeleteNotActiveSession(session)
 - AttachStream: connect stream using NodeId
@@ -301,26 +302,26 @@
 ## v0.9.0-rc1
 
 - Topic Writer updated release candidate:
-  * Do not send messages that have a timeout by cancelToken.
-  * If your value serializer throws an exception, this will be wrapped in a WriterException with unspecified status.
-  * Added BufferOverflowRetryTimeoutMs to the next try write.
-  * Rename _disposeTokenSource -> _disposeCts.
-  * Optimize write worker: if (_toSendBuffer.IsEmpty) continue.
-  * On RPC errors create DummyWriterSession.
-  * Message has been skipped because its sequence number is less than or equal to the last processed server's SeqNo.
-  * Calculate the next sequence number from the calculated previous messages.
+    * Do not send messages that have a timeout by cancelToken.
+    * If your value serializer throws an exception, this will be wrapped in a WriterException with unspecified status.
+    * Added BufferOverflowRetryTimeoutMs to the next try write.
+    * Rename _disposeTokenSource -> _disposeCts.
+    * Optimize write worker: if (_toSendBuffer.IsEmpty) continue.
+    * On RPC errors create DummyWriterSession.
+    * Message has been skipped because its sequence number is less than or equal to the last processed server's SeqNo.
+    * Calculate the next sequence number from the calculated previous messages.
 
 ## v0.9.0-rc0
 
 - Topic Writer release candidate:
-  * Updated CAS semantics for enqueuing in the buffer.
-  * Processed buffer overflow on WriteAsync.
-  * Setting NotStartedWriterSession with a fail reason on RPC and more errors.
-  * New initialization strategy for WriterSession (background task).
-  * Supported cancellation token for sending tasks.
-  * Fixed setting the SeqNo field in the message (in-flight buffer already has a seqNo) and added a check on canceled
-    TCS.
-  * Using BitConverter for Serializer / Deserializer.
+    * Updated CAS semantics for enqueuing in the buffer.
+    * Processed buffer overflow on WriteAsync.
+    * Setting NotStartedWriterSession with a fail reason on RPC and more errors.
+    * New initialization strategy for WriterSession (background task).
+    * Supported cancellation token for sending tasks.
+    * Fixed setting the SeqNo field in the message (in-flight buffer already has a seqNo) and added a check on canceled
+      TCS.
+    * Using BitConverter for Serializer / Deserializer.
 - Fixed: grpc requests go via proxy on Grpc.NET.Client >= 2.44
 
 ## v0.8.0
@@ -424,7 +425,7 @@
 
 - Remove support for .NET Core 3.1
 - Add support for .NET 7.0
-- 
+-
 
 ## v0.0.8
 
