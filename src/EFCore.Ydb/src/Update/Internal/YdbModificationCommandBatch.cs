@@ -55,7 +55,7 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
         && string.Equals(_currentBatchTableName, modificationCommand.TableName)
         && string.Equals(_currentBatchSchema, modificationCommand.Schema)
         && _batchHelper.StructColumns(modificationCommand)
-            .Select((t, i) => t.ColumnName)
+            .Select(columnModification => columnModification.ColumnName)
             .SequenceEqual(_currentBatchColumns);
 
     public override void Complete(bool moreBatchesExpected)
