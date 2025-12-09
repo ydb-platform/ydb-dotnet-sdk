@@ -62,19 +62,19 @@ public class YdbModificationCommandBatchTest
         await using var dbContext = new TestEntityDbContext(_assertSql);
         await testStore.CleanAsync(dbContext);
         await dbContext.Database.EnsureCreatedAsync();
-        
+
         dbContext.Orders.AddRange(_order1, _order2, _order3, _order4, _order5, _order6);
         await dbContext.SaveChangesAsync();
         dbContext.Orders.RemoveRange(_order1, _order2, _order3, _order4, _order5, _order6);
         await dbContext.SaveChangesAsync();
-        
+
         AssertSql(
             """
             $batch_value_0='?' (DbType = Object)
 
             DELETE FROM `Order` ON SELECT * FROM AS_TABLE($batch_value_0);
             """);
-        
+
         Assert.Empty(dbContext.Orders);
     }
 
