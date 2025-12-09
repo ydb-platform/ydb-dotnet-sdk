@@ -1,4 +1,3 @@
-* Feat ADO.NET: added `ILike` support.
 
 ## v0.26.0
 
