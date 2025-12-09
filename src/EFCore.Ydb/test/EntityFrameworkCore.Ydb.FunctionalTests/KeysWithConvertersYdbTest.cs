@@ -2,6 +2,7 @@ using EntityFrameworkCore.Ydb.Extensions;
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests;
 

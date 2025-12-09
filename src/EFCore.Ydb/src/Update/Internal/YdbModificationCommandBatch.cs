@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -157,11 +156,11 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
             : mapping.DbType?.ToYdbDbType() ?? throw new InvalidOperationException(
                 $"Could not determine YDB type for column '{columnModification.ColumnName}' (no IYdbTypeMapping and DbType is null).");
 
+        var value = columnModification.UseOriginalValue ? columnModification.OriginalValue : columnModification.Value;
+
         ydbStruct.Add(
             columnModification.ColumnName,
-            mapping.Converter != null
-                ? mapping.Converter.ConvertToProvider(columnModification.Value)
-                : columnModification.Value,
+            mapping.Converter != null ? mapping.Converter.ConvertToProvider(value) : value,
             ydbDbType,
             (byte)(mapping.Precision ?? 0),
             (byte)(mapping.Scale ?? 0)
