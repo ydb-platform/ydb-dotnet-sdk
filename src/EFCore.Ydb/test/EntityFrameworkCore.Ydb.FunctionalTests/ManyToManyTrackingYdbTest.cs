@@ -1,6 +1,7 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
@@ -15,8 +16,11 @@ public class ManyToManyTrackingYdbTest : ManyToManyTrackingTestBase<ManyToManyTr
     }
 
     // YDB limitation: Some complex change tracking scenarios may differ
+    [ConditionalTheory(Skip = "YDB server limitation - complex inheritance patterns")]
+    [InlineData(true)]
+    [InlineData(false)]
     public override Task Can_insert_many_to_many_with_inheritance(bool async)
-        => Task.CompletedTask; // Skip: YDB server limitation - complex inheritance patterns
+        => base.Can_insert_many_to_many_with_inheritance(async);
 
     public class ManyToManyTrackingYdbFixture : ManyToManyTrackingFixtureBase
     {

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
@@ -19,15 +20,24 @@ public class TransactionYdbTest(TransactionYdbTest.TransactionYdbFixture fixture
     protected override bool SnapshotSupported => false; // YDB server limitation
 
     // YDB limitation: Nested transactions and savepoints work differently
+    [ConditionalTheory(Skip = "YDB server limitation - savepoint semantics differ")]
+    [InlineData(true)]
+    [InlineData(false)]
     public override Task SaveChanges_can_be_used_with_no_savepoint(bool async)
-        => Task.CompletedTask; // Skip: YDB server limitation - savepoint semantics differ
+        => base.SaveChanges_can_be_used_with_no_savepoint(async);
 
+    [ConditionalTheory(Skip = "YDB server limitation - batching creates implicit transactions")]
+    [InlineData(true)]
+    [InlineData(false)]
     public override Task SaveChanges_can_be_used_with_AutoTransactionBehavior_Never(bool async)
-        => Task.CompletedTask; // Skip: YDB server limitation - batching creates implicit transactions
+        => base.SaveChanges_can_be_used_with_AutoTransactionBehavior_Never(async);
 
 #pragma warning disable CS0618 // AutoTransactionsEnabled is obsolete
+    [ConditionalTheory(Skip = "YDB server limitation - batching creates implicit transactions")]
+    [InlineData(true)]
+    [InlineData(false)]
     public override Task SaveChanges_can_be_used_with_AutoTransactionsEnabled_false(bool async)
-        => Task.CompletedTask; // Skip: YDB server limitation - batching creates implicit transactions
+        => base.SaveChanges_can_be_used_with_AutoTransactionsEnabled_false(async);
 #pragma warning restore CS0618
 
     protected override DbContext CreateContextWithConnectionString()

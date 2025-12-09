@@ -1,6 +1,7 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
@@ -15,11 +16,17 @@ public class ManyToManyLoadYdbTest : ManyToManyLoadTestBase<ManyToManyLoadYdbTes
     }
 
     // YDB limitation: Some complex navigation scenarios may not be fully supported
+    [ConditionalTheory(Skip = "YDB server limitation - complex query patterns")]
+    [InlineData(true)]
+    [InlineData(false)]
     public override Task Load_collection_using_Query_with_Include(bool async)
-        => Task.CompletedTask; // Skip: YDB server limitation - complex query patterns
+        => base.Load_collection_using_Query_with_Include(async);
 
+    [ConditionalTheory(Skip = "YDB server limitation - complex query patterns")]
+    [InlineData(true)]
+    [InlineData(false)]
     public override Task Load_collection_using_Query_with_Include_for_inverse(bool async)
-        => Task.CompletedTask; // Skip: YDB server limitation - complex query patterns
+        => base.Load_collection_using_Query_with_Include_for_inverse(async);
 
     public class ManyToManyLoadYdbFixture : ManyToManyLoadFixtureBase
     {
