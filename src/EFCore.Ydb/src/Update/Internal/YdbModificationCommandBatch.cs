@@ -22,9 +22,7 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
     private EntityState _currentBatchState = EntityState.Detached;
     private string _currentBatchTableName = null!;
     private string? _currentBatchSchema;
-#pragma warning disable CA1859
-    private IBatchHelper _batchHelper = null!; // TODO UPDATE / DELETE BatchHelper
-#pragma warning restore CA1859
+    private IBatchHelper _batchHelper = null!;
     private int _batchNumber;
 
     private ISqlGenerationHelper SqlGenerationHelper => Dependencies.SqlGenerationHelper;
@@ -204,7 +202,7 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
         public static readonly UpdateBatchHelper Instance = new();
 
         public IEnumerable<IColumnModification> StructColumns(IReadOnlyModificationCommand modificationCommand) =>
-            modificationCommand.ColumnModifications.Where(c => c.IsCondition || c.IsKey);
+            modificationCommand.ColumnModifications.Where(c => c.IsCondition || c.IsKey || c.IsWrite);
 
         public string HeaderSql(string tableName) => $"UPDATE {tableName} ON";
     }
