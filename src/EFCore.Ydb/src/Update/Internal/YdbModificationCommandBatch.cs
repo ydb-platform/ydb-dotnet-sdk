@@ -22,15 +22,24 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
     private EntityState _currentBatchState = EntityState.Detached;
     private string _currentBatchTableName = null!;
     private string? _currentBatchSchema;
-#pragma warning disable CA1859
-    private IBatchHelper _batchHelper = null!; // TODO UPDATE / DELETE BatchHelper
-#pragma warning restore CA1859
+    private IBatchHelper _batchHelper = null!;
     private int _batchNumber;
 
     private ISqlGenerationHelper SqlGenerationHelper => Dependencies.SqlGenerationHelper;
 
     protected override void AddCommand(IReadOnlyModificationCommand modificationCommand)
     {
+        if (modificationCommand.EntityState is EntityState.Deleted or EntityState.Modified)
+        {
+            foreach (var columnModification in modificationCommand.ColumnModifications)
+                if (columnModification is { IsCondition: true, IsKey: false } or { IsCondition: false, IsKey: true })
+                {
+                    FlushBatch();
+                    base.AddCommand(modificationCommand);
+                    return;
+                }
+        }
+
         if (_currentBatchColumns.Count == 0)
         {
             StartNewBatch(modificationCommand);
@@ -73,6 +82,11 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
             case EntityState.Deleted:
                 _batchHelper = DeleteBatchHelper.Instance;
                 break;
+            case EntityState.Modified:
+                _batchHelper = UpdateBatchHelper.Instance;
+                break;
+            case EntityState.Detached:
+            case EntityState.Unchanged:
             default:
                 base.AddCommand(firstCommand);
                 _currentBatchCommands.Clear();
@@ -192,5 +206,15 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
             modificationCommand.ColumnModifications.Where(c => c.IsCondition || c.IsKey);
 
         public string HeaderSql(string tableName) => $"DELETE FROM {tableName} ON";
+    }
+
+    private class UpdateBatchHelper : IBatchHelper
+    {
+        public static readonly UpdateBatchHelper Instance = new();
+
+        public IEnumerable<IColumnModification> StructColumns(IReadOnlyModificationCommand modificationCommand) =>
+            modificationCommand.ColumnModifications.Where(c => c.IsCondition || c.IsKey || c.IsWrite);
+
+        public string HeaderSql(string tableName) => $"UPDATE {tableName} ON";
     }
 }
