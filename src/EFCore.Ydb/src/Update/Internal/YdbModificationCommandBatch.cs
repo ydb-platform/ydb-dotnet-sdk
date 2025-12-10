@@ -29,6 +29,17 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
 
     protected override void AddCommand(IReadOnlyModificationCommand modificationCommand)
     {
+        if (modificationCommand.EntityState is EntityState.Deleted or EntityState.Modified)
+        {
+            foreach (var columnModification in modificationCommand.ColumnModifications)
+                if (columnModification is { IsCondition: true, IsKey: false } or { IsCondition: false, IsKey: true })
+                {
+                    FlushBatch();
+                    base.AddCommand(modificationCommand);
+                    return;
+                }
+        }
+
         if (_currentBatchColumns.Count == 0)
         {
             StartNewBatch(modificationCommand);
