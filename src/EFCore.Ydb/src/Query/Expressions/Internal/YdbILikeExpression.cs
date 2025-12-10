@@ -16,9 +16,9 @@ public class YdbILikeExpression(
     : SqlExpression(typeof(bool), typeMapping), IEquatable<YdbILikeExpression>
 {
     private static ConstructorInfo? _quotingConstructor;
-    public virtual SqlExpression Match { get; } = match;
-    public virtual SqlExpression Pattern { get; } = pattern;
-    public virtual SqlExpression? EscapeChar { get; } = escapeChar;
+    public SqlExpression Match { get; } = match;
+    public SqlExpression Pattern { get; } = pattern;
+    public SqlExpression? EscapeChar { get; } = escapeChar;
 
     protected override Expression VisitChildren(ExpressionVisitor visitor)
         => Update(
@@ -26,7 +26,7 @@ public class YdbILikeExpression(
             (SqlExpression)visitor.Visit(Pattern),
             EscapeChar is null ? null : (SqlExpression)visitor.Visit(EscapeChar));
 
-    public virtual YdbILikeExpression Update(
+    public YdbILikeExpression Update(
         SqlExpression match,
         SqlExpression pattern,
         SqlExpression? escapeChar)
@@ -47,7 +47,7 @@ public class YdbILikeExpression(
     public override bool Equals(object? obj)
         => obj is YdbILikeExpression other && Equals(other);
 
-    public virtual bool Equals(YdbILikeExpression? other)
+    public bool Equals(YdbILikeExpression? other)
         => ReferenceEquals(this, other)
            || (other is not null
                && base.Equals(other)
