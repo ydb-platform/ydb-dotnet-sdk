@@ -182,9 +182,4 @@ public class ComplexNavigationsCollectionsQueryYdbTest : ComplexNavigationsColle
     [MemberData(nameof(IsAsyncData))]
     public override Task Skip_Take_on_grouping_element_into_non_entity(bool async) =>
         base.Skip_Take_on_grouping_element_into_non_entity(async);
-
-    [Theory]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task SelectMany_with_navigation_and_Distinct_projecting_columns_including_join_key(bool async) =>
-        base.SelectMany_with_navigation_and_Distinct_projecting_columns_including_join_key(async);
 }
