@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -23,15 +22,24 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
     private EntityState _currentBatchState = EntityState.Detached;
     private string _currentBatchTableName = null!;
     private string? _currentBatchSchema;
-#pragma warning disable CA1859
-    private IBatchHelper _batchHelper = null!; // TODO UPDATE / DELETE BatchHelper
-#pragma warning restore CA1859
+    private IBatchHelper _batchHelper = null!;
     private int _batchNumber;
 
     private ISqlGenerationHelper SqlGenerationHelper => Dependencies.SqlGenerationHelper;
 
     protected override void AddCommand(IReadOnlyModificationCommand modificationCommand)
     {
+        if (modificationCommand.EntityState is EntityState.Deleted or EntityState.Modified)
+        {
+            foreach (var columnModification in modificationCommand.ColumnModifications)
+                if (columnModification is { IsCondition: true, IsKey: false } or { IsCondition: false, IsKey: true })
+                {
+                    FlushBatch();
+                    base.AddCommand(modificationCommand);
+                    return;
+                }
+        }
+
         if (_currentBatchColumns.Count == 0)
         {
             StartNewBatch(modificationCommand);
@@ -66,18 +74,29 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
 
     private void StartNewBatch(IReadOnlyModificationCommand firstCommand)
     {
-        if (firstCommand.EntityState != EntityState.Added)
+        switch (firstCommand.EntityState)
         {
-            base.AddCommand(firstCommand);
-            _currentBatchCommands.Clear();
-            _currentBatchState = firstCommand.EntityState;
-            _currentBatchTableName = null!;
-            _currentBatchSchema = null;
-            _currentBatchColumns.Clear();
-            return;
+            case EntityState.Added:
+                _batchHelper = InsertBatchHelper.Instance;
+                break;
+            case EntityState.Deleted:
+                _batchHelper = DeleteBatchHelper.Instance;
+                break;
+            case EntityState.Modified:
+                _batchHelper = UpdateBatchHelper.Instance;
+                break;
+            case EntityState.Detached:
+            case EntityState.Unchanged:
+            default:
+                base.AddCommand(firstCommand);
+                _currentBatchCommands.Clear();
+                _currentBatchState = firstCommand.EntityState;
+                _currentBatchTableName = null!;
+                _currentBatchSchema = null;
+                _currentBatchColumns.Clear();
+                return;
         }
 
-        _batchHelper = InsertBatchHelper.Instance;
         _currentBatchCommands.Clear();
         _currentBatchCommands.Add(firstCommand);
         _currentBatchState = firstCommand.EntityState;
@@ -103,8 +122,9 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
 
         var batchParamName = $"$batch_value_{_batchNumber++}";
         var firstBatchCommand = _currentBatchCommands[0];
-        _batchHelper.AppendSql(SqlBuilder,
-            SqlGenerationHelper.DelimitIdentifier(_currentBatchTableName, _currentBatchSchema), batchParamName);
+        SqlBuilder.Append(_batchHelper.HeaderSql(
+            SqlGenerationHelper.DelimitIdentifier(_currentBatchTableName, _currentBatchSchema)));
+        SqlBuilder.Append($" SELECT * FROM AS_TABLE({batchParamName})");
         var readColumns = firstBatchCommand.ColumnModifications.Where(c => c.IsRead).ToList();
         var hasReadColumns = readColumns.Count > 0;
 
@@ -150,11 +170,11 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
             : mapping.DbType?.ToYdbDbType() ?? throw new InvalidOperationException(
                 $"Could not determine YDB type for column '{columnModification.ColumnName}' (no IYdbTypeMapping and DbType is null).");
 
+        var value = columnModification.UseOriginalValue ? columnModification.OriginalValue : columnModification.Value;
+
         ydbStruct.Add(
             columnModification.ColumnName,
-            mapping.Converter != null
-                ? mapping.Converter.ConvertToProvider(columnModification.Value)
-                : columnModification.Value,
+            mapping.Converter != null ? mapping.Converter.ConvertToProvider(value) : value,
             ydbDbType,
             (byte)(mapping.Precision ?? 0),
             (byte)(mapping.Scale ?? 0)
@@ -165,7 +185,7 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
     {
         IEnumerable<IColumnModification> StructColumns(IReadOnlyModificationCommand modificationCommand);
 
-        void AppendSql(StringBuilder sql, string tableName, string paramName);
+        string HeaderSql(string tableName);
     }
 
     private class InsertBatchHelper : IBatchHelper
@@ -175,14 +195,26 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
         public IEnumerable<IColumnModification> StructColumns(IReadOnlyModificationCommand modificationCommand) =>
             modificationCommand.ColumnModifications.Where(c => c.IsWrite);
 
-        public void AppendSql(StringBuilder sql, string tableName, string paramName)
-        {
-            // Generate INSERT INTO {TableName} SELECT * FROM AS_TABLE($param)
-            sql.Append("INSERT INTO ");
-            sql.Append(tableName);
-            sql.Append(" SELECT * FROM AS_TABLE(");
-            sql.Append(paramName);
-            sql.Append(')');
-        }
+        public string HeaderSql(string tableName) => $"INSERT INTO {tableName}";
+    }
+
+    private class DeleteBatchHelper : IBatchHelper
+    {
+        public static readonly DeleteBatchHelper Instance = new();
+
+        public IEnumerable<IColumnModification> StructColumns(IReadOnlyModificationCommand modificationCommand) =>
+            modificationCommand.ColumnModifications.Where(c => c.IsCondition || c.IsKey);
+
+        public string HeaderSql(string tableName) => $"DELETE FROM {tableName} ON";
+    }
+
+    private class UpdateBatchHelper : IBatchHelper
+    {
+        public static readonly UpdateBatchHelper Instance = new();
+
+        public IEnumerable<IColumnModification> StructColumns(IReadOnlyModificationCommand modificationCommand) =>
+            modificationCommand.ColumnModifications.Where(c => c.IsCondition || c.IsKey || c.IsWrite);
+
+        public string HeaderSql(string tableName) => $"UPDATE {tableName} ON";
     }
 }
