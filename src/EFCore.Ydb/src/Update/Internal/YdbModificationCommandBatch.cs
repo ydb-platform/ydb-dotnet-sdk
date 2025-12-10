@@ -73,6 +73,11 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
             case EntityState.Deleted:
                 _batchHelper = DeleteBatchHelper.Instance;
                 break;
+            case EntityState.Modified:
+                _batchHelper = UpdateBatchHelper.Instance;
+                break;
+            case EntityState.Detached:
+            case EntityState.Unchanged:
             default:
                 base.AddCommand(firstCommand);
                 _currentBatchCommands.Clear();
@@ -192,5 +197,15 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
             modificationCommand.ColumnModifications.Where(c => c.IsCondition || c.IsKey);
 
         public string HeaderSql(string tableName) => $"DELETE FROM {tableName} ON";
+    }
+
+    private class UpdateBatchHelper : IBatchHelper
+    {
+        public static readonly UpdateBatchHelper Instance = new();
+
+        public IEnumerable<IColumnModification> StructColumns(IReadOnlyModificationCommand modificationCommand) =>
+            modificationCommand.ColumnModifications.Where(c => c.IsCondition || c.IsKey);
+
+        public string HeaderSql(string tableName) => $"UPDATE {tableName} ON";
     }
 }
