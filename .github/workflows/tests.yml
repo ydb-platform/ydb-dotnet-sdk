@@ -58,7 +58,7 @@ jobs:
       fail-fast: false
       matrix:
         ydb-version: [ 'latest', 'trunk' ]
-        dotnet-version: [ 8.0.x, 9.0.x ]
+        dotnet-version: [ 8.0.x, 9.0.x, 10.0.x ]
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}

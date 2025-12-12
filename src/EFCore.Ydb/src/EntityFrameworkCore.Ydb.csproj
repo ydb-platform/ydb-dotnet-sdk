@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
         <RootNamespace>EntityFrameworkCore.Ydb</RootNamespace>
         <Nullable>enable</Nullable>
         <PackageId>EntityFrameworkCore.Ydb</PackageId>
@@ -11,6 +11,18 @@
         <!-- PrivateAssets="none" is set to flow the EF Core analyzer to users referencing this package https://github.com/aspnet/EntityFrameworkCore/pull/11350 -->
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" PrivateAssets="none"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" PrivateAssets="none"/>
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" PrivateAssets="none"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" PrivateAssets="none"/>
+        <DefineConstants>$(DefineConstants);EFCORE9</DefineConstants>
+    </PropertyGroup>
+    
+    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" PrivateAssets="none"/>
+        <DefineConstants>$(DefineConstants);EFCORE10</DefineConstants>
     </ItemGroup>
 
     <ItemGroup>
