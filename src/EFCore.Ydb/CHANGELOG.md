@@ -1,3 +1,4 @@
+- Added `ILike` support.
 - Added support `INSERT`, `UPDATE`, `DELETE` batching for EF Core SaveChanges operations.
 - Fixed bug: DateTime.UtcNow generating invalid SQL in ExecuteUpdate ([#555](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/555)).
 

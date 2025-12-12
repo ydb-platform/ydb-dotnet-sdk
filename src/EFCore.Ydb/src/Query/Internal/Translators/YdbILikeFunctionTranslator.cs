@@ -1,0 +1,41 @@
+using System.Collections.Generic;
+using System.Reflection;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+
+namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
+
+public class YdbILikeFunctionTranslator(YdbSqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
+{
+    private static readonly MethodInfo ILike =
+        typeof(YdbFunctionExtension).GetRuntimeMethod(
+            nameof(YdbFunctionExtension.ILike),
+            [typeof(DbFunctions), typeof(string), typeof(string)])!;
+
+    private static readonly MethodInfo ILikeWithEscape =
+        typeof(YdbFunctionExtension).GetRuntimeMethod(
+            nameof(YdbFunctionExtension.ILike),
+            [typeof(DbFunctions), typeof(string), typeof(string), typeof(string)])!;
+
+    /// <inheritdoc />
+    public virtual SqlExpression? Translate(
+        SqlExpression? instance,
+        MethodInfo method,
+        IReadOnlyList<SqlExpression> arguments,
+        IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+    {
+        if (method == ILikeWithEscape)
+        {
+            return sqlExpressionFactory.ILike(arguments[1], arguments[2], arguments[3]);
+        }
+
+        if (method == ILike)
+        {
+            return sqlExpressionFactory.ILike(arguments[1], arguments[2]);
+        }
+
+        return null;
+    }
+}

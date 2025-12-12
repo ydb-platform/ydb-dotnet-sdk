@@ -39,7 +39,6 @@ public class YdbSqlTranslatingExpressionVisitor(
         typeof(YdbSqlTranslatingExpressionVisitor).GetTypeInfo()
             .GetDeclaredMethod(nameof(ConstructLikePatternParameter))!;
 
-
     protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
     {
         var method = methodCallExpression.Method;

@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
@@ -44,4 +46,53 @@ public class NorthwindCompiledQueryYdbTest
     public override Task Query_with_array_parameter_async() => Task.CompletedTask;
 
     public override Task Compiled_query_with_max_parameters() => Task.CompletedTask;
+
+    [Fact]
+    public async Task Array_All_ILike()
+    {
+        await using var context = CreateContext();
+        var count = context.Customers.Count(c => EF.Functions.ILike(c.ContactName, "%M%"));
+
+        Assert.Equal(34, count);
+
+        AssertSql(
+            """
+            SELECT CAST(COUNT(*) AS Int32)
+            FROM `Customers` AS `c`
+            WHERE `c`.`ContactName` ILIKE '%M%'u
+            """);
+    }
+
+    [Fact]
+    public void String_ILike_Literal_With_Escape()
+    {
+        using var context = CreateContext();
+        var count = context.Customers.Count(c => EF.Functions.ILike(c.ContactName, "!%", "!"));
+
+        Assert.Equal(0, count);
+        AssertSql(
+            """
+            SELECT CAST(COUNT(*) AS Int32)
+            FROM `Customers` AS `c`
+            WHERE `c`.`ContactName` ILIKE '!%'u ESCAPE '!'
+            """);
+    }
+
+    [Fact]
+    public void String_ILike_negated()
+    {
+        using var context = CreateContext();
+        var count = context.Customers.Count(c => !EF.Functions.ILike(c.ContactName, "%M%"));
+
+        Assert.Equal(57, count);
+        AssertSql(
+            """
+            SELECT CAST(COUNT(*) AS Int32)
+            FROM `Customers` AS `c`
+            WHERE NOT (`c`.`ContactName` ILIKE '%M%'u) OR `c`.`ContactName` IS NULL
+            """);
+    }
+
+    private void AssertSql(params string[] expected)
+        => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 }
