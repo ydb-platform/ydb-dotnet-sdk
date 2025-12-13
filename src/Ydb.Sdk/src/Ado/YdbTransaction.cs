@@ -200,15 +200,9 @@ public sealed class YdbTransaction : DbTransaction
         var flushTasks = new List<Task>();
         foreach (var writer in DbConnection.TxWriters)
         {
-            // Use reflection to call FlushAsync on the writer
-            var flushMethod = writer.GetType().GetMethod("FlushAsync");
-            if (flushMethod != null)
+            if (writer is IInternalTxWriter internalWriter)
             {
-                var task = flushMethod.Invoke(writer, new object[] { cancellationToken });
-                if (task is Task flushTask)
-                {
-                    flushTasks.Add(flushTask);
-                }
+                flushTasks.Add(internalWriter.FlushAsync(cancellationToken));
             }
         }
 

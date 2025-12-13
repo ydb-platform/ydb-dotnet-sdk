@@ -20,7 +20,6 @@ internal class TxTopicWriter<T> : IBufferedTxTopicWriter<T>
     private readonly ISerializer<T> _serializer;
     private readonly ILogger _logger;
     private readonly ConcurrentQueue<PendingMessage> _pendingMessages = new();
-    private readonly object _lockObject = new();
     
     private volatile int _currentBufferSize;
     private volatile bool _isDisposed;
