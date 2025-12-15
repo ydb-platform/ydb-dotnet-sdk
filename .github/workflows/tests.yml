@@ -80,7 +80,7 @@ jobs:
         working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test -f net8.0 --logger "GitHubActions;report-warnings=false"
+          dotnet test -f net9.0 --logger "GitHubActions;report-warnings=false"
 
   run-examples:
     runs-on: ubuntu-22.04

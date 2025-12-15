@@ -27,7 +27,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
       - name: Restore
         run: dotnet restore ${{ matrix.source-dir }}${{ matrix.solutionFile }}
       - name: Install ReSharper
@@ -51,7 +51,7 @@ jobs:
         id: setup-dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
       - name: Restore
         run: dotnet restore ${{ matrix.solutionPath }}
       - name: Inspect code

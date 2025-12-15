@@ -1,5 +1,7 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
+#if !EFCORE9
 using Microsoft.EntityFrameworkCore;
+#endif
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
@@ -7,11 +9,11 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
 public class AdHocQueryFiltersQueryYdbTest : AdHocQueryFiltersQueryRelationalTestBase
 {
-    #if !EFCORE9
+#if !EFCORE9
     public AdHocQueryFiltersQueryYdbTest(NonSharedFixture fixture) : base(fixture)
     {
     }
-    #endif
+#endif
 
     protected override ITestStoreFactory TestStoreFactory
         => YdbTestStoreFactory.Instance;

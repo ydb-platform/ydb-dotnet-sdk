@@ -1,5 +1,7 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
+#if !EFCORE9
 using Microsoft.EntityFrameworkCore;
+#endif
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -12,11 +14,11 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 // Implemented mainly to stress test CI
 public class EntitySplittingQueryYdbTest : EntitySplittingQueryTestBase
 {
-# if !EFCORE9
+#if !EFCORE9
     public EntitySplittingQueryYdbTest(NonSharedFixture fixture) : base(fixture)
     {
     }
-# endif
+#endif
 
     protected override ITestStoreFactory TestStoreFactory
         => YdbTestStoreFactory.Instance;

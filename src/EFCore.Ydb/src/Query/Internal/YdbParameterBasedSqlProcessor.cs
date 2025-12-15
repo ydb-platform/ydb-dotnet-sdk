@@ -1,4 +1,6 @@
+#if EFCORE9
 using System.Collections.Generic;
+#endif
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 
@@ -15,7 +17,7 @@ public class YdbParameterBasedSqlProcessor(
         => new YdbSqlNullabilityProcessor(Dependencies, Parameters).Process(queryExpression, parametersValues,
             out canCache);
 #else
-    protected override Expression ProcessSqlNullability(Expression queryExpression, 
+    protected override Expression ProcessSqlNullability(Expression queryExpression,
         ParametersCacheDecorator parametersDecorator)
         => new YdbSqlNullabilityProcessor(Dependencies, Parameters).Process(queryExpression, parametersDecorator);
 #endif

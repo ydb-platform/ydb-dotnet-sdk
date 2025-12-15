@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests;
 public class TptTableSplittingYdbTest(
 #if !EFCORE9
     NonSharedFixture nonSharedFixture,
-    #endif
+#endif
     ITestOutputHelper testOutputHelper) : TPTTableSplittingTestBase(
 #if !EFCORE9
     nonSharedFixture,
