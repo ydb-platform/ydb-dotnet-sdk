@@ -1,17 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PreserveCompilationContext>true</PreserveCompilationContext>
     </PropertyGroup>
 
+    <ItemGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.1" PrivateAssets="none"/>
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
+        <DefineConstants>$(DefineConstants);EFCORE9</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' != 'net8.0' AND '$(TargetFramework)' != 'net9.0'">
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="10.0.0" PrivateAssets="none"/>
+    </ItemGroup>
+    
     <ItemGroup>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.1"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0"/>
         <PackageReference Include="xunit" Version="2.9.3" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="2.9.3">
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.3">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>

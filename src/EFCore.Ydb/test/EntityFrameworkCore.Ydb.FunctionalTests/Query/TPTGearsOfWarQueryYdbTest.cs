@@ -53,6 +53,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     public override Task Include_with_nested_navigation_in_order_by(bool async) =>
         base.Include_with_nested_navigation_in_order_by(async);
 
+#if EFCORE9
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Where_bitwise_and_enum(bool async) => base.Where_bitwise_and_enum(async);
@@ -120,6 +121,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Select_enum_has_flag(bool async) => base.Select_enum_has_flag(async);
+#endif
 
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
@@ -310,6 +312,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     public override Task Left_join_predicate_condition_equals_condition(bool async) =>
         base.Left_join_predicate_condition_equals_condition(async);
 
+#if EFCORE9
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Where_datetimeoffset_now(bool async) => base.Where_datetimeoffset_now(async);
@@ -386,6 +389,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task DateTimeOffset_DateAdd_AddSeconds(bool async) => base.DateTimeOffset_DateAdd_AddSeconds(async);
+#endif
 
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
@@ -909,6 +913,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     public override Task Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(bool async) =>
         base.Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(async);
 
+#if EFCORE9
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Byte_array_filter_by_length_literal(bool async) =>
@@ -922,12 +927,14 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     [Fact(Skip = "TODO: Fix tests")]
     public override void Byte_array_filter_by_length_parameter_compiled() =>
         base.Byte_array_filter_by_length_parameter_compiled();
+#endif
 
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task DateTimeOffset_Date_returns_datetime(bool async) =>
         base.DateTimeOffset_Date_returns_datetime(async);
 
+#if EFCORE9
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Where_TimeSpan_Hours(bool async) => base.Where_TimeSpan_Hours(async);
@@ -943,6 +950,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Where_TimeSpan_Milliseconds(bool async) => base.Where_TimeSpan_Milliseconds(async);
+#endif
 
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
@@ -1053,6 +1061,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     public override Task FirstOrDefault_on_empty_collection_of_DateTime_in_subquery(bool async) =>
         base.FirstOrDefault_on_empty_collection_of_DateTime_in_subquery(async);
 
+#if EFCORE9
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task First_on_byte_array(bool async) => base.First_on_byte_array(async);
@@ -1060,6 +1069,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Array_access_on_byte_array(bool async) => base.Array_access_on_byte_array(async);
+#endif
 
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
@@ -1152,6 +1162,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     public override Task Correlated_collection_after_distinct_3_levels(bool async) =>
         base.Correlated_collection_after_distinct_3_levels(async);
 
+#if EFCORE9
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Where_DateOnly_Month(bool async) => base.Where_DateOnly_Month(async);
@@ -1242,6 +1253,8 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     [MemberData(nameof(IsAsyncData))]
     public override Task Where_DateOnly_FromDateTime_compared_to_constant_and_parameter(bool async) =>
         base.Where_DateOnly_FromDateTime_compared_to_constant_and_parameter(async);
+#endif
+
 
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
@@ -1294,6 +1307,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     public override Task Where_subquery_with_ElementAt_using_column_as_index(bool async) =>
         base.Where_subquery_with_ElementAt_using_column_as_index(async);
 
+#if EFCORE9
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]
     public override Task DateTimeOffset_to_unix_time_milliseconds(bool async) =>
@@ -1303,6 +1317,7 @@ public class TPTGearsOfWarQueryYdbTest : TPTGearsOfWarQueryRelationalTestBase<TP
     [MemberData(nameof(IsAsyncData))]
     public override Task DateTimeOffset_to_unix_time_seconds(bool async) =>
         base.DateTimeOffset_to_unix_time_seconds(async);
+#endif
 
     [ConditionalTheory(Skip = "TODO: Fix tests")]
     [MemberData(nameof(IsAsyncData))]

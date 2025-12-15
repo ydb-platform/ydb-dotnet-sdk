@@ -17,6 +17,12 @@ public class MaterializationInterceptionYdbTest :
         }
     }
 
+#if !EFCORE9
+    public MaterializationInterceptionYdbTest(NonSharedFixture fixture) : base(fixture)
+    {
+    }
+#endif
+
     protected override ITestStoreFactory TestStoreFactory
         => YdbTestStoreFactory.Instance;
 }

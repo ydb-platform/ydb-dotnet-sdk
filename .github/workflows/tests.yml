@@ -58,7 +58,6 @@ jobs:
       fail-fast: false
       matrix:
         ydb-version: [ 'latest', 'trunk' ]
-        dotnet-version: [ 8.0.x, 9.0.x ]
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
@@ -75,13 +74,13 @@ jobs:
       - name: Install Dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ matrix.dotnet-version }}
+          dotnet-version: 10.0.x
 
       - name: Run EFCore.Ydb functional tests
         working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test --logger "GitHubActions;report-warnings=false"
+          dotnet test -f net9.0 --logger "GitHubActions;report-warnings=false"
 
   run-examples:
     runs-on: ubuntu-22.04

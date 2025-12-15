@@ -57,7 +57,11 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         MigrationCommandListBuilder builder
     )
     {
-        var columnType = operation.ColumnType ?? GetColumnType(schema, table, name, operation, model)!;
+        var columnType = operation.ColumnType ?? GetColumnType(schema, table, name, operation, model)
+#if EFCORE9
+                !
+#endif
+            ;
         var autoincrement = operation[YdbAnnotationNames.Serial] as bool?;
 
         if (autoincrement == true)
