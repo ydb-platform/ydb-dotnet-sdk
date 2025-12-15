@@ -35,6 +35,7 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
                 if (columnModification is { IsCondition: true, IsKey: false } or { IsCondition: false, IsKey: true })
                 {
                     FlushBatch();
+                    ResetBatch();
                     base.AddCommand(modificationCommand);
                     return;
                 }
@@ -88,12 +89,8 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
             case EntityState.Detached:
             case EntityState.Unchanged:
             default:
+                ResetBatch();
                 base.AddCommand(firstCommand);
-                _currentBatchCommands.Clear();
-                _currentBatchState = firstCommand.EntityState;
-                _currentBatchTableName = null!;
-                _currentBatchSchema = null;
-                _currentBatchColumns.Clear();
                 return;
         }
 
@@ -107,6 +104,15 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
         {
             _currentBatchColumns.Add(columnModification.ColumnName);
         }
+    }
+
+    private void ResetBatch()
+    {
+        _currentBatchCommands.Clear();
+        _currentBatchState = EntityState.Detached;
+        _currentBatchTableName = null!;
+        _currentBatchSchema = null;
+        _currentBatchColumns.Clear();
     }
 
     private void FlushBatch()
