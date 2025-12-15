@@ -147,7 +147,11 @@ public class YdbSqlTranslatingExpressionVisitor(
 
                 translation = _sqlExpressionFactory.Like(
                     translatedInstance,
-                    new SqlParameterExpression(escapedPatternParameter.Name!, escapedPatternParameter.Type,
+                    new SqlParameterExpression(escapedPatternParameter.Name
+#if EFCORE9
+                        !
+#endif
+                        , escapedPatternParameter.Type,
                         stringTypeMapping));
 
                 return true;

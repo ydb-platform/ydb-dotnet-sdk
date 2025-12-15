@@ -1,9 +1,9 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 #if !EFCORE9
 using Microsoft.EntityFrameworkCore;
 #endif
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 

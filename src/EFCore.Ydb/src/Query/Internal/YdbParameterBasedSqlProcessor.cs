@@ -1,8 +1,8 @@
+using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore.Query;
 #if EFCORE9
 using System.Collections.Generic;
 #endif
-using System.Linq.Expressions;
-using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;
 

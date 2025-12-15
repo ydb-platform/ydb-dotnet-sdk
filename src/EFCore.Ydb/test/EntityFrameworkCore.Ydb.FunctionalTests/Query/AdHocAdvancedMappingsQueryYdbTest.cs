@@ -1,10 +1,10 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
-#if !EFCORE9
-using Microsoft.EntityFrameworkCore;
-#endif
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+#if !EFCORE9
+using Microsoft.EntityFrameworkCore;
+#endif
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 

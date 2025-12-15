@@ -66,7 +66,7 @@ public class YdbMigrationsInfrastructureTest(YdbMigrationsInfrastructureTest.Ydb
     public override Task Can_apply_two_migrations_in_transaction_async() =>
         base.Can_apply_two_migrations_in_transaction_async();
 #endif
-    
+
     [ConditionalFact(Skip = "TODO")]
     public override Task Can_generate_idempotent_up_and_down_scripts() =>
         base.Can_generate_idempotent_up_and_down_scripts();

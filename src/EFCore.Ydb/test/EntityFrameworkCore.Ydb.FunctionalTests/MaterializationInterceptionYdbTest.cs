@@ -16,7 +16,7 @@ public class MaterializationInterceptionYdbTest :
             modelBuilder.Entity<TestEntity30244>().OwnsMany(e => e.Settings);
         }
     }
-    
+
 #if !EFCORE9
     public MaterializationInterceptionYdbTest(NonSharedFixture fixture) : base(fixture)
     {
