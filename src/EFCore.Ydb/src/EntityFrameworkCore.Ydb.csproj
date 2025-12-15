@@ -7,31 +7,21 @@
         <PackageId>EntityFrameworkCore.Ydb</PackageId>
     </PropertyGroup>
 
-    <ItemGroup>
-        <!-- PrivateAssets="none" is set to flow the EF Core analyzer to users referencing this package https://github.com/aspnet/EntityFrameworkCore/pull/11350 -->
+    <ItemGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" PrivateAssets="none"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" PrivateAssets="none"/>
     </ItemGroup>
 
     <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" PrivateAssets="none"/>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" PrivateAssets="none"/>
         <DefineConstants>$(DefineConstants);EFCORE9</DefineConstants>
     </PropertyGroup>
-    
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+
+    <ItemGroup Condition="'$(TargetFramework)' != 'net8.0' AND '$(TargetFramework)' != 'net9.0'">
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" PrivateAssets="none"/>
-        <DefineConstants>$(DefineConstants);EFCORE10</DefineConstants>
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Ydb.Sdk\src\Ydb.Sdk.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <Reference Include="Microsoft.EntityFrameworkCore.Relational">
-            <HintPath>..\..\..\..\..\.nuget\packages\microsoft.entityframeworkcore.relational\9.0.0\lib\net8.0\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
-        </Reference>
+        <PackageReference Include="Ydb.Sdk" Version="0.26.0"/>
     </ItemGroup>
 </Project>

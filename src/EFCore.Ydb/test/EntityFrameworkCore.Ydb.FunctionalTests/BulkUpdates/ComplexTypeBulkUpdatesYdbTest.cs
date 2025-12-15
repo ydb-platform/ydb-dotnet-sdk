@@ -1,3 +1,4 @@
+#if EFCORE9
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -275,3 +276,5 @@ internal class ComplexTypeBulkUpdatesYdbTest(
     private void AssertExecuteUpdateSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected, forUpdate: true);
 }
+
+#endif

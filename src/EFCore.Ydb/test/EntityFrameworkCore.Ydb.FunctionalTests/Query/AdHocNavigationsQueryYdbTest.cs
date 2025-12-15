@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
@@ -6,7 +7,11 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
 public class AdHocNavigationsQueryYdbTest : AdHocNavigationsQueryRelationalTestBase
 {
-    // TODO: Fix query compilation
+#if !EFCORE9
+    public AdHocNavigationsQueryYdbTest(NonSharedFixture fixture) : base(fixture)
+    {
+    }
+#endif
     public override Task Select_enumerable_navigation_backed_by_collection(bool async, bool split) =>
         Task.CompletedTask;
 

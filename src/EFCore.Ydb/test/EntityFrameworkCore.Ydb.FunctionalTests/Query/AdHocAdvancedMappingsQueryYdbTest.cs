@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -10,6 +11,12 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 // Implemented mainly to stress test CI
 public class AdHocAdvancedMappingsQueryYdbTest : AdHocAdvancedMappingsQueryRelationalTestBase
 {
+#if !EFCORE9
+    public AdHocAdvancedMappingsQueryYdbTest(NonSharedFixture fixture) : base(fixture)
+    {
+    }
+#endif
+
     protected override ITestStoreFactory TestStoreFactory
         => YdbTestStoreFactory.Instance;
 

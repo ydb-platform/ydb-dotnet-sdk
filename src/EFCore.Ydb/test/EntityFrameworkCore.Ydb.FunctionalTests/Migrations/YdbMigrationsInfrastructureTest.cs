@@ -57,13 +57,16 @@ public class YdbMigrationsInfrastructureTest(YdbMigrationsInfrastructureTest.Ydb
     public override Task Can_apply_second_migration_in_parallel_async() =>
         base.Can_apply_second_migration_in_parallel_async();
 
+    #if !EFCORE9
     [ConditionalFact(Skip = "TODO")]
-    public override void Can_apply_two_migrations_in_transaction() => base.Can_apply_two_migrations_in_transaction();
+    public override void Can_apply_two_migrations_in_transaction() =>
+        base.Can_apply_two_migrations_in_transaction();
 
     [ConditionalFact(Skip = "TODO")]
-    public override Task Can_apply_two_migrations_in_transaction_async() =>
+    public override Task Can_apply_two_migrations_in_transaction_async() => 
         base.Can_apply_two_migrations_in_transaction_async();
-
+    #endif
+    
     [ConditionalFact(Skip = "TODO")]
     public override Task Can_generate_idempotent_up_and_down_scripts() =>
         base.Can_generate_idempotent_up_and_down_scripts();

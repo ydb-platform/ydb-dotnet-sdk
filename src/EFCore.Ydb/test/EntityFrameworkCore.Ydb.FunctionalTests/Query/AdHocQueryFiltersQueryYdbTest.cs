@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
@@ -6,12 +7,18 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
 public class AdHocQueryFiltersQueryYdbTest : AdHocQueryFiltersQueryRelationalTestBase
 {
+    #if !EFCORE9
+    public AdHocQueryFiltersQueryYdbTest(NonSharedFixture fixture) : base(fixture)
+    {
+    }
+    #endif
+
     protected override ITestStoreFactory TestStoreFactory
         => YdbTestStoreFactory.Instance;
 
-    // TODO: Fix subquery CAST
+#if EFCORE9
     public override Task GroupJoin_SelectMany_gets_flattened() => Task.CompletedTask;
-
+#endif
     // TODO: Fix subquery CAST
     public override Task Group_by_multiple_aggregate_joining_different_tables(bool async) => Task.CompletedTask;
 

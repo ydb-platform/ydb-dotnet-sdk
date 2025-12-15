@@ -264,24 +264,30 @@ public class YdbSqlTranslatingExpressionVisitor(
         string baseParameterName,
         StartsEndsWithContains methodType
     )
-        => queryContext.ParameterValues[baseParameterName] switch
-        {
-            null => null,
+        =>
+#if EFCORE9
+            queryContext.ParameterValues[baseParameterName]
+#else
+            queryContext.Parameters[baseParameterName]
+#endif
+                switch
+                {
+                    null => null,
 
-            // In .NET, all strings start/end with the empty string, but SQL LIKE return false for empty patterns.
-            // Return % which always matches instead.
-            "" => "%",
+                    // In .NET, all strings start/end with the empty string, but SQL LIKE return false for empty patterns.
+                    // Return % which always matches instead.
+                    "" => "%",
 
-            string s => methodType switch
-            {
-                StartsEndsWithContains.StartsWith => EscapeLikePattern(s) + '%',
-                StartsEndsWithContains.EndsWith => '%' + EscapeLikePattern(s),
-                StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s)}%",
-                _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
-            },
+                    string s => methodType switch
+                    {
+                        StartsEndsWithContains.StartsWith => EscapeLikePattern(s) + '%',
+                        StartsEndsWithContains.EndsWith => '%' + EscapeLikePattern(s),
+                        StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s)}%",
+                        _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
+                    },
 
-            _ => throw new UnreachableException()
-        };
+                    _ => throw new UnreachableException()
+                };
 
     private const char LikeEscapeChar = '\\';
 

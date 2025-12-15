@@ -6,7 +6,15 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
-public class TptTableSplittingYdbTest(ITestOutputHelper testOutputHelper) : TPTTableSplittingTestBase(testOutputHelper)
+public class TptTableSplittingYdbTest(
+#if !EFCORE9
+    NonSharedFixture nonSharedFixture,
+    #endif
+    ITestOutputHelper testOutputHelper) : TPTTableSplittingTestBase(
+#if !EFCORE9
+    nonSharedFixture,
+#endif
+    testOutputHelper)
 {
     // TODO: Should be fixed
     [ConditionalFact(Skip = "Sequence contains no elements` almost without stacktrace")]
