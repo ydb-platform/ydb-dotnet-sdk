@@ -29,15 +29,16 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
 
     protected override void AddCommand(IReadOnlyModificationCommand modificationCommand)
     {
-        if (modificationCommand.EntityState is EntityState.Deleted or EntityState.Modified)
+        if (IsUnsupportedForBatch(modificationCommand))
         {
-            foreach (var columnModification in modificationCommand.ColumnModifications)
-                if (columnModification is { IsCondition: true, IsKey: false } or { IsCondition: false, IsKey: true })
-                {
-                    FlushBatch();
-                    base.AddCommand(modificationCommand);
-                    return;
-                }
+            FlushBatch();
+            _currentBatchCommands.Clear();
+            _currentBatchState = EntityState.Detached;
+            _currentBatchTableName = null!;
+            _currentBatchSchema = null;
+            _currentBatchColumns.Clear();
+            base.AddCommand(modificationCommand);
+            return;
         }
 
         if (_currentBatchColumns.Count == 0)
@@ -57,6 +58,15 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
         }
     }
 
+    private static bool IsUnsupportedForBatch(IReadOnlyModificationCommand command) => command.EntityState switch
+    {
+        EntityState.Deleted or EntityState.Modified => command.ColumnModifications.Any(cm =>
+            cm is { IsCondition: true, IsKey: false } || cm is { IsCondition: false, IsKey: true } ||
+            !cm.UseParameter),
+        EntityState.Added => command.ColumnModifications.Any(cm => !cm.UseParameter),
+        _ => true
+    };
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool CanJoinBatch(IReadOnlyModificationCommand modificationCommand) =>
         _currentBatchState == modificationCommand.EntityState
@@ -74,29 +84,13 @@ public class YdbModificationCommandBatch(ModificationCommandBatchFactoryDependen
 
     private void StartNewBatch(IReadOnlyModificationCommand firstCommand)
     {
-        switch (firstCommand.EntityState)
+        _batchHelper = firstCommand.EntityState switch
         {
-            case EntityState.Added:
-                _batchHelper = InsertBatchHelper.Instance;
-                break;
-            case EntityState.Deleted:
-                _batchHelper = DeleteBatchHelper.Instance;
-                break;
-            case EntityState.Modified:
-                _batchHelper = UpdateBatchHelper.Instance;
-                break;
-            case EntityState.Detached:
-            case EntityState.Unchanged:
-            default:
-                base.AddCommand(firstCommand);
-                _currentBatchCommands.Clear();
-                _currentBatchState = firstCommand.EntityState;
-                _currentBatchTableName = null!;
-                _currentBatchSchema = null;
-                _currentBatchColumns.Clear();
-                return;
-        }
-
+            EntityState.Added => InsertBatchHelper.Instance,
+            EntityState.Deleted => DeleteBatchHelper.Instance,
+            EntityState.Modified => UpdateBatchHelper.Instance,
+            _ => throw new InvalidOperationException("Unknown entity state (report bug!)")
+        };
         _currentBatchCommands.Clear();
         _currentBatchCommands.Add(firstCommand);
         _currentBatchState = firstCommand.EntityState;
