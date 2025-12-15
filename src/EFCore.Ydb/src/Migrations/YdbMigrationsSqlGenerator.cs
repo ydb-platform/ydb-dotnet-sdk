@@ -58,7 +58,7 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
     )
     {
         var columnType = operation.ColumnType ?? GetColumnType(schema, table, name, operation, model)
-# if EFCORE9
+#if EFCORE9
                 !
 #endif
             ;

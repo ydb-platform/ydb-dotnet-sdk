@@ -1,6 +1,7 @@
 using EntityFrameworkCore.Ydb.Extensions;
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Xunit;
@@ -16,7 +17,6 @@ public class InsertWithDefaultsTests
 
         await using var dbContext = new TestEntityDbContext();
         await testStore.CleanAsync(dbContext);
-
         await dbContext.Database.MigrateAsync();
 
         dbContext.Entities.AddRange(new TestEntity { Id = 1 }, new TestEntity { Id = 2 }, new TestEntity { Id = 3 });
@@ -82,7 +82,8 @@ public class InsertWithDefaultsTests
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder
             .UseYdb("Host=localhost;Port=2136", builder => builder
                 .DisableRetryOnFailure()
-                .MigrationsAssembly(typeof(TestEntityMigration).Assembly.FullName))
+                .MigrationsAssembly(typeof(TestEntityMigration).Assembly))
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
             .EnableServiceProviderCaching(false);
     }
 

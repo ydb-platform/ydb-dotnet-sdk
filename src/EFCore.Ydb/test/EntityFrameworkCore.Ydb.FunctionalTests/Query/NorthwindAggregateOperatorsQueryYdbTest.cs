@@ -263,7 +263,7 @@ public class NorthwindAggregateOperatorsQueryYdbTest(NorthwindQueryYdbFixture<No
     public override Task Collection_LastOrDefault_member_access_in_projection_translated(bool async) =>
         Task.CompletedTask;
 
-# if EFCORE9
+#if EFCORE9
     public override Task Average_after_default_if_empty_does_not_throw(bool async) => Task.CompletedTask;
 
     public override Task Max_after_default_if_empty_does_not_throw(bool async) => Task.CompletedTask;
