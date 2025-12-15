@@ -1,3 +1,5 @@
+## v0.3.0
+
 - Added support for `Microsoft.EntityFrameworkCore` 10.0 on .NET 10.0.
 - Added `ILike` support.
 - Added support `INSERT`, `UPDATE`, `DELETE` batching for EF Core SaveChanges operations.
