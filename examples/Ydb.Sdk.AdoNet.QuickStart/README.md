@@ -10,5 +10,6 @@ ADO.NET API.
 
 2. Run the app:
     ```bash
+    docker cp ydb-local:/ydb_certs/ca.pem ~/
     dotnet run
     ```

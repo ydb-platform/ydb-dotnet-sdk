@@ -1,22 +1,12 @@
-﻿using Linq2db.Ydb;
-using LinqToDB;
+﻿using LinqToDB;
 using LinqToDB.Async;
 using LinqToDB.Data;
 using LinqToDB.Mapping;
 using Microsoft.Extensions.Logging;
-using Polly;
 
-namespace Linq2db.QuickStart;
-
-internal static class Program
-{
-    public static async Task Main()
-    {
-        using var factory = LoggerFactory.Create(b => b.AddConsole());
-        var app = new AppContext(factory.CreateLogger<AppContext>());
-        await app.Run();
-    }
-}
+using var factory = LoggerFactory.Create(b => b.AddConsole());
+var app = new AppContext(factory.CreateLogger<AppContext>());
+await app.Run();
 
 #region LINQ2DB MODELS
 
@@ -137,7 +127,7 @@ internal class AppContext(ILogger<AppContext> logger)
         await InitTables();
         await LoadData();
         await SelectWithParameters();
-        await RetryPolicy();
+        await Select();
 
         await InteractiveTransaction();
         await TlsConnectionExample();
@@ -148,7 +138,6 @@ internal class AppContext(ILogger<AppContext> logger)
 
     private async Task InitTables()
     {
-        DataConnection.AddProviderDetector(YdbTools.ProviderDetector);
         await using var db = new MyYdb(BuildOptions());
         try
         {
@@ -347,29 +336,22 @@ internal class AppContext(ILogger<AppContext> logger)
                 r.SeriesId, r.SeasonId, r.EpisodeId, r.AirDate, r.Title);
     }
 
-    private async Task RetryPolicy()
+    private async Task Select()
     {
-        var policy = Policy
-            .Handle<Exception>()
-            .WaitAndRetryAsync(10, _ => TimeSpan.FromSeconds(1));
+        await using var db = new MyYdb(BuildOptions());
 
-        await policy.ExecuteAsync(async () =>
-        {
-            await using var db = new MyYdb(BuildOptions());
+        var statsRaw = await db.Episodes
+            .GroupBy(e => new { e.SeriesId, e.SeasonId })
+            .Select(g => new { g.Key.SeriesId, g.Key.SeasonId, Cnt = g.Count() })
+            .ToListAsync();
 
-            var statsRaw = await db.Episodes
-                .GroupBy(e => new { e.SeriesId, e.SeasonId })
-                .Select(g => new { g.Key.SeriesId, g.Key.SeasonId, Cnt = g.Count() })
-                .ToListAsync();
+        var stats = statsRaw
+            .OrderBy(x => x.SeriesId)
+            .ThenBy(x => x.SeasonId);
 
-            var stats = statsRaw
-                .OrderBy(x => x.SeriesId)
-                .ThenBy(x => x.SeasonId);
-
-            foreach (var x in stats)
-                logger.LogInformation("series_id: {series_id}, season_id: {season_id}, cnt: {cnt}",
-                    x.SeriesId, x.SeasonId, x.Cnt);
-        });
+        foreach (var x in stats)
+            logger.LogInformation("series_id: {series_id}, season_id: {season_id}, cnt: {cnt}",
+                x.SeriesId, x.SeasonId, x.Cnt);
     }
 
     private async Task InteractiveTransaction()
