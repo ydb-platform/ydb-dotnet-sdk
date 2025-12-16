@@ -24,9 +24,8 @@ return;
 
 async Task InitTables()
 {
-    await using var connection = await ydbDataSource.OpenRetryableConnectionAsync();
-
-    await new YdbCommand
+    await using var ydbConnection = await ydbDataSource.OpenRetryableConnectionAsync();
+    await new YdbCommand(ydbConnection)
     {
         CommandText = """
                       CREATE TABLE series
@@ -65,8 +64,8 @@ async Task InitTables()
 
 async Task LoadData()
 {
-    await using var connection = await ydbDataSource.OpenRetryableConnectionAsync();
-    await new YdbCommand
+    await using var ydbConnection = await ydbDataSource.OpenRetryableConnectionAsync();
+    await new YdbCommand(ydbConnection)
     {
         CommandText = """
                          UPSERT INTO series (series_id, title, release_date, series_info)
@@ -163,9 +162,8 @@ async Task LoadData()
 
 async Task ExecuteReaderAsync()
 {
-    await using var connection = await ydbDataSource.OpenConnectionAsync();
-
-    var ydbCommand = connection.CreateCommand();
+    await using var ydbConnection = await ydbDataSource.OpenConnectionAsync();
+    var ydbCommand = ydbConnection.CreateCommand();
     ydbCommand.CommandText = """
                              SELECT series_id, season_id, episode_id, air_date, title
                              FROM episodes
@@ -192,15 +190,14 @@ async Task ExecuteReaderAsync()
 async Task SelectWithRetryPolicy()
 {
     await using var ydbConnection = await ydbDataSource.OpenRetryableConnectionAsync();
-    await ydbConnection.OpenAsync();
-    var ydbDataReader = new YdbCommand(ydbConnection)
+    var ydbDataReader = await new YdbCommand(ydbConnection)
     {
         CommandText = """
                       SELECT series_id, season_id, COUNT(*) AS cnt FROM episodes
                       GROUP BY series_id, season_id
                       ORDER BY series_id, season_id;
                       """
-    }.ExecuteReader();
+    }.ExecuteReaderAsync();
 
     while (await ydbDataReader.ReadAsync())
     {
@@ -211,9 +208,7 @@ async Task SelectWithRetryPolicy()
 
 async Task CreatingUser()
 {
-    await using var ydbConnection = ydbDataSource.OpenRetryableConnectionAsync();
-    await ydbConnection.OpenAsync();
-
+    await using var ydbConnection = await ydbDataSource.OpenRetryableConnectionAsync();
     var ydbCommand = ydbConnection.CreateCommand();
     ydbCommand.CommandText = "CREATE USER user PASSWORD 'password'";
 
@@ -228,8 +223,8 @@ async Task InteractiveTransaction()
         {
             var ydbCommand = ydbConnection.CreateCommand();
             ydbCommand.CommandText = """
-                                        UPSERT INTO episodes (series_id, season_id, episode_id, title, air_date)
-                                        VALUES (2, 5, 13, "Test Episode", Date("2018-08-27"))
+                                     UPSERT INTO episodes (series_id, season_id, episode_id, title, air_date)
+                                     VALUES (2, 5, 13, "Test Episode", Date("2018-08-27"))
                                      """;
             await ydbCommand.ExecuteNonQueryAsync();
             ydbCommand.CommandText = """
@@ -242,6 +237,9 @@ async Task InteractiveTransaction()
         }
     );
     logger.LogInformation("Commit transaction");
+
+    await using var ydbConnection = await ydbDataSource.OpenConnectionAsync();
+    var ydbCommand = ydbConnection.CreateCommand();
 
     ydbCommand.CommandText = "SELECT title FROM episodes WHERE series_id = 2 AND season_id = 5 AND episode_id = 21";
     logger.LogInformation("New episode title: {}", ydbCommand.ExecuteScalar());
@@ -258,35 +256,30 @@ async Task InteractiveTransaction()
 
 async Task TlsConnectionExample()
 {
-    if (!_cmdOptions.UseTls)
-    {
-        logger.LogInformation("Tls example was ignored");
-        return;
-    }
-
-    await using var ydbConnection = new YdbConnection(
-        $"Host={_cmdOptions.Host};Port={_cmdOptions.TlsPort};RootCertificate=" +
+    await using var ydbDataSourceWithTls = new YdbDataSource(
+        "Host=localhost;Port=2135;RootCertificate=" +
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ca.pem"));
+    await using var ydbTlsConnection = await ydbDataSourceWithTls.OpenRetryableConnectionAsync();
 
-    var command = ydbConnection.CreateCommand();
-    command.CommandText = """
-                          SELECT
-                              sa.title AS season_title,    -- sa and sr are "join names",
-                              sr.title AS series_title,    -- table aliases declared below using AS.
-                              sr.series_id,                -- They are used to avoid
-                              sa.season_id                 -- ambiguity in the column names used.
-                          FROM
-                              seasons AS sa
-                          INNER JOIN
-                              series AS sr
-                          ON sa.series_id = sr.series_id
-                          WHERE sa.series_id = 1
-                          ORDER BY                         -- Sorting of the results.
-                              sr.series_id,
-                              sa.season_id                 -- ORDER BY sorts the values by one column
-                          ;
-                          """;
-    var ydbDataReader = await command.ExecuteReaderAsync();
+    var ydbCommand = ydbTlsConnection.CreateCommand();
+    ydbCommand.CommandText = """
+                             SELECT
+                                 sa.title AS season_title,    -- sa and sr are "join names",
+                                 sr.title AS series_title,    -- table aliases declared below using AS.
+                                 sr.series_id,                -- They are used to avoid
+                                 sa.season_id                 -- ambiguity in the column names used.
+                             FROM
+                                 seasons AS sa
+                             INNER JOIN
+                                 series AS sr
+                             ON sa.series_id = sr.series_id
+                             WHERE sa.series_id = 1
+                             ORDER BY                         -- Sorting of the results.
+                                 sr.series_id,
+                                 sa.season_id                 -- ORDER BY sorts the values by one column
+                             ;
+                             """;
+    var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
     while (await ydbDataReader.ReadAsync())
     {
@@ -299,9 +292,8 @@ async Task TlsConnectionExample()
 
 async Task ReadResultSetsWithUserPassword()
 {
-    await using var ydbConnection =
-        new YdbConnection($"{_cmdOptions.SimpleConnectionString};User=user;Password=password");
-    await ydbConnection.OpenAsync();
+    await using var ydbDataSourceWithUserPassword = new YdbDataSource("Host=localhost;User=user;Password=password");
+    await using var ydbConnection = await ydbDataSourceWithUserPassword.OpenConnectionAsync();
 
     var ydbCommand = ydbConnection.CreateCommand();
     ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3";
@@ -325,8 +317,8 @@ async Task ConnectionWithLoggerFactory()
         Port = 2136,
         LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information))
     };
-    await using var ydbConnection = new YdbConnection(connectionStringBuilder);
-    await ydbConnection.OpenAsync();
+    await using var ydbDataSourceWithLoggerFactory = new YdbDataSource(connectionStringBuilder);
+    await using var ydbConnection = await ydbDataSourceWithLoggerFactory.OpenRetryableConnectionAsync();
 
     var ydbCommand = ydbConnection.CreateCommand();
 
