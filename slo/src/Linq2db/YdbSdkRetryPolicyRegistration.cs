@@ -73,7 +73,7 @@ public sealed class YdbSdkRetryPolicyAdapter(
     // ---------- Helpers ----------
     private bool TryGetDelay(Exception ex, int attempt, out TimeSpan delay)
     {
-        delay = default;
+        delay = TimeSpan.Zero;
 
         if (!TryFindYdbException(ex, out var ydbEx))
             return false;
@@ -97,7 +97,7 @@ public sealed class YdbSdkRetryPolicyAdapter(
                 return true;
             }
 
-            cur = cur.InnerException!;
+            cur = cur.InnerException;
         }
 
         ydbEx = null!;
