@@ -1,6 +1,4 @@
 ﻿using Internal;
-using Linq2db.Ydb;
-using Linq2db.Ydb.Internal;
 using LinqToDB;
 using LinqToDB.Async;
 using LinqToDB.Data;
@@ -15,7 +13,6 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     static SloTableContext()
     {
         YdbSdkRetryPolicyRegistration.UseGloballyWithIdempotence();
-        DataConnection.AddProviderDetector(YdbTools.ProviderDetector);
     }
 
     public sealed class Linq2dbClient(string connectionString)
