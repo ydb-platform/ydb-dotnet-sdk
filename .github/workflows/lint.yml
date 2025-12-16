@@ -97,3 +97,4 @@ jobs:
             ObjectCreationAsStatement,
             ParameterOnlyUsedForPreconditionCheck.Local
             BitwiseOperatorOnEnumWithoutFlags
+            VariableHidesOuterVariable

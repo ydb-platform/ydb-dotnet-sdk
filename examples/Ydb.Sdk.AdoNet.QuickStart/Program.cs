@@ -8,7 +8,7 @@ await using var ydbDataSource = new YdbDataSource("Host=localhost;Port=2136;Data
 
 logger.LogInformation("Start app example");
 
-await InitTables();
+await InitTables(ydbDataSource);
 await LoadData();
 await ExecuteReaderAsync();
 await SelectWithRetryPolicy();
@@ -21,8 +21,7 @@ await ConnectionWithLoggerFactory();
 logger.LogInformation("Finish app example");
 return;
 
-
-async Task InitTables()
+async Task InitTables(YdbDataSource ydbDataSource)
 {
     await using var ydbConnection = await ydbDataSource.OpenRetryableConnectionAsync();
     await new YdbCommand(ydbConnection)

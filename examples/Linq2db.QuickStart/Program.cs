@@ -4,17 +4,9 @@ using LinqToDB.Data;
 using LinqToDB.Mapping;
 using Microsoft.Extensions.Logging;
 
-namespace Linq2db.QuickStart;
-
-internal static class Program
-{
-    public static async Task Main()
-    {
-        using var factory = LoggerFactory.Create(b => b.AddConsole());
-        var app = new AppContext(factory.CreateLogger<AppContext>());
-        await app.Run();
-    }
-}
+using var factory = LoggerFactory.Create(b => b.AddConsole());
+var app = new AppContext(factory.CreateLogger<AppContext>());
+await app.Run();
 
 #region LINQ2DB MODELS
 
