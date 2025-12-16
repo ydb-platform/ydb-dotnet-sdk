@@ -31,14 +31,11 @@ public sealed class YdbSdkRetryPolicyAdapter(
         }
     }
 
-    public void Execute(Action operation)
+    public void Execute(Action operation) => Execute<object?>(() =>
     {
-        Execute<object?>(() =>
-        {
-            operation();
-            return null;
-        });
-    }
+        operation();
+        return null;
+    });
 
     // ---------- Async ----------
     public async Task<TResult> ExecuteAsync<TResult>(
@@ -66,14 +63,12 @@ public sealed class YdbSdkRetryPolicyAdapter(
 
     public async Task ExecuteAsync(
         Func<CancellationToken, Task> operation,
-        CancellationToken cancellationToken = default)
-    {
+        CancellationToken cancellationToken = default) =>
         await ExecuteAsync<object?>(async ct =>
         {
             await operation(ct).ConfigureAwait(false);
             return null;
         }, cancellationToken).ConfigureAwait(false);
-    }
 
     // ---------- Helpers ----------
     private bool TryGetDelay(Exception ex, int attempt, out TimeSpan delay)
