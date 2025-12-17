@@ -86,7 +86,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
             };
 
             await ydbCommand.ExecuteNonQueryAsync();
-        });
+        }, new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
 
 
         return attempts;
@@ -98,7 +98,8 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         int readTimeout
     )
     {
-        await using var ydbConnection = await client.OpenRetryableConnectionAsync();
+        await using var ydbConnection = await client.OpenRetryableConnectionAsync(
+            new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
 
         var ydbCommand = new YdbCommand(ydbConnection)
         {

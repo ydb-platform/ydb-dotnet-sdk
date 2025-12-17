@@ -4,7 +4,6 @@ using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using Prometheus;
-using Ydb.Sdk;
 
 namespace Internal;
 
@@ -255,14 +254,5 @@ public abstract class SloTableContext<T> : ISloContext
         var guidBytes = new byte[16];
         Array.Copy(hash, guidBytes, 16);
         return new Guid(guidBytes);
-    }
-}
-
-public static class StatusCodeExtension
-{
-    public static string StatusName(this StatusCode statusCode)
-    {
-        var prefix = statusCode >= StatusCode.ClientTransportResourceExhausted ? "GRPC" : "YDB";
-        return $"{prefix}_{statusCode}";
     }
 }

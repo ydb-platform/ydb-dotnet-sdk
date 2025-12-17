@@ -20,7 +20,7 @@ jobs:
           - AdoNet
           - Dapper
           - EF
-          - Linq2db.Slo
+          - Linq2db
         include:
           - workload: AdoNet
             read_rps: 1000
@@ -31,7 +31,7 @@ jobs:
           - workload: EF
             read_rps: 1000
             write_rps: 100
-          - workload: Linq2db.Slo
+          - workload: Linq2db
             read_rps: 1000
             write_rps: 100
 
@@ -49,7 +49,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Initialize YDB SLO
-        uses: ydb-platform/ydb-slo-action/init@53e02500d4a98a6b67d9009bc46e839236f15f81
+        uses: ydb-platform/ydb-slo-action/init@dd7dad8a59249b5c27012d7c78f1a8e9782dc89f
         with:
           github_pull_request_number: ${{ github.event.inputs.github_pull_request_number }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
