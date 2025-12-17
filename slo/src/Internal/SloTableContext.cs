@@ -257,12 +257,3 @@ public abstract class SloTableContext<T> : ISloContext
         return new Guid(guidBytes);
     }
 }
-
-public static class StatusCodeExtension
-{
-    public static string StatusName(this StatusCode statusCode)
-    {
-        var prefix = statusCode >= StatusCode.ClientTransportResourceExhausted ? "GRPC" : "YDB";
-        return $"{prefix}_{statusCode}";
-    }
-}

@@ -2,6 +2,7 @@
 using LinqToDB;
 using LinqToDB.Async;
 using LinqToDB.Data;
+using LinqToDB.DataProvider.Ydb;
 using LinqToDB.Mapping;
 
 namespace Linq2db;
@@ -12,7 +13,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
 
     static SloTableContext()
     {
-        YdbSdkRetryPolicyRegistration.UseGloballyWithIdempotence();
+        // YdbSdkRetryPolicyRegistration.UseGloballyWithIdempotence();
     }
 
     public sealed class Linq2dbClient(string connectionString)
@@ -28,15 +29,16 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         await using var db = client.Open();
         db.CommandTimeout = operationTimeout;
 
-        await db.ExecuteAsync($@"
-            CREATE TABLE `{SloTable.Name}` (
-                Guid             Uuid,
-                Id               Int32,
-                PayloadStr       Text,
-                PayloadDouble    Double,
-                PayloadTimestamp Timestamp,
-                PRIMARY KEY (Guid, Id)
-            )");
+        await db.ExecuteAsync($"""
+                                   CREATE TABLE `{SloTable.Name}` (
+                                       Guid             Uuid,
+                                       Id               Int32,
+                                       PayloadStr       Text,
+                                       PayloadDouble    Double,
+                                       PayloadTimestamp Timestamp,
+                                       PRIMARY KEY (Guid, Id)
+                                   )
+                               """);
 
         await db.ExecuteAsync(SloTable.Options);
     }
@@ -46,12 +48,11 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         await using var db = client.Open();
         db.CommandTimeout = writeTimeout;
 
-        var sql = $@"
-UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
-VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
-
         var affected = await db.ExecuteAsync(
-            sql,
+            $"""
+             UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
+             VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);
+             """,
             new DataParameter("Guid", sloTable.Guid, DataType.Guid),
             new DataParameter("Id", sloTable.Id, DataType.Int32),
             new DataParameter("PayloadStr", sloTable.PayloadStr, DataType.NVarChar),
@@ -67,18 +68,8 @@ VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp);";
         await using var db = client.Open();
         db.CommandTimeout = readTimeout;
 
-        var t = db.GetTable<SloRow>();
-
-        var row = await t
+        var row = await db.GetTable<SloRow>()
             .Where(r => r.Guid == select.Guid && r.Id == select.Id)
-            .Select(r => new
-            {
-                r.Guid,
-                r.Id,
-                r.PayloadStr,
-                r.PayloadDouble,
-                r.PayloadTimestamp
-            })
             .FirstOrDefaultAsync();
 
         return row;
