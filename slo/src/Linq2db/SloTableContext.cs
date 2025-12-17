@@ -79,8 +79,11 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     {
         [Column] public Guid Guid { get; } = guid;
         [Column] public int Id { get; } = id;
+        // ReSharper disable once UnusedMember.Local
         [Column] public string? PayloadStr { get; } = payloadStr;
+        // ReSharper disable once UnusedMember.Local
         [Column] public double PayloadDouble { get; } = payloadDouble;
+        // ReSharper disable once UnusedMember.Local
         [Column] public DateTime PayloadTimestamp { get; } = payloadTimestamp;
     }
 }
