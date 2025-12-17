@@ -69,8 +69,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         db.CommandTimeout = readTimeout;
 
         var row = await db.GetTable<SloRow>()
-            .Where(r => r.Guid == select.Guid && r.Id == select.Id)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(sloRow => sloRow.Guid == select.Guid && sloRow.Id == select.Id);
 
         return row;
     }

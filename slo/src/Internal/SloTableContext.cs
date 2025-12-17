@@ -4,7 +4,6 @@ using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
 using Prometheus;
-using Ydb.Sdk;
 
 namespace Internal;
 
