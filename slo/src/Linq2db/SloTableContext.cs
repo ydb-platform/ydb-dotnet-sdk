@@ -2,7 +2,6 @@
 using LinqToDB;
 using LinqToDB.Async;
 using LinqToDB.Data;
-using LinqToDB.DataProvider.Ydb;
 using LinqToDB.Mapping;
 
 namespace Linq2db;
@@ -10,11 +9,6 @@ namespace Linq2db;
 public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbClient>
 {
     protected override string Job => "Linq2db";
-
-    static SloTableContext()
-    {
-        // YdbSdkRetryPolicyRegistration.UseGloballyWithIdempotence();
-    }
 
     public sealed class Linq2dbClient(string connectionString)
     {
@@ -67,11 +61,9 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
     {
         await using var db = client.Open();
         db.CommandTimeout = readTimeout;
-        var guid = select.Guid;
-        var id   = select.Id;
 
         var row = await db.GetTable<SloRow>()
-            .FirstOrDefaultAsync(sloRow => sloRow.Guid == guid && sloRow.Id == id);
+            .FirstOrDefaultAsync(sloRow => sloRow.Guid == select.Guid && sloRow.Id == select.Id);
 
         return row;
     }
