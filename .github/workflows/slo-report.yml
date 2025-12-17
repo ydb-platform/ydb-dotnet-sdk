@@ -16,7 +16,7 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Publish YDB SLO Report
-        uses: ydb-platform/ydb-slo-action/report@e0726631b9a214cd247c512ce3c75f8269c9619c
+        uses: ydb-platform/ydb-slo-action/report@dd7dad8a59249b5c27012d7c78f1a8e9782dc89f
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           github_run_id: ${{ github.event.workflow_run.id }}
