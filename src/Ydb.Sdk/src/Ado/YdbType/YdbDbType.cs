@@ -292,6 +292,7 @@ internal static class YdbDbTypeExtensions
 
     internal static YdbDbType ToYdbDbType(this Type.Types.PrimitiveTypeId primitiveTypeId) => primitiveTypeId switch
     {
+        Type.Types.PrimitiveTypeId.Unspecified => YdbDbType.Unspecified,
         Type.Types.PrimitiveTypeId.Int32 => YdbDbType.Int32,
         Type.Types.PrimitiveTypeId.Uint32 => YdbDbType.Uint32,
         Type.Types.PrimitiveTypeId.Int64 => YdbDbType.Int64,

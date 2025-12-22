@@ -37,11 +37,6 @@ public sealed class YdbColumnType
         }
         else
         {
-            if (type.TypeCase != Type.TypeOneofCase.TypeId)
-            {
-                throw new InvalidOperationException($"Unsupported `{type}` for column type");
-            }
-
             YdbDbType = type.TypeId.ToYdbDbType();
             Precision = 0;
             Scale = 0;

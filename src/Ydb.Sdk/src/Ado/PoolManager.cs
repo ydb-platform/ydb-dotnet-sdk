@@ -30,7 +30,6 @@ internal static class PoolManager
             }
 
             var driver = await GetDriver(settings, withLock: false);
-            driver.RegisterOwner();
 
             return Pools[settings.ConnectionString] = settings.EnableImplicitSession
                 ? new ImplicitSessionSource(driver, settings.LoggerFactory)

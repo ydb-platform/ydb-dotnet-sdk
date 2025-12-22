@@ -42,7 +42,6 @@ public class YdbDataSource
     private readonly YdbRetryPolicyExecutor _retryPolicyExecutor;
 
     private ISessionSource? _sessionSource;
-    private IDriver? _driver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="YdbDataSource"/> class with default settings.
@@ -845,12 +844,46 @@ public class YdbDataSource
         }
     }
 
+    /// <summary>
+    /// Describes a table structure and returns its metadata.
+    /// </summary>
+    /// <param name="tableName">The name of the table to describe. Can be a simple table name or a full path.</param>
+    /// <param name="settings">Optional settings to control what information is included in the response.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation that returns the table description.</returns>
+    /// <exception cref="YdbException">Thrown when the table does not exist or the operation fails.</exception>
+    /// <remarks>
+    /// This method performs a control plane operation to retrieve table metadata including columns, primary key, indexes, and optional statistics.
+    /// The operation uses the default retry policy configured for this data source.
+    /// 
+    /// <para>
+    /// The table name can be specified as:
+    /// - A simple name (e.g., "users") - will be resolved relative to the database path
+    /// - A full path (e.g., "/database/users") - will be used as-is
+    /// </para>
+    /// </remarks>
     public async Task<YdbTableDescription> DescribeTable(
         string tableName,
         DescribeTableSettings settings = default,
         CancellationToken cancellationToken = default
     ) => await YdbSchema.DescribeTable(await Driver(cancellationToken), tableName, settings, cancellationToken);
 
+    /// <summary>
+    /// Copies a table to a new location.
+    /// </summary>
+    /// <param name="sourceTable">The name or path of the source table to copy.</param>
+    /// <param name="destinationTable">The name or path of the destination table where the copy will be created.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <exception cref="YdbException">Thrown when the source table does not exist, destination already exists, or the operation fails.</exception>
+    /// <remarks>
+    /// This method performs a control plane operation to copy a table structure and data to a new location.
+    /// The operation uses the default retry policy configured for this data source.
+    /// 
+    /// <para>
+    /// Note: This operation copies both the table structure and its data. Indexes are copied by default.
+    /// </para>
+    /// </remarks>
     public async Task CopyTable(
         string sourceTable,
         string destinationTable,
@@ -869,6 +902,24 @@ public class YdbDataSource
             throw YdbException.FromServer(copyTableResponse.Operation);
     }
 
+    /// <summary>
+    /// Copies multiple tables to new locations in a single operation.
+    /// </summary>
+    /// <param name="copyTableSettingsList">A list of copy table settings specifying source and destination tables for each copy operation.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <exception cref="YdbException">Thrown when any source table does not exist, any destination already exists, or the operation fails.</exception>
+    /// <remarks>
+    /// This method performs a control plane operation to copy multiple tables in a single transaction.
+    /// All copies succeed or fail together. The operation uses the default retry policy configured for this data source.
+    /// 
+    /// <para>
+    /// Each <see cref="CopyTableSettings"/> specifies:
+    /// - SourceTable: The name or path of the source table
+    /// - DestinationTable: The name or path of the destination table
+    /// - OmitIndexes: Whether to skip copying indexes (default: false)
+    /// </para>
+    /// </remarks>
     public async Task CopyTables(
         IReadOnlyList<CopyTableSettings> copyTableSettingsList,
         CancellationToken cancellationToken = default
@@ -891,6 +942,24 @@ public class YdbDataSource
             throw YdbException.FromServer(copyTablesResponse.Operation);
     }
 
+    /// <summary>
+    /// Renames multiple tables in a single operation.
+    /// </summary>
+    /// <param name="renameTableSettingsList">A list of rename table settings specifying source and destination names for each rename operation.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <exception cref="YdbException">Thrown when any source table does not exist, any destination already exists (unless ReplaceDestination is true), or the operation fails.</exception>
+    /// <remarks>
+    /// This method performs a control plane operation to rename multiple tables in a single transaction.
+    /// All renames succeed or fail together. The operation uses the default retry policy configured for this data source.
+    /// 
+    /// <para>
+    /// Each <see cref="RenameTableSettings"/> specifies:
+    /// - SourceTable: The current name or path of the table
+    /// - DestinationTable: The new name or path for the table
+    /// - ReplaceDestination: Whether to replace the destination if it already exists (default: false)
+    /// </para>
+    /// </remarks>
     public async Task RenameTables(
         IReadOnlyList<RenameTableSettings> renameTableSettingsList,
         CancellationToken cancellationToken = default
@@ -913,6 +982,21 @@ public class YdbDataSource
             throw YdbException.FromServer(renameTablesResponse.Operation);
     }
 
+    /// <summary>
+    /// Drops (deletes) a table.
+    /// </summary>
+    /// <param name="tableName">The name or path of the table to drop.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <exception cref="YdbException">Thrown when the table does not exist or the operation fails.</exception>
+    /// <remarks>
+    /// This method performs a control plane operation to permanently delete a table and all its data.
+    /// The operation uses the default retry policy configured for this data source.
+    /// 
+    /// <para>
+    /// Warning: This operation cannot be undone. All data in the table will be permanently lost.
+    /// </para>
+    /// </remarks>
     public async Task DropTable(string tableName, CancellationToken cancellationToken = default)
     {
         var driver = await Driver(cancellationToken);
@@ -927,6 +1011,36 @@ public class YdbDataSource
             throw YdbException.FromServer(dropTableResponse.Operation);
     }
 
+    /// <summary>
+    /// Creates a new table with the specified structure.
+    /// </summary>
+    /// <param name="tableDescription">The table description containing columns, primary key, indexes, and other table properties.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <exception cref="YdbException">Thrown when the table already exists or the operation fails.</exception>
+    /// <exception cref="NotSupportedException">Thrown when attempting to create an External table type (not supported via Control Plane RPC).</exception>
+    /// <remarks>
+    /// This method performs a control plane operation to create a new table with the specified schema.
+    /// The operation uses the default retry policy configured for this data source.
+    /// 
+    /// <para>
+    /// The <see cref="YdbTableDescription"/> must include:
+    /// - Name: The table name or path
+    /// - Columns: At least one column definition
+    /// - PrimaryKey: At least one primary key column name
+    /// 
+    /// Optional properties:
+    /// - Type: Table storage type (Raw or Column, default: Raw)
+    /// - Indexes: List of indexes to create
+    /// </para>
+    /// 
+    /// <para>
+    /// Supported table types:
+    /// - Raw: Row-oriented storage (default)
+    /// - Column: Column-oriented storage
+    /// - External: Not supported via Control Plane RPC (use ExecuteSchemeQuery instead)
+    /// </para>
+    /// </remarks>
     public async Task CreateTable(
         YdbTableDescription tableDescription,
         CancellationToken cancellationToken = default

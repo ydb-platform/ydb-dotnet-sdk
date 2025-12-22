@@ -16,3 +16,32 @@ public class ExecuteSchemeQueryResponse : ResponseBase
     {
     }
 }
+
+public partial class Session
+{
+    public async Task<ExecuteSchemeQueryResponse> ExecuteSchemeQuery(
+        string query,
+        ExecuteSchemeQuerySettings? settings = null)
+    {
+        CheckSession();
+        settings ??= new ExecuteSchemeQuerySettings();
+
+        var request = new ExecuteSchemeQueryRequest
+        {
+            OperationParams = settings.MakeOperationParams(),
+            SessionId = Id,
+            YqlText = query
+        };
+
+        var response = await UnaryCall(
+            method: TableService.ExecuteSchemeQueryMethod,
+            request: request,
+            settings: settings
+        );
+
+        var status = response.Operation.Unpack();
+        OnResponseStatus(status);
+
+        return new ExecuteSchemeQueryResponse(status);
+    }
+}
