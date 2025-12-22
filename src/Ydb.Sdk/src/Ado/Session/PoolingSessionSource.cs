@@ -57,6 +57,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             : RentAsync(cancellationToken);
     }
 
+    public IDriver Driver => _sessionFactory.Driver;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetIdleSession([NotNullWhen(true)] out T? session)
     {
@@ -314,6 +316,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 internal interface IPoolingSessionFactory<T> : IAsyncDisposable where T : PoolingSessionBase<T>
 {
     T NewSession(PoolingSessionSource<T> source);
+    
+    IDriver Driver { get; }
 }
 
 internal enum PoolingSessionState

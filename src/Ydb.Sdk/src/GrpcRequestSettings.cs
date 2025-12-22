@@ -7,11 +7,10 @@ public class GrpcRequestSettings
 {
     public string TraceId { get; set; } = string.Empty;
     public TimeSpan TransportTimeout { get; set; } = TimeSpan.Zero;
-    public CancellationToken CancellationToken = default;
+    public CancellationToken CancellationToken = CancellationToken.None;
 
     internal List<string> ClientCapabilities { get; } = new();
     internal long NodeId { get; set; }
-    internal Action<Grpc.Core.Metadata> TrailersHandler { get; set; } = _ => { };
 }
 
 public class OperationSettings : GrpcRequestSettings

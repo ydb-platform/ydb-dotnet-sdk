@@ -29,10 +29,7 @@ internal static class PoolManager
                 return pool;
             }
 
-            var driver = Drivers.TryGetValue(settings.GrpcConnectionString, out var cacheDriver) &&
-                         !cacheDriver.IsDisposed
-                ? cacheDriver
-                : Drivers[settings.GrpcConnectionString] = await settings.BuildDriver();
+            var driver = await GetDriver(settings, withLock: false);
             driver.RegisterOwner();
 
             return Pools[settings.ConnectionString] = settings.EnableImplicitSession
@@ -42,6 +39,28 @@ internal static class PoolManager
         finally
         {
             SemaphoreSlim.Release();
+        }
+    }
+
+    private static async ValueTask<IDriver> GetDriver(YdbConnectionStringBuilder settings, bool withLock = true)
+    {
+        try
+        {
+            if (withLock)
+                await SemaphoreSlim.WaitAsync();
+            
+            var driver = Drivers.TryGetValue(settings.GrpcConnectionString, out var cacheDriver) &&
+                !cacheDriver.IsDisposed
+                ? cacheDriver
+                : Drivers[settings.GrpcConnectionString] = await settings.BuildDriver();
+            driver.RegisterOwner();
+            
+            return driver;
+        }
+        finally
+        {
+            if (withLock)
+                SemaphoreSlim.Release();
         }
     }
 

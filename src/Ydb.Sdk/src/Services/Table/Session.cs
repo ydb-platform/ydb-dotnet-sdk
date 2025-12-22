@@ -72,7 +72,6 @@ public partial class Session : SessionBase
         where TResponse : class
     {
         settings.NodeId = NodeId;
-        settings.TrailersHandler = OnResponseTrailers;
 
         return await Driver.UnaryCall(
             method: method,

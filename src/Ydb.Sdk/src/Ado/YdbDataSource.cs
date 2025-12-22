@@ -1,5 +1,10 @@
 using System.Collections.Concurrent;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
+using Ydb.Sdk.Ado.Schema;
+using Ydb.Sdk.Ado.Session;
+using Ydb.Table;
+using Ydb.Table.V1;
 #if NET7_0_OR_GREATER
 using System.Data.Common;
 #endif
@@ -35,6 +40,9 @@ public class YdbDataSource
 
     private readonly YdbConnectionStringBuilder _ydbConnectionStringBuilder;
     private readonly YdbRetryPolicyExecutor _retryPolicyExecutor;
+
+    private ISessionSource? _sessionSource;
+    private IDriver? _driver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="YdbDataSource"/> class with default settings.
@@ -836,4 +844,126 @@ public class YdbDataSource
             throw;
         }
     }
+
+    public async Task<YdbTableDescription> DescribeTable(
+        string tableName,
+        DescribeTableSettings settings = default,
+        CancellationToken cancellationToken = default
+    ) => await YdbSchema.DescribeTable(await Driver(cancellationToken), tableName, settings, cancellationToken);
+
+    public async Task CopyTable(
+        string sourceTable,
+        string destinationTable,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var driver = await Driver(cancellationToken);
+
+        var copyTableResponse = await driver.UnaryCall(TableService.CopyTableMethod, new CopyTableRequest
+        {
+            SourcePath = FullPath(sourceTable),
+            DestinationPath = FullPath(destinationTable)
+        }, new GrpcRequestSettings { CancellationToken = cancellationToken });
+
+        if (copyTableResponse.Operation.Status.IsNotSuccess())
+            throw YdbException.FromServer(copyTableResponse.Operation);
+    }
+
+    public async Task CopyTables(
+        IReadOnlyList<CopyTableSettings> copyTableSettingsList,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var driver = await Driver(cancellationToken);
+        var copyTablesRequest = new CopyTablesRequest();
+        foreach (var copyTable in copyTableSettingsList)
+            copyTablesRequest.Tables.Add(new CopyTableItem
+            {
+                SourcePath = FullPath(copyTable.SourceTable),
+                DestinationPath = FullPath(copyTable.DestinationTable),
+                OmitIndexes = copyTable.OmitIndexes
+            });
+
+        var copyTablesResponse = await driver.UnaryCall(TableService.CopyTablesMethod, copyTablesRequest,
+            new GrpcRequestSettings { CancellationToken = cancellationToken });
+
+        if (copyTablesResponse.Operation.Status.IsNotSuccess())
+            throw YdbException.FromServer(copyTablesResponse.Operation);
+    }
+
+    public async Task RenameTables(
+        IReadOnlyList<RenameTableSettings> renameTableSettingsList,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var driver = await Driver(cancellationToken);
+        var renameTablesRequest = new RenameTablesRequest();
+        foreach (var renameTable in renameTableSettingsList)
+            renameTablesRequest.Tables.Add(new RenameTableItem
+            {
+                SourcePath = FullPath(renameTable.SourceTable),
+                DestinationPath = FullPath(renameTable.DestinationTable),
+                ReplaceDestination = renameTable.ReplaceDestination
+            });
+
+        var renameTablesResponse = await driver.UnaryCall(TableService.RenameTablesMethod, renameTablesRequest,
+            new GrpcRequestSettings { CancellationToken = cancellationToken });
+
+        if (renameTablesResponse.Operation.Status.IsNotSuccess())
+            throw YdbException.FromServer(renameTablesResponse.Operation);
+    }
+
+    public async Task DropTable(string tableName, CancellationToken cancellationToken = default)
+    {
+        var driver = await Driver(cancellationToken);
+
+        var dropTableResponse = await driver.UnaryCall(
+            TableService.DropTableMethod,
+            new DropTableRequest { Path = FullPath(tableName) },
+            new GrpcRequestSettings { CancellationToken = cancellationToken }
+        );
+
+        if (dropTableResponse.Operation.Status.IsNotSuccess())
+            throw YdbException.FromServer(dropTableResponse.Operation);
+    }
+
+    public async Task CreateTable(
+        YdbTableDescription tableDescription,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var driver = await Driver(cancellationToken);
+        var createTableRequest = new CreateTableRequest
+        {
+            Path = FullPath(tableDescription.Name),
+            StoreType = tableDescription.Type switch
+            {
+                YdbTableType.Raw => StoreType.Row,
+                YdbTableType.Column => StoreType.Column,
+                YdbTableType.External => throw new NotSupportedException(
+                    "`External` isn't supported on the Control Plane RPC."),
+                _ => throw new ArgumentOutOfRangeException(nameof(tableDescription.Type), "Unknown table type")
+            }
+        };
+
+        foreach (var column in tableDescription.Columns)
+            createTableRequest.Columns.Add(column.ToProto());
+
+        foreach (var index in tableDescription.Indexes)
+            createTableRequest.Indexes.Add(index.ToProto());
+
+        foreach (var pkColumn in tableDescription.PrimaryKey)
+            createTableRequest.PrimaryKey.Add(pkColumn);
+
+        var createTableResponse = await driver.UnaryCall(TableService.CreateTableMethod, createTableRequest,
+            new GrpcRequestSettings { CancellationToken = cancellationToken });
+        
+        if (createTableResponse.Operation.Status.IsNotSuccess())
+            throw YdbException.FromServer(createTableResponse.Operation);
+    }
+
+    private string FullPath(string tableName) => tableName.FullPath(_ydbConnectionStringBuilder.Database);
+
+    private async ValueTask<IDriver> Driver(CancellationToken cancellationToken) =>
+        (_sessionSource ??= await PoolManager.Get(_ydbConnectionStringBuilder, cancellationToken)).Driver;
 }

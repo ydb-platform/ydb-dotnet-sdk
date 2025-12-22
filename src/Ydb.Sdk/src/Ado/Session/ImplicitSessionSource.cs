@@ -6,16 +6,17 @@ internal sealed class ImplicitSessionSource : ISessionSource
 {
     private const int DisposeTimeoutSeconds = 10;
 
-    private readonly IDriver _driver;
     private readonly ILogger _logger;
     private readonly TaskCompletionSource _drainedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private int _isDisposed;
     private int _activeLeaseCount;
 
+    public IDriver Driver { get; }
+    
     internal ImplicitSessionSource(IDriver driver, ILoggerFactory loggerFactory)
     {
-        _driver = driver;
+        Driver = driver;
         _logger = loggerFactory.CreateLogger<ImplicitSessionSource>();
     }
 
@@ -24,7 +25,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
         cancellationToken.ThrowIfCancellationRequested();
 
         return TryAcquireLease()
-            ? new ValueTask<ISession>(new ImplicitSession(_driver, this))
+            ? new ValueTask<ISession>(new ImplicitSession(Driver, this))
             : throw new ObjectDisposedException(nameof(ImplicitSessionSource),
                 "The implicit session source has been closed.");
     }
@@ -71,7 +72,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
         {
             try
             {
-                await _driver.DisposeAsync();
+                await Driver.DisposeAsync();
             }
             catch (Exception e)
             {
