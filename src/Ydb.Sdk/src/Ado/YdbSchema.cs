@@ -53,7 +53,7 @@ internal static class YdbSchema
         IDriver driver,
         string tableName,
         DescribeTableSettings settings,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken = default
     )
     {
         var describeResponse = await driver.UnaryCall(

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Threading;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Ydb.Sdk.Ado;
@@ -49,7 +50,8 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
             };
 
             foreach (var ydbTable in tableNames.Select(tableName =>
-                         YdbSchema.DescribeTable(ydbConnection, tableName).GetAwaiter().GetResult()))
+                         YdbSchema.DescribeTable(ydbConnection.Session.Driver, tableName, new DescribeTableSettings())
+                             .GetAwaiter().GetResult()))
             {
                 var databaseTable = new DatabaseTable
                 {
@@ -65,7 +67,7 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                     {
                         Name = column.Name,
                         Table = databaseTable,
-                        StoreType = column.StorageType,
+                        StoreType = column.StorageType.ToString(),
                         IsNullable = column.IsNullable
                     };
 
@@ -79,10 +81,10 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                     {
                         Name = index.Name,
                         Table = databaseTable,
-                        IsUnique = index.Type == YdbTableIndex.IndexType.GlobalUniqueIndex
+                        IsUnique = index.Type == YdbIndexType.GlobalUnique
                     };
 
-                    foreach (var columnName in index.IndexColumns)
+                    foreach (var columnName in index.Columns)
                     {
                         databaseIndex.Columns.Add(columnNameToDatabaseColumn[columnName]);
                         databaseIndex.IsDescending.Add(false);
