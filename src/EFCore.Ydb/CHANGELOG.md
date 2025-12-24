@@ -1,3 +1,5 @@
+## v0.4.0
+
 - Upgraded ADO.NET provider version: `0.26.0` → `0.27.0`.
 
 ## v0.3.0
