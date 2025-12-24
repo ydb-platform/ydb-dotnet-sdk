@@ -253,6 +253,7 @@ public abstract class BaseDriver : IDriver
     {
         var endpoint = GetEndpoint(settings.NodeId);
         var channel = ChannelPool.GetChannel(endpoint);
+
         var callInvoker = channel.CreateCallInvoker();
 
         var call = callInvoker.AsyncDuplexStreamingCall(
