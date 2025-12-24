@@ -70,7 +70,7 @@ public sealed class YdbColumnDescription
         {
             Name = Name,
             Type = StorageType.ToProto(),
-            NotNull = !IsNullable,
+            NotNull = !IsNullable
         };
 
         if (IsNullable)
