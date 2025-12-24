@@ -22,6 +22,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Ydb.Sdk\src\Ydb.Sdk.csproj"/>
+        <PackageReference Include="Ydb.Sdk" Version="0.27.0"/>
     </ItemGroup>
 </Project>
