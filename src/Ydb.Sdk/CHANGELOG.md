@@ -1,3 +1,5 @@
+## v0.27.0
+
 - Feat ADO.NET: Support control plane methods in YdbDataSource:
   - `DescribeTable`: Returns information about the specified table (metadata).
   - `CreateTable`: Creates new table.
