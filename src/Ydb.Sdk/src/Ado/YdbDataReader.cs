@@ -3,6 +3,7 @@ using Google.Protobuf.Collections;
 using Ydb.Issue;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.Schema;
 
 namespace Ydb.Sdk.Ado;
 

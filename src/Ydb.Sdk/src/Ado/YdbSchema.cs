@@ -5,7 +5,6 @@ using Ydb.Scheme;
 using Ydb.Scheme.V1;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Schema;
-using Ydb.Sdk.Services.Table;
 using Ydb.Table;
 using Ydb.Table.V1;
 
@@ -13,8 +12,6 @@ namespace Ydb.Sdk.Ado;
 
 internal static class YdbSchema
 {
-    private const int TransportTimeoutSeconds = 10;
-
     internal static Task<DataTable> GetSchemaAsync(
         YdbConnection ydbConnection,
         string? collectionName,
@@ -42,8 +39,7 @@ internal static class YdbSchema
         };
     }
 
-    // public for EntityFrameworkCore.Ydb
-    public static Task<IReadOnlyCollection<YdbObject>> SchemaObjects(
+    internal static Task<IReadOnlyCollection<YdbObject>> SchemaObjects(
         YdbConnection ydbConnection,
         CancellationToken cancellationToken = default
     )
@@ -53,44 +49,29 @@ internal static class YdbSchema
         return SchemaObjects(ydbConnection, WithSuffix(database), database, cancellationToken);
     }
 
-    // public for EntityFrameworkCore.Ydb
-    public static async Task<YdbTable> DescribeTable(
-        YdbConnection ydbConnection,
+    internal static async Task<YdbTableDescription> DescribeTable(
+        IDriver driver,
         string tableName,
-        DescribeTableSettings? describeTableSettings = null
+        DescribeTableSettings settings = default,
+        CancellationToken cancellationToken = default
     )
     {
-        try
-        {
-            describeTableSettings ??= new DescribeTableSettings();
-
-            var describeResponse = await ydbConnection.Session.Driver.UnaryCall(
-                TableService.DescribeTableMethod,
-                new DescribeTableRequest
-                {
-                    Path = WithSuffix(ydbConnection.Database) + tableName,
-                    IncludeTableStats = describeTableSettings.IncludeTableStats,
-                    IncludePartitionStats = describeTableSettings.IncludePartitionStats,
-                    IncludeShardKeyBounds = describeTableSettings.IncludeShardKeyBounds
-                },
-                describeTableSettings
-            );
-
-            if (describeResponse.Operation.Status.IsNotSuccess())
+        var describeResponse = await driver.UnaryCall(
+            TableService.DescribeTableMethod,
+            new DescribeTableRequest
             {
-                throw YdbException.FromServer(describeResponse.Operation.Status, describeResponse.Operation.Issues);
-            }
+                Path = tableName.FullPath(driver.Database),
+                IncludeTableStats = settings.IncludeTableStats
+            },
+            new GrpcRequestSettings { CancellationToken = cancellationToken }
+        );
 
-            var describeResult = describeResponse.Operation.Result.Unpack<DescribeTableResult>();
+        if (describeResponse.Operation.Status.IsNotSuccess())
+            throw YdbException.FromServer(describeResponse.Operation.Status, describeResponse.Operation.Issues);
 
-            return new YdbTable(tableName, describeResult);
-        }
-        catch (YdbException e)
-        {
-            ydbConnection.OnNotSuccessStatusCode(e.Code);
+        var describeResult = describeResponse.Operation.Result.Unpack<DescribeTableResult>();
 
-            throw;
-        }
+        return new YdbTableDescription(tableName, describeResult);
     }
 
     private static async Task<DataTable> GetTables(
@@ -122,10 +103,11 @@ internal static class YdbSchema
         {
             await AppendDescribeTable(
                 ydbConnection: ydbConnection,
-                describeTableSettings: new DescribeTableSettings { CancellationToken = cancellationToken },
                 tableName: tableName,
                 tableType: tableType,
-                (_, type) => { table.Rows.Add(tableName, type); });
+                (_, type) => { table.Rows.Add(tableName, type); },
+                cancellationToken: cancellationToken
+            );
         }
 
         return table;
@@ -158,42 +140,44 @@ internal static class YdbSchema
             {
                 await AppendDescribeTable(
                     ydbConnection: ydbConnection,
-                    describeTableSettings: new DescribeTableSettings { CancellationToken = cancellationToken }
-                        .WithTableStats(),
                     tableName: tupleTable.TableName,
                     tableType: tableType,
                     (ydbTable, type) =>
                     {
                         var row = table.Rows.Add();
-                        var tableStats = ydbTable.YdbTableStats!;
+                        var tableStats = ydbTable.TableStats!;
 
                         row["table_name"] = tupleTable.TableName;
                         row["table_type"] = type;
                         row["rows_estimate"] = tableStats.RowsEstimate;
                         row["creation_time"] = tableStats.CreationTime;
                         row["modification_time"] = (object?)tableStats.ModificationTime ?? DBNull.Value;
-                    });
+                    },
+                    new DescribeTableSettings { IncludeTableStats = true },
+                    cancellationToken
+                );
             }
         }
         else
         {
             await AppendDescribeTable(
                 ydbConnection: ydbConnection,
-                describeTableSettings: new DescribeTableSettings { CancellationToken = cancellationToken }
-                    .WithTableStats(),
                 tableName: tableName,
                 tableType: tableType,
                 (ydbTable, type) =>
                 {
                     var row = table.Rows.Add();
-                    var tableStats = ydbTable.YdbTableStats!;
+                    var tableStats = ydbTable.TableStats!;
 
                     row["table_name"] = tableName;
                     row["table_type"] = type;
                     row["rows_estimate"] = tableStats.RowsEstimate;
                     row["creation_time"] = tableStats.CreationTime;
                     row["modification_time"] = (object?)tableStats.ModificationTime ?? DBNull.Value;
-                });
+                },
+                new DescribeTableSettings { IncludeTableStats = true },
+                cancellationToken: cancellationToken
+            );
         }
 
         return table;
@@ -225,7 +209,6 @@ internal static class YdbSchema
         {
             await AppendDescribeTable(
                 ydbConnection,
-                new DescribeTableSettings { CancellationToken = cancellationToken },
                 tableName,
                 null,
                 (result, _) =>
@@ -245,11 +228,10 @@ internal static class YdbSchema
                         row["column_name"] = column.Name;
                         row["ordinal_position"] = ordinal;
                         row["is_nullable"] = column.IsNullable ? "YES" : "NO";
-                        row["data_type"] = column.StorageType;
+                        row["data_type"] = column.StorageType.ToString();
                         row["family_name"] = column.Family;
                     }
-                }
-            );
+                }, cancellationToken: cancellationToken);
         }
 
         return table;
@@ -257,20 +239,20 @@ internal static class YdbSchema
 
     private static async Task AppendDescribeTable(
         YdbConnection ydbConnection,
-        DescribeTableSettings describeTableSettings,
         string tableName,
         string? tableType,
-        Action<YdbTable, string> appendInTable)
+        Action<YdbTableDescription, string> appendInTable,
+        DescribeTableSettings settings = default,
+        CancellationToken cancellationToken = default)
     {
-        var ydbTable = await DescribeTable(ydbConnection, tableName, describeTableSettings);
-
+        var ydbTable = await DescribeTable(ydbConnection.Session.Driver, tableName, settings, cancellationToken);
         var type = ydbTable.IsSystem
             ? "SYSTEM_TABLE"
             : ydbTable.Type switch
             {
-                YdbTable.TableType.Table => "TABLE",
-                YdbTable.TableType.ColumnTable => "COLUMN_TABLE",
-                YdbTable.TableType.ExternalTable => "EXTERNAL_TABLE",
+                YdbTableType.Raw => "TABLE",
+                YdbTableType.Column => "COLUMN_TABLE",
+                YdbTableType.External => "EXTERNAL_TABLE",
                 _ => throw new ArgumentOutOfRangeException(nameof(tableType))
             };
         if (type.IsPattern(tableType))
@@ -341,7 +323,6 @@ internal static class YdbSchema
         row["IdentifierCase"] = IdentifierCase.Insensitive;
         row["OrderByColumnsInSelect"] = false;
         row["QuotedIdentifierPattern"] = @"(([^\`]|\`\`)*)";
-        ;
         row["QuotedIdentifierCase"] = IdentifierCase.Sensitive;
         row["StatementSeparatorPattern"] = ";";
         row["StringLiteralPattern"] = "'(([^']|'')*)'|'(([^\"]|\"\")*)'";
@@ -415,11 +396,7 @@ internal static class YdbSchema
             var response = await ydbConnection.Session.Driver.UnaryCall(
                 SchemeService.ListDirectoryMethod,
                 new ListDirectoryRequest { Path = fullPath },
-                new GrpcRequestSettings
-                {
-                    TransportTimeout = TimeSpan.FromSeconds(TransportTimeoutSeconds),
-                    CancellationToken = cancellationToken
-                }
+                new GrpcRequestSettings { CancellationToken = cancellationToken }
             );
 
             var operation = response.Operation;
@@ -481,8 +458,4 @@ internal static class YdbSchema
 
     private static bool IsPattern(this string tableType, string? expectedTableType) =>
         expectedTableType == null || expectedTableType.Equals(tableType, StringComparison.OrdinalIgnoreCase);
-
-    internal static string YqlTableType(this Type type) => type.TypeCase == Type.TypeOneofCase.OptionalType
-        ? type.OptionalType.Item.TypeId.ToString()
-        : type.TypeId.ToString();
 }

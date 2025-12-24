@@ -290,6 +290,37 @@ internal static class YdbDbTypeExtensions
         _ => null
     };
 
+    internal static YdbDbType ToYdbDbType(this Type.Types.PrimitiveTypeId primitiveTypeId) => primitiveTypeId switch
+    {
+        Type.Types.PrimitiveTypeId.Unspecified => YdbDbType.Unspecified,
+        Type.Types.PrimitiveTypeId.Int32 => YdbDbType.Int32,
+        Type.Types.PrimitiveTypeId.Uint32 => YdbDbType.Uint32,
+        Type.Types.PrimitiveTypeId.Int64 => YdbDbType.Int64,
+        Type.Types.PrimitiveTypeId.Uint64 => YdbDbType.Uint64,
+        Type.Types.PrimitiveTypeId.Uint8 => YdbDbType.Uint8,
+        Type.Types.PrimitiveTypeId.Bool => YdbDbType.Bool,
+        Type.Types.PrimitiveTypeId.Int8 => YdbDbType.Int8,
+        Type.Types.PrimitiveTypeId.Int16 => YdbDbType.Int16,
+        Type.Types.PrimitiveTypeId.Uint16 => YdbDbType.Uint16,
+        Type.Types.PrimitiveTypeId.Double => YdbDbType.Double,
+        Type.Types.PrimitiveTypeId.Float => YdbDbType.Float,
+        Type.Types.PrimitiveTypeId.Date => YdbDbType.Date,
+        Type.Types.PrimitiveTypeId.Datetime => YdbDbType.Datetime,
+        Type.Types.PrimitiveTypeId.Timestamp => YdbDbType.Timestamp,
+        Type.Types.PrimitiveTypeId.Interval => YdbDbType.Interval,
+        Type.Types.PrimitiveTypeId.Date32 => YdbDbType.Date32,
+        Type.Types.PrimitiveTypeId.Datetime64 => YdbDbType.Datetime64,
+        Type.Types.PrimitiveTypeId.Timestamp64 => YdbDbType.Timestamp64,
+        Type.Types.PrimitiveTypeId.Interval64 => YdbDbType.Interval64,
+        Type.Types.PrimitiveTypeId.String => YdbDbType.Bytes,
+        Type.Types.PrimitiveTypeId.Utf8 => YdbDbType.Text,
+        Type.Types.PrimitiveTypeId.Yson => YdbDbType.Yson,
+        Type.Types.PrimitiveTypeId.Json => YdbDbType.Json,
+        Type.Types.PrimitiveTypeId.Uuid => YdbDbType.Uuid,
+        Type.Types.PrimitiveTypeId.JsonDocument => YdbDbType.JsonDocument,
+        _ => throw new InvalidOperationException($"Unknown primitive type: {primitiveTypeId}")
+    };
+
     internal static string ToYdbTypeName(this YdbDbType ydbDbType) => ydbDbType.HasFlag(YdbDbType.List)
         ? $"List<{~YdbDbType.List & ydbDbType}>"
         : ydbDbType.ToString();

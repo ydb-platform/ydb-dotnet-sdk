@@ -19,4 +19,10 @@ internal static class SchemaUtils
     internal static bool IsSystem(this string path) => path.StartsWith(".sys/")
                                                        || path.StartsWith(".sys_health/")
                                                        || path.StartsWith(".sys_health_dev/");
+
+    internal static string FullPath(this string tableName, string database) => tableName.StartsWith(database)
+        ? tableName
+        : database.EndsWith('/')
+            ? database + tableName
+            : database + '/' + tableName;
 }

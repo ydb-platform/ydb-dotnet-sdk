@@ -130,6 +130,8 @@ internal class MockSessionFactory : IPoolingSessionFactory<MockPoolingSession>
 {
     public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) => new(source);
 
+    public IDriver Driver => null!;
+
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 

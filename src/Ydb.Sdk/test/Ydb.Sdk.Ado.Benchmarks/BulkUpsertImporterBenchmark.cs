@@ -67,4 +67,5 @@ internal class BulkUpsertMockDriver : IDriver
     public void RegisterOwner() => throw new NotImplementedException();
 
     public bool IsDisposed => false;
+    public string Database => throw new NotImplementedException();
 }

@@ -6,6 +6,7 @@ using Ydb.Discovery;
 using Ydb.Discovery.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk;
@@ -19,24 +20,22 @@ namespace Ydb.Sdk;
 /// </remarks>
 public sealed class Driver : BaseDriver
 {
-    private const int AttemptDiscovery = 10;
+    private static readonly YdbRetryPolicyExecutor DiscoveryRetryPolicy = new(
+        new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true })
+    );
 
     private readonly EndpointPool _endpointPool;
 
-    /// <summary>
-    /// Gets the database path for this driver instance.
-    /// </summary>
-    internal string Database => Config.Database;
+    private volatile Timer? _discoveryTimer;
 
     /// <summary>
     /// Initializes a new instance of the Driver class.
     /// </summary>
     /// <param name="config">Driver configuration settings.</param>
     /// <param name="loggerFactory">Optional logger factory for logging. If null, NullLoggerFactory will be used.</param>
-    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null)
-        : base(config, loggerFactory ?? NullLoggerFactory.Instance,
-            (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>()
-        )
+    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null) :
+        base(config, loggerFactory ?? NullLoggerFactory.Instance,
+            (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>())
     {
         _endpointPool = new EndpointPool(LoggerFactory);
     }
@@ -67,30 +66,32 @@ public sealed class Driver : BaseDriver
     {
         Logger.LogInformation("Started initial endpoint discovery");
 
-        for (var i = 0; i < AttemptDiscovery; i++)
+        await DiscoveryRetryPolicy.ExecuteAsync(async _ =>
         {
-            try
-            {
-                await DiscoverEndpoints();
+            await DiscoverEndpoints();
+            _discoveryTimer = new Timer(
+                OnDiscoveryTimer,
+                null,
+                Config.EndpointDiscoveryInterval,
+                Config.EndpointDiscoveryInterval
+            );
+        });
+    }
 
-                _ = Task.Run(PeriodicDiscovery);
-
-                return;
-            }
-            catch (YdbException e)
-            {
-                Logger.LogError(e, "Error during initial endpoint discovery: {e.Status}", e.Code);
-
-                if (i == AttemptDiscovery - 1)
-                {
-                    throw;
-                }
-            }
-
-            await Task.Delay(TimeSpan.FromMilliseconds(i * 200)); // await 0 ms, 200 ms, 400ms, ... 1.8 sec
+    private async void OnDiscoveryTimer(object? state)
+    {
+        try
+        {
+            await DiscoverEndpoints();
         }
-
-        throw new YdbException("Error initial endpoint discovery");
+        catch (YdbException e)
+        {
+            Logger.LogWarning(e, "Error during endpoint discovery");
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Unexpected exception during grpc channel pool periodic check");
+        }
     }
 
     protected override string GetEndpoint(long nodeId) => _endpointPool.GetEndpoint(nodeId);
@@ -115,7 +116,21 @@ public sealed class Driver : BaseDriver
 
         Logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
 
-        _ = Task.Run(DiscoverEndpoints);
+        // Reset timer to trigger discovery sooner, ensuring single-threaded execution through timer callback
+        _discoveryTimer?.Change(TimeSpan.Zero, Config.EndpointDiscoveryInterval);
+    }
+
+    /// <summary>
+    /// Disposes the driver and stops periodic endpoint discovery.
+    /// </summary>
+    public new async ValueTask DisposeAsync()
+    {
+        if (_discoveryTimer != null)
+        {
+            await _discoveryTimer.DisposeAsync();
+        }
+
+        await base.DisposeAsync();
     }
 
     private async Task DiscoverEndpoints()
@@ -162,26 +177,5 @@ public sealed class Driver : BaseDriver
                 .ToImmutableArray()
             )
         );
-    }
-
-    private async Task PeriodicDiscovery()
-    {
-        while (Disposed == 0)
-        {
-            try
-            {
-                await Task.Delay(Config.EndpointDiscoveryInterval);
-
-                await DiscoverEndpoints();
-            }
-            catch (YdbException e)
-            {
-                Logger.LogWarning(e, "Error during endpoint discovery");
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(e, "Unexpected exception during session pool periodic check");
-            }
-        }
     }
 }

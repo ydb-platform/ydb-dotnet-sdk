@@ -81,6 +81,11 @@ public interface IDriver : IAsyncDisposable, IDisposable
     /// Gets a value indicating whether this driver has been disposed.
     /// </summary>
     bool IsDisposed { get; }
+
+    /// <summary>
+    /// Gets the database path for this driver instance.
+    /// </summary>
+    string Database { get; }
 }
 
 /// <summary>
@@ -159,7 +164,7 @@ public abstract class BaseDriver : IDriver
 
     private int _ownerCount;
 
-    protected volatile int Disposed;
+    private volatile int _disposed;
 
     internal BaseDriver(
         DriverConfig config,
@@ -205,10 +210,7 @@ public abstract class BaseDriver : IDriver
                 request: request
             );
 
-            var response = await call.ResponseAsync;
-            settings.TrailersHandler(call.GetTrailers());
-
-            return response;
+            return await call.ResponseAsync;
         }
         catch (RpcException e)
         {
@@ -301,13 +303,14 @@ public abstract class BaseDriver : IDriver
 
     public ILoggerFactory LoggerFactory { get; }
     public void RegisterOwner() => Interlocked.Increment(ref _ownerCount);
-    public bool IsDisposed => Disposed == 1;
+    public bool IsDisposed => _disposed == 1;
+    public string Database => Config.Database;
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Decrement(ref _ownerCount) <= 0 && Interlocked.CompareExchange(ref Disposed, 1, 0) == 0)
+        if (Interlocked.Decrement(ref _ownerCount) <= 0 && Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
         {
             await ChannelPool.DisposeAsync();
 
