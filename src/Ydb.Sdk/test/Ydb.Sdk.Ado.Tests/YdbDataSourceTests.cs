@@ -314,7 +314,10 @@ public class YdbDataSourceTests : TestBase
             var tableDescription = await _dataSource.DescribeTable(tableName);
             Assert.Equal(tableName, tableDescription.Name);
             Assert.Equal(YdbTableType.Column, tableDescription.Type);
-            Assert.Equal(new YdbColumnType(YdbDbType.Decimal, precision: 33), tableDescription.Columns[0].StorageType);
+            Assert.Single(tableDescription.Columns);
+            Assert.Equal(YdbDbType.Decimal, tableDescription.Columns[0].StorageType.YdbDbType);
+            Assert.Equal(33, tableDescription.Columns[0].StorageType.Precision);
+            Assert.Equal(0, tableDescription.Columns[0].StorageType.Precision);
             Assert.Equal("field_1", tableDescription.Columns[0].Name);
             Assert.False(tableDescription.Columns[0].IsNullable);
             Assert.False(tableDescription.IsSystem);
@@ -398,7 +401,7 @@ public class YdbDataSourceTests : TestBase
 
             await _dataSource.CopyTables([
                 new CopyTableSettings(SourceTable: sourceTable, DestinationTable: destinationTable1),
-                new CopyTableSettings(SourceTable: $"{sourceTable}_another", DestinationTable: destinationTable2, true),
+                new CopyTableSettings(SourceTable: $"{sourceTable}_another", DestinationTable: destinationTable2, true)
             ]);
 
             Assert.Equal(size, await countSource.ExecuteScalarAsync());

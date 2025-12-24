@@ -117,12 +117,12 @@ public enum YdbTableType
     /// Row-oriented storage (default). Data is stored row by row.
     /// </summary>
     Raw,
-    
+
     /// <summary>
     /// Column-oriented storage. Data is stored column by column for better analytical query performance.
     /// </summary>
     Column,
-    
+
     /// <summary>
     /// External table. References data stored outside of YDB.
     /// Note: Not supported via Control Plane RPC operations.

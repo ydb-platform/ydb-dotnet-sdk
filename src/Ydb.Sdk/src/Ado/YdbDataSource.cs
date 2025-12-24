@@ -1071,7 +1071,7 @@ public class YdbDataSource
 
         var createTableResponse = await driver.UnaryCall(TableService.CreateTableMethod, createTableRequest,
             new GrpcRequestSettings { CancellationToken = cancellationToken });
-        
+
         if (createTableResponse.Operation.Status.IsNotSuccess())
             throw YdbException.FromServer(createTableResponse.Operation);
     }

@@ -47,13 +47,13 @@ internal static class PoolManager
         {
             if (withLock)
                 await SemaphoreSlim.WaitAsync();
-            
+
             var driver = Drivers.TryGetValue(settings.GrpcConnectionString, out var cacheDriver) &&
-                !cacheDriver.IsDisposed
+                         !cacheDriver.IsDisposed
                 ? cacheDriver
                 : Drivers[settings.GrpcConnectionString] = await settings.BuildDriver();
             driver.RegisterOwner();
-            
+
             return driver;
         }
         finally

@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
-using System.Threading;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Ydb.Sdk.Ado;
@@ -49,9 +48,8 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                 DatabaseName = connection.Database
             };
 
-            foreach (var ydbTable in tableNames.Select(tableName =>
-                         YdbSchema.DescribeTable(ydbConnection.Session.Driver, tableName, new DescribeTableSettings())
-                             .GetAwaiter().GetResult()))
+            foreach (var ydbTable in tableNames.Select(tableName => YdbSchema.DescribeTable(
+                         ydbConnection.Session.Driver, tableName).GetAwaiter().GetResult()))
             {
                 var databaseTable = new DatabaseTable
                 {

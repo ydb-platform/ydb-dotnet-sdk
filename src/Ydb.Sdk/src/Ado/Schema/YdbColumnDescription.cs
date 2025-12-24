@@ -17,7 +17,7 @@ public sealed class YdbColumnDescription
     /// Gets the name of the column.
     /// </summary>
     public string Name { get; }
-    
+
     /// <summary>
     /// Gets the storage type of the column.
     /// </summary>
@@ -54,7 +54,7 @@ public sealed class YdbColumnDescription
     /// </summary>
     /// <value><c>true</c> if the column is nullable; otherwise, <c>false</c>. Default is <c>true</c>.</value>
     public bool IsNullable { get; init; } = true;
-    
+
     /// <summary>
     /// Gets or sets the column family name for this column.
     /// </summary>
@@ -85,5 +85,4 @@ public sealed class YdbColumnDescription
 
         return columnMeta;
     }
-
 }

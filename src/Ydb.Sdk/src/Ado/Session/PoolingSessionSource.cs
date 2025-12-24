@@ -316,7 +316,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 internal interface IPoolingSessionFactory<T> : IAsyncDisposable where T : PoolingSessionBase<T>
 {
     T NewSession(PoolingSessionSource<T> source);
-    
+
     IDriver Driver { get; }
 }
 

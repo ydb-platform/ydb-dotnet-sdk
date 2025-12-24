@@ -52,7 +52,7 @@ internal static class YdbSchema
     internal static async Task<YdbTableDescription> DescribeTable(
         IDriver driver,
         string tableName,
-        DescribeTableSettings settings,
+        DescribeTableSettings settings = default,
         CancellationToken cancellationToken = default
     )
     {

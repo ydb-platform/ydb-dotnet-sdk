@@ -13,7 +13,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
     private int _activeLeaseCount;
 
     public IDriver Driver { get; }
-    
+
     internal ImplicitSessionSource(IDriver driver, ILoggerFactory loggerFactory)
     {
         Driver = driver;

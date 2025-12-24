@@ -15,12 +15,12 @@ public sealed class YdbIndexDescription
     /// Gets the name of the index.
     /// </summary>
     public string Name { get; }
-    
+
     /// <summary>
     /// Gets the type of the index.
     /// </summary>
     public YdbIndexType Type { get; }
-    
+
     /// <summary>
     /// Gets the list of column names that are indexed.
     /// </summary>
@@ -99,12 +99,12 @@ public enum YdbIndexType
     /// Global index. Provides fast lookups across partitions.
     /// </summary>
     Global,
-    
+
     /// <summary>
     /// Global asynchronous index. Built asynchronously in the background.
     /// </summary>
     GlobalAsync,
-    
+
     /// <summary>
     /// Global unique index. Enforces uniqueness across partitions.
     /// </summary>
