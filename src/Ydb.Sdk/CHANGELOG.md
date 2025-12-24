@@ -1,3 +1,12 @@
+- Feat ADO.NET: Support control plane methods in YdbDataSource:
+  - `DescribeTable`: Returns information about the specified table (metadata).
+  - `CreateTable`: Creates new table.
+  - `CopyTable`: Creates a copy of the specified table.
+  - `CopyTables`: Creates a consistent copy of the specified tables.
+  - `RenameTables`: Renames multiple tables in a single operation.
+  - `DropTable`: Drops (deletes) a table.
+- Dev: Discovery endpoints use `System.Threading.Timer`.
+
 ## v0.26.0
 
 - Feat ADO.NET: Added raw integer / long value support for extended-range `DateTime` types.

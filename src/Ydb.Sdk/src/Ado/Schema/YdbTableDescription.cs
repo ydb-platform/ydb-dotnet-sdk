@@ -124,7 +124,7 @@ public enum YdbTableType
     Column,
 
     /// <summary>
-    /// External table. References data stored outside of YDB.
+    /// External table. References data stored outside YDB.
     /// Note: Not supported via Control Plane RPC operations.
     /// </summary>
     External

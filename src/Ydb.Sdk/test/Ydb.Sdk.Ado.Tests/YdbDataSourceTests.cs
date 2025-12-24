@@ -317,7 +317,7 @@ public class YdbDataSourceTests : TestBase
             Assert.Single(tableDescription.Columns);
             Assert.Equal(YdbDbType.Decimal, tableDescription.Columns[0].StorageType.YdbDbType);
             Assert.Equal(33, tableDescription.Columns[0].StorageType.Precision);
-            Assert.Equal(0, tableDescription.Columns[0].StorageType.Precision);
+            Assert.Equal(0, tableDescription.Columns[0].StorageType.Scale);
             Assert.Equal("field_1", tableDescription.Columns[0].Name);
             Assert.False(tableDescription.Columns[0].IsNullable);
             Assert.False(tableDescription.IsSystem);

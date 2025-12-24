@@ -23,18 +23,6 @@ public partial class Session : SessionBase
         }
     }
 
-    private void OnResponseTrailers(Grpc.Core.Metadata trailers)
-    {
-        foreach (var hint in trailers.GetAll(Metadata.RpcServerHintsHeader))
-        {
-            if (hint.Value == Metadata.GracefulShutdownHint)
-            {
-                _sessionPool?.InvalidateSession(Id);
-            }
-        }
-    }
-
-
     protected override void Dispose(bool disposing)
     {
         if (Disposed)
