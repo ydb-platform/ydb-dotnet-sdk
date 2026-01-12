@@ -3,7 +3,7 @@ using Ydb.Sdk.Ado;
 
 // Init Users table
 await using var connection = await new YdbDataSource().OpenRetryableConnectionAsync();
-
+var a  = new YdbConnectionStringBuilder();
 await connection.ExecuteAsync("DROP TABLE IF EXISTS Users");
 await connection.ExecuteAsync("""
                               CREATE TABLE IF NOT EXISTS Users(

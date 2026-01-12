@@ -1,12 +1,27 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Ydb.Sdk.Ado;
+
 namespace Ydb.Sdk.Topic.Writer;
 
 public class WriterBuilder<TValue>
 {
-    private readonly IDriver _driver;
+    private readonly IDriverFactory _driverFactory;
 
-    public WriterBuilder(IDriver driver, string topicPath)
+    public WriterBuilder(string connectionString, string topicPath) :
+        this(new YdbConnectionStringBuilder(connectionString), topicPath)
     {
-        _driver = driver;
+    }
+
+    public WriterBuilder(YdbConnectionStringBuilder ydbConnectionStringBuilder, string topicPath)
+    {
+        _driverFactory = ydbConnectionStringBuilder;
+        TopicPath = topicPath;
+    }
+
+    internal WriterBuilder(IDriverFactory driverFactory, string topicPath)
+    {
+        _driverFactory = driverFactory;
         TopicPath = topicPath;
     }
 
@@ -19,53 +34,51 @@ public class WriterBuilder<TValue>
     /// Producer identifier of client data stream.
     /// Used for message deduplication by sequence numbers.
     /// </summary>
-    public string? ProducerId { get; set; }
+    public string? ProducerId { get; init; }
 
     /// <summary>
     /// Codec that is used for data compression.
     /// See enum Codec above for values.
     /// </summary>
-    public Codec Codec { get; set; } = Codec.Raw; // TODO Supported only Raw
+    public Codec Codec { get; init; } = Codec.Raw; // TODO Supported only Raw
 
     /// <summary>
     /// Maximum size (in bytes) of all messages batched in one Message Set, excluding protocol framing overhead.
     /// This limit is applied after the first message has been added to the batch,
     /// regardless of the first message's size, this is to ensure that messages that exceed buffer size are produced. 
     /// </summary>
-    public int BufferMaxSize { get; set; } = 20 * 1024 * 1024; // 20 Mb 
+    public int BufferMaxSize { get; init; } = 20 * 1024 * 1024; // 20 Mb 
 
     /// <summary>
     /// Explicit partition id to write to.
     /// </summary>    
-    public long? PartitionId { get; set; }
+    public long? PartitionId { get; init; }
 
     /// <summary>
     /// The serializer to use to serialize values.
     /// </summary>
     /// <remarks>
-    ///     If your value serializer throws an exception, this will be
-    ///     wrapped in a WriterException with unspecified status.
+    /// If your value serializer throws an exception, this will be
+    /// wrapped in a WriterException with unspecified status.
     /// </remarks>
-    public ISerializer<TValue>? Serializer { get; set; }
+    public ISerializer<TValue>? Serializer { get; init; }
 
-    public IWriter<TValue> Build()
-    {
-        var config = new WriterConfig(
+    public ILoggerFactory LoggerFactory { get; init; } = NullLoggerFactory.Instance;
+
+    public IWriter<TValue> Build() => new Writer<TValue>(
+        _driverFactory,
+        new WriterConfig(
             topicPath: TopicPath,
             producerId: ProducerId,
             codec: Codec,
             bufferMaxSize: BufferMaxSize,
             partitionId: PartitionId
-        );
-
-        return new Writer<TValue>(
-            _driver,
-            config,
-            Serializer ?? (ISerializer<TValue>)(
-                Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
-                    ? serializer
-                    : throw new WriterException("The serializer is not set")
-            )
-        );
-    }
+        ),
+        Serializer ?? (ISerializer<TValue>)(
+            Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
+                ? serializer
+                : throw new WriterException("The serializer is not set")
+        ),
+        LoggerFactory
+    );
 }

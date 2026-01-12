@@ -47,6 +47,7 @@ public class WriterUnitTests
     [Fact]
     public async Task WriteAsync_WhenSerializeThrowException_ThrowWriterException()
     {
+        await using var newW = new Writer<int>()
         await using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-1")
             { ProducerId = "producerId", Serializer = new FailSerializer() }.Build();
 

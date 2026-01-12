@@ -1,14 +1,25 @@
 using System.Text;
+using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Topic.Reader;
 
 public class ReaderBuilder<TValue>
 {
-    private readonly IDriver _driver;
+    private readonly IDriverFactory _driverFactory;
 
-    public ReaderBuilder(IDriver driver)
+    public ReaderBuilder(string connectionString)
     {
-        _driver = driver;
+        _driverFactory = new YdbConnectionStringBuilder(connectionString);
+    }
+
+    public ReaderBuilder(YdbConnectionStringBuilder ydbConnectionStringBuilder)
+    {
+        _driverFactory = ydbConnectionStringBuilder;
+    }
+
+    internal ReaderBuilder(IDriverFactory driverFactory)
+    {
+        _driverFactory = driverFactory;
     }
 
     public IDeserializer<TValue>? Deserializer { get; set; }
@@ -36,6 +47,8 @@ public class ReaderBuilder<TValue>
     /// then the message batch will still be returned to ensure the consumer can make progress.
     /// </summary>
     public long MemoryUsageMaxBytes { get; set; } = 50 * 1024 * 1024; // 50 Mb
+    
+    public 
 
     public IReader<TValue> Build()
     {
@@ -47,8 +60,9 @@ public class ReaderBuilder<TValue>
         );
 
         var reader = new Reader<TValue>(
-            _driver,
+            _driverFactory,
             config,
+            _ydbConnectionStringBuilder.LoggerFactory,
             Deserializer ?? (IDeserializer<TValue>)(
                 Deserializers.DefaultDeserializers.TryGetValue(typeof(TValue), out var deserializer)
                     ? deserializer
