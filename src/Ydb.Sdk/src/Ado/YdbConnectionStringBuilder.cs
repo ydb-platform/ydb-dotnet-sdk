@@ -133,15 +133,33 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// Gets or sets the username for authentication.
     /// </summary>
     /// <remarks>
-    /// Specifies the username used for authenticating with the YDB server.
-    /// If not specified, authentication using a username and password is disabled.
-    /// <para>Default value: null.</para>
+    /// Specifies the username used for authenticating with the YDB server using
+    /// a username/password pair.
+    ///
+    /// This property enables basic authentication and is mutually exclusive with:
+    /// <list type="bullet">
+    ///   <item><description><see cref="CredentialsProvider"/></description></item>
+    ///   <item><description><see cref="ServiceAccountKeyFilePath"/></description></item>
+    ///   <item><description><see cref="EnableMetadataCredentials"/></description></item>
+    /// </list>
+    ///
+    /// If any of these properties is already set, assigning <see cref="User"/>
+    /// will throw an <see cref="ArgumentException"/>.
+    ///
+    /// <para>Default value: <see langword="null"/> (username/password authentication disabled).</para>
     /// </remarks>
     public string? User
     {
         get => _user;
         set
         {
+            if (CredentialsProvider != null || ServiceAccountKeyFilePath != null || EnableMetadataCredentials)
+            {
+                throw new ArgumentException("'User' cannot be set. " +
+                                            "You have properties that are mutually exclusive.",
+                    nameof(User));
+            }
+
             _user = value;
             SaveValue(nameof(User), value);
         }
@@ -515,6 +533,83 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     private bool _enableImplicitSession;
 
     /// <summary>
+    /// Path to a Yandex.Cloud service account key file (JSON).
+    /// </summary>
+    /// <remarks>
+    /// When this property is set, the driver will use
+    /// <c>Ydb.Sdk.Yc.ServiceAccountProvider</c> to authenticate using
+    /// a service account key.
+    ///
+    /// This property is mutually exclusive with:
+    /// <list type="bullet">
+    ///   <item><description><see cref="User"/></description></item>
+    ///   <item><description><see cref="CredentialsProvider"/></description></item>
+    ///   <item><description><see cref="EnableMetadataCredentials"/></description></item>
+    /// </list>
+    ///
+    /// If any of these properties is already set, assigning
+    /// <see cref="ServiceAccountKeyFilePath"/> will throw an
+    /// <see cref="ArgumentException"/>.
+    /// </remarks>
+    public string? ServiceAccountKeyFilePath
+    {
+        get => _serviceAccountKeyFilePath;
+        set
+        {
+            if (User != null || CredentialsProvider != null || EnableMetadataCredentials)
+            {
+                throw new ArgumentException("'ServiceAccountKeyFilePath' cannot be set. " +
+                                            "You have properties that are mutually exclusive.",
+                    nameof(ServiceAccountKeyFilePath));
+            }
+
+            _serviceAccountKeyFilePath = value;
+            SaveValue(nameof(ServiceAccountKeyFilePath), value);
+        }
+    }
+
+    private string? _serviceAccountKeyFilePath;
+
+    /// <summary>
+    /// Enables Yandex.Cloud metadata service authentication.
+    /// </summary>
+    /// <remarks>
+    /// When set to <c>true</c>, the driver will use
+    /// <c>Ydb.Sdk.Yc.MetadataProvider</c> to obtain credentials from the
+    /// Yandex.Cloud metadata service. This authentication method works
+    /// only inside Yandex.Cloud virtual machines and Cloud Functions.
+    ///
+    /// This property is mutually exclusive with:
+    /// <list type="bullet">
+    ///   <item><description><see cref="User"/></description></item>
+    ///   <item><description><see cref="CredentialsProvider"/></description></item>
+    ///   <item><description><see cref="ServiceAccountKeyFilePath"/></description></item>
+    /// </list>
+    ///
+    /// If any of these properties is already set, assigning
+    /// <see cref="EnableMetadataCredentials"/> will throw an
+    /// <see cref="ArgumentException"/>.
+    /// </remarks>
+    public bool EnableMetadataCredentials
+    {
+        get => _enableMetadataCredentials;
+        set
+        {
+            if (User != null || CredentialsProvider != null || ServiceAccountKeyFilePath != null)
+            {
+                throw new ArgumentException("'EnableMetadataCredentials' cannot be set. " +
+                                            "You have properties that are mutually exclusive.",
+                    nameof(EnableMetadataCredentials));
+            }
+
+            _enableMetadataCredentials = value;
+            SaveValue(nameof(EnableMetadataCredentials), value);
+        }
+    }
+
+    private bool _enableMetadataCredentials;
+
+    /// <summary>
     /// Gets or sets the logger factory for logging operations.
     /// </summary>
     /// <remarks>
@@ -527,11 +622,42 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
     /// Gets or sets the credentials provider for authentication.
     /// </summary>
     /// <remarks>
-    /// Specifies the credentials provider used for authenticating with the YDB server.
-    /// If not provided, authentication is not used.
-    /// <para>Default value: null.</para>
+    /// Specifies an <see cref="ICredentialsProvider"/> used for authenticating with
+    /// the YDB server. This allows you to plug in external/custom authentication
+    /// mechanisms, including providers from optional packages (for example,
+    /// <c>Ydb.Sdk.Yc.ServiceAccountProvider</c>, <c>Ydb.Sdk.Yc.MetadataProvider</c>)
+    /// or your own implementations of <see cref="ICredentialsProvider"/>.
+    ///
+    /// This property is mutually exclusive with:
+    /// <list type="bullet">
+    ///   <item><description><see cref="User"/></description></item>
+    ///   <item><description><see cref="ServiceAccountKeyFilePath"/></description></item>
+    ///   <item><description><see cref="EnableMetadataCredentials"/></description></item>
+    /// </list>
+    ///
+    /// If any of these properties is already set, assigning
+    /// <see cref="CredentialsProvider"/> will throw an
+    /// <see cref="ArgumentException"/>.
+    ///
+    /// <para>Default value: <see langword="null"/> (no external credentials provider is used).</para>
     /// </remarks>
-    public ICredentialsProvider? CredentialsProvider { get; init; }
+    public ICredentialsProvider? CredentialsProvider
+    {
+        get => _credentialsProvider;
+        init
+        {
+            if (User != null || ServiceAccountKeyFilePath != null || EnableMetadataCredentials)
+            {
+                throw new ArgumentException("'CredentialsProvider' cannot be set. " +
+                                            "You have properties that are mutually exclusive.",
+                    nameof(CredentialsProvider));
+            }
+
+            _credentialsProvider = value;
+        }
+    }
+
+    private readonly ICredentialsProvider? _credentialsProvider;
 
     /// <summary>
     /// Gets or sets the collection of server certificates for TLS verification.
@@ -585,7 +711,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         $"UseTls={UseTls};Host={Host};Port={Port};Database={Database};User={User};Password={Password};" +
         $"ConnectTimeout={ConnectTimeout};KeepAlivePingDelay={KeepAlivePingDelay};KeepAlivePingTimeout={KeepAlivePingTimeout};" +
         $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
-        $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery}";
+        $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery};" +
+        $"ServiceAccountKeyFilePath={ServiceAccountKeyFilePath};EnableMetadataCredentials={EnableMetadataCredentials}";
 
     internal async Task<IDriver> BuildDriver()
     {
@@ -593,7 +720,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
         var driverConfig = new DriverConfig(
             endpoint: Endpoint,
             database: Database,
-            credentials: CredentialsProvider,
+            credentials: CredentialsProvider ?? (EnableMetadataCredentials
+                ? CredentialsProviderUtils.LoadMetadataProvider(LoggerFactory)
+                : ServiceAccountKeyFilePath != null
+                    ? CredentialsProviderUtils.LoadServiceAccountProvider(ServiceAccountKeyFilePath, LoggerFactory)
+                    : null),
             customServerCertificate: cert,
             customServerCertificates: ServerCertificates
         )
@@ -721,6 +852,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
             AddOption(new YdbConnectionOption<bool>(BoolExtractor,
                     (builder, enableImplicitSession) => builder.EnableImplicitSession = enableImplicitSession),
                 "EnableImplicitSession", "Enable Implicit Session");
+            AddOption(new YdbConnectionOption<string>(StringExtractor, (builder, serviceAccountKeyFilePath) =>
+                    builder.ServiceAccountKeyFilePath = serviceAccountKeyFilePath),
+                "ServiceAccountKeyFilePath", "Service Account Key File Path");
+            AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, enableMetadataCredentials) =>
+                    builder.EnableMetadataCredentials = enableMetadataCredentials),
+                "EnableMetadataCredentials", "Enable Metadata Credentials");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)

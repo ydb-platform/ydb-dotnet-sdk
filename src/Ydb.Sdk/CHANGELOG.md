@@ -1,3 +1,7 @@
+- Feat: Added support for Yandex.Cloud metadata credentials (`EnableMetadataCredentials`) in `YdbConnectionStringBuilder` / connection string.
+- Feat: Added support for Yandex.Cloud service account key file (`ServiceAccountKeyFilePath`) in `YdbConnectionStringBuilder` / connection string.
+- Feat: Added validation for mutually exclusive authentication properties (`User`, `CredentialsProvider`, `ServiceAccountKeyFilePath`, `EnableMetadataCredentials`).
+
 ## v0.27.0
 
 - Feat ADO.NET: Support control plane methods in YdbDataSource:
