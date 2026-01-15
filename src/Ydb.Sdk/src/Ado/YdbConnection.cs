@@ -73,6 +73,34 @@ public sealed class YdbConnection : DbConnection
         ConnectionStringBuilder = connectionStringBuilder;
     }
 
+    /// <summary>
+    /// Begins a database transaction with the specified isolation level.
+    /// </summary>
+    /// <remarks>
+    /// Maps the requested ADO.NET <see cref="IsolationLevel"/> to a YDB
+    /// <see cref="TransactionMode"/>:
+    /// <list type="bullet">
+    ///   <item>
+    ///     <description>
+    ///       <see cref="IsolationLevel.Serializable"/> or
+    ///       <see cref="IsolationLevel.Unspecified"/> →
+    ///       <see cref="TransactionMode.SerializableRw"/>
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///       <see cref="IsolationLevel.Snapshot"/> or
+    ///       <see cref="IsolationLevel.RepeatableRead"/> →
+    ///       <see cref="TransactionMode.SnapshotRw"/>
+    ///     </description>
+    ///   </item>
+    /// </list>
+    ///
+    /// The <see cref="TransactionMode.SnapshotRw"/> mode in YDB provides snapshot
+    /// isolation with optimistic concurrency: if there is a concurrent write
+    /// conflict, the transaction may be aborted by the server. This behavior is similar to
+    /// <see cref="IsolationLevel.Snapshot"/> in ADO.NET.
+    /// </remarks>
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
     {
         ThrowIfConnectionClosed();
@@ -80,6 +108,7 @@ public sealed class YdbConnection : DbConnection
         return BeginTransaction(isolationLevel switch
         {
             Serializable or Unspecified => TransactionMode.SerializableRw,
+            Snapshot or RepeatableRead => TransactionMode.SnapshotRw,
             _ => throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel)
         });
     }
