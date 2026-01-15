@@ -187,7 +187,7 @@ public sealed class YdbTransaction : DbTransaction
     ///   </item>
     ///   <item>
     ///     <description>
-    ///       All other modes → <see cref="IsolationLevel.Unspecified"/>
+    ///       All other modes → <see cref="System.Data.IsolationLevel.Unspecified"/>
     ///     </description>
     ///   </item>
     /// </list>
@@ -195,7 +195,7 @@ public sealed class YdbTransaction : DbTransaction
     /// Note that for <see cref="TransactionMode.SnapshotRw"/> YDB uses optimistic
     /// concurrency with snapshot isolation: concurrent write conflicts may cause
     /// the transaction to be aborted by the server. This behavior is similar to
-    /// <see cref="IsolationLevel.Snapshot"/> in ADO.NET.
+    /// <see cref="System.Data.IsolationLevel.Snapshot"/> in ADO.NET.
     /// </remarks>
     public override IsolationLevel IsolationLevel => _transactionMode switch
     {
