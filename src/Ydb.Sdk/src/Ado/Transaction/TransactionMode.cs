@@ -19,7 +19,7 @@ public enum TransactionMode
     /// <summary>
     /// Serializable read-write transaction mode.
     /// </summary>
-    /// <remarks>ч
+    /// <remarks>
     /// Provides the strictest isolation level for custom transactions.
     /// Guarantees that the result of successful parallel transactions is equivalent
     /// to their serial execution, with no read anomalies for successful transactions.
