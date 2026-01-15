@@ -7,11 +7,13 @@ internal static class TransactionExtensions
     private static readonly TransactionSettings SerializableRw = new()
         { SerializableReadWrite = new SerializableModeSettings() };
 
+    private static readonly TransactionSettings SnapshotRw = new()
+        { SnapshotReadWrite = new SnapshotRWModeSettings() };
+
     private static readonly TransactionSettings SnapshotRo = new()
         { SnapshotReadOnly = new SnapshotModeSettings() };
 
-    private static readonly TransactionSettings StaleRo = new()
-        { StaleReadOnly = new StaleModeSettings() };
+    private static readonly TransactionSettings StaleRo = new() { StaleReadOnly = new StaleModeSettings() };
 
     private static readonly TransactionSettings OnlineRo = new()
         { OnlineReadOnly = new OnlineModeSettings { AllowInconsistentReads = false } };
@@ -23,6 +25,7 @@ internal static class TransactionExtensions
         mode switch
         {
             TransactionMode.SerializableRw => SerializableRw,
+            TransactionMode.SnapshotRw => SnapshotRw,
             TransactionMode.SnapshotRo => SnapshotRo,
             TransactionMode.StaleRo => StaleRo,
             TransactionMode.OnlineRo => OnlineRo,

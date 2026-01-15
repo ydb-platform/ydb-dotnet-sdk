@@ -17,10 +17,10 @@ public class YdbTransactionTests : TestBase
         var ydbCommand = connection.CreateCommand();
         ydbCommand.Transaction = ydbTransaction;
 
-        ydbCommand.CommandText = $@"
-                                UPSERT INTO {Tables.Seasons} (series_id, season_id, first_aired) 
-                                VALUES (@series_id, @season_id, @air_date);
-                                ";
+        ydbCommand.CommandText = $"""
+                                  UPSERT INTO {Tables.Seasons} (series_id, season_id, first_aired) 
+                                  VALUES (@series_id, @season_id, @air_date);
+                                  """;
         ydbCommand.Parameters.Add(new YdbParameter
             { ParameterName = "$series_id", DbType = DbType.UInt64, Value = 1U });
         ydbCommand.Parameters.Add(new YdbParameter
@@ -42,16 +42,20 @@ public class YdbTransactionTests : TestBase
         var ydbTransaction = connection.BeginTransaction();
         var ydbCommand = new YdbCommand(connection)
         {
-            CommandText = $@"UPDATE {Tables.Episodes} SET title=""test Episode 2"" 
-                                     WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;"
+            CommandText = $"""
+                           UPDATE {Tables.Episodes} SET title="test Episode 2" 
+                           WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;
+                           """
         };
         var executeReaderAsync = ydbCommand.ExecuteReader();
         executeReaderAsync.Close();
         ydbTransaction.Commit();
         Assert.Equal("test Episode 2", new YdbCommand(connection)
         {
-            CommandText = $@"SELECT title FROM {Tables.Episodes} 
-                                     WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;"
+            CommandText = $"""
+                           SELECT title FROM {Tables.Episodes} 
+                           WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;
+                           """
         }.ExecuteScalar());
     }
 
@@ -63,15 +67,15 @@ public class YdbTransactionTests : TestBase
         var ydbTransaction = connection.BeginTransaction(IsolationLevel.Serializable);
         var ydbCommand = connection.CreateCommand();
 
-        ydbCommand.CommandText = $@"
-                                INSERT INTO {Tables.Seasons} (series_id, season_id, title, first_aired, last_aired) 
-                                VALUES (2, 6, ""Season6"", Date(""2006-02-03""), Date(""2006-03-03""));
-                                ";
+        ydbCommand.CommandText = $"""
+                                  INSERT INTO {Tables.Seasons} (series_id, season_id, title, first_aired, last_aired) 
+                                  VALUES (2, 6, "Season6", Date("2006-02-03"), Date("2006-03-03"));
+                                  """;
         ydbCommand.ExecuteNonQuery();
-        ydbCommand.CommandText = $@"
-                                INSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
-                                VALUES (2, 6, 1, ""Yesterday's Jam"", Date(""2006-02-03""))
-                                ";
+        ydbCommand.CommandText = $"""
+                                  INSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                                  VALUES (2, 6, 1, "Yesterday's Jam", Date("2006-02-03"))
+                                  """;
         ydbCommand.ExecuteNonQuery();
         ydbTransaction.Commit();
 

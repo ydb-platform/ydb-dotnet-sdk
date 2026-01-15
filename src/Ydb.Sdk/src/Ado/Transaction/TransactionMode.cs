@@ -19,13 +19,30 @@ public enum TransactionMode
     /// <summary>
     /// Serializable read-write transaction mode.
     /// </summary>
-    /// <remarks>
+    /// <remarks>ч
     /// Provides the strictest isolation level for custom transactions.
     /// Guarantees that the result of successful parallel transactions is equivalent
     /// to their serial execution, with no read anomalies for successful transactions.
     /// This is the default mode for read-write operations.
     /// </remarks>
     SerializableRw,
+
+    /// <summary>
+    /// Snapshot read-write transaction mode.
+    /// </summary>
+    /// <remarks>
+    /// Provides snapshot isolation for read-write transactions.
+    /// All reads within the transaction are performed against a single consistent
+    /// snapshot of the database, taken when the transaction starts. The transaction
+    /// can perform both reads and writes, but write conflicts with concurrent
+    /// transactions may cause the transaction to be aborted and retried.
+    /// <p/>
+    /// Compared to <see cref="SerializableRw"/>, this mode may allow more concurrency
+    /// at the cost of slightly weaker guarantees in the presence of conflicts,
+    /// while still ensuring that each individual transaction observes a stable,
+    /// consistent snapshot of the data.
+    /// </remarks>
+    SnapshotRw,
 
     /// <summary>
     /// Snapshot read-only transaction mode.

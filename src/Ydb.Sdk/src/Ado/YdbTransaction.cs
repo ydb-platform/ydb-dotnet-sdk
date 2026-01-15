@@ -172,12 +172,37 @@ public sealed class YdbTransaction : DbTransaction
     /// Gets the isolation level of this transaction.
     /// </summary>
     /// <remarks>
-    /// Returns Serializable for SerializableRw transaction mode, otherwise Unspecified.
-    /// The actual isolation level depends on the transaction mode used when creating the transaction.
+    /// Maps the YDB transaction mode to the corresponding ADO.NET
+    /// <see cref="System.Data.IsolationLevel"/> value:
+    /// <list type="bullet">
+    ///   <item>
+    ///     <description>
+    ///       <see cref="TransactionMode.SerializableRw"/> → <see cref="IsolationLevel.Serializable"/>
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///       <see cref="TransactionMode.SnapshotRw"/> → <see cref="IsolationLevel.Snapshot"/>
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///       All other modes → <see cref="IsolationLevel.Unspecified"/>
+    ///     </description>
+    ///   </item>
+    /// </list>
+    ///
+    /// Note that for <see cref="TransactionMode.SnapshotRw"/> YDB uses optimistic
+    /// concurrency with snapshot isolation: concurrent write conflicts may cause
+    /// the transaction to be aborted by the server. This behavior is similar to
+    /// <see cref="IsolationLevel.Snapshot"/> in ADO.NET.
     /// </remarks>
-    public override IsolationLevel IsolationLevel => _transactionMode == TransactionMode.SerializableRw
-        ? IsolationLevel.Serializable
-        : IsolationLevel.Unspecified;
+    public override IsolationLevel IsolationLevel => _transactionMode switch
+    {
+        TransactionMode.SerializableRw => IsolationLevel.Serializable,
+        TransactionMode.SnapshotRw => IsolationLevel.Snapshot,
+        _ => IsolationLevel.Unspecified
+    };
 
     private async Task FinishTransaction(Func<string, Task> finishMethod)
     {
