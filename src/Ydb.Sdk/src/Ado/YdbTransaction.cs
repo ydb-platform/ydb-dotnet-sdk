@@ -177,12 +177,12 @@ public sealed class YdbTransaction : DbTransaction
     /// <list type="bullet">
     ///   <item>
     ///     <description>
-    ///       <see cref="TransactionMode.SerializableRw"/> → <see cref="IsolationLevel.Serializable"/>
+    ///       <see cref="TransactionMode.SerializableRw"/> → <see cref="System.Data.IsolationLevel.Serializable"/>
     ///     </description>
     ///   </item>
     ///   <item>
     ///     <description>
-    ///       <see cref="TransactionMode.SnapshotRw"/> → <see cref="IsolationLevel.Snapshot"/>
+    ///        <see cref="TransactionMode.SnapshotRw"/> → <see cref="System.Data.IsolationLevel.Snapshot"/>
     ///     </description>
     ///   </item>
     ///   <item>
