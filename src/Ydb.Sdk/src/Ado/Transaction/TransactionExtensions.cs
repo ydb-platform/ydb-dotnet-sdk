@@ -13,7 +13,8 @@ internal static class TransactionExtensions
     private static readonly TransactionSettings SnapshotRo = new()
         { SnapshotReadOnly = new SnapshotModeSettings() };
 
-    private static readonly TransactionSettings StaleRo = new() { StaleReadOnly = new StaleModeSettings() };
+    private static readonly TransactionSettings StaleRo = new()
+        { StaleReadOnly = new StaleModeSettings() };
 
     private static readonly TransactionSettings OnlineRo = new()
         { OnlineReadOnly = new OnlineModeSettings { AllowInconsistentReads = false } };
