@@ -32,25 +32,25 @@ public class WriterBuilder<TValue>
     /// Producer identifier of client data stream.
     /// Used for message deduplication by sequence numbers.
     /// </summary>
-    public string? ProducerId { get; init; }
+    public string? ProducerId { get; set; }
 
     /// <summary>
     /// Codec that is used for data compression.
     /// See enum Codec above for values.
     /// </summary>
-    public Codec Codec { get; init; } = Codec.Raw; // TODO Supported only Raw
+    public Codec Codec { get; set; } = Codec.Raw; // TODO Supported only Raw
 
     /// <summary>
     /// Maximum size (in bytes) of all messages batched in one Message Set, excluding protocol framing overhead.
     /// This limit is applied after the first message has been added to the batch,
     /// regardless of the first message's size, this is to ensure that messages that exceed buffer size are produced. 
     /// </summary>
-    public int BufferMaxSize { get; init; } = 20 * 1024 * 1024; // 20 Mb 
+    public int BufferMaxSize { get; set; } = 20 * 1024 * 1024; // 20 Mb 
 
     /// <summary>
     /// Explicit partition id to write to.
     /// </summary>    
-    public long? PartitionId { get; init; }
+    public long? PartitionId { get; set; }
 
     /// <summary>
     /// The serializer to use to serialize values.
@@ -59,7 +59,7 @@ public class WriterBuilder<TValue>
     /// If your value serializer throws an exception, this will be
     /// wrapped in a WriterException with unspecified status.
     /// </remarks>
-    public ISerializer<TValue>? Serializer { get; init; }
+    public ISerializer<TValue>? Serializer { get; set; }
 
     public IWriter<TValue> Build() => new Writer<TValue>(
         _driverFactory,
