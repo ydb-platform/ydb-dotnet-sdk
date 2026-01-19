@@ -1,6 +1,4 @@
 using System.Text;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Topic.Reader;
@@ -49,8 +47,6 @@ public class ReaderBuilder<TValue>
     /// then the message batch will still be returned to ensure the consumer can make progress.
     /// </summary>
     public long MemoryUsageMaxBytes { get; set; } = 50 * 1024 * 1024; // 50 Mb
-    
-    public ILoggerFactory LoggerFactory { get; init; } = NullLoggerFactory.Instance; 
 
     public IReader<TValue> Build()
     {
@@ -64,7 +60,6 @@ public class ReaderBuilder<TValue>
         var reader = new Reader<TValue>(
             _driverFactory,
             config,
-            LoggerFactory,
             Deserializer ?? (IDeserializer<TValue>)(
                 Deserializers.DefaultDeserializers.TryGetValue(typeof(TValue), out var deserializer)
                     ? deserializer

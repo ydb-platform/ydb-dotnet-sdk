@@ -40,17 +40,12 @@ internal class Reader<TValue> : IReader<TValue>
 
     private readonly CancellationTokenSource _disposeCts = new();
 
-    internal Reader(
-        IDriverFactory driverFactory,
-        ReaderConfig config,
-        ILoggerFactory loggerFactory,
-        IDeserializer<TValue> deserializer
-    )
+    internal Reader(IDriverFactory driverFactory, ReaderConfig config, IDeserializer<TValue> deserializer)
     {
         _driverFactory = driverFactory;
         _config = config;
         _deserializer = deserializer;
-        _logger = loggerFactory.CreateLogger<Reader<TValue>>();
+        _logger = _driverFactory.LoggerFactory.CreateLogger<Reader<TValue>>();
 
         _ = Initialize();
     }

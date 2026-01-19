@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Topic.Writer;
@@ -63,8 +61,6 @@ public class WriterBuilder<TValue>
     /// </remarks>
     public ISerializer<TValue>? Serializer { get; init; }
 
-    public ILoggerFactory LoggerFactory { get; init; } = NullLoggerFactory.Instance;
-
     public IWriter<TValue> Build() => new Writer<TValue>(
         _driverFactory,
         new WriterConfig(
@@ -78,7 +74,6 @@ public class WriterBuilder<TValue>
             Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
                 ? serializer
                 : throw new WriterException("The serializer is not set")
-        ),
-        LoggerFactory
+        )
     );
 }

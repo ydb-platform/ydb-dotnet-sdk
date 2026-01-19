@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Moq;
 using Ydb.Sdk.Ado;
 
@@ -8,4 +9,6 @@ public class IDriverFactoryMock(Mock<IDriver> mockIDriver, string grpcConnection
     public Task<IDriver> CreateAsync() => Task.FromResult(mockIDriver.Object);
 
     public string GrpcConnectionString => grpcConnectionString;
+
+    public ILoggerFactory LoggerFactory => Utils.LoggerFactory;
 }

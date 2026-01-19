@@ -13,9 +13,10 @@ namespace Ydb.Sdk.Topic;
 /// TopicClient provides methods for managing YDB topics including creation, modification,
 /// and deletion of topics and their configurations.
 /// </remarks>
-public class TopicClient : IAsyncDisposable
+public sealed class TopicClient : IAsyncDisposable
 {
     private readonly IDriver _driver;
+    private int _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TopicClient"/> class.
@@ -108,5 +109,6 @@ public class TopicClient : IAsyncDisposable
         Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
     }
 
-    public ValueTask DisposeAsync() => _driver.DisposeAsync();
+    public ValueTask DisposeAsync() =>
+        Interlocked.CompareExchange(ref _disposed, 1, 0) == 0 ? _driver.DisposeAsync() : default;
 }

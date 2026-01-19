@@ -37,18 +37,13 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private IDriver? _driver;
 
-    internal Writer(
-        IDriverFactory driverFactory,
-        WriterConfig config,
-        ISerializer<TValue> serializer,
-        ILoggerFactory loggerFactory
-    )
+    internal Writer(IDriverFactory driverFactory, WriterConfig config, ISerializer<TValue> serializer)
     {
         _driverFactory = driverFactory;
         _config = config;
         _serializer = serializer;
         _limitBufferMaxSize = config.BufferMaxSize;
-        _logger = loggerFactory.CreateLogger<Writer<TValue>>();
+        _logger = _driverFactory.LoggerFactory.CreateLogger<Writer<TValue>>();
 
         StartWriteWorker();
     }

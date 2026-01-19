@@ -22,13 +22,15 @@ public class WriterUnitTests
     public WriterUnitTests()
     {
         var mockIDriver = new Mock<IDriver>();
-        _driverFactoryMock = new IDriverFactoryMock(mockIDriver, "Writer_Mock");
         mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
             It.IsAny<GrpcRequestSettings>())
         ).ReturnsAsync(_mockStream.Object);
-
         mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
+        mockIDriver.Setup(driver => driver.DisposeAsync())
+            .Callback(() => mockIDriver.Setup(driver => driver.IsDisposed).Returns(true));
+
+        _driverFactoryMock = new IDriverFactoryMock(mockIDriver, "Writer_Mock");
 
         var tcsLastMoveNext = new TaskCompletionSource<bool>();
 
