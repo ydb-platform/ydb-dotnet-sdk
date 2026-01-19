@@ -157,7 +157,7 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         try
         {
-            while (true)
+            while (!_disposeCts.IsCancellationRequested)
             {
                 try
                 {
@@ -176,7 +176,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
             try
             {
-                while (!_disposeCts.Token.IsCancellationRequested)
+                while (!_disposeCts.IsCancellationRequested)
                 {
                     await _tcsWakeUp.Task.WaitAsync(_disposeCts.Token);
                     _tcsWakeUp = new TaskCompletionSource();

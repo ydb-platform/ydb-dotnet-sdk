@@ -1,4 +1,6 @@
 using System.Text;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Topic.Reader;
@@ -48,7 +50,7 @@ public class ReaderBuilder<TValue>
     /// </summary>
     public long MemoryUsageMaxBytes { get; set; } = 50 * 1024 * 1024; // 50 Mb
     
-    public 
+    public ILoggerFactory LoggerFactory { get; init; } = NullLoggerFactory.Instance; 
 
     public IReader<TValue> Build()
     {
@@ -62,7 +64,7 @@ public class ReaderBuilder<TValue>
         var reader = new Reader<TValue>(
             _driverFactory,
             config,
-            _ydbConnectionStringBuilder.LoggerFactory,
+            LoggerFactory,
             Deserializer ?? (IDeserializer<TValue>)(
                 Deserializers.DefaultDeserializers.TryGetValue(typeof(TValue), out var deserializer)
                     ? deserializer

@@ -39,7 +39,7 @@ public class YdbConnectionStringBuilderTests
                      "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
                      $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False;" +
                      "ServiceAccountKeyFilePath=;EnableMetadataCredentials=False",
-            ydbConnectionStringBuilder.GrpcConnectionString);
+            ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class YdbConnectionStringBuilderTests
                      "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;DisableDiscovery=True;" +
                      "ServiceAccountKeyFilePath=;EnableMetadataCredentials=False",
-            ydbConnectionStringBuilder.GrpcConnectionString);
+            ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class YdbConnectionStringBuilderTests
                      "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
                      $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False;" +
                      "ServiceAccountKeyFilePath=./k.json;EnableMetadataCredentials=False",
-            ydbConnectionStringBuilder.GrpcConnectionString);
+            ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
         Assert.Equal("server", ydbConnectionStringBuilder.Host);
         ydbConnectionStringBuilder.Host = "new_server";
         Assert.Equal("new_server", ydbConnectionStringBuilder.Host);
@@ -112,7 +112,7 @@ public class YdbConnectionStringBuilderTests
                      "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
                      $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False;" +
                      "ServiceAccountKeyFilePath=./k.json;EnableMetadataCredentials=False",
-            ydbConnectionStringBuilder.GrpcConnectionString);
+            ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
         Assert.Equal("Host=new_server;Port=2135;Database=/my/path;ServiceAccountKeyFilePath=./k.json",
             ydbConnectionStringBuilder.ConnectionString);
     }

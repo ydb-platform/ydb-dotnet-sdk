@@ -7,7 +7,7 @@ using Ydb.Topic.V1;
 
 namespace Ydb.Sdk.Topic.Tests;
 
-public class WriterIntegrationTests : IAsyncLifetime
+public class WriterIntegrationTests
 {
     private readonly string _topicName = $"topic_{Random.Shared.Next()}";
     private readonly TopicClient _topicClient = new(Utils.ConnectionString);
@@ -70,7 +70,8 @@ public class WriterIntegrationTests : IAsyncLifetime
 
         await Task.WhenAll(tasks);
 
-        var initStream = await PoolManager.Drivers[Utils.ConnectionString]
+        var initStream = await PoolManager
+            .Drivers[((IDriverFactory)new YdbConnectionStringBuilder(Utils.ConnectionString)).GrpcConnectionString]
             .BidirectionalStreamCall(TopicService.StreamReadMethod, new GrpcRequestSettings());
         await initStream.Write(new StreamReadMessage.Types.FromClient
         {
@@ -120,8 +121,4 @@ public class WriterIntegrationTests : IAsyncLifetime
 
         await _topicClient.DropTopic(topicName);
     }
-
-    public Task InitializeAsync() => Task.CompletedTask;
-
-    public Task DisposeAsync() => ;
 }
