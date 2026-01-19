@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Ydb.Sdk;
 using Ydb.Sdk.Topic;
 using Ydb.Sdk.Topic.Reader;
 using Ydb.Sdk.Topic.Writer;
