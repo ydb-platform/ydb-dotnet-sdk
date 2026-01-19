@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Topic;
 using Ydb.Topic.V1;
@@ -18,7 +19,7 @@ using WriterStream = IBidirectionalStream<
 
 internal class Writer<TValue> : IWriter<TValue>
 {
-    private readonly IDriver _driver;
+    private readonly IDriverFactory _driverFactory;
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
@@ -34,13 +35,15 @@ internal class Writer<TValue> : IWriter<TValue>
     private volatile int _limitBufferMaxSize;
     private volatile bool _isStopped;
 
-    internal Writer(IDriver driver, WriterConfig config, ISerializer<TValue> serializer)
+    private IDriver? _driver;
+
+    internal Writer(IDriverFactory driverFactory, WriterConfig config, ISerializer<TValue> serializer)
     {
-        _driver = driver;
+        _driverFactory = driverFactory;
         _config = config;
-        _logger = driver.LoggerFactory.CreateLogger<Writer<TValue>>();
         _serializer = serializer;
         _limitBufferMaxSize = config.BufferMaxSize;
+        _logger = _driverFactory.LoggerFactory.CreateLogger<Writer<TValue>>();
 
         StartWriteWorker();
     }
@@ -149,11 +152,26 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         try
         {
+            while (!_disposeCts.IsCancellationRequested)
+            {
+                try
+                {
+                    _driver = await PoolManager.GetDriver(_driverFactory);
+                    break;
+                }
+                catch (Exception e)
+                {
+                    _session = new NotStartedWriterSession("Driver initialization failed.", e);
+
+                    _logger.LogError(e, "Driver initialization failed, retrying...");
+                }
+            }
+
             await Initialize();
 
             try
             {
-                while (!_disposeCts.Token.IsCancellationRequested)
+                while (!_disposeCts.IsCancellationRequested)
                 {
                     await _tcsWakeUp.Task.WaitAsync(_disposeCts.Token);
                     _tcsWakeUp = new TaskCompletionSource();
@@ -206,7 +224,7 @@ internal class Writer<TValue> : IWriter<TValue>
             _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
 
             var stream =
-                await _driver.BidirectionalStreamCall(TopicService.StreamWriteMethod, _writerGrpcRequestSettings);
+                await _driver!.BidirectionalStreamCall(TopicService.StreamWriteMethod, _writerGrpcRequestSettings);
 
             var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
             if (_config.ProducerId != null)
@@ -372,6 +390,10 @@ internal class Writer<TValue> : IWriter<TValue>
         _isStopped = true;
 
         await _session.DisposeAsync();
+        if (_driver != null)
+        {
+            await _driver.DisposeAsync();
+        }
 
         _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);
     }
@@ -397,6 +419,11 @@ internal class NotStartedWriterSession : IWriteSession
     public NotStartedWriterSession(string reasonExceptionMessage)
     {
         _reasonException = new WriterException(reasonExceptionMessage);
+    }
+
+    public NotStartedWriterSession(string reasonExceptionMessage, Exception innerException)
+    {
+        _reasonException = new WriterException(reasonExceptionMessage, innerException);
     }
 
     public Task Write(ConcurrentQueue<MessageSending> toSendBuffer)

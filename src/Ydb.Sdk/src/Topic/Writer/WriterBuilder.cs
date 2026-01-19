@@ -1,12 +1,25 @@
+using Ydb.Sdk.Ado;
+
 namespace Ydb.Sdk.Topic.Writer;
 
 public class WriterBuilder<TValue>
 {
-    private readonly IDriver _driver;
+    private readonly IDriverFactory _driverFactory;
 
-    public WriterBuilder(IDriver driver, string topicPath)
+    public WriterBuilder(string connectionString, string topicPath) :
+        this(new YdbConnectionStringBuilder(connectionString), topicPath)
     {
-        _driver = driver;
+    }
+
+    public WriterBuilder(YdbConnectionStringBuilder ydbConnectionStringBuilder, string topicPath)
+    {
+        _driverFactory = ydbConnectionStringBuilder;
+        TopicPath = topicPath;
+    }
+
+    internal WriterBuilder(IDriverFactory driverFactory, string topicPath)
+    {
+        _driverFactory = driverFactory;
         TopicPath = topicPath;
     }
 
@@ -43,29 +56,24 @@ public class WriterBuilder<TValue>
     /// The serializer to use to serialize values.
     /// </summary>
     /// <remarks>
-    ///     If your value serializer throws an exception, this will be
-    ///     wrapped in a WriterException with unspecified status.
+    /// If your value serializer throws an exception, this will be
+    /// wrapped in a WriterException with unspecified status.
     /// </remarks>
     public ISerializer<TValue>? Serializer { get; set; }
 
-    public IWriter<TValue> Build()
-    {
-        var config = new WriterConfig(
+    public IWriter<TValue> Build() => new Writer<TValue>(
+        _driverFactory,
+        new WriterConfig(
             topicPath: TopicPath,
             producerId: ProducerId,
             codec: Codec,
             bufferMaxSize: BufferMaxSize,
             partitionId: PartitionId
-        );
-
-        return new Writer<TValue>(
-            _driver,
-            config,
-            Serializer ?? (ISerializer<TValue>)(
-                Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
-                    ? serializer
-                    : throw new WriterException("The serializer is not set")
-            )
-        );
-    }
+        ),
+        Serializer ?? (ISerializer<TValue>)(
+            Serializers.DefaultSerializers.TryGetValue(typeof(TValue), out var serializer)
+                ? serializer
+                : throw new WriterException("The serializer is not set")
+        )
+    );
 }

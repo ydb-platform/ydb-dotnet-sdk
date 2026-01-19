@@ -21,7 +21,7 @@ namespace Ydb.Sdk.Ado;
 /// <see href="https://ydb.tech/docs">YDB Documentation</see>.
 /// </para>
 /// </remarks>
-public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
+public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDriverFactory
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="YdbConnectionStringBuilder"/> class.
@@ -707,14 +707,14 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder
 
     private string Endpoint => $"{(UseTls ? "grpcs" : "grpc")}://{Host}:{Port}";
 
-    internal string GrpcConnectionString =>
+    string IDriverFactory.GrpcConnectionString =>
         $"UseTls={UseTls};Host={Host};Port={Port};Database={Database};User={User};Password={Password};" +
         $"ConnectTimeout={ConnectTimeout};KeepAlivePingDelay={KeepAlivePingDelay};KeepAlivePingTimeout={KeepAlivePingTimeout};" +
         $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
         $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery};" +
         $"ServiceAccountKeyFilePath={ServiceAccountKeyFilePath};EnableMetadataCredentials={EnableMetadataCredentials}";
 
-    internal async Task<IDriver> BuildDriver()
+    async Task<IDriver> IDriverFactory.CreateAsync()
     {
         var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
         var driverConfig = new DriverConfig(

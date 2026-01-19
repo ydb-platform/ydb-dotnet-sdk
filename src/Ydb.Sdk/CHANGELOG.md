@@ -1,3 +1,4 @@
+- Feat Reader/Writer: Added ConnectionString-based initialization.
 - Feat ADO.NET: Added support for `SnapshotRW` level isolation.
 - Feat: Added support for Yandex.Cloud metadata credentials (`EnableMetadataCredentials`) in `YdbConnectionStringBuilder` / connection string.
 - Feat: Added support for Yandex.Cloud service account key file (`ServiceAccountKeyFilePath`) in `YdbConnectionStringBuilder` / connection string.

@@ -1,6 +1,8 @@
 using Google.Protobuf.WellKnownTypes;
+using Ydb.Sdk.Ado;
 using Ydb.Topic;
 using Ydb.Topic.V1;
+using static Ydb.Sdk.Ado.PoolManager;
 
 namespace Ydb.Sdk.Topic;
 
@@ -11,17 +13,27 @@ namespace Ydb.Sdk.Topic;
 /// TopicClient provides methods for managing YDB topics including creation, modification,
 /// and deletion of topics and their configurations.
 /// </remarks>
-public class TopicClient
+public sealed class TopicClient : IAsyncDisposable
 {
     private readonly IDriver _driver;
+    private int _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TopicClient"/> class.
     /// </summary>
-    /// <param name="driver">The YDB driver to use for topic operations.</param>
-    public TopicClient(IDriver driver)
+    /// <param name="connectionString">The connectionString to use for topic operations.</param>
+    public TopicClient(string connectionString)
     {
-        _driver = driver;
+        _driver = GetDriver(new YdbConnectionStringBuilder(connectionString)).AsTask().Result;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TopicClient"/> class.
+    /// </summary>
+    /// <param name="ydbConnectionStringBuilder">The ydbConnectionStringBuilder to use for topic operations.</param>
+    public TopicClient(YdbConnectionStringBuilder ydbConnectionStringBuilder)
+    {
+        _driver = GetDriver(ydbConnectionStringBuilder).AsTask().Result;
     }
 
     public async Task CreateTopic(CreateTopicSettings settings)
@@ -96,4 +108,7 @@ public class TopicClient
 
         Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
     }
+
+    public ValueTask DisposeAsync() =>
+        Interlocked.CompareExchange(ref _disposed, 1, 0) == 0 ? _driver.DisposeAsync() : default;
 }

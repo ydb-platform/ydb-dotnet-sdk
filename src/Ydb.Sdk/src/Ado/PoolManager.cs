@@ -41,18 +41,25 @@ internal static class PoolManager
         }
     }
 
-    private static async ValueTask<IDriver> GetDriver(YdbConnectionStringBuilder settings, bool withLock = true)
+    internal static async ValueTask<IDriver> GetDriver(IDriverFactory driverFactory, bool withLock = true)
     {
         try
         {
             if (withLock)
                 await SemaphoreSlim.WaitAsync();
 
-            var driver = Drivers.TryGetValue(settings.GrpcConnectionString, out var cacheDriver) &&
+            var driver = Drivers.TryGetValue(driverFactory.GrpcConnectionString, out var cacheDriver) &&
                          !cacheDriver.IsDisposed
                 ? cacheDriver
-                : Drivers[settings.GrpcConnectionString] = await settings.BuildDriver();
+                : Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync();
             driver.RegisterOwner();
+
+            // ReSharper disable once InvertIf
+            if (driver.IsDisposed) // detect race condition on open / close driver
+            {
+                driver = Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync();
+                driver.RegisterOwner();
+            }
 
             return driver;
         }
