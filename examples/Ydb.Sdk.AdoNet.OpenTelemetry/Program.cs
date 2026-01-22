@@ -27,7 +27,7 @@ using var meterProvider = Sdk.CreateMeterProviderBuilder()
 
 Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] started, service.name={serviceName}");
 
-using (var activity = activitySource.StartActivity("app.startup"))
+using (var activity = activitySource.StartActivity())
 {
     activity?.SetTag("app.message", "hello");
 }
@@ -35,7 +35,7 @@ using (var activity = activitySource.StartActivity("app.startup"))
 using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
 while (await timer.WaitForNextTickAsync())
 {
-    using var tick = activitySource.StartActivity("app.tick");
+    using var tick = activitySource.StartActivity();
     tick?.SetTag("tick.utc", DateTimeOffset.UtcNow.ToString("u"));
     Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] tick");
 }
