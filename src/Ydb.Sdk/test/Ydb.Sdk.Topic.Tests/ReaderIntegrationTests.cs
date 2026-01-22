@@ -16,7 +16,7 @@ public class ReaderIntegrationTests
         topicSettings.Consumers.Add(new Consumer("Consumer"));
         await _topicClient.CreateTopic(topicSettings);
 
-        await using var writer = new WriterBuilder<string>("", _topicName)
+        await using var writer = new WriterBuilder<string>(Utils.ConnectionString, _topicName)
             { ProducerId = "producerId" }.Build();
         var reader = new ReaderBuilder<string>(Utils.ConnectionString)
         {
