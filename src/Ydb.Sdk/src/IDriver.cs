@@ -346,7 +346,6 @@ public abstract class BaseDriver : IDriver
                     throw new InvalidOperationException(
                         "DisposeAsync called more times than RegisterOwner (report bug!).");
                 default:
-                    _ownerCount = 0;
                     _disposed = 1;
                     break;
             }
