@@ -157,6 +157,7 @@ jobs:
           DURATION=${{ inputs.slo_workload_duration_seconds || 600 }}
           READ_RPS=${{ inputs.slo_workload_read_max_rps || 1000 }}
           WRITE_RPS=${{ inputs.slo_workload_write_max_rps || 100 }}
+          CURRENT_REF="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
 
           ARGS="run \"Host=ydb;Port=2135;Database=/Root/testdb\" \
             --otlp-endpoint http://prometheus:9090 \
@@ -175,6 +176,8 @@ jobs:
             --add-host "ydb:172.28.0.12" \
             --add-host "ydb:172.28.0.13" \
             --add-host "ydb:172.28.0.99" \
+            -e "REF=${CURRENT_REF}" \
+            -e "WORKLOAD=${{ matrix.workload.name }}" \
             ydb-app-current $ARGS
 
           echo "Starting ydb-app-baseline..."
@@ -185,6 +188,8 @@ jobs:
             --add-host "ydb:172.28.0.12" \
             --add-host "ydb:172.28.0.13" \
             --add-host "ydb:172.28.0.99" \
+            -e "REF=${{ steps.baseline.outputs.ref }}" \
+            -e "WORKLOAD=${{ matrix.workload.name }}" \
             ydb-app-baseline $ARGS
 
           # Show initial logs
