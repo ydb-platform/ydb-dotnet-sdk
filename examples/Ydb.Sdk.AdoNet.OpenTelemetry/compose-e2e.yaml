@@ -14,10 +14,7 @@
       - "2135:2135"
       - "2136:2136"
       - "8765:8765"
-    volumes:
-      - ./ydb_data:/ydb_data
-      - ./ydb_certs:/ydb_certs
-  
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     command: [ "--config=/etc/otelcol/config.yaml" ]

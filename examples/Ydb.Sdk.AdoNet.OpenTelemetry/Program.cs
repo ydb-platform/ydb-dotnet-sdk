@@ -10,7 +10,7 @@ var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "
 var resourceBuilder = ResourceBuilder.CreateDefault()
     .AddService(serviceName: serviceName, serviceVersion: serviceVersion);
 
-var activitySourceName = "Ydb.Sdk.AdoNet.OpenTelemetry.Sample";
+const string activitySourceName = "Ydb.Sdk.AdoNet.OpenTelemetry.Sample";
 using var activitySource = new ActivitySource(activitySourceName);
 
 using var tracerProvider = Sdk.CreateTracerProviderBuilder()
@@ -27,7 +27,7 @@ using var meterProvider = Sdk.CreateMeterProviderBuilder()
 
 Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] started, service.name={serviceName}");
 
-using (var activity = activitySource.StartActivity("app.startup", ActivityKind.Internal))
+using (var activity = activitySource.StartActivity("app.startup"))
 {
     activity?.SetTag("app.message", "hello");
 }
@@ -35,7 +35,7 @@ using (var activity = activitySource.StartActivity("app.startup", ActivityKind.I
 using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
 while (await timer.WaitForNextTickAsync())
 {
-    using var tick = activitySource.StartActivity("app.tick", ActivityKind.Internal);
+    using var tick = activitySource.StartActivity("app.tick");
     tick?.SetTag("tick.utc", DateTimeOffset.UtcNow.ToString("u"));
     Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] tick");
 }
