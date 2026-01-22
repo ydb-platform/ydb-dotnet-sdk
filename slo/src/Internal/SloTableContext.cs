@@ -86,14 +86,17 @@ public abstract class SloTableContext<T> : ISloContext
 
     public async Task Run(RunConfig runConfig)
     {
+        var refLabel = Environment.GetEnvironmentVariable("REF") ?? "unknown";
+        var workloadLabel = Environment.GetEnvironmentVariable("WORKLOAD") ?? Job;
+        
         var meterProvider = Sdk.CreateMeterProviderBuilder()
             .ConfigureResource(resource => resource
-                .AddService(serviceName: $"workload-{Job}")
+                .AddService(serviceName: $"workload-{workloadLabel}")
                 .AddAttributes(new[]
                 {
+                    new KeyValuePair<string, object>("ref", refLabel),
                     new KeyValuePair<string, object>("sdk", "dotnet"),
-                    new KeyValuePair<string, object>("sdk_version", Environment.Version.ToString()),
-                    new KeyValuePair<string, object>("workload", Job)
+                    new KeyValuePair<string, object>("sdk_version", Environment.Version.ToString())
                 }))
             .AddMeter("YDB.SLO")
             .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
@@ -106,10 +109,10 @@ public abstract class SloTableContext<T> : ISloContext
                 {
                     path = "/api/v1/otlp/v1/metrics";
                 }
-
+                
                 exporterOptions.Endpoint = new Uri($"{endpoint}{path}");
                 exporterOptions.Protocol = OtlpExportProtocol.HttpProtobuf;
-
+                
                 metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = runConfig.ReportPeriod;
             })
             .Build();
@@ -156,14 +159,13 @@ public abstract class SloTableContext<T> : ISloContext
         async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, RunConfig, Task> action)
         {
             using var meter = new Meter("YDB.SLO");
-
+            
             var tags = new TagList
             {
+                { "operation_type", operationType },
                 { "sdk", "dotnet" },
                 { "sdk_version", Environment.Version.ToString() },
-                { "workload", Job },
-                { "workload_version", "0.0.0" }
-                { "operation_type", operationType },
+                { "workload", workloadLabel }
             };
 
             var operationsTotal = meter.CreateCounter<long>(
@@ -205,14 +207,14 @@ public abstract class SloTableContext<T> : ISloContext
 
                         pendingOperations.Add(1, tags);
                         var sw = Stopwatch.StartNew();
-
+                        
                         try
                         {
                             await action(client, runConfig);
                             sw.Stop();
                             operationsTotal.Add(1, tags);
                             operationsSuccessTotal.Add(1, tags);
-
+                            
                             var successTags = new TagList(tags) { { "operation_status", "success" } };
                             operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, successTags);
                         }
@@ -220,10 +222,10 @@ public abstract class SloTableContext<T> : ISloContext
                         {
                             sw.Stop();
                             operationsTotal.Add(1, tags);
-
+                            
                             var failureTags = new TagList(tags) { { "operation_status", "failure" } };
                             operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, failureTags);
-
+                            
                             Logger.LogWarning(ex, "Operation {OperationType} failed", operationType);
                         }
                         finally
