@@ -328,14 +328,14 @@ public abstract class BaseDriver : IDriver
         {
             return;
         }
-        
+
         lock (_ownerLock)
         {
             if (_disposed == 1)
             {
                 return;
             }
-            
+
             _ownerCount--;
 
             switch (_ownerCount)
