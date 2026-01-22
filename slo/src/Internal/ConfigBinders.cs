@@ -19,7 +19,7 @@ public class CreateConfigBinder(
 
 internal class RunConfigBinder(
     Argument<string> connectionString,
-    Option<string> promPgwOption,
+    Option<string> otlpEndpointOption,
     Option<int> reportPeriodOption,
     Option<int> readRpsOption,
     Option<int> readTimeoutOption,
@@ -31,7 +31,7 @@ internal class RunConfigBinder(
     protected override RunConfig GetBoundValue(BindingContext bindingContext) =>
         new(
             bindingContext.ParseResult.GetValueForArgument(connectionString),
-            bindingContext.ParseResult.GetValueForOption(promPgwOption)!,
+            bindingContext.ParseResult.GetValueForOption(otlpEndpointOption)!,
             bindingContext.ParseResult.GetValueForOption(reportPeriodOption),
             bindingContext.ParseResult.GetValueForOption(readRpsOption),
             bindingContext.ParseResult.GetValueForOption(readTimeoutOption),

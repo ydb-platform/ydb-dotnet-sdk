@@ -1,9 +1,13 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
-using Prometheus;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using Ydb.Sdk;
 
 namespace Internal;
@@ -82,12 +86,33 @@ public abstract class SloTableContext<T> : ISloContext
 
     public async Task Run(RunConfig runConfig)
     {
-        // Trace.Listeners.Add(new ConsoleTraceListener()); debug meterPusher
+        var meterProvider = Sdk.CreateMeterProviderBuilder()
+            .ConfigureResource(resource => resource
+                .AddService(serviceName: $"workload-{Job}")
+                .AddAttributes(new[]
+                {
+                    new KeyValuePair<string, object>("sdk", "dotnet"),
+                    new KeyValuePair<string, object>("sdk_version", Environment.Version.ToString()),
+                    new KeyValuePair<string, object>("workload", Job)
+                }))
+            .AddMeter("YDB.SLO")
+            .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
+            {
+                // Prometheus OTLP endpoint: http://prometheus:9090/api/v1/otlp/v1/metrics
+                var uri = new Uri(runConfig.OtlpEndpoint);
+                var endpoint = $"{uri.Scheme}://{uri.Host}:{uri.Port}";
+                var path = uri.AbsolutePath.TrimEnd('/');
+                if (string.IsNullOrEmpty(path))
+                {
+                    path = "/api/v1/otlp/v1/metrics";
+                }
 
-        var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
-        using var prometheus = new MetricPusher(promPgwEndpoint, "workload-" + Job,
-            intervalMilliseconds: runConfig.ReportPeriod);
-        prometheus.Start();
+                exporterOptions.Endpoint = new Uri($"{endpoint}{path}");
+                exporterOptions.Protocol = OtlpExportProtocol.HttpProtobuf;
+
+                metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = runConfig.ReportPeriod;
+            })
+            .Build();
 
         var client = CreateClient(runConfig);
 
@@ -123,61 +148,43 @@ public abstract class SloTableContext<T> : ISloContext
             Logger.LogInformation(e, "Cancel shooting");
         }
 
-        await prometheus.StopAsync();
+        meterProvider?.Dispose();
 
         Logger.LogInformation("Run task is finished");
         return;
 
         async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, RunConfig, Task> action)
         {
-            var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
-                {
-                    { "operation_type", operationType },
-                    { "sdk", "dotnet" },
-                    { "sdk_version", Environment.Version.ToString() },
-                    { "workload", Job },
-                    { "workload_version", "0.0.0" }
-                }
+            using var meter = new Meter("YDB.SLO");
+
+            var tags = new TagList
+            {
+                { "sdk", "dotnet" },
+                { "sdk_version", Environment.Version.ToString() },
+                { "workload", Job },
+                { "workload_version", "0.0.0" }
+                { "operation_type", operationType },
+            };
+
+            var operationsTotal = meter.CreateCounter<long>(
+                "sdk.operations.total",
+                description: "Total number of operations performed by the SDK, categorized by type."
             );
 
-            var operationsTotal = metricFactory.CreateCounter(
-                "sdk_operations_total",
-                "Total number of operations performed by the SDK, categorized by type."
+            var operationsSuccessTotal = meter.CreateCounter<long>(
+                "sdk.operations.success.total",
+                description: "Total number of successful operations, categorized by type."
             );
 
-            var operationsSuccessTotal = metricFactory.CreateCounter(
-                "sdk_operations_success_total",
-                "Total number of successful operations, categorized by type."
+            var operationLatencySeconds = meter.CreateHistogram<double>(
+                "sdk.operation.latency.seconds",
+                unit: "s",
+                description: "Latency of operations performed by the SDK in seconds, categorized by type and status."
             );
 
-            var operationLatencySeconds = metricFactory.CreateHistogram(
-                "sdk_operation_latency_seconds",
-                "Latency of operations performed by the SDK in seconds, categorized by type and status.",
-                ["operation_status"],
-                new HistogramConfiguration
-                {
-                    Buckets =
-                    [
-                        0.001, // 1 ms
-                        0.002, // 2 ms
-                        0.003, // 3 ms
-                        0.004, // 4 ms
-                        0.005, // 5 ms
-                        0.0075, // 7.5 ms
-                        0.010, // 10 ms
-                        0.020, // 20 ms
-                        0.050, // 50 ms
-                        0.100, // 100 ms
-                        0.200, // 200 ms
-                        0.500, // 500 ms
-                        1.000 // 1 s
-                    ]
-                }
-            );
-
-            var pendingOperations = metricFactory.CreateGauge(
-                "sdk_pending_operations",
-                "Current number of pending operations, categorized by type."
+            var pendingOperations = meter.CreateUpDownCounter<long>(
+                "sdk.pending.operations",
+                description: "Current number of pending operations, categorized by type."
             );
 
             var workJobs = new List<Task>();
@@ -196,26 +203,43 @@ public abstract class SloTableContext<T> : ISloContext
                             await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
                         }
 
-                        pendingOperations.Inc();
+                        pendingOperations.Add(1, tags);
                         var sw = Stopwatch.StartNew();
-                        await action(client, runConfig);
-                        sw.Stop();
-                        operationsTotal.Inc();
-                        pendingOperations.Dec();
-                        operationsSuccessTotal.Inc();
-                        operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
+
+                        try
+                        {
+                            await action(client, runConfig);
+                            sw.Stop();
+                            operationsTotal.Add(1, tags);
+                            operationsSuccessTotal.Add(1, tags);
+
+                            var successTags = new TagList(tags) { { "operation_status", "success" } };
+                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, successTags);
+                        }
+                        catch (Exception ex)
+                        {
+                            sw.Stop();
+                            operationsTotal.Add(1, tags);
+
+                            var failureTags = new TagList(tags) { { "operation_status", "failure" } };
+                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, failureTags);
+
+                            Logger.LogWarning(ex, "Operation {OperationType} failed", operationType);
+                        }
+                        finally
+                        {
+                            pendingOperations.Add(-1, tags);
+                        }
                     }
                 }, cancellationTokenSource.Token));
             }
 
-            // ReSharper disable once MethodSupportsCancellation
             await Task.WhenAll(workJobs);
 
             Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
         }
     }
 
-    // return attempt count & StatusCode operation
     protected abstract Task<int> Save(T client, SloTable sloTable, int writeTimeout);
 
     protected abstract Task<object?> Select(T client, (Guid Guid, int Id) select, int readTimeout);
