@@ -15,7 +15,7 @@ namespace Ydb.Sdk;
 /// The IDriver interface defines the contract for YDB client drivers.
 /// It provides methods for executing gRPC calls and managing driver lifecycle.
 /// </remarks>
-public interface IDriver : IAsyncDisposable, IDisposable
+public interface IDriver : IAsyncDisposable
 {
     /// <summary>
     /// Executes a unary gRPC call.
@@ -74,8 +74,9 @@ public interface IDriver : IAsyncDisposable, IDisposable
     /// <remarks>
     /// This method is used to track how many components are using this driver.
     /// The driver will not be disposed until all owners are released.
+    /// Returns false if the driver is already disposed.
     /// </remarks>
-    void RegisterOwner();
+    bool RegisterOwner();
 
     /// <summary>
     /// Gets a value indicating whether this driver has been disposed.
@@ -162,8 +163,9 @@ public abstract class BaseDriver : IDriver
     internal readonly GrpcChannelFactory GrpcChannelFactory;
     internal readonly ChannelPool<GrpcChannel> ChannelPool;
 
-    private int _ownerCount;
+    private readonly object _ownerLock = new();
 
+    private int _ownerCount;
     private volatile int _disposed;
 
     internal BaseDriver(
@@ -302,20 +304,57 @@ public abstract class BaseDriver : IDriver
     }
 
     public ILoggerFactory LoggerFactory { get; }
-    public void RegisterOwner() => Interlocked.Increment(ref _ownerCount);
+
+    public bool RegisterOwner()
+    {
+        lock (_ownerLock)
+        {
+            if (_disposed == 1)
+            {
+                return false;
+            }
+
+            _ownerCount++;
+            return true;
+        }
+    }
+
     public bool IsDisposed => _disposed == 1;
     public string Database => Config.Database;
 
-    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
-
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Decrement(ref _ownerCount) <= 0 && Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
+        if (_disposed == 1)
         {
-            await ChannelPool.DisposeAsync();
-
-            GC.SuppressFinalize(this);
+            return;
         }
+        
+        lock (_ownerLock)
+        {
+            if (_disposed == 1)
+            {
+                return;
+            }
+            
+            _ownerCount--;
+
+            switch (_ownerCount)
+            {
+                case > 0:
+                    return;
+                case < 0:
+                    throw new InvalidOperationException(
+                        "DisposeAsync called more times than RegisterOwner (report bug!).");
+                default:
+                    _ownerCount = 0;
+                    _disposed = 1;
+                    break;
+            }
+        }
+
+        await ChannelPool.DisposeAsync();
+
+        GC.SuppressFinalize(this);
     }
 }
 

@@ -52,14 +52,12 @@ internal static class PoolManager
                          !cacheDriver.IsDisposed
                 ? cacheDriver
                 : Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync();
-            driver.RegisterOwner();
 
-            // ReSharper disable once InvertIf
-            if (driver.IsDisposed) // detect race condition on open / close driver
-            {
-                driver = Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync();
-                driver.RegisterOwner();
-            }
+            if (driver.RegisterOwner())
+                return driver;
+
+            driver = Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync();
+            driver.RegisterOwner();
 
             return driver;
         }

@@ -64,7 +64,7 @@ internal class BulkUpsertMockDriver : IDriver
 
     public ILoggerFactory LoggerFactory => null!;
 
-    public void RegisterOwner() => throw new NotImplementedException();
+    public bool RegisterOwner() => throw new NotImplementedException();
 
     public bool IsDisposed => false;
     public string Database => throw new NotImplementedException();

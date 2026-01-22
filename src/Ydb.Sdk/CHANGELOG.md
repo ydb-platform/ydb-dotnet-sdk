@@ -1,3 +1,5 @@
+- Fixed bug: Driver ownership lifecycle is now synchronized to prevent race conditions.
+
 ## v0.28.0
 
 - Feat Reader/Writer: Added ConnectionString-based initialization.
