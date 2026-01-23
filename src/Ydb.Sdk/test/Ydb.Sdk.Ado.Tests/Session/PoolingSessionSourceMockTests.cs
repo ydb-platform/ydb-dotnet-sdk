@@ -358,6 +358,77 @@ public class PoolingSessionSourceMockTests
     }
 
     [Fact]
+    public async Task OpenSession_LifoOrder_ReturnsMostRecent()
+    {
+        const int maxPoolSize = 2;
+        var mockFactory = new MockPoolingSessionFactory(maxPoolSize);
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory,
+            new YdbConnectionStringBuilder { MaxPoolSize = maxPoolSize });
+
+        var session1 = await sessionSource.OpenSession();
+        var session2 = await sessionSource.OpenSession();
+        var sessionId1 = session1.SessionId();
+        var sessionId2 = session2.SessionId();
+
+        session1.Dispose();
+        session2.Dispose();
+
+        using var session3 = await sessionSource.OpenSession();
+        using var session4 = await sessionSource.OpenSession();
+
+        Assert.Equal(sessionId2, session3.SessionId());
+        Assert.Equal(sessionId1, session4.SessionId());
+        Assert.Equal(maxPoolSize, mockFactory.SessionOpenedCount);
+    }
+
+    [Fact]
+    public async Task OpenSession_WaiterGetsReturnedSessionWithoutNewCreate()
+    {
+        const int maxPoolSize = 1;
+        var mockFactory = new MockPoolingSessionFactory(maxPoolSize);
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory,
+            new YdbConnectionStringBuilder { MaxPoolSize = maxPoolSize, CreateSessionTimeout = 0 });
+
+        var activeSession = await sessionSource.OpenSession();
+        var activeSessionId = activeSession.SessionId();
+        var waiterSessionId = 0;
+
+        var waitTask = Task.Run(async () =>
+        {
+            using var session = await sessionSource.OpenSession();
+            waiterSessionId = session.SessionId();
+        });
+
+        await Task.Delay(50);
+        Assert.False(waitTask.IsCompleted);
+
+        activeSession.Dispose();
+        await waitTask;
+
+        Assert.Equal(activeSessionId, waiterSessionId);
+        Assert.Equal(1, mockFactory.SessionOpenedCount);
+    }
+
+    [Fact]
+    public async Task OpenSession_WhenWaitingAndCancelled_ThrowsYdbException()
+    {
+        const int maxPoolSize = 1;
+        var mockFactory = new MockPoolingSessionFactory(maxPoolSize);
+        var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory,
+            new YdbConnectionStringBuilder { MaxPoolSize = maxPoolSize, CreateSessionTimeout = 0 });
+
+        using var session = await sessionSource.OpenSession();
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(200);
+
+        var exception = await Assert.ThrowsAsync<YdbException>(() => sessionSource.OpenSession(cts.Token).AsTask());
+        Assert.StartsWith("The connection pool has been exhausted", exception.Message);
+        Assert.Equal(1, mockFactory.NumSession);
+        Assert.Equal(1, mockFactory.SessionOpenedCount);
+    }
+
+    [Fact]
     public async Task ReturnToPool_WhenSessionIsBroken_IsSkipped()
     {
         const int maxPoolSize = 10;
