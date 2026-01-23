@@ -1,3 +1,6 @@
+- Fixed bug: Driver ownership lifecycle is now synchronized to prevent race conditions.
+- **Breaking Change**: `IDriver` no longer implements `IDisposable` (interface slated to mark internal).
+
 ## v0.28.0
 
 - Feat Reader/Writer: Added ConnectionString-based initialization.
