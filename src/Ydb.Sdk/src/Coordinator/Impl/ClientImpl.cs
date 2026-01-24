@@ -31,14 +31,10 @@ public class ClientImpl : ICoordinationClient
             ? Guid.NewGuid().ToString()
             : traceId;
 
-    // могут быть проблемы, связанные с withDeadline, так как его нет , мб нужно примениять GrpcDefaultSettings
-    private GrpcRequestSettings MakeGrpcRequestSettings(OperationSettings settings, string traceId)
-
-        //BaseRequestSettings settings, string traceId
-        => new GrpcRequestSettings { TraceId = traceId };
-    // .withDeadline(settings.getRequestTimeout())
-    //  .withTraceId(traceId)
-    //   .build();
+    // могут быть проблемы, связанные с withDeadline, так как его нет , аналог походу settings.TransportTimeout
+    private static GrpcRequestSettings MakeGrpcRequestSettings(OperationSettings settings, string traceId)
+        => new GrpcRequestSettings { TraceId = traceId , TransportTimeout = settings.TransportTimeout};
+ 
 
     /*
     @Override

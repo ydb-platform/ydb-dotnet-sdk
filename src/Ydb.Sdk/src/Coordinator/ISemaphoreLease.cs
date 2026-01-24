@@ -7,5 +7,6 @@ public interface ISemaphoreLease
     // Временно закоментировал 
    // ICoordinationSession GetSession();
 
-    Task Release();
+   // Временно закоментировал 
+    //Task Release();
 }

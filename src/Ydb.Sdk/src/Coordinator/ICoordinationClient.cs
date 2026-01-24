@@ -20,6 +20,8 @@ public interface ICoordinationClient
     /// <returns>Path to database.</returns>
     string GetDatabase();
     
+    // временно закомментировано 
+    /*
     /// <summary>
     /// Creates a new coordination session.
     /// The coordination session establishes bidirectional grpc stream with a specific
@@ -29,6 +31,7 @@ public interface ICoordinationClient
     /// <param name="settings">Coordination session settings.</param>
     /// <returns>New instance of coordination session.</returns>
     //ICoordinationSession CreateSession(string path, CoordinationSessionSettings settings);
+    */
     
     /// <summary>
     /// Creates a new coordination node.
