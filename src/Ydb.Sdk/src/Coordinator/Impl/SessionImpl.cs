@@ -1,5 +1,5 @@
 ﻿namespace Ydb.Sdk.Coordinator.Impl;
 
-public class SessionImpl : ICoordinationSession
+public class SessionImpl //: ICoordinationSession
 {
 }

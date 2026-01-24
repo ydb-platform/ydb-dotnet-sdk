@@ -28,7 +28,7 @@ public interface ICoordinationClient
     /// <param name="path">Full path to coordination node.</param>
     /// <param name="settings">Coordination session settings.</param>
     /// <returns>New instance of coordination session.</returns>
-    ICoordinationSession CreateSession(string path, CoordinationSessionSettings settings);
+    //ICoordinationSession CreateSession(string path, CoordinationSessionSettings settings);
     
     /// <summary>
     /// Creates a new coordination node.

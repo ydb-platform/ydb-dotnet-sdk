@@ -10,8 +10,8 @@ public class LeaseImpl : ISemaphoreLease
         _session = session;
         _name = name;
     }
-
-    public ICoordinationSession GetSession() => _session;
+    // Временно закоментировал ,так как SessionIml не закончен
+   // public ICoordinationSession GetSession() => _session;
 
 
     public string GetSemaphoreName()
