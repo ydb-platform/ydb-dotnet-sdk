@@ -1,7 +1,5 @@
-﻿using Ydb.Sdk.Coordinator.Description;
-
-namespace Ydb.Sdk.Coordinator.Settings;
-
+﻿namespace Ydb.Sdk.Coordinator.Settings;
+using Description;
 using System;
 
 // намудрил?

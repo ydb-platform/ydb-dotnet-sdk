@@ -1,7 +1,5 @@
 ﻿namespace Ydb.Sdk.Coordinator.Description;
 
-using System.Threading.Tasks;
-
 public class SemaphoreWatcher
 {
     private readonly SemaphoreDescription _description;
@@ -15,8 +13,7 @@ public class SemaphoreWatcher
 
     public SemaphoreDescription GetDescription()
         => _description;
-    
-    
+
     public Task<SemaphoreChangedEvent> GetChangedFuture()
         => _changedFuture;
 }

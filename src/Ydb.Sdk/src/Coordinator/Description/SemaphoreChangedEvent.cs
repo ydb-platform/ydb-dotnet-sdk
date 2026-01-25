@@ -1,6 +1,6 @@
-﻿namespace Ydb.Sdk.Coordinator.Description;
+﻿using Ydb.Coordination;
 
-using Coordination;
+namespace Ydb.Sdk.Coordinator.Description;
 
 public class SemaphoreChangedEvent
 {
@@ -15,7 +15,6 @@ public class SemaphoreChangedEvent
 
     public bool IsDataChanged()
         => _dataChanged;
-
 
     public bool OwnersChanged()
         => _ownersChanged;

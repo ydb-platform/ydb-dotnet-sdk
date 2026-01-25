@@ -1,7 +1,6 @@
-﻿
-namespace Ydb.Sdk.Coordinator.Description;
+﻿using Ydb.Coordination;
 
-using Coordination;
+namespace Ydb.Sdk.Coordinator.Description;
 
 public class SemaphoreDescription
 {
@@ -14,7 +13,8 @@ public class SemaphoreDescription
     private readonly List<Session> _ownersList;
     private readonly List<Session> _waitersList;
 
-    public SemaphoreDescription(Ydb.Coordination.SemaphoreDescription description)
+
+    public SemaphoreDescription(Coordination.SemaphoreDescription description)
     {
         Name = description.Name;
         Data = description.Data.ToByteArray();
@@ -38,6 +38,7 @@ public class SemaphoreDescription
     public List<Session> GetOwnersList() => _ownersList;
 
     public List<Session> GetWaitersList() => _waitersList;
+
     public class Session
     {
         public ulong Id { get; }

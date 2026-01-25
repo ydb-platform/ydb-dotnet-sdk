@@ -2,7 +2,6 @@
 using Ydb.Sdk.Coordinator.Settings;
 
 namespace Ydb.Sdk.Coordinator.Impl;
-
 using Coordination;
 
 public class ClientImpl : ICoordinationClient
@@ -33,8 +32,8 @@ public class ClientImpl : ICoordinationClient
 
     // могут быть проблемы, связанные с withDeadline, так как его нет , аналог походу settings.TransportTimeout
     private static GrpcRequestSettings MakeGrpcRequestSettings(OperationSettings settings, string traceId)
-        => new GrpcRequestSettings { TraceId = traceId , TransportTimeout = settings.TransportTimeout};
- 
+        => new GrpcRequestSettings { TraceId = traceId, TransportTimeout = settings.TransportTimeout };
+
 
     /*
     @Override
