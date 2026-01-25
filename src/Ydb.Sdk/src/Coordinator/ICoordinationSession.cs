@@ -23,7 +23,7 @@ public interface ICoordinationSession : IDisposable
     }
 
     public static bool IsConnected(State state)
-        => state == State.Connected | state == State.Reconnected;
+        => (state == State.Connected) | (state == State.Reconnected);
 
     public static bool IsActive(State state)
         => (state == State.Connected) | (state == State.Reconnecting) | (state == State.Reconnected);
