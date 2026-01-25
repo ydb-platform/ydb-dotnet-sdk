@@ -5,8 +5,8 @@ public interface ISemaphoreLease
     string GetSemaphoreName();
 
     // Временно закоментировал 
-   // ICoordinationSession GetSession();
+    // ICoordinationSession GetSession();
 
-   // Временно закоментировал 
+    // Временно закоментировал 
     //Task Release();
 }

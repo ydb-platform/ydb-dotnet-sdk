@@ -11,13 +11,13 @@ public class LeaseImpl : ISemaphoreLease
         _name = name;
     }
     // Временно закоментировал ,так как SessionIml не закончен
-   // public ICoordinationSession GetSession() => _session;
+    // public ICoordinationSession GetSession() => _session;
 
-   // временно так , для прохождения тестов
-   public SessionImpl GetSession() => _session;
+    // временно так , для прохождения тестов
+    public SessionImpl GetSession() => _session;
 
-   public string GetSemaphoreName()
-       => _name;
+    public string GetSemaphoreName()
+        => _name;
 
     /*
     public Task Release()
@@ -26,5 +26,4 @@ public class LeaseImpl : ISemaphoreLease
         return null;
     }
     */
-    
 }

@@ -23,11 +23,10 @@ public interface ICoordinationSession : IDisposable
     }
 
     public static bool IsConnected(State state)
-        => state == State.Connected || state == State.Reconnected;
+        => state == State.Connected | state == State.Reconnected;
 
-    // не понимаю почему предлгает Merge into logical pattern
     public static bool IsActive(State state)
-        => (state == State.Connected | state == State.Reconnecting | state == State.Reconnected);
+        => (state == State.Connected) | (state == State.Reconnecting) | (state == State.Reconnected);
 
 
     Task Connect();
