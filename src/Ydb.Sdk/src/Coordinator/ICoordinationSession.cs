@@ -35,7 +35,7 @@ public interface ICoordinationSession : IDisposable
     /// <returns>Task with status of operation.</returns>// исправить текст
     Task Connect();
 
-    // <summary>
+    /// <summary>
     /// Send message to grpc server to stop stream. If server doesn't close connection,
     /// client cancels it itself.
     /// </summary>
