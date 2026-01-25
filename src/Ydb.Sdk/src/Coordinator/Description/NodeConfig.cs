@@ -88,30 +88,30 @@ public class NodeConfig
     }
 
     public NodeConfig WithDurationsConfig(TimeSpan selfCheck, TimeSpan sessionGrace)
-        => new NodeConfig(
+        => new(
             selfCheck, sessionGrace, ReadConsistencyMode, AttachConsistencyMode, RateLimiterCountersModeValue
         );
 
 
     public NodeConfig WithReadConsistencyMode(ConsistencyMode mode)
-        => new NodeConfig(
+        => new(
             SelfCheckPeriod, SessionGracePeriod, mode, AttachConsistencyMode, RateLimiterCountersModeValue
         );
 
 
     public NodeConfig WithAttachConsistencyMode(ConsistencyMode mode)
-        => new NodeConfig(
+        => new(
             SelfCheckPeriod, SessionGracePeriod, ReadConsistencyMode, mode, RateLimiterCountersModeValue
         );
 
 
     public NodeConfig WithRateLimiterCountersMode(RateLimiterCountersMode mode)
-        => new NodeConfig(
+        => new(
             SelfCheckPeriod, SessionGracePeriod, ReadConsistencyMode, AttachConsistencyMode, mode
         );
 
     public Config ToProto()
-        => new Config
+        => new()
         {
             SelfCheckPeriodMillis = (uint)SelfCheckPeriod.TotalMilliseconds,
             SessionGracePeriodMillis = (uint)SessionGracePeriod.TotalMilliseconds,
@@ -121,62 +121,62 @@ public class NodeConfig
         };
 
     public static NodeConfig Create()
-        => new NodeConfig();
+        => new();
 
     public static NodeConfig FromProto(DescribeNodeResult result)
-        => new NodeConfig(result);
+        => new(result);
 
-    private static Ydb.Coordination.ConsistencyMode ToProto(ConsistencyMode mode)
+    private static Coordination.ConsistencyMode ToProto(ConsistencyMode mode)
     {
         switch (mode)
         {
             case ConsistencyMode.Strict:
-                return Ydb.Coordination.ConsistencyMode.Strict;
+                return Coordination.ConsistencyMode.Strict;
             case ConsistencyMode.Relaxed:
-                return Ydb.Coordination.ConsistencyMode.Relaxed;
+                return Coordination.ConsistencyMode.Relaxed;
             case ConsistencyMode.Unset:
             default:
-                return Ydb.Coordination.ConsistencyMode.Unset;
+                return Coordination.ConsistencyMode.Unset;
         }
     }
 
-    private static Ydb.Coordination.RateLimiterCountersMode ToProto(RateLimiterCountersMode mode)
+    private static Coordination.RateLimiterCountersMode ToProto(RateLimiterCountersMode mode)
     {
         switch (mode)
         {
             case RateLimiterCountersMode.Detailed:
-                return Ydb.Coordination.RateLimiterCountersMode.Detailed;
+                return Coordination.RateLimiterCountersMode.Detailed;
             case RateLimiterCountersMode.Aggregated:
-                return Ydb.Coordination.RateLimiterCountersMode.Aggregated;
+                return Coordination.RateLimiterCountersMode.Aggregated;
             case RateLimiterCountersMode.Unset:
             default:
-                return Ydb.Coordination.RateLimiterCountersMode.Unset;
+                return Coordination.RateLimiterCountersMode.Unset;
         }
     }
 
-    private static ConsistencyMode FromProto(Ydb.Coordination.ConsistencyMode mode)
+    private static ConsistencyMode FromProto(Coordination.ConsistencyMode mode)
     {
         switch (mode)
         {
-            case Ydb.Coordination.ConsistencyMode.Relaxed:
+            case Coordination.ConsistencyMode.Relaxed:
                 return ConsistencyMode.Relaxed;
-            case Ydb.Coordination.ConsistencyMode.Strict:
+            case Coordination.ConsistencyMode.Strict:
                 return ConsistencyMode.Strict;
-            case Ydb.Coordination.ConsistencyMode.Unset:
+            case Coordination.ConsistencyMode.Unset:
             default:
                 return ConsistencyMode.Unset;
         }
     }
 
-    private static RateLimiterCountersMode FromProto(Ydb.Coordination.RateLimiterCountersMode mode)
+    private static RateLimiterCountersMode FromProto(Coordination.RateLimiterCountersMode mode)
     {
         switch (mode)
         {
-            case Ydb.Coordination.RateLimiterCountersMode.Aggregated:
+            case Coordination.RateLimiterCountersMode.Aggregated:
                 return RateLimiterCountersMode.Aggregated;
-            case Ydb.Coordination.RateLimiterCountersMode.Detailed:
+            case Coordination.RateLimiterCountersMode.Detailed:
                 return RateLimiterCountersMode.Detailed;
-            case Ydb.Coordination.RateLimiterCountersMode.Unset:
+            case Coordination.RateLimiterCountersMode.Unset:
             default:
                 return RateLimiterCountersMode.Unset;
         }
