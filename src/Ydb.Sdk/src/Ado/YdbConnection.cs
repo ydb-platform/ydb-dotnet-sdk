@@ -1,9 +1,12 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
+using Ydb.Sdk.Ado.TxWriter;
+using Ydb.Sdk.Topic;
 using static System.Data.IsolationLevel;
 
 namespace Ydb.Sdk.Ado;
@@ -230,6 +233,7 @@ public sealed class YdbConnection : DbConnection
     internal string LastCommand { get; set; } = string.Empty;
     internal bool IsBusy => LastReader is { IsOpen: true };
     internal YdbTransaction? CurrentTransaction { get; private set; }
+    internal List<object> TxWriters { get; } = new();
 
     public override string DataSource => string.Empty; // TODO
 
@@ -328,6 +332,67 @@ public sealed class YdbConnection : DbConnection
     /// to their pool.
     /// </summary>
     public static Task ClearAllPools() => PoolManager.ClearAllPools();
+
+    /// <summary>
+    /// Creates a transactional topic writer that binds message writes to the current transaction.
+    /// </summary>
+    /// <typeparam name="T">The type of values to write to the topic.</typeparam>
+    /// <param name="topicName">The name of the topic to write to.</param>
+    /// <param name="options">Optional configuration for the writer.</param>
+    /// <returns>A transactional topic writer instance.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the connection is closed or no transaction is active.
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// All messages written via the returned writer are bound to the current transaction
+    /// and become visible atomically together with table changes after a successful commit.
+    /// Message sending is performed in the background while the application continues to work.
+    /// </para>
+    /// <para>
+    /// Before committing, the connection automatically waits for acknowledgements of all pending messages.
+    /// If any flush fails, the commit is not attempted and the transaction is rolled back.
+    /// </para>
+    /// <para>
+    /// A transaction must be started (via BeginTransaction) before calling this method.
+    /// If no transaction is active, an InvalidOperationException will be thrown.
+    /// </para>
+    /// </remarks>
+    public ITxTopicWriter<T> CreateTxWriter<T>(string topicName, TxWriterOptions? options = null)
+    {
+        ThrowIfConnectionClosed();
+
+        if (CurrentTransaction is not { Completed: false })
+        {
+            throw new InvalidOperationException(
+                "A transaction must be active to create a transactional topic writer. " +
+                "Call BeginTransaction() before creating a TxWriter.");
+        }
+
+        options ??= new TxWriterOptions();
+
+        var database = ConnectionStringBuilder.Database.TrimEnd('/');
+        var topicPath = topicName.StartsWith(database) ? topicName : $"{database}/{topicName}";
+
+        var serializer = Serializers.DefaultSerializers.TryGetValue(typeof(T), out var defaultSerializer)
+            ? (ISerializer<T>)defaultSerializer
+            : throw new InvalidOperationException(
+                $"No default serializer found for type {typeof(T).Name}. " +
+                "Configure a serializer in TxWriterOptions or use a supported type.");
+
+        var logger = Session.Driver.LoggerFactory.CreateLogger<TxTopicWriter<T>>();
+
+        var writer = new TxTopicWriter<T>(
+            CurrentTransaction,
+            topicPath,
+            options,
+            serializer,
+            logger);
+
+        TxWriters.Add(writer);
+
+        return writer;
+    }
 
     public IBulkUpsertImporter BeginBulkUpsertImport(
         string name,

@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Transaction;
+using Ydb.Sdk.Ado.TxWriter;
 
 namespace Ydb.Sdk.Ado;
 
@@ -109,8 +110,13 @@ public sealed class YdbTransaction : DbTransaction
     /// <exception cref="YdbException">
     /// Thrown when the commit operation fails.
     /// </exception>
-    public override async Task CommitAsync(CancellationToken cancellationToken = new()) =>
+    public override async Task CommitAsync(CancellationToken cancellationToken = new())
+    {
+        // Flush all TxWriters before committing
+        await FlushAllTxWritersAsync(cancellationToken);
+        
         await FinishTransaction(txId => DbConnection!.Session.CommitTransaction(txId, cancellationToken));
+    }
 
     /// <summary>
     /// Rolls back the database transaction.
@@ -204,6 +210,57 @@ public sealed class YdbTransaction : DbTransaction
         _ => IsolationLevel.Unspecified
     };
 
+    private async Task FlushAllTxWritersAsync(CancellationToken cancellationToken)
+    {
+        if (DbConnection == null)
+        {
+            return;
+        }
+
+        if (DbConnection.TxWriters.Count == 0)
+        {
+            return;
+        }
+
+        var flushTasks = new List<Task>();
+        foreach (var writer in DbConnection.TxWriters)
+        {
+            if (writer is IInternalTxWriter internalWriter)
+            {
+                flushTasks.Add(internalWriter.FlushAsync(cancellationToken));
+            }
+        }
+
+        try
+        {
+            await Task.WhenAll(flushTasks);
+        }
+        catch (Exception ex)
+        {
+            // If flush fails, dispose all writers to clean up
+            DisposeAllTxWriters();
+            throw new TxTopicWriterException("Failed to flush transactional topic writers before commit", ex);
+        }
+    }
+
+    private void DisposeAllTxWriters()
+    {
+        if (DbConnection == null)
+        {
+            return;
+        }
+
+        foreach (var writer in DbConnection.TxWriters)
+        {
+            if (writer is IDisposableTxWriter disposableWriter)
+            {
+                disposableWriter.Dispose();
+            }
+        }
+
+        DbConnection.TxWriters.Clear();
+    }
+
     private async Task FinishTransaction(Func<string, Task> finishMethod)
     {
         if (DbConnection?.State == ConnectionState.Closed || Completed)
@@ -222,16 +279,24 @@ public sealed class YdbTransaction : DbTransaction
 
             if (TxId == null)
             {
+                // Dispose writers even if transaction wasn't started
+                DisposeAllTxWriters();
                 return; // transaction isn't started
             }
 
             await finishMethod(TxId); // Commit or Rollback
+            
+            // Dispose writers after successful commit or rollback
+            DisposeAllTxWriters();
         }
         catch (YdbException e)
         {
             Failed = true;
 
             DbConnection.OnNotSuccessStatusCode(e.Code);
+            
+            // Dispose writers on error
+            DisposeAllTxWriters();
 
             throw;
         }
