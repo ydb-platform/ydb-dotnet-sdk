@@ -154,10 +154,11 @@ jobs:
             --ref "${CURRENT_REF}" \
             --workload "${{ matrix.workload.name }}"
 
+          # TODO: restore baseline comparison after SLO infrastructure is merged to main
           bash "$SCRIPT" \
-            --context "$GITHUB_WORKSPACE/baseline" \
+            --context "$GITHUB_WORKSPACE/current" \
             --tag "ydb-app-baseline" \
-            --ref "${{ steps.baseline.outputs.ref }}" \
+            --ref "${CURRENT_REF}" \
             --workload "${{ matrix.workload.name }}"
 
       - name: Initialize YDB SLO
