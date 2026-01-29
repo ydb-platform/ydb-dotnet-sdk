@@ -168,6 +168,24 @@ public abstract class SloTableContext<T> : ISloContext
                 { "workload", workloadLabel }
             };
 
+            var successTags = new KeyValuePair<string, object?>[]
+            {
+                new("operation_type", operationType),
+                new("sdk", "dotnet"),
+                new("sdk_version", Environment.Version.ToString()),
+                new("workload", workloadLabel),
+                new("operation_status", "success")
+            };
+
+            var failureTags = new KeyValuePair<string, object?>[]
+            {
+                new("operation_type", operationType),
+                new("sdk", "dotnet"),
+                new("sdk_version", Environment.Version.ToString()),
+                new("workload", workloadLabel),
+                new("operation_status", "failure")
+            };
+
             var operationsTotal = meter.CreateCounter<long>(
                 "sdk.operations.total",
                 description: "Total number of operations performed by the SDK, categorized by type."
@@ -215,16 +233,14 @@ public abstract class SloTableContext<T> : ISloContext
                             operationsTotal.Add(1, tags);
                             operationsSuccessTotal.Add(1, tags);
                             
-                            var successTags = new TagList(tags) { { "operation_status", "success" } };
-                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, in successTags);
+                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, successTags);
                         }
                         catch (Exception ex)
                         {
                             sw.Stop();
                             operationsTotal.Add(1, tags);
                             
-                            var failureTags = new TagList(tags) { { "operation_status", "failure" } };
-                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, in failureTags);
+                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, failureTags);
                             
                             Logger.LogWarning(ex, "Operation {OperationType} failed", operationType);
                         }
