@@ -30,6 +30,33 @@ on:
         default: "100"
 
 jobs:
+  remove-slo-label:
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'SLO')
+    runs-on: ubuntu-latest
+    name: Remove SLO Label
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove SLO label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                name: 'SLO'
+              });
+              console.log(`Removed SLO label from PR #${context.payload.pull_request.number}`);
+            } catch (error) {
+              if (error.status === 404) {
+                console.log('SLO label not found, skipping');
+              } else {
+                throw error;
+              }
+            }
+
   ydb-slo-action:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'SLO')
 
