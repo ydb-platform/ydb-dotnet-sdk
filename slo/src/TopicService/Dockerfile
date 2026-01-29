@@ -24,4 +24,4 @@ RUN dotnet publish "TopicService.csproj" -c Release -o /app/publish /p:UseAppHos
 FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "slo.dll"]
+ENTRYPOINT ["dotnet", "TopicService.dll"]

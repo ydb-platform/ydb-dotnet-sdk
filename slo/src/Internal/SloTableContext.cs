@@ -158,7 +158,7 @@ public abstract class SloTableContext<T> : ISloContext
 
         async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, RunConfig, Task> action)
         {
-            using var meter = new Meter("YDB.SLO");
+            var meter = new Meter("YDB.SLO");
             
             var tags = new TagList
             {
