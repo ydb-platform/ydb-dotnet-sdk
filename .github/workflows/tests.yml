@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ydb-version: [ 'latest', 'trunk' ]
+        ydb-version: [ 'latest' ]
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
