@@ -88,7 +88,7 @@ public abstract class SloTableContext<T> : ISloContext
     {
         var refLabel = Environment.GetEnvironmentVariable("REF") ?? "unknown";
         var workloadLabel = Environment.GetEnvironmentVariable("WORKLOAD") ?? Job;
-        
+
         var meterProvider = Sdk.CreateMeterProviderBuilder()
             .ConfigureResource(resource => resource
                 .AddService(serviceName: $"workload-{workloadLabel}")
@@ -109,10 +109,10 @@ public abstract class SloTableContext<T> : ISloContext
                 {
                     path = "/api/v1/otlp/v1/metrics";
                 }
-                
+
                 exporterOptions.Endpoint = new Uri($"{endpoint}{path}");
                 exporterOptions.Protocol = OtlpExportProtocol.HttpProtobuf;
-                
+
                 metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = runConfig.ReportPeriod;
             })
             .Build();
@@ -159,9 +159,10 @@ public abstract class SloTableContext<T> : ISloContext
         async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, RunConfig, Task> action)
         {
             var meter = new Meter("YDB.SLO");
-            
+
             var tags = new TagList
             {
+                { "ref", refLabel },
                 { "operation_type", operationType },
                 { "sdk", "dotnet" },
                 { "sdk_version", Environment.Version.ToString() },
@@ -170,6 +171,7 @@ public abstract class SloTableContext<T> : ISloContext
 
             var successTags = new KeyValuePair<string, object?>[]
             {
+                new("ref", refLabel),
                 new("operation_type", operationType),
                 new("sdk", "dotnet"),
                 new("sdk_version", Environment.Version.ToString()),
@@ -179,6 +181,7 @@ public abstract class SloTableContext<T> : ISloContext
 
             var failureTags = new KeyValuePair<string, object?>[]
             {
+                new("ref", refLabel),
                 new("operation_type", operationType),
                 new("sdk", "dotnet"),
                 new("sdk_version", Environment.Version.ToString()),
@@ -194,6 +197,11 @@ public abstract class SloTableContext<T> : ISloContext
             var operationsSuccessTotal = meter.CreateCounter<long>(
                 "sdk.operations.success.total",
                 description: "Total number of successful operations, categorized by type."
+            );
+
+            var retryAttemptsTotal = meter.CreateCounter<long>(
+                "sdk.retry.attempts.total",
+                description: "Total number of retry attempts performed by the SDK."
             );
 
             var operationLatencySeconds = meter.CreateHistogram<double>(
@@ -225,23 +233,24 @@ public abstract class SloTableContext<T> : ISloContext
 
                         pendingOperations.Add(1, tags);
                         var sw = Stopwatch.StartNew();
-                        
+
                         try
                         {
                             await action(client, runConfig);
                             sw.Stop();
                             operationsTotal.Add(1, tags);
                             operationsSuccessTotal.Add(1, tags);
-                            
+
                             operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, successTags);
                         }
                         catch (Exception ex)
                         {
                             sw.Stop();
                             operationsTotal.Add(1, tags);
-                            
+                            retryAttemptsTotal.Add(1, tags);
+
                             operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, failureTags);
-                            
+
                             Logger.LogWarning(ex, "Operation {OperationType} failed", operationType);
                         }
                         finally

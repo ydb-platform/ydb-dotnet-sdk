@@ -162,6 +162,7 @@ jobs:
             --workload "${{ matrix.workload.name }}"
 
       - name: Initialize YDB SLO
+        id: ydb-slo
         uses: ydb-platform/ydb-slo-action/init@main
         with:
           github_issue: ${{ github.event.inputs.github_issue }}
@@ -189,6 +190,9 @@ jobs:
           CURRENT_REF="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
 
           CONNECTION_STRING="Host=ydb;Port=2135;Database=/Root/testdb"
+          OTLP_ENDPOINT="${{ steps.ydb-slo.outputs.ydb-prometheus-otlp }}"
+
+          echo "OTLP endpoint: $OTLP_ENDPOINT"
 
           echo "Starting ydb-app-current..."
           docker run -d \
@@ -201,7 +205,7 @@ jobs:
             -e "REF=${CURRENT_REF}" \
             -e "WORKLOAD=${{ matrix.workload.name }}" \
             ydb-app-current run "$CONNECTION_STRING" \
-              --otlp-endpoint http://prometheus:9090 \
+              --otlp-endpoint "$OTLP_ENDPOINT" \
               --report-period 250 \
               --time $DURATION \
               --read-rps $READ_RPS \
@@ -220,7 +224,7 @@ jobs:
             -e "REF=${{ steps.baseline.outputs.ref }}" \
             -e "WORKLOAD=${{ matrix.workload.name }}" \
             ydb-app-baseline run "$CONNECTION_STRING" \
-              --otlp-endpoint http://prometheus:9090 \
+              --otlp-endpoint "$OTLP_ENDPOINT" \
               --report-period 250 \
               --time $DURATION \
               --read-rps $READ_RPS \
