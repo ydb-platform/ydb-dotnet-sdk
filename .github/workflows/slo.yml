@@ -188,14 +188,7 @@ jobs:
           WRITE_RPS=${{ inputs.slo_workload_write_max_rps || 100 }}
           CURRENT_REF="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
 
-          ARGS="run \"Host=ydb;Port=2135;Database=/Root/testdb\" \
-            --otlp-endpoint http://prometheus:9090 \
-            --report-period 250 \
-            --time $DURATION \
-            --read-rps $READ_RPS \
-            --write-rps $WRITE_RPS \
-            --read-timeout 1000 \
-            --write-timeout 1000"
+          CONNECTION_STRING="Host=ydb;Port=2135;Database=/Root/testdb"
 
           echo "Starting ydb-app-current..."
           docker run -d \
@@ -207,7 +200,14 @@ jobs:
             --add-host "ydb:172.28.0.99" \
             -e "REF=${CURRENT_REF}" \
             -e "WORKLOAD=${{ matrix.workload.name }}" \
-            ydb-app-current $ARGS
+            ydb-app-current run "$CONNECTION_STRING" \
+              --otlp-endpoint http://prometheus:9090 \
+              --report-period 250 \
+              --time $DURATION \
+              --read-rps $READ_RPS \
+              --write-rps $WRITE_RPS \
+              --read-timeout 1000 \
+              --write-timeout 1000
 
           echo "Starting ydb-app-baseline..."
           docker run -d \
@@ -219,7 +219,14 @@ jobs:
             --add-host "ydb:172.28.0.99" \
             -e "REF=${{ steps.baseline.outputs.ref }}" \
             -e "WORKLOAD=${{ matrix.workload.name }}" \
-            ydb-app-baseline $ARGS
+            ydb-app-baseline run "$CONNECTION_STRING" \
+              --otlp-endpoint http://prometheus:9090 \
+              --report-period 250 \
+              --time $DURATION \
+              --read-rps $READ_RPS \
+              --write-rps $WRITE_RPS \
+              --read-timeout 1000 \
+              --write-timeout 1000
 
           # Show initial logs
           echo ""
