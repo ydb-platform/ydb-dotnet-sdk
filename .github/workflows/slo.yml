@@ -156,6 +156,7 @@ jobs:
 
           bash "$SCRIPT" \
             --context "$GITHUB_WORKSPACE/baseline" \
+            --dockerfile-dir "$GITHUB_WORKSPACE/current" \
             --tag "ydb-app-baseline" \
             --ref "${{ steps.baseline.outputs.ref }}" \
             --workload "${{ matrix.workload.name }}"
