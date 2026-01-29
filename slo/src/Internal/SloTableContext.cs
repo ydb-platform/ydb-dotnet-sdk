@@ -216,7 +216,7 @@ public abstract class SloTableContext<T> : ISloContext
                             operationsSuccessTotal.Add(1, tags);
                             
                             var successTags = new TagList(tags) { { "operation_status", "success" } };
-                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, successTags);
+                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, in successTags);
                         }
                         catch (Exception ex)
                         {
@@ -224,7 +224,7 @@ public abstract class SloTableContext<T> : ISloContext
                             operationsTotal.Add(1, tags);
                             
                             var failureTags = new TagList(tags) { { "operation_status", "failure" } };
-                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, failureTags);
+                            operationLatencySeconds.Record(sw.Elapsed.TotalSeconds, in failureTags);
                             
                             Logger.LogWarning(ex, "Operation {OperationType} failed", operationType);
                         }
