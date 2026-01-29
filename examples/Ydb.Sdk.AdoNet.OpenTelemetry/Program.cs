@@ -4,7 +4,6 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Ydb.Sdk.Ado;
-using OpenTelemetry.Exporter;
 
 const string serviceName = "ydb-sdk-adonet-sample";
 var otlpEndpoint = new Uri("http://localhost:4317");
@@ -34,10 +33,11 @@ Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] started, service.name={serviceNa
 
 await using var dataSource = new YdbDataSource("Host=localhost;Port=2136;Database=/local");
 
-using (var activity = activitySource.StartActivity("app.startup", ActivityKind.Internal))
+const string appStartup = "app.startup";
+using (var activity = activitySource.StartActivity(appStartup))
 {
     activity?.SetTag("app.message", "hello");
-    
+
     await using var conn = await dataSource.OpenConnectionAsync();
     await using var cmd = new YdbCommand("CREATE TABLE a(b Uuid, PRIMARY KEY (b))", conn);
     _ = await cmd.ExecuteScalarAsync();
@@ -46,10 +46,11 @@ using (var activity = activitySource.StartActivity("app.startup", ActivityKind.I
 using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
 while (await timer.WaitForNextTickAsync())
 {
-    using var tick = activitySource.StartActivity("app.tick", ActivityKind.Internal);
+    const string appTick = "app.tick";
+    using var tick = activitySource.StartActivity(appTick, ActivityKind.Client);
     tick?.SetTag("tick.utc", DateTimeOffset.UtcNow.ToString("u"));
     Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] tick");
-    
+
     await using var conn = await dataSource.OpenConnectionAsync();
     await using var cmd = new YdbCommand("INSERT INTO a(b) VALUES (@b)", conn);
     cmd.Parameters.AddWithValue("b", Guid.NewGuid());
