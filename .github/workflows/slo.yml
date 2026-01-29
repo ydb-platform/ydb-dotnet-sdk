@@ -61,7 +61,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'SLO')
 
     name: Run YDB SLO Tests
-    runs-on: "large-runner"
+    runs-on: "large-runner-dotnet-sdk"
 
     strategy:
       fail-fast: false
