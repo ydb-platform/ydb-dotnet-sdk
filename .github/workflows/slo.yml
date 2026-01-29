@@ -69,7 +69,7 @@ jobs:
         workload:
           - name: AdoNet
           - name: Dapper
-          - name: EF
+          # - name: EF  # TODO: fix net10.0 SDK requirement in EntityFrameworkCore.Ydb
           - name: Linq2db.Slo
 
     concurrency:
