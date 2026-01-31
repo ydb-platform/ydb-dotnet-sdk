@@ -1,12 +1,12 @@
 ﻿using Ydb.Coordination;
+using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Coordinator.Description;
 using Ydb.Sdk.Coordinator.Settings;
 
-
 namespace Ydb.Sdk.Coordinator.Impl;
 
-public class CoordinationClient //: ICoordinationClient
+public class CoordinationClient
 {
     // IDriverFactory _driverFactory надо добавлять его через конструктор , а не IDriver?
     private readonly IDriver _iDriver;
@@ -64,7 +64,8 @@ public class CoordinationClient //: ICoordinationClient
 
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
         var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
-        Task task = _iDriver.UnaryCall(Coordination.V1.CoordinationService.CreateNodeMethod, request, grpcSettings);
+        Task task = _iDriver.UnaryCall(CoordinationService.CreateNodeMethod, request, grpcSettings);
+        
         if (task.IsFaulted)
         {
             throw new YdbException("Create node failed");
@@ -89,7 +90,8 @@ public class CoordinationClient //: ICoordinationClient
 
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
         var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
-        Task task = _iDriver.UnaryCall(Coordination.V1.CoordinationService.AlterNodeMethod, request, grpcSettings);
+        Task task = _iDriver.UnaryCall(CoordinationService.AlterNodeMethod, request, grpcSettings);
+        
         if (task.IsFaulted)
         {
             throw new YdbException("Alter node failed");
@@ -113,7 +115,8 @@ public class CoordinationClient //: ICoordinationClient
 
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
         var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
-        Task task = _iDriver.UnaryCall(Coordination.V1.CoordinationService.DropNodeMethod, request, grpcSettings);
+        Task task = _iDriver.UnaryCall(CoordinationService.DropNodeMethod, request, grpcSettings);
+        
         if (task.IsFaulted)
         {
             throw new YdbException("Drop node failed");
@@ -137,7 +140,8 @@ public class CoordinationClient //: ICoordinationClient
         };
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
         var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
-        var task = _iDriver.UnaryCall(Coordination.V1.CoordinationService.DescribeNodeMethod, request, grpcSettings);
+        var task = _iDriver.UnaryCall(CoordinationService.DescribeNodeMethod, request, grpcSettings);
+        
         if (task.IsFaulted)
         {
             throw new YdbException("Describe node failed");

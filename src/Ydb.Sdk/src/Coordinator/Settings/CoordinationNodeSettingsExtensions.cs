@@ -1,6 +1,4 @@
-﻿using Ydb.Sdk.Coordinator.Description;
-
-namespace Ydb.Sdk.Coordinator.Settings;
+﻿namespace Ydb.Sdk.Coordinator.Settings;
 
 // намудрил?
 public static class CoordinationNodeSettingsExtensions
