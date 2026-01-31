@@ -12,6 +12,7 @@
     </ItemGroup>
     
     <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.36" />
         <PackageReference Include="Ydb.Sdk.Yc.Auth" Version="0.2.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0"/>

@@ -8,12 +8,9 @@ public class SemaphoreDescription
     public byte[] Data { get; }
     public ulong Count { get; }
     public ulong Limit { get; }
-
     public bool Ephemeral { get; }
     private readonly List<Session> _ownersList;
     private readonly List<Session> _waitersList;
-
-
     public SemaphoreDescription(Coordination.SemaphoreDescription description)
     {
         Name = description.Name;
@@ -34,11 +31,8 @@ public class SemaphoreDescription
             _waitersList.Add(new Session(waiters));
         }
     }
-
     public List<Session> GetOwnersList() => _ownersList;
-
     public List<Session> GetWaitersList() => _waitersList;
-
     public class Session
     {
         public ulong Id { get; }

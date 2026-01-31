@@ -2,7 +2,7 @@
 
 namespace Ydb.Sdk.Coordinator.Description;
 
-public class SemaphoreChangedEvent
+public readonly struct SemaphoreChangedEvent
 {
     private readonly bool _dataChanged;
     private readonly bool _ownersChanged;

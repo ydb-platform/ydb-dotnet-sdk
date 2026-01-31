@@ -63,6 +63,7 @@ public static class CoordinationNodeSettingsExtensions
         return settings;
     }
 
+    /*
     /// <summary>
     /// Устанавливает конфигурацию ноды.
     /// </summary>
@@ -73,4 +74,5 @@ public static class CoordinationNodeSettingsExtensions
         settings.Config = config ?? throw new ArgumentNullException(nameof(config));
         return settings;
     }
+    */
 }

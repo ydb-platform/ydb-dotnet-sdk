@@ -2,32 +2,8 @@
 
 namespace Ydb.Sdk.Coordinator.Description;
 
-public class NodeConfig
+public readonly struct NodeConfig
 {
-    public enum ConsistencyMode
-    {
-        /// <summary>The default or current value</summary>
-        Unset,
-
-        /// <summary>Strict mode makes sure operations may only complete on current leader</summary>
-        Strict,
-
-        /// <summary>Relaxed mode allows operations to complete on stale masters</summary>
-        Relaxed
-    }
-
-    public enum RateLimiterCountersMode
-    {
-        /// <summary>The default or current value</summary>
-        Unset,
-
-        /// <summary>Aggregated counters for resource tree</summary>
-        Aggregated,
-
-        /// <summary>Counters on every resource</summary>
-        Detailed
-    }
-
     /// <summary>Period for self-checks (default 1 second)</summary>
     public TimeSpan SelfCheckPeriod { get; }
 
@@ -44,7 +20,7 @@ public class NodeConfig
     public RateLimiterCountersMode RateLimiterCountersModeValue { get; }
 
 
-    private NodeConfig()
+    public NodeConfig()
     {
         SelfCheckPeriod = TimeSpan.FromSeconds(1);
         SessionGracePeriod = TimeSpan.FromSeconds(10);
