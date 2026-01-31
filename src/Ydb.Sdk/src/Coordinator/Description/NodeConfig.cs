@@ -2,49 +2,25 @@
 
 namespace Ydb.Sdk.Coordinator.Description;
 
-public class NodeConfig
+public readonly struct NodeConfig
 {
-    public enum ConsistencyMode
-    {
-        /// <summary>The default or current value</summary>
-        Unset,
-
-        /// <summary>Strict mode makes sure operations may only complete on current leader</summary>
-        Strict,
-
-        /// <summary>Relaxed mode allows operations to complete on stale masters</summary>
-        Relaxed
-    }
-
-    public enum RateLimiterCountersMode
-    {
-        /// <summary>The default or current value</summary>
-        Unset,
-
-        /// <summary>Aggregated counters for resource tree</summary>
-        Aggregated,
-
-        /// <summary>Counters on every resource</summary>
-        Detailed
-    }
-
     /// <summary>Period for self-checks (default 1 second)</summary>
-    public TimeSpan SelfCheckPeriod { get; }
+    private TimeSpan SelfCheckPeriod { get; }
 
     /// <summary>Grace period for sessions on leader change (default 10 seconds)</summary>
-    public TimeSpan SessionGracePeriod { get; }
+    private TimeSpan SessionGracePeriod { get; }
 
     /// <summary>Consistency mode for read operations</summary>
-    public ConsistencyMode ReadConsistencyMode { get; }
+    private ConsistencyMode ReadConsistencyMode { get; }
 
     /// <summary>Consistency mode for attach operations</summary>
-    public ConsistencyMode AttachConsistencyMode { get; }
+    private ConsistencyMode AttachConsistencyMode { get; }
 
     /// <summary>Rate limiter counters mode</summary>
-    public RateLimiterCountersMode RateLimiterCountersModeValue { get; }
+    private RateLimiterCountersMode RateLimiterCountersModeValue { get; }
 
 
-    private NodeConfig()
+    public NodeConfig()
     {
         SelfCheckPeriod = TimeSpan.FromSeconds(1);
         SessionGracePeriod = TimeSpan.FromSeconds(10);
