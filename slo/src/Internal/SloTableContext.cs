@@ -207,7 +207,11 @@ public abstract class SloTableContext<T> : ISloContext
             var operationLatencySeconds = meter.CreateHistogram<double>(
                 "sdk.operation.latency.seconds",
                 unit: "s",
-                description: "Latency of operations performed by the SDK in seconds, categorized by type and status."
+                description: "Latency of operations performed by the SDK in seconds, categorized by type and status.",
+                advice: new ExplicitBucketHistogramConfiguration
+                {
+                    Boundaries = [0.001, 0.002, 0.003, 0.004, 0.005, 0.0075, 0.010, 0.020, 0.050, 0.100, 0.200, 0.500, 1.000]
+                }
             );
 
             var pendingOperations = meter.CreateUpDownCounter<long>(
