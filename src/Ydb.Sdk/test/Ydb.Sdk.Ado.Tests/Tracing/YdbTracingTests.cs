@@ -16,15 +16,9 @@ public class YdbTracingTests : TestBase
         using var activityListener = StartListener(out var activities);
 
         await using var connection = await CreateOpenConnectionAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT 1;";
-        _ = await command.ExecuteScalarAsync();
+        await new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync();
 
-        var activity = GetSingleActivity(
-            activities,
-            "ydb.CreateSession",
-            expectedStatusCode: ActivityStatusCode.Unset
-        );
+        var activity = GetSingleActivity(activities, "ydb.CreateSession");
         Assert.Empty(activity.Events);
         AssertCommonDbTags(activity);
     }
@@ -33,21 +27,18 @@ public class YdbTracingTests : TestBase
     public async Task CommandExecute_DoesNotEmitYdbActivity_WhenYdbActivitySourceIsNotEnabled()
     {
         var activities = new List<Activity>();
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "test.source",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStopped = activity => activities.Add(activity)
-        };
+        using var listener = new ActivityListener();
+        listener.ShouldListenTo = source => source.Name == "test.source";
+        listener.Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded;
+        listener.ActivityStopped = activity => activities.Add(activity);
         ActivitySource.AddActivityListener(listener);
 
         using var testSource = new ActivitySource("test.source");
+        // ReSharper disable once ExplicitCallerInfoArgument
         using (testSource.StartActivity("test.parent"))
         {
             await using var connection = await CreateOpenConnectionAsync();
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT 1;";
-            _ = await command.ExecuteScalarAsync();
+            await new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync();
         }
 
         var capturedNames = activities.Select(a => a.DisplayName).ToList();
@@ -58,21 +49,18 @@ public class YdbTracingTests : TestBase
     [Fact]
     public async Task CommandExecute_DoesNotWriteYdbData_ToExternalActivity()
     {
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "test.source",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded
-        };
+        using var listener = new ActivityListener();
+        listener.ShouldListenTo = source => source.Name == "test.source";
+        listener.Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded;
         ActivitySource.AddActivityListener(listener);
 
         using var testSource = new ActivitySource("test.source");
+        // ReSharper disable once ExplicitCallerInfoArgument
         using var parent = testSource.StartActivity("test.parent");
         Assert.NotNull(parent);
 
         await using var connection = await CreateOpenConnectionAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT 1;";
-        _ = await command.ExecuteScalarAsync();
+        await new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync();
 
         var parentTags = parent!.TagObjects.Select(t => t.Key).ToList();
         Assert.Equal(ActivityStatusCode.Unset, parent.Status);
@@ -86,24 +74,16 @@ public class YdbTracingTests : TestBase
     public async Task CommandExecute_WhenActivityAllDataIsDisabled_EmitsActivityWithoutTags()
     {
         var activities = new List<Activity>();
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "Ydb.Sdk",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.PropagationData,
-            ActivityStopped = activity => activities.Add(activity)
-        };
+        using var listener = new ActivityListener();
+        listener.ShouldListenTo = source => source.Name == "Ydb.Sdk";
+        listener.Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.PropagationData;
+        listener.ActivityStopped = activity => activities.Add(activity);
         ActivitySource.AddActivityListener(listener);
 
         await using var connection = await CreateOpenConnectionAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT 1;";
-        _ = await command.ExecuteScalarAsync();
+        await new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync();
 
-        var activity = GetSingleActivity(
-            activities,
-            "ydb.ExecuteQuery",
-            expectedStatusCode: ActivityStatusCode.Unset
-        );
+        var activity = GetSingleActivity(activities, "ydb.ExecuteQuery");
         Assert.False(activity.IsAllDataRequested);
         Assert.Empty(activity.TagObjects);
     }
@@ -113,16 +93,9 @@ public class YdbTracingTests : TestBase
     {
         await using var connection = await CreateOpenConnectionAsync();
         using var activityListener = StartListener(out var activities);
+        _ = await new YdbCommand("SELECT 42;", connection).ExecuteScalarAsync();
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT 42;";
-        _ = await command.ExecuteScalarAsync();
-
-        var activity = GetSingleActivity(
-            activities,
-            "ydb.ExecuteQuery",
-            expectedStatusCode: ActivityStatusCode.Unset
-        );
+        var activity = GetSingleActivity(activities, "ydb.ExecuteQuery");
         AssertCommonDbTags(activity);
     }
 
@@ -132,16 +105,10 @@ public class YdbTracingTests : TestBase
         await using var connection = await CreateOpenConnectionAsync();
         using var activityListener = StartListener(out var activities);
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT * FROM non_existing_table";
+        _ = await Assert.ThrowsAnyAsync<Exception>(async () =>
+            await new YdbCommand("SELECT * FROM non_existing_table", connection).ExecuteScalarAsync());
 
-        _ = await Assert.ThrowsAnyAsync<Exception>(async () => await command.ExecuteScalarAsync());
-
-        var activity = GetSingleActivity(
-            activities,
-            "ydb.ExecuteQuery",
-            expectedStatusCode: ActivityStatusCode.Error
-        );
+        var activity = GetSingleActivity(activities, "ydb.ExecuteQuery", expectedStatusCode: ActivityStatusCode.Error);
         Assert.NotNull(activity.StatusDescription);
 
         var tags = activity.TagObjects.ToDictionary(t => t.Key, t => t.Value);
@@ -155,16 +122,10 @@ public class YdbTracingTests : TestBase
         using var activityListener = StartListener(out var activities);
 
         var tx = connection.BeginTransaction();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT 1;";
-        _ = await command.ExecuteScalarAsync();
+        _ = await new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync();
         await tx.CommitAsync();
 
-        var activity = GetSingleActivity(
-            activities,
-            "ydb.Commit",
-            expectedStatusCode: ActivityStatusCode.Unset
-        );
+        var activity = GetSingleActivity(activities, "ydb.Commit");
         Assert.Empty(activity.Events);
         AssertCommonDbTags(activity);
     }
@@ -176,16 +137,10 @@ public class YdbTracingTests : TestBase
         using var activityListener = StartListener(out var activities);
 
         var tx = connection.BeginTransaction();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT 1;";
-        _ = await command.ExecuteScalarAsync();
+        await new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync();
         await tx.RollbackAsync();
 
-        var activity = GetSingleActivity(
-            activities,
-            "ydb.Rollback",
-            expectedStatusCode: ActivityStatusCode.Unset
-        );
+        var activity = GetSingleActivity(activities, "ydb.Rollback");
         Assert.Empty(activity.Events);
         AssertCommonDbTags(activity);
     }
@@ -210,7 +165,7 @@ public class YdbTracingTests : TestBase
         List<Activity> activities,
         string expectedDisplayName,
         string? expectedOperationName = null,
-        ActivityStatusCode? expectedStatusCode = null,
+        ActivityStatusCode? expectedStatusCode = ActivityStatusCode.Unset,
         string? expectedStatusDescription = null
     )
     {
@@ -231,12 +186,15 @@ public class YdbTracingTests : TestBase
 
     private static void AssertCommonDbTags(Activity activity)
     {
-        static object? LastTagValue(Activity a, string key) =>
-            a.TagObjects.LastOrDefault(t => t.Key == key).Value;
-
         Assert.Equal("ydb", LastTagValue(activity, "db.system.name"));
         Assert.Equal(ConnectionSettings.Database, LastTagValue(activity, "db.namespace"));
         Assert.Equal(ConnectionSettings.Host, LastTagValue(activity, "server.address"));
         Assert.Equal(ConnectionSettings.Port.ToString(), LastTagValue(activity, "server.port")?.ToString());
+        return;
+
+        static object? LastTagValue(Activity a, string key)
+        {
+            return a.TagObjects.LastOrDefault(t => t.Key == key).Value;
+        }
     }
 }

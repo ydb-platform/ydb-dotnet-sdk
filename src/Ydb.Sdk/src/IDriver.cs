@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
@@ -5,7 +6,6 @@ using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
-using System.Diagnostics;
 using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk;

@@ -149,4 +149,4 @@ public record EndpointInfo(long NodeId, bool Ssl, string Host, uint Port, string
     internal void Pessimize() => Priority = int.MaxValue;
 
     internal bool IsPessimized => Priority == int.MaxValue;
-};
+}

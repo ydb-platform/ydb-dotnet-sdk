@@ -111,7 +111,7 @@ public sealed class YdbTransaction : DbTransaction
     /// Thrown when the commit operation fails.
     /// </exception>
     public override Task CommitAsync(CancellationToken cancellationToken = new()) =>
-        FinishTransaction(DbConnection!.Session.CommitTransaction, "ydb.Commit", cancellationToken);
+        FinishTransaction(isCommit: true, "ydb.Commit", cancellationToken);
 
     /// <summary>
     /// Rolls back the database transaction.
@@ -144,7 +144,7 @@ public sealed class YdbTransaction : DbTransaction
     public override Task RollbackAsync(CancellationToken cancellationToken = new())
     {
         if (!Failed)
-            return FinishTransaction(DbConnection!.Session.RollbackTransaction, "ydb.Rollback", cancellationToken);
+            return FinishTransaction(isCommit: false, "ydb.Rollback", cancellationToken);
 
         Failed = false;
         return Task.CompletedTask;
@@ -202,11 +202,7 @@ public sealed class YdbTransaction : DbTransaction
         _ => IsolationLevel.Unspecified
     };
 
-    private async Task FinishTransaction(
-        Func<string, CancellationToken, Task> finishMethod,
-        string spanName,
-        CancellationToken cancellationToken
-    )
+    private async Task FinishTransaction(bool isCommit, string spanName, CancellationToken cancellationToken)
     {
         using var dbActivity = YdbActivitySource.StartActivity(spanName);
 
@@ -229,7 +225,14 @@ public sealed class YdbTransaction : DbTransaction
                 return; // transaction isn't started
             }
 
-            await finishMethod(TxId, cancellationToken); // Commit or Rollback
+            if (isCommit)
+            {
+                await DbConnection.Session.CommitTransaction(TxId, cancellationToken);
+            }
+            else
+            {
+                await DbConnection.Session.RollbackTransaction(TxId, cancellationToken);
+            }
         }
         catch (YdbException e)
         {
