@@ -69,7 +69,7 @@ jobs:
         workload:
           - name: AdoNet
           - name: Dapper
-          # - name: EF  # TODO: fix net10.0 SDK requirement in EntityFrameworkCore.Ydb
+          - name: EF
           - name: Linq2db.Slo
 
     concurrency:
@@ -174,12 +174,16 @@ jobs:
       - name: Prepare SLO Database
         run: |
           echo "Preparing SLO database..."
+
+          IFS=',' read -ra DATABASE_IPS <<< "${{ steps.ydb-slo.outputs.ydb-database-ips }}"
+          ADD_HOST_ARGS=""
+          for ip in "${DATABASE_IPS[@]}"; do
+            ADD_HOST_ARGS="$ADD_HOST_ARGS --add-host ydb:$ip"
+          done
+
           docker run --rm --network ydb_ydb-net \
-            --add-host "ydb:172.28.0.11" \
-            --add-host "ydb:172.28.0.12" \
-            --add-host "ydb:172.28.0.13" \
-            --add-host "ydb:172.28.0.99" \
-            ydb-app-current create "Host=ydb;Port=2135;Database=/Root/testdb"
+            $ADD_HOST_ARGS \
+            ydb-app-current create "Host=ydb;Port=2136;Database=/Root/testdb"
 
       - name: Run SLO Tests (parallel)
         timeout-minutes: 15
@@ -189,19 +193,23 @@ jobs:
           WRITE_RPS=${{ inputs.slo_workload_write_max_rps || 100 }}
           CURRENT_REF="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
 
-          CONNECTION_STRING="Host=ydb;Port=2135;Database=/Root/testdb"
+          IFS=',' read -ra DATABASE_IPS <<< "${{ steps.ydb-slo.outputs.ydb-database-ips }}"
+          ADD_HOST_ARGS=""
+          for ip in "${DATABASE_IPS[@]}"; do
+            ADD_HOST_ARGS="$ADD_HOST_ARGS --add-host ydb:$ip"
+          done
+
+          CONNECTION_STRING="Host=ydb;Port=2136;Database=/Root/testdb"
           OTLP_ENDPOINT="${{ steps.ydb-slo.outputs.ydb-prometheus-otlp }}"
 
+          echo "Connection string: $CONNECTION_STRING"
           echo "OTLP endpoint: $OTLP_ENDPOINT"
 
           echo "Starting ydb-app-current..."
           docker run -d \
             --name ydb-app-current \
             --network ydb_ydb-net \
-            --add-host "ydb:172.28.0.11" \
-            --add-host "ydb:172.28.0.12" \
-            --add-host "ydb:172.28.0.13" \
-            --add-host "ydb:172.28.0.99" \
+            $ADD_HOST_ARGS \
             -e "REF=${CURRENT_REF}" \
             -e "WORKLOAD=${{ matrix.workload.name }}" \
             ydb-app-current run "$CONNECTION_STRING" \
@@ -217,10 +225,7 @@ jobs:
           docker run -d \
             --name ydb-app-baseline \
             --network ydb_ydb-net \
-            --add-host "ydb:172.28.0.11" \
-            --add-host "ydb:172.28.0.12" \
-            --add-host "ydb:172.28.0.13" \
-            --add-host "ydb:172.28.0.99" \
+            $ADD_HOST_ARGS \
             -e "REF=${{ steps.baseline.outputs.ref }}" \
             -e "WORKLOAD=${{ matrix.workload.name }}" \
             ydb-app-baseline run "$CONNECTION_STRING" \
