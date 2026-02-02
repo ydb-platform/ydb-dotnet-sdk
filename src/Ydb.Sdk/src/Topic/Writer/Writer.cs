@@ -31,7 +31,7 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private volatile TaskCompletionSource _tcsWakeUp = new();
     private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
-    private volatile IWriteSession _session = null!;
+    private volatile IWriteSession _session = DummyWriterSession.Instance;
     private volatile int _limitBufferMaxSize;
     private volatile bool _isStopped;
 
