@@ -25,7 +25,7 @@ FROM build AS publish
 RUN dotnet publish "EF.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime image
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS final
+FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "EF.dll"]
