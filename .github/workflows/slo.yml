@@ -64,7 +64,6 @@ jobs:
     runs-on: "large-runner-dotnet-sdk"
 
     strategy:
-      fail-fast: false
       matrix:
         workload:
           - name: AdoNet

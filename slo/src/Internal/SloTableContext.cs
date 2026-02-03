@@ -92,12 +92,11 @@ public abstract class SloTableContext<T> : ISloContext
         var meterProvider = Sdk.CreateMeterProviderBuilder()
             .ConfigureResource(resource => resource
                 .AddService(serviceName: $"workload-{workloadLabel}")
-                .AddAttributes(new[]
-                {
+                .AddAttributes([
                     new KeyValuePair<string, object>("ref", refLabel),
                     new KeyValuePair<string, object>("sdk", "dotnet"),
                     new KeyValuePair<string, object>("sdk_version", Environment.Version.ToString())
-                }))
+                ]))
             .AddMeter("YDB.SLO")
             .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
             {
@@ -152,7 +151,7 @@ public abstract class SloTableContext<T> : ISloContext
             Logger.LogInformation(e, "Cancel shooting");
         }
 
-        meterProvider?.Dispose();
+        meterProvider.Dispose();
 
         Logger.LogInformation("Run task is finished");
         return;
