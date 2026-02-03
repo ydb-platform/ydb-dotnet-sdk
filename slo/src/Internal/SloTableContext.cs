@@ -205,7 +205,7 @@ public abstract class SloTableContext<T> : ISloContext
                 description: "Total number of retry attempts performed by the SDK."
             );
 
-            var operationLatencySeconds = meter.CreateHistogram<double>(
+            var operationLatencySeconds = meter.CreateHistogram(
                 "sdk.operation.latency.seconds",
                 unit: "s",
                 description: "Latency of operations performed by the SDK in seconds, categorized by type and status.",
