@@ -2,7 +2,7 @@
 WORKDIR /src
 
 # Copy solution and project files
-COPY ["slo/src/Linq2db.Slo/Linq2db.Slo.csproj", "slo/src/Linq2db.Slo/"]
+COPY ["slo/src/Linq2db/Linq2db.Slo.csproj", "slo/src/Linq2db/"]
 COPY ["slo/src/Internal/Internal.csproj", "slo/src/Internal/"]
 COPY ["src/Ydb.Sdk/src/Ydb.Sdk.csproj", "src/Ydb.Sdk/src/"]
 
@@ -13,7 +13,7 @@ RUN dotnet restore "slo/src/Linq2db.Slo/Linq2db.Slo.csproj"
 COPY . .
 
 # Build
-WORKDIR "/src/slo/src/Linq2db.Slo"
+WORKDIR "/src/slo/src/Linq2db"
 RUN dotnet build "Linq2db.Slo.csproj" -c Release -o /app/build
 
 # Publish
