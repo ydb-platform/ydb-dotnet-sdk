@@ -69,7 +69,7 @@ jobs:
           - name: AdoNet
           - name: Dapper
           - name: EF
-          - name: Linq2db.Slo
+          - name: Linq2db
 
     concurrency:
       group: slo-${{ github.ref }}-${{ matrix.workload.name }}

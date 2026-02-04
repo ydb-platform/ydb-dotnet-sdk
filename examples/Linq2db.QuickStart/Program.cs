@@ -139,32 +139,9 @@ internal class AppContext(ILogger<AppContext> logger)
     private async Task InitTables()
     {
         await using var db = new MyYdb(BuildOptions());
-        try
-        {
-            await db.CreateTableAsync<Series>();
-        }
-        catch
-        {
-            logger.LogDebug("series exists");
-        }
-
-        try
-        {
-            await db.CreateTableAsync<Season>();
-        }
-        catch
-        {
-            logger.LogDebug("seasons exists");
-        }
-
-        try
-        {
-            await db.CreateTableAsync<Episode>();
-        }
-        catch
-        {
-            logger.LogDebug("episodes exists");
-        }
+        await db.CreateTableAsync<Series>();
+        await db.CreateTableAsync<Season>();
+        await db.CreateTableAsync<Episode>();
 
         logger.LogInformation("Created tables");
     }
@@ -316,9 +293,9 @@ internal class AppContext(ILogger<AppContext> logger)
     private async Task SelectWithParameters()
     {
         await using var db = new MyYdb(BuildOptions());
-        ulong seriesId = 1;
-        ulong seasonId = 1;
-        ulong limit = 3;
+        const ulong seriesId = 1;
+        const ulong seasonId = 1;
+        const ulong limit = 3;
 
         var rows = await db.Episodes
             .Where(e => e.SeriesId == seriesId && e.SeasonId > seasonId)
@@ -433,32 +410,9 @@ internal class AppContext(ILogger<AppContext> logger)
         await using var db = new MyYdb(options);
 
         logger.LogInformation("Dropping tables of examples");
-        try
-        {
-            await db.DropTableAsync<Episode>();
-        }
-        catch
-        {
-            /* ignored */
-        }
-
-        try
-        {
-            await db.DropTableAsync<Season>();
-        }
-        catch
-        {
-            /* ignored */
-        }
-
-        try
-        {
-            await db.DropTableAsync<Series>();
-        }
-        catch
-        {
-            /* ignored */
-        }
+        await db.DropTableAsync<Episode>();
+        await db.DropTableAsync<Season>();
+        await db.DropTableAsync<Series>();
 
         logger.LogInformation("Dropped tables of examples");
     }

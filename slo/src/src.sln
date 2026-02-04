@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EF", "EF\EF.csproj", "{291A
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdoNet.Dapper", "Dapper\AdoNet.Dapper.csproj", "{A6B9B4F1-4C7C-42C1-A212-B71A9B0D67F7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linq2db.Slo", "Linq2db.Slo\Linq2db.Slo.csproj", "{59758BC9-E53B-46C8-84AC-62670DD559D4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linq2db.Slo", "Linq2db\Linq2db.Slo.csproj", "{59758BC9-E53B-46C8-84AC-62670DD559D4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
