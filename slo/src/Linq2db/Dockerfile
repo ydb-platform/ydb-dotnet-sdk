@@ -7,7 +7,7 @@ COPY ["slo/src/Internal/Internal.csproj", "slo/src/Internal/"]
 COPY ["src/Ydb.Sdk/src/Ydb.Sdk.csproj", "src/Ydb.Sdk/src/"]
 
 # Restore dependencies
-RUN dotnet restore "slo/src/Linq2db.Slo/Linq2db.Slo.csproj"
+RUN dotnet restore "slo/src/Linq2db/Linq2db.Slo.csproj"
 
 # Copy source code
 COPY . .
