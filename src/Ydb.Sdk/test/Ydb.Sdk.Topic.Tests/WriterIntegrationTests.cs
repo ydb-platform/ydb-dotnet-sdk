@@ -1,40 +1,41 @@
 using Google.Protobuf.WellKnownTypes;
 using Xunit;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic.Writer;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 
 namespace Ydb.Sdk.Topic.Tests;
 
-public class WriterIntegrationTests(DriverFixture driverFixture) : IClassFixture<DriverFixture>
+public class WriterIntegrationTests
 {
     private readonly string _topicName = $"topic_{Random.Shared.Next()}";
-    private readonly Driver _driver = driverFixture.Driver;
+    private readonly TopicClient _topicClient = new(Utils.ConnectionString);
 
     [Fact]
     public async Task WriteAsync_WhenOneMessage_ReturnWritten()
     {
-        var topicClient = new TopicClient(_driver);
         var topicSettings = new CreateTopicSettings
         {
             Path = _topicName
         };
-        await topicClient.CreateTopic(topicSettings);
+        await _topicClient.CreateTopic(topicSettings);
 
-        await using var writer = new WriterBuilder<string>(_driver, _topicName) { ProducerId = "producerId" }.Build();
+        await using var writer = new WriterBuilder<string>(Utils.ConnectionString, _topicName)
+            { ProducerId = "producerId" }.Build();
 
         var result = await writer.WriteAsync("abacaba");
 
         Assert.Equal(PersistenceStatus.Written, result.Status);
 
-        await topicClient.DropTopic(_topicName);
+        await _topicClient.DropTopic(_topicName);
     }
 
     [Fact]
     public async Task WriteAsync_WhenTopicNotFound_ReturnNotFoundException()
     {
-        await using var writer = new WriterBuilder<string>(_driver, _topicName + "_not_found")
-            { ProducerId = "producerId" }.Build();
+        await using var writer = new WriterBuilder<string>(Utils.ConnectionString,
+            _topicName + "_not_found") { ProducerId = "producerId" }.Build();
 
         Assert.Contains(
             $"Initialization failed! Status: SchemeError, Issues:\n[500017] Error: no path 'local/{_topicName + "_not_found"}'",
@@ -47,12 +48,11 @@ public class WriterIntegrationTests(DriverFixture driverFixture) : IClassFixture
     {
         const int messageCount = 1000;
         var topicName = _topicName + "_stress";
-        var topicClient = new TopicClient(_driver);
         var topicSettings = new CreateTopicSettings { Path = topicName };
         topicSettings.Consumers.Add(new Consumer("Consumer"));
-        await topicClient.CreateTopic(topicSettings);
+        await _topicClient.CreateTopic(topicSettings);
 
-        await using var writer = new WriterBuilder<int>(_driver, topicName)
+        await using var writer = new WriterBuilder<int>(Utils.ConnectionString, topicName)
             { ProducerId = "producerId" }.Build();
 
         var tasks = new List<Task>();
@@ -70,8 +70,9 @@ public class WriterIntegrationTests(DriverFixture driverFixture) : IClassFixture
 
         await Task.WhenAll(tasks);
 
-        var initStream =
-            await _driver.BidirectionalStreamCall(TopicService.StreamReadMethod, new GrpcRequestSettings());
+        var initStream = await PoolManager
+            .Drivers[((IDriverFactory)new YdbConnectionStringBuilder(Utils.ConnectionString)).GrpcConnectionString]
+            .BidirectionalStreamCall(TopicService.StreamReadMethod, new GrpcRequestSettings());
         await initStream.Write(new StreamReadMessage.Types.FromClient
         {
             InitRequest = new StreamReadMessage.Types.InitRequest
@@ -118,6 +119,6 @@ public class WriterIntegrationTests(DriverFixture driverFixture) : IClassFixture
 
         Assert.Equal(messageCount * (messageCount - 1) / 2, ans);
 
-        await topicClient.DropTopic(topicName);
+        await _topicClient.DropTopic(topicName);
     }
 }

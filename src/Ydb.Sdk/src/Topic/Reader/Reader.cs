@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Topic;
 using Ydb.Topic.V1;
@@ -18,12 +19,13 @@ using ReaderStream = IBidirectionalStream<
 
 internal class Reader<TValue> : IReader<TValue>
 {
-    private readonly IDriver _driver;
+    private readonly IDriverFactory _driverFactory;
     private readonly ReaderConfig _config;
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ILogger _logger;
     private readonly GrpcRequestSettings _readerGrpcRequestSettings = new();
 
+    private IDriver? _driver;
     private ReaderSession<TValue>? _currentReaderSession;
 
     private readonly Channel<InternalBatchMessages<TValue>> _receivedMessagesChannel =
@@ -38,12 +40,12 @@ internal class Reader<TValue> : IReader<TValue>
 
     private readonly CancellationTokenSource _disposeCts = new();
 
-    internal Reader(IDriver driver, ReaderConfig config, IDeserializer<TValue> deserializer)
+    internal Reader(IDriverFactory driverFactory, ReaderConfig config, IDeserializer<TValue> deserializer)
     {
-        _driver = driver;
+        _driverFactory = driverFactory;
         _config = config;
         _deserializer = deserializer;
-        _logger = driver.LoggerFactory.CreateLogger<Reader<TValue>>();
+        _logger = _driverFactory.LoggerFactory.CreateLogger<Reader<TValue>>();
 
         _ = Initialize();
     }
@@ -104,8 +106,8 @@ internal class Reader<TValue> : IReader<TValue>
 
             _logger.LogInformation("Reader session initialization started. ReaderConfig: {ReaderConfig}", _config);
 
-            var stream =
-                await _driver.BidirectionalStreamCall(TopicService.StreamReadMethod, _readerGrpcRequestSettings);
+            var stream = await (_driver ??= await PoolManager.GetDriver(_driverFactory))
+                .BidirectionalStreamCall(TopicService.StreamReadMethod, _readerGrpcRequestSettings);
 
             var initRequest = new StreamReadMessage.Types.InitRequest();
             if (_config.ConsumerName != null)
@@ -220,8 +222,12 @@ internal class Reader<TValue> : IReader<TValue>
         _disposeCts.Cancel();
 
         await (_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask);
+        if (_driver != null)
+        {
+            await _driver.DisposeAsync();
+        }
 
-        _logger.LogInformation("Reader[{WriterConfig}] is disposed", _config);
+        _logger.LogInformation("Reader[{ReaderConfig}] is disposed", _config);
     }
 }
 

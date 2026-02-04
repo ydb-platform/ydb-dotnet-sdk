@@ -40,6 +40,8 @@ internal class MockPoolingSessionFactory(int maxPoolSize) : IPoolingSessionFacto
             Interlocked.Increment(ref _sessionOpened)
         );
 
+    public IDriver Driver => null!;
+
     public ValueTask DisposeAsync() => Dispose();
 }
 

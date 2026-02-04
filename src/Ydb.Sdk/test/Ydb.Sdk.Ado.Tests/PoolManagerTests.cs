@@ -1,4 +1,7 @@
 using System.Collections.Immutable;
+using Grpc.Core;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -72,6 +75,88 @@ public class PoolManagerTests
         foreach (var (_, driver) in PoolManager.Drivers)
         {
             Assert.True(driver.IsDisposed);
+        }
+    }
+
+    [Fact]
+    public async Task PoolManager_GetDriver_RecreatesWhenRegisterFails()
+    {
+        PoolManager.Drivers.Clear();
+        PoolManager.Pools.Clear();
+
+        var driver1 = new FakeDriver(registerOwnerResult: false, isDisposed: true);
+        var driver2 = new FakeDriver(registerOwnerResult: true, isDisposed: false);
+        var factory = new FakeDriverFactory("grpc://race", driver1, driver2);
+
+        var driver = await PoolManager.GetDriver(factory);
+
+        Assert.Same(driver2, driver);
+        Assert.Equal(2, factory.CreateCalls);
+        Assert.Same(driver2, PoolManager.Drivers[factory.GrpcConnectionString]);
+        Assert.Equal(1, driver1.RegisterCalls);
+        Assert.Equal(1, driver2.RegisterCalls);
+    }
+
+    private sealed class FakeDriverFactory(string grpcConnectionString, params IDriver[] drivers) : IDriverFactory
+    {
+        private readonly Queue<IDriver> _drivers = new(drivers);
+
+        public int CreateCalls { get; private set; }
+
+        public Task<IDriver> CreateAsync()
+        {
+            CreateCalls++;
+            return Task.FromResult(_drivers.Dequeue());
+        }
+
+        public string GrpcConnectionString { get; } = grpcConnectionString;
+
+        public ILoggerFactory LoggerFactory => NullLoggerFactory.Instance;
+    }
+
+    private sealed class FakeDriver(bool registerOwnerResult, bool isDisposed) : IDriver
+    {
+        public int RegisterCalls { get; private set; }
+
+        public Task<TResponse> UnaryCall<TRequest, TResponse>(
+            Method<TRequest, TResponse> method,
+            TRequest request,
+            GrpcRequestSettings settings)
+            where TRequest : class
+            where TResponse : class =>
+            throw new NotImplementedException();
+
+        public ValueTask<IServerStream<TResponse>> ServerStreamCall<TRequest, TResponse>(
+            Method<TRequest, TResponse> method,
+            TRequest request,
+            GrpcRequestSettings settings)
+            where TRequest : class
+            where TResponse : class =>
+            throw new NotImplementedException();
+
+        public ValueTask<IBidirectionalStream<TRequest, TResponse>> BidirectionalStreamCall<TRequest, TResponse>(
+            Method<TRequest, TResponse> method,
+            GrpcRequestSettings settings)
+            where TRequest : class
+            where TResponse : class =>
+            throw new NotImplementedException();
+
+        public ILoggerFactory LoggerFactory => NullLoggerFactory.Instance;
+
+        public bool RegisterOwner()
+        {
+            RegisterCalls++;
+            return registerOwnerResult;
+        }
+
+        public bool IsDisposed { get; private set; } = isDisposed;
+
+        public string Database => "db";
+
+        public ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return ValueTask.CompletedTask;
         }
     }
 }

@@ -48,8 +48,8 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                 DatabaseName = connection.Database
             };
 
-            foreach (var ydbTable in tableNames.Select(tableName =>
-                         YdbSchema.DescribeTable(ydbConnection, tableName).GetAwaiter().GetResult()))
+            foreach (var ydbTable in tableNames.Select(tableName => YdbSchema.DescribeTable(
+                         ydbConnection.Session.Driver, tableName).GetAwaiter().GetResult()))
             {
                 var databaseTable = new DatabaseTable
                 {
@@ -65,7 +65,7 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                     {
                         Name = column.Name,
                         Table = databaseTable,
-                        StoreType = column.StorageType,
+                        StoreType = column.StorageType.ToString(),
                         IsNullable = column.IsNullable
                     };
 
@@ -79,10 +79,10 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                     {
                         Name = index.Name,
                         Table = databaseTable,
-                        IsUnique = index.Type == YdbTableIndex.IndexType.GlobalUniqueIndex
+                        IsUnique = index.Type == YdbIndexType.GlobalUnique
                     };
 
-                    foreach (var columnName in index.IndexColumns)
+                    foreach (var columnName in index.Columns)
                     {
                         databaseIndex.Columns.Add(columnNameToDatabaseColumn[columnName]);
                         databaseIndex.IsDescending.Add(false);

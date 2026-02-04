@@ -1,4 +1,5 @@
 using Xunit;
+using Ydb.Sdk.Auth;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -31,11 +32,14 @@ public class YdbConnectionStringBuilderTests
         Assert.False(ydbConnectionStringBuilder.DisableServerBalancer);
         Assert.False(ydbConnectionStringBuilder.UseTls);
         Assert.False(ydbConnectionStringBuilder.EnableImplicitSession);
+        Assert.Null(ydbConnectionStringBuilder.ServiceAccountKeyFilePath);
+        Assert.False(ydbConnectionStringBuilder.EnableMetadataCredentials);
 
         Assert.Equal("UseTls=False;Host=localhost;Port=2136;Database=/local;User=;Password=;ConnectTimeout=5;" +
                      "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
-                     $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False",
-            ydbConnectionStringBuilder.GrpcConnectionString);
+                     $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False;" +
+                     "ServiceAccountKeyFilePath=;EnableMetadataCredentials=False",
+            ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
     }
 
     [Fact]
@@ -86,29 +90,30 @@ public class YdbConnectionStringBuilderTests
         Assert.True(ydbConnectionStringBuilder.EnableImplicitSession);
         Assert.Equal("UseTls=True;Host=server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=30;" +
                      "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=True;" +
-                     "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;DisableDiscovery=True",
-            ydbConnectionStringBuilder.GrpcConnectionString);
+                     "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;DisableDiscovery=True;" +
+                     "ServiceAccountKeyFilePath=;EnableMetadataCredentials=False",
+            ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
     }
 
     [Fact]
     public void Host_WhenSetInProperty_ReturnUpdatedConnectionString()
     {
-        var ydbConnectionStringBuilder =
-            new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path;User=Kirill");
-        Assert.Equal(
-            "UseTls=False;Host=server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=5;" +
-            "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
-            $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False",
-            ydbConnectionStringBuilder.GrpcConnectionString);
+        var ydbConnectionStringBuilder = new YdbConnectionStringBuilder(
+            "Host=server;Port=2135;Database=/my/path;ServiceAccountKeyFilePath=./k.json");
+        Assert.Equal("UseTls=False;Host=server;Port=2135;Database=/my/path;User=;Password=;ConnectTimeout=5;" +
+                     "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
+                     $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False;" +
+                     "ServiceAccountKeyFilePath=./k.json;EnableMetadataCredentials=False",
+            ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
         Assert.Equal("server", ydbConnectionStringBuilder.Host);
         ydbConnectionStringBuilder.Host = "new_server";
         Assert.Equal("new_server", ydbConnectionStringBuilder.Host);
-        Assert.Equal(
-            "UseTls=False;Host=new_server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=5;" +
-            "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
-            $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False",
-            ydbConnectionStringBuilder.GrpcConnectionString);
-        Assert.Equal("Host=new_server;Port=2135;Database=/my/path;User=Kirill",
+        Assert.Equal("UseTls=False;Host=new_server;Port=2135;Database=/my/path;User=;Password=;ConnectTimeout=5;" +
+                     "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
+                     $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False;" +
+                     "ServiceAccountKeyFilePath=./k.json;EnableMetadataCredentials=False",
+            ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
+        Assert.Equal("Host=new_server;Port=2135;Database=/my/path;ServiceAccountKeyFilePath=./k.json",
             ydbConnectionStringBuilder.ConnectionString);
     }
 
@@ -129,5 +134,78 @@ public class YdbConnectionStringBuilderTests
 
         Assert.Equal("Host=server;Port=2135;EnableMultipleHttp2Connections=False",
             ydbConnectionStringBuilder.ConnectionString);
+    }
+
+    [Fact]
+    public void SetMutuallyExclusiveProperty_Throws_WhenCredentialsProviderIsSet()
+    {
+        var builder = new YdbConnectionStringBuilder("Host=server;Port=2135;")
+        {
+            CredentialsProvider = new TokenProvider("TokenProvider")
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => builder.ServiceAccountKeyFilePath = "/path/to/key.json");
+        Assert.Equal(nameof(YdbConnectionStringBuilder.ServiceAccountKeyFilePath), ex.ParamName);
+        ex = Assert.Throws<ArgumentException>(() => builder.EnableMetadataCredentials = true);
+        Assert.Equal(nameof(YdbConnectionStringBuilder.EnableMetadataCredentials), ex.ParamName);
+        ex = Assert.Throws<ArgumentException>(() => builder.User = "user");
+        Assert.Equal(nameof(YdbConnectionStringBuilder.User), ex.ParamName);
+    }
+
+    [Fact]
+    public void SetMutuallyExclusiveProperty_Throws_WhenEnableMetadataCredentialsIsSet()
+    {
+        var builder = new YdbConnectionStringBuilder("EnableMetadataCredentials=true");
+
+        var ex = Assert.Throws<ArgumentException>(() => builder.ServiceAccountKeyFilePath = "/path/to/key.json");
+        Assert.Equal(nameof(YdbConnectionStringBuilder.ServiceAccountKeyFilePath), ex.ParamName);
+        ex = Assert.Throws<ArgumentException>(() => builder.User = "user");
+        Assert.Equal(nameof(YdbConnectionStringBuilder.User), ex.ParamName);
+        ex = Assert.Throws<ArgumentException>(() =>
+        {
+            _ = new YdbConnectionStringBuilder("Host=server;Port=2135;")
+            {
+                EnableMetadataCredentials = true,
+                CredentialsProvider = new TokenProvider("TokenProvider")
+            };
+        });
+        Assert.Equal(nameof(YdbConnectionStringBuilder.CredentialsProvider), ex.ParamName);
+    }
+
+    [Fact]
+    public void SetMutuallyExclusiveProperty_Throws_WhenUserIsSet()
+    {
+        var builder = new YdbConnectionStringBuilder("User=user");
+
+        var ex = Assert.Throws<ArgumentException>(() => builder.EnableMetadataCredentials = true);
+        Assert.Equal(nameof(YdbConnectionStringBuilder.EnableMetadataCredentials), ex.ParamName);
+        ex = Assert.Throws<ArgumentException>(() => builder.ServiceAccountKeyFilePath = "/path/to/key.json");
+        Assert.Equal(nameof(YdbConnectionStringBuilder.ServiceAccountKeyFilePath), ex.ParamName);
+        ex = Assert.Throws<ArgumentException>(() =>
+        {
+            _ = new YdbConnectionStringBuilder("User=user")
+                { CredentialsProvider = new TokenProvider("TokenProvider") };
+        });
+        Assert.Equal(nameof(YdbConnectionStringBuilder.CredentialsProvider), ex.ParamName);
+    }
+
+    [Fact]
+    public void SetMutuallyExclusiveProperty_Throws_WhenServiceAccountKeyFilePathIsSet()
+    {
+        var builder = new YdbConnectionStringBuilder("ServiceAccountKeyFilePath=/path/to/key.json");
+
+        var ex = Assert.Throws<ArgumentException>(() => builder.EnableMetadataCredentials = true);
+        Assert.Equal(nameof(YdbConnectionStringBuilder.EnableMetadataCredentials), ex.ParamName);
+        ex = Assert.Throws<ArgumentException>(() => builder.User = "user");
+        Assert.Equal(nameof(YdbConnectionStringBuilder.User), ex.ParamName);
+        ex = Assert.Throws<ArgumentException>(() =>
+        {
+            _ = new YdbConnectionStringBuilder("Host=server;Port=2135;")
+            {
+                ServiceAccountKeyFilePath = "/path/to/key.json",
+                CredentialsProvider = new TokenProvider("TokenProvider")
+            };
+        });
+        Assert.Equal(nameof(YdbConnectionStringBuilder.CredentialsProvider), ex.ParamName);
     }
 }

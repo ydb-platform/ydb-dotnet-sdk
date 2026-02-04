@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
-using Ydb.Sdk;
 using Ydb.Sdk.Topic;
 using Ydb.Sdk.Topic.Reader;
 using Ydb.Sdk.Topic.Writer;
 
+const string connectionString = "Host=localhost;Port=2136;Database=/local";
 const int countMessages = 100;
 const string topicName = "topic_name";
 
@@ -11,17 +11,7 @@ var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMini
 
 var logger = loggerFactory.CreateLogger<Program>();
 
-var config = new DriverConfig(
-    endpoint: "grpc://localhost:2136",
-    database: "/local"
-);
-
-await using var driver = await Driver.CreateInitialized(
-    config: config,
-    loggerFactory: loggerFactory
-);
-
-var topicClient = new TopicClient(driver);
+await using var topicClient = new TopicClient(connectionString);
 
 await topicClient.CreateTopic(new CreateTopicSettings
 {
@@ -34,7 +24,7 @@ var readerCts = new CancellationTokenSource();
 var writerJob = Task.Run(async () =>
 {
     // ReSharper disable once AccessToDisposedClosure
-    await using var writer = new WriterBuilder<string>(driver, topicName)
+    await using var writer = new WriterBuilder<string>(connectionString, topicName)
     {
         ProducerId = "ProducerId_Example"
     }.Build();
@@ -50,7 +40,7 @@ var writerJob = Task.Run(async () =>
 var readerJob = Task.Run(async () =>
 {
     // ReSharper disable once AccessToDisposedClosure
-    await using var reader = new ReaderBuilder<string>(driver)
+    await using var reader = new ReaderBuilder<string>(connectionString)
     {
         ConsumerName = "Consumer_Example",
         SubscribeSettings = { new SubscribeSettings(topicName) }

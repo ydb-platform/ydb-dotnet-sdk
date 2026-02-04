@@ -29,6 +29,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.Yandex.Cloud
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linq2db.QuickStart", "Linq2db.QuickStart\Linq2db.QuickStart.csproj", "{2D3A5D18-9005-4E19-92C0-002069CAC7BB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.OpenTelemetry", "Ydb.Sdk.AdoNet.OpenTelemetry\Ydb.Sdk.AdoNet.OpenTelemetry.csproj", "{403DDBBE-9B34-48B4-8496-2C3163D141BB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7932124D-B320-4DBA-9934-9B1397DF1F4C}"
+	ProjectSection(SolutionItems) = preProject
+		compose.yaml = compose.yaml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +94,10 @@ Global
 		{2D3A5D18-9005-4E19-92C0-002069CAC7BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2D3A5D18-9005-4E19-92C0-002069CAC7BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2D3A5D18-9005-4E19-92C0-002069CAC7BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{403DDBBE-9B34-48B4-8496-2C3163D141BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{403DDBBE-9B34-48B4-8496-2C3163D141BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{403DDBBE-9B34-48B4-8496-2C3163D141BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{403DDBBE-9B34-48B4-8496-2C3163D141BB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -4,18 +4,10 @@ using Ydb.Sdk.Topic.Writer;
 
 namespace Ydb.Sdk.Topic.Tests;
 
-public class ReaderIntegrationTests : IClassFixture<DriverFixture>
+public class ReaderIntegrationTests
 {
-    private readonly IDriver _driver;
-    private readonly string _topicName;
-    private readonly TopicClient _topicClient;
-
-    public ReaderIntegrationTests(DriverFixture driverFixture)
-    {
-        _driver = driverFixture.Driver;
-        _topicName = $"reader{Random.Shared.Next()}_topic";
-        _topicClient = new TopicClient(_driver);
-    }
+    private readonly string _topicName = $"reader{Random.Shared.Next()}_topic";
+    private readonly TopicClient _topicClient = new(Utils.ConnectionString);
 
     [Fact]
     public async Task StressTest_WhenReadingThenCommiting_ReturnMessages()
@@ -24,9 +16,9 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
         topicSettings.Consumers.Add(new Consumer("Consumer"));
         await _topicClient.CreateTopic(topicSettings);
 
-        await using var writer = new WriterBuilder<string>(_driver, _topicName)
+        await using var writer = new WriterBuilder<string>(Utils.ConnectionString, _topicName)
             { ProducerId = "producerId" }.Build();
-        var reader = new ReaderBuilder<string>(_driver)
+        var reader = new ReaderBuilder<string>(Utils.ConnectionString)
         {
             ConsumerName = "Consumer",
             SubscribeSettings = { new SubscribeSettings(_topicName) },
@@ -43,7 +35,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
 
         await reader.DisposeAsync();
 
-        var readerNext = new ReaderBuilder<string>(_driver)
+        var readerNext = new ReaderBuilder<string>(Utils.ConnectionString)
         {
             ConsumerName = "Consumer",
             SubscribeSettings = { new SubscribeSettings(_topicName) },
@@ -74,7 +66,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
         var topicSettings = new CreateTopicSettings { Path = _topicName };
         topicSettings.Consumers.Add(new Consumer("Consumer"));
         await _topicClient.CreateTopic(topicSettings);
-        await using var writer = new WriterBuilder<byte[]>(_driver, _topicName)
+        await using var writer = new WriterBuilder<byte[]>(Utils.ConnectionString, _topicName)
             { ProducerId = "producerId" }.Build();
 
         var payload = new byte[payloadSize];
@@ -86,7 +78,7 @@ public class ReaderIntegrationTests : IClassFixture<DriverFixture>
             await writer.WriteAsync(payload);
         }
 
-        await using var reader = new ReaderBuilder<byte[]>(_driver)
+        await using var reader = new ReaderBuilder<byte[]>(Utils.ConnectionString)
         {
             ConsumerName = "Consumer",
             SubscribeSettings = { new SubscribeSettings(_topicName) }

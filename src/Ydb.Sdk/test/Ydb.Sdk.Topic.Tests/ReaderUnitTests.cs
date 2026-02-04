@@ -24,18 +24,22 @@ public class ReaderUnitTests
         InitResponse = new StreamReadMessage.Types.InitResponse { SessionId = "SessionId" }
     };
 
-    private readonly Mock<IDriver> _mockIDriver = new();
+    private readonly IDriverFactoryMock _driverFactoryMock;
     private readonly Mock<ReaderStream> _mockStream = new();
     private readonly Task<bool> _lastMoveNext;
 
     public ReaderUnitTests()
     {
-        _mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
+        var mockIDriver = new Mock<IDriver>();
+        mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, FromServer>>(),
             It.IsAny<GrpcRequestSettings>())
         ).ReturnsAsync(_mockStream.Object);
+        mockIDriver.Setup(driver => driver.DisposeAsync())
+            .Callback(() => mockIDriver.Setup(driver => driver.IsDisposed).Returns(true));
+        mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
 
-        _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
+        _driverFactoryMock = new IDriverFactoryMock(mockIDriver, "Reader_Mock");
 
         var tcsLastMoveNext = new TaskCompletionSource<bool>();
 
@@ -106,7 +110,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(0, BitConverter.GetBytes(100)))
             .Returns(CommitOffsetResponse());
 
-        await using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<int>(_driverFactoryMock)
         {
             ConsumerName = "Consumer Tester",
             MemoryUsageMaxBytes = 200,
@@ -199,7 +203,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(20, Encoding.UTF8.GetBytes("Hello World!")))
             .Returns(CommitOffsetResponse(21));
 
-        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_driverFactoryMock)
         {
             ConsumerName = "Consumer Tester 2",
             MemoryUsageMaxBytes = 1000,
@@ -303,7 +307,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(10, Encoding.UTF8.GetBytes("First"), Encoding.UTF8.GetBytes("Second")))
             .Returns(CommitOffsetResponse(12));
 
-        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -367,7 +371,7 @@ public class ReaderUnitTests
                 Issues = { new IssueMessage { Message = "Topic not found" } }
             });
 
-        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -455,7 +459,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(0, BitConverter.GetBytes(0L), BitConverter.GetBytes(1L), BitConverter.GetBytes(2L)))
             .Returns(CommitOffsetResponse(3));
 
-        await using var reader = new ReaderBuilder<long>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<long>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 200,
@@ -602,7 +606,7 @@ public class ReaderUnitTests
             .Returns(CommitOffsetResponse(102))
             .Returns(CommitOffsetResponse(103));
 
-        await using var reader = new ReaderBuilder<long>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<long>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 250,
@@ -756,7 +760,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(100, BitConverter.GetBytes(100L)))
             .Returns(CommitOffsetResponse(101));
 
-        await using var reader = new ReaderBuilder<long>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<long>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -892,7 +896,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(100, Encoding.UTF8.GetBytes("Hello"), Encoding.UTF8.GetBytes("World!")))
             .Returns(CommitOffsetResponse(102));
 
-        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -1068,7 +1072,7 @@ public class ReaderUnitTests
             .Returns(readResponseWithGaps)
             .Returns(CommitOffsetResponse(102));
 
-        await using var reader = new ReaderBuilder<string>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<string>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -1203,7 +1207,7 @@ public class ReaderUnitTests
             .Returns(CommitOffsetResponse(10))
             .Returns(CommitOffsetResponse(23));
 
-        await using var reader = new ReaderBuilder<byte[]>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<byte[]>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 1000,
@@ -1314,7 +1318,7 @@ public class ReaderUnitTests
             })
             .Returns(CommitOffsetResponse(2));
 
-        await using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<int>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 1000,
@@ -1391,7 +1395,7 @@ public class ReaderUnitTests
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(0, BitConverter.GetBytes(100)));
 
-        await using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<int>(_driverFactoryMock)
         {
             ConsumerName = "Consumer",
             MemoryUsageMaxBytes = 100,
@@ -1468,7 +1472,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(0, BitConverter.GetBytes(100)))
             .Returns(CommitOffsetResponse());
 
-        await using var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        await using var reader = new ReaderBuilder<int>(_driverFactoryMock)
         {
             ConsumerName = "Consumer Tester",
             MemoryUsageMaxBytes = 1000,
@@ -1535,7 +1539,7 @@ public class ReaderUnitTests
             .Returns(ReadResponse(0, BitConverter.GetBytes(100), BitConverter.GetBytes(1000)))
             .Returns(CommitOffsetResponse());
 
-        var reader = new ReaderBuilder<int>(_mockIDriver.Object)
+        var reader = new ReaderBuilder<int>(_driverFactoryMock)
         {
             ConsumerName = "Consumer Tester",
             MemoryUsageMaxBytes = 1000,

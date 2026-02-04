@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Threading.RateLimiting;
 using Internal;
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic;
 using Ydb.Sdk.Topic.Reader;
@@ -20,14 +19,9 @@ public class SloTopicContext : ISloContext
 
     public async Task Create(CreateConfig createConfig)
     {
-        var connectionStringBuilder = new YdbConnectionStringBuilder(createConfig.ConnectionString);
-
-        var topicClient = new TopicClient(await Driver.CreateInitialized(
-            new DriverConfig(
-                $"grpc://{connectionStringBuilder.Host}:{connectionStringBuilder.Port}",
-                connectionStringBuilder.Database
-            ), ISloContext.Factory)
-        );
+        var connectionStringBuilder = new YdbConnectionStringBuilder(createConfig.ConnectionString)
+            { LoggerFactory = ISloContext.Factory };
+        await using var topicClient = new TopicClient(connectionStringBuilder);
 
         await topicClient.CreateTopic(
             new CreateTopicSettings
@@ -52,17 +46,10 @@ public class SloTopicContext : ISloContext
 
     public async Task Run(RunConfig config)
     {
-        var connectionStringBuilder = new YdbConnectionStringBuilder(config.ConnectionString);
+        var connectionStringBuilder = new YdbConnectionStringBuilder(config.ConnectionString)
+            { LoggerFactory = ISloContext.Factory };
 
         Logger.LogInformation("Started Run topic slo test");
-        var driver = await Driver.CreateInitialized(
-            new DriverConfig(
-                $"grpc://{connectionStringBuilder.Host}:{connectionStringBuilder.Port}",
-                connectionStringBuilder.Database
-            ), ISloContext.Factory
-        );
-
-        Logger.LogInformation("Driver is initialized!");
 
         var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
@@ -85,7 +72,7 @@ public class SloTopicContext : ISloContext
                 {
                     try
                     {
-                        await using var writer = new WriterBuilder<string>(driver, PathTopic)
+                        await using var writer = new WriterBuilder<string>(connectionStringBuilder, PathTopic)
                         {
                             BufferMaxSize = 8 * 1024 * 1024,
                             ProducerId = "producer-" + partitionId,
@@ -137,7 +124,7 @@ public class SloTopicContext : ISloContext
             {
                 try
                 {
-                    await using var reader = new ReaderBuilder<string>(driver)
+                    await using var reader = new ReaderBuilder<string>(connectionStringBuilder)
                     {
                         ConsumerName = ConsumerName,
                         SubscribeSettings =

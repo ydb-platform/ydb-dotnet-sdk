@@ -46,6 +46,12 @@ public class YdbException : DbException
     }
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="YdbException"/> class from server operation.
+    /// </summary>
+    internal static YdbException FromServer(Operations.Operation operation) =>
+        FromServer(operation.Status, operation.Issues);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="YdbException"/> class with a specified status code, error message,
     /// and optional inner exception.
     /// </summary>

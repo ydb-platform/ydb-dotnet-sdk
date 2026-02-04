@@ -1,8 +1,8 @@
 namespace Ydb.Sdk.Ado.Schema;
 
-internal class YdbTableStats
+public sealed class YdbTableStats
 {
-    public YdbTableStats(Table.TableStats tableStats)
+    internal YdbTableStats(Table.TableStats tableStats)
     {
         CreationTime = tableStats.CreationTime?.ToDateTime();
         ModificationTime = tableStats.ModificationTime?.ToDateTime();

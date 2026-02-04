@@ -15,18 +15,22 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 
 public class WriterUnitTests
 {
-    private readonly Mock<IDriver> _mockIDriver = new();
+    private readonly IDriverFactoryMock _driverFactoryMock;
     private readonly Mock<WriterStream> _mockStream = new();
     private readonly Task<bool> _lastMoveNext;
 
     public WriterUnitTests()
     {
-        _mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
+        var mockIDriver = new Mock<IDriver>();
+        mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
             It.IsAny<GrpcRequestSettings>())
         ).ReturnsAsync(_mockStream.Object);
+        mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
+        mockIDriver.Setup(driver => driver.DisposeAsync())
+            .Callback(() => mockIDriver.Setup(driver => driver.IsDisposed).Returns(true));
 
-        _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
+        _driverFactoryMock = new IDriverFactoryMock(mockIDriver, "Writer_Mock");
 
         var tcsLastMoveNext = new TaskCompletionSource<bool>();
 
@@ -47,7 +51,7 @@ public class WriterUnitTests
     [Fact]
     public async Task WriteAsync_WhenSerializeThrowException_ThrowWriterException()
     {
-        await using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-1")
+        await using var writer = new WriterBuilder<int>(_driverFactoryMock, "/topic-1")
             { ProducerId = "producerId", Serializer = new FailSerializer() }.Build();
 
         _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
@@ -95,7 +99,7 @@ public class WriterUnitTests
 
         SetupReadOneWriteAckMessage();
 
-        await using var writer = new WriterBuilder<int>(_mockIDriver.Object, "/topic-2")
+        await using var writer = new WriterBuilder<int>(_driverFactoryMock, "/topic-2")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100)).Status);
@@ -139,7 +143,7 @@ public class WriterUnitTests
 
         SetupReadOneWriteAckMessage();
 
-        await using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-3")
+        await using var writer = new WriterBuilder<string>(_driverFactoryMock, "/topic-3")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync("abacaba")).Status);
@@ -187,7 +191,7 @@ public class WriterUnitTests
 
         SetupReadOneWriteAckMessage();
 
-        await using var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-4")
+        await using var writer = new WriterBuilder<string>(_driverFactoryMock, "/topic-4")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync("abacaba")).Status);
@@ -263,7 +267,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-5")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-5")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(123L)).Status);
@@ -290,7 +294,7 @@ public class WriterUnitTests
                 Issues = { new IssueMessage { Message = "Topic not found" } }
             });
 
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-6")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-6")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal("Initialization failed! Status: SchemeError, Issues:\n[0] Fatal: Topic not found",
@@ -321,7 +325,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-7")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-7")
             { ProducerId = "producerId", Codec = Codec.Raw }.Build();
 
         Assert.Equal("Topic[Path=\"/topic-7\"] is not supported codec: Raw",
@@ -406,7 +410,7 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-8")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-8")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
@@ -480,7 +484,7 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-9")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-9")
             { ProducerId = "producerId" }.Build();
 
         Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
@@ -556,7 +560,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-10")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-10")
             { ProducerId = "producerId" }.Build();
 
 
@@ -578,7 +582,7 @@ public class WriterUnitTests
             .Returns(_lastMoveNext);
         SetupReadOneWriteAckMessage();
 
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-11")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-11")
             { ProducerId = "producerId" }.Build();
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
@@ -600,7 +604,7 @@ public class WriterUnitTests
             .Returns(_lastMoveNext);
         SetupReadOneWriteAckMessage();
 
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-12")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-12")
             { ProducerId = "producerId" }.Build();
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
@@ -699,7 +703,7 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-13")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-13")
             { ProducerId = "producerId" }.Build();
 
         var ctx = new CancellationTokenSource();
@@ -735,7 +739,7 @@ public class WriterUnitTests
             .ReturnsAsync(true);
         SetupReadOneWriteAckMessage();
 
-        var writer = new WriterBuilder<string>(_mockIDriver.Object, "/topic-14")
+        var writer = new WriterBuilder<string>(_driverFactoryMock, "/topic-14")
             { ProducerId = "producerId" }.Build();
         await writer.DisposeAsync();
 
@@ -842,7 +846,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        await using var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-15")
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-15")
             { ProducerId = "producerId" }.Build();
 
         var writeTask1 = await writer.WriteAsync(100L);
@@ -919,7 +923,7 @@ public class WriterUnitTests
                 Status = StatusIds.Types.StatusCode.Success
             });
 
-        var writer = new WriterBuilder<long>(_mockIDriver.Object, "/topic-16")
+        var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-16")
             { ProducerId = "producerId" }.Build();
 
         var writeTask1 = writer.WriteAsync(100L);

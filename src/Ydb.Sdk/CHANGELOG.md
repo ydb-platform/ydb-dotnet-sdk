@@ -1,3 +1,26 @@
+- Fixed bug: NPE in Writer.DisposeAsync().
+- Fixed bug: Driver ownership lifecycle is now synchronized to prevent race conditions.
+- **Breaking Change**: `IDriver` no longer implements `IDisposable` (interface slated to mark internal).
+
+## v0.28.0
+
+- Feat Reader/Writer: Added ConnectionString-based initialization.
+- Feat ADO.NET: Added support for `SnapshotRW` level isolation.
+- Feat: Added support for Yandex.Cloud metadata credentials (`EnableMetadataCredentials`) in `YdbConnectionStringBuilder` / connection string.
+- Feat: Added support for Yandex.Cloud service account key file (`ServiceAccountKeyFilePath`) in `YdbConnectionStringBuilder` / connection string.
+- Feat: Added validation for mutually exclusive authentication properties (`User`, `CredentialsProvider`, `ServiceAccountKeyFilePath`, `EnableMetadataCredentials`).
+
+## v0.27.0
+
+- Feat ADO.NET: Support control plane methods in YdbDataSource:
+  - `DescribeTable`: Returns information about the specified table (metadata).
+  - `CreateTable`: Creates new table.
+  - `CopyTable`: Creates a copy of the specified table.
+  - `CopyTables`: Creates a consistent copy of the specified tables.
+  - `RenameTables`: Renames multiple tables in a single operation.
+  - `DropTable`: Drops (deletes) a table.
+- Dev: Discovery endpoints use `System.Threading.Timer`.
+
 ## v0.26.0
 
 - Feat ADO.NET: Added raw integer / long value support for extended-range `DateTime` types.

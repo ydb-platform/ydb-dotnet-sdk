@@ -82,7 +82,7 @@ public class YdbRetryPolicyConfig
     /// only if you are certain that the operations being retried are idempotent.
     /// <para>Default value: false.</para>
     /// </remarks>
-    public bool EnableRetryIdempotence { get; init; } = false;
+    public bool EnableRetryIdempotence { get; init; }
 
     /// <summary>
     /// Returns a string representation of the retry policy configuration.
