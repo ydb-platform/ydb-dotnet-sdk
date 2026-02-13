@@ -9,8 +9,8 @@ namespace EntityFrameworkCore.Ydb.Metadata.Internal;
 public class YdbAnnotationProvider(RelationalAnnotationProviderDependencies dependencies)
     : RelationalAnnotationProvider(dependencies)
 {
-    private static readonly IReadOnlySet<Type> _serialSupportingTypes =
-        new HashSet<Type> { typeof(int), typeof(long), typeof(short), typeof(byte) };
+    private static readonly HashSet<Type> SerialSupportingTypes =
+        [typeof(int), typeof(long), typeof(short), typeof(byte)];
 
     public override IEnumerable<IAnnotation> For(IColumn column, bool designTime)
     {
@@ -28,7 +28,7 @@ public class YdbAnnotationProvider(RelationalAnnotationProviderDependencies depe
         var property = column.PropertyMappings[0].Property;
 
         if (property.ValueGenerated == ValueGenerated.OnAdd
-            && _serialSupportingTypes.Contains(property.ClrType)
+            && SerialSupportingTypes.Contains(property.ClrType)
             && property.FindTypeMapping()?.Converter == null)
         {
             yield return new Annotation(YdbAnnotationNames.Serial, true);

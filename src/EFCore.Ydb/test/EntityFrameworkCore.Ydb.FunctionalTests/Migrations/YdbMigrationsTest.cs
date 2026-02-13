@@ -429,6 +429,70 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """);
     }
 
+    [ConditionalFact]
+    public async Task Create_table_with_serial_types_generates_expected_column_types_from_model_value_generated_on_add()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var bigTable = $"BigSerialEntities_{suffix}";
+        var smallTable = $"SmallSerialEntities_{suffix}";
+        var byteTable = $"ByteSerialEntities_{suffix}";
+
+        await Test(
+            _ => { },
+            builder =>
+            {
+                builder.Entity("BigSerialEntity", e =>
+                {
+                    e.Property<long>("Id").ValueGeneratedOnAdd();
+                    e.HasKey("Id");
+                    e.Property<string>("Name");
+                    e.ToTable(bigTable);
+                });
+
+                builder.Entity("SmallSerialEntity", e =>
+                {
+                    e.Property<short>("Id").ValueGeneratedOnAdd();
+                    e.HasKey("Id");
+                    e.Property<string>("Name");
+                    e.ToTable(smallTable);
+                });
+
+                builder.Entity("ByteSerialEntity", e =>
+                {
+                    e.Property<byte>("Id").ValueGeneratedOnAdd();
+                    e.HasKey("Id");
+                    e.Property<string>("Name");
+                    e.ToTable(byteTable);
+                });
+            },
+            _ => { }
+        );
+
+        AssertSql(
+            $"""
+            CREATE TABLE `{bigTable}` (
+                `Id` Bigserial NOT NULL,
+                `Name` Text,
+                PRIMARY KEY (`Id`)
+            );
+            """,
+            $"""
+            CREATE TABLE `{byteTable}` (
+                `Id` SmallSerial NOT NULL,
+                `Name` Text,
+                PRIMARY KEY (`Id`)
+            );
+            """,
+            $"""
+            CREATE TABLE `{smallTable}` (
+                `Id` SmallSerial NOT NULL,
+                `Name` Text,
+                PRIMARY KEY (`Id`)
+            );
+            """
+        );
+    }
+
     public override Task Create_unique_index_with_filter() => Task.CompletedTask;
 
     // YDB does not support
