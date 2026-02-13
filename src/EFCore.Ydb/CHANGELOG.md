@@ -1,3 +1,5 @@
+## v0.4.1
+
 - Fixed bug: EF Code First now generates correct serial column types for key properties with `ValueGeneratedOnAdd`:
   - `Int64` -> `Bigserial`
   - `Int32` -> `Serial`
