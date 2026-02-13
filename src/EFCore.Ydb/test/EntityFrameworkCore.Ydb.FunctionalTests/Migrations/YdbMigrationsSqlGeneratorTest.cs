@@ -396,9 +396,11 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
             Table = tableName,
             Name = "Id",
             ColumnType = columnType,
-            IsNullable = false
+            IsNullable = false,
+#pragma warning disable EF1001
+            [YdbAnnotationNames.Serial] = true
+#pragma warning restore EF1001
         };
-        idColumn[YdbAnnotationNames.Serial] = true;
 
         createTable.Columns.Add(idColumn);
         createTable.PrimaryKey = new AddPrimaryKeyOperation
