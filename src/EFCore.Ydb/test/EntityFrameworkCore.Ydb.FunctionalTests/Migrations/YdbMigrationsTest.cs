@@ -435,7 +435,7 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
         var suffix = Guid.NewGuid().ToString("N");
         var bigTable = $"BigSerialEntities_{suffix}";
         var smallTable = $"SmallSerialEntities_{suffix}";
-        var byteTable = $"ByteSerialEntities_{suffix}";
+        var serialTable = $"SerialEntities_{suffix}";
 
         await Test(
             _ => { },
@@ -457,12 +457,12 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
                     e.ToTable(smallTable);
                 });
 
-                builder.Entity("ByteSerialEntity", e =>
+                builder.Entity("SerialEntity", e =>
                 {
-                    e.Property<byte>("Id").ValueGeneratedOnAdd();
+                    e.Property<int>("Id").ValueGeneratedOnAdd();
                     e.HasKey("Id");
                     e.Property<string>("Name");
-                    e.ToTable(byteTable);
+                    e.ToTable(serialTable);
                 });
             },
             _ => { }
@@ -477,8 +477,8 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
              );
              """,
             $"""
-             CREATE TABLE `{byteTable}` (
-                 `Id` SmallSerial NOT NULL,
+             CREATE TABLE `{serialTable}` (
+                 `Id` Serial NOT NULL,
                  `Name` Text,
                  PRIMARY KEY (`Id`)
              );
@@ -487,6 +487,37 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
              CREATE TABLE `{smallTable}` (
                  `Id` SmallSerial NOT NULL,
                  `Name` Text,
+                 PRIMARY KEY (`Id`)
+             );
+             """
+        );
+    }
+
+    [ConditionalFact]
+    public async Task ValueGeneratedOnAdd_with_default_value_is_not_mapped_to_serial()
+    {
+        var tableName = $"DefaultValueEntity_{Guid.NewGuid():N}";
+
+        await Test(
+            _ => { },
+            builder =>
+            {
+                builder.Entity("DefaultValueEntity", e =>
+                {
+                    e.Property<int>("Id").ValueGeneratedOnAdd();
+                    e.HasKey("Id");
+                    e.Property<int>("Counter").HasDefaultValue(42);
+                    e.ToTable(tableName);
+                });
+            },
+            _ => { }
+        );
+
+        AssertSql(
+            $"""
+             CREATE TABLE `{tableName}` (
+                 `Id` Serial NOT NULL,
+                 `Counter` Int32 NOT NULL DEFAULT 42,
                  PRIMARY KEY (`Id`)
              );
              """

@@ -1,7 +1,8 @@
 - Fixed bug: EF Code First now generates correct serial column types for key properties with `ValueGeneratedOnAdd`:
   - `Int64` -> `Bigserial`
   - `Int32` -> `Serial`
-  - `Int16` / `Int8` -> `SmallSerial`
+  - `Int16` -> `SmallSerial`
+- Fixed bug: `HasDefaultValue(...)` / `HasDefaultValueSql(...)` no longer cause incorrect serial mapping for `ValueGeneratedOnAdd` columns.
 
 ## v0.4.0
 
