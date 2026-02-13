@@ -68,7 +68,7 @@ public class YdbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies depend
         {
             columnType = columnType.ToLower() switch
             {
-                "int8" or "int16" => "SmallSerial",
+                "int16" => "SmallSerial",
                 "int32" => "Serial",
                 "int64" => "Bigserial",
                 _ => throw new NotSupportedException($"Serial column isn't supported for {columnType} type")

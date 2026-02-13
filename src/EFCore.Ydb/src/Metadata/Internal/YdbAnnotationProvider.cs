@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
@@ -9,8 +10,8 @@ namespace EntityFrameworkCore.Ydb.Metadata.Internal;
 public class YdbAnnotationProvider(RelationalAnnotationProviderDependencies dependencies)
     : RelationalAnnotationProvider(dependencies)
 {
-    private static readonly IReadOnlySet<Type> _serialSupportingTypes =
-        new HashSet<Type> { typeof(int), typeof(long), typeof(short), typeof(byte) };
+    private static readonly HashSet<Type> SerialSupportingTypes =
+        [typeof(int), typeof(long), typeof(short)];
 
     public override IEnumerable<IAnnotation> For(IColumn column, bool designTime)
     {
@@ -25,11 +26,12 @@ public class YdbAnnotationProvider(RelationalAnnotationProviderDependencies depe
             yield break;
         }
 
-        var property = column.PropertyMappings[0].Property;
-
-        if (property.ValueGenerated == ValueGenerated.OnAdd
-            && _serialSupportingTypes.Contains(property.ClrType)
-            && property.FindTypeMapping()?.Converter == null)
+        if (column.PropertyMappings.Any(mapping =>
+                mapping.Property.ValueGenerated == ValueGenerated.OnAdd
+                && SerialSupportingTypes.Contains(mapping.Property.ClrType)
+                && mapping.Property.FindAnnotation(RelationalAnnotationNames.DefaultValue) == null
+                && mapping.Property.FindAnnotation(RelationalAnnotationNames.DefaultValueSql) == null
+                && mapping.Property.FindTypeMapping()?.Converter == null))
         {
             yield return new Annotation(YdbAnnotationNames.Serial, true);
         }
