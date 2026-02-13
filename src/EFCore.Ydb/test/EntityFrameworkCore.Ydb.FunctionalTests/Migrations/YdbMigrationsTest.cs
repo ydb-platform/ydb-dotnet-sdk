@@ -470,26 +470,26 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
 
         AssertSql(
             $"""
-            CREATE TABLE `{bigTable}` (
-                `Id` Bigserial NOT NULL,
-                `Name` Text,
-                PRIMARY KEY (`Id`)
-            );
-            """,
+             CREATE TABLE `{bigTable}` (
+                 `Id` Bigserial NOT NULL,
+                 `Name` Text,
+                 PRIMARY KEY (`Id`)
+             );
+             """,
             $"""
-            CREATE TABLE `{byteTable}` (
-                `Id` SmallSerial NOT NULL,
-                `Name` Text,
-                PRIMARY KEY (`Id`)
-            );
-            """,
+             CREATE TABLE `{byteTable}` (
+                 `Id` SmallSerial NOT NULL,
+                 `Name` Text,
+                 PRIMARY KEY (`Id`)
+             );
+             """,
             $"""
-            CREATE TABLE `{smallTable}` (
-                `Id` SmallSerial NOT NULL,
-                `Name` Text,
-                PRIMARY KEY (`Id`)
-            );
-            """
+             CREATE TABLE `{smallTable}` (
+                 `Id` SmallSerial NOT NULL,
+                 `Name` Text,
+                 PRIMARY KEY (`Id`)
+             );
+             """
         );
     }
 
