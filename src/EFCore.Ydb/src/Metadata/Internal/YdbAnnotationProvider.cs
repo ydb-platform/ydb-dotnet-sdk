@@ -9,7 +9,8 @@ namespace EntityFrameworkCore.Ydb.Metadata.Internal;
 public class YdbAnnotationProvider(RelationalAnnotationProviderDependencies dependencies)
     : RelationalAnnotationProvider(dependencies)
 {
-    private static readonly IReadOnlySet<Type> _serialSupportingTypes = new HashSet<Type> { typeof(int), typeof(long), typeof(short), typeof(byte) };
+    private static readonly IReadOnlySet<Type> _serialSupportingTypes =
+        new HashSet<Type> { typeof(int), typeof(long), typeof(short), typeof(byte) };
 
     public override IEnumerable<IAnnotation> For(IColumn column, bool designTime)
     {
