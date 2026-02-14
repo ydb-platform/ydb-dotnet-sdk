@@ -26,7 +26,7 @@ public sealed class YdbConnection : DbConnection
     private bool _disposed;
     private YdbConnectionStringBuilder? _connectionStringBuilder;
 
-    private YdbConnectionStringBuilder ConnectionStringBuilder
+    internal YdbConnectionStringBuilder ConnectionStringBuilder
     {
         get => _connectionStringBuilder ??
                throw new InvalidOperationException("The ConnectionString property has not been initialized.");

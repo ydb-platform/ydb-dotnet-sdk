@@ -705,8 +705,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
         }
     }
 
-    private string Endpoint => $"{(UseTls ? "grpcs" : "grpc")}://{Host}:{Port}";
-
     string IDriverFactory.GrpcConnectionString =>
         $"UseTls={UseTls};Host={Host};Port={Port};Database={Database};User={User};Password={Password};" +
         $"ConnectTimeout={ConnectTimeout};KeepAlivePingDelay={KeepAlivePingDelay};KeepAlivePingTimeout={KeepAlivePingTimeout};" +
@@ -718,7 +716,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     {
         var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
         var driverConfig = new DriverConfig(
-            endpoint: Endpoint,
+            useTls: UseTls,
+            host: Host,
+            port: (uint)Port,
             database: Database,
             credentials: CredentialsProvider ?? (EnableMetadataCredentials
                 ? CredentialsProviderUtils.LoadMetadataProvider(LoggerFactory)

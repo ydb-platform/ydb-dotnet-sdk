@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Tracing;
 using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 using TransactionControl = Ydb.Query.TransactionControl;
 
@@ -62,7 +63,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public override async Task CommitTransaction(string txId, CancellationToken cancellationToken = default)
+    public override async Task CommitTransaction(string txId, CancellationToken cancellationToken)
     {
         var response = await Driver.UnaryCall(
             QueryService.CommitTransactionMethod,
@@ -76,7 +77,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         }
     }
 
-    public override async Task RollbackTransaction(string txId, CancellationToken cancellationToken = default)
+    public override async Task RollbackTransaction(string txId, CancellationToken cancellationToken)
     {
         var response = await Driver.UnaryCall(
             QueryService.RollbackTransactionMethod,
@@ -111,6 +112,8 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
     internal override async Task Open(CancellationToken cancellationToken)
     {
+        using var dbActivity = YdbActivitySource.StartActivity("ydb.CreateSession");
+
         var requestSettings = new GrpcRequestSettings { CancellationToken = cancellationToken };
 
         if (!_disableServerBalancer)
@@ -207,7 +210,15 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             }
         }, cancellationToken);
 
-        await completeTask.Task;
+        try
+        {
+            await completeTask.Task;
+        }
+        catch (Exception e)
+        {
+            dbActivity?.SetException(e);
+            throw;
+        }
     }
 
     internal override async Task DeleteSession()

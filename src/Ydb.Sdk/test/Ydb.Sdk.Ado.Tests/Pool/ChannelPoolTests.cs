@@ -30,6 +30,8 @@ public class ChannelPoolTests
             });
     }
 
+    private static EndpointInfo Endpoint(string host) => new(0, false, host, 2136, string.Empty);
+
     [Fact]
     public async Task ChannelPool_AllMethodsWorkAsExpected()
     {
@@ -37,30 +39,30 @@ public class ChannelPoolTests
         const string n2YdbTech = "n2.ydb.tech";
         const string n3YdbTech = "n3.ydb.tech";
 
-        var endpoints = ImmutableArray.Create<string>(
+        var endpoints = ImmutableArray.Create(
             n1YdbTech, n2YdbTech, n3YdbTech, "n4.ydb.tech", "n5.ydb.tech"
         );
 
         foreach (var endpoint in endpoints)
         {
-            Assert.Equal(endpoint, _channelPool.GetChannel(endpoint).ToString());
+            Assert.Equal(Endpoint(endpoint).Endpoint, _channelPool.GetChannel(Endpoint(endpoint)).ToString());
         }
 
         _mockChannelFactory.Verify(channelPool => channelPool.CreateChannel(It.IsAny<string>()), Times.Exactly(5));
 
-        await _channelPool.RemoveChannels([n1YdbTech, n2YdbTech]);
+        await _channelPool.RemoveChannels([Endpoint(n1YdbTech), Endpoint(n2YdbTech)]);
 
-        _endpointToMockChannel.Remove(n1YdbTech, out var mockChannel1);
-        _endpointToMockChannel.Remove(n2YdbTech, out var mockChannel2);
+        _endpointToMockChannel.Remove(Endpoint(n1YdbTech).Endpoint, out var mockChannel1);
+        _endpointToMockChannel.Remove(Endpoint(n2YdbTech).Endpoint, out var mockChannel2);
 
         mockChannel1!.Verify(channel => channel.Dispose(), Times.Once);
         mockChannel2!.Verify(channel => channel.Dispose(), Times.Once);
 
-        _endpointToMockChannel[n3YdbTech].Verify(channel => channel.Dispose(), Times.Never);
+        _endpointToMockChannel[Endpoint(n3YdbTech).Endpoint].Verify(channel => channel.Dispose(), Times.Never);
 
         foreach (var endpoint in endpoints)
         {
-            Assert.Equal(endpoint, _channelPool.GetChannel(endpoint).ToString());
+            Assert.Equal(Endpoint(endpoint).Endpoint, _channelPool.GetChannel(Endpoint(endpoint)).ToString());
         }
 
         // created two channels
@@ -84,10 +86,10 @@ public class ChannelPoolTests
 
         var tasks = useAsParallel
             ? endpoints.AsParallel()
-                .Select(endpoint => Task.Run(() => _channelPool.GetChannel(endpoint)))
+                .Select(endpoint => Task.Run(() => _channelPool.GetChannel(Endpoint(endpoint))))
                 .ToArray()
             : endpoints
-                .Select(endpoint => Task.Run(() => _channelPool.GetChannel(endpoint)))
+                .Select(endpoint => Task.Run(() => _channelPool.GetChannel(Endpoint(endpoint))))
                 .ToArray();
 
         await Task.WhenAll(tasks);
