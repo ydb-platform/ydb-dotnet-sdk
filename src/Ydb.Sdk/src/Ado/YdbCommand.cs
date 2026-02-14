@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado;
 
@@ -194,62 +195,73 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (YdbConnection.IsBusy)
+        var dbActivity = YdbActivitySource.StartActivity("ydb.ExecuteQuery");
+        try
         {
-            throw new YdbOperationInProgressException(YdbConnection);
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        YdbConnection.ThrowIfConnectionClosed();
-
-        var ydbParameterCollection = DbParameterCollection.YdbParameters;
-        var (sql, sqlParams) = SqlParser.Parse(
-            CommandText.Length > 0
-                ? CommandText
-                : throw new InvalidOperationException("CommandText property has not been initialized")
-        );
-        var preparedSql = new StringBuilder();
-        var ydbParameters = new Dictionary<string, TypedValue>();
-
-        foreach (var sqlParam in sqlParams)
-        {
-            if (sqlParam.IsNative && !ydbParameterCollection.ContainsKey(sqlParam.Name))
+            if (YdbConnection.IsBusy)
             {
-                continue;
+                throw new YdbOperationInProgressException(YdbConnection);
             }
 
-            var typedValue = sqlParam.YdbValueFetch(ydbParameterCollection);
+            YdbConnection.ThrowIfConnectionClosed();
 
-            if (!sqlParam.IsNative)
+            var ydbParameterCollection = DbParameterCollection.YdbParameters;
+            var (sql, sqlParams) = SqlParser.Parse(
+                CommandText.Length > 0
+                    ? CommandText
+                    : throw new InvalidOperationException("CommandText property has not been initialized")
+            );
+            var preparedSql = new StringBuilder();
+            var ydbParameters = new Dictionary<string, TypedValue>();
+
+            foreach (var sqlParam in sqlParams)
             {
-                preparedSql.Append($"DECLARE {sqlParam.Name} AS {typedValue.ToYql()};\n");
+                if (sqlParam.IsNative && !ydbParameterCollection.ContainsKey(sqlParam.Name))
+                {
+                    continue;
+                }
+
+                var typedValue = sqlParam.YdbValueFetch(ydbParameterCollection);
+
+                if (!sqlParam.IsNative)
+                {
+                    preparedSql.Append($"DECLARE {sqlParam.Name} AS {typedValue.ToYql()};\n");
+                }
+
+                ydbParameters[sqlParam.Name] = typedValue;
             }
 
-            ydbParameters[sqlParam.Name] = typedValue;
+            preparedSql.Append(sql);
+
+            var execSettings = CommandTimeout > 0
+                ? new GrpcRequestSettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
+                : new GrpcRequestSettings();
+
+            var transaction = YdbConnection.CurrentTransaction;
+
+            if (Transaction != null && Transaction != transaction) // assert on legacy DbTransaction property
+            {
+                throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
+            }
+
+            var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery(
+                preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl
+            ), YdbConnection.OnNotSuccessStatusCode, transaction, dbActivity, cancellationToken);
+
+            YdbConnection.LastReader = ydbDataReader;
+            YdbConnection.LastCommand = CommandText;
+
+            return ydbDataReader;
         }
-
-        preparedSql.Append(sql);
-
-        var execSettings = CommandTimeout > 0
-            ? new GrpcRequestSettings { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout) }
-            : new GrpcRequestSettings();
-
-        var transaction = YdbConnection.CurrentTransaction;
-
-        if (Transaction != null && Transaction != transaction) // assert on legacy DbTransaction property
+        catch (Exception e)
         {
-            throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
+            dbActivity?.SetException(e);
+            dbActivity?.Dispose();
+
+            throw;
         }
-
-        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery(
-            preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl
-        ), YdbConnection.OnNotSuccessStatusCode, transaction, cancellationToken);
-
-        YdbConnection.LastReader = ydbDataReader;
-        YdbConnection.LastCommand = CommandText;
-
-        return ydbDataReader;
     }
 
     public new async Task<YdbDataReader> ExecuteReaderAsync() =>

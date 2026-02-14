@@ -10,6 +10,9 @@ internal static class Metadata
     public const string RpcSdkInfoHeader = "x-ydb-sdk-build-info";
     public const string RpcClientPid = "x-ydb-client-pid";
 
+    // W3C trace-context propagation header (YDB supports "traceparent" on gRPC requests)
+    public const string TraceParentHeader = "traceparent";
+
     // Incoming headers
     public const string RpcServerHintsHeader = "x-ydb-server-hints";
     public const string RpcClientCapabilitiesHeader = "x-ydb-client-capabilities";

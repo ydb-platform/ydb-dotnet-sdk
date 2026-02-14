@@ -3,6 +3,7 @@ using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -39,14 +40,15 @@ public class DriverOwnershipTests
     }
 
     private sealed class TestDriver() : BaseDriver(
-        new DriverConfig("localhost:2136", "/local"),
+        new DriverConfig(false, "localhost", 2136, "/local"),
         NullLoggerFactory.Instance,
         NullLoggerFactory.Instance.CreateLogger<TestDriver>()
     )
     {
-        protected override string GetEndpoint(long nodeId) => "localhost:2136";
+        protected override EndpointInfo GetEndpoint(long nodeId) =>
+            new(0, false, "localhost", 2136, string.Empty);
 
-        protected override void OnRpcError(string endpoint, RpcException e)
+        protected override void OnRpcError(EndpointInfo endpointInfo, RpcException e)
         {
         }
     }

@@ -224,7 +224,8 @@ public class PoolingSessionTests
             It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
         ).ThrowsAsync(YdbException.FromServer(StatusIds.Types.StatusCode.Aborted, []));
         Assert.False(session.IsBroken);
-        var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.CommitTransaction(txId));
+        var ydbException = await Assert
+            .ThrowsAsync<YdbException>(() => session.CommitTransaction(txId, CancellationToken.None));
         Assert.Equal(StatusCode.Aborted, ydbException.Code);
         Assert.Equal("Status: Aborted", ydbException.Message);
         tcsSecondMoveAttachStream.TrySetResult(false);
@@ -245,7 +246,8 @@ public class PoolingSessionTests
             It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
         ).ThrowsAsync(YdbException.FromServer(StatusIds.Types.StatusCode.NotFound, []));
         Assert.False(session.IsBroken);
-        var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.RollbackTransaction(txId));
+        var ydbException = await Assert
+            .ThrowsAsync<YdbException>(() => session.RollbackTransaction(txId, CancellationToken.None));
         Assert.Equal(StatusCode.NotFound, ydbException.Code);
         Assert.Equal("Status: NotFound", ydbException.Message);
         tcsSecondMoveAttachStream.TrySetResult(false);

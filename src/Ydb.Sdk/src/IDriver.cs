@@ -5,6 +5,8 @@ using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
+using System.Diagnostics;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk;
 
@@ -196,19 +198,19 @@ public abstract class BaseDriver : IDriver
         where TRequest : class
         where TResponse : class
     {
-        var endpoint = GetEndpoint(settings.NodeId);
-        var channel = ChannelPool.GetChannel(endpoint);
+        var endpointInfo = GetEndpoint(settings.NodeId);
+        var channel = ChannelPool.GetChannel(endpointInfo);
 
         var callInvoker = channel.CreateCallInvoker();
 
-        Logger.LogTrace("Unary call, method: {MethodName}, endpoint: {Endpoint}", method.Name, endpoint);
+        Logger.LogTrace("Unary call, method: {MethodName}, endpoint: {Endpoint}", method.Name, endpointInfo.Endpoint);
 
         try
         {
             using var call = callInvoker.AsyncUnaryCall(
                 method: method,
                 host: null,
-                options: await GetCallOptions(settings),
+                options: await GetCallOptions(settings, endpointInfo),
                 request: request
             );
 
@@ -216,7 +218,7 @@ public abstract class BaseDriver : IDriver
         }
         catch (RpcException e)
         {
-            OnRpcError(endpoint, e);
+            OnRpcError(endpointInfo, e);
 
             throw new YdbException(e);
         }
@@ -233,18 +235,18 @@ public abstract class BaseDriver : IDriver
         where TRequest : class
         where TResponse : class
     {
-        var endpoint = GetEndpoint(settings.NodeId);
-        var channel = ChannelPool.GetChannel(endpoint);
+        var endpointInfo = GetEndpoint(settings.NodeId);
+        var channel = ChannelPool.GetChannel(endpointInfo);
 
         var callInvoker = channel.CreateCallInvoker();
 
         var call = callInvoker.AsyncServerStreamingCall(
             method: method,
             host: null,
-            options: await GetCallOptions(settings),
+            options: await GetCallOptions(settings, endpointInfo),
             request: request);
 
-        return new ServerStream<TResponse>(call, e => { OnRpcError(endpoint, e); });
+        return new ServerStream<TResponse>(call, e => { OnRpcError(endpointInfo, e); });
     }
 
     public async ValueTask<IBidirectionalStream<TRequest, TResponse>> BidirectionalStreamCall<TRequest, TResponse>(
@@ -253,28 +255,28 @@ public abstract class BaseDriver : IDriver
         where TRequest : class
         where TResponse : class
     {
-        var endpoint = GetEndpoint(settings.NodeId);
-        var channel = ChannelPool.GetChannel(endpoint);
+        var endpointInfo = GetEndpoint(settings.NodeId);
+        var channel = ChannelPool.GetChannel(endpointInfo);
 
         var callInvoker = channel.CreateCallInvoker();
 
         var call = callInvoker.AsyncDuplexStreamingCall(
             method: method,
             host: null,
-            options: await GetCallOptions(settings));
+            options: await GetCallOptions(settings, endpointInfo));
 
         return new BidirectionalStream<TRequest, TResponse>(
             call,
-            e => { OnRpcError(endpoint, e); },
+            e => { OnRpcError(endpointInfo, e); },
             _credentialsProvider
         );
     }
 
-    protected abstract string GetEndpoint(long nodeId);
+    protected abstract EndpointInfo GetEndpoint(long nodeId);
 
-    protected abstract void OnRpcError(string endpoint, RpcException e);
+    protected abstract void OnRpcError(EndpointInfo endpointInfo, RpcException e);
 
-    protected async ValueTask<CallOptions> GetCallOptions(GrpcRequestSettings settings)
+    protected async ValueTask<CallOptions> GetCallOptions(GrpcRequestSettings settings, EndpointInfo endpointInfo)
     {
         var meta = Config.GetCallMetadata;
 
@@ -286,6 +288,28 @@ public abstract class BaseDriver : IDriver
         if (settings.TraceId.Length > 0)
         {
             meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
+        }
+
+        // Propagate W3C trace context to YDB server to build an end-to-end trace.
+        // YDB expects "traceparent" gRPC metadata header.
+        if (YdbActivitySource.TryGetCurrent(out var current) && current.IdFormat == ActivityIdFormat.W3C)
+        {
+            if (current.IsAllDataRequested)
+            {
+                // https://opentelemetry.io/docs/specs/semconv/db/database-spans/
+                current.AddTag("db.system.name", "ydb");
+                current.AddTag("db.namespace", Config.Database);
+                current.AddTag("server.address", Config.EndpointInfo.Host);
+                current.AddTag("server.port", Config.EndpointInfo.Port);
+                current.AddTag("network.peer.address", endpointInfo.Host);
+                current.AddTag("network.peer.port", endpointInfo.Port);
+
+                // custom YDB tags
+                current.AddTag("ydb.node.id", endpointInfo.NodeId);
+                current.AddTag("ydb.node.dc", endpointInfo.LocationDc);
+            }
+
+            meta.Add(Metadata.TraceParentHeader, current.Id!); // W3C: after Start(), Id is guaranteed to be non-null
         }
 
         foreach (var clientCapabilitiesHeader in settings.ClientCapabilities)
@@ -351,10 +375,13 @@ public abstract class BaseDriver : IDriver
             }
         }
 
+        await DisposeAsyncCore();
         await ChannelPool.DisposeAsync();
 
         GC.SuppressFinalize(this);
     }
+
+    protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
 }
 
 public sealed class ServerStream<TResponse> : IServerStream<TResponse>

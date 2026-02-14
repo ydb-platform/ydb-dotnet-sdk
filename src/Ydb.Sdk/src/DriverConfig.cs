@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk;
 
@@ -18,7 +19,7 @@ public class DriverConfig
     /// <summary>
     /// Gets the YDB server endpoint URL.
     /// </summary>
-    public string Endpoint { get; }
+    public string Endpoint => EndpointInfo.Endpoint;
 
     /// <summary>
     /// Gets the database path.
@@ -77,23 +78,25 @@ public class DriverConfig
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
     internal string SdkVersion { get; }
+    internal EndpointInfo EndpointInfo { get; }
 
     /// <summary>
     /// Initializes a new instance of the DriverConfig class.
     /// </summary>
-    /// <param name="endpoint">The YDB server endpoint URL.</param>
+    /// <param name="useTls">
+    /// Specifies whether TLS should be used for gRPC connections.
+    /// When <see langword="true"/>, the endpoint is built with HTTPS; otherwise HTTP is used.
+    /// </param>
+    /// <param name="host">The YDB server host name or IP address.</param>
+    /// <param name="port">The YDB server gRPC port.</param>
     /// <param name="database">The database path.</param>
     /// <param name="credentials">Optional credentials provider for authentication.</param>
     /// <param name="customServerCertificate">Optional custom server certificate for TLS validation.</param>
     /// <param name="customServerCertificates">Optional collection of custom server certificates for TLS validation.</param>
-    public DriverConfig(
-        string endpoint,
-        string database,
-        ICredentialsProvider? credentials = null,
-        X509Certificate? customServerCertificate = null,
-        X509Certificate2Collection? customServerCertificates = null)
+    public DriverConfig(bool useTls, string host, uint port, string database, ICredentialsProvider? credentials = null,
+        X509Certificate? customServerCertificate = null, X509Certificate2Collection? customServerCertificates = null)
     {
-        Endpoint = FormatEndpoint(endpoint);
+        EndpointInfo = new EndpointInfo(0, useTls, host, port, "Unknown");
         Database = database;
         Credentials = credentials;
 
@@ -118,28 +121,4 @@ public class DriverConfig
         { Metadata.RpcSdkInfoHeader, SdkVersion },
         { Metadata.RpcClientPid, _pid }
     };
-
-    private static string FormatEndpoint(string endpoint)
-    {
-        endpoint = endpoint.ToLower().Trim();
-
-        if (endpoint.StartsWith("http://") || endpoint.StartsWith("https://"))
-        {
-            return endpoint;
-        }
-
-        if (endpoint.StartsWith("grpc://"))
-        {
-            var builder = new UriBuilder(endpoint) { Scheme = Uri.UriSchemeHttp };
-            return builder.Uri.ToString();
-        }
-
-        if (endpoint.StartsWith("grpcs://"))
-        {
-            var builder = new UriBuilder(endpoint) { Scheme = Uri.UriSchemeHttps };
-            return builder.Uri.ToString();
-        }
-
-        return $"https://{endpoint}";
-    }
 }
