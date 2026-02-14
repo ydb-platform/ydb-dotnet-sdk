@@ -1,9 +1,19 @@
 services:
+  app:
+    build:
+      context: ../..
+      dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Dockerfile
+    depends_on:
+      ydb:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: on-failure
+
   ydb:
     image: ydbplatform/local-ydb:trunk
     platform: linux/amd64
     container_name: ydb-local
-    hostname: localhost
     # Official-style config override: the image ENTRYPOINT is `/initialize_local_ydb`,
     # and we pass `--config-path` as arguments to it.
     command: [ "--config-path", "/ydb_config/ydb-config.yaml" ]

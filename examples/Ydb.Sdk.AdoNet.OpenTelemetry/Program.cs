@@ -6,7 +6,7 @@ using OpenTelemetry.Trace;
 using Ydb.Sdk.Ado;
 
 const string serviceName = "ydb-sdk-adonet-sample";
-var otlpEndpoint = new Uri("http://localhost:4317");
+var otlpEndpoint = new Uri("http://otel-collector:4317");
 
 var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown";
 
@@ -31,7 +31,7 @@ using var meterProvider = Sdk.CreateMeterProviderBuilder()
 
 Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] started, service.name={serviceName}");
 
-await using var dataSource = new YdbDataSource("Host=localhost;Port=2136;Database=/local");
+await using var dataSource = new YdbDataSource("Host=ydb;Port=2136;Database=/local");
 
 const string appStartup = "app.startup";
 using (var activity = activitySource.StartActivity(appStartup))
