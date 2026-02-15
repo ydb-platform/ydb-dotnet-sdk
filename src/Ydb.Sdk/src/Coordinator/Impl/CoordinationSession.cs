@@ -133,7 +133,7 @@ public class CoordinationSession
         };
         try
         {
-            var task = _stream.Write(createSemaphore);
+            var task = _stream!.Write(createSemaphore);
             await task;
             if (task.IsFaulted)
             {
@@ -170,7 +170,7 @@ public class CoordinationSession
         };
         try
         {
-            var task = _stream.Write(updateSemaphore);
+            var task = _stream!.Write(updateSemaphore);
             await task;
             if (task.IsFaulted)
             {
@@ -207,7 +207,7 @@ public class CoordinationSession
         };
         try
         {
-            var task = _stream.Write(deleteSemaphore);
+            var task = _stream!.Write(deleteSemaphore);
             await task;
             if (task.IsFaulted)
             {
