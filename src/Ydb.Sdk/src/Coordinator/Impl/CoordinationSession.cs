@@ -10,7 +10,7 @@ public class CoordinationSession
 {
     private readonly IDriver _driver;
     private readonly CoordinationNodeSettings _settings;
-    private IBidirectionalStream<SessionRequest, SessionResponse> _stream;
+    private IBidirectionalStream<SessionRequest, SessionResponse>? _stream;
 
     //private readonly string _path;
     //private readonly ulong _timeoutMillis;
@@ -27,18 +27,33 @@ public class CoordinationSession
     {
         _driver = driver;
         _settings = settings;
-         
+        Initialize();
     }
 
 
-    private async Task Initialize()
+    private async void Initialize()
+    {
+        try
+        {
+            await StreamCall();
+        }
+        catch (Exception)
+        {
+            // Handle the exception (log it, rethrow it, etc.)
+            // Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+
+    // простой пример создания stream, отправляем серверу сообщение о старте и получаем ответ от сервера
+    private async Task StreamCall()
     {
         ulong reqId = 1;
         var node = "";
-        var timeout = new TimeSpan(5);
+        // var timeout = new TimeSpan(5);
         var key = ByteString.Empty;
         _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, _settings);
-        var initRequestStart = new SessionRequest()
+        var initRequestStart = new SessionRequest
         {
             SessionStart =
             {
@@ -55,9 +70,8 @@ public class CoordinationSession
         {
             // что-то делаем,если сообщения не отправилось
         }
-
-        var receivedInitMessage = _stream.Current;
-        
+        //прием сообщения
+        // var receivedInitMessage = _stream.Current;
     }
 
     /*
@@ -107,7 +121,7 @@ public class CoordinationSession
     public async Task CreateSemaphore(string name, ulong limit, byte[]? data)
     {
         ulong reqId = 1;
-        var createSemaphore = new SessionRequest()
+        var createSemaphore = new SessionRequest
         {
             CreateSemaphore =
             {
@@ -145,7 +159,7 @@ public class CoordinationSession
     public async Task UpdateSemaphore(string name, byte[]? data)
     {
         ulong reqId = 1;
-        var updateSemaphore = new SessionRequest()
+        var updateSemaphore = new SessionRequest
         {
             UpdateSemaphore =
             {
@@ -182,7 +196,7 @@ public class CoordinationSession
     public async Task DeleteSemaphore(string name, bool force)
     {
         ulong reqId = 1;
-        var deleteSemaphore = new SessionRequest()
+        var deleteSemaphore = new SessionRequest
         {
             DeleteSemaphore =
             {
