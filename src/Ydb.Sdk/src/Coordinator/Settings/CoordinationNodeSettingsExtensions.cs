@@ -18,8 +18,7 @@ public static class CoordinationNodeSettingsExtensions
     /// Устанавливает таймаут отмены операции.
     /// </summary>
     public static CoordinationNodeSettings WithCancelTimeout(
-        this CoordinationNodeSettings settings,
-        TimeSpan timeout)
+        this CoordinationNodeSettings settings, TimeSpan timeout)
     {
         settings.CancelTimeout = timeout;
         return settings;

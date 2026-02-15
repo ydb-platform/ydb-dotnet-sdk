@@ -64,18 +64,28 @@ public class CoordinationClient
 
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
         var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
-        Task task = _iDriver.UnaryCall(CoordinationService.CreateNodeMethod, request, grpcSettings);
-        if (task.IsFaulted)
+        try
+        {
+            Task task = _iDriver.UnaryCall(CoordinationService.CreateNodeMethod, request, grpcSettings);
+            await task;
+            if (task.IsFaulted)
+            {
+                throw new YdbException("Create node failed");
+            }
+
+            if (task.IsCanceled)
+            {
+                throw new YdbException("Create node canceled");
+            }
+        }
+        catch (YdbException e)
+        {
+            throw new YdbException(e.Message);
+        }
+        catch (Exception e)
         {
             throw new YdbException("Create node failed");
         }
-
-        if (task.IsCanceled)
-        {
-            throw new YdbException("Create node canceled");
-        }
-
-        await task;
     }
 
     public async Task AlterNode(string path, CoordinationNodeSettings settings)
@@ -89,18 +99,28 @@ public class CoordinationClient
 
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
         var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
-        Task task = _iDriver.UnaryCall(CoordinationService.AlterNodeMethod, request, grpcSettings);
-        if (task.IsFaulted)
+        try
+        {
+            Task task = _iDriver.UnaryCall(CoordinationService.AlterNodeMethod, request, grpcSettings);
+            await task;
+            if (task.IsFaulted)
+            {
+                throw new YdbException("Alter node failed");
+            }
+
+            if (task.IsCanceled)
+            {
+                throw new YdbException("Alter node canceled");
+            }
+        }
+        catch (YdbException e)
+        {
+            throw new YdbException(e.Message);
+        }
+        catch (Exception e)
         {
             throw new YdbException("Alter node failed");
         }
-
-        if (task.IsCanceled)
-        {
-            throw new YdbException("Alter node canceled");
-        }
-
-        await task;
     }
 
     public async Task DropNode(string path, DropCoordinationNodeSettings settings)
@@ -113,18 +133,28 @@ public class CoordinationClient
 
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
         var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
-        Task task = _iDriver.UnaryCall(CoordinationService.DropNodeMethod, request, grpcSettings);
-        if (task.IsFaulted)
+        try
+        {
+            Task task = _iDriver.UnaryCall(CoordinationService.DropNodeMethod, request, grpcSettings);
+            await task;
+            if (task.IsFaulted)
+            {
+                throw new YdbException("Drop node failed");
+            }
+
+            if (task.IsCanceled)
+            {
+                throw new YdbException("Drop node canceled");
+            }
+        }
+        catch (YdbException e)
+        {
+            throw new YdbException(e.Message);
+        }
+        catch (Exception e)
         {
             throw new YdbException("Drop node failed");
         }
-
-        if (task.IsCanceled)
-        {
-            throw new YdbException("Drop node canceled");
-        }
-
-        await task;
     }
 
     public async ValueTask<NodeConfig> DescribeNode(string path,
@@ -137,19 +167,32 @@ public class CoordinationClient
         };
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
         var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
-        var task = _iDriver.UnaryCall(CoordinationService.DescribeNodeMethod, request, grpcSettings);
-        if (task.IsFaulted)
+
+        try
+        {
+            var task = _iDriver.UnaryCall(CoordinationService.DescribeNodeMethod, request, grpcSettings);
+            await task;
+            if (task.IsFaulted)
+            {
+                throw new YdbException("Describe node failed");
+            }
+
+            if (task.IsCanceled)
+            {
+                throw new YdbException("Describe node canceled");
+            }
+
+            return await new ValueTask<NodeConfig>(
+                NodeConfig.FromProto(task.Result.Operation.Result.Unpack<DescribeNodeResult>()));
+        }
+        catch (YdbException e)
+        {
+            throw new YdbException(e.Message);
+        }
+        catch (Exception e)
         {
             throw new YdbException("Describe node failed");
         }
-
-        if (task.IsCanceled)
-        {
-            throw new YdbException("Describe node canceled");
-        }
-
-        return await new ValueTask<NodeConfig>(
-            NodeConfig.FromProto(task.Result.Operation.Result.Unpack<DescribeNodeResult>()));
     }
 
     public string GetDatabase() => _iDriver.Database;

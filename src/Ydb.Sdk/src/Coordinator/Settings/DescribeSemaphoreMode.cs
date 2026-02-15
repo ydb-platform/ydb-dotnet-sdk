@@ -1,5 +1,9 @@
 ﻿namespace Ydb.Sdk.Coordinator.Settings;
 
-public class DescribeSemaphoreMode
+public enum DescribeSemaphoreMode
 {
+    DataOnly,
+    WithOwners,
+    WithWaiters,
+    WithOwnersAndWaiters
 }
