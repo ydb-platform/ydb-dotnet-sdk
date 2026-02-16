@@ -62,7 +62,7 @@ public class YdbTracingTests : TestBase
         await using var connection = await CreateOpenConnectionAsync();
         await new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync();
 
-        var parentTags = parent!.TagObjects.Select(t => t.Key).ToList();
+        var parentTags = parent.TagObjects.Select(t => t.Key).ToList();
         Assert.Equal(ActivityStatusCode.Unset, parent.Status);
         Assert.DoesNotContain(parentTags, key => key.StartsWith("db.", StringComparison.Ordinal));
         Assert.DoesNotContain(parentTags, key => key.StartsWith("server.", StringComparison.Ordinal));
