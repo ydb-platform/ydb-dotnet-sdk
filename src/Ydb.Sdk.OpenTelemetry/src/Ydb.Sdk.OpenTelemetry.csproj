@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
+    <AssemblyName>Ydb.Sdk.OpenTelemetry</AssemblyName>
+    <RootNamespace>Ydb.Sdk.OpenTelemetry</RootNamespace>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</PackageProjectUrl>
+    <PackageId>Ydb.Sdk.OpenTelemetry</PackageId>
+    <Description>OpenTelemetry extensions for Ydb.Sdk.</Description>
+    <Company>YANDEX LLC</Company>
+    <Authors>YDB</Authors>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry" Version="1.15.0" />
+  </ItemGroup>
+
+</Project>

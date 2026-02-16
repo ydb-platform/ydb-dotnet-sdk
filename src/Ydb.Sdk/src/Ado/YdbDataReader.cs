@@ -1,9 +1,11 @@
 using System.Data.Common;
+using System.Diagnostics;
 using Google.Protobuf.Collections;
 using Ydb.Issue;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Schema;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado;
 
@@ -22,6 +24,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly YdbTransaction? _ydbTransaction;
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Action<StatusCode> _onNotSuccessStatusCode;
+    private readonly Activity? _activity;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -65,11 +68,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private YdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         Action<StatusCode> onNotSuccessStatusCode,
-        YdbTransaction? ydbTransaction)
+        YdbTransaction? ydbTransaction,
+        Activity? activity)
     {
         _stream = resultSetStream;
         _onNotSuccessStatusCode = onNotSuccessStatusCode;
         _ydbTransaction = ydbTransaction;
+        _activity = activity;
     }
 
     /// <summary>
@@ -78,16 +83,18 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="resultSetStream">The server stream containing query results.</param>
     /// <param name="onNotSuccessStatusCode">Callback for handling non-success status codes.</param>
     /// <param name="ydbTransaction">Optional transaction context.</param>
+    /// <param name="activity">OTel span</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized YdbDataReader.</returns>
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         Action<StatusCode> onNotSuccessStatusCode,
         YdbTransaction? ydbTransaction = null,
+        Activity? activity = null,
         CancellationToken cancellationToken = default
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, onNotSuccessStatusCode, ydbTransaction);
+        var ydbDataReader = new YdbDataReader(resultSetStream, onNotSuccessStatusCode, ydbTransaction, activity);
         await ydbDataReader.Init(cancellationToken);
 
         return ydbDataReader;
@@ -854,6 +861,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         var isConsumed = ReaderState == State.IsConsumed || (!await ReadAsync() && ReaderState == State.IsConsumed);
         ReaderMetadata = CloseMetadata.Instance;
         ReaderState = State.Close;
+        _activity?.Dispose();
 
         if (isConsumed)
         {
@@ -951,21 +959,18 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
         catch (YdbException e)
         {
-            OnFailReadStream();
+            ReaderState = State.Close;
+
+            if (_ydbTransaction != null)
+            {
+                _ydbTransaction.Failed = true;
+            }
 
             _onNotSuccessStatusCode(e.Code);
+            _activity?.SetException(e);
+            _activity?.Dispose();
 
             throw;
-        }
-    }
-
-    private void OnFailReadStream()
-    {
-        ReaderState = State.Close;
-
-        if (_ydbTransaction != null)
-        {
-            _ydbTransaction.Failed = true;
         }
     }
 

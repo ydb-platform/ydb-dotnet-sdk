@@ -21,16 +21,16 @@ internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposa
         _channelFactory = channelFactory;
     }
 
-    public T GetChannel(string endpoint) =>
-        _channels.GetOrAdd(endpoint, new Lazy<T>(() => _channelFactory.CreateChannel(endpoint))).Value;
+    public T GetChannel(EndpointInfo endpointInfo) => _channels.GetOrAdd(endpointInfo.Endpoint,
+        new Lazy<T>(() => _channelFactory.CreateChannel(endpointInfo.Endpoint))).Value;
 
-    public async ValueTask RemoveChannels(ImmutableArray<string> removedEndpoints)
+    public async ValueTask RemoveChannels(IReadOnlyList<EndpointInfo> removedEndpoints)
     {
         var shutdownGrpcChannels = new List<T>();
 
         foreach (var endpoint in removedEndpoints)
         {
-            if (_channels.TryRemove(endpoint, out var lazyGrpcChannel) && lazyGrpcChannel.IsValueCreated)
+            if (_channels.TryRemove(endpoint.Endpoint, out var lazyGrpcChannel) && lazyGrpcChannel.IsValueCreated)
             {
                 shutdownGrpcChannels.Add(lazyGrpcChannel.Value);
             }

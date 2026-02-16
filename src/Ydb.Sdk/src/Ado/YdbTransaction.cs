@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Transaction;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado;
 
@@ -109,8 +110,8 @@ public sealed class YdbTransaction : DbTransaction
     /// <exception cref="YdbException">
     /// Thrown when the commit operation fails.
     /// </exception>
-    public override async Task CommitAsync(CancellationToken cancellationToken = new()) =>
-        await FinishTransaction(txId => DbConnection!.Session.CommitTransaction(txId, cancellationToken));
+    public override Task CommitAsync(CancellationToken cancellationToken = new()) =>
+        FinishTransaction(isCommit: true, "ydb.Commit", cancellationToken);
 
     /// <summary>
     /// Rolls back the database transaction.
@@ -140,16 +141,13 @@ public sealed class YdbTransaction : DbTransaction
     /// <exception cref="YdbException">
     /// Thrown when the rollback operation fails.
     /// </exception>
-    public override async Task RollbackAsync(CancellationToken cancellationToken = new())
+    public override Task RollbackAsync(CancellationToken cancellationToken = new())
     {
-        if (Failed)
-        {
-            Failed = false;
+        if (!Failed)
+            return FinishTransaction(isCommit: false, "ydb.Rollback", cancellationToken);
 
-            return;
-        }
-
-        await FinishTransaction(txId => DbConnection!.Session.RollbackTransaction(txId, cancellationToken));
+        Failed = false;
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -204,8 +202,10 @@ public sealed class YdbTransaction : DbTransaction
         _ => IsolationLevel.Unspecified
     };
 
-    private async Task FinishTransaction(Func<string, Task> finishMethod)
+    private async Task FinishTransaction(bool isCommit, string spanName, CancellationToken cancellationToken)
     {
+        using var dbActivity = YdbActivitySource.StartActivity(spanName);
+
         if (DbConnection?.State == ConnectionState.Closed || Completed)
         {
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
@@ -225,13 +225,20 @@ public sealed class YdbTransaction : DbTransaction
                 return; // transaction isn't started
             }
 
-            await finishMethod(TxId); // Commit or Rollback
+            if (isCommit)
+            {
+                await DbConnection.Session.CommitTransaction(TxId, cancellationToken);
+            }
+            else
+            {
+                await DbConnection.Session.RollbackTransaction(TxId, cancellationToken);
+            }
         }
         catch (YdbException e)
         {
             Failed = true;
-
             DbConnection.OnNotSuccessStatusCode(e.Code);
+            dbActivity?.SetException(e);
 
             throw;
         }
