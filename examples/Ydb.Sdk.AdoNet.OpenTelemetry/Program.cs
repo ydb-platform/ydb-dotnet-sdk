@@ -4,6 +4,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.OpenTelemetry;
 
 const string serviceName = "ydb-sdk-adonet-sample";
 var otlpEndpoint = new Uri("http://otel-collector:4317");
@@ -19,7 +20,7 @@ using var activitySource = new ActivitySource(activitySourceName);
 using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .SetResourceBuilder(resourceBuilder)
     .AddSource(activitySourceName)
-    .AddSource("Ydb.Sdk")
+    .AddYdb()
     .AddOtlpExporter(o => { o.Endpoint = otlpEndpoint; })
     .Build();
 
@@ -31,28 +32,52 @@ using var meterProvider = Sdk.CreateMeterProviderBuilder()
 
 Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] started, service.name={serviceName}");
 
-await using var dataSource = new YdbDataSource("Host=ydb;Port=2136;Database=/local");
+Console.WriteLine("Initializing...");
 
+await using var dataSource = new YdbDataSource("Host=ydb;Port=2136;Database=/local");
 const string appStartup = "app.startup";
 using (var activity = activitySource.StartActivity(appStartup))
 {
     activity?.SetTag("app.message", "hello");
 
-    await using var conn = await dataSource.OpenConnectionAsync();
-    await using var cmd = new YdbCommand("CREATE TABLE a(b Uuid, PRIMARY KEY (b))", conn);
-    _ = await cmd.ExecuteScalarAsync();
+    await using var connInit = await dataSource.OpenConnectionAsync();
+    await new YdbCommand("CREATE TABLE bank(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
+        .ExecuteNonQueryAsync();
 }
 
-using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
-while (await timer.WaitForNextTickAsync())
+Console.WriteLine("Insert row...");
+
+await using var connInsertRow = await dataSource.OpenConnectionAsync();
+await new YdbCommand("INSERT INTO bank(id, amount) VALUES (1, 0)", connInsertRow).ExecuteNonQueryAsync();
+
+Console.WriteLine("Emulation TLI...");
+
+var tasks = new List<Task>();
+for (var i = 0; i < 10; i++)
 {
-    const string appTick = "app.tick";
-    using var tick = activitySource.StartActivity(appTick, ActivityKind.Client);
-    tick?.SetTag("tick.utc", DateTimeOffset.UtcNow.ToString("u"));
-    Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] tick");
+    var concurrentTaskNum = i;
+    tasks.Add(Task.Run(async () =>
+    {
+        const string exampleTli = "example_tli";
+        // ReSharper disable once AccessToDisposedClosure
+        using var concurrentActivity = activitySource.StartActivity(exampleTli);
+        concurrentActivity?.SetTag("app.message", $"concurrent task {concurrentTaskNum}");
 
-    await using var conn = await dataSource.OpenConnectionAsync();
-    await using var cmd = new YdbCommand("INSERT INTO a(b) VALUES (@b)", conn);
-    cmd.Parameters.AddWithValue("b", Guid.NewGuid());
-    _ = await cmd.ExecuteScalarAsync();
+        // ReSharper disable once AccessToDisposedClosure
+        await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
+        {
+            var count = (int)(await new YdbCommand(ydbConnection)
+                { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
+
+            await new YdbCommand(ydbConnection)
+            {
+                CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
+                Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
+            }.ExecuteNonQueryAsync();
+        });
+    }));
 }
+
+await Task.WhenAll(tasks);
+
+Console.WriteLine("App finished.");
