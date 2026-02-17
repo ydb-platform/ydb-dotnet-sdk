@@ -64,12 +64,12 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public override async Task CommitTransaction(string txId, Activity? activity, CancellationToken cancellationToken)
+    public override async Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken)
     {
         var response = await Driver.UnaryCall(
             QueryService.CommitTransactionMethod,
             new CommitTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, Activity = activity }
+            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
         );
 
         if (response.Status.IsNotSuccess())
@@ -78,12 +78,12 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         }
     }
 
-    public override async Task RollbackTransaction(string txId, Activity? activity, CancellationToken cancellationToken)
+    public override async Task RollbackTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken)
     {
         var response = await Driver.UnaryCall(
             QueryService.RollbackTransactionMethod,
             new RollbackTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, Activity = activity }
+            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
         );
 
         if (response.Status.IsNotSuccess())
@@ -115,7 +115,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
     {
         using var dbActivity = YdbActivitySource.StartActivity("ydb.CreateSession");
 
-        var requestSettings = new GrpcRequestSettings { CancellationToken = cancellationToken, Activity = dbActivity };
+        var requestSettings = new GrpcRequestSettings { CancellationToken = cancellationToken, DbActivity = dbActivity };
 
         if (!_disableServerBalancer)
         {

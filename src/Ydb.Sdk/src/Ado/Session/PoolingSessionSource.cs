@@ -360,9 +360,9 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
         TransactionControl? txControl
     );
 
-    public abstract Task CommitTransaction(string txId, Activity? activity, CancellationToken cancellationToken);
+    public abstract Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken);
 
-    public abstract Task RollbackTransaction(string txId, Activity? activity, CancellationToken cancellationToken);
+    public abstract Task RollbackTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken);
 
     public abstract void OnNotSuccessStatusCode(StatusCode code);
 

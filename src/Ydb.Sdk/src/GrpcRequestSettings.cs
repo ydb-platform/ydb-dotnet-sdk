@@ -10,7 +10,7 @@ public class GrpcRequestSettings
     public TimeSpan TransportTimeout { get; init; } = TimeSpan.Zero;
     public CancellationToken CancellationToken = CancellationToken.None;
 
-    internal Activity? Activity { get; init; }
+    internal Activity? DbActivity { get; init; }
     internal List<string> ClientCapabilities { get; } = new();
     internal long NodeId { get; set; }
 }

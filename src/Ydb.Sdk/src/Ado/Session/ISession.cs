@@ -17,9 +17,9 @@ internal interface ISession : IDisposable
         TransactionControl? txControl
     );
 
-    Task CommitTransaction(string txId, Activity? activity = null, CancellationToken cancellationToken = default);
+    Task CommitTransaction(string txId, Activity? dbActivity = null, CancellationToken cancellationToken = default);
 
-    Task RollbackTransaction(string txId, Activity? activity = null, CancellationToken cancellationToken = default);
+    Task RollbackTransaction(string txId, Activity? dbActivity = null, CancellationToken cancellationToken = default);
 
     void OnNotSuccessStatusCode(StatusCode code);
 }

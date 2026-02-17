@@ -237,8 +237,8 @@ public sealed class YdbCommand : DbCommand
 
             var execSettings = CommandTimeout > 0
                 ? new GrpcRequestSettings
-                    { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout), Activity = dbActivity }
-                : new GrpcRequestSettings { Activity = dbActivity };
+                    { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout), DbActivity = dbActivity }
+                : new GrpcRequestSettings { DbActivity = dbActivity };
 
             var transaction = YdbConnection.CurrentTransaction;
 

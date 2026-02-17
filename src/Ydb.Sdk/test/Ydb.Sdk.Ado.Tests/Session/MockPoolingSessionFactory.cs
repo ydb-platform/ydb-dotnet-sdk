@@ -71,10 +71,10 @@ internal class MockPoolingSession(
         TransactionControl? txControl
     ) => new(executeQuery(sessionId));
 
-    public override Task CommitTransaction(string txId, Activity? activity, CancellationToken cancellationToken) =>
+    public override Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
-    public override Task RollbackTransaction(string txId, Activity? activity, CancellationToken cancellationToken) =>
+    public override Task RollbackTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
     public override void OnNotSuccessStatusCode(StatusCode code) => _isBroken = true;

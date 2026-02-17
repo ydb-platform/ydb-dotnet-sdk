@@ -41,10 +41,10 @@ internal class ImplicitSession : ISession
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public Task CommitTransaction(string txId, Activity? activity = null, CancellationToken cancellationToken = default) =>
+    public Task CommitTransaction(string txId, Activity? dbActivity = null, CancellationToken cancellationToken = default) =>
         throw NotSupportedTransaction;
 
-    public Task RollbackTransaction(string txId, Activity? activity = null, CancellationToken cancellationToken = default) =>
+    public Task RollbackTransaction(string txId, Activity? dbActivity = null, CancellationToken cancellationToken = default) =>
         throw NotSupportedTransaction;
 
     public void OnNotSuccessStatusCode(StatusCode code)
