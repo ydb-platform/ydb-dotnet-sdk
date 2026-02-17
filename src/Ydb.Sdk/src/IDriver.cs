@@ -290,11 +290,9 @@ public abstract class BaseDriver : IDriver
             meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
         }
 
-        var dbActivity = settings.DbActivity;
-
         // Propagate W3C trace context to YDB server to build an end-to-end trace.
         // YDB expects "traceparent" gRPC metadata header.
-        if (dbActivity is { IdFormat: ActivityIdFormat.W3C })
+        if (settings.DbActivity is { IdFormat: ActivityIdFormat.W3C } dbActivity)
         {
             if (dbActivity.IsAllDataRequested)
             {
