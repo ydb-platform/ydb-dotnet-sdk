@@ -225,7 +225,7 @@ public class PoolingSessionTests
         ).ThrowsAsync(YdbException.FromServer(StatusIds.Types.StatusCode.Aborted, []));
         Assert.False(session.IsBroken);
         var ydbException = await Assert
-            .ThrowsAsync<YdbException>(() => session.CommitTransaction(txId, CancellationToken.None));
+            .ThrowsAsync<YdbException>(() => session.CommitTransaction(txId, null, CancellationToken.None));
         Assert.Equal(StatusCode.Aborted, ydbException.Code);
         Assert.Equal("Status: Aborted", ydbException.Message);
         tcsSecondMoveAttachStream.TrySetResult(false);
@@ -247,7 +247,7 @@ public class PoolingSessionTests
         ).ThrowsAsync(YdbException.FromServer(StatusIds.Types.StatusCode.NotFound, []));
         Assert.False(session.IsBroken);
         var ydbException = await Assert
-            .ThrowsAsync<YdbException>(() => session.RollbackTransaction(txId, CancellationToken.None));
+            .ThrowsAsync<YdbException>(() => session.RollbackTransaction(txId, null, CancellationToken.None));
         Assert.Equal(StatusCode.NotFound, ydbException.Code);
         Assert.Equal("Status: NotFound", ydbException.Message);
         tcsSecondMoveAttachStream.TrySetResult(false);

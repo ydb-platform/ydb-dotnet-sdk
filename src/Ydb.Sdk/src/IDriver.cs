@@ -290,26 +290,28 @@ public abstract class BaseDriver : IDriver
             meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
         }
 
+        var activity = settings.Activity;
+
         // Propagate W3C trace context to YDB server to build an end-to-end trace.
         // YDB expects "traceparent" gRPC metadata header.
-        if (YdbActivitySource.TryGetCurrent(out var current) && current.IdFormat == ActivityIdFormat.W3C)
+        if (activity is { IdFormat: ActivityIdFormat.W3C })
         {
-            if (current.IsAllDataRequested)
+            if (activity.IsAllDataRequested)
             {
                 // https://opentelemetry.io/docs/specs/semconv/db/database-spans/
-                current.AddTag("db.system.name", "ydb");
-                current.AddTag("db.namespace", Config.Database);
-                current.AddTag("server.address", Config.EndpointInfo.Host);
-                current.AddTag("server.port", Config.EndpointInfo.Port);
-                current.AddTag("network.peer.address", endpointInfo.Host);
-                current.AddTag("network.peer.port", endpointInfo.Port);
+                activity.SetTag("db.system.name", "ydb");
+                activity.SetTag("db.namespace", Config.Database);
+                activity.SetTag("server.address", Config.EndpointInfo.Host);
+                activity.SetTag("server.port", Config.EndpointInfo.Port);
+                activity.SetTag("network.peer.address", endpointInfo.Host);
+                activity.SetTag("network.peer.port", endpointInfo.Port);
 
                 // custom YDB tags
-                current.AddTag("ydb.node.id", endpointInfo.NodeId);
-                current.AddTag("ydb.node.dc", endpointInfo.LocationDc);
+                activity.SetTag("ydb.node.id", endpointInfo.NodeId);
+                activity.SetTag("ydb.node.dc", endpointInfo.LocationDc);
             }
 
-            meta.Add(Metadata.TraceParentHeader, current.Id!); // W3C: after Start(), Id is guaranteed to be non-null
+            meta.Add(Metadata.TraceParentHeader, activity.Id!); // W3C: after Start(), Id is guaranteed to be non-null
         }
 
         foreach (var clientCapabilitiesHeader in settings.ClientCapabilities)

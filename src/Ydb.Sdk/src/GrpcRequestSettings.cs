@@ -1,14 +1,16 @@
-﻿using Google.Protobuf.WellKnownTypes;
+using Google.Protobuf.WellKnownTypes;
 using Ydb.Operations;
+using System.Diagnostics;
 
 namespace Ydb.Sdk;
 
 public class GrpcRequestSettings
 {
-    public string TraceId { get; set; } = string.Empty;
-    public TimeSpan TransportTimeout { get; set; } = TimeSpan.Zero;
+    public string TraceId { get; init; } = string.Empty;
+    public TimeSpan TransportTimeout { get; init; } = TimeSpan.Zero;
     public CancellationToken CancellationToken = CancellationToken.None;
 
+    internal Activity? Activity { get; init; }
     internal List<string> ClientCapabilities { get; } = new();
     internal long NodeId { get; set; }
 }

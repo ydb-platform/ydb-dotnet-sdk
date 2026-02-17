@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
@@ -34,10 +35,10 @@ internal class RetryableSession : ISession
             new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings));
     }
 
-    public Task CommitTransaction(string txId, CancellationToken cancellationToken = default) =>
+    public Task CommitTransaction(string txId, Activity? activity = null, CancellationToken cancellationToken = default) =>
         throw NotSupportedTransaction;
 
-    public Task RollbackTransaction(string txId, CancellationToken cancellationToken = default) =>
+    public Task RollbackTransaction(string txId, Activity? activity = null, CancellationToken cancellationToken = default) =>
         throw NotSupportedTransaction;
 
     public void OnNotSuccessStatusCode(StatusCode code)

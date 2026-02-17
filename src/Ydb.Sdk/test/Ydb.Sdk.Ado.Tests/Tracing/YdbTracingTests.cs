@@ -186,15 +186,9 @@ public class YdbTracingTests : TestBase
 
     private static void AssertCommonDbTags(Activity activity)
     {
-        Assert.Equal("ydb", LastTagValue(activity, "db.system.name"));
-        Assert.Equal(ConnectionSettings.Database, LastTagValue(activity, "db.namespace"));
-        Assert.Equal(ConnectionSettings.Host, LastTagValue(activity, "server.address"));
-        Assert.Equal(ConnectionSettings.Port.ToString(), LastTagValue(activity, "server.port")?.ToString());
-        return;
-
-        static object? LastTagValue(Activity a, string key)
-        {
-            return a.TagObjects.LastOrDefault(t => t.Key == key).Value;
-        }
+        Assert.Equal("ydb", activity.GetTagItem("db.system.name"));
+        Assert.Equal(ConnectionSettings.Database, activity.GetTagItem("db.namespace"));
+        Assert.Equal(ConnectionSettings.Host, activity.GetTagItem("server.address"));
+        Assert.Equal(ConnectionSettings.Port.ToString(), activity.GetTagItem("server.port")?.ToString());
     }
 }

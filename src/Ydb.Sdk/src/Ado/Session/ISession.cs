@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Ydb.Query;
 using TransactionControl = Ydb.Query.TransactionControl;
 
@@ -16,9 +17,9 @@ internal interface ISession : IDisposable
         TransactionControl? txControl
     );
 
-    Task CommitTransaction(string txId, CancellationToken cancellationToken = default);
+    Task CommitTransaction(string txId, Activity? activity = null, CancellationToken cancellationToken = default);
 
-    Task RollbackTransaction(string txId, CancellationToken cancellationToken = default);
+    Task RollbackTransaction(string txId, Activity? activity = null, CancellationToken cancellationToken = default);
 
     void OnNotSuccessStatusCode(StatusCode code);
 }

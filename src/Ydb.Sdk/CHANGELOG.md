@@ -15,6 +15,8 @@
   - `network.peer.port`
   - `db.response.status_code` (for `YdbException`)
   - `error.type`
+  - `ydb.node.id`
+  - `ydb.node.dc`
 
 ## v0.28.0
 

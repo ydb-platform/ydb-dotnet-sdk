@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Xunit;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;
@@ -70,10 +71,10 @@ internal class MockPoolingSession(
         TransactionControl? txControl
     ) => new(executeQuery(sessionId));
 
-    public override Task CommitTransaction(string txId, CancellationToken cancellationToken) =>
+    public override Task CommitTransaction(string txId, Activity? activity, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
-    public override Task RollbackTransaction(string txId, CancellationToken cancellationToken) =>
+    public override Task RollbackTransaction(string txId, Activity? activity, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
     public override void OnNotSuccessStatusCode(StatusCode code) => _isBroken = true;
