@@ -44,16 +44,16 @@ public static class YdbContextOptionsBuilderExtensions
         string? connectionString,
         Action<YdbDbContextOptionsBuilder>? ydbOptionsAction = null)
         where TContext : DbContext
-        => (DbContextOptionsBuilder<TContext>)UseYdb(
-            (DbContextOptionsBuilder)optionsBuilder, connectionString, ydbOptionsAction);
+        => (DbContextOptionsBuilder<TContext>)((DbContextOptionsBuilder)optionsBuilder)
+            .UseYdb(connectionString, ydbOptionsAction);
 
     public static DbContextOptionsBuilder<TContext> UseYdb<TContext>(
         this DbContextOptionsBuilder<TContext> optionsBuilder,
         DbConnection connection,
         Action<YdbDbContextOptionsBuilder>? ydbOptionsAction = null)
         where TContext : DbContext
-        => (DbContextOptionsBuilder<TContext>)UseYdb(
-            (DbContextOptionsBuilder)optionsBuilder, connection, ydbOptionsAction);
+        => (DbContextOptionsBuilder<TContext>)((DbContextOptionsBuilder)optionsBuilder)
+            .UseYdb(connection, ydbOptionsAction);
 
     // TODO: Right now there are no arguments for constructor, so probably it's ok
     private static YdbOptionsExtension GetOrCreateExtension(DbContextOptionsBuilder options)

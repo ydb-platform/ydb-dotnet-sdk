@@ -35,11 +35,17 @@ internal class RetryableSession : ISession
             new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings));
     }
 
-    public Task CommitTransaction(string txId, Activity? dbActivity = null, CancellationToken cancellationToken = default) =>
-        throw NotSupportedTransaction;
+    public Task CommitTransaction(
+        string txId,
+        Activity? dbActivity = null,
+        CancellationToken cancellationToken = default
+    ) => throw NotSupportedTransaction;
 
-    public Task RollbackTransaction(string txId, Activity? dbActivity = null, CancellationToken cancellationToken = default) =>
-        throw NotSupportedTransaction;
+    public Task RollbackTransaction(
+        string txId,
+        Activity? dbActivity = null,
+        CancellationToken cancellationToken = default
+    ) => throw NotSupportedTransaction;
 
     public void OnNotSuccessStatusCode(StatusCode code)
     {
