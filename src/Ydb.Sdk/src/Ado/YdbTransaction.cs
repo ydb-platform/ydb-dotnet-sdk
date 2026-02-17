@@ -227,11 +227,11 @@ public sealed class YdbTransaction : DbTransaction
 
             if (isCommit)
             {
-                await DbConnection.Session.CommitTransaction(TxId, cancellationToken);
+                await DbConnection.Session.CommitTransaction(TxId, dbActivity, cancellationToken);
             }
             else
             {
-                await DbConnection.Session.RollbackTransaction(TxId, cancellationToken);
+                await DbConnection.Session.RollbackTransaction(TxId, dbActivity, cancellationToken);
             }
         }
         catch (YdbException e)

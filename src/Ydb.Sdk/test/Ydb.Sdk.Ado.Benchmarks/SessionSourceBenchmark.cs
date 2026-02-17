@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using BenchmarkDotNet.Attributes;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;
@@ -150,10 +151,10 @@ internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> sourc
         TransactionControl? txControl
     ) => throw new NotImplementedException();
 
-    public override Task CommitTransaction(string txId, CancellationToken cancellationToken) =>
+    public override Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
-    public override Task RollbackTransaction(string txId, CancellationToken cancellationToken) =>
+    public override Task RollbackTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
     public override void OnNotSuccessStatusCode(StatusCode code)

@@ -6,7 +6,6 @@ using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
-using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk;
 
@@ -292,24 +291,24 @@ public abstract class BaseDriver : IDriver
 
         // Propagate W3C trace context to YDB server to build an end-to-end trace.
         // YDB expects "traceparent" gRPC metadata header.
-        if (YdbActivitySource.TryGetCurrent(out var current) && current.IdFormat == ActivityIdFormat.W3C)
+        if (settings.DbActivity is { IdFormat: ActivityIdFormat.W3C } dbActivity)
         {
-            if (current.IsAllDataRequested)
+            if (dbActivity.IsAllDataRequested)
             {
                 // https://opentelemetry.io/docs/specs/semconv/db/database-spans/
-                current.AddTag("db.system.name", "ydb");
-                current.AddTag("db.namespace", Config.Database);
-                current.AddTag("server.address", Config.EndpointInfo.Host);
-                current.AddTag("server.port", Config.EndpointInfo.Port);
-                current.AddTag("network.peer.address", endpointInfo.Host);
-                current.AddTag("network.peer.port", endpointInfo.Port);
+                dbActivity.SetTag("db.system.name", "ydb");
+                dbActivity.SetTag("db.namespace", Config.Database);
+                dbActivity.SetTag("server.address", Config.EndpointInfo.Host);
+                dbActivity.SetTag("server.port", Config.EndpointInfo.Port);
+                dbActivity.SetTag("network.peer.address", endpointInfo.Host);
+                dbActivity.SetTag("network.peer.port", endpointInfo.Port);
 
                 // custom YDB tags
-                current.AddTag("ydb.node.id", endpointInfo.NodeId);
-                current.AddTag("ydb.node.dc", endpointInfo.LocationDc);
+                dbActivity.SetTag("ydb.node.id", endpointInfo.NodeId);
+                dbActivity.SetTag("ydb.node.dc", endpointInfo.LocationDc);
             }
 
-            meta.Add(Metadata.TraceParentHeader, current.Id!); // W3C: after Start(), Id is guaranteed to be non-null
+            meta.Add(Metadata.TraceParentHeader, dbActivity.Id!); // W3C: after Start(), Id is guaranteed to be non-null
         }
 
         foreach (var clientCapabilitiesHeader in settings.ClientCapabilities)

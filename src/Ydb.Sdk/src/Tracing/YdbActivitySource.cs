@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Ydb.Sdk.Ado;
 
@@ -8,19 +7,6 @@ namespace Ydb.Sdk.Tracing;
 internal static class YdbActivitySource
 {
     private static readonly ActivitySource Instance = new("Ydb.Sdk", LibraryVersion);
-
-    internal static bool TryGetCurrent([NotNullWhen(true)] out Activity? activity)
-    {
-        var cur = Activity.Current;
-        if (cur != null && ReferenceEquals(cur.Source, Instance))
-        {
-            activity = cur;
-            return true;
-        }
-
-        activity = null;
-        return false;
-    }
 
     internal static Activity? StartActivity(string spanName) => Instance.StartActivity(spanName, ActivityKind.Client);
 
