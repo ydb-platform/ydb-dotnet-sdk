@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Data.Common;
 using System.Diagnostics;
 using Google.Protobuf.Collections;
@@ -400,9 +401,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Double => typeof(double),
             Type.Types.PrimitiveTypeId.Interval
                 or Type.Types.PrimitiveTypeId.Interval64 => typeof(TimeSpan),
-            Type.Types.PrimitiveTypeId.Utf8
-                or Type.Types.PrimitiveTypeId.JsonDocument
-                or Type.Types.PrimitiveTypeId.Json => typeof(string),
+            Type.Types.PrimitiveTypeId.Utf8 => typeof(string),
+            Type.Types.PrimitiveTypeId.Json => typeof(JsonElement),
+            Type.Types.PrimitiveTypeId.JsonDocument => typeof(JsonDocument),
             Type.Types.PrimitiveTypeId.String => typeof(byte[]),
             Type.Types.PrimitiveTypeId.Yson => typeof(byte[]),
             Type.Types.PrimitiveTypeId.Uuid => typeof(Guid),
@@ -604,10 +605,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     {
         var type = UnwrapColumnType(ordinal);
 
-        return type.TypeId is Type.Types.PrimitiveTypeId.Utf8 or Type.Types.PrimitiveTypeId.Json
-            or Type.Types.PrimitiveTypeId.JsonDocument
-            ? CurrentRow[ordinal].UnpackText()
-            : throw InvalidCastException<ulong>(ordinal);
+        return type.TypeId switch
+        {
+            Type.Types.PrimitiveTypeId.Utf8 => CurrentRow[ordinal].UnpackText(),
+            Type.Types.PrimitiveTypeId.Json => CurrentRow[ordinal].UnpackJsonElement().GetRawText(),
+            Type.Types.PrimitiveTypeId.JsonDocument =>
+                CurrentRow[ordinal].UnpackJsonDocument().RootElement.GetRawText(),
+            _ => throw InvalidCastException<ulong>(ordinal)
+        };
     }
 
     /// <summary>
@@ -663,9 +668,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             Type.Types.PrimitiveTypeId.Double => ydbValue.UnpackDouble(),
             Type.Types.PrimitiveTypeId.Interval => ydbValue.UnpackInterval(),
             Type.Types.PrimitiveTypeId.Interval64 => ydbValue.UnpackInterval64(),
-            Type.Types.PrimitiveTypeId.Utf8
-                or Type.Types.PrimitiveTypeId.Json
-                or Type.Types.PrimitiveTypeId.JsonDocument => ydbValue.UnpackText(),
+            Type.Types.PrimitiveTypeId.Utf8 => ydbValue.UnpackText(),
+            Type.Types.PrimitiveTypeId.Json => ydbValue.UnpackJsonElement(),
+            Type.Types.PrimitiveTypeId.JsonDocument => ydbValue.UnpackJsonDocument(),
             Type.Types.PrimitiveTypeId.Yson or Type.Types.PrimitiveTypeId.String => ydbValue.UnpackBytes(),
             Type.Types.PrimitiveTypeId.Uuid => ydbValue.UnpackUuid(),
             _ => throw new YdbException($"Unsupported ydb type {GetColumnType(ordinal)}")

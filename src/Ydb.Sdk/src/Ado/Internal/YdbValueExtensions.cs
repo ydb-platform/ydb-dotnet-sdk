@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
@@ -117,6 +118,14 @@ internal static class YdbValueExtensions
 
     internal static Ydb.Value PackText(string value) => new() { TextValue = value };
     internal static string UnpackText(this Ydb.Value value) => value.TextValue;
+
+    internal static Ydb.Value PackJsonElement(JsonElement value) => new() { TextValue = value.GetRawText() };
+    internal static JsonElement UnpackJsonElement(this Ydb.Value value) => value.UnpackJsonDocument().RootElement;
+
+    internal static Ydb.Value PackJsonDocument(JsonDocument value) =>
+        new() { TextValue = value.RootElement.GetRawText() };
+
+    internal static JsonDocument UnpackJsonDocument(this Ydb.Value value) => JsonDocument.Parse(value.TextValue);
 
     internal static Ydb.Value PackUuid(Guid value)
     {

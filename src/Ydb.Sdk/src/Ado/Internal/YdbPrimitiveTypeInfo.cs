@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Ydb.Sdk.Ado.Internal;
 
 using static YdbValueExtensions;
@@ -18,8 +20,8 @@ internal class YdbPrimitiveTypeInfo
         Double = new(Type.Types.PrimitiveTypeId.Double, TryPackDouble),
         Bytes = new(Type.Types.PrimitiveTypeId.String, TryPackBytes),
         Text = new(Type.Types.PrimitiveTypeId.Utf8, TryPack<string>(PackText)),
-        Json = new(Type.Types.PrimitiveTypeId.Json, TryPack<string>(PackText)),
-        JsonDocument = new(Type.Types.PrimitiveTypeId.JsonDocument, TryPack<string>(PackText)),
+        Json = new(Type.Types.PrimitiveTypeId.Json, TryPack<JsonElement>(PackJsonElement)),
+        JsonDocument = new(Type.Types.PrimitiveTypeId.JsonDocument, TryPack<JsonDocument>(PackJsonDocument)),
         Yson = new(Type.Types.PrimitiveTypeId.Yson, TryPackBytes),
         Uuid = new(Type.Types.PrimitiveTypeId.Uuid, TryPack<Guid>(PackUuid)),
         Date = new(Type.Types.PrimitiveTypeId.Date, TryPackDate),
@@ -68,6 +70,9 @@ internal class YdbPrimitiveTypeInfo
         if (type == typeof(DateOnly)) return Date;
         if (type == typeof(DateTime)) return Timestamp;
         if (type == typeof(TimeSpan)) return Interval;
+
+        if (type == typeof(JsonElement)) return Json;
+        if (type == typeof(JsonDocument)) return JsonDocument;
 
         return null;
     }
