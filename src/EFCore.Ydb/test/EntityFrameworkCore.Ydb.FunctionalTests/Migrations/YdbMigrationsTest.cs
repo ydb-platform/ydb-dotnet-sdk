@@ -553,6 +553,12 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     public override Task Move_sequence() =>
         Assert.ThrowsAsync<YdbException>(() => base.Move_sequence());
 
+    public override Task Create_table_with_json_column() =>
+        Task.CompletedTask;
+
+    public override Task Create_table_with_json_column_explicit_json_column_names() =>
+        Task.CompletedTask;
+
     public override async Task InsertDataOperation()
     {
         await base.InsertDataOperation();

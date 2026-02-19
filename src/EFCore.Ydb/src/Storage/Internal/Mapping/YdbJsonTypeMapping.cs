@@ -66,13 +66,22 @@ public class YdbJsonTypeMapping : JsonTypeMapping, IYdbTypeMapping
         }
     }
 
-    public override Expression CustomizeDataReaderExpression(Expression expression) => Expression.New(
-        MemoryStreamConstructor ?? throw new Exception(),
-        Expression.Call(
-            Expression.Property(null, Utf8Property ?? throw new Exception()),
-            EncodingGetBytesMethod ?? throw new Exception(),
-            expression)
-    );
+    public override Expression CustomizeDataReaderExpression(Expression expression)
+    {
+        if (expression is UnaryExpression convertExpr
+            && convertExpr.NodeType == ExpressionType.Convert
+            && convertExpr.Type == typeof(string))
+        {
+            return expression;
+        }
+
+        return Expression.New(
+            MemoryStreamConstructor ?? throw new Exception(),
+            Expression.Call(
+                Expression.Property(null, Utf8Property ?? throw new Exception()),
+                EncodingGetBytesMethod ?? throw new Exception(),
+                expression));
+    }
 
     public YdbDbType YdbDbType => YdbDbType.Json;
 

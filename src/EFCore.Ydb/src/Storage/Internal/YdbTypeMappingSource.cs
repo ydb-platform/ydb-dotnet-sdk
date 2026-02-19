@@ -42,7 +42,7 @@ public sealed class YdbTypeMappingSource(
 
     private static readonly YdbTextTypeMapping Text = YdbTextTypeMapping.Default;
     private static readonly YdbBytesTypeMapping Bytes = YdbBytesTypeMapping.Default;
-    private static readonly YdbJsonTypeMapping Json = new("Json", typeof(JsonElement), null);
+    private static readonly YdbJsonTypeMapping Json = new("Json", typeof(string), null);
 
     private static readonly YdbDateOnlyTypeMapping DateDateOnly = new(YdbDbType.Date);
     private static readonly YdbDateOnlyTypeMapping Date32DateOnly = new(YdbDbType.Date32);
@@ -92,7 +92,9 @@ public sealed class YdbTypeMappingSource(
             { "Date32", [Date32DateTime, Date32DateOnly] },
             { "Datetime64", [Datetime64] },
             { "Timestamp64", [Timestamp64] },
-            { "Interval64", [Interval64] }
+            { "Interval64", [Interval64] },
+
+            { "Json", [Json] }
         };
 
     private static readonly Dictionary<Type, RelationalTypeMapping> ClrTypeMapping = new()
