@@ -26,7 +26,7 @@ internal static class YdbActivitySource
         activity.SetStatus(ActivityStatusCode.Error, exception.Message);
     }
 
-    internal static void SetRetryAttributes(this Activity activity, TimeSpan retryInterval, int attempt)
+    internal static void SetRetryAttributes(this Activity activity, int attempt, TimeSpan retryInterval)
     {
         if (!activity.IsAllDataRequested) return;
         activity.SetTag("ydb.retry.attempt", attempt);

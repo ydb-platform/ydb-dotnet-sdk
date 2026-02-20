@@ -65,7 +65,7 @@ internal sealed class YdbRetryPolicyExecutor
                 if (delay == null)
                     throw;
 
-                dbActive?.SetRetryAttributes(delay.Value, attempt);
+                dbActive?.SetRetryAttributes(attempt, delay.Value);
                 await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
             }
         }
