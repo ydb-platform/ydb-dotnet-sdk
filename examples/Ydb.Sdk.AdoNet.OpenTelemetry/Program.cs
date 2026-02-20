@@ -63,56 +63,31 @@ await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
     }.ExecuteNonQueryAsync();
 });
 
-// Console.WriteLine("Emulation TLI...");
-//
+Console.WriteLine("Emulation TLI...");
+
 var tasks = new List<Task>();
-// for (var i = 0; i < 10; i++)
-// {
-//     var concurrentTaskNum = i;
-//     tasks.Add(Task.Run(async () =>
-//     {
-//         const string exampleTli = "example_tli";
-//         // ReSharper disable once AccessToDisposedClosure
-//         using var concurrentActivity = activitySource.StartActivity(exampleTli);
-//         concurrentActivity?.SetTag("app.message", $"concurrent task {concurrentTaskNum}");
-//
-//         // ReSharper disable once AccessToDisposedClosure
-//         await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
-//         {
-//             var count = (int)(await new YdbCommand(ydbConnection)
-//                 { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
-//
-//             await new YdbCommand(ydbConnection)
-//             {
-//                 CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
-//                 Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
-//             }.ExecuteNonQueryAsync();
-//         });
-//     }));
-// }
-//
-// await Task.WhenAll(tasks);
-tasks.Clear();
-
-Console.WriteLine("Emulation RetryConnection...");
-
-for (var i = 0; i < 100; i++)
+for (var i = 0; i < 10; i++)
 {
     var concurrentTaskNum = i;
     tasks.Add(Task.Run(async () =>
     {
-        const string exampleTli = "retry_connection_tli";
+        const string exampleTli = "example_tli";
         // ReSharper disable once AccessToDisposedClosure
         using var concurrentActivity = activitySource.StartActivity(exampleTli);
         concurrentActivity?.SetTag("app.message", $"concurrent task {concurrentTaskNum}");
-        // ReSharper disable once AccessToDisposedClosure
-        await using var ydbConnection = await dataSource.OpenRetryableConnectionAsync();
 
-        await new YdbCommand(ydbConnection)
+        // ReSharper disable once AccessToDisposedClosure
+        await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
         {
-            CommandText = "INSERT INTO bank(id, amount) VALUES (@id, 0)",
-            Parameters = { new YdbParameter { Value = concurrentTaskNum, ParameterName = "id" } }
-        }.ExecuteNonQueryAsync();
+            var count = (int)(await new YdbCommand(ydbConnection)
+                { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
+
+            await new YdbCommand(ydbConnection)
+            {
+                CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
+                Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
+            }.ExecuteNonQueryAsync();
+        });
     }));
 }
 
