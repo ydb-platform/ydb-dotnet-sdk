@@ -42,7 +42,16 @@ public sealed class YdbTypeMappingSource(
 
     private static readonly YdbTextTypeMapping Text = YdbTextTypeMapping.Default;
     private static readonly YdbBytesTypeMapping Bytes = YdbBytesTypeMapping.Default;
-    private static readonly YdbJsonTypeMapping Json = new("Json", typeof(string), null);
+
+    private static readonly YdbJsonTypeMapping JsonString = new(typeof(string), YdbDbType.Json);
+    private static readonly YdbJsonTypeMapping JsonDocumentString = new(typeof(string), YdbDbType.JsonDocument);
+    private static readonly YdbJsonTypeMapping JsonClrDocument = new(typeof(JsonDocument), YdbDbType.Json);
+
+    private static readonly YdbJsonTypeMapping JsonDocumentClrDocument =
+        new(typeof(JsonDocument), YdbDbType.JsonDocument);
+
+    private static readonly YdbJsonTypeMapping JsonElement = new(typeof(JsonElement), YdbDbType.Json);
+    private static readonly YdbJsonTypeMapping JsonDocumentElement = new(typeof(JsonElement), YdbDbType.JsonDocument);
 
     private static readonly YdbDateOnlyTypeMapping DateDateOnly = new(YdbDbType.Date);
     private static readonly YdbDateOnlyTypeMapping Date32DateOnly = new(YdbDbType.Date32);
@@ -94,7 +103,8 @@ public sealed class YdbTypeMappingSource(
             { "Timestamp64", [Timestamp64] },
             { "Interval64", [Interval64] },
 
-            { "Json", [Json] }
+            { "Json", [JsonString, JsonClrDocument, JsonElement] },
+            { "JsonDocument", [JsonDocumentString, JsonDocumentClrDocument, JsonDocumentElement] }
         };
 
     private static readonly Dictionary<Type, RelationalTypeMapping> ClrTypeMapping = new()
@@ -118,7 +128,8 @@ public sealed class YdbTypeMappingSource(
 
         { typeof(string), Text },
         { typeof(byte[]), Bytes },
-        { typeof(JsonElement), Json },
+        { typeof(JsonDocument), JsonDocumentClrDocument },
+        { typeof(JsonElement), JsonDocumentElement },
 
         { typeof(DateOnly), DateDateOnly },
         { typeof(DateTime), Timestamp },
