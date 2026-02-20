@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using Ydb.Sdk.Tracing;
+
 namespace Ydb.Sdk.Ado.RetryPolicy;
 
 internal sealed class YdbRetryPolicyExecutor
@@ -48,6 +51,7 @@ internal sealed class YdbRetryPolicyExecutor
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            using var dbActive = YdbActivitySource.StartActivity("ydb.RetryCtx.Execute", ActivityKind.Internal);
 
             try
             {
@@ -55,10 +59,13 @@ internal sealed class YdbRetryPolicyExecutor
             }
             catch (YdbException e)
             {
+                dbActive?.SetException(e);
+
                 var delay = _retryPolicy.GetNextDelay(e, attempt++);
                 if (delay == null)
                     throw;
 
+                dbActive?.SetRetryAttributes(delay.Value, attempt);
                 await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
             }
         }
