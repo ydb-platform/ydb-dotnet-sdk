@@ -1,3 +1,5 @@
+- Fixed bug: json columns to string property mapping.
+
 ## v0.4.1
 
 - Fixed bug: EF Code First now generates correct serial column types for key properties with `ValueGeneratedOnAdd`:

@@ -1,5 +1,4 @@
 using System;
-using System.Data.Common;
 using System.IO;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -21,6 +20,7 @@ public class YdbJsonTypeMapping : YdbTypeMapping
         base(parameters, ydbDbType)
     {
     }
+
     protected override YdbJsonTypeMapping Clone(RelationalTypeMappingParameters parameters) =>
         new(parameters, YdbDbType);
 
