@@ -1,3 +1,5 @@
+## v0.4.2
+
 - Fixed bug: json columns to string property mapping.
 
 ## v0.4.1
