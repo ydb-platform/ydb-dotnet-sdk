@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Ydb.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore;
@@ -625,6 +626,139 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
             """
             UPDATE `Person` SET `Age` = 21, `Name` = 'Another John Snow'u
             WHERE `Id` = 2;
+            """);
+    }
+
+    [Fact]
+    public async Task Create_table_with_json_store_type_for_string_JsonElement_JsonDocument()
+    {
+        await Test(
+            _ => { },
+            builder =>
+            {
+                builder.Entity("ActionHandler", e =>
+                {
+                    e.Property<int>("Id").ValueGeneratedOnAdd();
+                    e.HasKey("Id");
+
+                    e.Property<string>("ContextString")
+                        .IsRequired(false)
+                        .HasColumnType("Json");
+
+                    e.Property<JsonElement?>("ContextElement")
+                        .IsRequired(false)
+                        .HasColumnType("Json");
+
+                    e.Property<JsonDocument>("ContextDocument")
+                        .IsRequired(false)
+                        .HasColumnType("Json");
+
+                    e.ToTable("action_handlers");
+                });
+            },
+            model =>
+            {
+                var table = Assert.Single(model.Tables, t => t.Name == "action_handlers");
+
+                Assert.Collection(
+                    table.Columns,
+                    c =>
+                    {
+                        Assert.Equal("Id", c.Name);
+                        Assert.False(c.IsNullable);
+                    },
+                    c =>
+                    {
+                        Assert.Equal("ContextDocument", c.Name);
+                        Assert.True(c.IsNullable);
+                        Assert.Equal("Json", c.StoreType);
+                    },
+                    c =>
+                    {
+                        Assert.Equal("ContextElement", c.Name);
+                        Assert.True(c.IsNullable);
+                        Assert.Equal("Json", c.StoreType);
+                    },
+                    c =>
+                    {
+                        Assert.Equal("ContextString", c.Name);
+                        Assert.True(c.IsNullable);
+                        Assert.Equal("Json", c.StoreType);
+                    });
+            });
+
+        AssertSql(
+            """
+            CREATE TABLE `action_handlers` (
+                `Id` Serial NOT NULL,
+                `ContextDocument` Json,
+                `ContextElement` Json,
+                `ContextString` Json,
+                PRIMARY KEY (`Id`)
+            );
+            """);
+    }
+
+    [Fact]
+    public async Task Create_table_with_jsondocument_store_type_for_string_JsonElement_JsonDocument()
+    {
+        await Test(
+            _ => { },
+            builder =>
+            {
+                builder.Entity("ActionHandler", e =>
+                {
+                    e.Property<int>("Id").ValueGeneratedOnAdd();
+                    e.HasKey("Id");
+
+                    e.Property<string>("ContextString")
+                        .IsRequired(false)
+                        .HasColumnType("JsonDocument");
+
+                    e.Property<JsonElement?>("ContextElement")
+                        .IsRequired(false)
+                        .HasColumnType("JsonDocument");
+
+                    e.Property<JsonDocument>("ContextDocument")
+                        .IsRequired(false)
+                        .HasColumnType("JsonDocument");
+
+                    e.ToTable("action_handlers");
+                });
+            },
+            model =>
+            {
+                var table = Assert.Single(model.Tables, t => t.Name == "action_handlers");
+
+                Assert.Collection(
+                    table.Columns,
+                    c => Assert.Equal("Id", c.Name),
+                    c =>
+                    {
+                        Assert.Equal("ContextDocument", c.Name);
+                        Assert.Equal("JsonDocument", c.StoreType);
+                    },
+                    c =>
+                    {
+                        Assert.Equal("ContextElement", c.Name);
+                        Assert.Equal("JsonDocument", c.StoreType);
+                    },
+                    c =>
+                    {
+                        Assert.Equal("ContextString", c.Name);
+                        Assert.Equal("JsonDocument", c.StoreType);
+                    });
+            });
+
+        AssertSql(
+            """
+            CREATE TABLE `action_handlers` (
+                `Id` Serial NOT NULL,
+                `ContextDocument` JsonDocument,
+                `ContextElement` JsonDocument,
+                `ContextString` JsonDocument,
+                PRIMARY KEY (`Id`)
+            );
             """);
     }
 

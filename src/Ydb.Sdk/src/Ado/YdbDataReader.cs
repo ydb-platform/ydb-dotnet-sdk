@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Diagnostics;
+using System.Text.Json;
 using Google.Protobuf.Collections;
 using Ydb.Issue;
 using Ydb.Query;
@@ -355,6 +356,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             var dateTime = GetDateTime(ordinal);
 
             return (T)(object)DateOnly.FromDateTime(dateTime);
+        }
+
+        if (typeof(T) == typeof(JsonDocument))
+        {
+            return (T)(object)JsonDocument.Parse(GetString(ordinal));
+        }
+
+        if (typeof(T) == typeof(JsonElement))
+        {
+            return (T)(object)JsonDocument.Parse(GetString(ordinal)).RootElement;
         }
 
         return base.GetFieldValue<T>(ordinal);
