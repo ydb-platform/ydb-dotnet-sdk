@@ -2,7 +2,7 @@
 - Fixed bug: NPE in Writer.DisposeAsync().
 - Fixed bug: Driver ownership lifecycle is now synchronized to prevent race conditions.
 - **Breaking Change**: `IDriver` no longer implements `IDisposable` (interface slated to mark internal).
-- Feat ADO.NET tracing: Added spans for key table/query operations:
+- Feat ADO.NET tracing: Added spans for `QueryService` operations:
   - `ydb.CreateSession`
   - `ydb.ExecuteQuery`
   - `ydb.Commit`
