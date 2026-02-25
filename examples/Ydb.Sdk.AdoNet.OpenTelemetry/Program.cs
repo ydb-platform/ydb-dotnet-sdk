@@ -6,7 +6,7 @@ using OpenTelemetry.Trace;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.OpenTelemetry;
 
-const string serviceName = "ydb-sdk-adonet-sample";
+const string serviceName = "ydb-sdk-sample";
 var otlpEndpoint = new Uri("http://otel-collector:4317");
 
 var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown";
@@ -50,6 +50,19 @@ Console.WriteLine("Insert row...");
 await using var connInsertRow = await dataSource.OpenConnectionAsync();
 await new YdbCommand("INSERT INTO bank(id, amount) VALUES (1, 0)", connInsertRow).ExecuteNonQueryAsync();
 
+Console.WriteLine("Preparing queries...");
+await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
+{
+    var count = (int)(await new YdbCommand(ydbConnection)
+        { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
+
+    await new YdbCommand(ydbConnection)
+    {
+        CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
+        Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
+    }.ExecuteNonQueryAsync();
+});
+
 Console.WriteLine("Emulation TLI...");
 
 var tasks = new List<Task>();
@@ -79,5 +92,12 @@ for (var i = 0; i < 10; i++)
 }
 
 await Task.WhenAll(tasks);
+
+Console.WriteLine("Retry connection example...");
+
+await using var ydbConnection = await dataSource.OpenRetryableConnectionAsync();
+
+await new YdbCommand(ydbConnection)
+    { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteNonQueryAsync();
 
 Console.WriteLine("App finished.");

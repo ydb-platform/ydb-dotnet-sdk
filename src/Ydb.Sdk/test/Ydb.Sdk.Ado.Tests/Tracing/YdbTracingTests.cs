@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Xunit;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Tests.Utils;
 
 namespace Ydb.Sdk.Ado.Tests.Tracing;
@@ -18,7 +19,13 @@ public class YdbTracingTests : TestBase
         await using var connection = await CreateOpenConnectionAsync();
         await new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync();
 
+        var driverInitActivity = GetSingleActivity(activities, "ydb.Driver.Initialize");
+        Assert.Equal(ActivityKind.Internal, driverInitActivity.Kind);
+        Assert.Empty(driverInitActivity.TagObjects);
+        Assert.Empty(driverInitActivity.Events);
+
         var activity = GetSingleActivity(activities, "ydb.CreateSession");
+        Assert.Equal(ActivityKind.Client, activity.Kind);
         Assert.Empty(activity.Events);
         AssertCommonDbTags(activity);
     }
@@ -96,6 +103,7 @@ public class YdbTracingTests : TestBase
         _ = await new YdbCommand("SELECT 42;", connection).ExecuteScalarAsync();
 
         var activity = GetSingleActivity(activities, "ydb.ExecuteQuery");
+        Assert.Empty(activity.Events);
         AssertCommonDbTags(activity);
     }
 
@@ -145,6 +153,89 @@ public class YdbTracingTests : TestBase
         AssertCommonDbTags(activity);
     }
 
+    [Fact]
+    public async Task ExecuteInTransaction_EmitsActivity()
+    {
+        await using var ydbDataSource = new YdbDataSource(ConnectionString);
+
+        // init driver
+        await using var ydbConnection = await ydbDataSource.OpenConnectionAsync();
+        await new YdbCommand("SELECT 1;", ydbConnection).ExecuteNonQueryAsync();
+
+        using var activityListener = StartListener(out var activities);
+
+        await ydbDataSource.ExecuteInTransactionAsync(connection =>
+            new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync());
+
+        var executeWithRetryActivity = GetSingleActivity(activities, "ydb.ExecuteWithRetry");
+        Assert.Empty(executeWithRetryActivity.Events);
+        Assert.Equal(ActivityKind.Internal, executeWithRetryActivity.Kind);
+        Assert.Empty(executeWithRetryActivity.TagObjects);
+
+        var executeQueryActivity = GetSingleActivity(activities, "ydb.ExecuteQuery");
+        Assert.Empty(executeQueryActivity.Events);
+        Assert.Equal(ActivityKind.Client, executeQueryActivity.Kind);
+        AssertCommonDbTags(executeQueryActivity);
+
+        var commitActivity = GetSingleActivity(activities, "ydb.Commit");
+        Assert.Empty(commitActivity.Events);
+        Assert.Equal(ActivityKind.Client, commitActivity.Kind);
+        AssertCommonDbTags(commitActivity);
+    }
+
+    [Fact]
+    public async Task RetryableConnection_EmitsActivity()
+    {
+        await using var ydbDataSource = new YdbDataSource(ConnectionString);
+
+        // init driver
+        await using var ydbConnection = await ydbDataSource.OpenConnectionAsync();
+        await new YdbCommand("SELECT 1;", ydbConnection).ExecuteNonQueryAsync();
+
+        using var activityListener = StartListener(out var activities);
+
+        await using var ydbRetryableConnection = await ydbDataSource.OpenRetryableConnectionAsync();
+        await new YdbCommand("SELECT 1;", ydbRetryableConnection).ExecuteNonQueryAsync();
+
+        var executeWithRetryActivity = GetSingleActivity(activities, "ydb.ExecuteWithRetry");
+        Assert.Empty(executeWithRetryActivity.Events);
+        Assert.Equal(ActivityKind.Internal, executeWithRetryActivity.Kind);
+        Assert.Empty(executeWithRetryActivity.TagObjects);
+
+        var executeQueryActivity = GetSingleActivity(activities, "ydb.ExecuteQuery");
+        Assert.Empty(executeQueryActivity.Events);
+        Assert.Equal(ActivityKind.Client, executeQueryActivity.Kind);
+        Assert.Equal(true, executeQueryActivity.GetTagItem("ydb.execute.in_memory"));
+        AssertCommonDbTags(executeQueryActivity);
+    }
+
+    [Fact]
+    public async Task Retry_WhenIsFailed_ExpectedRetryAttributes()
+    {
+        using var activityListener = StartListener(out var activities);
+
+        var retryPolicyExecutor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
+
+        var wasFirstRetry = false;
+        await retryPolicyExecutor.ExecuteAsync(_ =>
+        {
+            if (wasFirstRetry)
+                return Task.CompletedTask;
+
+            wasFirstRetry = true;
+            throw new YdbException(StatusCode.Aborted, "TLI!");
+        });
+
+        Assert.Equal(2, activities.Count);
+        Assert.All(activities, activity => Assert.Equal("ydb.ExecuteWithRetry", activity.DisplayName));
+        var activity = activities.First(activity => activity.Status == ActivityStatusCode.Error);
+        Assert.Equal(ActivityKind.Internal, activity.Kind);
+        Assert.Equal(StatusCode.Aborted, activity.GetTagItem("db.response.status_code"));
+        Assert.Equal(1, activity.GetTagItem("ydb.retry.attempt"));
+        Assert.Equal("TLI!", activity.StatusDescription);
+        Assert.NotNull(activity.GetTagItem("ydb.retry.backoff_ms"));
+    }
+
     private static ActivityListener StartListener(out List<Activity> activities)
     {
         var captured = new List<Activity>();
@@ -164,7 +255,6 @@ public class YdbTracingTests : TestBase
     private static Activity GetSingleActivity(
         List<Activity> activities,
         string expectedDisplayName,
-        string? expectedOperationName = null,
         ActivityStatusCode? expectedStatusCode = ActivityStatusCode.Unset,
         string? expectedStatusDescription = null
     )
@@ -174,7 +264,6 @@ public class YdbTracingTests : TestBase
 
         var activity = filtered[0];
         Assert.Equal(expectedDisplayName, activity.DisplayName);
-        Assert.Equal(expectedOperationName ?? expectedDisplayName, activity.OperationName);
         Assert.Equal(expectedStatusCode ?? ActivityStatusCode.Unset, activity.Status);
         if (expectedStatusDescription != null)
         {

@@ -8,7 +8,8 @@ internal static class YdbActivitySource
 {
     private static readonly ActivitySource Instance = new("Ydb.Sdk", LibraryVersion);
 
-    internal static Activity? StartActivity(string spanName) => Instance.StartActivity(spanName, ActivityKind.Client);
+    internal static Activity? StartActivity(string spanName, ActivityKind activityKind = ActivityKind.Client) =>
+        Instance.StartActivity(spanName, activityKind);
 
     internal static void SetException(this Activity activity, Exception exception)
     {
@@ -23,6 +24,13 @@ internal static class YdbActivitySource
         }
 
         activity.SetStatus(ActivityStatusCode.Error, exception.Message);
+    }
+
+    internal static void SetRetryAttributes(this Activity activity, int attempt, TimeSpan retryInterval)
+    {
+        if (!activity.IsAllDataRequested) return;
+        activity.SetTag("ydb.retry.attempt", attempt);
+        activity.SetTag("ydb.retry.backoff_ms", retryInterval.TotalMilliseconds);
     }
 
     private static string LibraryVersion => typeof(YdbActivitySource).Assembly

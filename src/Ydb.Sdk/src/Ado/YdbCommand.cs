@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado;
@@ -195,7 +196,9 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
-        var dbActivity = YdbActivitySource.StartActivity("ydb.ExecuteQuery");
+        var dbActivity = YdbConnection.Session is not RetryableSession
+            ? YdbActivitySource.StartActivity("ydb.ExecuteQuery")
+            : null;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();

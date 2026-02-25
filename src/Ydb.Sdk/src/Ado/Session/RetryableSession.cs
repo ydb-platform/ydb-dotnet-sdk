@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Session;
 
@@ -89,6 +90,12 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
         {
             using var session = await _sessionSource.OpenSession(ct);
 
+            using var dbActivity = YdbActivitySource.StartActivity("ydb.ExecuteQuery");
+
+            _settings.DbActivity = dbActivity is { IsAllDataRequested: true }
+                ? dbActivity.SetTag("ydb.execute.in_memory", true)
+                : dbActivity;
+
             try
             {
                 var responses = new List<ExecuteQueryResponsePart>();
@@ -111,6 +118,7 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
             catch (YdbException e)
             {
                 session.OnNotSuccessStatusCode(e.Code);
+                dbActivity?.SetException(e);
                 throw;
             }
         }, cancellationToken);
