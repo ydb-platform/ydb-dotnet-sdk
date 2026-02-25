@@ -18,6 +18,9 @@
   - `error.type`
   - `ydb.node.id`
   - `ydb.node.dc`
+- Feat ADO.NET tracing: Added retry attempt spans: 
+  - `ydb.retry.attempt`
+  - `ydb.retry.backoff_ms`
 
 ## v0.28.0
 
