@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -68,7 +69,7 @@ public sealed class Driver : BaseDriver
     {
         Logger.LogInformation("Started initial endpoint discovery");
 
-        using var dbActivity = YdbActivitySource.StartActivity("ydb.Initialize.Driver");
+        using var dbActivity = YdbActivitySource.StartActivity("ydb.Driver.Initialize", ActivityKind.Internal);
         try
         {
             await DiscoveryRetryPolicy.ExecuteAsync(async _ =>

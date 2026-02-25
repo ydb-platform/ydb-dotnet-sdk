@@ -51,7 +51,7 @@ internal sealed class YdbRetryPolicyExecutor
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var dbActive = YdbActivitySource.StartActivity("ydb.RetryCtx.Execute", ActivityKind.Internal);
+            using var dbActive = YdbActivitySource.StartActivity("ydb.ExecuteWithRetry", ActivityKind.Internal);
 
             try
             {

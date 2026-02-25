@@ -90,8 +90,11 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
         {
             using var session = await _sessionSource.OpenSession(ct);
 
-            using var dbActivity = YdbActivitySource.StartActivity("ydb.ExecuteQuery.InMemory");
-            _settings.DbActivity = dbActivity;
+            using var dbActivity = YdbActivitySource.StartActivity("ydb.ExecuteQuery");
+
+            _settings.DbActivity = dbActivity is { IsAllDataRequested: true }
+                ? dbActivity.SetTag("ydb.execute.in_memory", true)
+                : dbActivity;
 
             try
             {

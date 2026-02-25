@@ -93,4 +93,11 @@ for (var i = 0; i < 10; i++)
 
 await Task.WhenAll(tasks);
 
+Console.WriteLine("Retry connection example...");
+
+await using var ydbConnection = await dataSource.OpenRetryableConnectionAsync();
+
+await new YdbCommand(ydbConnection)
+    { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteNonQueryAsync();
+
 Console.WriteLine("App finished.");
