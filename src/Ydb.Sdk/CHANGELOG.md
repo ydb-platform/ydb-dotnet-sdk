@@ -1,3 +1,5 @@
+## v0.30.0
+
 - Upgraded target framework from .NET 6/7 to .NET 8.
 
 ## v0.29.0
