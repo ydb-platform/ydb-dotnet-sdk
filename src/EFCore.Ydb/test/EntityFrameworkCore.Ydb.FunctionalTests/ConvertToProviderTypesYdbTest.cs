@@ -6,8 +6,11 @@ using Microsoft.Extensions.Logging;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
-// TODO: Expects actual decimal precision. But ydb supports only (22, 9)
-internal class ConvertToProviderTypesYdbTest : ConvertToProviderTypesTestBase<
+/// <summary>
+/// Tests for value conversions to provider types in YDB.
+/// Note: YDB has specific decimal precision limitations (22, 9) that differ from standard SQL.
+/// </summary>
+public class ConvertToProviderTypesYdbTest : ConvertToProviderTypesTestBase<
     ConvertToProviderTypesYdbTest.ConvertToProviderTypesYdbFixture>
 {
     public ConvertToProviderTypesYdbTest(ConvertToProviderTypesYdbFixture fixture) : base(fixture)
