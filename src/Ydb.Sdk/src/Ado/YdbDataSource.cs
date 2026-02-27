@@ -5,9 +5,7 @@ using Ydb.Sdk.Ado.Schema;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Table;
 using Ydb.Table.V1;
-#if NET7_0_OR_GREATER
 using System.Data.Common;
-#endif
 
 namespace Ydb.Sdk.Ado;
 
@@ -25,12 +23,7 @@ namespace Ydb.Sdk.Ado;
 /// <see href="https://ydb.tech/docs">YDB Documentation</see>.
 /// </para>
 /// </remarks>
-public class YdbDataSource
-#if NET7_0_OR_GREATER
-    : DbDataSource
-#else
-    : IAsyncDisposable
-#endif
+public class YdbDataSource : DbDataSource
 {
     private static readonly ConcurrentDictionary<string, YdbRetryPolicyExecutor> CacheYdbRetryPolicyExecutors = new();
 
@@ -82,17 +75,9 @@ public class YdbDataSource
         _retryPolicyExecutor = new YdbRetryPolicyExecutor(builder.RetryPolicy);
     }
 
-    protected
-#if NET7_0_OR_GREATER
-        override
-#endif
-        YdbConnection CreateDbConnection() => new(_ydbConnectionStringBuilder);
+    protected override YdbConnection CreateDbConnection() => new(_ydbConnectionStringBuilder);
 
-    protected
-#if NET7_0_OR_GREATER
-        override
-#endif
-        YdbConnection OpenDbConnection()
+    protected override YdbConnection OpenDbConnection()
     {
         var dbConnection = CreateDbConnection();
         try
@@ -115,11 +100,7 @@ public class YdbDataSource
     /// Creates a new connection that must be opened before use.
     /// The connection should be disposed when no longer needed.
     /// </remarks>
-    public
-#if NET7_0_OR_GREATER
-        new
-#endif
-        YdbConnection CreateConnection() => CreateDbConnection();
+    public new YdbConnection CreateConnection() => CreateDbConnection();
 
     /// <summary>
     /// Creates and opens a new <see cref="YdbConnection"/>.
@@ -130,11 +111,7 @@ public class YdbDataSource
     /// Creates a new connection and opens it immediately.
     /// The connection should be disposed when no longer needed.
     /// </remarks>
-    public
-#if NET7_0_OR_GREATER
-        new
-#endif
-        YdbConnection OpenConnection() => OpenDbConnection();
+    public new YdbConnection OpenConnection() => OpenDbConnection();
 
     /// <summary>
     /// Asynchronously creates and opens a new <see cref="YdbConnection"/>.
@@ -146,11 +123,7 @@ public class YdbDataSource
     /// Creates a new connection and opens it asynchronously.
     /// The connection should be disposed when no longer needed.
     /// </remarks>
-    public
-#if NET7_0_OR_GREATER
-        new
-#endif
-        async ValueTask<YdbConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
+    public new async ValueTask<YdbConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
     {
         var ydbConnection = CreateDbConnection();
 
@@ -166,17 +139,11 @@ public class YdbDataSource
         }
     }
 
-#if NET7_0_OR_GREATER
     public override string ConnectionString => _ydbConnectionStringBuilder.ConnectionString;
-#endif
 
-    protected
-#if NET7_0_OR_GREATER
-        override
-#endif
-        async ValueTask DisposeAsyncCore() => await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString);
+    protected override async ValueTask DisposeAsyncCore() =>
+        await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString);
 
-#if NET7_0_OR_GREATER
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -184,14 +151,6 @@ public class YdbDataSource
             DisposeAsyncCore().AsTask().GetAwaiter().GetResult();
         }
     }
-#else
-    public async ValueTask DisposeAsync()
-    {
-        await DisposeAsyncCore().ConfigureAwait(false);
-
-        GC.SuppressFinalize(this);
-    }
-#endif
 
     /// <summary>
     /// Executes an operation with automatic retry policy support.
