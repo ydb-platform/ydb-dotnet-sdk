@@ -1,3 +1,5 @@
+- Upgraded target framework from .NET 6/7 to .NET 8.
+
 ## v0.29.0
 
 - Feat ADO.NET: Added support for reading and writing JSON values as `System.Text.Json.JsonDocument` and `System.Text.Json.JsonElement` (for YdbDbType.Json/JsonDocument).
