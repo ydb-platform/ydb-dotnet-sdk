@@ -1,3 +1,5 @@
+- Feat ADO.NET tracing: Refined `error.type` for `YdbException` to classify failures as `transport_error` (client transport status codes) or `ydb_error` (database status codes), while keeping `db.response.status_code`.
+
 ## v0.30.0
 
 - Upgraded target framework from .NET 6/7 to .NET 8.
