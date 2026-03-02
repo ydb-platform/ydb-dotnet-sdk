@@ -16,7 +16,14 @@ internal static class YdbActivitySource
         if (exception is YdbException ydbException)
         {
             activity.SetTag("db.response.status_code", ydbException.Code);
-            activity.SetTag("error.type", ydbException.Code);
+            activity.SetTag("error.type", ydbException.Code
+                is StatusCode.ClientTransportUnknown
+                or StatusCode.ClientTransportUnavailable
+                or StatusCode.ClientTransportTimeout
+                or StatusCode.ClientTransportResourceExhausted
+                or StatusCode.ClientTransportUnimplemented
+                ? "transport_error"
+                : "ydb_error");
         }
         else
         {
