@@ -16,13 +16,9 @@ internal static class YdbActivitySource
         if (exception is YdbException ydbException)
         {
             activity.SetTag("db.response.status_code", ydbException.Code);
-            activity.SetTag("error.type", ydbException.Code);
-        }
-        else
-        {
-            activity.SetTag("error.type", exception.GetType().FullName);
         }
 
+        activity.SetTag("error.type", exception.GetType().FullName);
         activity.SetStatus(ActivityStatusCode.Error, exception.Message);
     }
 
