@@ -3,7 +3,6 @@ using Google.Protobuf;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Coordinator.Settings;
 
 namespace Ydb.Sdk.Coordinator.Impl;
@@ -12,12 +11,12 @@ public class CoordinationSession
 {
     private readonly IDriver _driver;
     private readonly CoordinationNodeSettings _settings;
-    private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
+    //private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
 
 
-    private ulong _sessionId = 0;
-    private ulong _reqIdCounter = 0;
-    private ulong _seqNo = 0;
+    //private ulong _sessionId;
+    private ulong _reqIdCounter;
+    private ulong _seqNo;
 
 
     // Tasks for waiting SessionStarted and SessionStopped
@@ -33,7 +32,7 @@ public class CoordinationSession
     //private bool _closed = false;
 
     // Map of _reqIdCounter to semaphore name for watch tracking
-    private readonly ConcurrentDictionary<ulong, string> _watchedSemaphores = new();
+    //private readonly ConcurrentDictionary<ulong, string> _watchedSemaphores = new();
 
 
     private readonly TaskCompletionSource _firstSessionStartedTcs =
@@ -43,11 +42,11 @@ public class CoordinationSession
     //public event Action<SessionExpiredEvent>? SessionExpired;
     //public event Action<SemaphoreChangedEvent>? SemaphoreChanged;    
 
-    private readonly CancellationTokenSource _disposeCts = new();
+    // private readonly CancellationTokenSource _disposeCts = new();
 
-    public CoordinationSession(IDriver driver, CoordinationNodeSettings settings, IRetryPolicy retryPolicy)
+    public CoordinationSession(IDriver driver, CoordinationNodeSettings settings) //IRetryPolicy retryPolicy
     {
-        _ydbRetryPolicyExecutor = new YdbRetryPolicyExecutor(retryPolicy);
+        //_ydbRetryPolicyExecutor = new YdbRetryPolicyExecutor(retryPolicy);
         _driver = driver;
         _settings = settings;
         Initialize();
@@ -95,10 +94,10 @@ public class CoordinationSession
                         await HandleFailure(response);
                         break;
                     case SessionResponse.ResponseOneofCase.SessionStarted:
-                        HandleSessionStarted(response);
+                        HandleSessionStarted(); //HandleSessionStarted(response);
                         break;
                     case SessionResponse.ResponseOneofCase.SessionStopped:
-                        HandleSessionStopped(response);
+                        HandleSessionStopped(); //HandleSessionStopped(response)
                         break;
                     case SessionResponse.ResponseOneofCase.AcquireSemaphorePending:
                         // note
@@ -234,9 +233,9 @@ public class CoordinationSession
     private async Task HandlePing(SessionResponse response)
     {
         var opaque = response.Ping.Opaque;
-        var pongRequest = new SessionRequest()
+        var pongRequest = new SessionRequest
         {
-            Pong = new SessionRequest.Types.PingPong()
+            Pong = new SessionRequest.Types.PingPong
             {
                 Opaque = opaque
             }
@@ -247,13 +246,13 @@ public class CoordinationSession
     private async Task HandleFailure(SessionResponse response)
     {
         var failure = response.Failure;
-        if (failure.Status == StatusIds.Types.StatusCode.BadSession |
-            failure.Status == StatusIds.Types.StatusCode.SessionExpired)
+        if ((failure.Status == StatusIds.Types.StatusCode.BadSession) |
+            (failure.Status == StatusIds.Types.StatusCode.SessionExpired))
         {
             // If session is expired or not accessible, reset session ID to create a new session on reconnect
             //var expiredId = _sessionId;
-            _sessionId = 0;
-            _watchedSemaphores.Clear();
+            // _sessionId = 0;
+            //_watchedSemaphores.Clear();
 
             // // Emit sessionExpired event to notify user
         }
@@ -261,9 +260,9 @@ public class CoordinationSession
         await _stream!.RequestStreamComplete();
     }
 
-    private void HandleSessionStarted(SessionResponse response)
+    private void HandleSessionStarted() //SessionResponse response
     {
-        _sessionId = response.SessionStarted.SessionId;
+        //_sessionId = response.SessionStarted.SessionId;
         // Resolve the sessionStarted promise
         _sessionStartedTcs?.TrySetResult();
         _sessionStartedTcs = null;
@@ -272,7 +271,7 @@ public class CoordinationSession
         _firstSessionStartedTcs.TrySetResult();
     }
 
-    private void HandleSessionStopped(SessionResponse response)
+    private void HandleSessionStopped() //SessionResponse response
     {
         //_sessionId = response.SessionStopped.SessionId; // в логи записываем
         _sessionStoppedTcs?.TrySetResult();
@@ -301,7 +300,7 @@ public class CoordinationSession
             return;
 
         _sessionStartedTcs =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
+            new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var reqId = _reqIdCounter;
         var node = "";
@@ -323,7 +322,7 @@ public class CoordinationSession
         await _sessionStartedTcs.Task;
     }
 
-    public async Task<PendingResult?> SendRequest(ulong reqIdCounter, SessionRequest request,
+    private async Task<PendingResult?> SendRequest(ulong reqIdCounter, SessionRequest request,
         CancellationToken cancellationToken = default)
     {
         var tcs = new TaskCompletionSource<PendingResult?>(
@@ -492,7 +491,7 @@ public class CoordinationSession
             }
         };
         var task = await SendRequest(reqId, request);
-        if (task == null | task!.EnumResponse != SessionResponse.ResponseOneofCase.DescribeSemaphoreResult)
+        if ((task == null) | (task!.EnumResponse != SessionResponse.ResponseOneofCase.DescribeSemaphoreResult))
         {
             throw new YdbException("Delete semaphore failed");
         }
