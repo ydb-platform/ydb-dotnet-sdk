@@ -12,7 +12,7 @@ public class CoordinationSession
 {
     private readonly IDriver _driver;
     private readonly CoordinationNodeSettings _settings;
-    //private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
+    private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
 
 
     private ulong _sessionId = 0;
