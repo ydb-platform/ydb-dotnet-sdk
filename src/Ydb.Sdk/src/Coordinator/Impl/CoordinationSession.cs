@@ -4,7 +4,6 @@ using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.RetryPolicy;
-using Ydb.Sdk.Coordinator.Description;
 using Ydb.Sdk.Coordinator.Settings;
 
 namespace Ydb.Sdk.Coordinator.Impl;
@@ -13,7 +12,7 @@ public class CoordinationSession
 {
     private readonly IDriver _driver;
     private readonly CoordinationNodeSettings _settings;
-    private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
+    //private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
 
 
     private ulong _sessionId = 0;
@@ -27,15 +26,14 @@ public class CoordinationSession
 
     // Bidirectional stream handler
     private IBidirectionalStream<SessionRequest, SessionResponse>? _stream;
-    private readonly ConcurrentDictionary<ulong, PendingRequest<bool, SessionRequest>> _pendingRequests = new();
-    private readonly List<SessionRequest> _fireAndForgetRequests = new();
+    private readonly ConcurrentDictionary<ulong, PendingRequest<PendingResult>> _pendingRequests = new();
+    //private readonly List<SessionRequest> _fireAndForgetRequests = new();
 
     // Reconnection state
-    private bool _closed = false;
+    //private bool _closed = false;
 
     // Map of _reqIdCounter to semaphore name for watch tracking
-    private readonly ConcurrentDictionary<ulong, string> _watchedSemaphores =
-        new();
+    private readonly ConcurrentDictionary<ulong, string> _watchedSemaphores = new();
 
 
     private readonly TaskCompletionSource _firstSessionStartedTcs =
@@ -103,43 +101,37 @@ public class CoordinationSession
                         HandleSessionStopped(response);
                         break;
                     case SessionResponse.ResponseOneofCase.AcquireSemaphorePending:
+                        // note
                         break;
                     case SessionResponse.ResponseOneofCase.DescribeSemaphoreChanged:
+                        // note
                         break;
+                    case SessionResponse.ResponseOneofCase.None:
+                    case SessionResponse.ResponseOneofCase.Pong:
+                    case SessionResponse.ResponseOneofCase.Unsupported6:
+                    case SessionResponse.ResponseOneofCase.Unsupported7:
                     case SessionResponse.ResponseOneofCase.AcquireSemaphoreResult:
+                    case SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult:
+                    case SessionResponse.ResponseOneofCase.DescribeSemaphoreResult:
+                    case SessionResponse.ResponseOneofCase.CreateSemaphoreResult:
+                    case SessionResponse.ResponseOneofCase.UpdateSemaphoreResult:
+                    case SessionResponse.ResponseOneofCase.DeleteSemaphoreResult:
+                    case SessionResponse.ResponseOneofCase.Unsupported16:
+                    case SessionResponse.ResponseOneofCase.Unsupported17:
+                    case SessionResponse.ResponseOneofCase.Unsupported18:
                         break;
                 }
-                /*
-                 * None,
-    Ping,
-    Pong,
-    Failure,
-    SessionStarted,
-    SessionStopped,
-    Unsupported6,
-    Unsupported7,
-    AcquireSemaphorePending,
-    AcquireSemaphoreResult,
-    ReleaseSemaphoreResult,
-    DescribeSemaphoreResult,
-    DescribeSemaphoreChanged,
-    CreateSemaphoreResult,
-    UpdateSemaphoreResult,
-    DeleteSemaphoreResult,
-    Unsupported16,
-    Unsupported17,
-    Unsupported18,
-                 */
+
 
                 //var reqId = _extractReqId(response); //_extractReqId(response);
-                ulong? reqId = 1;
+                var reqId = ExtractReqId(response);
                 if (reqId.HasValue &&
                     _pendingRequests.TryRemove(reqId.Value, out var pending))
                 {
                     try
                     {
-                        //var result = _extractResult(response);
-                        //pending.Tcs.TrySetResult(result);
+                        var result = ExtractResult(response);
+                        pending.Tcs.TrySetResult(result);
                     }
                     catch (Exception ex)
                     {
@@ -148,15 +140,96 @@ public class CoordinationSession
                 }
             }
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages", SessionId);
         }
+        /*
         finally
         {
             // NOTE
         }
+        */
     }
+
+    private ulong? ExtractReqId(SessionResponse response) =>
+        response.ResponseCase switch
+        {
+            SessionResponse.ResponseOneofCase.AcquireSemaphoreResult => response.AcquireSemaphoreResult.ReqId,
+            SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult => response.ReleaseSemaphoreResult.ReqId,
+            SessionResponse.ResponseOneofCase.DescribeSemaphoreResult => response.DescribeSemaphoreResult.ReqId,
+            SessionResponse.ResponseOneofCase.CreateSemaphoreResult => response.CreateSemaphoreResult.ReqId,
+            SessionResponse.ResponseOneofCase.UpdateSemaphoreResult => response.UpdateSemaphoreResult.ReqId,
+            SessionResponse.ResponseOneofCase.DeleteSemaphoreResult => response.DeleteSemaphoreResult.ReqId,
+            _ => null
+        };
+
+    // возвращать пару response и код и снаружи 
+
+
+    private PendingResult? ExtractResult(SessionResponse response)
+    {
+        switch (response.ResponseCase)
+        {
+            case SessionResponse.ResponseOneofCase.AcquireSemaphoreResult:
+                var acquireResult = response.AcquireSemaphoreResult;
+                if (acquireResult.Status != StatusIds.Types.StatusCode.Success)
+                {
+                    throw new YdbException(acquireResult.Status + " " + acquireResult.Issues);
+                }
+
+                return new PendingResult(response, SessionResponse.ResponseOneofCase.AcquireSemaphoreResult);
+
+            case SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult:
+                var releaseResult = response.ReleaseSemaphoreResult;
+                if (releaseResult.Status != StatusIds.Types.StatusCode.Success)
+                {
+                    throw new YdbException(releaseResult.Status + " " + releaseResult.Issues);
+                }
+
+                return new PendingResult(response, SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult);
+
+            case SessionResponse.ResponseOneofCase.DescribeSemaphoreResult:
+                var describeResult = response.DescribeSemaphoreResult;
+                if (describeResult.Status != StatusIds.Types.StatusCode.Success)
+                {
+                    throw new YdbException(describeResult.Status + " " + describeResult.Issues);
+                }
+
+                return new PendingResult(response, SessionResponse.ResponseOneofCase.DescribeSemaphoreResult);
+
+            case SessionResponse.ResponseOneofCase.CreateSemaphoreResult:
+                var createResult = response.CreateSemaphoreResult;
+                if (createResult.Status != StatusIds.Types.StatusCode.Success)
+                {
+                    throw new YdbException(createResult.Status + " " + createResult.Issues);
+                }
+
+                return new PendingResult(response, SessionResponse.ResponseOneofCase.CreateSemaphoreResult);
+
+            case SessionResponse.ResponseOneofCase.UpdateSemaphoreResult:
+                var updateResult = response.UpdateSemaphoreResult;
+                if (updateResult.Status != StatusIds.Types.StatusCode.Success)
+                {
+                    throw new YdbException(updateResult.Status + " " + updateResult.Issues);
+                }
+
+                return new PendingResult(response, SessionResponse.ResponseOneofCase.UpdateSemaphoreResult);
+
+            case SessionResponse.ResponseOneofCase.DeleteSemaphoreResult:
+                var deleteResult = response.DeleteSemaphoreResult;
+                if (deleteResult.Status != StatusIds.Types.StatusCode.Success)
+                {
+                    throw new YdbException(deleteResult.Status + " " + deleteResult.Issues);
+                }
+
+                return new PendingResult(response, SessionResponse.ResponseOneofCase.DeleteSemaphoreResult);
+
+            default:
+                return null;
+        }
+    }
+
 
     private async Task HandlePing(SessionResponse response)
     {
@@ -230,7 +303,7 @@ public class CoordinationSession
         _sessionStartedTcs =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        ulong reqId = 1;
+        var reqId = _reqIdCounter;
         var node = "";
         // var timeout = new TimeSpan(5);
         var key = ByteString.Empty;
@@ -241,7 +314,8 @@ public class CoordinationSession
                 SessionId = reqId,
                 Path = node,
                 TimeoutMillis = 5,
-                ProtectionKey = key
+                ProtectionKey = key,
+                SeqNo = _seqNo++
             }
         };
 
@@ -249,9 +323,50 @@ public class CoordinationSession
         await _sessionStartedTcs.Task;
     }
 
+    public async Task<PendingResult?> SendRequest(ulong reqIdCounter, SessionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var tcs = new TaskCompletionSource<PendingResult?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _pendingRequests[reqIdCounter] = new PendingRequest<PendingResult>(tcs);
+
+        // ulong, PendingRequest<PendingResult
+
+        var task = _stream!.Write(request);
+        await task;
+        if (task.IsFaulted)
+        {
+            throw new YdbException("MESSAGE");
+        }
+
+        if (task.IsCanceled)
+        {
+            throw new YdbException("MESSAGE2");
+        }
+
+        await using (cancellationToken.Register(() =>
+                     {
+                         if (_pendingRequests.TryRemove(reqIdCounter, out var pending))
+                         {
+                             pending.Tcs.TrySetCanceled(cancellationToken);
+                         }
+                     }))
+        {
+            return await tcs.Task;
+        }
+    }
+
+    /**
+     * Gets the next request ID
+     */
+    private ulong GetNextReqId()
+        => Interlocked.Increment(ref _reqIdCounter);
+
+
     public async Task CreateSemaphore(string name, ulong limit, byte[]? data)
     {
-        ulong reqId = 1;
+        var reqId = GetNextReqId();
         var createSemaphore = new SessionRequest
         {
             CreateSemaphore =
@@ -289,7 +404,7 @@ public class CoordinationSession
 
     public async Task UpdateSemaphore(string name, byte[]? data)
     {
-        ulong reqId = 1;
+        var reqId = GetNextReqId();
         var updateSemaphore = new SessionRequest
         {
             UpdateSemaphore =
@@ -326,7 +441,7 @@ public class CoordinationSession
 
     public async Task DeleteSemaphore(string name, bool force)
     {
-        ulong reqId = 1;
+        var reqId = GetNextReqId();
         var deleteSemaphore = new SessionRequest
         {
             DeleteSemaphore =
@@ -360,11 +475,32 @@ public class CoordinationSession
         }
     }
 
-    /*
-    public async void DescribeSemaphore(string name, DescribeSemaphoreMode mode)
+
+    public async Task<SessionResponse.Types.DescribeSemaphoreResult> DescribeSemaphore(string name,
+        DescribeSemaphoreMode mode)
     {
+        var reqId = GetNextReqId();
+        var request = new SessionRequest
+        {
+            DescribeSemaphore =
+            {
+                IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(mode),
+                IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(mode),
+                WatchData = false,
+                WatchOwners = false,
+                ReqId = reqId
+            }
+        };
+        var task = await SendRequest(reqId, request);
+        if (task == null | task!.EnumResponse != SessionResponse.ResponseOneofCase.DescribeSemaphoreResult)
+        {
+            throw new YdbException("Delete semaphore failed");
+        }
+
+        return task.Request.DescribeSemaphoreResult;
     }
 
+    /*
 
     public async void WatchSemaphore(string name, DescribeSemaphoreMode describeMode, WatchSemaphoreMode watchMode)
     {

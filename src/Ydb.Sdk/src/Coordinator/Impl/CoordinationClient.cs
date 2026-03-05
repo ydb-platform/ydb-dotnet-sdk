@@ -82,7 +82,7 @@ public class CoordinationClient
         {
             throw new YdbException(e.Message);
         }
-        catch (Exception e)
+        catch (Exception)
         {
             throw new YdbException("Create node failed");
         }

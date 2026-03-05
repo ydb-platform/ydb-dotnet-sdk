@@ -1,13 +1,13 @@
 ﻿namespace Ydb.Sdk.Coordinator.Impl;
 
-internal sealed class PendingRequest<TResult, TRequest>
+internal sealed class PendingRequest<TResult>
 {
     public TaskCompletionSource<TResult?> Tcs { get; }
-    public TRequest Request { get; }
+    //public TRequest Request { get; }
 
-    public PendingRequest(TaskCompletionSource<TResult?> tcs, TRequest request)
+    public PendingRequest(TaskCompletionSource<TResult?> tcs)
     {
         Tcs = tcs;
-        Request = request;
+        //Request = request;
     }
 }
