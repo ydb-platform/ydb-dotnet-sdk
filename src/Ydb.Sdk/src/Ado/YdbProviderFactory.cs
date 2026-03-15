@@ -66,7 +66,6 @@ public class YdbProviderFactory : DbProviderFactory
     /// </remarks>
     public override DbParameter CreateParameter() => new YdbParameter();
 
-#if NET7_0_OR_GREATER
     /// <summary>
     /// Returns a strongly typed <see cref="YdbDataSource"/> object.
     /// </summary>
@@ -74,8 +73,6 @@ public class YdbProviderFactory : DbProviderFactory
     /// <returns>A new instance of <see cref="YdbDataSource"/> with the specified connection string.</returns>
     /// <remarks>
     /// Creates a new YDB data source object that provides a modern, lightweight way to work with YDB.
-    /// The data source is available only in .NET 7.0 and later versions.
     /// </remarks>
-    public override YdbDataSource CreateDataSource(string connectionString) => new();
-#endif
+    public override YdbDataSource CreateDataSource(string connectionString) => new(connectionString);
 }

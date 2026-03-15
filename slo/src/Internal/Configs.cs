@@ -7,7 +7,7 @@ public record CreateConfig(
 
 public record RunConfig(
     string ConnectionString,
-    string PromPgw,
+    string OtlpEndpoint,
     int ReportPeriod,
     int ReadRps,
     int ReadTimeout,

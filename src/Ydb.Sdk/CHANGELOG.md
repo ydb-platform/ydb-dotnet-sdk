@@ -1,5 +1,34 @@
+- Feat ADO.NET tracing: Refined `error.type` for `YdbException` to classify failures as `transport_error` (client transport status codes) or `ydb_error` (database status codes), while keeping `db.response.status_code`.
+
+## v0.30.0
+
+- Upgraded target framework from .NET 6/7 to .NET 8.
+
+## v0.29.0
+
+- Feat ADO.NET: Added support for reading and writing JSON values as `System.Text.Json.JsonDocument` and `System.Text.Json.JsonElement` (for YdbDbType.Json/JsonDocument).
+- Fixed bug: NPE in Writer.DisposeAsync().
 - Fixed bug: Driver ownership lifecycle is now synchronized to prevent race conditions.
 - **Breaking Change**: `IDriver` no longer implements `IDisposable` (interface slated to mark internal).
+- Feat ADO.NET tracing: Added spans for `QueryService` operations:
+  - `ydb.CreateSession`
+  - `ydb.ExecuteQuery`
+  - `ydb.Commit`
+  - `ydb.Rollback`
+- Feat ADO.NET tracing: Added/propagated tags on spans:
+  - `db.system.name`
+  - `db.namespace`
+  - `server.address`
+  - `server.port`
+  - `network.peer.address`
+  - `network.peer.port`
+  - `db.response.status_code` (for `YdbException`)
+  - `error.type`
+  - `ydb.node.id`
+  - `ydb.node.dc`
+- Feat ADO.NET tracing: Added retry attempt span `ydb.ExecuteWithRetry`: 
+  - `ydb.retry.attempt`
+  - `ydb.retry.backoff_ms`
 
 ## v0.28.0
 

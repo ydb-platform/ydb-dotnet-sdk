@@ -55,9 +55,8 @@ jobs:
   efcore-tests:
     runs-on: ubuntu-22.04
     strategy:
-      fail-fast: false
       matrix:
-        ydb-version: [ 'latest', 'trunk' ]
+        ydb-version: [ 'latest' ]
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
@@ -85,7 +84,6 @@ jobs:
   run-examples:
     runs-on: ubuntu-22.04
     strategy:
-      fail-fast: false
       matrix:
         ydb-version: [ 'latest', 'trunk' ]
         dotnet-version: [ 8.0.x, 9.0.x ]

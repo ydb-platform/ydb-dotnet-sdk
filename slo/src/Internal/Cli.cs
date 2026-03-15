@@ -8,9 +8,9 @@ public static class Cli
         "connectionString",
         "YDB connection string ADO NET format");
 
-    private static readonly Option<string> PromPgwOption = new(
-        "--prom-pgw",
-        "prometheus push gateway");
+    private static readonly Option<string> OtlpEndpointOption = new(
+        "--otlp-endpoint",
+        "OpenTelemetry OTLP endpoint URL (e.g., http://localhost:4318)");
 
     private static readonly Option<int> WriteTimeoutOption = new(
         "--write-timeout",
@@ -20,7 +20,7 @@ public static class Cli
     private static readonly Option<int> ReportPeriodOption = new(
         "--report-period",
         () => 250,
-        "prometheus push period in milliseconds");
+        "metrics export period in milliseconds");
 
     private static readonly Option<int> ReadRpsOption = new(
         "--read-rps",
@@ -62,7 +62,7 @@ public static class Cli
     {
         ConnectionStringArgument,
         InitialDataCountOption,
-        PromPgwOption,
+        OtlpEndpointOption,
         ReportPeriodOption,
         ReadRpsOption,
         ReadTimeoutOption,
@@ -91,7 +91,7 @@ public static class Cli
             async runConfig => { await sloContext.Run(runConfig); },
             new RunConfigBinder(
                 ConnectionStringArgument,
-                PromPgwOption,
+                OtlpEndpointOption,
                 ReportPeriodOption,
                 ReadRpsOption,
                 ReadTimeoutOption,

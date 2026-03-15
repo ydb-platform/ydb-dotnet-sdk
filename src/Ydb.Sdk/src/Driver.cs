@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -8,6 +9,8 @@ using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Pool;
+using Ydb.Sdk.Tracing;
+using EndpointInfo = Ydb.Sdk.Pool.EndpointInfo;
 
 namespace Ydb.Sdk;
 
@@ -66,16 +69,25 @@ public sealed class Driver : BaseDriver
     {
         Logger.LogInformation("Started initial endpoint discovery");
 
-        await DiscoveryRetryPolicy.ExecuteAsync(async _ =>
+        using var dbActivity = YdbActivitySource.StartActivity("ydb.Driver.Initialize", ActivityKind.Internal);
+        try
         {
-            await DiscoverEndpoints();
-            _discoveryTimer = new Timer(
-                OnDiscoveryTimer,
-                null,
-                Config.EndpointDiscoveryInterval,
-                Config.EndpointDiscoveryInterval
-            );
-        });
+            await DiscoveryRetryPolicy.ExecuteAsync(async _ =>
+            {
+                await DiscoverEndpoints();
+                _discoveryTimer = new Timer(
+                    OnDiscoveryTimer,
+                    null,
+                    Config.EndpointDiscoveryInterval,
+                    Config.EndpointDiscoveryInterval
+                );
+            });
+        }
+        catch (Exception e)
+        {
+            dbActivity?.SetException(e);
+            throw;
+        }
     }
 
     private async void OnDiscoveryTimer(object? state)
@@ -94,11 +106,11 @@ public sealed class Driver : BaseDriver
         }
     }
 
-    protected override string GetEndpoint(long nodeId) => _endpointPool.GetEndpoint(nodeId);
+    protected override EndpointInfo GetEndpoint(long nodeId) => _endpointPool.GetEndpoint(nodeId);
 
-    protected override void OnRpcError(string endpoint, RpcException e)
+    protected override void OnRpcError(EndpointInfo endpointInfo, RpcException e)
     {
-        Logger.LogWarning("gRPC error [{Status}] on channel {Endpoint}", e.Status, endpoint);
+        Logger.LogWarning("gRPC error [{Status}] on channel {Endpoint}", e.Status, endpointInfo.Endpoint);
 
         if (e.StatusCode is
             Grpc.Core.StatusCode.Cancelled or
@@ -109,7 +121,7 @@ public sealed class Driver : BaseDriver
             return;
         }
 
-        if (!_endpointPool.PessimizeEndpoint(endpoint))
+        if (!_endpointPool.PessimizeEndpoint(endpointInfo))
         {
             return;
         }
@@ -123,14 +135,12 @@ public sealed class Driver : BaseDriver
     /// <summary>
     /// Disposes the driver and stops periodic endpoint discovery.
     /// </summary>
-    public new async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
         if (_discoveryTimer != null)
         {
             await _discoveryTimer.DisposeAsync();
         }
-
-        await base.DisposeAsync();
     }
 
     private async Task DiscoverEndpoints()
@@ -151,7 +161,7 @@ public sealed class Driver : BaseDriver
 
         var response = await client.ListEndpointsAsync(
             request: request,
-            options: await GetCallOptions(requestSettings)
+            options: await GetCallOptions(requestSettings, Config.EndpointInfo)
         );
 
         var operation = response.Operation;
@@ -167,15 +177,8 @@ public sealed class Driver : BaseDriver
             resultProto.Endpoints.Count, resultProto.SelfLocation, Config.SdkVersion
         );
 
-        await ChannelPool.RemoveChannels(
-            _endpointPool.Reset(resultProto.Endpoints
-                .Select(endpointSettings => new EndpointSettings(
-                    (int)endpointSettings.NodeId,
-                    (endpointSettings.Ssl ? "https://" : "http://") +
-                    endpointSettings.Address + ":" + endpointSettings.Port,
-                    endpointSettings.Location))
-                .ToImmutableArray()
-            )
-        );
+        await ChannelPool.RemoveChannels(_endpointPool.Reset(resultProto.Endpoints.Select(infoProto =>
+            new EndpointInfo(infoProto.NodeId, infoProto.Ssl, infoProto.Address, infoProto.Port, infoProto.Location)
+        ).ToImmutableList()));
     }
 }

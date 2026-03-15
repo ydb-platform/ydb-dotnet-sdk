@@ -13,8 +13,8 @@ internal class EndpointPool
     private readonly IRandom _random;
 
     // [0, 0, 0, int.Max, int.Max]
-    private ImmutableArray<PriorityEndpoint> _sortedByPriorityEndpoints = ImmutableArray<PriorityEndpoint>.Empty;
-    private Dictionary<long, string> _nodeIdToEndpoint = new();
+    private IReadOnlyList<EndpointInfo> _sortedByPriorityEndpoints = ImmutableArray<EndpointInfo>.Empty;
+    private Dictionary<long, EndpointInfo> _nodeIdToEndpoint = new();
     private int _preferredEndpointCount;
 
     internal EndpointPool(ILoggerFactory loggerFactory, IRandom? random = null)
@@ -23,14 +23,14 @@ internal class EndpointPool
         _random = random ?? ThreadLocalRandom.Instance;
     }
 
-    public string GetEndpoint(long nodeId = 0)
+    public EndpointInfo GetEndpoint(long nodeId = 0)
     {
         _rwLock.EnterReadLock();
         try
         {
             return nodeId > 0 && _nodeIdToEndpoint.TryGetValue(nodeId, out var endpoint)
                 ? endpoint
-                : _sortedByPriorityEndpoints[_random.Next(_preferredEndpointCount)].Endpoint;
+                : _sortedByPriorityEndpoints[_random.Next(_preferredEndpointCount)];
         }
         finally
         {
@@ -38,12 +38,12 @@ internal class EndpointPool
         }
     }
 
-    public ImmutableArray<string> Reset(ImmutableArray<EndpointSettings> endpointSettingsList)
+    public ImmutableArray<EndpointInfo> Reset(IReadOnlyList<EndpointInfo> endpointSettingsList)
     {
-        Dictionary<long, string> nodeIdToEndpoint = new();
+        Dictionary<long, EndpointInfo> nodeIdToEndpoint = new();
         HashSet<string> newEndpoints = new();
 
-        _logger.LogDebug("Init endpoint pool with {EndpointLength} endpoints", endpointSettingsList.Length);
+        _logger.LogDebug("Init endpoint pool with {EndpointLength} endpoints", endpointSettingsList.Count);
 
         foreach (var endpointSettings in endpointSettingsList)
         {
@@ -58,7 +58,7 @@ internal class EndpointPool
 
             if (endpointSettings.NodeId != 0) // NodeId == 0 - serverless proxy
             {
-                nodeIdToEndpoint.Add(endpointSettings.NodeId, endpointSettings.Endpoint);
+                nodeIdToEndpoint.Add(endpointSettings.NodeId, endpointSettings);
             }
         }
 
@@ -67,13 +67,10 @@ internal class EndpointPool
         {
             var removed = _sortedByPriorityEndpoints
                 .Where(priorityEndpoint => !newEndpoints.Contains(priorityEndpoint.Endpoint))
-                .Select(priorityEndpoint => priorityEndpoint.Endpoint)
                 .ToImmutableArray();
 
-            _sortedByPriorityEndpoints = endpointSettingsList
-                .Select(settings => new PriorityEndpoint(settings.Endpoint))
-                .ToImmutableArray();
-            _preferredEndpointCount = endpointSettingsList.Length;
+            _sortedByPriorityEndpoints = endpointSettingsList;
+            _preferredEndpointCount = endpointSettingsList.Count;
             _nodeIdToEndpoint = nodeIdToEndpoint;
 
             return removed;
@@ -85,9 +82,9 @@ internal class EndpointPool
     }
 
     // return needDiscovery 
-    public bool PessimizeEndpoint(string endpoint)
+    public bool PessimizeEndpoint(EndpointInfo endpointInfo)
     {
-        var knownEndpoint = _sortedByPriorityEndpoints.FirstOrDefault(pe => pe.Endpoint == endpoint);
+        var knownEndpoint = _sortedByPriorityEndpoints.FirstOrDefault(pe => endpointInfo.NodeId == pe.NodeId);
 
         if (knownEndpoint == null)
         {
@@ -96,7 +93,7 @@ internal class EndpointPool
 
         if (knownEndpoint.IsPessimized)
         {
-            _logger.LogTrace("Endpoint {Endpoint} is already pessimized", endpoint);
+            _logger.LogTrace("Endpoint {Endpoint} is already pessimized", endpointInfo.Endpoint);
 
             return false; // if we got a twice pessimized node, that is, the first time with an accurate need discovery 
         }
@@ -132,24 +129,24 @@ internal class EndpointPool
 
             _logger.LogWarning(
                 "Endpoint {Endpoint} was pessimized. New pessimization ratio: {PessimizedCount} / {EndpointsCount}",
-                endpoint, pessimizedCount, _sortedByPriorityEndpoints.Length);
+                endpointInfo.Endpoint, pessimizedCount, _sortedByPriorityEndpoints.Count);
 
-            return 100 * pessimizedCount > _sortedByPriorityEndpoints.Length * DiscoveryDegradationLimit;
+            return 100 * pessimizedCount > _sortedByPriorityEndpoints.Count * DiscoveryDegradationLimit;
         }
         finally
         {
             _rwLock.ExitWriteLock();
         }
     }
-
-    private record PriorityEndpoint(string Endpoint)
-    {
-        internal int Priority { get; private set; }
-
-        internal void Pessimize() => Priority = int.MaxValue;
-
-        internal bool IsPessimized => Priority == int.MaxValue;
-    }
 }
 
-public record EndpointSettings(long NodeId, string Endpoint, string LocationDc);
+public record EndpointInfo(long NodeId, bool Ssl, string Host, uint Port, string LocationDc)
+{
+    internal string Endpoint { get; } = $"{(Ssl ? "https" : "http")}://{Host}:{Port}";
+
+    internal int Priority { get; private set; }
+
+    internal void Pessimize() => Priority = int.MaxValue;
+
+    internal bool IsPessimized => Priority == int.MaxValue;
+}

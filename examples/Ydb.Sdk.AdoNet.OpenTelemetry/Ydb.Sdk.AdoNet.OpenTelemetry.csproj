@@ -9,19 +9,17 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <Content Include="..\.dockerignore">
-        <Link>.dockerignore</Link>
-      </Content>
+        <Folder Include="grafana\"/>
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="grafana\" />
+        <PackageReference Include="OpenTelemetry" Version="1.15.0"/>
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.0"/>
+        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="OpenTelemetry" Version="1.11.1" />
-      <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.1" />
-      <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.0" />
+        <ProjectReference Include="..\..\src\Ydb.Sdk\src\Ydb.Sdk.csproj"/>
+        <ProjectReference Include="..\..\src\Ydb.Sdk.OpenTelemetry\src\Ydb.Sdk.OpenTelemetry.csproj"/>
     </ItemGroup>
-
 </Project>
