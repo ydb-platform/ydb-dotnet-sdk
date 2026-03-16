@@ -51,5 +51,7 @@ public class DriverOwnershipTests
         protected override void OnRpcError(EndpointInfo endpointInfo, RpcException e)
         {
         }
+        
+        public Ydb.Sdk.Tracing.YdbMetricsReporter MetricsReporter => null!;
     }
 }

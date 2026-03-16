@@ -11,9 +11,12 @@ services:
     restart: on-failure
 
   ydb:
-    image: ydbplatform/local-ydb:trunk
-    platform: linux/amd64
+#    image: ydbplatform/local-ydb:latest
+    image: cr.yandex/yc/yandex-docker-local-ydb:latest
+#    platform: linux/amd64
     container_name: ydb-local
+    hostname: ydb-local
+    entrypoint: /initialize_local_ydb
     # Official-style config override: the image ENTRYPOINT is `/initialize_local_ydb`,
     # and we pass `--config-path` as arguments to it.
     command: [ "--config-path", "/ydb_config/ydb-config.yaml" ]

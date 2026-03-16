@@ -4,6 +4,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.OpenTelemetry;
 
 const string serviceName = "ydb-sdk-adonet-sample";
 var otlpEndpoint = new Uri("http://otel-collector:4317");
@@ -19,13 +20,14 @@ using var activitySource = new ActivitySource(activitySourceName);
 using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .SetResourceBuilder(resourceBuilder)
     .AddSource(activitySourceName)
-    .AddSource("Ydb.Sdk")
+    .AddYdb()
     .AddOtlpExporter(o => { o.Endpoint = otlpEndpoint; })
     .Build();
 
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
     .SetResourceBuilder(resourceBuilder)
     .AddRuntimeInstrumentation()
+    .AddYdb()
     .AddOtlpExporter(o => { o.Endpoint = otlpEndpoint; })
     .Build();
 

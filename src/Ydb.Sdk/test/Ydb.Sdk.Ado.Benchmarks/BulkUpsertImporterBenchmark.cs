@@ -43,6 +43,8 @@ internal class BulkUpsertMockDriver : IDriver
     public ValueTask DisposeAsync() => throw new NotImplementedException();
 
     public void Dispose() => throw new NotImplementedException();
+    
+    public Ydb.Sdk.Tracing.YdbMetricsReporter MetricsReporter => null!;
 
     public Task<TResponse>
         UnaryCall<TRequest, TResponse>(Method<TRequest, TResponse> method, TRequest request,

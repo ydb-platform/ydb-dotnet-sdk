@@ -16,9 +16,11 @@
       <PackageReference Include="OpenTelemetry" Version="1.11.1" />
       <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.1" />
       <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.0" />
+      <PackageReference Include="OpenTelemetry.Exporter.Prometheus.HttpListener" Version="1.10.0-beta.1" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\Ydb.Sdk\src\Ydb.Sdk.csproj" />
+      <ProjectReference Include="..\..\src\Ydb.Sdk.OpenTelemetry\src\Ydb.Sdk.OpenTelemetry.csproj" />
     </ItemGroup>
 </Project>
