@@ -121,6 +121,51 @@ public class YdbMetricsTests : TestBase
         Assert.Contains(-1, executingMeasurements);
     }
     
+    [Fact]
+    public async Task SessionPool_EmitsConnectionCountMetrics()
+    {
+        using var listener = new MeterListener();
+        var measurements = new List<CapturedMeasurement>();
+
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Meter.Name == MeterName && instrument.Name == "db.client.connection.count")
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+
+        listener.SetMeasurementEventCallback<int>((instrument, measurement, tags, state) =>
+        {
+            var tagsDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            measurements.Add(new CapturedMeasurement(instrument.Name, measurement, tagsDict));
+        });
+
+        listener.Start();
+
+        await using var connection = await CreateOpenConnectionAsync();
+        _ = await new YdbCommand("SELECT 1;", connection).ExecuteScalarAsync();
+
+        await Task.Delay(100); 
+        
+        listener.RecordObservableInstruments();
+
+        var usedSessions = measurements.FirstOrDefault(m => 
+            m.Tags.GetValueOrDefault("db.client.connection.state")?.ToString() == "used");
+            
+        var idleSessions = measurements.FirstOrDefault(m => 
+            m.Tags.GetValueOrDefault("db.client.connection.state")?.ToString() == "idle");
+
+        Assert.NotNull(usedSessions);
+        Assert.NotNull(idleSessions);
+
+        int totalSessions = (int)usedSessions.Value + (int)idleSessions.Value;
+        Assert.True(totalSessions > 0, "Total session count should be greater than 0");
+
+        AssertCommonMetricTags(usedSessions.Tags);
+        AssertCommonMetricTags(idleSessions.Tags);
+    }
+    
     private static void AssertCommonMetricTags(IReadOnlyDictionary<string, object?> tags)
     {
         Assert.Equal("ydb", tags["db.system.name"]);

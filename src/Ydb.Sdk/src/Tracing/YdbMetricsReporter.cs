@@ -23,6 +23,8 @@ public sealed class YdbMetricsReporter : IDisposable
     {
         HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]
     };
+    
+    internal ISessionPoolStats? StatsProvider { get; set; }
 
     static YdbMetricsReporter()
     {
@@ -48,7 +50,7 @@ public sealed class YdbMetricsReporter : IDisposable
             "db.client.connection.count",
             GetSessionCount,
             unit: "{connection}",
-            description: "The number of sessions currently in the pool.");
+            description: "The number of connections that are currently in state described by the state attribute.");
     }
 
     public YdbMetricsReporter(DriverConfig config)
@@ -91,14 +93,34 @@ public sealed class YdbMetricsReporter : IDisposable
     }
 
     internal void ReportCommandFailed() => CommandsFailed.Add(1, _commonTags);
-
-    // to do: stat from SessionPool
+    
     static IEnumerable<Measurement<int>> GetSessionCount()
     {
         lock (Reporters)
         {
-            // to do 
-            return Array.Empty<Measurement<int>>();
+            var measurements = new List<Measurement<int>>();
+
+            foreach (var reporter in Reporters)
+            {
+                if (reporter.StatsProvider == null) continue;
+                measurements.Add(new Measurement<int>(
+                    reporter.StatsProvider.IdleCount,
+                    [
+                        .. reporter._commonTags,
+                        new KeyValuePair<string, object?>("db.client.connection.state", "idle")
+                    ]
+                ));
+
+                measurements.Add(new Measurement<int>(
+                    reporter.StatsProvider.BusyCount,
+                    [
+                        .. reporter._commonTags,
+                        new KeyValuePair<string, object?>("db.client.connection.state", "used")
+                    ]
+                ));
+            }
+
+            return measurements;
         }
     }
 
@@ -109,4 +131,10 @@ public sealed class YdbMetricsReporter : IDisposable
             Reporters.Remove(this);
         }
     }
+}
+
+internal interface ISessionPoolStats
+{
+    int IdleCount { get; }
+    int BusyCount { get; }
 }

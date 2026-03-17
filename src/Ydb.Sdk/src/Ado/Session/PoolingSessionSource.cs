@@ -4,10 +4,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal sealed class PoolingSessionSource<T> : ISessionSource where T : PoolingSessionBase<T>
+internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSource where T : PoolingSessionBase<T>
 {
     private const int DisposeTimeoutSeconds = 10;
 
@@ -46,6 +47,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         _sessionIdleTimeout = TimeSpan.FromSeconds(settings.SessionIdleTimeout);
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
         _logger = settings.LoggerFactory.CreateLogger<PoolingSessionSource<T>>();
+
+        Driver.MetricsReporter.StatsProvider = this;
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken = default)
@@ -311,6 +314,9 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
     private Exception ObjectDisposedException =>
         new ObjectDisposedException(nameof(PoolingSessionSource<T>), "The session source has been closed.");
+
+    public int IdleCount => _idleSessions.Count;
+    public int BusyCount => Math.Max(0, _numSessions - _idleSessions.Count);
 }
 
 internal interface IPoolingSessionFactory<T> : IAsyncDisposable where T : PoolingSessionBase<T>

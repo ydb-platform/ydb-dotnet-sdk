@@ -50,6 +50,26 @@
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
       ]
+    },
+    {
+      "title": "Session Pool State",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right" }
+      },
+      "targets": [
+        {
+          "expr": "sum(db_client_connection_count{db_client_connection_state=\"used\"})",
+          "legendFormat": "Used Sessions",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "sum(db_client_connection_count{db_client_connection_state=\"idle\"})",
+          "legendFormat": "Idle Sessions",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
     }
   ],
   "schemaVersion": 38,
