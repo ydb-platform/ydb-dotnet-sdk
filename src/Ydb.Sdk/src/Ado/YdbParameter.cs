@@ -13,28 +13,31 @@ using static Ydb.Sdk.Ado.Internal.YdbValueExtensions;
 namespace Ydb.Sdk.Ado;
 
 /// <summary>
-/// Represents a parameter to a <see cref="YdbCommand"/> and optionally its mapping to a DataSet column.
-/// This class cannot be inherited.
+///     Represents a parameter to a <see cref="YdbCommand" /> and optionally its mapping to a DataSet column.
+///     This class cannot be inherited.
 /// </summary>
 /// <remarks>
-/// YdbParameter provides a way to pass parameters to YDB commands, supporting both standard ADO.NET DbType
-/// and YDB-specific YdbDbType values. It handles type conversion and null value representation for YDB operations.
+///     YdbParameter provides a way to pass parameters to YDB commands, supporting both standard ADO.NET DbType
+///     and YDB-specific YdbDbType values. It handles type conversion and null value representation for YDB operations.
 /// </remarks>
 public sealed class YdbParameter : DbParameter
 {
-    private YdbPrimitiveTypeInfo? _ydbPrimitiveTypeInfo;
-    private YdbDbType _ydbDbType = YdbDbType.Unspecified;
+    private DbType _dbType = DbType.Object;
     private string _parameterName = string.Empty;
 
+    private string _sourceColumn = string.Empty;
+    private YdbDbType _ydbDbType = YdbDbType.Unspecified;
+    private YdbPrimitiveTypeInfo? _ydbPrimitiveTypeInfo;
+
     /// <summary>
-    /// Initializes a new instance of the <see cref="YdbParameter"/> class.
+    ///     Initializes a new instance of the <see cref="YdbParameter" /> class.
     /// </summary>
     public YdbParameter()
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="YdbParameter"/> class with the specified parameter name and value.
+    ///     Initializes a new instance of the <see cref="YdbParameter" /> class with the specified parameter name and value.
     /// </summary>
     /// <param name="parameterName">The name of the parameter.</param>
     /// <param name="value">The value of the parameter.</param>
@@ -45,11 +48,11 @@ public sealed class YdbParameter : DbParameter
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="YdbParameter"/> class with the specified parameter name,
-    /// database type, and optional value.
+    ///     Initializes a new instance of the <see cref="YdbParameter" /> class with the specified parameter name,
+    ///     database type, and optional value.
     /// </summary>
     /// <param name="parameterName">The name of the parameter.</param>
-    /// <param name="dbType">The <see cref="DbType"/> of the parameter.</param>
+    /// <param name="dbType">The <see cref="DbType" /> of the parameter.</param>
     /// <param name="value">The value of the parameter, or null if not specified.</param>
     public YdbParameter(string parameterName, DbType dbType, object? value = null)
     {
@@ -59,11 +62,11 @@ public sealed class YdbParameter : DbParameter
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="YdbParameter"/> class with the specified parameter name,
-    /// YDB database type, and optional value.
+    ///     Initializes a new instance of the <see cref="YdbParameter" /> class with the specified parameter name,
+    ///     YDB database type, and optional value.
     /// </summary>
     /// <param name="parameterName">The name of the parameter.</param>
-    /// <param name="ydbDbType">The <see cref="YdbDbType"/> of the parameter.</param>
+    /// <param name="ydbDbType">The <see cref="YdbDbType" /> of the parameter.</param>
     /// <param name="value">The value of the parameter, or null if not specified.</param>
     public YdbParameter(string parameterName, YdbDbType ydbDbType, object? value = null)
     {
@@ -73,24 +76,11 @@ public sealed class YdbParameter : DbParameter
     }
 
     /// <summary>
-    /// Resets the DbType property to its original state.
+    ///     Gets or sets the YDB database type of the parameter.
     /// </summary>
     /// <remarks>
-    /// This method resets the YdbDbType to Unspecified, DbType to Object, and IsNullable to false.
-    /// </remarks>
-    public override void ResetDbType()
-    {
-        YdbDbType = YdbDbType.Unspecified;
-        DbType = DbType.Object;
-        IsNullable = false;
-    }
-
-    /// <summary>
-    /// Gets or sets the YDB database type of the parameter.
-    /// </summary>
-    /// <remarks>
-    /// YdbDbType provides YDB-specific data types that may not have direct equivalents in standard DbType.
-    /// When set, this property automatically updates the corresponding DbType value.
+    ///     YdbDbType provides YDB-specific data types that may not have direct equivalents in standard DbType.
+    ///     When set, this property automatically updates the corresponding DbType value.
     /// </remarks>
     public YdbDbType YdbDbType
     {
@@ -99,25 +89,21 @@ public sealed class YdbParameter : DbParameter
         {
             _ydbPrimitiveTypeInfo = value.PrimitiveTypeInfo();
             if (value == YdbDbType.List)
-            {
                 throw new ArgumentOutOfRangeException(nameof(value),
                     "Cannot set YdbDbType to just List. " +
                     "Use Binary-Or with the element type (e.g. Array of dates is YdbDbType.List | YdbDbType.Date)."
                 );
-            }
 
             _ydbDbType = value;
         }
     }
 
-    private DbType _dbType = DbType.Object;
-
     /// <summary>
-    /// Gets or sets the DbType of the parameter.
+    ///     Gets or sets the DbType of the parameter.
     /// </summary>
     /// <remarks>
-    /// When setting the DbType, the corresponding YdbDbType is automatically updated.
-    /// This ensures compatibility with standard ADO.NET while maintaining YDB-specific functionality.
+    ///     When setting the DbType, the corresponding YdbDbType is automatically updated.
+    ///     This ensures compatibility with standard ADO.NET while maintaining YDB-specific functionality.
     /// </remarks>
     public override DbType DbType
     {
@@ -134,20 +120,20 @@ public sealed class YdbParameter : DbParameter
     public override DataRowVersion SourceVersion { get; set; } = DataRowVersion.Current;
 
     /// <summary>
-    /// Gets or sets a value indicating whether the parameter accepts null values.
+    ///     Gets or sets a value indicating whether the parameter accepts null values.
     /// </summary>
     /// <remarks>
-    /// When true, the parameter can accept null values. This affects how null values
-    /// are handled during parameter binding and execution.
+    ///     When true, the parameter can accept null values. This affects how null values
+    ///     are handled during parameter binding and execution.
     /// </remarks>
     public override bool IsNullable { get; set; }
 
     /// <summary>
-    /// Gets or sets the name of the parameter.
+    ///     Gets or sets the name of the parameter.
     /// </summary>
     /// <remarks>
-    /// The parameter name is automatically formatted to use YDB's parameter syntax ($parameterName).
-    /// If the name starts with @, it's converted to $ syntax. If it doesn't start with $, the $ prefix is added.
+    ///     The parameter name is automatically formatted to use YDB's parameter syntax ($parameterName).
+    ///     If the name starts with @, it's converted to $ syntax. If it doesn't start with $, the $ prefix is added.
     /// </remarks>
     [AllowNull]
     [DefaultValue("")]
@@ -163,8 +149,6 @@ public sealed class YdbParameter : DbParameter
         };
     }
 
-    private string _sourceColumn = string.Empty;
-
     [AllowNull]
     [DefaultValue("")]
     public override string SourceColumn
@@ -174,11 +158,11 @@ public sealed class YdbParameter : DbParameter
     }
 
     /// <summary>
-    /// Gets or sets the value of the parameter.
+    ///     Gets or sets the value of the parameter.
     /// </summary>
     /// <remarks>
-    /// The value can be any object that is compatible with the parameter's data type.
-    /// Null values are handled according to the IsNullable property setting.
+    ///     The value can be any object that is compatible with the parameter's data type.
+    ///     Null values are handled according to the IsNullable property setting.
     /// </remarks>
     public override object? Value { get; set; }
 
@@ -187,20 +171,20 @@ public sealed class YdbParameter : DbParameter
     public override int Size { get; set; }
 
     /// <summary>
-    /// Gets or sets the number of digits used to represent the Value property.
+    ///     Gets or sets the number of digits used to represent the Value property.
     /// </summary>
     /// <remarks>
-    /// This property is used for decimal data type to specify
-    /// the total number of digits to the left and right of the decimal point.
+    ///     This property is used for decimal data type to specify
+    ///     the total number of digits to the left and right of the decimal point.
     /// </remarks>
     public override byte Precision { get; set; }
 
     /// <summary>
-    /// Gets or sets the number of decimal places to which Value is resolved.
+    ///     Gets or sets the number of decimal places to which Value is resolved.
     /// </summary>
     /// <remarks>
-    /// This property is used for decimal data type to specify
-    /// the number of digits to the right of the decimal point.
+    ///     This property is used for decimal data type to specify
+    ///     the number of digits to the right of the decimal point.
     /// </remarks>
     public override byte Scale { get; set; }
 
@@ -210,13 +194,9 @@ public sealed class YdbParameter : DbParameter
         {
             var value = Value;
 
-            if (value is YdbValue ydbValue)
-            {
-                return ydbValue.GetProto();
-            }
+            if (value is YdbValue ydbValue) return ydbValue.GetProto();
 
             if (value == null || value == DBNull.Value)
-            {
                 return _ydbPrimitiveTypeInfo?.NullValue ??
                        (_ydbDbType == YdbDbType.Decimal
                            ? DecimalNull(Precision, Scale)
@@ -226,7 +206,6 @@ public sealed class YdbParameter : DbParameter
                                : throw new InvalidOperationException(
                                    "Writing value of 'null' is not supported without explicit mapping to the YdbDbType")
                        );
-            }
 
             return _ydbDbType switch
             {
@@ -242,6 +221,23 @@ public sealed class YdbParameter : DbParameter
                 _ => throw ValueTypeNotSupportedException
             };
         }
+    }
+
+    private InvalidOperationException ValueTypeNotSupportedException =>
+        new($"Writing value of '{Value!.GetType()}' is not supported" +
+            $" for parameters having YdbDbType '{YdbDbType.ToYdbTypeName()}'");
+
+    /// <summary>
+    ///     Resets the DbType property to its original state.
+    /// </summary>
+    /// <remarks>
+    ///     This method resets the YdbDbType to Unspecified, DbType to Object, and IsNullable to false.
+    /// </remarks>
+    public override void ResetDbType()
+    {
+        YdbDbType = YdbDbType.Unspecified;
+        DbType = DbType.Object;
+        IsNullable = false;
     }
 
     private TypedValue PackObject(object value) => value switch
@@ -296,7 +292,6 @@ public sealed class YdbParameter : DbParameter
             var isOptional = false;
 
             foreach (var item in items)
-            {
                 if (item == null)
                 {
                     isOptional = true;
@@ -306,7 +301,6 @@ public sealed class YdbParameter : DbParameter
                 {
                     value.Items.Add(primitiveTypeInfo.Pack(item) ?? throw ValueTypeNotSupportedException);
                 }
-            }
 
             var type = isOptional ? primitiveTypeInfo.OptionalYdbType : primitiveTypeInfo.YdbType;
 
@@ -319,7 +313,6 @@ public sealed class YdbParameter : DbParameter
             var isOptional = false;
 
             foreach (var item in items)
-            {
                 if (item == null)
                 {
                     isOptional = true;
@@ -331,13 +324,9 @@ public sealed class YdbParameter : DbParameter
                         ? decimalValue.PackDecimal(Precision, Scale)
                         : throw ValueTypeNotSupportedException);
                 }
-            }
 
             var type = DecimalType(Precision, Scale);
-            if (isOptional)
-            {
-                type = type.OptionalType();
-            }
+            if (isOptional) type = type.OptionalType();
 
             return new TypedValue { Type = type.ListType(), Value = value };
         }
@@ -374,15 +363,11 @@ public sealed class YdbParameter : DbParameter
                         isCurrentMemberOptional ? currentMember.Type.OptionalType.Item : currentMember.Type;
 
                     if (!structMember.Name.Equals(currentMember.Name) || !structMemberType.Equals(currentMemberType))
-                    {
                         throw new InvalidOperationException(
                             $"YdbStruct schema mismatch: expected member '{structMember}', actual member '{currentMember}'.");
-                    }
 
                     if (!isStructMemberOptional && isCurrentMemberOptional) // update on optional
-                    {
                         structMember.Type = currentMember.Type;
-                    }
                 }
 
                 value.Items.Add(ydbStruct.Value);
@@ -396,18 +381,11 @@ public sealed class YdbParameter : DbParameter
                                             "or use a strongly-typed collection (e.g., List<T?>).");
     }
 
-    private InvalidOperationException ValueTypeNotSupportedException =>
-        new($"Writing value of '{Value!.GetType()}' is not supported" +
-            $" for parameters having YdbDbType '{YdbDbType.ToYdbTypeName()}'");
-
     private static System.Type? GetElementType(IList value)
     {
         var typeValue = value.GetType();
 
-        if (typeValue.IsArray)
-        {
-            return typeValue.GetElementType();
-        }
+        if (typeValue.IsArray) return typeValue.GetElementType();
 
         return typeValue.GetInterfaces()
             .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>))?

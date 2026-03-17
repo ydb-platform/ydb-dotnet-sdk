@@ -19,23 +19,23 @@ using WriterStream = IBidirectionalStream<
 
 internal class Writer<TValue> : IWriter<TValue>
 {
-    private readonly IDriverFactory _driverFactory;
     private readonly WriterConfig _config;
-    private readonly ILogger<Writer<TValue>> _logger;
-    private readonly ISerializer<TValue> _serializer;
-    private readonly GrpcRequestSettings _writerGrpcRequestSettings = new();
-    private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
-    private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeCts = new();
+    private readonly IDriverFactory _driverFactory;
+    private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
+    private readonly ILogger<Writer<TValue>> _logger;
     private readonly SemaphoreSlim _sendInFlightMessagesSemaphoreSlim = new(1);
-
-    private volatile TaskCompletionSource _tcsWakeUp = new();
-    private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
-    private volatile IWriteSession _session = DummyWriterSession.Instance;
-    private volatile int _limitBufferMaxSize;
-    private volatile bool _isStopped;
+    private readonly ISerializer<TValue> _serializer;
+    private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
+    private readonly GrpcRequestSettings _writerGrpcRequestSettings = new();
 
     private IDriver? _driver;
+    private volatile bool _isStopped;
+    private volatile int _limitBufferMaxSize;
+    private volatile IWriteSession _session = DummyWriterSession.Instance;
+    private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
+
+    private volatile TaskCompletionSource _tcsWakeUp = new();
 
     internal Writer(IDriverFactory driverFactory, WriterConfig config, ISerializer<TValue> serializer)
     {
@@ -55,11 +55,11 @@ internal class Writer<TValue> : IWriter<TValue>
     {
         TaskCompletionSource<WriteResult> tcs = new();
         await using var registrationUserCancellationTokenRegistration = cancellationToken.Register(
-            () => tcs.TrySetCanceled(), useSynchronizationContext: false
+            () => tcs.TrySetCanceled(), false
         );
         await using var writerDisposedCancellationTokenRegistration = _disposeCts.Token.Register(
             () => tcs.TrySetException(new WriterException($"Writer[{_config}] is disposed")),
-            useSynchronizationContext: false
+            false
         );
 
         byte[] data;
@@ -79,10 +79,8 @@ internal class Writer<TValue> : IWriter<TValue>
             UncompressedSize = data.Length
         };
         foreach (var metadata in message.Metadata)
-        {
             messageData.MetadataItems.Add(new MetadataItem
                 { Key = metadata.Key, Value = ByteString.CopyFrom(metadata.Value) });
-        }
 
         while (true)
         {
@@ -135,6 +133,43 @@ internal class Writer<TValue> : IWriter<TValue>
         }
     }
 
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposeCts.IsCancellationRequested) return;
+
+        await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
+        try
+        {
+            _logger.LogDebug("Signaling cancellation token to stop writing new messages");
+
+            _disposeCts.Cancel();
+        }
+        finally
+        {
+            _sendInFlightMessagesSemaphoreSlim.Release();
+        }
+
+        _logger.LogDebug("Writer[{WriterConfig}] is waiting for all in-flight messages to complete...", _config);
+
+        foreach (var inFlightMessage in _inFlightMessages)
+            try
+            {
+                await inFlightMessage.Tcs.Task;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error occurred while waiting for in-flight message SeqNo: {SeqNo}",
+                    inFlightMessage.MessageData.SeqNo);
+            }
+
+        _isStopped = true;
+
+        await _session.DisposeAsync();
+        if (_driver != null) await _driver.DisposeAsync();
+
+        _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);
+    }
+
     private async Task WaitBufferAvailable(CancellationToken cancellationToken)
     {
         var tcsBufferAvailableEvent = _tcsBufferAvailableEvent;
@@ -153,7 +188,6 @@ internal class Writer<TValue> : IWriter<TValue>
         try
         {
             while (!_disposeCts.IsCancellationRequested)
-            {
                 try
                 {
                     _driver = await PoolManager.GetDriver(_driverFactory);
@@ -165,7 +199,6 @@ internal class Writer<TValue> : IWriter<TValue>
 
                     _logger.LogError(e, "Driver initialization failed, retrying...");
                 }
-            }
 
             await Initialize();
 
@@ -176,18 +209,12 @@ internal class Writer<TValue> : IWriter<TValue>
                     await _tcsWakeUp.Task.WaitAsync(_disposeCts.Token);
                     _tcsWakeUp = new TaskCompletionSource();
 
-                    if (_toSendBuffer.IsEmpty)
-                    {
-                        continue;
-                    }
+                    if (_toSendBuffer.IsEmpty) continue;
 
                     await _sendInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token);
                     try
                     {
-                        if (_session.IsActive)
-                        {
-                            await _session.Write(_toSendBuffer);
-                        }
+                        if (_session.IsActive) await _session.Write(_toSendBuffer);
                     }
                     finally
                     {
@@ -227,15 +254,9 @@ internal class Writer<TValue> : IWriter<TValue>
                 await _driver!.BidirectionalStreamCall(TopicService.StreamWriteMethod, _writerGrpcRequestSettings);
 
             var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
-            if (_config.ProducerId != null)
-            {
-                initRequest.ProducerId = _config.ProducerId;
-            }
+            if (_config.ProducerId != null) initRequest.ProducerId = _config.ProducerId;
 
-            if (_config.PartitionId != null)
-            {
-                initRequest.PartitionId = _config.PartitionId.Value;
-            }
+            if (_config.PartitionId != null) initRequest.PartitionId = _config.PartitionId.Value;
 
             _logger.LogDebug("Sending initialization request for the write stream: {InitRequest}", initRequest);
 
@@ -318,20 +339,18 @@ internal class Writer<TValue> : IWriter<TValue>
                 }
 
                 var newSession = new WriterSession(
-                    config: _config,
-                    stream: stream,
-                    lastSeqNo: lastSeqNo,
-                    sessionId: initResponse.SessionId,
-                    initialize: Initialize,
+                    _config,
+                    stream,
+                    lastSeqNo,
+                    initResponse.SessionId,
+                    Initialize,
                     await stream.AuthToken(),
-                    logger: _logger,
-                    inFlightMessages: _inFlightMessages
+                    _logger,
+                    _inFlightMessages
                 );
 
                 if (!copyInFlightMessages.IsEmpty)
-                {
                     await newSession.Write(copyInFlightMessages); // retry prev in flight messages    
-                }
 
                 _session = newSession;
                 WakeUpWorker(); // attempt send buffer     
@@ -352,51 +371,6 @@ internal class Writer<TValue> : IWriter<TValue>
             _ = Task.Run(Initialize);
         }
     }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_disposeCts.IsCancellationRequested)
-        {
-            return;
-        }
-
-        await _sendInFlightMessagesSemaphoreSlim.WaitAsync();
-        try
-        {
-            _logger.LogDebug("Signaling cancellation token to stop writing new messages");
-
-            _disposeCts.Cancel();
-        }
-        finally
-        {
-            _sendInFlightMessagesSemaphoreSlim.Release();
-        }
-
-        _logger.LogDebug("Writer[{WriterConfig}] is waiting for all in-flight messages to complete...", _config);
-
-        foreach (var inFlightMessage in _inFlightMessages)
-        {
-            try
-            {
-                await inFlightMessage.Tcs.Task;
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "Error occurred while waiting for in-flight message SeqNo: {SeqNo}",
-                    inFlightMessage.MessageData.SeqNo);
-            }
-        }
-
-        _isStopped = true;
-
-        await _session.DisposeAsync();
-        if (_driver != null)
-        {
-            await _driver.DisposeAsync();
-        }
-
-        _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);
-    }
 }
 
 internal record MessageSending(
@@ -407,9 +381,8 @@ internal record MessageSending(
 
 internal interface IWriteSession : IAsyncDisposable
 {
-    Task Write(ConcurrentQueue<MessageSending> toSendBuffer);
-
     bool IsActive { get; }
+    Task Write(ConcurrentQueue<MessageSending> toSendBuffer);
 }
 
 internal class NotStartedWriterSession : IWriteSession
@@ -428,10 +401,7 @@ internal class NotStartedWriterSession : IWriteSession
 
     public Task Write(ConcurrentQueue<MessageSending> toSendBuffer)
     {
-        while (toSendBuffer.TryDequeue(out var messageSending))
-        {
-            messageSending.Tcs.TrySetException(_reasonException);
-        }
+        while (toSendBuffer.TryDequeue(out var messageSending)) messageSending.Tcs.TrySetException(_reasonException);
 
         return Task.CompletedTask;
     }
@@ -512,10 +482,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
                 var messageData = sendData.MessageData;
 
-                if (messageData.SeqNo == 0)
-                {
-                    messageData.SeqNo = ++currentSeqNum;
-                }
+                if (messageData.SeqNo == 0) messageData.SeqNo = ++currentSeqNum;
 
                 writeMessage.Messages.Add(messageData);
                 _inFlightMessages.Enqueue(sendData);
@@ -530,6 +497,25 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                 SessionId, Volatile.Read(ref _seqNum));
 
             ReconnectSession();
+        }
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        try
+        {
+            Logger.LogDebug("WriterSession[{SessionId}]: start dispose process", SessionId);
+
+            await Stream.RequestStreamComplete();
+            await _processingResponseStream;
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "WriterSession[{SessionId}]: error on disposing", SessionId);
+        }
+        finally
+        {
+            Stream.Dispose();
         }
     }
 
@@ -612,23 +598,4 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                 Token = token
             }
         };
-
-    public override async ValueTask DisposeAsync()
-    {
-        try
-        {
-            Logger.LogDebug("WriterSession[{SessionId}]: start dispose process", SessionId);
-
-            await Stream.RequestStreamComplete();
-            await _processingResponseStream;
-        }
-        catch (Exception e)
-        {
-            Logger.LogError(e, "WriterSession[{SessionId}]: error on disposing", SessionId);
-        }
-        finally
-        {
-            Stream.Dispose();
-        }
-    }
 }

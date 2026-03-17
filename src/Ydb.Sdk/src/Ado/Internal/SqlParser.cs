@@ -10,10 +10,7 @@ internal static class SqlParser
 
     internal static ParsedResult Parse(string sql)
     {
-        if (CacheQueries.TryGetValue(sql, out var preparedYql))
-        {
-            return preparedYql;
-        }
+        if (CacheQueries.TryGetValue(sql, out var preparedYql)) return preparedYql;
 
         var newYql = new StringBuilder();
         var sqlParamsBuilder = new SqlParamsBuilder();
@@ -48,7 +45,7 @@ internal static class SqlParser
 
                     var parsedParam = ParseNameParam(sql, curToken);
 
-                    newYql.Append(sql[fragmentToken .. curToken]).Append(parsedParam.Name);
+                    newYql.Append(sql[fragmentToken..curToken]).Append(parsedParam.Name);
                     sqlParamsBuilder.AddPrimitiveParam(parsedParam.Name, false);
                     fragmentToken = parsedParam.NextToken;
                     curToken = parsedParam.NextToken;
@@ -56,14 +53,14 @@ internal static class SqlParser
                 case '$':
                     var parsedNativeParam = ParseNameParam(sql, curToken);
 
-                    newYql.Append(sql[fragmentToken .. curToken]).Append(parsedNativeParam.Name);
+                    newYql.Append(sql[fragmentToken..curToken]).Append(parsedNativeParam.Name);
                     sqlParamsBuilder.AddPrimitiveParam(parsedNativeParam.Name, true);
                     fragmentToken = parsedNativeParam.NextToken;
                     curToken = parsedNativeParam.NextToken;
                     break;
                 case var _ when !inKeyWord && ParseInKeyWord(sql, curToken):
                     curToken += 2; // skip IN keyword
-                    newYql.Append(sql[fragmentToken .. curToken]);
+                    newYql.Append(sql[fragmentToken..curToken]);
                     curToken = ParseInListParameters(sql, curToken, sqlParamsBuilder, newYql);
                     fragmentToken = curToken;
                     break;
@@ -95,10 +92,7 @@ internal static class SqlParser
                 continue;
             }
 
-            if (sql[curToken] == stopSymbol)
-            {
-                return ++curToken;
-            }
+            if (sql[curToken] == stopSymbol) return ++curToken;
         }
 
         return curToken;
@@ -107,10 +101,7 @@ internal static class SqlParser
     // invariant sql[curToken] == '-'
     private static int ParseLineComment(string sql, int curToken)
     {
-        if (curToken + 1 >= sql.Length || sql[curToken + 1] != '-')
-        {
-            return curToken + 1;
-        }
+        if (curToken + 1 >= sql.Length || sql[curToken + 1] != '-') return curToken + 1;
 
         for (; curToken < sql.Length && sql[curToken] != '\r' && sql[curToken] != '\n'; curToken++)
         {
@@ -122,10 +113,7 @@ internal static class SqlParser
     // invariant sql[curToken] == '/'
     private static int ParseBlockComment(string sql, int curToken)
     {
-        if (curToken + 1 >= sql.Length || sql[curToken + 1] != '*')
-        {
-            return curToken + 1;
-        }
+        if (curToken + 1 >= sql.Length || sql[curToken + 1] != '*') return curToken + 1;
 
         // /* /* */ */ nest, according to SQL spec
         var level = 1;
@@ -151,10 +139,7 @@ internal static class SqlParser
                     break;
             }
 
-            if (level == 0)
-            {
-                break;
-            }
+            if (level == 0) break;
         }
 
         return curToken;
@@ -190,24 +175,17 @@ internal static class SqlParser
         var waitParam = false;
 
         while (curToken < sql.Length)
-        {
             switch (sql[curToken])
             {
                 case ',':
-                    if (listStartToken < 0 || waitParam)
-                    {
-                        return startToken; // rollback parse IN LIST
-                    }
+                    if (listStartToken < 0 || waitParam) return startToken; // rollback parse IN LIST
 
                     waitParam = true;
                     curToken++;
 
                     break;
                 case '@':
-                    if (!waitParam || (curToken + 1 < sql.Length && sql[curToken + 1] == '@'))
-                    {
-                        return startToken;
-                    }
+                    if (!waitParam || (curToken + 1 < sql.Length && sql[curToken + 1] == '@')) return startToken;
 
                     var parsedParam = ParseNameParam(sql, curToken);
 
@@ -217,22 +195,17 @@ internal static class SqlParser
 
                     break; // curToken
                 case '(':
-                    if (listStartToken >= 0)
-                    {
-                        return startToken; // rollback parse IN LIST
-                    }
+                    if (listStartToken >= 0) return startToken; // rollback parse IN LIST
 
                     listStartToken = curToken;
                     waitParam = true;
                     curToken++;
                     break;
                 case ')':
-                    if (waitParam || findNameParams.Count == 0 || listStartToken < 0)
-                    {
-                        return startToken; // rollback parse IN LIST
-                    }
+                    if (waitParam || findNameParams.Count == 0 ||
+                        listStartToken < 0) return startToken; // rollback parse IN LIST
 
-                    yql.Append(listStartToken > startToken ? sql[startToken .. listStartToken] : ' ');
+                    yql.Append(listStartToken > startToken ? sql[startToken..listStartToken] : ' ');
                     var paramListName = sqlParamsBuilder.AddListPrimitiveParams(findNameParams);
                     yql.Append(paramListName);
 
@@ -244,15 +217,11 @@ internal static class SqlParser
                     curToken = ParseBlockComment(sql, curToken);
                     break;
                 default:
-                    if (!char.IsWhiteSpace(sql[curToken]))
-                    {
-                        return startToken; // rollback parse IN LIST
-                    }
+                    if (!char.IsWhiteSpace(sql[curToken])) return startToken; // rollback parse IN LIST
 
                     curToken++;
                     break;
             }
-        }
 
         return startToken;
     }
@@ -269,11 +238,9 @@ internal static class SqlParser
         }
 
         if (curToken - prevToken == 0)
-        {
             throw new YdbException($"Have empty name parameter, invalid SQL [position: {prevToken}]");
-        }
 
-        return ($"${sql[prevToken .. curToken]}", curToken);
+        return ($"${sql[prevToken..curToken]}", curToken);
     }
 
     private static bool IsSqlIdentifierChar(this char c) => char.IsLetterOrDigit(c) || c == '_';
@@ -285,12 +252,11 @@ internal static class SqlParser
 
         private int _globalNumberListPrimitiveParam;
 
+        internal IReadOnlyList<ISqlParam> ToSqlParams => _sqlParams;
+
         internal void AddPrimitiveParam(string paramName, bool isNative)
         {
-            if (_foundParamNames.Contains(paramName))
-            {
-                return;
-            }
+            if (_foundParamNames.Contains(paramName)) return;
 
             _sqlParams.Add(new PrimitiveParam(paramName, isNative));
             _foundParamNames.Add(paramName);
@@ -304,8 +270,6 @@ internal static class SqlParser
 
             return listPrimitiveParam.Name;
         }
-
-        internal IReadOnlyList<ISqlParam> ToSqlParams => _sqlParams;
     }
 }
 

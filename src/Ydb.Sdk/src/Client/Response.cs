@@ -10,12 +10,12 @@ public interface IResponse
 
 public class ResponseBase : IResponse
 {
-    public Status Status { get; }
-
     protected ResponseBase(Status status)
     {
         Status = status;
     }
+
+    public Status Status { get; }
 
     public void EnsureSuccess() => Status.EnsureSuccess();
 }
@@ -38,10 +38,7 @@ public class ResponseWithResultBase<TResult> : ResponseBase
 
     protected ResponseWithResultBase(Status status, TResult? result) : base(status)
     {
-        if (result != null)
-        {
-            EnsureSuccess();
-        }
+        if (result != null) EnsureSuccess();
 
         _result = result;
     }
@@ -75,9 +72,7 @@ public abstract class StreamResponse<TProtoResponse, TResponse>
         get
         {
             if (_response is null)
-            {
                 throw new InvalidOperationException("Stream response not available before first Next() call.");
-            }
 
             return _response;
         }
@@ -85,18 +80,12 @@ public abstract class StreamResponse<TProtoResponse, TResponse>
 
     public async Task<bool> Next()
     {
-        if (_transportError)
-        {
-            return false;
-        }
+        if (_transportError) return false;
 
         try
         {
             var result = await _iterator.MoveNextAsync();
-            if (result)
-            {
-                _response = MakeResponse(_iterator.Current);
-            }
+            if (result) _response = MakeResponse(_iterator.Current);
 
             return result;
         }
@@ -124,8 +113,48 @@ public abstract class OperationResponse<TResult, TMetadata> : IClientOperation
     where TResult : class
     where TMetadata : class
 {
-    private readonly TResult? _result;
     private readonly TMetadata? _metadata;
+    private readonly TResult? _result;
+
+    protected OperationResponse(ClientOperation operation)
+    {
+        Id = operation.Id;
+        IsReady = operation.IsReady;
+        Status = operation.Status;
+
+        if (operation.HasResult)
+            // ReSharper disable once VirtualMemberCallInConstructor
+            _result = UnpackResult(operation);
+
+        if (operation.HasMetadata)
+            // ReSharper disable once VirtualMemberCallInConstructor
+            _metadata = UnpackMetadata(operation);
+    }
+
+    protected OperationResponse(Status status)
+        : this(new ClientOperation(status))
+    {
+    }
+
+    public TResult Result
+    {
+        get
+        {
+            if (_result is null) throw new OperationException(Id, "Operation result unavailable.");
+
+            return _result;
+        }
+    }
+
+    public TMetadata Metadata
+    {
+        get
+        {
+            if (_metadata is null) throw new OperationException(Id, "Operation metadata unavailable.");
+
+            return _metadata;
+        }
+    }
 
     public string Id { get; }
 
@@ -135,57 +164,7 @@ public abstract class OperationResponse<TResult, TMetadata> : IClientOperation
 
     public bool HasResult => IsReady && _result != null;
 
-    public TResult Result
-    {
-        get
-        {
-            if (_result is null)
-            {
-                throw new OperationException(Id, "Operation result unavailable.");
-            }
-
-            return _result;
-        }
-    }
-
     public bool HasMetadata => _metadata != null;
-
-    public TMetadata Metadata
-    {
-        get
-        {
-            if (_metadata is null)
-            {
-                throw new OperationException(Id, "Operation metadata unavailable.");
-            }
-
-            return _metadata;
-        }
-    }
-
-    protected OperationResponse(ClientOperation operation)
-    {
-        Id = operation.Id;
-        IsReady = operation.IsReady;
-        Status = operation.Status;
-
-        if (operation.HasResult)
-        {
-            // ReSharper disable once VirtualMemberCallInConstructor
-            _result = UnpackResult(operation);
-        }
-
-        if (operation.HasMetadata)
-        {
-            // ReSharper disable once VirtualMemberCallInConstructor
-            _metadata = UnpackMetadata(operation);
-        }
-    }
-
-    protected OperationResponse(Status status)
-        : this(new ClientOperation(status))
-    {
-    }
 
     protected abstract TResult UnpackResult(ClientOperation operation);
     protected abstract TMetadata UnpackMetadata(ClientOperation operation);

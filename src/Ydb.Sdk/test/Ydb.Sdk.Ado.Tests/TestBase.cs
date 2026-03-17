@@ -7,6 +7,10 @@ public abstract class TestBase : IAsyncLifetime
 {
     protected static string ConnectionString => TestUtils.ConnectionString;
 
+    public async Task InitializeAsync() => await OnInitializeAsync().ConfigureAwait(false);
+
+    public async Task DisposeAsync() => await OnDisposeAsync().ConfigureAwait(false);
+
     protected static YdbConnection CreateConnection() => new(
         new YdbConnectionStringBuilder(ConnectionString) { LoggerFactory = TestUtils.LoggerFactory }
     );
@@ -99,10 +103,6 @@ public abstract class TestBase : IAsyncLifetime
          FROM `{tableName}` 
          ORDER BY Int32Column;
          """;
-
-    public async Task InitializeAsync() => await OnInitializeAsync().ConfigureAwait(false);
-
-    public async Task DisposeAsync() => await OnDisposeAsync().ConfigureAwait(false);
 
     protected virtual Task OnInitializeAsync() => Task.CompletedTask;
 

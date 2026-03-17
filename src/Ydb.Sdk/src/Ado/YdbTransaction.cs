@@ -7,51 +7,56 @@ using Ydb.Sdk.Tracing;
 namespace Ydb.Sdk.Ado;
 
 /// <summary>
-/// Represents a YDB transaction. This class cannot be inherited.
+///     Represents a YDB transaction. This class cannot be inherited.
 /// </summary>
 /// <remarks>
-/// YdbTransaction represents a database transaction in YDB. It provides methods to commit or rollback
-/// changes made within the transaction. The transaction mode determines the isolation level and
-/// consistency guarantees.
-/// 
-/// <para>
-/// For more information about YDB transaction modes, see:
-/// <see href="https://ydb.tech/docs/en/concepts/transactions">YDB Transactions Documentation</see>.
-/// </para>
+///     YdbTransaction represents a database transaction in YDB. It provides methods to commit or rollback
+///     changes made within the transaction. The transaction mode determines the isolation level and
+///     consistency guarantees.
+///     <para>
+///         For more information about YDB transaction modes, see:
+///         <see href="https://ydb.tech/docs/en/concepts/transactions">YDB Transactions Documentation</see>.
+///     </para>
 /// </remarks>
 public sealed class YdbTransaction : DbTransaction
 {
     private readonly TransactionMode _transactionMode;
 
     private bool _failed;
-    private YdbConnection? _ydbConnection;
     private bool _isDisposed;
+    private YdbConnection? _ydbConnection;
+
+    internal YdbTransaction(YdbConnection ydbConnection, TransactionMode transactionMode)
+    {
+        _ydbConnection = ydbConnection;
+        _transactionMode = transactionMode;
+    }
 
     /// <summary>
-    /// Gets or sets the transaction identifier.
+    ///     Gets or sets the transaction identifier.
     /// </summary>
     /// <remarks>
-    /// The transaction ID is assigned by YDB when the transaction is started.
-    /// This property is used internally for transaction management.
+    ///     The transaction ID is assigned by YDB when the transaction is started.
+    ///     This property is used internally for transaction management.
     /// </remarks>
     internal string? TxId { get; set; }
 
     /// <summary>
-    /// Gets a value indicating whether the transaction has been completed.
+    ///     Gets a value indicating whether the transaction has been completed.
     /// </summary>
     /// <remarks>
-    /// A transaction is considered completed when it has been committed, rolled back, or failed.
-    /// Once completed, the transaction cannot be used for further operations.
+    ///     A transaction is considered completed when it has been committed, rolled back, or failed.
+    ///     Once completed, the transaction cannot be used for further operations.
     /// </remarks>
     internal bool Completed { get; private set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the transaction has failed.
+    ///     Gets or sets a value indicating whether the transaction has failed.
     /// </summary>
     /// <remarks>
-    /// When true, indicates that the transaction has been rolled back by the server.
-    /// A failed transaction cannot be committed. The <see cref="Rollback"/> method
-    /// can be called to mark the transaction as completed.
+    ///     When true, indicates that the transaction has been rolled back by the server.
+    ///     A failed transaction cannot be committed. The <see cref="Rollback" /> method
+    ///     can be called to mark the transaction as completed.
     /// </remarks>
     internal bool Failed
     {
@@ -64,11 +69,11 @@ public sealed class YdbTransaction : DbTransaction
     }
 
     /// <summary>
-    /// Gets the transaction control for YDB operations.
+    ///     Gets the transaction control for YDB operations.
     /// </summary>
     /// <remarks>
-    /// Returns null if the transaction is completed, otherwise returns the appropriate
-    /// transaction control based on whether the transaction has been started.
+    ///     Returns null if the transaction is completed, otherwise returns the appropriate
+    ///     transaction control based on whether the transaction has been started.
     /// </remarks>
     internal TransactionControl? TransactionControl => Completed
         ? null
@@ -76,86 +81,12 @@ public sealed class YdbTransaction : DbTransaction
             ? new TransactionControl { BeginTx = _transactionMode.TransactionSettings() }
             : new TransactionControl { TxId = TxId };
 
-    internal YdbTransaction(YdbConnection ydbConnection, TransactionMode transactionMode)
-    {
-        _ydbConnection = ydbConnection;
-        _transactionMode = transactionMode;
-    }
-
     /// <summary>
-    /// Commits the database transaction.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when the transaction has already been completed or the connection is closed.
-    /// </exception>
-    /// <exception cref="YdbOperationInProgressException">
-    /// Thrown when another operation is in progress on the connection.
-    /// </exception>
-    /// <exception cref="YdbException">
-    /// Thrown when the commit operation fails.
-    /// </exception>
-    public override void Commit() => CommitAsync().GetAwaiter().GetResult();
-
-    /// <summary>
-    /// Asynchronously commits the database transaction.
-    /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when the transaction has already been completed or the connection is closed.
-    /// </exception>
-    /// <exception cref="YdbOperationInProgressException">
-    /// Thrown when another operation is in progress on the connection.
-    /// </exception>
-    /// <exception cref="YdbException">
-    /// Thrown when the commit operation fails.
-    /// </exception>
-    public override Task CommitAsync(CancellationToken cancellationToken = new()) =>
-        FinishTransaction(isCommit: true, "ydb.Commit", cancellationToken);
-
-    /// <summary>
-    /// Rolls back the database transaction.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when the transaction has already been completed or the connection is closed.
-    /// </exception>
-    /// <exception cref="YdbOperationInProgressException">
-    /// Thrown when another operation is in progress on the connection.
-    /// </exception>
-    /// <exception cref="YdbException">
-    /// Thrown when the rollback operation fails.
-    /// </exception>
-    public override void Rollback() => RollbackAsync().GetAwaiter().GetResult();
-
-    /// <summary>
-    /// Asynchronously rolls back the database transaction.
-    /// </summary>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when the transaction has already been completed or the connection is closed.
-    /// </exception>
-    /// <exception cref="YdbOperationInProgressException">
-    /// Thrown when another operation is in progress on the connection.
-    /// </exception>
-    /// <exception cref="YdbException">
-    /// Thrown when the rollback operation fails.
-    /// </exception>
-    public override Task RollbackAsync(CancellationToken cancellationToken = new())
-    {
-        if (!Failed)
-            return FinishTransaction(isCommit: false, "ydb.Rollback", cancellationToken);
-
-        Failed = false;
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Gets the database connection associated with this transaction.
+    ///     Gets the database connection associated with this transaction.
     /// </summary>
     /// <returns>The YdbConnection associated with this transaction, or null if disposed.</returns>
     /// <exception cref="ObjectDisposedException">
-    /// Thrown when the transaction has been disposed.
+    ///     Thrown when the transaction has been disposed.
     /// </exception>
     protected override YdbConnection? DbConnection
     {
@@ -167,33 +98,32 @@ public sealed class YdbTransaction : DbTransaction
     }
 
     /// <summary>
-    /// Gets the isolation level of this transaction.
+    ///     Gets the isolation level of this transaction.
     /// </summary>
     /// <remarks>
-    /// Maps the YDB transaction mode to the corresponding ADO.NET
-    /// <see cref="System.Data.IsolationLevel"/> value:
-    /// <list type="bullet">
-    ///   <item>
-    ///     <description>
-    ///       <see cref="TransactionMode.SerializableRw"/> → <see cref="System.Data.IsolationLevel.Serializable"/>
-    ///     </description>
-    ///   </item>
-    ///   <item>
-    ///     <description>
-    ///        <see cref="TransactionMode.SnapshotRw"/> → <see cref="System.Data.IsolationLevel.Snapshot"/>
-    ///     </description>
-    ///   </item>
-    ///   <item>
-    ///     <description>
-    ///       All other modes → <see cref="System.Data.IsolationLevel.Unspecified"/>
-    ///     </description>
-    ///   </item>
-    /// </list>
-    ///
-    /// Note that for <see cref="TransactionMode.SnapshotRw"/> YDB uses optimistic
-    /// concurrency with snapshot isolation: concurrent write conflicts may cause
-    /// the transaction to be aborted by the server. This behavior is similar to
-    /// <see cref="System.Data.IsolationLevel.Snapshot"/> in ADO.NET.
+    ///     Maps the YDB transaction mode to the corresponding ADO.NET
+    ///     <see cref="System.Data.IsolationLevel" /> value:
+    ///     <list type="bullet">
+    ///         <item>
+    ///             <description>
+    ///                 <see cref="TransactionMode.SerializableRw" /> → <see cref="System.Data.IsolationLevel.Serializable" />
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 <see cref="TransactionMode.SnapshotRw" /> → <see cref="System.Data.IsolationLevel.Snapshot" />
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 All other modes → <see cref="System.Data.IsolationLevel.Unspecified" />
+    ///             </description>
+    ///         </item>
+    ///     </list>
+    ///     Note that for <see cref="TransactionMode.SnapshotRw" /> YDB uses optimistic
+    ///     concurrency with snapshot isolation: concurrent write conflicts may cause
+    ///     the transaction to be aborted by the server. This behavior is similar to
+    ///     <see cref="System.Data.IsolationLevel.Snapshot" /> in ADO.NET.
     /// </remarks>
     public override IsolationLevel IsolationLevel => _transactionMode switch
     {
@@ -202,37 +132,93 @@ public sealed class YdbTransaction : DbTransaction
         _ => IsolationLevel.Unspecified
     };
 
+    /// <summary>
+    ///     Commits the database transaction.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the transaction has already been completed or the connection is closed.
+    /// </exception>
+    /// <exception cref="YdbOperationInProgressException">
+    ///     Thrown when another operation is in progress on the connection.
+    /// </exception>
+    /// <exception cref="YdbException">
+    ///     Thrown when the commit operation fails.
+    /// </exception>
+    public override void Commit() => CommitAsync().GetAwaiter().GetResult();
+
+    /// <summary>
+    ///     Asynchronously commits the database transaction.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the transaction has already been completed or the connection is closed.
+    /// </exception>
+    /// <exception cref="YdbOperationInProgressException">
+    ///     Thrown when another operation is in progress on the connection.
+    /// </exception>
+    /// <exception cref="YdbException">
+    ///     Thrown when the commit operation fails.
+    /// </exception>
+    public override Task CommitAsync(CancellationToken cancellationToken = new()) =>
+        FinishTransaction(true, "ydb.Commit", cancellationToken);
+
+    /// <summary>
+    ///     Rolls back the database transaction.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the transaction has already been completed or the connection is closed.
+    /// </exception>
+    /// <exception cref="YdbOperationInProgressException">
+    ///     Thrown when another operation is in progress on the connection.
+    /// </exception>
+    /// <exception cref="YdbException">
+    ///     Thrown when the rollback operation fails.
+    /// </exception>
+    public override void Rollback() => RollbackAsync().GetAwaiter().GetResult();
+
+    /// <summary>
+    ///     Asynchronously rolls back the database transaction.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the transaction has already been completed or the connection is closed.
+    /// </exception>
+    /// <exception cref="YdbOperationInProgressException">
+    ///     Thrown when another operation is in progress on the connection.
+    /// </exception>
+    /// <exception cref="YdbException">
+    ///     Thrown when the rollback operation fails.
+    /// </exception>
+    public override Task RollbackAsync(CancellationToken cancellationToken = new())
+    {
+        if (!Failed)
+            return FinishTransaction(false, "ydb.Rollback", cancellationToken);
+
+        Failed = false;
+        return Task.CompletedTask;
+    }
+
     private async Task FinishTransaction(bool isCommit, string spanName, CancellationToken cancellationToken)
     {
         using var dbActivity = YdbActivitySource.StartActivity(spanName);
 
         if (DbConnection?.State == ConnectionState.Closed || Completed)
-        {
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
-        }
 
-        if (DbConnection!.IsBusy)
-        {
-            throw new YdbOperationInProgressException(DbConnection);
-        }
+        if (DbConnection!.IsBusy) throw new YdbOperationInProgressException(DbConnection);
 
         try
         {
             Completed = true;
 
-            if (TxId == null)
-            {
-                return; // transaction isn't started
-            }
+            if (TxId == null) return; // transaction isn't started
 
             if (isCommit)
-            {
                 await DbConnection.Session.CommitTransaction(TxId, dbActivity, cancellationToken);
-            }
             else
-            {
                 await DbConnection.Session.RollbackTransaction(TxId, dbActivity, cancellationToken);
-            }
         }
         catch (YdbException e)
         {
@@ -249,50 +235,44 @@ public sealed class YdbTransaction : DbTransaction
     }
 
     /// <summary>
-    /// Releases the unmanaged resources used by the YdbTransaction and optionally releases the managed resources.
+    ///     Releases the unmanaged resources used by the YdbTransaction and optionally releases the managed resources.
     /// </summary>
-    /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
+    /// <param name="disposing">
+    ///     true to release both managed and unmanaged resources; false to release only unmanaged
+    ///     resources.
+    /// </param>
     /// <remarks>
-    /// If the transaction is not completed, it will be rolled back before disposal.
+    ///     If the transaction is not completed, it will be rolled back before disposal.
     /// </remarks>
     protected override void Dispose(bool disposing)
     {
         if (_isDisposed || !disposing)
             return;
 
-        if (!Completed)
-        {
-            Rollback();
-        }
+        if (!Completed) Rollback();
 
         _isDisposed = true;
     }
 
     /// <summary>
-    /// Asynchronously releases the unmanaged resources used by the YdbTransaction.
+    ///     Asynchronously releases the unmanaged resources used by the YdbTransaction.
     /// </summary>
     /// <returns>A ValueTask representing the asynchronous disposal operation.</returns>
     /// <remarks>
-    /// If the transaction is not completed, it will be rolled back before disposal.
+    ///     If the transaction is not completed, it will be rolled back before disposal.
     /// </remarks>
     public override async ValueTask DisposeAsync()
     {
         if (_isDisposed)
             return;
 
-        if (!Completed)
-        {
-            await RollbackAsync();
-        }
+        if (!Completed) await RollbackAsync();
 
         _isDisposed = true;
     }
 
     private void CheckDisposed()
     {
-        if (_isDisposed)
-        {
-            throw new ObjectDisposedException(nameof(YdbTransaction));
-        }
+        if (_isDisposed) throw new ObjectDisposedException(nameof(YdbTransaction));
     }
 }

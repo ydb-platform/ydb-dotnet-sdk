@@ -2,9 +2,9 @@ namespace Ydb.Sdk.Ado.Tests.Utils;
 
 public class TemporaryTables<T>
 {
-    public readonly string Series = $"`series_from_{typeof(T).Name}`";
-    public readonly string Seasons = $"`seasons_from_{typeof(T).Name}`";
     public readonly string Episodes = $"`episodes_from_{typeof(T).Name}`";
+    public readonly string Seasons = $"`seasons_from_{typeof(T).Name}`";
+    public readonly string Series = $"`series_from_{typeof(T).Name}`";
 
     public string CreateTables => $"""
                                    CREATE TABLE {Series}

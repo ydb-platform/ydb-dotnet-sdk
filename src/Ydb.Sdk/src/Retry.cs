@@ -4,8 +4,21 @@ public class BackoffSettings
 {
     public static readonly double MaxBackoffDurationMs = TimeSpan.FromHours(1).TotalMilliseconds;
 
-    private readonly TimeSpan _slotDuration;
+    public static readonly BackoffSettings DefaultFastBackoff = new(
+        TimeSpan.FromMilliseconds(1),
+        10,
+        0.5
+    );
+
+    public static readonly BackoffSettings DefaultSlowBackoff = new(
+        TimeSpan.FromSeconds(1),
+        6,
+        0.5
+    );
+
     private readonly uint _ceiling;
+
+    private readonly TimeSpan _slotDuration;
     private readonly double _uncertainRatio;
 
     public BackoffSettings(TimeSpan slotDuration, uint ceiling, double uncertainRation)
@@ -14,18 +27,6 @@ public class BackoffSettings
         _ceiling = ceiling;
         _uncertainRatio = uncertainRation;
     }
-
-    public static readonly BackoffSettings DefaultFastBackoff = new(
-        slotDuration: TimeSpan.FromMilliseconds(1),
-        ceiling: 10,
-        uncertainRation: 0.5
-    );
-
-    public static readonly BackoffSettings DefaultSlowBackoff = new(
-        slotDuration: TimeSpan.FromSeconds(1),
-        ceiling: 6,
-        uncertainRation: 0.5
-    );
 
     public TimeSpan CalcBackoff(uint attemptNumber)
     {
@@ -45,17 +46,17 @@ public class BackoffSettings
 public enum RetryPolicy
 {
     /// <summary>
-    /// Do not retry the operation.
+    ///     Do not retry the operation.
     /// </summary>
     None,
 
     /// <summary>
-    /// Allow retries only for idempotent operations.
+    ///     Allow retries only for idempotent operations.
     /// </summary>
     IdempotentOnly,
 
     /// <summary>
-    /// Allow retries for all operations regardless of idempotence.
+    ///     Allow retries for all operations regardless of idempotence.
     /// </summary>
     Unconditional
 }
@@ -65,6 +66,8 @@ public record RetryRule(BackoffSettings BackoffSettings, bool DeleteSession, Ret
 public class RetrySettings
 {
     public static readonly RetrySettings DefaultInstance = new();
+
+    private static readonly BackoffSettings NoBackoff = new(TimeSpan.Zero, 10, 0.5);
 
     public RetrySettings(
         uint maxAttempts = 10,
@@ -81,8 +84,6 @@ public class RetrySettings
     private BackoffSettings SlowBackoff { get; }
 
     public bool IsIdempotent { get; set; }
-
-    private static readonly BackoffSettings NoBackoff = new(TimeSpan.Zero, 10, 0.5);
 
     public RetryRule GetRetryRule(StatusCode statusCode) => statusCode switch
     {

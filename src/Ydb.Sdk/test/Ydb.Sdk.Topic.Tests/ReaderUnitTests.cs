@@ -7,6 +7,7 @@ using Xunit;
 using Ydb.Issue;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic.Reader;
+using Ydb.Sdk.Tracing;
 using Ydb.Topic;
 using Range = Moq.Range;
 
@@ -25,8 +26,8 @@ public class ReaderUnitTests
     };
 
     private readonly IDriverFactoryMock _driverFactoryMock;
-    private readonly Mock<ReaderStream> _mockStream = new();
     private readonly Task<bool> _lastMoveNext;
+    private readonly Mock<ReaderStream> _mockStream = new();
 
     public ReaderUnitTests()
     {
@@ -37,6 +38,7 @@ public class ReaderUnitTests
         ).ReturnsAsync(_mockStream.Object);
         mockIDriver.Setup(driver => driver.DisposeAsync())
             .Callback(() => mockIDriver.Setup(driver => driver.IsDisposed).Returns(true));
+        mockIDriver.Setup(m => m.MetricsReporter).Returns((YdbMetricsReporter)null!);
         mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
 
         _driverFactoryMock = new IDriverFactoryMock(mockIDriver, "Reader_Mock");
@@ -980,7 +982,8 @@ public class ReaderUnitTests
             Status = StatusIds.Types.StatusCode.Success,
             ReadResponse = new StreamReadMessage.Types.ReadResponse
             {
-                BytesSize = 50, PartitionData =
+                BytesSize = 50,
+                PartitionData =
                 {
                     new StreamReadMessage.Types.ReadResponse.Types.PartitionData
                     {
@@ -1218,18 +1221,12 @@ public class ReaderUnitTests
         Assert.Equal("ReaderSession[SessionId] was deactivated",
             (await Assert.ThrowsAsync<ReaderException>(() => batch.CommitBatchAsync())).Message);
         Assert.Equal(3, batch.Batch.Count);
-        foreach (var message in batch.Batch)
-        {
-            Assert.Equal(bytes, message.Data);
-        }
+        foreach (var message in batch.Batch) Assert.Equal(bytes, message.Data);
 
         batch = await reader.ReadBatchAsync();
         await batch.CommitBatchAsync();
         Assert.Equal(3, batch.Batch.Count);
-        foreach (var message in batch.Batch)
-        {
-            Assert.Equal(bytes, message.Data);
-        }
+        foreach (var message in batch.Batch) Assert.Equal(bytes, message.Data);
 
         _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(8));
         _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(9, 10, Range.Inclusive));
@@ -1360,11 +1357,9 @@ public class ReaderUnitTests
             msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 1)));
 
         if (graceful)
-        {
             _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
                 msg.StopPartitionSessionResponse != null &&
                 msg.StopPartitionSessionResponse.PartitionSessionId == 1)));
-        }
     }
 
     [Fact]
@@ -1582,11 +1577,6 @@ public class ReaderUnitTests
         await reader.DisposeAsync();
     }
 
-    private class FailDeserializer : IDeserializer<int>
-    {
-        public int Deserialize(byte[] data) => throw new Exception("Some serialize exception");
-    }
-
     private static FromServer StartPartitionSessionRequest(int commitedOffset = 0) => new()
     {
         Status = StatusIds.Types.StatusCode.Success,
@@ -1607,7 +1597,6 @@ public class ReaderUnitTests
         };
 
         foreach (var arg in args)
-        {
             batch.MessageData.Add(
                 new StreamReadMessage.Types.ReadResponse.Types.MessageData
                 {
@@ -1616,14 +1605,14 @@ public class ReaderUnitTests
                     CreatedAt = new Timestamp()
                 }
             );
-        }
 
         return new FromServer
         {
             Status = StatusIds.Types.StatusCode.Success,
             ReadResponse = new StreamReadMessage.Types.ReadResponse
             {
-                BytesSize = 50, PartitionData =
+                BytesSize = 50,
+                PartitionData =
                 {
                     new StreamReadMessage.Types.ReadResponse.Types.PartitionData
                     {
@@ -1647,4 +1636,9 @@ public class ReaderUnitTests
             }
         }
     };
+
+    private class FailDeserializer : IDeserializer<int>
+    {
+        public int Deserialize(byte[] data) => throw new Exception("Some serialize exception");
+    }
 }

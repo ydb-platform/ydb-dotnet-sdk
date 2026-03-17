@@ -73,7 +73,11 @@ public class DapperIntegrationTests : TestBase
             { SeriesId = 2, SeasonId = 5, EpisodeId = 13, Title = "Test Episode", AirDate = new DateTime(2018, 8, 27) };
         var episode2 = new Episode
         {
-            SeriesId = 2, SeasonId = 5, EpisodeId = 12, Title = "Test Episode !!!", AirDate = new DateTime(2018, 8, 27)
+            SeriesId = 2,
+            SeasonId = 5,
+            EpisodeId = 12,
+            Title = "Test Episode !!!",
+            AirDate = new DateTime(2018, 8, 27)
         };
 
         var parameters1 = new DynamicParameters();
@@ -189,10 +193,8 @@ VALUES
             $"CREATE TABLE {tableName} (Id Int32, Name Text, Now Timestamp, PRIMARY KEY(Id));");
 
         for (var i = 0; i < sizeBatch; i++)
-        {
             await connection.ExecuteAsync($"INSERT INTO {tableName}(Id, Name, Now) VALUES(@Id, @Name, @Now)",
                 new { Id = i, Name = $"Name {i}", DateTime.Now });
-        }
 
         Assert.Equal(sizeBatch, Convert.ToInt32(await connection.ExecuteScalarAsync($@"
             SELECT COUNT(*) FROM {tableName} WHERE Id IN @Ids;", new { Ids = Enumerable.Range(0, sizeBatch).ToList() }

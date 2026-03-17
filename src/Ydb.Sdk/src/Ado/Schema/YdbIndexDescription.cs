@@ -3,29 +3,14 @@ using Ydb.Table;
 namespace Ydb.Sdk.Ado.Schema;
 
 /// <summary>
-/// Describes an index on a YDB table.
+///     Describes an index on a YDB table.
 /// </summary>
 /// <remarks>
-/// This class represents index metadata including name, type, indexed columns, and optional covering columns.
-/// It is used both for describing existing table indexes and for defining indexes when creating new tables.
+///     This class represents index metadata including name, type, indexed columns, and optional covering columns.
+///     It is used both for describing existing table indexes and for defining indexes when creating new tables.
 /// </remarks>
 public sealed class YdbIndexDescription
 {
-    /// <summary>
-    /// Gets the name of the index.
-    /// </summary>
-    public string Name { get; }
-
-    /// <summary>
-    /// Gets the type of the index.
-    /// </summary>
-    public YdbIndexType Type { get; }
-
-    /// <summary>
-    /// Gets the list of column names that are indexed.
-    /// </summary>
-    public IReadOnlyList<string> Columns { get; }
-
     internal YdbIndexDescription(TableIndexDescription index) : this(index.Name, index.TypeCase switch
     {
         TableIndexDescription.TypeOneofCase.GlobalIndex => YdbIndexType.Global,
@@ -38,7 +23,8 @@ public sealed class YdbIndexDescription
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="YdbIndexDescription"/> class with the specified name, type, and columns.
+    ///     Initializes a new instance of the <see cref="YdbIndexDescription" /> class with the specified name, type, and
+    ///     columns.
     /// </summary>
     /// <param name="name">The name of the index.</param>
     /// <param name="type">The type of the index (Global, GlobalAsync, or GlobalUnique).</param>
@@ -51,14 +37,29 @@ public sealed class YdbIndexDescription
     }
 
     /// <summary>
-    /// Gets or sets the list of covering columns for this index.
+    ///     Gets the name of the index.
+    /// </summary>
+    public string Name { get; }
+
+    /// <summary>
+    ///     Gets the type of the index.
+    /// </summary>
+    public YdbIndexType Type { get; }
+
+    /// <summary>
+    ///     Gets the list of column names that are indexed.
+    /// </summary>
+    public IReadOnlyList<string> Columns { get; }
+
+    /// <summary>
+    ///     Gets or sets the list of covering columns for this index.
     /// </summary>
     /// <value>
-    /// The list of column names that are included in the index for covering queries.
-    /// Default is an empty list.
+    ///     The list of column names that are included in the index for covering queries.
+    ///     Default is an empty list.
     /// </value>
     /// <remarks>
-    /// Covering columns allow the index to satisfy queries without accessing the main table.
+    ///     Covering columns allow the index to satisfy queries without accessing the main table.
     /// </remarks>
     public IReadOnlyList<string> CoverColumns { get; init; } = Array.Empty<string>();
 
@@ -91,22 +92,22 @@ public sealed class YdbIndexDescription
 }
 
 /// <summary>
-/// Specifies the type of index on a YDB table.
+///     Specifies the type of index on a YDB table.
 /// </summary>
 public enum YdbIndexType
 {
     /// <summary>
-    /// Global index. Provides fast lookups across partitions.
+    ///     Global index. Provides fast lookups across partitions.
     /// </summary>
     Global,
 
     /// <summary>
-    /// Global asynchronous index. Built asynchronously in the background.
+    ///     Global asynchronous index. Built asynchronously in the background.
     /// </summary>
     GlobalAsync,
 
     /// <summary>
-    /// Global unique index. Enforces uniqueness across partitions.
+    ///     Global unique index. Enforces uniqueness across partitions.
     /// </summary>
     GlobalUnique
 }

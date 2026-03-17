@@ -19,8 +19,8 @@ public interface IClientOperation
 
 public class ClientOperation : IClientOperation
 {
-    private readonly Any? _result;
     private readonly Any? _metadata;
+    private readonly Any? _result;
 
     public ClientOperation(Status status)
     {
@@ -38,6 +38,16 @@ public class ClientOperation : IClientOperation
         _metadata = operation.Metadata;
     }
 
+    public Any Metadata
+    {
+        get
+        {
+            if (_metadata is null) throw new OperationException(Id, "Operation metadata unavailable.");
+
+            return _metadata;
+        }
+    }
+
     public string Id { get; }
 
     public bool IsReady { get; }
@@ -48,35 +58,16 @@ public class ClientOperation : IClientOperation
 
     public bool HasMetadata => _metadata != null;
 
-    public Any Metadata
-    {
-        get
-        {
-            if (_metadata is null)
-            {
-                throw new OperationException(Id, "Operation metadata unavailable.");
-            }
-
-            return _metadata;
-        }
-    }
-
     public void EnsureReady()
     {
-        if (!IsReady)
-        {
-            throw new OperationException(Id, "Operation not ready.");
-        }
+        if (!IsReady) throw new OperationException(Id, "Operation not ready.");
     }
 
     public TResult UnpackResult<TResult>() where TResult : IMessage, new()
     {
         EnsureReady();
 
-        if (!HasResult)
-        {
-            throw new OperationException(Id, "Operation result unavailable.");
-        }
+        if (!HasResult) throw new OperationException(Id, "Operation result unavailable.");
 
         Debug.Assert(_result != null);
         return _result.Unpack<TResult>();

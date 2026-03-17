@@ -16,7 +16,7 @@ public class YdbStructTest : TestBase
     [InlineData(false, 4, 3, 2)]
     [InlineData(false, 2, 3, 4)]
     public Task SetAllTypes_WhenNullOrNotNull_SuccessfullyRoundTrips(bool nullable, params int[] indexes) =>
-        RunTestWithTemporaryTable(AllTypesTable(nullable: nullable), $"AllTypesTable_Nullable_{Guid.NewGuid()}",
+        RunTestWithTemporaryTable(AllTypesTable(nullable), $"AllTypesTable_Nullable_{Guid.NewGuid()}",
             async (ydbConnection, tableName) =>
             {
                 var ydbStructs = new List<YdbStruct>
@@ -185,7 +185,6 @@ public class YdbStructTest : TestBase
                     .ExecuteReaderAsync();
 
                 if (nullable)
-                {
                     for (var it = 1; it <= 2; it++)
                     {
                         Assert.True(await ydbDataReader.ReadAsync());
@@ -197,7 +196,6 @@ public class YdbStructTest : TestBase
                             Assert.Equal(DBNull.Value, ydbDataReader.GetValue(i));
                         }
                     }
-                }
 
                 for (var it = 3; it <= 5; it++)
                 {
@@ -252,7 +250,6 @@ public class YdbStructTest : TestBase
             var insertNow = DateTime.UtcNow;
             var ydbStructsForInsert = new List<YdbStruct>();
             for (ulong i = 0; i < batchSize; i++)
-            {
                 ydbStructsForInsert.Add(new YdbStruct
                 {
                     { "id", i },
@@ -260,7 +257,6 @@ public class YdbStructTest : TestBase
                     { "is_active", true },
                     { "updated_at", insertNow }
                 });
-            }
 
             await new YdbCommand($"INSERT INTO `{tableName}` SELECT * FROM AS_TABLE($values)", ydbConnection)
                 { Parameters = { new YdbParameter("values", ydbStructsForInsert) } }.ExecuteNonQueryAsync();
@@ -270,7 +266,6 @@ public class YdbStructTest : TestBase
             var ydbStructsForUpdate = new List<YdbStruct>();
             var updateNow = DateTime.UtcNow;
             for (ulong i = 0; i < batchSize; i++)
-            {
                 ydbStructsForUpdate.Add(new YdbStruct
                 {
                     { "id", i },
@@ -278,19 +273,18 @@ public class YdbStructTest : TestBase
                     { "is_active", false },
                     { "updated_at", updateNow }
                 });
-            }
 
             await new YdbCommand($"UPDATE `{tableName}` ON SELECT * FROM AS_TABLE($values)", ydbConnection)
                 { Parameters = { new YdbParameter("values", ydbStructsForUpdate) } }.ExecuteNonQueryAsync();
             Assert.Equal(batchSize, await new YdbCommand($"SELECT COUNT(*) FROM `{tableName}`" +
                                                          " WHERE is_active = FALSE AND updated_at = @updated_at",
-                    ydbConnection) { Parameters = { new YdbParameter("updated_at", YdbDbType.Timestamp64, updateNow) } }
+                        ydbConnection)
+                    { Parameters = { new YdbParameter("updated_at", YdbDbType.Timestamp64, updateNow) } }
                 .ExecuteScalarAsync());
 
             var ydbStructsForUpsert = new List<YdbStruct>();
             var upsertNow = DateTime.UtcNow;
             for (ulong i = 0; i < 2 * batchSize; i++)
-            {
                 ydbStructsForUpsert.Add(new YdbStruct
                 {
                     { "id", i },
@@ -298,13 +292,13 @@ public class YdbStructTest : TestBase
                     { "is_active", true },
                     { "updated_at", upsertNow }
                 });
-            }
 
             await new YdbCommand($"UPSERT INTO `{tableName}` SELECT * FROM AS_TABLE($values)", ydbConnection)
                 { Parameters = { new YdbParameter("values", ydbStructsForUpsert) } }.ExecuteNonQueryAsync();
             Assert.Equal(2 * batchSize, await new YdbCommand($"SELECT COUNT(*) FROM `{tableName}`" +
                                                              " WHERE is_active = TRUE AND updated_at = @updated_at",
-                    ydbConnection) { Parameters = { new YdbParameter("updated_at", YdbDbType.Timestamp64, upsertNow) } }
+                        ydbConnection)
+                    { Parameters = { new YdbParameter("updated_at", YdbDbType.Timestamp64, upsertNow) } }
                 .ExecuteScalarAsync());
 
             await new YdbCommand($"DELETE FROM `{tableName}` ON SELECT * FROM AS_TABLE($values)", ydbConnection)

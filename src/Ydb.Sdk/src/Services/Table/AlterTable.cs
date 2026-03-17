@@ -85,9 +85,9 @@ public partial class TableClient
         };
 
         var response = await _driver.UnaryCall(
-            method: TableService.AlterTableMethod,
-            request: request,
-            settings: settings
+            TableService.AlterTableMethod,
+            request,
+            settings
         );
 
         return new AlterTableOperation(

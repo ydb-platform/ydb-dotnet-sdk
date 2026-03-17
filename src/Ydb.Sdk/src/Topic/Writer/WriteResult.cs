@@ -31,28 +31,28 @@ public class WriteResult
     }
 
     /// <summary>
-    /// The persistence status of the message
+    ///     The persistence status of the message
     /// </summary>
     public PersistenceStatus Status { get; }
 
     /// <summary>
-    /// SeqNo is a unique identifier within a specific ProducerId
+    ///     SeqNo is a unique identifier within a specific ProducerId
     /// </summary>
     public long SeqNo { get; }
 }
 
 /// <summary>
-/// Enumeration of possible message persistence states.
+///     Enumeration of possible message persistence states.
 /// </summary>
 public enum PersistenceStatus
 {
     /// <summary>
-    /// The message is recorded
+    ///     The message is recorded
     /// </summary>
     Written,
 
     /// <summary>
-    /// The message was recorded in the last call session
+    ///     The message was recorded in the last call session
     /// </summary>
     AlreadyWritten
 }

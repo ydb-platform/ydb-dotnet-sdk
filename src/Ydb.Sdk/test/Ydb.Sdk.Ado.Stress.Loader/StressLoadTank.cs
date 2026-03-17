@@ -111,7 +111,6 @@ public class StressLoadTank
 
         var workers = new List<Task>();
         for (var i = 0; i < _config.WorkerCount; i++)
-        {
             workers.Add(Task.Run(async () =>
             {
                 while (!cancellationToken.IsCancellationRequested)
@@ -135,16 +134,12 @@ public class StressLoadTank
                     }
                     catch (YdbException e)
                     {
-                        if (e.Code == StatusCode.ClientTransportTimeout)
-                        {
-                            return;
-                        }
+                        if (e.Code == StatusCode.ClientTransportTimeout) return;
 
                         _logger.LogError(e, "Fail operation");
                     }
                 }
             }, cancellationToken));
-        }
 
         await Task.WhenAll(workers);
     }
@@ -152,28 +147,15 @@ public class StressLoadTank
     private void ValidateConfig()
     {
         if (_config.PeakRps < _config.MediumRps)
-        {
             throw new ArgumentException("Peak RPS must be greater than Medium RPS");
-        }
 
-        if (_config.MediumRps < _config.MinRps)
-        {
-            throw new ArgumentException("Medium RPS must be greater than Min RPS");
-        }
+        if (_config.MediumRps < _config.MinRps) throw new ArgumentException("Medium RPS must be greater than Min RPS");
 
-        if (_config.MinRps < 1)
-        {
-            throw new ArgumentException("Min RPS must be at least 1");
-        }
+        if (_config.MinRps < 1) throw new ArgumentException("Min RPS must be at least 1");
 
         if (_config.PeakDurationSeconds < 1 || _config.MediumDurationSeconds < 1 || _config.MinDurationSeconds < 1)
-        {
             throw new ArgumentException("All duration settings must be at least 1 second");
-        }
 
-        if (string.IsNullOrWhiteSpace(_config.TestQuery))
-        {
-            throw new ArgumentException("Test query cannot be empty");
-        }
+        if (string.IsNullOrWhiteSpace(_config.TestQuery)) throw new ArgumentException("Test query cannot be empty");
     }
 }

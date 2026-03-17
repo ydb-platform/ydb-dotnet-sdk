@@ -134,18 +134,18 @@ public class StressConfigBinder(
 ) : BinderBase<StressConfig>
 {
     protected override StressConfig GetBoundValue(BindingContext bindingContext) => new(
-        ConnectionString: bindingContext.ParseResult.GetValueForArgument(connectionString),
-        PeakRps: bindingContext.ParseResult.GetValueForOption(peakRps),
-        MediumRps: bindingContext.ParseResult.GetValueForOption(mediumRps),
-        MinRps: bindingContext.ParseResult.GetValueForOption(minRps),
-        PeakDurationSeconds: bindingContext.ParseResult.GetValueForOption(peakDurationSeconds),
-        MediumDurationSeconds: bindingContext.ParseResult.GetValueForOption(mediumDurationSeconds),
-        MinDurationSeconds: bindingContext.ParseResult.GetValueForOption(minDurationSeconds),
-        TotalTestTimeSeconds: bindingContext.ParseResult.GetValueForOption(totalTestTimeSeconds),
-        SaFilePath: bindingContext.ParseResult.GetValueForOption(saFilePath),
-        TestQuery: bindingContext.ParseResult.GetValueForOption(testQuery)!,
-        ThrottlingInterval: bindingContext.ParseResult.GetValueForOption(throttlingInterval),
-        WorkerCount: bindingContext.ParseResult.GetValueForOption(workerCount)
+        bindingContext.ParseResult.GetValueForArgument(connectionString),
+        bindingContext.ParseResult.GetValueForOption(peakRps),
+        bindingContext.ParseResult.GetValueForOption(mediumRps),
+        bindingContext.ParseResult.GetValueForOption(minRps),
+        bindingContext.ParseResult.GetValueForOption(peakDurationSeconds),
+        bindingContext.ParseResult.GetValueForOption(mediumDurationSeconds),
+        bindingContext.ParseResult.GetValueForOption(minDurationSeconds),
+        bindingContext.ParseResult.GetValueForOption(totalTestTimeSeconds),
+        bindingContext.ParseResult.GetValueForOption(saFilePath),
+        bindingContext.ParseResult.GetValueForOption(testQuery)!,
+        bindingContext.ParseResult.GetValueForOption(throttlingInterval),
+        bindingContext.ParseResult.GetValueForOption(workerCount)
     );
 }
 

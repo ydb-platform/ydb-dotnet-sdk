@@ -69,9 +69,9 @@ public partial class TableClient
         };
 
         var streamIterator = await _driver.ServerStreamCall(
-            method: TableService.StreamReadTableMethod,
-            request: request,
-            settings: settings
+            TableService.StreamReadTableMethod,
+            request,
+            settings
         );
 
         return new ReadTableStream(streamIterator);

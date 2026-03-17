@@ -5,9 +5,8 @@ namespace Ydb.Sdk.Ado.Tests;
 
 public class YdbParameterCollectionTests
 {
-    private readonly YdbParameterCollection _ydbParameterCollection;
-
     private readonly YdbParameter _parameter4 = new("$param", true);
+    private readonly YdbParameterCollection _ydbParameterCollection;
 
     public YdbParameterCollectionTests()
     {
@@ -60,10 +59,7 @@ public class YdbParameterCollectionTests
     [Fact]
     public void GetEnumerator_WhenPresetCollection_ForEachYdbParameters()
     {
-        foreach (YdbParameter ydbParam in _ydbParameterCollection)
-        {
-            Assert.StartsWith("$param", ydbParam.ParameterName);
-        }
+        foreach (YdbParameter ydbParam in _ydbParameterCollection) Assert.StartsWith("$param", ydbParam.ParameterName);
     }
 
     [Fact]

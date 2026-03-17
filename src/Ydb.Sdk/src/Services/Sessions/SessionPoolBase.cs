@@ -31,10 +31,7 @@ public class GetSessionResponse<TSession> : ResponseWithResultBase<TSession>, ID
 
     protected void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            Result.Dispose();
-        }
+        if (disposing) Result.Dispose();
     }
 }
 
@@ -56,16 +53,16 @@ internal class NoPool<TSession> : ISessionPool<TSession> where TSession : Sessio
 public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where TSession : SessionBase
 {
     private const int MaxAttempts = 100;
-
-    private protected readonly Driver Driver;
-    private protected readonly ILogger Logger;
     private protected readonly SessionPoolConfig Config;
 
+    private protected readonly Driver Driver;
+    private protected readonly Stack<string> IdleSessions = new();
+
     protected readonly object Lock = new();
-    protected bool Disposed;
+    private protected readonly ILogger Logger;
 
     private protected readonly Dictionary<string, SessionState> Sessions = new();
-    private protected readonly Stack<string> IdleSessions = new();
+    protected bool Disposed;
     protected uint PendingSessions;
 
     protected SessionPoolBase(Driver driver, SessionPoolConfig config, ILogger logger)
@@ -88,6 +85,8 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where T
         return getSessionResponse;
     }
 
+    public void Dispose() => Dispose(true);
+
     private async Task<GetSessionResponse<TSession>> AttemptGetSession()
     {
         lock (Lock)
@@ -96,10 +95,7 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where T
             {
                 var sessionId = IdleSessions.Pop();
 
-                if (!Sessions.TryGetValue(sessionId, out var sessionState))
-                {
-                    continue;
-                }
+                if (!Sessions.TryGetValue(sessionId, out var sessionState)) continue;
 
                 Logger.LogTrace($"Session removed from pool: {sessionId}");
                 return new GetSessionResponse<TSession>(new Status(StatusCode.Success), sessionState.Session);
@@ -129,10 +125,7 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where T
     {
         lock (Lock)
         {
-            if (!Sessions.TryGetValue(id, out var oldSession))
-            {
-                return;
-            }
+            if (!Sessions.TryGetValue(id, out var oldSession)) return;
 
             var session = CopySession(oldSession.Session);
 
@@ -156,16 +149,11 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where T
         }
     }
 
-    public void Dispose() => Dispose(true);
-
     private void Dispose(bool disposing)
     {
         lock (Lock)
         {
-            if (Disposed)
-            {
-                return;
-            }
+            if (Disposed) return;
 
             if (disposing)
             {
@@ -202,10 +190,7 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where T
                 if (session is null)
                 {
                     var getSessionResponse = await GetSession();
-                    if (getSessionResponse.Status.IsSuccess)
-                    {
-                        session = getSessionResponse.Result;
-                    }
+                    if (getSessionResponse.Status.IsSuccess) session = getSessionResponse.Result;
 
                     response = getSessionResponse;
                 }
@@ -213,10 +198,7 @@ public abstract class SessionPoolBase<TSession> : ISessionPool<TSession> where T
                 if (session is not null)
                 {
                     response = await func(session);
-                    if (response.Status.IsSuccess)
-                    {
-                        return response;
-                    }
+                    if (response.Status.IsSuccess) return response;
                 }
 
                 var retryRule = retrySettings.GetRetryRule(response.Status.StatusCode);

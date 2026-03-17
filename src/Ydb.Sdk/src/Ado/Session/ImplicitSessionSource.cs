@@ -5,20 +5,20 @@ namespace Ydb.Sdk.Ado.Session;
 internal sealed class ImplicitSessionSource : ISessionSource
 {
     private const int DisposeTimeoutSeconds = 10;
-
-    private readonly ILogger _logger;
     private readonly TaskCompletionSource _drainedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private int _isDisposed;
+    private readonly ILogger _logger;
     private int _activeLeaseCount;
 
-    public IDriver Driver { get; }
+    private int _isDisposed;
 
     internal ImplicitSessionSource(IDriver driver, ILoggerFactory loggerFactory)
     {
         Driver = driver;
         _logger = loggerFactory.CreateLogger<ImplicitSessionSource>();
     }
+
+    public IDriver Driver { get; }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
     {
@@ -30,25 +30,6 @@ internal sealed class ImplicitSessionSource : ISessionSource
                 "The implicit session source has been closed.");
     }
 
-    private bool TryAcquireLease()
-    {
-        Interlocked.Increment(ref _activeLeaseCount);
-
-        if (Volatile.Read(ref _isDisposed) == 0)
-            return true;
-
-        ReleaseLease();
-        return false;
-    }
-
-    internal void ReleaseLease()
-    {
-        Interlocked.Decrement(ref _activeLeaseCount);
-
-        if (Volatile.Read(ref _isDisposed) == 1 && _activeLeaseCount == 0)
-            _drainedTcs.TrySetResult();
-    }
-
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) != 0)
@@ -57,9 +38,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
         try
         {
             if (Volatile.Read(ref _activeLeaseCount) != 0)
-            {
                 await _drainedTcs.Task.WaitAsync(TimeSpan.FromSeconds(DisposeTimeoutSeconds));
-            }
         }
         catch (TimeoutException)
         {
@@ -79,5 +58,24 @@ internal sealed class ImplicitSessionSource : ISessionSource
                 _logger.LogError(e, "Failed to dispose the transport driver");
             }
         }
+    }
+
+    private bool TryAcquireLease()
+    {
+        Interlocked.Increment(ref _activeLeaseCount);
+
+        if (Volatile.Read(ref _isDisposed) == 0)
+            return true;
+
+        ReleaseLease();
+        return false;
+    }
+
+    internal void ReleaseLease()
+    {
+        Interlocked.Decrement(ref _activeLeaseCount);
+
+        if (Volatile.Read(ref _isDisposed) == 1 && _activeLeaseCount == 0)
+            _drainedTcs.TrySetResult();
     }
 }

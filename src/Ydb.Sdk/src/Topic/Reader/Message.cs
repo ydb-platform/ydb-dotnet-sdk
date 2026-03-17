@@ -5,8 +5,8 @@ namespace Ydb.Sdk.Topic.Reader;
 
 public class Message<TValue>
 {
-    private readonly long _partitionSessionId;
     private readonly OffsetsRange _offsetsRange;
+    private readonly long _partitionSessionId;
     private readonly ReaderSession<TValue> _readerSession;
 
     internal Message(
@@ -37,7 +37,7 @@ public class Message<TValue>
     public TValue Data { get; }
 
     /// <summary>
-    /// The topic associated with the message.
+    ///     The topic associated with the message.
     /// </summary>
     public string Topic { get; }
 
@@ -56,13 +56,9 @@ public class Message<TValue>
 
 public class BatchMessages<TValue>
 {
-    private readonly ReaderSession<TValue> _readerSession;
     private readonly OffsetsRange _offsetsRange;
     private readonly long _partitionSessionId;
-
-    public IReadOnlyList<Message<TValue>> Batch { get; }
-
-    public string ProducerId { get; }
+    private readonly ReaderSession<TValue> _readerSession;
 
     internal BatchMessages(
         IReadOnlyList<Message<TValue>> batch,
@@ -77,6 +73,10 @@ public class BatchMessages<TValue>
         _partitionSessionId = partitionSessionId;
         ProducerId = producerId;
     }
+
+    public IReadOnlyList<Message<TValue>> Batch { get; }
+
+    public string ProducerId { get; }
 
     public Task CommitBatchAsync() => Batch.Count == 0
         ? Task.CompletedTask

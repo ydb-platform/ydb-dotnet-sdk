@@ -71,9 +71,9 @@ public partial class TableClient
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
         var streamIterator = await _driver.ServerStreamCall(
-            method: TableService.StreamExecuteScanQueryMethod,
-            request: request,
-            settings: settings
+            TableService.StreamExecuteScanQueryMethod,
+            request,
+            settings
         );
 
         return new ExecuteScanQueryStream(streamIterator);

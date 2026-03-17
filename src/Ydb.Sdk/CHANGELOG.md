@@ -1,4 +1,5 @@
-- Feat ADO.NET tracing: Refined `error.type` for `YdbException` to classify failures as `transport_error` (client transport status codes) or `ydb_error` (database status codes), while keeping `db.response.status_code`.
+- Feat ADO.NET tracing: Refined `error.type` for `YdbException` to classify failures as `transport_error` (client
+  transport status codes) or `ydb_error` (database status codes), while keeping `db.response.status_code`.
 
 ## v0.30.0
 
@@ -6,47 +7,51 @@
 
 ## v0.29.0
 
-- Feat ADO.NET: Added support for reading and writing JSON values as `System.Text.Json.JsonDocument` and `System.Text.Json.JsonElement` (for YdbDbType.Json/JsonDocument).
+- Feat ADO.NET: Added support for reading and writing JSON values as `System.Text.Json.JsonDocument` and
+  `System.Text.Json.JsonElement` (for YdbDbType.Json/JsonDocument).
 - Fixed bug: NPE in Writer.DisposeAsync().
 - Fixed bug: Driver ownership lifecycle is now synchronized to prevent race conditions.
 - **Breaking Change**: `IDriver` no longer implements `IDisposable` (interface slated to mark internal).
 - Feat ADO.NET tracing: Added spans for `QueryService` operations:
-  - `ydb.CreateSession`
-  - `ydb.ExecuteQuery`
-  - `ydb.Commit`
-  - `ydb.Rollback`
+    - `ydb.CreateSession`
+    - `ydb.ExecuteQuery`
+    - `ydb.Commit`
+    - `ydb.Rollback`
 - Feat ADO.NET tracing: Added/propagated tags on spans:
-  - `db.system.name`
-  - `db.namespace`
-  - `server.address`
-  - `server.port`
-  - `network.peer.address`
-  - `network.peer.port`
-  - `db.response.status_code` (for `YdbException`)
-  - `error.type`
-  - `ydb.node.id`
-  - `ydb.node.dc`
-- Feat ADO.NET tracing: Added retry attempt span `ydb.ExecuteWithRetry`: 
-  - `ydb.retry.attempt`
-  - `ydb.retry.backoff_ms`
+    - `db.system.name`
+    - `db.namespace`
+    - `server.address`
+    - `server.port`
+    - `network.peer.address`
+    - `network.peer.port`
+    - `db.response.status_code` (for `YdbException`)
+    - `error.type`
+    - `ydb.node.id`
+    - `ydb.node.dc`
+- Feat ADO.NET tracing: Added retry attempt span `ydb.ExecuteWithRetry`:
+    - `ydb.retry.attempt`
+    - `ydb.retry.backoff_ms`
 
 ## v0.28.0
 
 - Feat Reader/Writer: Added ConnectionString-based initialization.
 - Feat ADO.NET: Added support for `SnapshotRW` level isolation.
-- Feat: Added support for Yandex.Cloud metadata credentials (`EnableMetadataCredentials`) in `YdbConnectionStringBuilder` / connection string.
-- Feat: Added support for Yandex.Cloud service account key file (`ServiceAccountKeyFilePath`) in `YdbConnectionStringBuilder` / connection string.
-- Feat: Added validation for mutually exclusive authentication properties (`User`, `CredentialsProvider`, `ServiceAccountKeyFilePath`, `EnableMetadataCredentials`).
+- Feat: Added support for Yandex.Cloud metadata credentials (`EnableMetadataCredentials`) in
+  `YdbConnectionStringBuilder` / connection string.
+- Feat: Added support for Yandex.Cloud service account key file (`ServiceAccountKeyFilePath`) in
+  `YdbConnectionStringBuilder` / connection string.
+- Feat: Added validation for mutually exclusive authentication properties (`User`, `CredentialsProvider`,
+  `ServiceAccountKeyFilePath`, `EnableMetadataCredentials`).
 
 ## v0.27.0
 
 - Feat ADO.NET: Support control plane methods in YdbDataSource:
-  - `DescribeTable`: Returns information about the specified table (metadata).
-  - `CreateTable`: Creates new table.
-  - `CopyTable`: Creates a copy of the specified table.
-  - `CopyTables`: Creates a consistent copy of the specified tables.
-  - `RenameTables`: Renames multiple tables in a single operation.
-  - `DropTable`: Drops (deletes) a table.
+    - `DescribeTable`: Returns information about the specified table (metadata).
+    - `CreateTable`: Creates new table.
+    - `CopyTable`: Creates a copy of the specified table.
+    - `CopyTables`: Creates a consistent copy of the specified tables.
+    - `RenameTables`: Renames multiple tables in a single operation.
+    - `DropTable`: Drops (deletes) a table.
 - Dev: Discovery endpoints use `System.Threading.Timer`.
 
 ## v0.26.0
@@ -56,17 +61,21 @@
 
 ## v0.25.2
 
-- Fixed bug ADO.NET: Missing support for the YDB `Interval64` type in `YdbDataReader.GetFieldType / GetValue` ([#561](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/561)).
-- Feat ADO.NET: Added overflow-checked int-to-uint cast for YDB `Date`, `Datetime`, and `Timestamp`. `DateTime` before epoch now throws `OverflowException`.
+- Fixed bug ADO.NET: Missing support for the YDB `Interval64` type in
+  `YdbDataReader.GetFieldType / GetValue` ([#561](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/561)).
+- Feat ADO.NET: Added overflow-checked int-to-uint cast for YDB `Date`, `Datetime`, and `Timestamp`. `DateTime` before
+  epoch now throws `OverflowException`.
 - Feat ADO.NET: Added support for the `DateOnly` type in `YdbDataReader.GetFieldValue<T>`.
 
 ## v0.25.1
 
-- Fixed bug ADO.NET: `ArgumentOutOfRangeException` when using `YdbParameter` with `YdbDbType = YdbDbType.List | YdbDbType.Unspecified`;
+- Fixed bug ADO.NET: `ArgumentOutOfRangeException` when using `YdbParameter` with
+  `YdbDbType = YdbDbType.List | YdbDbType.Unspecified`;
 
 ## v0.25.0
 
-- **Breaking Change**: Renamed `YdbDbType` enum members to match the [ydb.tech](https://ydb.tech/docs/en/yql/reference/types/primitive) naming:
+- **Breaking Change**: Renamed `YdbDbType` enum members to match
+  the [ydb.tech](https://ydb.tech/docs/en/yql/reference/types/primitive) naming:
     - `UInt8` -> `Uint8`.
     - `UInt16` -> `Uint16`.
     - `UInt32` -> `Uint32`.
@@ -81,23 +90,26 @@
 ## v0.24.0
 
 - **Breaking Change**: Renamed properties in `YdbConnectionStringBuilder`:
-  - `MaxSessionPool` -> `MaxPoolSize`.
-  - `MinSessionPool` -> `MinPoolSize`.
+    - `MaxSessionPool` -> `MaxPoolSize`.
+    - `MinSessionPool` -> `MinPoolSize`.
 - Added XML documentation for all public APIs in `Ydb.Sdk`.
 - Feat ADO.NET: Added dispose timeout (10 seconds) to `PoolingSessionSource`.
 - Feat ADO.NET: Added `EnableImplicitSession` to support implicit sessions.
 
 ## v0.23.1
 
-- Fixed bug Topic Reader: NullReferenceException when handling StopPartitionSessionRequest ([#528](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/528)).
+- Fixed bug Topic Reader: NullReferenceException when handling
+  StopPartitionSessionRequest ([#528](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/528)).
 - Feat ADO.NET: Added YSON type support (YdbDbType.Yson) with byte[] values.
 
 ## v0.23.0
 
-- Feat ADO.NET: `YdbDataSource.OpenRetryableConnectionAsync` opens a retryable connection with automatic retries for transient failures.
+- Feat ADO.NET: `YdbDataSource.OpenRetryableConnectionAsync` opens a retryable connection with automatic retries for
+  transient failures.
 - Fixed bug ADO.NET/PoolManager: `SemaphoreSlim.WaitAsync` over-release on cancellation.
-- Feat ADO.NET: Mark `YdbConnection.State` as `Broken` when the underlying session is broken, including background deactivation.
-- Feat ADO.NET: Added  YdbDataSource `ExecuteAsync` and `ExecuteInTransaction` convenience methods.
+- Feat ADO.NET: Mark `YdbConnection.State` as `Broken` when the underlying session is broken, including background
+  deactivation.
+- Feat ADO.NET: Added YdbDataSource `ExecuteAsync` and `ExecuteInTransaction` convenience methods.
 - **Breaking Change**: `Ydb.Sdk.Services.Query.TxMode` moved to `Ydb.Sdk.Ado.TransactionMode`.
 - Feat ADO.NET: Cache gRPC transport by `gRPCConnectionString` to reuse channels.
 - Fixed bug wrap-around ADO.NET: Big parameterized Decimal — `((ulong)bits[1] << 32)` -> `((ulong)(uint)bits[1] << 32)`.
@@ -109,11 +121,14 @@
 
 ## v0.22.0
 
-- Added `YdbDbType` property to `YdbParameter`, allowing to explicitly specify YDB-specific data types for parameter mapping.
+- Added `YdbDbType` property to `YdbParameter`, allowing to explicitly specify YDB-specific data types for parameter
+  mapping.
 - ADO.NET: Now `YdbConnection.OpenAsync` and `YdbCommand.Execute*` throw `OperationCanceledException`,
   if the CancellationToken has already been cancelled before the method is called.
-- Feat ADO.NET: decimal type with arbitrary precision/scale ([#498](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/498)).
-- Fixed bug: interval value parsing in microseconds and double instead of ticks ([#497](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/497)).
+- Feat ADO.NET: decimal type with arbitrary
+  precision/scale ([#498](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/498)).
+- Fixed bug: interval value parsing in microseconds and double instead of
+  ticks ([#497](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/497)).
 - ADO.NET: Changed `IBulkUpsertImporter.AddRowAsync` signature: `object?[] row` → `params object[]`.
 
 ## v0.21.0
@@ -128,14 +143,16 @@
 - Fixed bug: Grpc.Core.StatusCode.Cancelled was mapped to server's Canceled status.
 - Feat ADO.NET: PoolingSessionSource 2.0 based on lock-free FIFO pooling algorithm.
 - Added new ADO.NET options:
-  - `MinPoolSize`: The minimum session pool size.
-  - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all sessions exceeds `MinPoolSize`.
+    - `MinPoolSize`: The minimum session pool size.
+    - `SessionIdleTimeout`: The time (in seconds) to wait before closing idle session in the pool if the count of all
+      sessions exceeds `MinPoolSize`.
 - Fixed bug `Reader`: unhandled exception in `TryReadRequestBytes(long bytes)`.
 - Handle `YdbException` on `DeleteSession`.
 - Do not invoke `DeleteSession` if the session is not active.
 - `YdbException`: Added cancellation token propagation support in `CommitAsync` and `RollbackAsync`.
 - Deleted legacy exceptions: Driver.TransportException, StatusUnsuccessfulException and InitializationFailureException.
-- Fixed bug: Unhandled exception System.Net.Http.HttpIOException has now been converted to YdbException ([grpc-dotnet issue](https://github.com/grpc/grpc-dotnet/issues/2638)).
+- Fixed bug: Unhandled exception System.Net.Http.HttpIOException has now been converted to
+  YdbException ([grpc-dotnet issue](https://github.com/grpc/grpc-dotnet/issues/2638)).
 - Added 'x-ydb-client-pid' header to any RPC calls.
 - Added DisableServerBalancer option to ADO.NET session creation; default false.
 
@@ -145,14 +162,16 @@
 
 ## v0.20.0
 
-- Fixed bug: SQL parser skips token after param. 
-- ADO.NET: Added support for conversion from IN (?, ?, ?) to IN $list ([#447](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/447)).
+- Fixed bug: SQL parser skips token after param.
+- ADO.NET: Added support for conversion from IN (?, ?, ?) to IN $
+  list ([#447](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/447)).
 
 ## v0.19.0
 
 - ADO.NET: session is now deactivated when cancelled.
 - Fixed bug ADO.NET: throws an `InvalidOperationException` if the connection is broken during the next invocation.
-- Fixed bug `YdbCommand`: `Execute*` methods now propagate the cancellation token only for initializing YdbDataReader; the token is not passed to the server stream.
+- Fixed bug `YdbCommand`: `Execute*` methods now propagate the cancellation token only for initializing YdbDataReader;
+  the token is not passed to the server stream.
 - `YdbCommand`: Improved cancellation token propagation in `Execute*` methods.
 - `YdbConnection`: Added cancellation token propagation support in `OpenAsync`.
 - `YdbDataReader`: Added cancellation token propagation support in `ReadAsync` and `NextResultAsync`.
@@ -168,7 +187,8 @@
 
 ## v0.18.1
 
-- Fixed bug: 'System.DateOnly' is not supported by YdbParameter ([#449](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/449)).
+- Fixed bug: 'System.DateOnly' is not supported by
+  YdbParameter ([#449](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/449)).
 - Fixed bug: Unhandled exception.
   System.Net.Http.HttpIOException ([#452](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/451)).
 - dev: LogLevel `Warning` -> `Debug` on AttachStream has been cancelled.

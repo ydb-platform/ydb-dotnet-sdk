@@ -11,6 +11,12 @@ public class QueryTx
     private readonly Session _session;
     private readonly TransactionMode _transactionMode;
 
+    internal QueryTx(Session session, TransactionMode transactionMode)
+    {
+        _session = session;
+        _transactionMode = transactionMode;
+    }
+
     private string? TxId { get; set; }
     private bool Commited { get; set; }
 
@@ -19,14 +25,8 @@ public class QueryTx
         Commited = commit | Commited;
 
         return TxId == null
-            ? _transactionMode.TransactionControl(commit: commit)
+            ? _transactionMode.TransactionControl(commit)
             : new TransactionControl { TxId = TxId, CommitTx = commit };
-    }
-
-    internal QueryTx(Session session, TransactionMode transactionMode)
-    {
-        _session = session;
-        _transactionMode = transactionMode;
     }
 
     public async ValueTask<ExecuteQueryStream> Stream(string query, Dictionary<string, YdbValue>? parameters = null,
@@ -46,10 +46,7 @@ public class QueryTx
 
         await foreach (var part in stream)
         {
-            if (part.ResultSetIndex > 0)
-            {
-                break;
-            }
+            if (part.ResultSetIndex > 0) break;
 
             rows.AddRange(part.ResultSet?.Rows ?? ImmutableList<Value.ResultSet.Row>.Empty);
         }
@@ -74,10 +71,7 @@ public class QueryTx
 
     public async Task Rollback()
     {
-        if (TxId == null)
-        {
-            return;
-        }
+        if (TxId == null) return;
 
         Commited = true;
 
@@ -86,9 +80,6 @@ public class QueryTx
 
     internal async Task Commit()
     {
-        if (!Commited)
-        {
-            await _session.CommitTransaction(TxId!);
-        }
+        if (!Commited) await _session.CommitTransaction(TxId!);
     }
 }

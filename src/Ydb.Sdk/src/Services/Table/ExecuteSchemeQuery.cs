@@ -34,9 +34,9 @@ public partial class Session
         };
 
         var response = await UnaryCall(
-            method: TableService.ExecuteSchemeQueryMethod,
-            request: request,
-            settings: settings
+            TableService.ExecuteSchemeQueryMethod,
+            request,
+            settings
         );
 
         var status = response.Operation.Unpack();

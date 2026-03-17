@@ -6,13 +6,13 @@ namespace Ydb.Sdk.Ado.Tests;
 [Collection("DisableParallelization")]
 public class YdbSchemaTests : TestBase
 {
+    private readonly HashSet<string> _allTableNames;
+    private readonly string _allTypesTable;
+    private readonly string _allTypesTableNullable;
+    private readonly HashSet<string> _simpleTableNames;
     private readonly string _table1;
     private readonly string _table2;
     private readonly string _table3;
-    private readonly string _allTypesTable;
-    private readonly string _allTypesTableNullable;
-    private readonly HashSet<string> _allTableNames;
-    private readonly HashSet<string> _simpleTableNames;
 
     public YdbSchemaTests()
     {
@@ -32,10 +32,7 @@ public class YdbSchemaTests : TestBase
 
         var table = await ydbConnection.GetSchemaAsync("Tables", [null, "TABLE"]);
 
-        foreach (DataRow row in table.Rows)
-        {
-            _allTableNames.Remove(row["table_name"].ToString()!);
-        }
+        foreach (DataRow row in table.Rows) _allTableNames.Remove(row["table_name"].ToString()!);
 
         Assert.Empty(_allTableNames);
 
@@ -118,17 +115,11 @@ public class YdbSchemaTests : TestBase
 
         var rowsA = (await ydbConnection.GetSchemaAsync("Columns", [null, "a"])).Rows;
         Assert.Equal(3, rowsA.Count);
-        for (var i = 0; i < rowsA.Count; i++)
-        {
-            CheckColumnA(rowsA[i]);
-        }
+        for (var i = 0; i < rowsA.Count; i++) CheckColumnA(rowsA[i]);
 
         var rowsB = (await ydbConnection.GetSchemaAsync("Columns", [null, "b"])).Rows;
         Assert.Equal(3, rowsB.Count);
-        for (var i = 0; i < rowsB.Count; i++)
-        {
-            CheckColumnB(rowsB[i]);
-        }
+        for (var i = 0; i < rowsB.Count; i++) CheckColumnB(rowsB[i]);
 
         foreach (var tableName in _simpleTableNames)
         {

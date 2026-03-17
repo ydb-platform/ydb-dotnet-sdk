@@ -9,8 +9,8 @@ namespace Ydb.Sdk.Topic.Tests;
 
 public class WriterIntegrationTests
 {
-    private readonly string _topicName = $"topic_{Random.Shared.Next()}";
     private readonly TopicClient _topicClient = new(Utils.ConnectionString);
+    private readonly string _topicName = $"topic_{Random.Shared.Next()}";
 
     [Fact]
     public async Task WriteAsync_WhenOneMessage_ReturnWritten()
@@ -35,7 +35,8 @@ public class WriterIntegrationTests
     public async Task WriteAsync_WhenTopicNotFound_ReturnNotFoundException()
     {
         await using var writer = new WriterBuilder<string>(Utils.ConnectionString,
-            _topicName + "_not_found") { ProducerId = "producerId" }.Build();
+                _topicName + "_not_found")
+            { ProducerId = "producerId" }.Build();
 
         Assert.Contains(
             $"Initialization failed! Status: SchemeError, Issues:\n[500017] Error: no path 'local/{_topicName + "_not_found"}'",
@@ -77,7 +78,9 @@ public class WriterIntegrationTests
         {
             InitRequest = new StreamReadMessage.Types.InitRequest
             {
-                Consumer = "Consumer", ReaderName = "reader-test", TopicsReadSettings =
+                Consumer = "Consumer",
+                ReaderName = "reader-test",
+                TopicsReadSettings =
                 {
                     new StreamReadMessage.Types.InitRequest.Types.TopicReadSettings
                         { ReadFrom = new Timestamp(), Path = topicName }

@@ -33,7 +33,6 @@ internal class StaticCredentialsAuthClient : IAuthClient
     {
         uint attempt = 0;
         while (true)
-        {
             try
             {
                 var token = await Login();
@@ -46,24 +45,17 @@ internal class StaticCredentialsAuthClient : IAuthClient
 
                 var retryRule = _retrySettings.GetRetryRule(e.Code);
 
-                if (retryRule.Policy == RetryPolicy.None || ++attempt >= _retrySettings.MaxAttempts)
-                {
-                    throw;
-                }
+                if (retryRule.Policy == RetryPolicy.None || ++attempt >= _retrySettings.MaxAttempts) throw;
 
                 await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
             }
-        }
     }
 
     private async Task<string> Login()
     {
         var request = new LoginRequest { User = _config.User };
 
-        if (_config.Password is not null)
-        {
-            request.Password = _config.Password;
-        }
+        if (_config.Password is not null) request.Password = _config.Password;
 
         using var channel = _grpcChannelFactory.CreateChannel(_config.Endpoint);
 
@@ -71,10 +63,7 @@ internal class StaticCredentialsAuthClient : IAuthClient
             .LoginAsync(request, new CallOptions(_config.GetCallMetadata));
 
         var operation = response.Operation;
-        if (operation.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(operation.Status, operation.Issues);
-        }
+        if (operation.Status.IsNotSuccess()) throw YdbException.FromServer(operation.Status, operation.Issues);
 
         return operation.Result.Unpack<LoginResult>().Token;
     }

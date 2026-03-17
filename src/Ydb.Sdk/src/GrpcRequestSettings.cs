@@ -6,9 +6,9 @@ namespace Ydb.Sdk;
 
 public class GrpcRequestSettings
 {
+    public CancellationToken CancellationToken = CancellationToken.None;
     public string TraceId { get; init; } = string.Empty;
     public TimeSpan TransportTimeout { get; init; } = TimeSpan.Zero;
-    public CancellationToken CancellationToken = CancellationToken.None;
 
     internal Activity? DbActivity { get; set; }
     internal List<string> ClientCapabilities { get; } = new();
@@ -29,25 +29,13 @@ public class OperationSettings : GrpcRequestSettings
     {
         var opParams = new OperationParams();
 
-        if (OperationTimeout != null)
-        {
-            opParams.OperationTimeout = Duration.FromTimeSpan(OperationTimeout.Value);
-        }
+        if (OperationTimeout != null) opParams.OperationTimeout = Duration.FromTimeSpan(OperationTimeout.Value);
 
-        if (CancelTimeout != null)
-        {
-            opParams.CancelAfter = Duration.FromTimeSpan(CancelTimeout.Value);
-        }
+        if (CancelTimeout != null) opParams.CancelAfter = Duration.FromTimeSpan(CancelTimeout.Value);
 
-        if (IsAsyncMode)
-        {
-            opParams.OperationMode = OperationParams.Types.OperationMode.Async;
-        }
+        if (IsAsyncMode) opParams.OperationMode = OperationParams.Types.OperationMode.Async;
 
-        if (ReportCostInfo)
-        {
-            opParams.ReportCostInfo = FeatureFlag.Types.Status.Enabled;
-        }
+        if (ReportCostInfo) opParams.ReportCostInfo = FeatureFlag.Types.Status.Enabled;
 
         return opParams;
     }

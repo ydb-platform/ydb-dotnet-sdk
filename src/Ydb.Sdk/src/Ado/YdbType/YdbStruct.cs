@@ -10,6 +10,9 @@ public class YdbStruct : IEnumerable
     internal readonly StructType StructType = new();
     internal readonly Ydb.Value Value = new();
 
+    public IEnumerator GetEnumerator() =>
+        StructType.Members.Select((t, i) => (t.Name, Value.Items[i])).GetEnumerator();
+
     public void Add(string name, object value, byte precision = 0, byte scale = 0)
     {
         if (value is decimal decimalValue)
@@ -71,7 +74,4 @@ public class YdbStruct : IEnumerable
         StructType.Members.Add(new StructMember { Name = ydbParameter.ParameterName[1..], Type = typedValue.Type });
         Value.Items.Add(typedValue.Value);
     }
-
-    public IEnumerator GetEnumerator() =>
-        StructType.Members.Select((t, i) => (t.Name, Value.Items[i])).GetEnumerator();
 }

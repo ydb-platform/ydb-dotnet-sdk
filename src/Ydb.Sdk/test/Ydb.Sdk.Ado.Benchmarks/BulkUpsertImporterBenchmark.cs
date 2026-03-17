@@ -2,6 +2,7 @@ using BenchmarkDotNet.Attributes;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado.BulkUpsert;
+using Ydb.Sdk.Tracing;
 using Ydb.Table;
 
 namespace Ydb.Sdk.Ado.Benchmarks;
@@ -30,9 +31,7 @@ public class BulkUpsertImporterBenchmark
             _maxBatchByteSize, CancellationToken.None);
 
         foreach (var row in _rows)
-        {
             await bulkUpsertImporter.AddRowAsync(row.Guid, row.String, row.Int, row.Double, row.DateTime);
-        }
 
         await bulkUpsertImporter.FlushAsync();
     }
@@ -42,9 +41,7 @@ internal class BulkUpsertMockDriver : IDriver
 {
     public ValueTask DisposeAsync() => throw new NotImplementedException();
 
-    public void Dispose() => throw new NotImplementedException();
-    
-    public Ydb.Sdk.Tracing.YdbMetricsReporter MetricsReporter => null!;
+    public YdbMetricsReporter MetricsReporter => null!;
 
     public Task<TResponse>
         UnaryCall<TRequest, TResponse>(Method<TRequest, TResponse> method, TRequest request,
@@ -70,4 +67,6 @@ internal class BulkUpsertMockDriver : IDriver
 
     public bool IsDisposed => false;
     public string Database => throw new NotImplementedException();
+
+    public void Dispose() => throw new NotImplementedException();
 }

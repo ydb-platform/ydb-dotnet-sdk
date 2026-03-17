@@ -6,6 +6,7 @@ using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 
@@ -13,9 +14,9 @@ public class PoolingSessionTests
 {
     private const long NodeId = 3;
     private const string SessionId = "sessionId";
+    private readonly Mock<IServerStream<SessionState>> _mockAttachStream = new(MockBehavior.Strict);
 
     private readonly Mock<IDriver> _mockIDriver;
-    private readonly Mock<IServerStream<SessionState>> _mockAttachStream = new(MockBehavior.Strict);
     private readonly PoolingSessionFactory _poolingSessionFactory;
     private readonly PoolingSessionSource<PoolingSession> _poolingSessionSource;
 
@@ -25,6 +26,7 @@ public class PoolingSessionTests
 
         _mockIDriver = new Mock<IDriver>(MockBehavior.Strict);
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(TestUtils.LoggerFactory);
+        _mockIDriver.Setup(m => m.MetricsReporter).Returns((YdbMetricsReporter)null!);
         _mockIDriver.Setup(driver => driver.ServerStreamCall(
             QueryService.AttachSessionMethod,
             It.Is<AttachSessionRequest>(request => request.SessionId.Equals(SessionId)),

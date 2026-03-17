@@ -20,10 +20,7 @@ public class LoadPattern(StressConfig config, ILogger logger)
             await Task.Delay(peakDurationMs, cancellationToken);
             elapsed += peakDurationMs;
 
-            if (elapsed >= totalDurationMs)
-            {
-                break;
-            }
+            if (elapsed >= totalDurationMs) break;
 
             logger.LogInformation("[{Now}]: Medium load phase (after peak)! Expected RPS: {MediumRps}", DateTime.Now,
                 config.MediumRps);
@@ -32,10 +29,7 @@ public class LoadPattern(StressConfig config, ILogger logger)
             await Task.Delay(mediumDurationMs, cancellationToken);
             elapsed += mediumDurationMs;
 
-            if (elapsed >= totalDurationMs)
-            {
-                break;
-            }
+            if (elapsed >= totalDurationMs) break;
 
             logger.LogInformation("[{Now}]: Minimum load phase! Expected RPS: {MediumRps}", DateTime.Now,
                 config.MinRps);
@@ -44,10 +38,7 @@ public class LoadPattern(StressConfig config, ILogger logger)
             await Task.Delay(minDurationMs, cancellationToken);
             elapsed += minDurationMs;
 
-            if (elapsed >= totalDurationMs)
-            {
-                break;
-            }
+            if (elapsed >= totalDurationMs) break;
 
             logger.LogInformation("[{Now}]: Medium load phase (before next peak)! Expected RPS: {MediumRps}",
                 DateTime.Now, config.MediumRps);

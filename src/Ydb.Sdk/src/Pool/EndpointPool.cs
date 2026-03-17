@@ -9,13 +9,13 @@ internal class EndpointPool
     private const int DiscoveryDegradationLimit = 50;
 
     private readonly ILogger<EndpointPool> _logger;
-    private readonly ReaderWriterLockSlim _rwLock = new();
     private readonly IRandom _random;
+    private readonly ReaderWriterLockSlim _rwLock = new();
+    private Dictionary<long, EndpointInfo> _nodeIdToEndpoint = new();
+    private int _preferredEndpointCount;
 
     // [0, 0, 0, int.Max, int.Max]
     private IReadOnlyList<EndpointInfo> _sortedByPriorityEndpoints = ImmutableArray<EndpointInfo>.Empty;
-    private Dictionary<long, EndpointInfo> _nodeIdToEndpoint = new();
-    private int _preferredEndpointCount;
 
     internal EndpointPool(ILoggerFactory loggerFactory, IRandom? random = null)
     {
@@ -57,9 +57,7 @@ internal class EndpointPool
             }
 
             if (endpointSettings.NodeId != 0) // NodeId == 0 - serverless proxy
-            {
                 nodeIdToEndpoint.Add(endpointSettings.NodeId, endpointSettings);
-            }
         }
 
         _rwLock.EnterWriteLock();
@@ -86,10 +84,7 @@ internal class EndpointPool
     {
         var knownEndpoint = _sortedByPriorityEndpoints.FirstOrDefault(pe => endpointInfo.NodeId == pe.NodeId);
 
-        if (knownEndpoint == null)
-        {
-            return false;
-        }
+        if (knownEndpoint == null) return false;
 
         if (knownEndpoint.IsPessimized)
         {
@@ -114,15 +109,9 @@ internal class EndpointPool
 
             foreach (var priorityEndpoint in _sortedByPriorityEndpoints)
             {
-                if (priorityEndpoint.Priority == bestPriority)
-                {
-                    preferredEndpointCount++;
-                }
+                if (priorityEndpoint.Priority == bestPriority) preferredEndpointCount++;
 
-                if (priorityEndpoint.IsPessimized)
-                {
-                    pessimizedCount++;
-                }
+                if (priorityEndpoint.IsPessimized) pessimizedCount++;
             }
 
             _preferredEndpointCount = preferredEndpointCount;
@@ -146,7 +135,7 @@ public record EndpointInfo(long NodeId, bool Ssl, string Host, uint Port, string
 
     internal int Priority { get; private set; }
 
-    internal void Pessimize() => Priority = int.MaxValue;
-
     internal bool IsPessimized => Priority == int.MaxValue;
+
+    internal void Pessimize() => Priority = int.MaxValue;
 }

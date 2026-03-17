@@ -15,11 +15,11 @@ using EndpointInfo = Ydb.Sdk.Pool.EndpointInfo;
 namespace Ydb.Sdk;
 
 /// <summary>
-/// Main YDB driver implementation that handles endpoint discovery and connection management.
+///     Main YDB driver implementation that handles endpoint discovery and connection management.
 /// </summary>
 /// <remarks>
-/// The Driver class provides the primary interface for connecting to YDB clusters.
-/// It automatically discovers available endpoints and manages gRPC connections.
+///     The Driver class provides the primary interface for connecting to YDB clusters.
+///     It automatically discovers available endpoints and manages gRPC connections.
 /// </remarks>
 public sealed class Driver : BaseDriver
 {
@@ -32,7 +32,7 @@ public sealed class Driver : BaseDriver
     private volatile Timer? _discoveryTimer;
 
     /// <summary>
-    /// Initializes a new instance of the Driver class.
+    ///     Initializes a new instance of the Driver class.
     /// </summary>
     /// <param name="config">Driver configuration settings.</param>
     /// <param name="loggerFactory">Optional logger factory for logging. If null, NullLoggerFactory will be used.</param>
@@ -44,7 +44,7 @@ public sealed class Driver : BaseDriver
     }
 
     /// <summary>
-    /// Creates and initializes a new Driver instance in one operation.
+    ///     Creates and initializes a new Driver instance in one operation.
     /// </summary>
     /// <param name="config">Driver configuration settings.</param>
     /// <param name="loggerFactory">Optional logger factory for logging. If null, NullLoggerFactory will be used.</param>
@@ -58,11 +58,11 @@ public sealed class Driver : BaseDriver
     }
 
     /// <summary>
-    /// Initializes the driver by discovering available endpoints.
+    ///     Initializes the driver by discovering available endpoints.
     /// </summary>
     /// <remarks>
-    /// This method performs initial endpoint discovery and starts periodic discovery.
-    /// It will retry up to 10 times with exponential backoff if discovery fails.
+    ///     This method performs initial endpoint discovery and starts periodic discovery.
+    ///     It will retry up to 10 times with exponential backoff if discovery fails.
     /// </remarks>
     /// <exception cref="YdbException">Thrown when endpoint discovery fails after all retry attempts.</exception>
     public async Task Initialize()
@@ -117,14 +117,9 @@ public sealed class Driver : BaseDriver
             Grpc.Core.StatusCode.DeadlineExceeded or
             Grpc.Core.StatusCode.ResourceExhausted
            )
-        {
             return;
-        }
 
-        if (!_endpointPool.PessimizeEndpoint(endpointInfo))
-        {
-            return;
-        }
+        if (!_endpointPool.PessimizeEndpoint(endpointInfo)) return;
 
         Logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
 
@@ -133,14 +128,11 @@ public sealed class Driver : BaseDriver
     }
 
     /// <summary>
-    /// Disposes the driver and stops periodic endpoint discovery.
+    ///     Disposes the driver and stops periodic endpoint discovery.
     /// </summary>
     protected override async ValueTask DisposeAsyncCore()
     {
-        if (_discoveryTimer != null)
-        {
-            await _discoveryTimer.DisposeAsync();
-        }
+        if (_discoveryTimer != null) await _discoveryTimer.DisposeAsync();
     }
 
     private async Task DiscoverEndpoints()
@@ -160,15 +152,12 @@ public sealed class Driver : BaseDriver
         };
 
         var response = await client.ListEndpointsAsync(
-            request: request,
-            options: await GetCallOptions(requestSettings, Config.EndpointInfo)
+            request,
+            await GetCallOptions(requestSettings, Config.EndpointInfo)
         );
 
         var operation = response.Operation;
-        if (operation.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(operation.Status, operation.Issues);
-        }
+        if (operation.Status.IsNotSuccess()) throw YdbException.FromServer(operation.Status, operation.Issues);
 
         var resultProto = operation.Result.Unpack<ListEndpointsResult>();
 

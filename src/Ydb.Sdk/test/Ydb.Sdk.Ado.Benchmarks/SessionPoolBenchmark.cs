@@ -11,14 +11,14 @@ namespace Ydb.Sdk.Ado.Benchmarks;
 [ThreadingDiagnoser]
 public class SessionPoolBenchmark
 {
-    private TestSessionPool _sessionPool = null!;
     private const int SessionPoolSize = 50;
     private const int ConcurrentTasks = 20;
+    private TestSessionPool _sessionPool = null!;
 
     [GlobalSetup]
     public void Setup()
     {
-        var config = new SessionPoolConfig(MaxSessionPool: SessionPoolSize);
+        var config = new SessionPoolConfig(SessionPoolSize);
 
         _sessionPool = new TestSessionPool(NullLogger<TestSessionPool>.Instance, config);
     }
@@ -39,14 +39,12 @@ public class SessionPoolBenchmark
         var tasks = new Task[ConcurrentTasks];
 
         for (var i = 0; i < ConcurrentTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 var session = await _sessionPool.GetSession();
                 await Task.Yield();
                 await session.Release();
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -58,14 +56,12 @@ public class SessionPoolBenchmark
         var tasks = new Task[highContentionTasks];
 
         for (var i = 0; i < highContentionTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 var session = await _sessionPool.GetSession();
                 await Task.Yield();
                 await session.Release();
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -77,7 +73,6 @@ public class SessionPoolBenchmark
         var tasks = new Task[ConcurrentTasks];
 
         for (var i = 0; i < ConcurrentTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 for (var j = 0; j < iterations; j++)
@@ -87,7 +82,6 @@ public class SessionPoolBenchmark
                     await session.Release();
                 }
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -100,7 +94,6 @@ public class SessionPoolBenchmark
         var tasks = new Task[highContentionTasks];
 
         for (var i = 0; i < highContentionTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 for (var j = 0; j < iterations; j++)
@@ -110,7 +103,6 @@ public class SessionPoolBenchmark
                     await session.Release();
                 }
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -122,7 +114,6 @@ public class SessionPoolBenchmark
         var tasks = new Task[ConcurrentTasks];
 
         for (var i = 0; i < ConcurrentTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 for (var j = 0; j < iterations; j++)
@@ -132,7 +123,6 @@ public class SessionPoolBenchmark
                     await session.Release();
                 }
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -146,7 +136,7 @@ internal class TestSessionPool(ILogger<TestSessionPool> logger, SessionPoolConfi
     protected override async Task<TestSession> CreateSession(CancellationToken cancellationToken = default)
     {
         var sessionId = $"test-session-{Interlocked.Increment(ref _sessionIdCounter)}";
-        var session = new TestSession(this, sessionId, nodeId: 1);
+        var session = new TestSession(this, sessionId, 1);
         await Task.Yield();
         return session;
     }

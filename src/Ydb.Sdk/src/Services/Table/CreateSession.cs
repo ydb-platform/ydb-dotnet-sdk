@@ -29,14 +29,14 @@ public class CreateSessionResponse : ResponseWithResultBase<CreateSessionRespons
         internal static ResultData FromProto(CreateSessionResult resultProto, Driver driver)
         {
             var session = new Session(
-                driver: driver,
-                sessionPool: null,
-                id: resultProto.SessionId,
-                nodeId: long.Parse(HttpUtility.ParseQueryString(new Uri(resultProto.SessionId).Query)["node_id"] ?? "0")
+                driver,
+                null,
+                resultProto.SessionId,
+                long.Parse(HttpUtility.ParseQueryString(new Uri(resultProto.SessionId).Query)["node_id"] ?? "0")
             );
 
             return new ResultData(
-                session: session
+                session
             );
         }
     }
@@ -54,18 +54,16 @@ public partial class TableClient
         };
 
         var response = await _driver.UnaryCall(
-            method: TableService.CreateSessionMethod,
-            request: request,
-            settings: settings
+            TableService.CreateSessionMethod,
+            request,
+            settings
         );
 
         var status = response.Operation.TryUnpack(out CreateSessionResult? resultProto);
 
         CreateSessionResponse.ResultData? result = null;
         if (status.IsSuccess && resultProto != null)
-        {
             result = CreateSessionResponse.ResultData.FromProto(resultProto, _driver);
-        }
 
         return new CreateSessionResponse(status, result);
     }

@@ -29,9 +29,9 @@ public partial class TableClient
         };
 
         var response = await _driver.UnaryCall(
-            method: TableService.DeleteSessionMethod,
-            request: request,
-            settings: settings);
+            TableService.DeleteSessionMethod,
+            request,
+            settings);
 
         var status = response.Operation.Unpack();
 

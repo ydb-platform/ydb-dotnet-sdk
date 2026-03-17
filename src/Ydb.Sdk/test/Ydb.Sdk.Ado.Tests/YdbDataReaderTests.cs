@@ -8,6 +8,9 @@ namespace Ydb.Sdk.Ado.Tests;
 
 public class YdbDataReaderTests : TestBase
 {
+    private static MockAsyncEnumerator<ExecuteQueryResponsePart> SingleEnumeratorFailed =>
+        new(new List<ExecuteQueryResponsePart> { new() { Status = StatusIds.Types.StatusCode.Aborted } });
+
     [Fact]
     public async Task BasedIteration_WhenNotCallMethodRead_ThrowException()
     {
@@ -398,20 +401,13 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         var list = new List<ExecuteQueryResponsePart>();
 
         if (longFirstResultSet)
-        {
             list.Add(new ExecuteQueryResponsePart
                 { ResultSetIndex = 0, Status = StatusIds.Types.StatusCode.Success, ResultSet = result });
-        }
 
         for (var i = 0; i < size; i++)
-        {
             list.Add(new ExecuteQueryResponsePart
                 { ResultSetIndex = i, Status = StatusIds.Types.StatusCode.Success, ResultSet = result });
-        }
 
         return new MockAsyncEnumerator<ExecuteQueryResponsePart>(list);
     }
-
-    private static MockAsyncEnumerator<ExecuteQueryResponsePart> SingleEnumeratorFailed =>
-        new(new List<ExecuteQueryResponsePart> { new() { Status = StatusIds.Types.StatusCode.Aborted } });
 }

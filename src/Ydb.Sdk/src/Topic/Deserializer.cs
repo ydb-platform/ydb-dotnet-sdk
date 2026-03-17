@@ -13,25 +13,25 @@ public interface IDeserializer<out TValue>
 public static class Deserializers
 {
     /// <summary>
-    /// String (UTF8 encoded) deserializer.
+    ///     String (UTF8 encoded) deserializer.
     /// </summary>
     public static readonly IDeserializer<string> Utf8 = new Utf8Deserializer();
 
     /// <summary>
-    /// System.Int64 (big endian encoded, network byte ordered) deserializer.
+    ///     System.Int64 (big endian encoded, network byte ordered) deserializer.
     /// </summary>
     public static readonly IDeserializer<long> Int64 = new Int64Deserializer();
 
     /// <summary>
-    /// System.Int32 (big endian encoded, network byte ordered) deserializer.
+    ///     System.Int32 (big endian encoded, network byte ordered) deserializer.
     /// </summary>
     public static readonly IDeserializer<int> Int32 = new Int32Deserializer();
 
     /// <summary>
-    /// System.Byte[] deserializer.
+    ///     System.Byte[] deserializer.
     /// </summary>
     /// <remarks>
-    /// Byte ordering is original order.
+    ///     Byte ordering is original order.
     /// </remarks>
     public static readonly IDeserializer<byte[]> ByteArray = new ByteArrayDeserializer();
 

@@ -65,12 +65,10 @@ internal class PartitionSession
     internal void HandleCommitedOffset(long commitedOffset)
     {
         if (CommitedOffset >= commitedOffset)
-        {
             _logger.LogError(
                 "PartitionSession[{PartitionSessionId}] received CommitOffsetResponse[CommitedOffset={CommitedOffset}] " +
                 "which is not greater than previous committed offset: {PrevCommitedOffset}",
                 PartitionSessionId, commitedOffset, CommitedOffset);
-        }
 
         CommitedOffset = commitedOffset;
 
@@ -87,15 +85,9 @@ internal class PartitionSession
         _isStopped = true;
 
         while (_waitCommitMessages.TryDequeue(out var commitSending))
-        {
             if (commitSending.OffsetsRange.End <= commitedOffset)
-            {
                 commitSending.TcsCommit.SetResult();
-            }
             else
-            {
                 Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
-            }
-        }
     }
 }

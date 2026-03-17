@@ -9,6 +9,213 @@ namespace Ydb.Sdk.Ado.Tests;
 
 public class YdbParameterTests : TestBase
 {
+    private static readonly DateTime SomeTimestamp = DateTime.Parse("2025-11-02T18:47:14.112353");
+    private static readonly DateTime SomeDatetime = DateTime.Parse("2025-11-02T18:47");
+    private static readonly DateTime SomeDate = DateTime.Parse("2025-11-02");
+
+    public static TheoryData<YdbDbType, IList> ExtraParams = new()
+    {
+        {
+            YdbDbType.Timestamp64, new List<DateTime>
+                { SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300) }
+        },
+        {
+            YdbDbType.Timestamp64,
+            (DateTime[])[SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300)]
+        },
+        {
+            YdbDbType.Timestamp64, new List<DateTime?>
+                { SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300), null }
+        },
+        {
+            YdbDbType.Timestamp64,
+            (DateTime?[])[SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300), null]
+        },
+        {
+            YdbDbType.Datetime64, new List<DateTime>
+                { SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300) }
+        },
+        {
+            YdbDbType.Datetime64,
+            (DateTime[])[SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300)]
+        },
+        {
+            YdbDbType.Datetime64, new List<DateTime?>
+                { SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300), null }
+        },
+        {
+            YdbDbType.Datetime64,
+            (DateTime?[])[SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300), null]
+        },
+        {
+            YdbDbType.Date32, new List<DateTime>
+                { SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300) }
+        },
+        {
+            YdbDbType.Date32,
+            (DateTime[])[SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300)]
+        },
+        {
+            YdbDbType.Date32, new List<DateTime?>
+                { SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300), null }
+        },
+        {
+            YdbDbType.Date32,
+            (DateTime?[])[SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300), null]
+        },
+        {
+            YdbDbType.Datetime, new List<DateTime>
+                { SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3) }
+        },
+        {
+            YdbDbType.Datetime,
+            (DateTime[])[SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3)]
+        },
+        {
+            YdbDbType.Datetime, new List<DateTime?>
+                { SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3), null }
+        },
+        {
+            YdbDbType.Datetime,
+            (DateTime?[])[SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3), null]
+        },
+        { YdbDbType.Date, new List<DateTime> { SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3) } },
+        {
+            YdbDbType.Date,
+            (DateTime[])[SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3)]
+        },
+        {
+            YdbDbType.Date,
+            new List<DateTime?> { SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3), null }
+        },
+        {
+            YdbDbType.Date,
+            (DateTime?[])[SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3), null]
+        },
+        {
+            YdbDbType.Interval64,
+            new List<TimeSpan?> { TimeSpan.FromDays(-1), TimeSpan.FromDays(2), TimeSpan.FromDays(-3), null }
+        },
+        {
+            YdbDbType.Interval64,
+            (TimeSpan?[])[TimeSpan.FromDays(-1), TimeSpan.FromDays(2), TimeSpan.FromDays(-3), null]
+        },
+        {
+            YdbDbType.Json,
+            new List<string?> { "{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null }
+        },
+        {
+            YdbDbType.Json,
+            (string?[])["{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null]
+        },
+        {
+            YdbDbType.JsonDocument,
+            new List<string?> { "{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null }
+        },
+        {
+            YdbDbType.JsonDocument,
+            (string?[])["{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null]
+        },
+        {
+            YdbDbType.Yson,
+            new List<byte[]?> { "{a=1u}"u8.ToArray(), "{a=2u}"u8.ToArray(), null }
+        },
+        {
+            YdbDbType.Yson,
+            (byte[]?[])["{a=1u}"u8.ToArray(), "{a=2u}"u8.ToArray(), null]
+        },
+        { YdbDbType.Int64, new List<object> { 1, 2u, (byte)3 } },
+        { YdbDbType.Int64, new object[] { 1, 2u, (byte)3 } } // only not null objects
+    };
+
+    public static TheoryData<YdbDbType, IList> ListParams => new()
+    {
+        { YdbDbType.Bool, new List<bool> { false, true, false } },
+        { YdbDbType.Bool, (bool[])[false, true, false] },
+        { YdbDbType.Int8, new List<sbyte> { 1, 2, 3 } },
+        { YdbDbType.Int8, new sbyte[] { 1, 2, 3 } },
+        { YdbDbType.Int16, new List<short> { 1, 2, 3 } },
+        { YdbDbType.Int16, new short[] { 1, 2, 3 } },
+        { YdbDbType.Int32, new List<int> { 1, 2, 3 } },
+        { YdbDbType.Int32, (int[])[1, 2, 3] },
+        { YdbDbType.Int64, new List<long> { 1, 2, 3 } },
+        { YdbDbType.Int64, new long[] { 1, 2, 3 } },
+        { YdbDbType.Uint8, new List<byte> { 1, 2, 3 } },
+        { YdbDbType.Uint16, new List<ushort> { 1, 2, 3 } },
+        { YdbDbType.Uint16, new ushort[] { 1, 2, 3 } },
+        { YdbDbType.Uint32, new List<uint> { 1, 2, 3 } },
+        { YdbDbType.Uint32, new uint[] { 1, 2, 3 } },
+        { YdbDbType.Uint64, new List<ulong> { 1, 2, 3 } },
+        { YdbDbType.Uint64, new ulong[] { 1, 2, 3 } },
+        { YdbDbType.Float, new List<float> { 1, 2, 3 } },
+        { YdbDbType.Float, new float[] { 1, 2, 3 } },
+        { YdbDbType.Double, new List<double> { 1, 2, 3 } },
+        { YdbDbType.Double, new double[] { 1, 2, 3 } },
+        { YdbDbType.Decimal, new List<decimal> { 1, 2, 3 } },
+        { YdbDbType.Decimal, new decimal[] { 1, 2, 3 } },
+        { YdbDbType.Text, new List<string> { "1", "2", "3" } },
+        { YdbDbType.Text, (string[])["1", "2", "3"] },
+        { YdbDbType.Bytes, new List<byte[]> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 } } },
+        { YdbDbType.Bytes, (byte[][])[[1, 1], [2, 2], [3, 3]] },
+        { YdbDbType.Date, new List<DateOnly> { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) } },
+        { YdbDbType.Date, new DateOnly[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) } },
+        {
+            YdbDbType.Timestamp,
+            new List<DateTime> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3) }
+        },
+        {
+            YdbDbType.Timestamp,
+            (DateTime[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3)]
+        },
+        { YdbDbType.Interval, new List<TimeSpan> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3) } },
+        { YdbDbType.Interval, (TimeSpan[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3)] },
+        { YdbDbType.Bool, new List<bool?> { false, true, false, null } },
+        { YdbDbType.Bool, (bool?[])[false, true, false, null] },
+        { YdbDbType.Int8, new List<sbyte?> { 1, 2, 3, null } },
+        { YdbDbType.Int8, new sbyte?[] { 1, 2, 3, null } },
+        { YdbDbType.Int16, new List<short?> { 1, 2, 3, null } },
+        { YdbDbType.Int16, new short?[] { 1, 2, 3, null } },
+        { YdbDbType.Int32, new List<int?> { 1, 2, 3, null } },
+        { YdbDbType.Int32, (int?[])[1, 2, 3, null] },
+        { YdbDbType.Int64, new List<long?> { 1, 2, 3, null } },
+        { YdbDbType.Int64, new long?[] { 1, 2, 3, null } },
+        { YdbDbType.Uint8, new List<byte?> { 1, 2, 3, null } },
+        { YdbDbType.Uint16, new List<ushort?> { 1, 2, 3, null } },
+        { YdbDbType.Uint16, new ushort?[] { 1, 2, 3, null } },
+        { YdbDbType.Uint32, new List<uint?> { 1, 2, 3, null } },
+        { YdbDbType.Uint32, new uint?[] { 1, 2, 3, null } },
+        { YdbDbType.Uint64, new List<ulong?> { 1, 2, 3, null } },
+        { YdbDbType.Uint64, new ulong?[] { 1, 2, 3, null } },
+        { YdbDbType.Float, new List<float?> { 1, 2, 3, null } },
+        { YdbDbType.Float, new float?[] { 1, 2, 3, null } },
+        { YdbDbType.Double, new List<double?> { 1, 2, 3, null } },
+        { YdbDbType.Double, new double?[] { 1, 2, 3, null } },
+        { YdbDbType.Decimal, new List<decimal?> { 1, 2, 3, null } },
+        { YdbDbType.Decimal, new decimal?[] { 1, 2, 3, null } },
+        { YdbDbType.Text, new List<string?> { "1", "2", "3", null } },
+        { YdbDbType.Text, (string?[])["1", "2", "3", null] },
+        { YdbDbType.Bytes, new List<byte[]?> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 }, null } },
+        { YdbDbType.Bytes, (byte[]?[])[[1, 1], [2, 2], [3, 3], null] },
+        {
+            YdbDbType.Date, new List<DateOnly?>
+                { new DateOnly(2001, 2, 26), new DateOnly(2002, 2, 24), new DateOnly(2010, 3, 14), null }
+        },
+        { YdbDbType.Date, new DateOnly?[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14), null } },
+        {
+            YdbDbType.Timestamp,
+            new List<DateTime?> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null }
+        },
+        {
+            YdbDbType.Timestamp,
+            (DateTime?[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null]
+        },
+        {
+            YdbDbType.Interval,
+            new List<TimeSpan?> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null }
+        },
+        { YdbDbType.Interval, (TimeSpan?[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null] }
+    };
+
     [Fact]
     public void YdbParameter_WhenValueIsNullAndDbTypeIsObject_ThrowException()
     {
@@ -345,7 +552,7 @@ public class YdbParameterTests : TestBase
 
 
     [Fact]
-    public Task SetNulls_WhenTableAllTypes_SussesSet() => RunTestWithTemporaryTable(AllTypesTable(nullable: true),
+    public Task SetNulls_WhenTableAllTypes_SussesSet() => RunTestWithTemporaryTable(AllTypesTable(true),
         $"AllTypes_{Random.Shared.Next()}", async (ydbConnection, tableName) =>
         {
             var ydbCommand = new YdbCommand(InsertAllTypesTable(tableName), ydbConnection)
@@ -469,213 +676,6 @@ public class YdbParameterTests : TestBase
             await ydbDataReader.CloseAsync();
         });
 
-    private static readonly DateTime SomeTimestamp = DateTime.Parse("2025-11-02T18:47:14.112353");
-    private static readonly DateTime SomeDatetime = DateTime.Parse("2025-11-02T18:47");
-    private static readonly DateTime SomeDate = DateTime.Parse("2025-11-02");
-
-    public static TheoryData<YdbDbType, IList> ListParams => new()
-    {
-        { YdbDbType.Bool, new List<bool> { false, true, false } },
-        { YdbDbType.Bool, (bool[])[false, true, false] },
-        { YdbDbType.Int8, new List<sbyte> { 1, 2, 3 } },
-        { YdbDbType.Int8, new sbyte[] { 1, 2, 3 } },
-        { YdbDbType.Int16, new List<short> { 1, 2, 3 } },
-        { YdbDbType.Int16, new short[] { 1, 2, 3 } },
-        { YdbDbType.Int32, new List<int> { 1, 2, 3 } },
-        { YdbDbType.Int32, (int[])[1, 2, 3] },
-        { YdbDbType.Int64, new List<long> { 1, 2, 3 } },
-        { YdbDbType.Int64, new long[] { 1, 2, 3 } },
-        { YdbDbType.Uint8, new List<byte> { 1, 2, 3 } },
-        { YdbDbType.Uint16, new List<ushort> { 1, 2, 3 } },
-        { YdbDbType.Uint16, new ushort[] { 1, 2, 3 } },
-        { YdbDbType.Uint32, new List<uint> { 1, 2, 3 } },
-        { YdbDbType.Uint32, new uint[] { 1, 2, 3 } },
-        { YdbDbType.Uint64, new List<ulong> { 1, 2, 3 } },
-        { YdbDbType.Uint64, new ulong[] { 1, 2, 3 } },
-        { YdbDbType.Float, new List<float> { 1, 2, 3 } },
-        { YdbDbType.Float, new float[] { 1, 2, 3 } },
-        { YdbDbType.Double, new List<double> { 1, 2, 3 } },
-        { YdbDbType.Double, new double[] { 1, 2, 3 } },
-        { YdbDbType.Decimal, new List<decimal> { 1, 2, 3 } },
-        { YdbDbType.Decimal, new decimal[] { 1, 2, 3 } },
-        { YdbDbType.Text, new List<string> { "1", "2", "3" } },
-        { YdbDbType.Text, (string[])["1", "2", "3"] },
-        { YdbDbType.Bytes, new List<byte[]> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 } } },
-        { YdbDbType.Bytes, (byte[][])[[1, 1], [2, 2], [3, 3]] },
-        { YdbDbType.Date, new List<DateOnly> { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) } },
-        { YdbDbType.Date, new DateOnly[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14) } },
-        {
-            YdbDbType.Timestamp,
-            new List<DateTime> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3) }
-        },
-        {
-            YdbDbType.Timestamp,
-            (DateTime[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3)]
-        },
-        { YdbDbType.Interval, new List<TimeSpan> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3) } },
-        { YdbDbType.Interval, (TimeSpan[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3)] },
-        { YdbDbType.Bool, new List<bool?> { false, true, false, null } },
-        { YdbDbType.Bool, (bool?[])[false, true, false, null] },
-        { YdbDbType.Int8, new List<sbyte?> { 1, 2, 3, null } },
-        { YdbDbType.Int8, new sbyte?[] { 1, 2, 3, null } },
-        { YdbDbType.Int16, new List<short?> { 1, 2, 3, null } },
-        { YdbDbType.Int16, new short?[] { 1, 2, 3, null } },
-        { YdbDbType.Int32, new List<int?> { 1, 2, 3, null } },
-        { YdbDbType.Int32, (int?[])[1, 2, 3, null] },
-        { YdbDbType.Int64, new List<long?> { 1, 2, 3, null } },
-        { YdbDbType.Int64, new long?[] { 1, 2, 3, null } },
-        { YdbDbType.Uint8, new List<byte?> { 1, 2, 3, null } },
-        { YdbDbType.Uint16, new List<ushort?> { 1, 2, 3, null } },
-        { YdbDbType.Uint16, new ushort?[] { 1, 2, 3, null } },
-        { YdbDbType.Uint32, new List<uint?> { 1, 2, 3, null } },
-        { YdbDbType.Uint32, new uint?[] { 1, 2, 3, null } },
-        { YdbDbType.Uint64, new List<ulong?> { 1, 2, 3, null } },
-        { YdbDbType.Uint64, new ulong?[] { 1, 2, 3, null } },
-        { YdbDbType.Float, new List<float?> { 1, 2, 3, null } },
-        { YdbDbType.Float, new float?[] { 1, 2, 3, null } },
-        { YdbDbType.Double, new List<double?> { 1, 2, 3, null } },
-        { YdbDbType.Double, new double?[] { 1, 2, 3, null } },
-        { YdbDbType.Decimal, new List<decimal?> { 1, 2, 3, null } },
-        { YdbDbType.Decimal, new decimal?[] { 1, 2, 3, null } },
-        { YdbDbType.Text, new List<string?> { "1", "2", "3", null } },
-        { YdbDbType.Text, (string?[])["1", "2", "3", null] },
-        { YdbDbType.Bytes, new List<byte[]?> { new byte[] { 1, 1 }, new byte[] { 2, 2 }, new byte[] { 3, 3 }, null } },
-        { YdbDbType.Bytes, (byte[]?[])[[1, 1], [2, 2], [3, 3], null] },
-        {
-            YdbDbType.Date, new List<DateOnly?>
-                { new DateOnly(2001, 2, 26), new DateOnly(2002, 2, 24), new DateOnly(2010, 3, 14), null }
-        },
-        { YdbDbType.Date, new DateOnly?[] { new(2001, 2, 26), new(2002, 2, 24), new(2010, 3, 14), null } },
-        {
-            YdbDbType.Timestamp,
-            new List<DateTime?> { SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null }
-        },
-        {
-            YdbDbType.Timestamp,
-            (DateTime?[])[SomeTimestamp.AddDays(1), SomeTimestamp.AddDays(2), SomeTimestamp.AddDays(3), null]
-        },
-        {
-            YdbDbType.Interval,
-            new List<TimeSpan?> { TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null }
-        },
-        { YdbDbType.Interval, (TimeSpan?[])[TimeSpan.FromDays(1), TimeSpan.FromDays(2), TimeSpan.FromDays(3), null] }
-    };
-
-    public static TheoryData<YdbDbType, IList> ExtraParams = new()
-    {
-        {
-            YdbDbType.Timestamp64, new List<DateTime>
-                { SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300) }
-        },
-        {
-            YdbDbType.Timestamp64,
-            (DateTime[])[SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300)]
-        },
-        {
-            YdbDbType.Timestamp64, new List<DateTime?>
-                { SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300), null }
-        },
-        {
-            YdbDbType.Timestamp64,
-            (DateTime?[])[SomeTimestamp.AddYears(-100), SomeTimestamp.AddYears(200), SomeTimestamp.AddYears(-300), null]
-        },
-        {
-            YdbDbType.Datetime64, new List<DateTime>
-                { SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300) }
-        },
-        {
-            YdbDbType.Datetime64,
-            (DateTime[])[SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300)]
-        },
-        {
-            YdbDbType.Datetime64, new List<DateTime?>
-                { SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300), null }
-        },
-        {
-            YdbDbType.Datetime64,
-            (DateTime?[])[SomeDatetime.AddYears(-100), SomeDatetime.AddYears(200), SomeDatetime.AddYears(-300), null]
-        },
-        {
-            YdbDbType.Date32, new List<DateTime>
-                { SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300) }
-        },
-        {
-            YdbDbType.Date32,
-            (DateTime[])[SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300)]
-        },
-        {
-            YdbDbType.Date32, new List<DateTime?>
-                { SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300), null }
-        },
-        {
-            YdbDbType.Date32,
-            (DateTime?[])[SomeDate.AddYears(-100), SomeDate.AddDays(200), SomeDate.AddDays(-300), null]
-        },
-        {
-            YdbDbType.Datetime, new List<DateTime>
-                { SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3) }
-        },
-        {
-            YdbDbType.Datetime,
-            (DateTime[])[SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3)]
-        },
-        {
-            YdbDbType.Datetime, new List<DateTime?>
-                { SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3), null }
-        },
-        {
-            YdbDbType.Datetime,
-            (DateTime?[])[SomeDatetime.AddYears(1), SomeTimestamp.AddYears(2), SomeTimestamp.AddYears(3), null]
-        },
-        { YdbDbType.Date, new List<DateTime> { SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3) } },
-        {
-            YdbDbType.Date,
-            (DateTime[])[SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3)]
-        },
-        {
-            YdbDbType.Date,
-            new List<DateTime?> { SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3), null }
-        },
-        {
-            YdbDbType.Date,
-            (DateTime?[])[SomeDate.AddYears(1), SomeDate.AddYears(2), SomeDate.AddYears(3), null]
-        },
-        {
-            YdbDbType.Interval64,
-            new List<TimeSpan?> { TimeSpan.FromDays(-1), TimeSpan.FromDays(2), TimeSpan.FromDays(-3), null }
-        },
-        {
-            YdbDbType.Interval64,
-            (TimeSpan?[])[TimeSpan.FromDays(-1), TimeSpan.FromDays(2), TimeSpan.FromDays(-3), null]
-        },
-        {
-            YdbDbType.Json,
-            new List<string?> { "{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null }
-        },
-        {
-            YdbDbType.Json,
-            (string?[])["{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null]
-        },
-        {
-            YdbDbType.JsonDocument,
-            new List<string?> { "{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null }
-        },
-        {
-            YdbDbType.JsonDocument,
-            (string?[])["{\"type\": \"json1\"}", "{\"type\": \"json2\"}", "{\"type\": \"json3\"}", null]
-        },
-        {
-            YdbDbType.Yson,
-            new List<byte[]?> { "{a=1u}"u8.ToArray(), "{a=2u}"u8.ToArray(), null }
-        },
-        {
-            YdbDbType.Yson,
-            (byte[]?[])["{a=1u}"u8.ToArray(), "{a=2u}"u8.ToArray(), null]
-        },
-        { YdbDbType.Int64, new List<object> { 1, 2u, (byte)3 } },
-        { YdbDbType.Int64, new object[] { 1, 2u, (byte)3 } } // only not null objects
-    };
-
     [Theory]
     [MemberData(nameof(ListParams))]
     public Task YdbParameter_SetValue_ArrayOrList_ConvertsToYdbList(YdbDbType ydbDbType, IList list)
@@ -719,13 +719,11 @@ public class YdbParameterTests : TestBase
                 }.ExecuteNonQueryAsync();
 
                 if (ydbDbType is not (YdbDbType.Json or YdbDbType.JsonDocument or YdbDbType.Yson))
-                {
                     Assert.Equal(3ul, await new YdbCommand(ydbConnection)
                     {
                         CommandText = $"SELECT COUNT(*) FROM `{tableName}` WHERE type IN $list",
                         Parameters = { new YdbParameter("list", YdbDbType.List | ydbDbType, list) }
                     }.ExecuteScalarAsync());
-                }
 
                 Assert.Equal((ulong)list.Count, await new YdbCommand(ydbConnection)
                     { CommandText = $"SELECT COUNT(*) FROM `{tableName}`" }.ExecuteScalarAsync());

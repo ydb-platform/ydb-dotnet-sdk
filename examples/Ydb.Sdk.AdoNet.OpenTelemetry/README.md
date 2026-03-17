@@ -1,6 +1,7 @@
 # Ydb.Sdk.AdoNet.OpenTelemetry (E2E playground)
 
-Goal: spin up a local OpenTelemetry stack and verify that a basic .NET app exports traces/metrics via `otel-collector` into `Tempo`/`Prometheus`, with visualization in `Grafana`.
+Goal: spin up a local OpenTelemetry stack and verify that a basic .NET app exports traces/metrics via `otel-collector`
+into `Tempo`/`Prometheus`, with visualization in `Grafana`.
 
 ## How to run
 
@@ -14,7 +15,8 @@ docker-compose -f compose-e2e.yaml up -d
 # docker compose -f compose-e2e.yaml up -d
 ```
 
-Note: the `ydbplatform/local-ydb` image is commonly used as `linux/amd64`. On Apple Silicon/arm64 (e.g. Colima), you may need x86_64 emulation (Rosetta) depending on your Docker VM setup.
+Note: the `ydbplatform/local-ydb` image is commonly used as `linux/amd64`. On Apple Silicon/arm64 (e.g. Colima), you may
+need x86_64 emulation (Rosetta) depending on your Docker VM setup.
 
 ## Enable server-side tracing in YDB (end-to-end)
 
@@ -35,17 +37,18 @@ docker-compose -f compose-e2e.yaml up -d --force-recreate ydb
 - **Tempo API**: `http://localhost:3200`
 - **Prometheus**: `http://localhost:9090`
 - **OTel Collector**
-  - OTLP gRPC: `localhost:4317`
-  - OTLP HTTP: `http://localhost:4318`
-  - healthcheck: `http://localhost:13133`
-  - zPages: `http://localhost:55679/debug/tracez`
+    - OTLP gRPC: `localhost:4317`
+    - OTLP HTTP: `http://localhost:4318`
+    - healthcheck: `http://localhost:13133`
+    - zPages: `http://localhost:55679/debug/tracez`
 
 ## YDB metrics → OTel Collector → Prometheus
 
 Prometheus scrapes **the collector's Prometheus exporter** at `otel-collector:9464`.
 
 - If your .NET app exports metrics via OTLP, you will see them in Prometheus/Grafana.
-- YDB metrics are **not** scraped in this demo by default (YDB → Collector metrics wiring depends on how YDB exposes metrics in your setup/version).
+- YDB metrics are **not** scraped in this demo by default (YDB → Collector metrics wiring depends on how YDB exposes
+  metrics in your setup/version).
 
 ## How to verify traces
 

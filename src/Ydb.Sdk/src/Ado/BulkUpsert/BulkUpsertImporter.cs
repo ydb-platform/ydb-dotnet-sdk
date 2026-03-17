@@ -8,14 +8,14 @@ namespace Ydb.Sdk.Ado.BulkUpsert;
 
 internal class BulkUpsertImporter : IBulkUpsertImporter
 {
-    private readonly IDriver _driver;
-    private readonly string _tablePath;
+    private readonly CancellationToken _cancellationToken;
     private readonly IReadOnlyList<string> _columns;
+    private readonly IDriver _driver;
     private readonly int _maxBatchByteSize;
     private readonly RepeatedField<Ydb.Value> _rows = new();
-    private readonly CancellationToken _cancellationToken;
-    private StructType? _structType;
+    private readonly string _tablePath;
     private int _currentBytes;
+    private StructType? _structType;
 
     internal BulkUpsertImporter(
         IDriver driver,
@@ -49,10 +49,7 @@ internal class BulkUpsertImporter : IBulkUpsertImporter
 
         var rowSize = protoStruct.CalculateSize();
 
-        if (_currentBytes + rowSize > _maxBatchByteSize && _rows.Count > 0)
-        {
-            await FlushAsync();
-        }
+        if (_currentBytes + rowSize > _maxBatchByteSize && _rows.Count > 0) await FlushAsync();
 
         _rows.Add(protoStruct);
         _currentBytes += rowSize;

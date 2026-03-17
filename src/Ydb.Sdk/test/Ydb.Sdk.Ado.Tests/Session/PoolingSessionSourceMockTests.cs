@@ -53,7 +53,6 @@ public class PoolingSessionSourceMockTests
             var countSuccess = 0;
 
             for (var i = 0; i < maxPoolSize * 4; i++)
-            {
                 tasks.Add(Task.Run(async () =>
                 {
                     try
@@ -68,7 +67,6 @@ public class PoolingSessionSourceMockTests
                         Assert.Equal(errorMessage, e.Message);
                     }
                 }));
-            }
 
             await Task.WhenAll(tasks);
             Assert.Equal(maxPoolSize * 2, Volatile.Read(ref countSuccess));
@@ -92,14 +90,12 @@ public class PoolingSessionSourceMockTests
             var tasks = new Task[highContentionTasks];
 
             for (var i = 0; i < highContentionTasks; i++)
-            {
                 tasks[i] = Task.Run(async () =>
                 {
                     using var session = await sessionSource.OpenSession();
                     Assert.True(session.SessionId() <= maxPoolSize);
                     await Task.Yield();
                 });
-            }
 
             await Task.WhenAll(tasks);
         }
@@ -116,34 +112,24 @@ public class PoolingSessionSourceMockTests
 
         var openSessions = new List<ISession>();
         var waitingSessionTasks = new List<Task>();
-        for (var i = 0; i < maxPoolSize; i++)
-        {
-            openSessions.Add(await sessionSource.OpenSession());
-        }
+        for (var i = 0; i < maxPoolSize; i++) openSessions.Add(await sessionSource.OpenSession());
 
         for (var i = 0; i < maxPoolSize; i++)
-        {
             waitingSessionTasks.Add(Task.Run(async () =>
             {
                 using var session = await sessionSource.OpenSession();
             }));
-        }
 
         var disposeTask = Task.Run(async () => await sessionSource.DisposeAsync());
         Assert.Equal(maxPoolSize, mockFactory.NumSession);
         await Task.Delay(5_000);
-        for (var i = 0; i < maxPoolSize; i++)
-        {
-            openSessions[i].Dispose();
-        }
+        for (var i = 0; i < maxPoolSize; i++) openSessions[i].Dispose();
 
         await disposeTask;
         Assert.Equal(0, mockFactory.NumSession);
         for (var i = 0; i < maxPoolSize; i++)
-        {
             Assert.StartsWith("The session source has been closed.",
                 (await Assert.ThrowsAsync<ObjectDisposedException>(() => waitingSessionTasks[i])).Message);
-        }
 
         Assert.StartsWith("The session source has been closed.",
             (await Assert.ThrowsAsync<ObjectDisposedException>(async () => await sessionSource.OpenSession())).Message);
@@ -248,29 +234,18 @@ public class PoolingSessionSourceMockTests
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
 
         var openSessions = new List<ISession>();
-        for (var it = 0; it < maxPoolSize; it++)
-        {
-            openSessions.Add(await sessionSource.OpenSession());
-        }
+        for (var it = 0; it < maxPoolSize; it++) openSessions.Add(await sessionSource.OpenSession());
 
-        foreach (var it in openSessions)
-        {
-            it.Dispose();
-        }
+        foreach (var it in openSessions) it.Dispose();
 
         await Task.Delay(TimeSpan.FromSeconds(idleTimeoutSeconds * 5)); // cleaning idle sessions
         Assert.Equal(minPoolSize, mockFactory.NumSession);
 
         var openSessionTasks = new List<Task<ISession>>();
         for (var it = 0; it < minPoolSize; it++)
-        {
             openSessionTasks.Add(Task.Run(async () => await sessionSource.OpenSession()));
-        }
 
-        foreach (var it in openSessionTasks)
-        {
-            (await it).Dispose();
-        }
+        foreach (var it in openSessionTasks) (await it).Dispose();
 
         Assert.Equal(minPoolSize, mockFactory.NumSession);
         Assert.Equal(maxPoolSize, mockFactory.SessionOpenedCount);
@@ -307,7 +282,6 @@ public class PoolingSessionSourceMockTests
 
         var workers = new List<Task>();
         for (var it = 0; it < highContentionTasks; it++)
-        {
             workers.Add(Task.Run(async () =>
             {
                 try
@@ -329,7 +303,6 @@ public class PoolingSessionSourceMockTests
                 {
                 }
             }, cts.Token));
-        }
 
         await Task.WhenAll(workers);
     }
@@ -464,15 +437,9 @@ public class PoolingSessionSourceMockTests
         var sessionSource = new PoolingSessionSource<MockPoolingSession>(mockFactory, settings);
 
         var openSessions = new List<ISession>();
-        for (var it = 0; it < maxPoolSize; it++)
-        {
-            openSessions.Add(await sessionSource.OpenSession());
-        }
+        for (var it = 0; it < maxPoolSize; it++) openSessions.Add(await sessionSource.OpenSession());
 
-        foreach (var session in openSessions)
-        {
-            session.Dispose();
-        }
+        foreach (var session in openSessions) session.Dispose();
 
         Assert.Equal(maxPoolSize, mockFactory.NumSession);
 

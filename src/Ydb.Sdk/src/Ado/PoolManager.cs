@@ -15,21 +15,15 @@ internal static class PoolManager
         CancellationToken cancellationToken
     )
     {
-        if (Pools.TryGetValue(settings.ConnectionString, out var sessionPool))
-        {
-            return sessionPool;
-        }
+        if (Pools.TryGetValue(settings.ConnectionString, out var sessionPool)) return sessionPool;
 
         await SemaphoreSlim.WaitAsync(cancellationToken);
 
         try
         {
-            if (Pools.TryGetValue(settings.ConnectionString, out var pool))
-            {
-                return pool;
-            }
+            if (Pools.TryGetValue(settings.ConnectionString, out var pool)) return pool;
 
-            var driver = await GetDriver(settings, withLock: false);
+            var driver = await GetDriver(settings, false);
 
             return Pools[settings.ConnectionString] = settings.EnableImplicitSession
                 ? new ImplicitSessionSource(driver, settings.LoggerFactory)

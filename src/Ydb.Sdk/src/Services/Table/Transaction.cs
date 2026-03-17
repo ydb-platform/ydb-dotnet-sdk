@@ -18,13 +18,10 @@ public class Transaction
 
     internal static Transaction? FromProto(TransactionMeta proto, ILogger? logger = null)
     {
-        if (proto.Id.Length == 0)
-        {
-            return null;
-        }
+        if (proto.Id.Length == 0) return null;
 
         var tx = new Transaction(
-            txId: proto.Id);
+            proto.Id);
         if (!string.IsNullOrEmpty(proto.Id))
         {
             tx.TxNum = IncTxCounter();
@@ -100,10 +97,7 @@ public class TxControl
 
     internal TransactionControl ToProto(ILogger logger)
     {
-        if (_txNum != null)
-        {
-            logger.LogTrace($"Using tx #{_txNum}");
-        }
+        if (_txNum != null) logger.LogTrace($"Using tx #{_txNum}");
 
         return _proto.Clone();
     }

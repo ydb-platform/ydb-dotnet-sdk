@@ -10,11 +10,6 @@ public static class ResultSetExtension
 
 public class ResultSet
 {
-    public IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
-    public IReadOnlyList<Column> Columns { get; }
-    public IReadOnlyList<Row> Rows { get; }
-    public bool Truncated { get; }
-
     internal ResultSet(Ydb.ResultSet resultSetProto)
     {
         Columns = resultSetProto.Columns.Select(c => new Column(c.Type, c.Name)).ToArray();
@@ -26,24 +21,29 @@ public class ResultSet
         Truncated = resultSetProto.Truncated;
     }
 
+    public IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
+    public IReadOnlyList<Column> Columns { get; }
+    public IReadOnlyList<Row> Rows { get; }
+    public bool Truncated { get; }
+
     public class Column
     {
-        public string Name { get; }
-
-        internal Type Type { get; }
-
         internal Column(Type type, string name)
         {
             Type = type;
             Name = name;
         }
+
+        public string Name { get; }
+
+        internal Type Type { get; }
     }
 
     private class RowsList : IReadOnlyList<Row>
     {
-        private readonly RepeatedField<Ydb.Value> _rows;
         private readonly IReadOnlyList<Column> _columns;
         private readonly IReadOnlyDictionary<string, int> _columnsMap;
+        private readonly RepeatedField<Ydb.Value> _rows;
 
         internal RowsList(
             RepeatedField<Ydb.Value> rows,
@@ -59,17 +59,17 @@ public class ResultSet
 
         public Row this[int index] => new(_rows[index], _columns, _columnsMap);
 
-        private IEnumerator<Row> GetRowsEnumerator() => new Enumerator(_rows.GetEnumerator(), _columns, _columnsMap);
-
         public IEnumerator<Row> GetEnumerator() => GetRowsEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => GetRowsEnumerator();
 
+        private IEnumerator<Row> GetRowsEnumerator() => new Enumerator(_rows.GetEnumerator(), _columns, _columnsMap);
+
         private class Enumerator : IEnumerator<Row>
         {
-            private readonly IEnumerator<Ydb.Value> _protoEnumerator;
             private readonly IReadOnlyList<Column> _columns;
             private readonly IReadOnlyDictionary<string, int> _columnsMap;
+            private readonly IEnumerator<Ydb.Value> _protoEnumerator;
 
             internal Enumerator(
                 IEnumerator<Ydb.Value> protoEnumerator,
@@ -97,9 +97,9 @@ public class ResultSet
 
     public class Row
     {
-        private readonly Ydb.Value _row;
         private readonly IReadOnlyList<Column> _columns;
         private readonly IReadOnlyDictionary<string, int> _columnsMap;
+        private readonly Ydb.Value _row;
 
         internal Row(Ydb.Value row, IReadOnlyList<Column> columns, IReadOnlyDictionary<string, int> columnsMap)
         {
@@ -113,9 +113,7 @@ public class ResultSet
             get
             {
                 if (columnIndex < 0 || columnIndex >= ColumnCount)
-                {
                     throw new IndexOutOfRangeException("Ordinal must be between 0 and " + (ColumnCount - 1));
-                }
 
                 return new YdbValue(_columns[columnIndex].Type, _row.Items[columnIndex]);
             }

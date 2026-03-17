@@ -7,16 +7,16 @@ namespace Ydb.Sdk.Pool;
 
 internal abstract class SessionPool<TSession> where TSession : SessionBase<TSession>
 {
-    private readonly SemaphoreSlim _semaphore;
-    private readonly ConcurrentQueue<TSession> _idleSessions = new();
     private readonly int _createSessionTimeout;
+    private readonly ConcurrentQueue<TSession> _idleSessions = new();
+    private readonly SemaphoreSlim _semaphore;
     private readonly int _size;
 
     protected readonly SessionPoolConfig Config;
     protected readonly ILogger<SessionPool<TSession>> Logger;
+    private volatile bool _disposed;
 
     private volatile int _waitingCount;
-    private volatile bool _disposed;
 
     protected SessionPool(ILogger<SessionPool<TSession>> logger, SessionPoolConfig config)
     {
@@ -32,27 +32,18 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         try
         {
             using var ctsGetSession = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            if (_createSessionTimeout > 0)
-            {
-                ctsGetSession.CancelAfter(TimeSpan.FromSeconds(_createSessionTimeout));
-            }
+            if (_createSessionTimeout > 0) ctsGetSession.CancelAfter(TimeSpan.FromSeconds(_createSessionTimeout));
 
             var finalCancellationToken = ctsGetSession.Token;
 
             Interlocked.Increment(ref _waitingCount);
 
-            if (_disposed)
-            {
-                throw new YdbException("Session pool is closed");
-            }
+            if (_disposed) throw new YdbException("Session pool is closed");
 
             await _semaphore.WaitAsync(finalCancellationToken);
             Interlocked.Decrement(ref _waitingCount);
 
-            if (_idleSessions.TryDequeue(out var session) && session.IsActive)
-            {
-                return session;
-            }
+            if (_idleSessions.TryDequeue(out var session) && session.IsActive) return session;
 
             if (session != null) // not active
             {
@@ -92,7 +83,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
         TSession? session = null;
 
         for (uint attempt = 0; attempt < retrySettings.MaxAttempts; attempt++)
-        {
             try
             {
                 session = await GetSession();
@@ -113,9 +103,7 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
                 if (retryRule.Policy == RetryPolicy.None ||
                     (retryRule.Policy == RetryPolicy.IdempotentOnly && !retrySettings.IsIdempotent))
-                {
                     throw;
-                }
 
                 Logger.LogTrace(e, "Retry: attempt {attempt}, Session ${session.SessionId}, idempotent error retrying",
                     attempt, session?.SessionId);
@@ -125,12 +113,8 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             }
             finally
             {
-                if (session != null)
-                {
-                    await session.Release();
-                }
+                if (session != null) await session.Release();
             }
-        }
 
         throw new InvalidOperationException("MaxAttempts less then 1, actual value: " + retrySettings.MaxAttempts);
     }
@@ -148,13 +132,9 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
             }
 
             if (session.IsActive)
-            {
                 _idleSessions.Enqueue(session);
-            }
             else
-            {
                 _ = DeleteSession(session);
-            }
         }
         finally
         {
@@ -178,18 +158,13 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
-        {
-            return;
-        }
+        if (_disposed) return;
 
         _disposed = true;
 
         var tasks = new List<Task>();
         while (_idleSessions.TryDequeue(out var session)) // thread safe iteration
-        {
             tasks.Add(DeleteSession(session));
-        }
 
         await Task.WhenAll(tasks);
         await TryDriverDispose(_size);
@@ -199,20 +174,15 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     private async ValueTask TryDriverDispose(int expectedCurrentCount)
     {
-        if (_disposed && _waitingCount == 0 && _semaphore.CurrentCount == expectedCurrentCount)
-        {
-            await DisposeDriver();
-        }
+        if (_disposed && _waitingCount == 0 && _semaphore.CurrentCount == expectedCurrentCount) await DisposeDriver();
     }
 }
 
 public abstract class SessionBase<T> where T : SessionBase<T>
 {
-    private readonly SessionPool<T> _sessionPool;
     private readonly ILogger _logger;
     private readonly long _nodeId;
-
-    public string SessionId { get; }
+    private readonly SessionPool<T> _sessionPool;
 
     internal volatile bool IsActive = true;
 
@@ -223,6 +193,8 @@ public abstract class SessionBase<T> where T : SessionBase<T>
         _nodeId = nodeId;
         _logger = logger;
     }
+
+    public string SessionId { get; }
 
     internal void OnNotSuccessStatusCode(StatusCode code)
     {

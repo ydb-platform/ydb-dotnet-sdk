@@ -12,9 +12,9 @@ internal sealed class SessionPool : SessionPoolBase<Session>
 
     public SessionPool(Driver driver, SessionPoolConfig config) :
         base(
-            driver: driver,
-            config: config,
-            logger: driver.LoggerFactory.CreateLogger<SessionPool>())
+            driver,
+            config,
+            driver.LoggerFactory.CreateLogger<SessionPool>())
     {
         _tableClient = new TableClient(driver, new NoPool());
 
@@ -29,10 +29,7 @@ internal sealed class SessionPool : SessionPoolBase<Session>
             OperationTimeout = Config.CreateSessionTimeout
         };
 
-        if (!Config.DisableServerBalancer)
-        {
-            createSessionSettings.ClientCapabilities.Add("session-balancer");
-        }
+        if (!Config.DisableServerBalancer) createSessionSettings.ClientCapabilities.Add("session-balancer");
 
         var createSessionResponse = await _tableClient.CreateSession(createSessionSettings);
 
@@ -43,10 +40,10 @@ internal sealed class SessionPool : SessionPoolBase<Session>
             if (createSessionResponse.Status.IsSuccess)
             {
                 var session = new Session(
-                    driver: Driver,
-                    sessionPool: this,
-                    id: createSessionResponse.Result.Session.Id,
-                    nodeId: createSessionResponse.Result.Session.NodeId);
+                    Driver,
+                    this,
+                    createSessionResponse.Result.Session.Id,
+                    createSessionResponse.Result.Session.NodeId);
 
                 Sessions.Add(session.Id, new SessionState(session));
 
@@ -62,10 +59,10 @@ internal sealed class SessionPool : SessionPoolBase<Session>
     }
 
     private protected override Session CopySession(Session other) => new(
-        driver: Driver,
-        sessionPool: this,
-        id: other.Id,
-        nodeId: other.NodeId
+        Driver,
+        this,
+        other.Id,
+        other.NodeId
     );
 
     private async Task PeriodicCheck()
@@ -102,12 +99,8 @@ internal sealed class SessionPool : SessionPoolBase<Session>
         lock (Lock)
         {
             foreach (var state in Sessions.Values)
-            {
                 if (state.LastAccessTime + Config.KeepAliveIdleThreshold < DateTime.Now)
-                {
                     keepAliveIds.Add(state.Session.Id);
-                }
-            }
         }
 
         foreach (var id in keepAliveIds)
@@ -124,10 +117,7 @@ internal sealed class SessionPool : SessionPoolBase<Session>
 
                 lock (Lock)
                 {
-                    if (Sessions.TryGetValue(id, out var sessionState))
-                    {
-                        sessionState.LastAccessTime = DateTime.Now;
-                    }
+                    if (Sessions.TryGetValue(id, out var sessionState)) sessionState.LastAccessTime = DateTime.Now;
                 }
             }
             else if (response.Status.StatusCode == StatusCode.BadSession)

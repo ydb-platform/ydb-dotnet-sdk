@@ -10,6 +10,8 @@ internal static class YdbValueExtensions
     private static readonly DateTime UnixEpoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
     private static readonly decimal[] Pow10 = CreatePow10();
 
+    internal static readonly Ydb.Value YdbValueNull = new() { NullFlagValue = NullValue.NullValue };
+
     private static decimal[] CreatePow10()
     {
         var a = new decimal[29];
@@ -17,8 +19,6 @@ internal static class YdbValueExtensions
         for (var i = 1; i < a.Length; i++) a[i] = a[i - 1] * 10m; // 1..1e28
         return a;
     }
-
-    internal static readonly Ydb.Value YdbValueNull = new() { NullFlagValue = NullValue.NullValue };
 
     internal static bool IsNull(this Ydb.Value value) => value.ValueCase == Ydb.Value.ValueOneofCase.NullFlagValue;
 
@@ -69,9 +69,7 @@ internal static class YdbValueExtensions
         var origScale = (decimal.GetBits(value)[3] >> 16) & 0xFF;
 
         if (origScale > scale || (precision < MaxPrecisionDecimal && Pow10[precision - scale] <= Math.Abs(value)))
-        {
             throw new OverflowException($"Value {value} does not fit Decimal({precision}, {scale})");
-        }
 
         value *= 1.0000000000000000000000000000m; // 28 zeros, max supported by c# decimal
         value = Math.Round(value, scale);

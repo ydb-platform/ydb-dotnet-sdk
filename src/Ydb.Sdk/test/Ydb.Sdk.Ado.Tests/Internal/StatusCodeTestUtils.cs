@@ -59,11 +59,15 @@ public class StatusCodeTestUtils
         var listIssues = new List<IssueMessage>();
         var recursiveIssue = new IssueMessage
         {
-            IssueCode = 0, Severity = 0, Message = "Overloaded is bad :("
+            IssueCode = 0,
+            Severity = 0,
+            Message = "Overloaded is bad :("
         };
         var recursiveIssueInRecIssue = new IssueMessage
         {
-            IssueCode = 1, Severity = 1, Message = "Overloaded is very bad :("
+            IssueCode = 1,
+            Severity = 1,
+            Message = "Overloaded is very bad :("
         };
         recursiveIssueInRecIssue.Issues.Add(new IssueMessage
         {

@@ -16,9 +16,9 @@ namespace Ydb.Sdk.Services.Query;
 internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
 {
     private static readonly CreateSessionRequest CreateSessionRequest = new();
+    private readonly bool _disposingDriver;
 
     private readonly IDriver _driver;
-    private readonly bool _disposingDriver;
     private readonly ILogger<Session> _loggerSession;
 
     internal SessionPool(IDriver driver, SessionPoolConfig sessionPoolConfig)
@@ -38,10 +38,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
             CancellationToken = cancellationToken
         };
 
-        if (!Config.DisableServerBalancer)
-        {
-            requestSettings.ClientCapabilities.Add("session-balancer");
-        }
+        if (!Config.DisableServerBalancer) requestSettings.ClientCapabilities.Add("session-balancer");
 
         var response = await _driver.UnaryCall(
             QueryService.CreateSessionMethod,
@@ -77,9 +74,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                 }
 
                 if (stream.Current.Status.IsNotSuccess())
-                {
                     completeTask.SetException(YdbException.FromServer(stream.Current.Status, stream.Current.Issues));
-                }
 
                 completeTask.SetResult();
 
@@ -98,10 +93,7 @@ internal sealed class SessionPool : SessionPool<Session>, IAsyncDisposable
                         session.OnNotSuccessStatusCode(statusCode);
 
                         // ReSharper disable once InvertIf
-                        if (!session.IsActive)
-                        {
-                            return;
-                        }
+                        if (!session.IsActive) return;
                     }
 
                     Logger.LogDebug("Session[{SessionId}]: Attached stream is closed", sessionId);
@@ -153,6 +145,8 @@ internal class Session : SessionBase<Session>
 
     public IDriver Driver { get; }
 
+    public bool IsBroken => !IsActive;
+
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
         Dictionary<string, YdbValue> parameters,
@@ -175,8 +169,6 @@ internal class Session : SessionBase<Session>
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public bool IsBroken => !IsActive;
-
     public new void OnNotSuccessStatusCode(StatusCode code) => base.OnNotSuccessStatusCode(code);
 
     public void Close() => Release().AsTask().GetAwaiter().GetResult();
@@ -188,10 +180,7 @@ internal class Session : SessionBase<Session>
         var response = await Driver.UnaryCall(QueryService.CommitTransactionMethod,
             new CommitTransactionRequest { SessionId = SessionId, TxId = txId }, settings);
 
-        if (response.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(response.Status, response.Issues);
-        }
+        if (response.Status.IsNotSuccess()) throw YdbException.FromServer(response.Status, response.Issues);
     }
 
     public async Task RollbackTransaction(string txId, CancellationToken cancellationToken = default)
@@ -201,10 +190,7 @@ internal class Session : SessionBase<Session>
         var response = await Driver.UnaryCall(QueryService.RollbackTransactionMethod,
             new RollbackTransactionRequest { SessionId = SessionId, TxId = txId }, settings);
 
-        if (response.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(response.Status, response.Issues);
-        }
+        if (response.Status.IsNotSuccess()) throw YdbException.FromServer(response.Status, response.Issues);
     }
 
     internal override async Task DeleteSession()
@@ -221,8 +207,6 @@ internal class Session : SessionBase<Session>
         );
 
         if (deleteSessionResponse.Status.IsNotSuccess())
-        {
             throw YdbException.FromServer(deleteSessionResponse.Status, deleteSessionResponse.Issues);
-        }
     }
 }

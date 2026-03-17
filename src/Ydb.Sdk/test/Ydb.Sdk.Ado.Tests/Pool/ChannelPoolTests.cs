@@ -10,9 +10,9 @@ namespace Ydb.Sdk.Ado.Tests.Pool;
 
 public class ChannelPoolTests
 {
-    private readonly Mock<IChannelFactory<TestChannel>> _mockChannelFactory = new();
     private readonly ChannelPool<TestChannel> _channelPool;
     private readonly ConcurrentDictionary<string, Mock<TestChannel>> _endpointToMockChannel = new();
+    private readonly Mock<IChannelFactory<TestChannel>> _mockChannelFactory = new();
 
     public ChannelPoolTests()
     {
@@ -44,9 +44,7 @@ public class ChannelPoolTests
         );
 
         foreach (var endpoint in endpoints)
-        {
             Assert.Equal(Endpoint(endpoint).Endpoint, _channelPool.GetChannel(Endpoint(endpoint)).ToString());
-        }
 
         _mockChannelFactory.Verify(channelPool => channelPool.CreateChannel(It.IsAny<string>()), Times.Exactly(5));
 
@@ -61,9 +59,7 @@ public class ChannelPoolTests
         _endpointToMockChannel[Endpoint(n3YdbTech).Endpoint].Verify(channel => channel.Dispose(), Times.Never);
 
         foreach (var endpoint in endpoints)
-        {
             Assert.Equal(Endpoint(endpoint).Endpoint, _channelPool.GetChannel(Endpoint(endpoint)).ToString());
-        }
 
         // created two channels
         _mockChannelFactory.Verify(channelPool => channelPool.CreateChannel(It.IsAny<string>()), Times.Exactly(7));
@@ -79,10 +75,7 @@ public class ChannelPoolTests
         const int endpointCount = 50000;
         var endpoints = new List<string>();
 
-        for (var i = 0; i < 10 * endpointCount; i++)
-        {
-            endpoints.Add($"n{i % endpointCount}.ydb.tech");
-        }
+        for (var i = 0; i < 10 * endpointCount; i++) endpoints.Add($"n{i % endpointCount}.ydb.tech");
 
         var tasks = useAsParallel
             ? endpoints.AsParallel()
@@ -104,9 +97,7 @@ public class ChannelPoolTests
     ~ChannelPoolTests()
     {
         foreach (var mockChannel in _endpointToMockChannel.Values)
-        {
             mockChannel.Verify(channel => channel.Dispose(), Times.Once);
-        }
     }
 
     // ReSharper disable once MemberCanBePrivate.Global

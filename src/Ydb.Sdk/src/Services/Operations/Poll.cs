@@ -14,10 +14,7 @@ public partial class OperationsClient
         while (true)
         {
             var operation = await GetOperation(id);
-            if (operation.IsReady)
-            {
-                return operation;
-            }
+            if (operation.IsReady) return operation;
 
             await Task.Delay(delay.Value, cancellationToken);
         }

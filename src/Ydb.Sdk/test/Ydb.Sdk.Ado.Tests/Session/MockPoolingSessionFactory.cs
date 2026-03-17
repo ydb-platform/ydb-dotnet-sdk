@@ -1,14 +1,18 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;
+using Ydb.Sdk.Tracing;
+using Ydb.Sdk.Transport;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 
 internal class MockPoolingSessionFactory(int maxPoolSize) : IPoolingSessionFactory<MockPoolingSession>
 {
-    private int _sessionOpened;
     private int _numSession;
+    private int _sessionOpened;
 
     internal int SessionOpenedCount => Volatile.Read(ref _sessionOpened);
     internal int NumSession => Volatile.Read(ref _numSession);
@@ -19,6 +23,10 @@ internal class MockPoolingSessionFactory(int maxPoolSize) : IPoolingSessionFacto
 
     internal Func<int, IServerStream<ExecuteQueryResponsePart>> ExecuteQuery { private get; init; } =
         _ => throw new NotImplementedException();
+
+    [SuppressMessage("ReSharper", "UnusedMember.Global")]
+    [SuppressMessage("Performance", "CA1822:Mark members as static")]
+    public YdbMetricsReporter MetricsReporter => null!;
 
     public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
         new(source,
@@ -41,7 +49,9 @@ internal class MockPoolingSessionFactory(int maxPoolSize) : IPoolingSessionFacto
             Interlocked.Increment(ref _sessionOpened)
         );
 
-    public IDriver Driver => null!;
+    public IDriver Driver { get; } = new DirectGrpcChannelDriver(
+        new DriverConfig(false, "localhost", 2136, "/local"),
+        NullLoggerFactory.Instance);
 
     public ValueTask DisposeAsync() => Dispose();
 }

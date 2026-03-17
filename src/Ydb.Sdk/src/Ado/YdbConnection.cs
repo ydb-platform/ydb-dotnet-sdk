@@ -9,11 +9,11 @@ using static System.Data.IsolationLevel;
 namespace Ydb.Sdk.Ado;
 
 /// <summary>
-/// Represents a connection to a YDB database.
+///     Represents a connection to a YDB database.
 /// </summary>
 /// <remarks>
-/// YdbConnection provides a standard ADO.NET connection interface for YDB databases.
-/// It manages database sessions and provides access to YDB-specific functionality.
+///     YdbConnection provides a standard ADO.NET connection interface for YDB databases.
+///     It manages database sessions and provides access to YDB-specific functionality.
 /// </remarks>
 public sealed class YdbConnection : DbConnection
 {
@@ -23,8 +23,38 @@ public sealed class YdbConnection : DbConnection
     private static readonly StateChangeEventArgs OpenToClosedEventArgs =
         new(ConnectionState.Open, ConnectionState.Closed);
 
-    private bool _disposed;
     private YdbConnectionStringBuilder? _connectionStringBuilder;
+
+    private bool _disposed;
+
+    private ISession _session = null!;
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="YdbConnection" /> class.
+    /// </summary>
+    public YdbConnection()
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="YdbConnection" /> class with the specified connection string.
+    /// </summary>
+    /// <param name="connectionString">The connection string used to establish the connection.</param>
+    public YdbConnection(string connectionString)
+    {
+        ConnectionStringBuilder = new YdbConnectionStringBuilder(connectionString);
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="YdbConnection" /> class with the specified connection string builder.
+    /// </summary>
+    /// <param name="connectionStringBuilder">
+    ///     The <see cref="YdbConnectionStringBuilder" /> used to establish the connection.
+    /// </param>
+    public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
+    {
+        ConnectionStringBuilder = connectionStringBuilder;
+    }
 
     private YdbConnectionStringBuilder ConnectionStringBuilder
     {
@@ -44,62 +74,77 @@ public sealed class YdbConnection : DbConnection
         private set => _session = value;
     }
 
-    private ISession _session = null!;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="YdbConnection"/> class.
-    /// </summary>
-    public YdbConnection()
+    public override string ConnectionString
     {
+        get => _connectionStringBuilder?.ConnectionString ?? string.Empty;
+#pragma warning disable CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
+        set
+#pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
+        {
+            ThrowIfConnectionOpen();
+
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            _connectionStringBuilder = value != null ? new YdbConnectionStringBuilder(value) : null;
+        }
+    }
+
+    public override string Database => _connectionStringBuilder?.Database ?? string.Empty;
+
+    public override ConnectionState State =>
+        ConnectionState != ConnectionState.Closed && _session.IsBroken // maybe is updated asynchronously
+            ? ConnectionState.Broken
+            : ConnectionState;
+
+    private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
+
+    internal YdbDataReader? LastReader { get; set; }
+    internal string LastCommand { get; set; } = string.Empty;
+    internal bool IsBusy => LastReader is { IsOpen: true };
+    internal YdbTransaction? CurrentTransaction { get; private set; }
+
+    public override string DataSource => string.Empty; // TODO
+
+    public override string ServerVersion
+    {
+        get
+        {
+            ThrowIfConnectionClosed();
+
+            return string.Empty; // TODO ServerVersion
+        }
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="YdbConnection"/> class with the specified connection string.
+    ///     DB provider factory.
     /// </summary>
-    /// <param name="connectionString">The connection string used to establish the connection.</param>
-    public YdbConnection(string connectionString)
-    {
-        ConnectionStringBuilder = new YdbConnectionStringBuilder(connectionString);
-    }
+    protected override DbProviderFactory DbProviderFactory => YdbProviderFactory.Instance;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="YdbConnection"/> class with the specified connection string builder.
-    /// </summary>
-    /// <param name="connectionStringBuilder">
-    /// The <see cref="YdbConnectionStringBuilder"/> used to establish the connection.
-    /// </param>
-    public YdbConnection(YdbConnectionStringBuilder connectionStringBuilder)
-    {
-        ConnectionStringBuilder = connectionStringBuilder;
-    }
-
-    /// <summary>
-    /// Begins a database transaction with the specified isolation level.
+    ///     Begins a database transaction with the specified isolation level.
     /// </summary>
     /// <remarks>
-    /// Maps the requested ADO.NET <see cref="IsolationLevel"/> to a YDB
-    /// <see cref="TransactionMode"/>:
-    /// <list type="bullet">
-    ///   <item>
-    ///     <description>
-    ///       <see cref="IsolationLevel.Serializable"/> or
-    ///       <see cref="IsolationLevel.Unspecified"/> →
-    ///       <see cref="TransactionMode.SerializableRw"/>
-    ///     </description>
-    ///   </item>
-    ///   <item>
-    ///     <description>
-    ///       <see cref="IsolationLevel.Snapshot"/> or
-    ///       <see cref="IsolationLevel.RepeatableRead"/> →
-    ///       <see cref="TransactionMode.SnapshotRw"/>
-    ///     </description>
-    ///   </item>
-    /// </list>
-    ///
-    /// The <see cref="TransactionMode.SnapshotRw"/> mode in YDB provides snapshot
-    /// isolation with optimistic concurrency: if there is a concurrent write
-    /// conflict, the transaction may be aborted by the server. This behavior is similar to
-    /// <see cref="IsolationLevel.Snapshot"/> in ADO.NET.
+    ///     Maps the requested ADO.NET <see cref="IsolationLevel" /> to a YDB
+    ///     <see cref="TransactionMode" />:
+    ///     <list type="bullet">
+    ///         <item>
+    ///             <description>
+    ///                 <see cref="IsolationLevel.Serializable" /> or
+    ///                 <see cref="IsolationLevel.Unspecified" /> →
+    ///                 <see cref="TransactionMode.SerializableRw" />
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 <see cref="IsolationLevel.Snapshot" /> or
+    ///                 <see cref="IsolationLevel.RepeatableRead" /> →
+    ///                 <see cref="TransactionMode.SnapshotRw" />
+    ///             </description>
+    ///         </item>
+    ///     </list>
+    ///     The <see cref="TransactionMode.SnapshotRw" /> mode in YDB provides snapshot
+    ///     isolation with optimistic concurrency: if there is a concurrent write
+    ///     conflict, the transaction may be aborted by the server. This behavior is similar to
+    ///     <see cref="IsolationLevel.Snapshot" /> in ADO.NET.
     /// </remarks>
     protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
     {
@@ -120,11 +165,9 @@ public sealed class YdbConnection : DbConnection
         ThrowIfConnectionClosed();
 
         if (CurrentTransaction is { Completed: false })
-        {
             throw new InvalidOperationException(
                 "A transaction is already in progress; nested/concurrent transactions aren't supported."
             );
-        }
 
         CurrentTransaction = new YdbTransaction(this, transactionMode);
 
@@ -178,15 +221,9 @@ public sealed class YdbConnection : DbConnection
             default:
                 try
                 {
-                    if (LastReader is { IsClosed: false })
-                    {
-                        await LastReader.CloseAsync();
-                    }
+                    if (LastReader is { IsClosed: false }) await LastReader.CloseAsync();
 
-                    if (CurrentTransaction is { Completed: false })
-                    {
-                        await CurrentTransaction.RollbackAsync();
-                    }
+                    if (CurrentTransaction is { Completed: false }) await CurrentTransaction.RollbackAsync();
 
                     OnStateChange(OpenToClosedEventArgs);
 
@@ -201,47 +238,7 @@ public sealed class YdbConnection : DbConnection
         }
     }
 
-    public override string ConnectionString
-    {
-        get => _connectionStringBuilder?.ConnectionString ?? string.Empty;
-#pragma warning disable CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
-        set
-#pragma warning restore CS8765 // Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
-        {
-            ThrowIfConnectionOpen();
-
-            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-            _connectionStringBuilder = value != null ? new YdbConnectionStringBuilder(value) : null;
-        }
-    }
-
-    public override string Database => _connectionStringBuilder?.Database ?? string.Empty;
-
-    public override ConnectionState State =>
-        ConnectionState != ConnectionState.Closed && _session.IsBroken // maybe is updated asynchronously
-            ? ConnectionState.Broken
-            : ConnectionState;
-
-    private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
-
     internal void OnNotSuccessStatusCode(StatusCode code) => _session.OnNotSuccessStatusCode(code);
-
-    internal YdbDataReader? LastReader { get; set; }
-    internal string LastCommand { get; set; } = string.Empty;
-    internal bool IsBusy => LastReader is { IsOpen: true };
-    internal YdbTransaction? CurrentTransaction { get; private set; }
-
-    public override string DataSource => string.Empty; // TODO
-
-    public override string ServerVersion
-    {
-        get
-        {
-            ThrowIfConnectionClosed();
-
-            return string.Empty; // TODO ServerVersion
-        }
-    }
 
     protected override YdbCommand CreateDbCommand() => new(this);
 
@@ -271,24 +268,21 @@ public sealed class YdbConnection : DbConnection
     internal void ThrowIfConnectionClosed()
     {
         if (State is ConnectionState.Closed or ConnectionState.Broken)
-        {
             throw new InvalidOperationException("Connection is closed");
-        }
     }
 
     private void ThrowIfConnectionOpen()
     {
-        if (State == ConnectionState.Open)
-        {
-            throw new InvalidOperationException("Connection already open");
-        }
+        if (State == ConnectionState.Open) throw new InvalidOperationException("Connection already open");
     }
 
     /// <summary>
-    /// Releases all resources used by the <see cref="YdbConnection"/>.
+    ///     Releases all resources used by the <see cref="YdbConnection" />.
     /// </summary>
-    /// <param name="disposing"><see langword="true"/> when called from <see cref="Dispose"/>;
-    /// <see langword="false"/> when being called from the finalizer.</param>
+    /// <param name="disposing">
+    ///     <see langword="true" /> when called from <see cref="Dispose" />;
+    ///     <see langword="false" /> when being called from the finalizer.
+    /// </param>
     protected override void Dispose(bool disposing)
     {
         if (_disposed)
@@ -299,7 +293,7 @@ public sealed class YdbConnection : DbConnection
     }
 
     /// <summary>
-    /// Releases all resources used by the <see cref="YdbConnection"/>.
+    ///     Releases all resources used by the <see cref="YdbConnection" />.
     /// </summary>
     public override async ValueTask DisposeAsync()
     {
@@ -311,21 +305,16 @@ public sealed class YdbConnection : DbConnection
     }
 
     /// <summary>
-    /// DB provider factory.
-    /// </summary>
-    protected override DbProviderFactory DbProviderFactory => YdbProviderFactory.Instance;
-
-    /// <summary>
-    /// Clears the connection pool. All idle physical connections in the pool of the given connection are
-    /// immediately closed, and any busy connections which were opened before <see cref="ClearPool"/> was called
-    /// will be closed when returned to the pool.
+    ///     Clears the connection pool. All idle physical connections in the pool of the given connection are
+    ///     immediately closed, and any busy connections which were opened before <see cref="ClearPool" /> was called
+    ///     will be closed when returned to the pool.
     /// </summary>
     public static Task ClearPool(YdbConnection connection) => PoolManager.ClearPool(connection.ConnectionString);
 
     /// <summary>
-    /// Clear all connection pools. All idle physical connections in all pools are immediately closed, and any busy
-    /// connections which were opened before <see cref="ClearAllPools"/> was called will be closed when returned
-    /// to their pool.
+    ///     Clear all connection pools. All idle physical connections in all pools are immediately closed, and any busy
+    ///     connections which were opened before <see cref="ClearAllPools" /> was called will be closed when returned
+    ///     to their pool.
     /// </summary>
     public static Task ClearAllPools() => PoolManager.ClearAllPools();
 

@@ -17,7 +17,7 @@ internal static class CredentialsProviderUtils
         try
         {
             return (ICredentialsProvider)Assembly.Load(AssemblyYcName)
-                .GetType(ServiceAccountProviderTypeName, throwOnError: true)!
+                .GetType(ServiceAccountProviderTypeName, true)!
                 .GetConstructor(new[] { typeof(string), typeof(ILoggerFactory) })!
                 .Invoke(new object[] { serviceAccountKeyFilePath, loggerFactory });
         }
@@ -32,7 +32,7 @@ internal static class CredentialsProviderUtils
         try
         {
             return (ICredentialsProvider)Assembly.Load(AssemblyYcName)
-                .GetType(MetadataProviderTypeName, throwOnError: true)!
+                .GetType(MetadataProviderTypeName, true)!
                 .GetConstructor(new[] { typeof(ILoggerFactory) })!
                 .Invoke(new object[] { loggerFactory });
         }

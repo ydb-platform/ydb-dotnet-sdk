@@ -6,8 +6,8 @@ namespace Ydb.Sdk.Topic.Tests;
 
 public class ReaderIntegrationTests
 {
-    private readonly string _topicName = $"reader{Random.Shared.Next()}_topic";
     private readonly TopicClient _topicClient = new(Utils.ConnectionString);
+    private readonly string _topicName = $"reader{Random.Shared.Next()}_topic";
 
     [Fact]
     public async Task StressTest_WhenReadingThenCommiting_ReturnMessages()
@@ -73,10 +73,7 @@ public class ReaderIntegrationTests
         Random.Shared.NextBytes(payload);
 
         // 20 Mb sending
-        for (var i = 0; i < messageSize; i++)
-        {
-            await writer.WriteAsync(payload);
-        }
+        for (var i = 0; i < messageSize; i++) await writer.WriteAsync(payload);
 
         await using var reader = new ReaderBuilder<byte[]>(Utils.ConnectionString)
         {

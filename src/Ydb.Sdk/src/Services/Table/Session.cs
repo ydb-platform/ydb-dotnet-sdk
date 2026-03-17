@@ -17,18 +17,12 @@ public partial class Session : SessionBase
 
     private void OnResponseStatus(Status status)
     {
-        if (status.StatusCode is StatusCode.BadSession or StatusCode.SessionBusy)
-        {
-            _sessionPool?.InvalidateSession(Id);
-        }
+        if (status.StatusCode is StatusCode.BadSession or StatusCode.SessionBusy) _sessionPool?.InvalidateSession(Id);
     }
 
     protected override void Dispose(bool disposing)
     {
-        if (Disposed)
-        {
-            return;
-        }
+        if (Disposed) return;
 
         if (disposing)
         {
@@ -62,9 +56,9 @@ public partial class Session : SessionBase
         settings.NodeId = NodeId;
 
         return await Driver.UnaryCall(
-            method: method,
-            request: request,
-            settings: settings
+            method,
+            request,
+            settings
         );
     }
 }

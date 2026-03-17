@@ -1,66 +1,58 @@
-namespace Ydb.Sdk.Tracing;
-
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
+namespace Ydb.Sdk.Tracing;
+
 public sealed class YdbMetricsReporter : IDisposable
 {
-    const string Version = "0.1.0";
-    static readonly Meter Meter;
+    private const string Version = "0.1.0";
 
-    static readonly Histogram<double> CommandDuration;
-    static readonly Counter<int> CommandsFailed;
-    
-    static readonly UpDownCounter<int> CommandsExecuting;
-    
-    static readonly List<YdbMetricsReporter> Reporters = [];
+    private static readonly Histogram<double> CommandDuration;
+    private static readonly Counter<int> CommandsFailed;
 
-    readonly DriverConfig _config;
-    readonly TagList _commonTags;
-    readonly KeyValuePair<string, object?> _poolTag;
+    private static readonly UpDownCounter<int> CommandsExecuting;
 
-    static readonly InstrumentAdvice<double> ShortHistogramAdvice = new()
-    {
-        HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]
-    };
-    
-    internal ISessionPoolStats? StatsProvider { get; set; }
+    private static readonly List<YdbMetricsReporter> Reporters = [];
+
+    private readonly TagList _commonTags;
 
     static YdbMetricsReporter()
     {
-        Meter = new("Ydb.Sdk", Version);
+        var meter = new Meter("Ydb.Sdk", Version);
 
-        CommandDuration = Meter.CreateHistogram<double>(
+        var shortHistogramAdvice = new InstrumentAdvice<double>
+        {
+            HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]
+        };
+
+        CommandDuration = meter.CreateHistogram(
             "db.client.operation.duration",
-            unit: "s",
-            description: "Duration of database client operations.",
-            advice: ShortHistogramAdvice);
+            "s",
+            "Duration of database client operations.",
+            advice: shortHistogramAdvice);
 
-        CommandsFailed = Meter.CreateCounter<int>(
+        CommandsFailed = meter.CreateCounter<int>(
             "db.client.operation.failed",
-            unit: "{command}",
-            description: "The number of database commands which have failed.");
+            "{command}",
+            "The number of database commands which have failed.");
 
-        CommandsExecuting = Meter.CreateUpDownCounter<int>(
+        CommandsExecuting = meter.CreateUpDownCounter<int>(
             "db.client.operation.ydb.executing",
-            unit: "{command}",
-            description: "The number of currently executing YDB commands.");
+            "{command}",
+            "The number of currently executing YDB commands.");
 
-        Meter.CreateObservableUpDownCounter(
+        meter.CreateObservableUpDownCounter(
             "db.client.connection.count",
             GetSessionCount,
-            unit: "{connection}",
-            description: "The number of connections that are currently in state described by the state attribute.");
+            "{connection}",
+            "The number of connections that are currently in state described by the state attribute.");
     }
 
     public YdbMetricsReporter(DriverConfig config)
     {
-        _config = config;
-        _poolTag = new KeyValuePair<string, object?>("db.client.connection.pool.name", config.Database);
-
         _commonTags = new TagList
         {
-            { "db.system.name", "ydb" }, 
+            { "db.system.name", "ydb" },
             { "db.namespace", config.Database },
             { "server.address", config.EndpointInfo.Host },
             { "server.port", config.EndpointInfo.Port }
@@ -69,6 +61,16 @@ public sealed class YdbMetricsReporter : IDisposable
         lock (Reporters)
         {
             Reporters.Add(this);
+        }
+    }
+
+    internal ISessionPoolStats? StatsProvider { get; set; }
+
+    public void Dispose()
+    {
+        lock (Reporters)
+        {
+            Reporters.Remove(this);
         }
     }
 
@@ -93,8 +95,8 @@ public sealed class YdbMetricsReporter : IDisposable
     }
 
     internal void ReportCommandFailed() => CommandsFailed.Add(1, _commonTags);
-    
-    static IEnumerable<Measurement<int>> GetSessionCount()
+
+    private static IEnumerable<Measurement<int>> GetSessionCount()
     {
         lock (Reporters)
         {
@@ -103,6 +105,7 @@ public sealed class YdbMetricsReporter : IDisposable
             foreach (var reporter in Reporters)
             {
                 if (reporter.StatsProvider == null) continue;
+
                 measurements.Add(new Measurement<int>(
                     reporter.StatsProvider.IdleCount,
                     [
@@ -121,14 +124,6 @@ public sealed class YdbMetricsReporter : IDisposable
             }
 
             return measurements;
-        }
-    }
-
-    public void Dispose()
-    {
-        lock (Reporters)
-        {
-            Reporters.Remove(this);
         }
     }
 }

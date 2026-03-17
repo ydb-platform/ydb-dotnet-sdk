@@ -8,21 +8,21 @@ namespace Ydb.Sdk.Services.Query;
 
 public class QueryClientConfig
 {
+    private readonly int _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
+
+    private readonly int _masSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
+
     public int MaxSessionPool
     {
         get => _masSessionPool;
         init
         {
             if (value <= 0)
-            {
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Invalid max session pool: " + value);
-            }
 
             _masSessionPool = value;
         }
     }
-
-    private readonly int _masSessionPool = SessionPoolDefaultSettings.MaxSessionPool;
 
     public int CreateSessionTimeout
     {
@@ -30,20 +30,17 @@ public class QueryClientConfig
         init
         {
             if (value < 0)
-            {
                 throw new ArgumentOutOfRangeException(nameof(value), value,
                     "Invalid create session timeout: " + value);
-            }
 
             _createSessionTimeout = value;
         }
     }
-
-    private readonly int _createSessionTimeout = SessionPoolDefaultSettings.CreateSessionTimeoutSeconds;
 }
 
 public class QueryClient : IAsyncDisposable
 {
+    private static readonly object None = new();
     private readonly SessionPool _sessionPool;
 
     public QueryClient(IDriver driver, QueryClientConfig? config = null)
@@ -56,6 +53,13 @@ public class QueryClient : IAsyncDisposable
                 MaxSessionPool: config.MaxSessionPool
             )
         );
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        GC.SuppressFinalize(this);
+
+        return _sessionPool.DisposeAsync();
     }
 
     public Task<T> Stream<T>(string query, Func<ExecuteQueryStream, Task<T>> onStream,
@@ -85,10 +89,7 @@ public class QueryClient : IAsyncDisposable
 
             await foreach (var part in uStream)
             {
-                if (part.ResultSetIndex > 0)
-                {
-                    break;
-                }
+                if (part.ResultSetIndex > 0) break;
 
                 rows.AddRange(part.ResultSet?.Rows ?? ImmutableList<Value.ResultSet.Row>.Empty);
             }
@@ -143,8 +144,6 @@ public class QueryClient : IAsyncDisposable
             }
         });
 
-    private static readonly object None = new();
-
     public async Task DoTx(Func<QueryTx, Task> queryTx,
         TransactionMode transactionMode = TransactionMode.SerializableRw) =>
         await DoTx<object>(async tx =>
@@ -153,11 +152,4 @@ public class QueryClient : IAsyncDisposable
 
             return None;
         }, transactionMode);
-
-    public ValueTask DisposeAsync()
-    {
-        GC.SuppressFinalize(this);
-
-        return _sessionPool.DisposeAsync();
-    }
 }

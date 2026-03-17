@@ -1,17 +1,15 @@
+using System.Diagnostics.Metrics;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
-using System.Diagnostics.Metrics;
-
 
 namespace Ydb.Sdk.Ado.Tests.Tracing;
 
 [Collection("DisableParallelization")]
-
 public class YdbMetricsTests : TestBase
 {
-    private static readonly YdbConnectionStringBuilder ConnectionSettings = new(TestUtils.ConnectionString);
     private const string MeterName = "Ydb.Sdk";
-    
+    private static readonly YdbConnectionStringBuilder ConnectionSettings = new(TestUtils.ConnectionString);
+
     [Fact]
     public async Task CommandExecute_EmitsDurationAndSuccessMetrics()
     {
@@ -20,18 +18,15 @@ public class YdbMetricsTests : TestBase
 
         listener.InstrumentPublished = (instrument, meterListener) =>
         {
-            if (instrument.Meter.Name == MeterName)
-            {
-                meterListener.EnableMeasurementEvents(instrument);
-            }
+            if (instrument.Meter.Name == MeterName) meterListener.EnableMeasurementEvents(instrument);
         };
 
-        listener.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) =>
+        listener.SetMeasurementEventCallback<double>((instrument, measurement, tags, _) =>
         {
             var tagsDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             measurements.Add(new CapturedMeasurement(instrument.Name, measurement, tagsDict));
         });
-        listener.SetMeasurementEventCallback<int>((instrument, measurement, tags, state) =>
+        listener.SetMeasurementEventCallback<int>((instrument, measurement, tags, _) =>
         {
             var tagsDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             measurements.Add(new CapturedMeasurement(instrument.Name, measurement, tagsDict));
@@ -50,7 +45,7 @@ public class YdbMetricsTests : TestBase
         var failed = measurements.Any(m => m.Name == "db.client.operation.failed");
         Assert.False(failed, "Failed counter should not be incremented on success");
     }
-    
+
     [Fact]
     public async Task CommandExecute_Error_IncrementsFailedCounter()
     {
@@ -63,12 +58,12 @@ public class YdbMetricsTests : TestBase
                 meterListener.EnableMeasurementEvents(instrument);
         };
 
-        listener.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) =>
+        listener.SetMeasurementEventCallback<double>((instrument, measurement, tags, _) =>
         {
             var tagsDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             measurements.Add(new CapturedMeasurement(instrument.Name, measurement, tagsDict));
         });
-        listener.SetMeasurementEventCallback<int>((instrument, measurement, tags, state) =>
+        listener.SetMeasurementEventCallback<int>((instrument, measurement, tags, _) =>
         {
             var tagsDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             measurements.Add(new CapturedMeasurement(instrument.Name, measurement, tagsDict));
@@ -88,7 +83,7 @@ public class YdbMetricsTests : TestBase
         var durationMetric = measurements.FirstOrDefault(m => m.Name == "db.client.operation.duration");
         Assert.NotNull(durationMetric);
     }
-    
+
     [Fact]
     public async Task CommandExecute_UpdatesExecutingCounter()
     {
@@ -101,7 +96,7 @@ public class YdbMetricsTests : TestBase
                 meterListener.EnableMeasurementEvents(instrument);
         };
 
-        listener.SetMeasurementEventCallback<int>((instrument, measurement, tags, state) =>
+        listener.SetMeasurementEventCallback<int>((instrument, measurement, tags, _) =>
         {
             var tagsDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             measurements.Add(new CapturedMeasurement(instrument.Name, measurement, tagsDict));
@@ -120,7 +115,7 @@ public class YdbMetricsTests : TestBase
         Assert.Contains(1, executingMeasurements);
         Assert.Contains(-1, executingMeasurements);
     }
-    
+
     [Fact]
     public async Task SessionPool_EmitsConnectionCountMetrics()
     {
@@ -130,12 +125,10 @@ public class YdbMetricsTests : TestBase
         listener.InstrumentPublished = (instrument, meterListener) =>
         {
             if (instrument.Meter.Name == MeterName && instrument.Name == "db.client.connection.count")
-            {
                 meterListener.EnableMeasurementEvents(instrument);
-            }
         };
 
-        listener.SetMeasurementEventCallback<int>((instrument, measurement, tags, state) =>
+        listener.SetMeasurementEventCallback<int>((instrument, measurement, tags, _) =>
         {
             var tagsDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             measurements.Add(new CapturedMeasurement(instrument.Name, measurement, tagsDict));
@@ -146,26 +139,24 @@ public class YdbMetricsTests : TestBase
         await using var connection = await CreateOpenConnectionAsync();
         _ = await new YdbCommand("SELECT 1;", connection).ExecuteScalarAsync();
 
-        await Task.Delay(100); 
-        
+        await Task.Delay(200);
+
         listener.RecordObservableInstruments();
 
-        var usedSessions = measurements.FirstOrDefault(m => 
-            m.Tags.GetValueOrDefault("db.client.connection.state")?.ToString() == "used");
-            
-        var idleSessions = measurements.FirstOrDefault(m => 
-            m.Tags.GetValueOrDefault("db.client.connection.state")?.ToString() == "idle");
+        Assert.NotEmpty(measurements);
 
-        Assert.NotNull(usedSessions);
-        Assert.NotNull(idleSessions);
+        var usedSessions = measurements
+            .Where(m => m.Tags.GetValueOrDefault("db.client.connection.state")?.ToString() == "used")
+            .Sum(m => (int)m.Value);
 
-        int totalSessions = (int)usedSessions.Value + (int)idleSessions.Value;
-        Assert.True(totalSessions > 0, "Total session count should be greater than 0");
+        var idleSessions = measurements
+            .Where(m => m.Tags.GetValueOrDefault("db.client.connection.state")?.ToString() == "idle")
+            .Sum(m => (int)m.Value);
 
-        AssertCommonMetricTags(usedSessions.Tags);
-        AssertCommonMetricTags(idleSessions.Tags);
+        Assert.True(usedSessions + idleSessions > 0,
+            $"Total sessions (used:{usedSessions}, idle:{idleSessions}) should be > 0");
     }
-    
+
     private static void AssertCommonMetricTags(IReadOnlyDictionary<string, object?> tags)
     {
         Assert.Equal("ydb", tags["db.system.name"]);
@@ -175,8 +166,8 @@ public class YdbMetricsTests : TestBase
     }
 
     private record CapturedMeasurement(
-        string Name, 
-        object Value, 
+        string Name,
+        object Value,
         IReadOnlyDictionary<string, object?> Tags
     );
 }

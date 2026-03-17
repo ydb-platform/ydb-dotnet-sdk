@@ -4,19 +4,19 @@ namespace Ydb.Sdk.Services.Table;
 
 public class TableClientConfig
 {
-    public SessionPoolConfig SessionPoolConfig { get; }
-
     public TableClientConfig(
         SessionPoolConfig? sessionPoolConfig = null)
     {
         SessionPoolConfig = sessionPoolConfig ?? new SessionPoolConfig();
     }
+
+    public SessionPoolConfig SessionPoolConfig { get; }
 }
 
 public partial class TableClient : IDisposable
 {
-    private readonly ISessionPool<Session> _sessionPool;
     private readonly Driver _driver;
+    private readonly ISessionPool<Session> _sessionPool;
 
     private bool _disposed;
 
@@ -42,15 +42,9 @@ public partial class TableClient : IDisposable
 
     private void Dispose(bool disposing)
     {
-        if (_disposed)
-        {
-            return;
-        }
+        if (_disposed) return;
 
-        if (disposing)
-        {
-            _sessionPool.Dispose();
-        }
+        if (disposing) _sessionPool.Dispose();
 
         _disposed = true;
     }

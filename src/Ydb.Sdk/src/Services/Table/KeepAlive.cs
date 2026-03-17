@@ -11,15 +11,23 @@ public class KeepAliveSettings : OperationSettings
 
 public class KeepAliveResponse : ResponseWithResultBase<KeepAliveResponse.ResultData>
 {
-    public KeepAliveResponse(Status status, ResultData? result = null) : base(status, result)
-    {
-    }
-
     public enum SessionStatus : uint
     {
         Unspecified = 0,
         Ready = 1,
         Busy = 2
+    }
+
+    public KeepAliveResponse(Status status, ResultData? result = null) : base(status, result)
+    {
+    }
+
+    private static SessionStatus SessionStatusFromProto(KeepAliveResult.Types.SessionStatus proto)
+    {
+        var value = (uint)proto;
+        if (Enum.IsDefined(typeof(SessionStatus), value)) return (SessionStatus)value;
+
+        return SessionStatus.Unspecified;
     }
 
     public class ResultData
@@ -33,19 +41,8 @@ public class KeepAliveResponse : ResponseWithResultBase<KeepAliveResponse.Result
 
         internal static ResultData FromProto(KeepAliveResult resultProto) =>
             new(
-                sessionStatus: SessionStatusFromProto(resultProto.SessionStatus)
+                SessionStatusFromProto(resultProto.SessionStatus)
             );
-    }
-
-    private static SessionStatus SessionStatusFromProto(KeepAliveResult.Types.SessionStatus proto)
-    {
-        var value = (uint)proto;
-        if (Enum.IsDefined(typeof(SessionStatus), value))
-        {
-            return (SessionStatus)value;
-        }
-
-        return SessionStatus.Unspecified;
     }
 }
 
@@ -62,18 +59,15 @@ public partial class TableClient
         };
 
         var response = await _driver.UnaryCall(
-            method: TableService.KeepAliveMethod,
-            request: request,
-            settings: settings
+            TableService.KeepAliveMethod,
+            request,
+            settings
         );
 
         var status = response.Operation.TryUnpack(out KeepAliveResult? resultProto);
 
         KeepAliveResponse.ResultData? result = null;
-        if (status.IsSuccess && resultProto != null)
-        {
-            result = KeepAliveResponse.ResultData.FromProto(resultProto);
-        }
+        if (status.IsSuccess && resultProto != null) result = KeepAliveResponse.ResultData.FromProto(resultProto);
 
         return new KeepAliveResponse(status, result);
     }

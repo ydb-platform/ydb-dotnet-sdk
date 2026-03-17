@@ -14,6 +14,8 @@ internal class ImplicitSession : ISession
         _source = source;
     }
 
+    private static YdbException NotSupportedTransaction => new("Transactions are not supported in implicit session");
+
     public IDriver Driver { get; }
     public bool IsBroken => false;
 
@@ -24,10 +26,7 @@ internal class ImplicitSession : ISession
         TransactionControl? txControl
     )
     {
-        if (txControl is not null && !txControl.CommitTx)
-        {
-            throw NotSupportedTransaction;
-        }
+        if (txControl is not null && !txControl.CommitTx) throw NotSupportedTransaction;
 
         var request = new ExecuteQueryRequest
         {
@@ -58,6 +57,4 @@ internal class ImplicitSession : ISession
     }
 
     public void Dispose() => _source.ReleaseLease();
-
-    private static YdbException NotSupportedTransaction => new("Transactions are not supported in implicit session");
 }

@@ -10,33 +10,15 @@ namespace Ydb.Sdk.Pool;
 
 internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposable
 {
+    private readonly IChannelFactory<T> _channelFactory;
     private readonly ConcurrentDictionary<string, Lazy<T>> _channels = new();
 
     private readonly ILogger<ChannelPool<T>> _logger;
-    private readonly IChannelFactory<T> _channelFactory;
 
     public ChannelPool(ILoggerFactory loggerFactory, IChannelFactory<T> channelFactory)
     {
         _logger = loggerFactory.CreateLogger<ChannelPool<T>>();
         _channelFactory = channelFactory;
-    }
-
-    public T GetChannel(EndpointInfo endpointInfo) => _channels.GetOrAdd(endpointInfo.Endpoint,
-        new Lazy<T>(() => _channelFactory.CreateChannel(endpointInfo.Endpoint))).Value;
-
-    public async ValueTask RemoveChannels(IReadOnlyList<EndpointInfo> removedEndpoints)
-    {
-        var shutdownGrpcChannels = new List<T>();
-
-        foreach (var endpoint in removedEndpoints)
-        {
-            if (_channels.TryRemove(endpoint.Endpoint, out var lazyGrpcChannel) && lazyGrpcChannel.IsValueCreated)
-            {
-                shutdownGrpcChannels.Add(lazyGrpcChannel.Value);
-            }
-        }
-
-        await ShutdownChannels(shutdownGrpcChannels);
     }
 
     public async ValueTask DisposeAsync()
@@ -48,6 +30,20 @@ internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposa
             .Select(lazyChannel => lazyChannel.Value)
             .ToImmutableArray()
         );
+    }
+
+    public T GetChannel(EndpointInfo endpointInfo) => _channels.GetOrAdd(endpointInfo.Endpoint,
+        new Lazy<T>(() => _channelFactory.CreateChannel(endpointInfo.Endpoint))).Value;
+
+    public async ValueTask RemoveChannels(IReadOnlyList<EndpointInfo> removedEndpoints)
+    {
+        var shutdownGrpcChannels = new List<T>();
+
+        foreach (var endpoint in removedEndpoints)
+            if (_channels.TryRemove(endpoint.Endpoint, out var lazyGrpcChannel) && lazyGrpcChannel.IsValueCreated)
+                shutdownGrpcChannels.Add(lazyGrpcChannel.Value);
+
+        await ShutdownChannels(shutdownGrpcChannels);
     }
 
     private async ValueTask ShutdownChannels(ICollection<T> channels)
@@ -75,11 +71,9 @@ public interface IChannelFactory<out T> where T : ChannelBase, IDisposable
 
 internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 {
-    private readonly ILoggerFactory _loggerFactory;
-    private readonly ILogger<GrpcChannelFactory> _logger;
     private readonly DriverConfig _config;
-
-    private X509Certificate2Collection ServerCertificates => _config.CustomServerCertificates;
+    private readonly ILogger<GrpcChannelFactory> _logger;
+    private readonly ILoggerFactory _loggerFactory;
 
     internal GrpcChannelFactory(ILoggerFactory loggerFactory, DriverConfig config)
     {
@@ -87,6 +81,8 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
         _logger = loggerFactory.CreateLogger<GrpcChannelFactory>();
         _config = config;
     }
+
+    private X509Certificate2Collection ServerCertificates => _config.CustomServerCertificates;
 
     public GrpcChannel CreateChannel(string endpoint)
     {
@@ -115,23 +111,14 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
 
         channelOptions.HttpHandler = httpHandler;
 
-        if (ServerCertificates.Count == 0)
-        {
-            return GrpcChannel.ForAddress(endpoint, channelOptions);
-        }
+        if (ServerCertificates.Count == 0) return GrpcChannel.ForAddress(endpoint, channelOptions);
 
         httpHandler.SslOptions.RemoteCertificateValidationCallback +=
             (_, certificate, chain, sslPolicyErrors) =>
             {
-                if (sslPolicyErrors == SslPolicyErrors.None)
-                {
-                    return true;
-                }
+                if (sslPolicyErrors == SslPolicyErrors.None) return true;
 
-                if (certificate is null || chain is null)
-                {
-                    return false;
-                }
+                if (certificate is null || chain is null) return false;
 
                 try
                 {

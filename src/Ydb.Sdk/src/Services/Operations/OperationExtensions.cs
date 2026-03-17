@@ -22,10 +22,7 @@ internal static class OperationExtensions
         var status = operation.Status;
         result = null;
 
-        if (operation.HasResult)
-        {
-            result = operation.UnpackResult<TResult>();
-        }
+        if (operation.HasResult) result = operation.UnpackResult<TResult>();
 
         return status;
     }

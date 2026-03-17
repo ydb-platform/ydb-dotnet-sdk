@@ -19,7 +19,7 @@ var otlpEndpoint = new Uri("http://otel-collector:4317");
 var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown";
 
 var resourceBuilder = ResourceBuilder.CreateDefault()
-    .AddService(serviceName: serviceName, serviceVersion: serviceVersion);
+    .AddService(serviceName, serviceVersion: serviceVersion);
 
 const string activitySourceName = "Ydb.Sdk.AdoNet.OpenTelemetry.Sample";
 using var activitySource = new ActivitySource(activitySourceName);
@@ -44,13 +44,20 @@ Console.WriteLine("Initializing...");
 
 await using var dataSource = new YdbDataSource("Host=ydb;Port=2136;Database=/local");
 const string appStartup = "app.startup";
-using (var activity = activitySource.StartActivity(appStartup))
+var currentDataSource = dataSource;
+
+using (_ = activitySource.StartActivity(appStartup))
 {
     await using var connInit = await dataSource.OpenConnectionAsync();
-    try {
+    try
+    {
         await new YdbCommand("DROP TABLE bank", connInit).ExecuteNonQueryAsync();
-    } catch { }
-    
+    }
+    catch
+    {
+        // ignored
+    }
+
     await new YdbCommand("CREATE TABLE bank(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
         .ExecuteNonQueryAsync();
 }
@@ -77,15 +84,12 @@ Console.WriteLine("Emulation TLI...");
 
 var tasks = new List<Task>();
 for (var i = 0; i < 10; i++)
-{
-    var concurrentTaskNum = i;
     tasks.Add(Task.Run(async () =>
     {
-        for (int j = 0; j < 5; j++) 
-        {
-            try 
+        for (var j = 0; j < 5; j++)
+            try
             {
-                await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
+                await currentDataSource.ExecuteInTransactionAsync(async ydbConnection =>
                 {
                     var count = (int)(await new YdbCommand(ydbConnection)
                         { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
@@ -97,10 +101,11 @@ for (var i = 0; i < 10; i++)
                     }.ExecuteNonQueryAsync();
                 });
             }
-            catch { }
-        }
+            catch
+            {
+                // ignored
+            }
     }));
-}
 
 await Task.WhenAll(tasks);
 

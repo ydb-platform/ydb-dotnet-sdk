@@ -88,15 +88,6 @@ public readonly struct Position
 
 public class Issue
 {
-    public uint IssueCode { get; }
-
-    private IssueSeverity Severity { get; } = IssueSeverity.Error;
-
-    private Position? Position { get; }
-    public string Message { get; }
-
-    private IReadOnlyList<Issue> Children { get; } = Array.Empty<Issue>();
-
     internal Issue(IssueMessage issue)
     {
         IssueCode = issue.IssueCode;
@@ -106,9 +97,7 @@ public class Issue
             : IssueSeverity.Unknown;
 
         if (issue.Position != null)
-        {
             Position = new Position(issue.Position.File, issue.Position.Row, issue.Position.Column);
-        }
 
         Message = issue.Message;
         Children = issue.Issues
@@ -121,6 +110,15 @@ public class Issue
         Message = message;
     }
 
+    public uint IssueCode { get; }
+
+    private IssueSeverity Severity { get; } = IssueSeverity.Error;
+
+    private Position? Position { get; }
+    public string Message { get; }
+
+    private IReadOnlyList<Issue> Children { get; } = Array.Empty<Issue>();
+
     public override string ToString() => ToString(0, 4);
 
     private string ToString(int currentIndent, int indent)
@@ -129,10 +127,7 @@ public class Issue
         sb.Append(new string(' ', currentIndent));
         sb.Append($"[{IssueCode}] ");
 
-        if (Position != null)
-        {
-            sb.Append(Position);
-        }
+        if (Position != null) sb.Append(Position);
 
         sb.Append($"{Severity}: ");
         sb.Append(Message);
@@ -160,9 +155,6 @@ public class Status
 {
     public static readonly Status Success = new(StatusCode.Success);
 
-    public StatusCode StatusCode { get; }
-    public IReadOnlyList<Issue> Issues { get; }
-
     internal Status(StatusCode statusCode, IReadOnlyList<Issue> issues)
     {
         StatusCode = statusCode;
@@ -177,15 +169,15 @@ public class Status
     {
     }
 
+    public StatusCode StatusCode { get; }
+    public IReadOnlyList<Issue> Issues { get; }
+
     public bool IsSuccess => StatusCode == StatusCode.Success;
     public bool IsNotSuccess => !IsSuccess;
 
     public void EnsureSuccess()
     {
-        if (!IsSuccess)
-        {
-            throw new YdbException(StatusCode, Issue.IssuesToString(Issues));
-        }
+        if (!IsSuccess) throw new YdbException(StatusCode, Issue.IssuesToString(Issues));
     }
 
     public override string ToString()
@@ -193,10 +185,7 @@ public class Status
         var sb = new StringBuilder();
         sb.Append($"Status: {StatusCode}");
 
-        if (Issues.Count == 0)
-        {
-            return sb.ToString();
-        }
+        if (Issues.Count == 0) return sb.ToString();
 
         sb.Append(", Issues:");
         sb.AppendLine();
@@ -207,10 +196,7 @@ public class Status
 
     private static StatusCode ConvertStatusCode(StatusIds.Types.StatusCode statusCode)
     {
-        if (Enum.IsDefined(typeof(StatusCode), (int)statusCode))
-        {
-            return (StatusCode)statusCode;
-        }
+        if (Enum.IsDefined(typeof(StatusCode), (int)statusCode)) return (StatusCode)statusCode;
 
         return StatusCode.Unspecified;
     }

@@ -103,10 +103,7 @@ public partial class YdbValue
                 lo = ~lo;
                 hi = ~hi;
 
-                if (lo == (ulong)-1L)
-                {
-                    hi += 1;
-                }
+                if (lo == (ulong)-1L) hi += 1;
 
                 lo += 1;
             }
@@ -134,10 +131,7 @@ public partial class YdbValue
     // TODO: Check items type
     public static YdbValue MakeList(IReadOnlyList<YdbValue> values)
     {
-        if (values.Count == 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(values));
-        }
+        if (values.Count == 0) throw new ArgumentOutOfRangeException(nameof(values));
 
         var value = new Ydb.Value();
         value.Items.Add(values.Select(v => v._protoValue));
@@ -190,9 +184,7 @@ public partial class YdbValue
     private static void EnsurePrimitiveTypeId(YdbTypeId typeId)
     {
         if (!IsPrimitiveTypeId(typeId))
-        {
             throw new ArgumentException($"Complex types aren't supported in current method: {typeId}", "typeId");
-        }
     }
 
     public static YdbValue MakeOptionalBool(bool? value = null) => MakeOptionalOf(value, YdbTypeId.Bool, MakeBool);
@@ -258,14 +250,11 @@ public partial class YdbValue
     private static YdbValue MakeEmptyOptional(YdbTypeId typeId)
     {
         if (IsPrimitiveTypeId(typeId))
-        {
             return new YdbValue(
                 new Type { OptionalType = new OptionalType { Item = MakePrimitiveType(typeId) } },
                 new Ydb.Value { NullFlagValue = new NullValue() });
-        }
 
         if (typeId == YdbTypeId.DecimalType)
-        {
             return new YdbValue(
                 new Type
                 {
@@ -274,7 +263,6 @@ public partial class YdbValue
                 },
                 new Ydb.Value { NullFlagValue = new NullValue() }
             );
-        }
 
         throw new ArgumentException($"This type is not supported: {typeId}", nameof(typeId));
     }

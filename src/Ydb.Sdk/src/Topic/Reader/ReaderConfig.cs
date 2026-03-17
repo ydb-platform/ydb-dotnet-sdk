@@ -32,15 +32,9 @@ internal class ReaderConfig
             .Append(", MemoryUsageMaxBytes: ")
             .Append(MemoryUsageMaxBytes);
 
-        if (ConsumerName != null)
-        {
-            toString.Append(", ConsumerName: ").Append(ConsumerName);
-        }
+        if (ConsumerName != null) toString.Append(", ConsumerName: ").Append(ConsumerName);
 
-        if (ReaderName != null)
-        {
-            toString.Append(", ReaderName: ").Append(ReaderName);
-        }
+        if (ReaderName != null) toString.Append(", ReaderName: ").Append(ReaderName);
 
         return toString.ToString();
     }

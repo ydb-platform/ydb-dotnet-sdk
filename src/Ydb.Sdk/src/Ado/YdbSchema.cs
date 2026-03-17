@@ -93,22 +93,16 @@ internal static class YdbSchema
         var tableType = restrictions[1];
 
         if (tableName == null) // tableName isn't set
-        {
             foreach (var tupleTable in await ListTables(ydbConnection, tableType, cancellationToken))
-            {
                 table.Rows.Add(tupleTable.TableName, tupleTable.TableType);
-            }
-        }
         else
-        {
             await AppendDescribeTable(
-                ydbConnection: ydbConnection,
-                tableName: tableName,
-                tableType: tableType,
+                ydbConnection,
+                tableName,
+                tableType,
                 (_, type) => { table.Rows.Add(tableName, type); },
                 cancellationToken: cancellationToken
             );
-        }
 
         return table;
     }
@@ -135,13 +129,11 @@ internal static class YdbSchema
         var tableType = restrictions[1];
 
         if (tableName == null) // tableName isn't set
-        {
             foreach (var tupleTable in await ListTables(ydbConnection, tableType, cancellationToken))
-            {
                 await AppendDescribeTable(
-                    ydbConnection: ydbConnection,
-                    tableName: tupleTable.TableName,
-                    tableType: tableType,
+                    ydbConnection,
+                    tupleTable.TableName,
+                    tableType,
                     (ydbTable, type) =>
                     {
                         var row = table.Rows.Add();
@@ -156,14 +148,11 @@ internal static class YdbSchema
                     new DescribeTableSettings { IncludeTableStats = true },
                     cancellationToken
                 );
-            }
-        }
         else
-        {
             await AppendDescribeTable(
-                ydbConnection: ydbConnection,
-                tableName: tableName,
-                tableType: tableType,
+                ydbConnection,
+                tableName,
+                tableType,
                 (ydbTable, type) =>
                 {
                     var row = table.Rows.Add();
@@ -176,9 +165,8 @@ internal static class YdbSchema
                     row["modification_time"] = (object?)tableStats.ModificationTime ?? DBNull.Value;
                 },
                 new DescribeTableSettings { IncludeTableStats = true },
-                cancellationToken: cancellationToken
+                cancellationToken
             );
-        }
 
         return table;
     }
@@ -206,7 +194,6 @@ internal static class YdbSchema
 
         var tableNames = await ListTableNames(ydbConnection, tableNameRestriction, cancellationToken);
         foreach (var tableName in tableNames)
-        {
             await AppendDescribeTable(
                 ydbConnection,
                 tableName,
@@ -217,10 +204,7 @@ internal static class YdbSchema
                     {
                         var column = result.Columns[ordinal];
 
-                        if (!column.Name.IsPattern(columnName))
-                        {
-                            continue;
-                        }
+                        if (!column.Name.IsPattern(columnName)) continue;
 
                         var row = table.Rows.Add();
 
@@ -232,7 +216,6 @@ internal static class YdbSchema
                         row["family_name"] = column.Family;
                     }
                 }, cancellationToken: cancellationToken);
-        }
 
         return table;
     }
@@ -255,10 +238,7 @@ internal static class YdbSchema
                 YdbTableType.External => "EXTERNAL_TABLE",
                 _ => throw new ArgumentOutOfRangeException(nameof(tableType))
             };
-        if (type.IsPattern(tableType))
-        {
-            appendInTable(ydbTable, type);
-        }
+        if (type.IsPattern(tableType)) appendInTable(ydbTable, type);
     }
 
     private static async Task<IEnumerable<string>> ListTableNames(
@@ -400,10 +380,7 @@ internal static class YdbSchema
             );
 
             var operation = response.Operation;
-            if (operation.Status.IsNotSuccess())
-            {
-                throw YdbException.FromServer(operation.Status, operation.Issues);
-            }
+            if (operation.Status.IsNotSuccess()) throw YdbException.FromServer(operation.Status, operation.Issues);
 
             foreach (var entry in operation.Result.Unpack<ListDirectoryResult>().Children)
             {

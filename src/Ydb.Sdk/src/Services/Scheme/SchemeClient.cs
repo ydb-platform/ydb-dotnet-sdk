@@ -33,7 +33,7 @@ public class Permissions
     public IReadOnlyList<string> PermissionNames { get; }
 
     internal static Permissions FromProto(Ydb.Scheme.Permissions permissionsProto) =>
-        new(subject: permissionsProto.Subject, permissionNames: permissionsProto.PermissionNames);
+        new(permissionsProto.Subject, permissionsProto.PermissionNames);
 }
 
 public class SchemeEntry
@@ -73,11 +73,11 @@ public class SchemeEntry
             .ToList();
 
         return new SchemeEntry(
-            name: entryProto.Name,
-            owner: entryProto.Owner,
-            type: type,
-            effectivePermissions: effectivePermissions,
-            permissions: permissions);
+            entryProto.Name,
+            entryProto.Owner,
+            type,
+            effectivePermissions,
+            permissions);
     }
 }
 
@@ -107,8 +107,8 @@ public class ListDirectoryResponse : ResponseWithResultBase<ListDirectoryRespons
                 .ToList();
 
             return new ResultData(
-                self: self,
-                children: children
+                self,
+                children
             );
         }
     }
@@ -134,18 +134,15 @@ public class SchemeClient
         };
 
         var response = await _driver.UnaryCall(
-            method: SchemeService.ListDirectoryMethod,
-            request: request,
-            settings: settings
+            SchemeService.ListDirectoryMethod,
+            request,
+            settings
         );
 
         var status = response.Operation.TryUnpack(out ListDirectoryResult? resultProto);
 
         ListDirectoryResponse.ResultData? result = null;
-        if (status.IsSuccess && resultProto != null)
-        {
-            result = ListDirectoryResponse.ResultData.FromProto(resultProto);
-        }
+        if (status.IsSuccess && resultProto != null) result = ListDirectoryResponse.ResultData.FromProto(resultProto);
 
         return new ListDirectoryResponse(status, result);
     }

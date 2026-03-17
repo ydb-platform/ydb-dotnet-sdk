@@ -11,6 +11,12 @@ public class YdbDataRecord : DbDataRecord
         _ydbDataReader = ydbDataReader;
     }
 
+    public override int FieldCount => _ydbDataReader.FieldCount;
+
+    public override object this[int i] => _ydbDataReader[i];
+
+    public override object this[string name] => _ydbDataReader[name];
+
     public override bool GetBoolean(int i) => _ydbDataReader.GetBoolean(i);
 
     public override byte GetByte(int i) => _ydbDataReader.GetByte(i);
@@ -54,12 +60,6 @@ public class YdbDataRecord : DbDataRecord
     public override int GetValues(object[] values) => _ydbDataReader.GetValues(values);
 
     public override bool IsDBNull(int i) => _ydbDataReader.IsDBNull(i);
-
-    public override int FieldCount => _ydbDataReader.FieldCount;
-
-    public override object this[int i] => _ydbDataReader[i];
-
-    public override object this[string name] => _ydbDataReader[name];
 
     public byte[] GetBytes(int i) => _ydbDataReader.GetBytes(i);
 

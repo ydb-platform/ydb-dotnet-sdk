@@ -7,10 +7,6 @@ public sealed class YdbColumnType
 {
     private readonly Type _protoType;
 
-    public YdbDbType YdbDbType { get; }
-    public byte Precision { get; }
-    public byte Scale { get; }
-
     public YdbColumnType(YdbDbType ydbDbType, byte precision = 0, byte scale = 0)
     {
         YdbDbType = ydbDbType;
@@ -42,6 +38,10 @@ public sealed class YdbColumnType
             Scale = 0;
         }
     }
+
+    public YdbDbType YdbDbType { get; }
+    public byte Precision { get; }
+    public byte Scale { get; }
 
     internal Type ToProto() => _protoType;
 

@@ -13,19 +13,20 @@ public static class Serializers
     public static readonly ISerializer<string> Utf8 = new Utf8Serializer();
 
     /// <summary>
-    /// System.Int64 (big endian, network byte order) serializer.
+    ///     System.Int64 (big endian, network byte order) serializer.
     /// </summary>
     public static readonly ISerializer<long> Int64 = new Int64Serializer();
 
     /// <summary>
-    /// System.Int32 (big endian, network byte order) serializer.
+    ///     System.Int32 (big endian, network byte order) serializer.
     /// </summary>
     public static readonly ISerializer<int> Int32 = new Int32Serializer();
 
     /// <summary>
-    /// System.Byte[] serializer.</summary>
+    ///     System.Byte[] serializer.
+    /// </summary>
     /// <remarks>
-    /// Byte order is original order.
+    ///     Byte order is original order.
     /// </remarks>
     public static readonly ISerializer<byte[]> ByteArray = new ByteArraySerializer();
 

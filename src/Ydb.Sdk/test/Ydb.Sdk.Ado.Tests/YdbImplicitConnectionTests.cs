@@ -40,9 +40,7 @@ public class YdbImplicitConnectionTests : TestBase
         await ydbConnection.OpenAsync();
 
         for (var i = 0; i < 30; i++)
-        {
             Assert.Equal(i, await new YdbCommand(ydbConnection) { CommandText = $"SELECT {i}" }.ExecuteScalarAsync());
-        }
     }
 
     [Fact]

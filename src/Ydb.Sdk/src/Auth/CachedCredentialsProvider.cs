@@ -5,10 +5,8 @@ namespace Ydb.Sdk.Auth;
 
 public class CachedCredentialsProvider : ICredentialsProvider
 {
-    private readonly IClock _clock;
     private readonly IAuthClient _authClient;
-
-    private ILogger<CachedCredentialsProvider> Logger { get; }
+    private readonly IClock _clock;
 
     private volatile ITokenState _tokenState;
 
@@ -31,6 +29,8 @@ public class CachedCredentialsProvider : ICredentialsProvider
         _clock = clock;
     }
 
+    private ILogger<CachedCredentialsProvider> Logger { get; }
+
     public async ValueTask<string> GetAuthInfoAsync() =>
         (await _tokenState.Validate(_clock.UtcNow)).TokenResponse.Token;
 
@@ -38,10 +38,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
 
     private ITokenState UpdateState(ITokenState current, ITokenState next)
     {
-        if (Interlocked.CompareExchange(ref _tokenState, next, current) == current)
-        {
-            next.Init();
-        }
+        if (Interlocked.CompareExchange(ref _tokenState, next, current) == current) next.Init();
 
         return _tokenState;
     }
@@ -72,14 +69,12 @@ public class CachedCredentialsProvider : ICredentialsProvider
         public async ValueTask<ITokenState> Validate(DateTime now)
         {
             if (now < TokenResponse.ExpiredAt)
-            {
                 return now >= TokenResponse.RefreshAt
                     ? _cachedCredentialsProvider.UpdateState(
                         this,
                         new BackgroundState(TokenResponse, _cachedCredentialsProvider)
                     )
                     : this;
-            }
 
             _cachedCredentialsProvider.Logger.LogWarning(
                 "Token has expired. ExpiredAt: {ExpiredAt}, CurrentTime: {CurrentTime}. " +
@@ -95,9 +90,8 @@ public class CachedCredentialsProvider : ICredentialsProvider
 
     private class SyncState : ITokenState
     {
-        private readonly TaskCompletionSource<TokenResponse> _fetchTokenResponseTcs = new();
-
         private readonly CachedCredentialsProvider _cachedCredentialsProvider;
+        private readonly TaskCompletionSource<TokenResponse> _fetchTokenResponseTcs = new();
 
         public SyncState(CachedCredentialsProvider cachedCredentialsProvider)
         {
@@ -146,9 +140,8 @@ public class CachedCredentialsProvider : ICredentialsProvider
 
     private class BackgroundState : ITokenState
     {
-        private readonly TaskCompletionSource<TokenResponse> _fetchTokenResponseTcs = new();
-
         private readonly CachedCredentialsProvider _cachedCredentialsProvider;
+        private readonly TaskCompletionSource<TokenResponse> _fetchTokenResponseTcs = new();
 
         public BackgroundState(TokenResponse tokenResponse,
             CachedCredentialsProvider cachedCredentialsProvider)
@@ -179,15 +172,10 @@ public class CachedCredentialsProvider : ICredentialsProvider
             }
 
             if (fetchTokenTask.IsCompleted)
-            {
                 return _cachedCredentialsProvider
                     .UpdateState(this, new ActiveState(await fetchTokenTask, _cachedCredentialsProvider));
-            }
 
-            if (now < TokenResponse.ExpiredAt)
-            {
-                return this;
-            }
+            if (now < TokenResponse.ExpiredAt) return this;
 
             try
             {

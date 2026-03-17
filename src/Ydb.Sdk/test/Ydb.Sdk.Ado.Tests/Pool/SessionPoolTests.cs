@@ -54,7 +54,6 @@ public class SessionPoolTests
         var tasks = new Task[parallelTasks];
 
         for (var i = 0; i < parallelTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 var session = await _testSessionPool.GetSession();
@@ -65,7 +64,6 @@ public class SessionPoolTests
 
                 await session.Release();
             });
-        }
 
         Task.WaitAll(tasks);
 
@@ -74,7 +72,7 @@ public class SessionPoolTests
 }
 
 internal class TestSessionPool() : SessionPool<TestSession>(NullLogger<TestSessionPool>.Instance,
-    new SessionPoolConfig(MaxSessionPool: SessionPoolTests.TestSessionPoolSize, CreateSessionTimeout: 0))
+    new SessionPoolConfig(SessionPoolTests.TestSessionPoolSize, 0))
 {
     public volatile int InvokedCreateSession;
 

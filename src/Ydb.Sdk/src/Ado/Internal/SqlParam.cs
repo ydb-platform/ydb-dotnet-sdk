@@ -39,10 +39,8 @@ internal class ListPrimitiveParam : ISqlParam
         {
             first ??= v;
             if (!first.Type.Equals(v.Type))
-            {
                 throw new ArgumentException("All elements in the list must have the same type. " +
                                             $"Expected: {first.Type}, actual: {v.Type}");
-            }
 
             value.Items.Add(v.Value);
         }

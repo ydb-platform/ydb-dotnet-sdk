@@ -9,9 +9,9 @@ namespace Ydb.Sdk.Ado.Benchmarks;
 [ThreadingDiagnoser]
 public class SessionSourceBenchmark
 {
-    private PoolingSessionSource<MockPoolingSession> _poolingSessionSource = null!;
     private const int SessionPoolSize = 50;
     private const int ConcurrentTasks = 20;
+    private PoolingSessionSource<MockPoolingSession> _poolingSessionSource = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -33,13 +33,11 @@ public class SessionSourceBenchmark
         var tasks = new Task[ConcurrentTasks];
 
         for (var i = 0; i < ConcurrentTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 using var session = await _poolingSessionSource.OpenSession();
                 await Task.Yield();
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -51,13 +49,11 @@ public class SessionSourceBenchmark
         var tasks = new Task[highContentionTasks];
 
         for (var i = 0; i < highContentionTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 using var session = await _poolingSessionSource.OpenSession();
                 await Task.Yield();
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -69,7 +65,6 @@ public class SessionSourceBenchmark
         var tasks = new Task[ConcurrentTasks];
 
         for (var i = 0; i < ConcurrentTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 for (var j = 0; j < iterations; j++)
@@ -78,7 +73,6 @@ public class SessionSourceBenchmark
                     await Task.Yield();
                 }
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -91,7 +85,6 @@ public class SessionSourceBenchmark
         var tasks = new Task[highContentionTasks];
 
         for (var i = 0; i < highContentionTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 for (var j = 0; j < iterations; j++)
@@ -100,7 +93,6 @@ public class SessionSourceBenchmark
                     await Task.Yield();
                 }
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -112,7 +104,6 @@ public class SessionSourceBenchmark
         var tasks = new Task[ConcurrentTasks];
 
         for (var i = 0; i < ConcurrentTasks; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 for (var j = 0; j < iterations; j++)
@@ -121,7 +112,6 @@ public class SessionSourceBenchmark
                     await Task.Yield();
                 }
             });
-        }
 
         await Task.WhenAll(tasks);
     }

@@ -6,9 +6,9 @@ namespace Ydb.Sdk.Ado.Stress.Loader;
 
 public class LoadTank
 {
+    private readonly LoadConfig _config;
     private readonly ILogger<LoadTank> _logger;
     private readonly YdbConnectionStringBuilder _settings;
-    private readonly LoadConfig _config;
 
     public LoadTank(LoadConfig config)
     {
@@ -44,11 +44,9 @@ public class LoadTank
         ctsStep1.CancelAfter(_config.TotalTestTimeSeconds * 500);
 
         for (var i = 0; i < _settings.MaxPoolSize; i++)
-        {
             workers.Add(Task.Run(async () =>
             {
                 while (!ctsStep1.IsCancellationRequested)
-                {
                     try
                     {
                         await using var ydbConnection = new YdbConnection(_settings);
@@ -60,9 +58,7 @@ public class LoadTank
                     {
                         // ignored
                     }
-                }
             }, ctsStep1.Token));
-        }
 
         await Task.WhenAll(workers);
         workers.Clear();
@@ -73,19 +69,14 @@ public class LoadTank
         var ctsStep2 = new CancellationTokenSource();
         ctsStep2.CancelAfter(_config.TotalTestTimeSeconds * 500);
         for (var i = 0; i < _settings.MaxPoolSize; i++)
-        {
             workers.Add(Task.Run(async () =>
             {
                 await using var ydbConnection = new YdbConnection(_settings);
 
                 while (!ctsStep2.IsCancellationRequested)
-                {
                     try
                     {
-                        if (ydbConnection.State != ConnectionState.Open)
-                        {
-                            await ydbConnection.OpenAsync(ctsStep2.Token);
-                        }
+                        if (ydbConnection.State != ConnectionState.Open) await ydbConnection.OpenAsync(ctsStep2.Token);
 
                         await new YdbCommand(ydbConnection) { CommandText = _config.TestQuery }
                             .ExecuteNonQueryAsync(ctsStep2.Token);
@@ -94,9 +85,7 @@ public class LoadTank
                     {
                         // ignored
                     }
-                }
             }, ctsStep2.Token));
-        }
 
         await Task.WhenAll(workers);
         _logger.LogInformation("Phase 2 stopped shooting");

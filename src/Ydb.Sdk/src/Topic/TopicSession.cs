@@ -5,10 +5,10 @@ namespace Ydb.Sdk.Topic;
 internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposable
 {
     private readonly Func<Task> _initialize;
-
-    protected readonly IBidirectionalStream<TFromClient, TFromServer> Stream;
     protected readonly ILogger Logger;
     protected readonly string SessionId;
+
+    protected readonly IBidirectionalStream<TFromClient, TFromServer> Stream;
 
     private int _isActive = 1;
     private string? _lastToken;
@@ -28,6 +28,8 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
     }
 
     public bool IsActive => Volatile.Read(ref _isActive) == 1;
+
+    public abstract ValueTask DisposeAsync();
 
     protected void ReconnectSession()
     {
@@ -60,6 +62,4 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
     }
 
     protected abstract TFromClient GetSendUpdateTokenRequest(string token);
-
-    public abstract ValueTask DisposeAsync();
 }

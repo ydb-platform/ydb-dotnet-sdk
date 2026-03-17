@@ -7,11 +7,11 @@ using static Ydb.Sdk.Ado.PoolManager;
 namespace Ydb.Sdk.Topic;
 
 /// <summary>
-/// Client for YDB Topic service operations.
+///     Client for YDB Topic service operations.
 /// </summary>
 /// <remarks>
-/// TopicClient provides methods for managing YDB topics including creation, modification,
-/// and deletion of topics and their configurations.
+///     TopicClient provides methods for managing YDB topics including creation, modification,
+///     and deletion of topics and their configurations.
 /// </remarks>
 public sealed class TopicClient : IAsyncDisposable
 {
@@ -19,7 +19,7 @@ public sealed class TopicClient : IAsyncDisposable
     private int _disposed;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="TopicClient"/> class.
+    ///     Initializes a new instance of the <see cref="TopicClient" /> class.
     /// </summary>
     /// <param name="connectionString">The connectionString to use for topic operations.</param>
     public TopicClient(string connectionString)
@@ -28,13 +28,16 @@ public sealed class TopicClient : IAsyncDisposable
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="TopicClient"/> class.
+    ///     Initializes a new instance of the <see cref="TopicClient" /> class.
     /// </summary>
     /// <param name="ydbConnectionStringBuilder">The ydbConnectionStringBuilder to use for topic operations.</param>
     public TopicClient(YdbConnectionStringBuilder ydbConnectionStringBuilder)
     {
         _driver = GetDriver(ydbConnectionStringBuilder).AsTask().Result;
     }
+
+    public ValueTask DisposeAsync() =>
+        Interlocked.CompareExchange(ref _disposed, 1, 0) == 0 ? _driver.DisposeAsync() : default;
 
     public async Task CreateTopic(CreateTopicSettings settings)
     {
@@ -51,23 +54,16 @@ public sealed class TopicClient : IAsyncDisposable
         protoSettings.Attributes.Add(settings.Attributes);
 
         if (settings.PartitioningSettings != null)
-        {
             protoSettings.PartitioningSettings = new Ydb.Topic.PartitioningSettings
             {
                 MinActivePartitions = settings.PartitioningSettings.MinActivePartitions,
                 MaxActivePartitions = settings.PartitioningSettings.MaxActivePartitions
             };
-        }
 
         if (settings.RetentionPeriod != null)
-        {
             protoSettings.RetentionPeriod = Duration.FromTimeSpan(settings.RetentionPeriod.Value);
-        }
 
-        foreach (var codec in settings.SupportedCodecs)
-        {
-            protoSettings.SupportedCodecs.Codecs.Add((int)codec);
-        }
+        foreach (var codec in settings.SupportedCodecs) protoSettings.SupportedCodecs.Codecs.Add((int)codec);
 
         foreach (var consumer in settings.Consumers)
         {
@@ -78,15 +74,9 @@ public sealed class TopicClient : IAsyncDisposable
             };
             protoConsumer.Attributes.Add(consumer.Attributes);
 
-            if (consumer.ReadFrom != null)
-            {
-                protoConsumer.ReadFrom = Timestamp.FromDateTime(consumer.ReadFrom.Value);
-            }
+            if (consumer.ReadFrom != null) protoConsumer.ReadFrom = Timestamp.FromDateTime(consumer.ReadFrom.Value);
 
-            foreach (var codec in consumer.SupportedCodecs)
-            {
-                protoConsumer.SupportedCodecs.Codecs.Add((int)codec);
-            }
+            foreach (var codec in consumer.SupportedCodecs) protoConsumer.SupportedCodecs.Codecs.Add((int)codec);
 
             protoSettings.Consumers.Add(protoConsumer);
         }
@@ -108,7 +98,4 @@ public sealed class TopicClient : IAsyncDisposable
 
         Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
     }
-
-    public ValueTask DisposeAsync() =>
-        Interlocked.CompareExchange(ref _disposed, 1, 0) == 0 ? _driver.DisposeAsync() : default;
 }

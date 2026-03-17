@@ -3,12 +3,12 @@ namespace Ydb.Sdk;
 internal static class GrpcDefaultSettings
 {
     /// <summary>
-    /// Default interval (in seconds) for sending keep-alive ping messages.
+    ///     Default interval (in seconds) for sending keep-alive ping messages.
     /// </summary>
     internal const int KeepAlivePingSeconds = 10;
 
     /// <summary>
-    /// Default timeout (in seconds) for receiving a response to a keep-alive ping.
+    ///     Default timeout (in seconds) for receiving a response to a keep-alive ping.
     /// </summary>
     internal const int KeepAlivePingTimeoutSeconds = 10;
 

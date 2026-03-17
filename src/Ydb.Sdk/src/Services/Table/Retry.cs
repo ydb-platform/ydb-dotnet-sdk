@@ -9,10 +9,8 @@ public partial class TableClient
         RetrySettings? retrySettings = null)
     {
         if (_sessionPool is not SessionPool sessionPool)
-        {
             throw new InvalidCastException(
                 $"Unexpected cast error: {nameof(_sessionPool)} is not object of type {typeof(SessionPool).FullName}");
-        }
 
         return await sessionPool.ExecOnSession(operationFunc, retrySettings);
     }

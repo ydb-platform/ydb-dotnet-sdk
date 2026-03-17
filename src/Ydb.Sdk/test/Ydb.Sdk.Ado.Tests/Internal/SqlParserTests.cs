@@ -312,19 +312,13 @@ SELECT $param; SELECT $p2; SELECT $p_3;", sql);
         Assert.Equal(expectedSql, sql);
 
         var ydbParameterCollection = new YdbParameterCollection();
-        for (var i = 1; i <= listSize; i++)
-        {
-            ydbParameterCollection.AddWithValue($"$id{i}", i);
-        }
+        for (var i = 1; i <= listSize; i++) ydbParameterCollection.AddWithValue($"$id{i}", i);
 
         var ydbParameters = ydbParameterCollection.YdbParameters;
         var listYdbValues = sqlParams[0].YdbValueFetch(ydbParameters).Value.Items;
 
         Assert.Equal(listSize, listYdbValues.Count);
-        for (var i = 1; i <= listSize; i++)
-        {
-            Assert.Equal(i, listYdbValues[i - 1].Int32Value);
-        }
+        for (var i = 1; i <= listSize; i++) Assert.Equal(i, listYdbValues[i - 1].Int32Value);
     }
 
     [Theory]
@@ -374,10 +368,7 @@ SELECT $simple_param_second;
         Assert.Equal(6, sqlParams.Count);
 
         var ydbParameterCollection = new YdbParameterCollection();
-        for (var i = 1; i <= 5; i++)
-        {
-            ydbParameterCollection.AddWithValue($"@id{i}", i);
-        }
+        for (var i = 1; i <= 5; i++) ydbParameterCollection.AddWithValue($"@id{i}", i);
 
         ydbParameterCollection.AddWithValue("$simple_param_first", "first");
         ydbParameterCollection.AddWithValue("$simple_param_second", "second");
@@ -387,18 +378,12 @@ SELECT $simple_param_second;
         Assert.Equal("$Gen_List_Primitive_1", sqlParams[0].Name);
         var listPrimitive1 = sqlParams[0].YdbValueFetch(ydbParameters).Value.Items;
         Assert.Equal(5, listPrimitive1.Count);
-        for (var i = 0; i < 5; i++)
-        {
-            Assert.Equal(i + 1, listPrimitive1[i].Int32Value);
-        }
+        for (var i = 0; i < 5; i++) Assert.Equal(i + 1, listPrimitive1[i].Int32Value);
 
         Assert.Equal("$Gen_List_Primitive_2", sqlParams[2].Name);
         var listPrimitive2 = sqlParams[2].YdbValueFetch(ydbParameters).Value.Items;
         Assert.Equal(4, listPrimitive2.Count);
-        for (var i = 0; i < 4; i++)
-        {
-            Assert.Equal(i + 1, listPrimitive2[i].Int32Value);
-        }
+        for (var i = 0; i < 4; i++) Assert.Equal(i + 1, listPrimitive2[i].Int32Value);
 
         Assert.Equal("first", sqlParams[1].YdbValueFetch(ydbParameters).Value.TextValue);
         Assert.Equal("second", sqlParams[5].YdbValueFetch(ydbParameters).Value.TextValue);

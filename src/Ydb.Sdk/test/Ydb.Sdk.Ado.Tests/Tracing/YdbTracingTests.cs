@@ -116,7 +116,7 @@ public class YdbTracingTests : TestBase
         _ = await Assert.ThrowsAnyAsync<Exception>(async () =>
             await new YdbCommand("SELECT * FROM non_existing_table", connection).ExecuteScalarAsync());
 
-        var activity = GetSingleActivity(activities, "ydb.ExecuteQuery", expectedStatusCode: ActivityStatusCode.Error);
+        var activity = GetSingleActivity(activities, "ydb.ExecuteQuery", ActivityStatusCode.Error);
         Assert.NotNull(activity.StatusDescription);
 
         var tags = activity.TagObjects.ToDictionary(t => t.Key, t => t.Value);
@@ -265,10 +265,7 @@ public class YdbTracingTests : TestBase
         var activity = filtered[0];
         Assert.Equal(expectedDisplayName, activity.DisplayName);
         Assert.Equal(expectedStatusCode ?? ActivityStatusCode.Unset, activity.Status);
-        if (expectedStatusDescription != null)
-        {
-            Assert.Equal(expectedStatusDescription, activity.StatusDescription);
-        }
+        if (expectedStatusDescription != null) Assert.Equal(expectedStatusDescription, activity.StatusDescription);
 
         return activity;
     }

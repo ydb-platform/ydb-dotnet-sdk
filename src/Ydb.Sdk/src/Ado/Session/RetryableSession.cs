@@ -8,14 +8,16 @@ namespace Ydb.Sdk.Ado.Session;
 
 internal class RetryableSession : ISession
 {
-    private readonly ISessionSource _sessionSource;
     private readonly YdbRetryPolicyExecutor _retryPolicyExecutor;
+    private readonly ISessionSource _sessionSource;
 
     internal RetryableSession(ISessionSource sessionSource, YdbRetryPolicyExecutor retryPolicyExecutor)
     {
         _sessionSource = sessionSource;
         _retryPolicyExecutor = retryPolicyExecutor;
     }
+
+    private static YdbException NotSupportedTransaction => new("Transactions are not supported in retryable session");
 
     // public IDriver Driver => throw new NotImplementedException();
     public IDriver Driver => _sessionSource.Driver;
@@ -28,10 +30,7 @@ internal class RetryableSession : ISession
         TransactionControl? txControl
     )
     {
-        if (txControl is not null && !txControl.CommitTx)
-        {
-            throw NotSupportedTransaction;
-        }
+        if (txControl is not null && !txControl.CommitTx) throw NotSupportedTransaction;
 
         return new ValueTask<IServerStream<ExecuteQueryResponsePart>>(
             new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings));
@@ -56,20 +55,18 @@ internal class RetryableSession : ISession
     public void Dispose()
     {
     }
-
-    private static YdbException NotSupportedTransaction => new("Transactions are not supported in retryable session");
 }
 
 internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponsePart>
 {
-    private readonly ISessionSource _sessionSource;
-    private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
-    private readonly string _query;
     private readonly Dictionary<string, TypedValue> _parameters;
+    private readonly string _query;
+    private readonly ISessionSource _sessionSource;
     private readonly GrpcRequestSettings _settings;
+    private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
+    private int _index = -1;
 
     private List<ExecuteQueryResponsePart>? _responses;
-    private int _index = -1;
 
     public InMemoryServerStream(
         ISessionSource sessionSource,
@@ -106,10 +103,7 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
                 {
                     var current = serverStream.Current;
 
-                    if (current.Status.IsNotSuccess())
-                    {
-                        throw YdbException.FromServer(current.Status, current.Issues);
-                    }
+                    if (current.Status.IsNotSuccess()) throw YdbException.FromServer(current.Status, current.Issues);
 
                     responses.Add(serverStream.Current);
                 }

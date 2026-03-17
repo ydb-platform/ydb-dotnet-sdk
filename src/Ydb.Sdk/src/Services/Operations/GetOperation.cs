@@ -16,9 +16,9 @@ public partial class OperationsClient
         };
 
         var response = await _driver.UnaryCall(
-            method: OperationService.GetOperationMethod,
-            request: request,
-            settings: settings);
+            OperationService.GetOperationMethod,
+            request,
+            settings);
 
         return ClientOperation.FromProto(response.Operation);
     }

@@ -11,16 +11,33 @@ using Ydb.Sdk.Tracing;
 namespace Ydb.Sdk;
 
 /// <summary>
-/// Core interface for YDB driver operations.
+///     Core interface for YDB driver operations.
 /// </summary>
 /// <remarks>
-/// The IDriver interface defines the contract for YDB client drivers.
-/// It provides methods for executing gRPC calls and managing driver lifecycle.
+///     The IDriver interface defines the contract for YDB client drivers.
+///     It provides methods for executing gRPC calls and managing driver lifecycle.
 /// </remarks>
 public interface IDriver : IAsyncDisposable
 {
     /// <summary>
-    /// Executes a unary gRPC call.
+    ///     Gets the logger factory used by this driver.
+    /// </summary>
+    ILoggerFactory LoggerFactory { get; }
+
+    /// <summary>
+    ///     Gets a value indicating whether this driver has been disposed.
+    /// </summary>
+    bool IsDisposed { get; }
+
+    /// <summary>
+    ///     Gets the database path for this driver instance.
+    /// </summary>
+    string Database { get; }
+
+    YdbMetricsReporter MetricsReporter { get; }
+
+    /// <summary>
+    ///     Executes a unary gRPC call.
     /// </summary>
     /// <typeparam name="TRequest">The request message type.</typeparam>
     /// <typeparam name="TResponse">The response message type.</typeparam>
@@ -36,7 +53,7 @@ public interface IDriver : IAsyncDisposable
         where TResponse : class;
 
     /// <summary>
-    /// Executes a server streaming gRPC call.
+    ///     Executes a server streaming gRPC call.
     /// </summary>
     /// <typeparam name="TRequest">The request message type.</typeparam>
     /// <typeparam name="TResponse">The response message type.</typeparam>
@@ -52,7 +69,7 @@ public interface IDriver : IAsyncDisposable
         where TResponse : class;
 
     /// <summary>
-    /// Executes a bidirectional streaming gRPC call.
+    ///     Executes a bidirectional streaming gRPC call.
     /// </summary>
     /// <typeparam name="TRequest">The request message type.</typeparam>
     /// <typeparam name="TResponse">The response message type.</typeparam>
@@ -66,113 +83,94 @@ public interface IDriver : IAsyncDisposable
         where TResponse : class;
 
     /// <summary>
-    /// Gets the logger factory used by this driver.
-    /// </summary>
-    ILoggerFactory LoggerFactory { get; }
-
-    /// <summary>
-    /// Registers a new owner of this driver instance.
+    ///     Registers a new owner of this driver instance.
     /// </summary>
     /// <remarks>
-    /// This method is used to track how many components are using this driver.
-    /// The driver will not be disposed until all owners are released.
-    /// Returns false if the driver is already disposed.
+    ///     This method is used to track how many components are using this driver.
+    ///     The driver will not be disposed until all owners are released.
+    ///     Returns false if the driver is already disposed.
     /// </remarks>
     bool RegisterOwner();
-
-    /// <summary>
-    /// Gets a value indicating whether this driver has been disposed.
-    /// </summary>
-    bool IsDisposed { get; }
-
-    /// <summary>
-    /// Gets the database path for this driver instance.
-    /// </summary>
-    string Database { get; }
-    
-    YdbMetricsReporter MetricsReporter { get; }
 }
 
 /// <summary>
-/// Represents a bidirectional gRPC stream for sending requests and receiving responses.
+///     Represents a bidirectional gRPC stream for sending requests and receiving responses.
 /// </summary>
 /// <typeparam name="TRequest">The type of request messages.</typeparam>
 /// <typeparam name="TResponse">The type of response messages.</typeparam>
 public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 {
     /// <summary>
-    /// Writes a request message to the stream.
+    ///     Gets the current response message.
+    /// </summary>
+    public TResponse Current { get; }
+
+    /// <summary>
+    ///     Writes a request message to the stream.
     /// </summary>
     /// <param name="request">The request message to write.</param>
     /// <returns>A task that represents the asynchronous write operation.</returns>
     public Task Write(TRequest request);
 
     /// <summary>
-    /// Advances the stream to the next response message.
+    ///     Advances the stream to the next response message.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation. The task result indicates whether a response was available.</returns>
     public Task<bool> MoveNextAsync();
 
     /// <summary>
-    /// Gets the current response message.
-    /// </summary>
-    public TResponse Current { get; }
-
-    /// <summary>
-    /// Gets the current authentication token.
+    ///     Gets the current authentication token.
     /// </summary>
     /// <returns>A value task that represents the asynchronous operation. The task result contains the authentication token.</returns>
     public ValueTask<string?> AuthToken();
 
     /// <summary>
-    /// Completes the request stream.
+    ///     Completes the request stream.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation.</returns>
     public Task RequestStreamComplete();
 }
 
 /// <summary>
-/// Represents a server streaming gRPC stream for receiving response messages.
+///     Represents a server streaming gRPC stream for receiving response messages.
 /// </summary>
 /// <typeparam name="TResponse">The type of response messages.</typeparam>
 public interface IServerStream<out TResponse> : IDisposable
 {
     /// <summary>
-    /// Advances the stream to the next response message.
+    ///     Gets the current response message.
+    /// </summary>
+    public TResponse Current { get; }
+
+    /// <summary>
+    ///     Advances the stream to the next response message.
     /// </summary>
     /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation. The task result indicates whether a response was available.</returns>
     public Task<bool> MoveNextAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Gets the current response message.
-    /// </summary>
-    public TResponse Current { get; }
 }
 
 /// <summary>
-/// Base implementation of the IDriver interface providing common functionality.
+///     Base implementation of the IDriver interface providing common functionality.
 /// </summary>
 /// <remarks>
-/// BaseDriver provides the core implementation for YDB drivers including gRPC channel management,
-/// authentication handling, request metadata management, and error handling.
+///     BaseDriver provides the core implementation for YDB drivers including gRPC channel management,
+///     authentication handling, request metadata management, and error handling.
 /// </remarks>
 public abstract class BaseDriver : IDriver
 {
     private readonly ICredentialsProvider? _credentialsProvider;
 
-    protected readonly DriverConfig Config;
-    protected readonly ILogger Logger;
-
-    internal readonly GrpcChannelFactory GrpcChannelFactory;
+    private readonly object _ownerLock = new();
     internal readonly ChannelPool<GrpcChannel> ChannelPool;
 
-    private readonly object _ownerLock = new();
+    protected readonly DriverConfig Config;
+
+    internal readonly GrpcChannelFactory GrpcChannelFactory;
+    protected readonly ILogger Logger;
+    private volatile int _disposed;
 
     private int _ownerCount;
-    private volatile int _disposed;
-    
-    public YdbMetricsReporter MetricsReporter { get; } 
 
     internal BaseDriver(
         DriverConfig config,
@@ -186,7 +184,7 @@ public abstract class BaseDriver : IDriver
 
         GrpcChannelFactory = new GrpcChannelFactory(LoggerFactory, Config);
         ChannelPool = new ChannelPool<GrpcChannel>(LoggerFactory, GrpcChannelFactory);
-        
+
         MetricsReporter = new YdbMetricsReporter(Config);
 
         _credentialsProvider = Config.User != null
@@ -196,6 +194,8 @@ public abstract class BaseDriver : IDriver
             )
             : Config.Credentials;
     }
+
+    public YdbMetricsReporter MetricsReporter { get; }
 
     public async Task<TResponse> UnaryCall<TRequest, TResponse>(
         Method<TRequest, TResponse> method,
@@ -214,10 +214,10 @@ public abstract class BaseDriver : IDriver
         try
         {
             using var call = callInvoker.AsyncUnaryCall(
-                method: method,
-                host: null,
-                options: await GetCallOptions(settings, endpointInfo),
-                request: request
+                method,
+                null,
+                await GetCallOptions(settings, endpointInfo),
+                request
             );
 
             return await call.ResponseAsync;
@@ -247,10 +247,10 @@ public abstract class BaseDriver : IDriver
         var callInvoker = channel.CreateCallInvoker();
 
         var call = callInvoker.AsyncServerStreamingCall(
-            method: method,
-            host: null,
-            options: await GetCallOptions(settings, endpointInfo),
-            request: request);
+            method,
+            null,
+            await GetCallOptions(settings, endpointInfo),
+            request);
 
         return new ServerStream<TResponse>(call, e => { OnRpcError(endpointInfo, e); });
     }
@@ -267,15 +267,60 @@ public abstract class BaseDriver : IDriver
         var callInvoker = channel.CreateCallInvoker();
 
         var call = callInvoker.AsyncDuplexStreamingCall(
-            method: method,
-            host: null,
-            options: await GetCallOptions(settings, endpointInfo));
+            method,
+            null,
+            await GetCallOptions(settings, endpointInfo));
 
         return new BidirectionalStream<TRequest, TResponse>(
             call,
             e => { OnRpcError(endpointInfo, e); },
             _credentialsProvider
         );
+    }
+
+    public ILoggerFactory LoggerFactory { get; }
+
+    public bool RegisterOwner()
+    {
+        lock (_ownerLock)
+        {
+            if (_disposed == 1) return false;
+
+            _ownerCount++;
+            return true;
+        }
+    }
+
+    public bool IsDisposed => _disposed == 1;
+    public string Database => Config.Database;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed == 1) return;
+
+        lock (_ownerLock)
+        {
+            if (_disposed == 1) return;
+
+            _ownerCount--;
+
+            switch (_ownerCount)
+            {
+                case > 0:
+                    return;
+                case < 0:
+                    throw new InvalidOperationException(
+                        "DisposeAsync called more times than RegisterOwner (report bug!).");
+                default:
+                    _disposed = 1;
+                    break;
+            }
+        }
+
+        await DisposeAsyncCore();
+        await ChannelPool.DisposeAsync();
+
+        GC.SuppressFinalize(this);
     }
 
     protected abstract EndpointInfo GetEndpoint(long nodeId);
@@ -287,14 +332,9 @@ public abstract class BaseDriver : IDriver
         var meta = Config.GetCallMetadata;
 
         if (_credentialsProvider != null)
-        {
             meta.Add(Metadata.RpcAuthHeader, await _credentialsProvider.GetAuthInfoAsync());
-        }
 
-        if (settings.TraceId.Length > 0)
-        {
-            meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
-        }
+        if (settings.TraceId.Length > 0) meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
 
         // Propagate W3C trace context to YDB server to build an end-to-end trace.
         // YDB expects "traceparent" gRPC metadata header.
@@ -319,72 +359,14 @@ public abstract class BaseDriver : IDriver
         }
 
         foreach (var clientCapabilitiesHeader in settings.ClientCapabilities)
-        {
             meta.Add(Metadata.RpcClientCapabilitiesHeader, clientCapabilitiesHeader);
-        }
 
-        var options = new CallOptions(headers: meta, cancellationToken: settings.CancellationToken);
+        var options = new CallOptions(meta, cancellationToken: settings.CancellationToken);
 
         if (settings.TransportTimeout != TimeSpan.Zero)
-        {
             options = options.WithDeadline(DateTime.UtcNow + settings.TransportTimeout);
-        }
 
         return options;
-    }
-
-    public ILoggerFactory LoggerFactory { get; }
-
-    public bool RegisterOwner()
-    {
-        lock (_ownerLock)
-        {
-            if (_disposed == 1)
-            {
-                return false;
-            }
-
-            _ownerCount++;
-            return true;
-        }
-    }
-
-    public bool IsDisposed => _disposed == 1;
-    public string Database => Config.Database;
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_disposed == 1)
-        {
-            return;
-        }
-
-        lock (_ownerLock)
-        {
-            if (_disposed == 1)
-            {
-                return;
-            }
-
-            _ownerCount--;
-
-            switch (_ownerCount)
-            {
-                case > 0:
-                    return;
-                case < 0:
-                    throw new InvalidOperationException(
-                        "DisposeAsync called more times than RegisterOwner (report bug!).");
-                default:
-                    _disposed = 1;
-                    break;
-            }
-        }
-
-        await DisposeAsyncCore();
-        await ChannelPool.DisposeAsync();
-
-        GC.SuppressFinalize(this);
     }
 
     protected virtual ValueTask DisposeAsyncCore()
@@ -396,8 +378,8 @@ public abstract class BaseDriver : IDriver
 
 public sealed class ServerStream<TResponse> : IServerStream<TResponse>
 {
-    private readonly AsyncServerStreamingCall<TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;
+    private readonly AsyncServerStreamingCall<TResponse> _stream;
 
     internal ServerStream(AsyncServerStreamingCall<TResponse> stream, Action<RpcException> rpcErrorAction)
     {
@@ -430,9 +412,9 @@ public sealed class ServerStream<TResponse> : IServerStream<TResponse>
 
 internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<TRequest, TResponse>
 {
-    private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _stream;
-    private readonly Action<RpcException> _rpcErrorAction;
     private readonly ICredentialsProvider? _credentialsProvider;
+    private readonly Action<RpcException> _rpcErrorAction;
+    private readonly AsyncDuplexStreamingCall<TRequest, TResponse> _stream;
 
     internal BidirectionalStream(
         AsyncDuplexStreamingCall<TRequest, TResponse> stream,

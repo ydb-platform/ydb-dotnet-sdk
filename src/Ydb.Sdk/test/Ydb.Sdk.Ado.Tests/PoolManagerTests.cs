@@ -73,10 +73,7 @@ public class PoolManagerTests
         await YdbConnection.ClearAllPools();
         Assert.Empty(PoolManager.Pools);
 
-        foreach (var (_, driver) in PoolManager.Drivers)
-        {
-            Assert.True(driver.IsDisposed);
-        }
+        foreach (var (_, driver) in PoolManager.Drivers) Assert.True(driver.IsDisposed);
     }
 
     [Fact]
@@ -85,8 +82,8 @@ public class PoolManagerTests
         PoolManager.Drivers.Clear();
         PoolManager.Pools.Clear();
 
-        var driver1 = new FakeDriver(registerOwnerResult: false, isDisposed: true);
-        var driver2 = new FakeDriver(registerOwnerResult: true, isDisposed: false);
+        var driver1 = new FakeDriver(false, true);
+        var driver2 = new FakeDriver(true, false);
         var factory = new FakeDriverFactory("grpc://race", driver1, driver2);
 
         var driver = await PoolManager.GetDriver(factory);
@@ -118,7 +115,7 @@ public class PoolManagerTests
     private sealed class FakeDriver(bool registerOwnerResult, bool isDisposed) : IDriver
     {
         public int RegisterCalls { get; private set; }
-        
+
         public YdbMetricsReporter MetricsReporter => null!;
 
         public Task<TResponse> UnaryCall<TRequest, TResponse>(

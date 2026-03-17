@@ -16,19 +16,13 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
     private static readonly TimeSpan DeleteSessionTimeout = TimeSpan.FromSeconds(5);
     private static readonly CreateSessionRequest CreateSessionRequest = new();
 
-    private readonly ILogger<PoolingSession> _logger;
+    private readonly CancellationTokenSource _attachStreamLifecycleCts = new();
     private readonly bool _disableServerBalancer;
 
-    private readonly CancellationTokenSource _attachStreamLifecycleCts = new();
-
-    private volatile bool _isBroken = true;
+    private readonly ILogger<PoolingSession> _logger;
     private volatile bool _isBadSession;
 
-    private string SessionId { get; set; } = string.Empty;
-    private long NodeId { get; set; }
-
-    public override IDriver Driver { get; }
-    public override bool IsBroken => _isBroken;
+    private volatile bool _isBroken = true;
 
     internal PoolingSession(
         IDriver driver,
@@ -41,6 +35,12 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         _logger = logger;
         Driver = driver;
     }
+
+    private string SessionId { get; set; } = string.Empty;
+    private long NodeId { get; set; }
+
+    public override IDriver Driver { get; }
+    public override bool IsBroken => _isBroken;
 
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
@@ -76,10 +76,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
         );
 
-        if (response.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(response.Status, response.Issues);
-        }
+        if (response.Status.IsNotSuccess()) throw YdbException.FromServer(response.Status, response.Issues);
     }
 
     public override async Task RollbackTransaction(
@@ -94,10 +91,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
         );
 
-        if (response.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(response.Status, response.Issues);
-        }
+        if (response.Status.IsNotSuccess()) throw YdbException.FromServer(response.Status, response.Issues);
     }
 
     public override void OnNotSuccessStatusCode(StatusCode statusCode)
@@ -126,17 +120,11 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         var requestSettings = new GrpcRequestSettings
             { CancellationToken = cancellationToken, DbActivity = dbActivity };
 
-        if (!_disableServerBalancer)
-        {
-            requestSettings.ClientCapabilities.Add(SessionBalancer);
-        }
+        if (!_disableServerBalancer) requestSettings.ClientCapabilities.Add(SessionBalancer);
 
         var response = await Driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest, requestSettings);
 
-        if (response.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(response.Status, response.Issues);
-        }
+        if (response.Status.IsNotSuccess()) throw YdbException.FromServer(response.Status, response.Issues);
 
         TaskCompletionSource completeTask = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -165,9 +153,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 var initSessionState = stream.Current;
 
                 if (initSessionState.Status.IsNotSuccess())
-                {
                     throw YdbException.FromServer(initSessionState.Status, initSessionState.Issues);
-                }
 
                 completeTask.SetResult();
 
@@ -188,10 +174,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
                         OnNotSuccessStatusCode(statusCode);
 
-                        if (IsBroken)
-                        {
-                            return;
-                        }
+                        if (IsBroken) return;
                     }
 
                     _logger.LogDebug("Session[{SessionId}]: Attached stream is closed", SessionId);
@@ -238,10 +221,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             _isBroken = true;
             _attachStreamLifecycleCts.CancelAfter(DeleteSessionTimeout);
 
-            if (_isBadSession)
-            {
-                return;
-            }
+            if (_isBadSession) return;
 
             _isBadSession = true;
             var deleteSessionResponse = await Driver.UnaryCall(
@@ -251,10 +231,8 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             );
 
             if (deleteSessionResponse.Status.IsNotSuccess())
-            {
                 _logger.LogWarning("Failed to delete session[{SessionId}], {StatusMessage}", SessionId,
                     deleteSessionResponse.Status.Code().ToMessage(deleteSessionResponse.Issues));
-            }
         }
         catch (Exception e)
         {

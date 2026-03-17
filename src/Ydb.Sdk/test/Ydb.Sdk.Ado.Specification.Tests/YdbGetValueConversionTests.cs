@@ -7,6 +7,68 @@ namespace Ydb.Sdk.Ado.Specification.Tests;
 public class YdbGetValueConversionTests(YdbSelectValueFixture fixture)
     : GetValueConversionTestBase<YdbSelectValueFixture>(fixture)
 {
+    protected override async Task OnInitializeAsync()
+    {
+        await using var connection = CreateConnection();
+        connection.ConnectionString = ConnectionString;
+        await connection.OpenAsync();
+
+        var ydbCommand = new YdbCommand
+        {
+            Connection = connection,
+            CommandText =
+                """
+                CREATE TABLE `select_value`
+                (
+                	`Id` Int32 NOT NULL,
+                	`Binary` Bytes,
+                	`Boolean` Bool,
+                	`Byte` Uint8,
+                	`SByte` Int8,
+                	`Int16` Int16,
+                	`UInt16` UInt16,
+                	`Int32` Int32,
+                	`UInt32` UInt32,
+                	`Int64` Int64,
+                	`UInt64` UInt64,
+                	`Single` Float,
+                	`Double` Double,
+                	`Decimal` Decimal(22, 9),
+                	`String` Text,
+                	`Guid` Uuid,
+                	`Date` Date,
+                	`DateTime` Datetime,
+                	`DateTime2` Timestamp,
+                	
+                	PRIMARY KEY (`Id`)
+                );
+                """
+        };
+
+        await ydbCommand.ExecuteNonQueryAsync();
+        ydbCommand.CommandText =
+            """
+            INSERT INTO `select_value`(`Id`, `Binary`, `Boolean`, `Byte`, `SByte`, `Int16`, `UInt16`,`Int32`, 
+            `UInt32`, `Int64`, `UInt64`, `Single`, `Double`, `Decimal`, `String`, `Guid`, `Date`, `DateTime`, `DateTime2`) VALUES
+            (0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+            (1, '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '', NULL, NULL, NULL, NULL),
+            (2, String::HexDecode('00'), FALSE, 0, 0, 0, 0, 0, 0, 0, 0, CAST(0 AS Float), 0, CAST(0 AS Decimal(22, 9)), '0', Uuid('00000000-0000-0000-0000-000000000000'), NULL, NULL, CurrentUtcTimestamp()),
+            (3, String::HexDecode('11'), TRUE, 1, 1, 1, 1, 1, 1, 1, 1, CAST(1 AS Float), 1, CAST(1 AS Decimal(22, 9)), '1', Uuid('11111111-1111-1111-1111-111111111111'), Date('2105-01-01'), Datetime('2105-01-01T11:11:11Z'), Timestamp('2105-01-01T11:11:11.111Z')),
+            (4, NULL, FALSE, 0, -128, -32768, 0, -2147483648, 0, -9223372036854775808, 0, CAST(1.18e-38 AS Float), 2.23e-308, CAST('0.000000000000001' AS Decimal(22, 9)), NULL, Uuid('33221100-5544-7766-9988-aabbccddeeff'), Date('2000-01-01'), Datetime('2000-01-01T00:00:00Z'), Timestamp('2000-01-01T00:00:00.000Z')),
+            (5, NULL, TRUE, 255, 127, 32767, 65535, 2147483647, 4294967295, 9223372036854775807, 18446744073709551615, CAST(3.40e38 AS Float), 1.79e308, CAST('99999999999999999999.999999999' AS Decimal(22, 9)), NULL, Uuid('ccddeeff-aabb-8899-7766-554433221100'), Date('1999-12-31'), Datetime('1999-12-31T23:59:59Z'), Timestamp('1999-12-31T23:59:59.999Z'));
+            """;
+        await ydbCommand.ExecuteNonQueryAsync();
+    }
+
+    protected override async Task OnDisposeAsync()
+    {
+        await using var connection = CreateConnection();
+        connection.ConnectionString = ConnectionString;
+        await connection.OpenAsync();
+
+        await new YdbCommand { Connection = connection, CommandText = "DROP TABLE `select_value`" }
+            .ExecuteNonQueryAsync();
+    }
 #pragma warning disable xUnit1004
 
     [Fact(Skip = "Uint16 >> Int16")]
@@ -469,66 +531,4 @@ public class YdbGetValueConversionTests(YdbSelectValueFixture fixture)
             1.1799999457746311E-38);
 
 #pragma warning restore xUnit1004
-    protected override async Task OnInitializeAsync()
-    {
-        await using var connection = CreateConnection();
-        connection.ConnectionString = ConnectionString;
-        await connection.OpenAsync();
-
-        var ydbCommand = new YdbCommand
-        {
-            Connection = connection,
-            CommandText =
-                """
-                CREATE TABLE `select_value`
-                (
-                	`Id` Int32 NOT NULL,
-                	`Binary` Bytes,
-                	`Boolean` Bool,
-                	`Byte` Uint8,
-                	`SByte` Int8,
-                	`Int16` Int16,
-                	`UInt16` UInt16,
-                	`Int32` Int32,
-                	`UInt32` UInt32,
-                	`Int64` Int64,
-                	`UInt64` UInt64,
-                	`Single` Float,
-                	`Double` Double,
-                	`Decimal` Decimal(22, 9),
-                	`String` Text,
-                	`Guid` Uuid,
-                	`Date` Date,
-                	`DateTime` Datetime,
-                	`DateTime2` Timestamp,
-                	
-                	PRIMARY KEY (`Id`)
-                );
-                """
-        };
-
-        await ydbCommand.ExecuteNonQueryAsync();
-        ydbCommand.CommandText =
-            """
-            INSERT INTO `select_value`(`Id`, `Binary`, `Boolean`, `Byte`, `SByte`, `Int16`, `UInt16`,`Int32`, 
-            `UInt32`, `Int64`, `UInt64`, `Single`, `Double`, `Decimal`, `String`, `Guid`, `Date`, `DateTime`, `DateTime2`) VALUES
-            (0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-            (1, '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '', NULL, NULL, NULL, NULL),
-            (2, String::HexDecode('00'), FALSE, 0, 0, 0, 0, 0, 0, 0, 0, CAST(0 AS Float), 0, CAST(0 AS Decimal(22, 9)), '0', Uuid('00000000-0000-0000-0000-000000000000'), NULL, NULL, CurrentUtcTimestamp()),
-            (3, String::HexDecode('11'), TRUE, 1, 1, 1, 1, 1, 1, 1, 1, CAST(1 AS Float), 1, CAST(1 AS Decimal(22, 9)), '1', Uuid('11111111-1111-1111-1111-111111111111'), Date('2105-01-01'), Datetime('2105-01-01T11:11:11Z'), Timestamp('2105-01-01T11:11:11.111Z')),
-            (4, NULL, FALSE, 0, -128, -32768, 0, -2147483648, 0, -9223372036854775808, 0, CAST(1.18e-38 AS Float), 2.23e-308, CAST('0.000000000000001' AS Decimal(22, 9)), NULL, Uuid('33221100-5544-7766-9988-aabbccddeeff'), Date('2000-01-01'), Datetime('2000-01-01T00:00:00Z'), Timestamp('2000-01-01T00:00:00.000Z')),
-            (5, NULL, TRUE, 255, 127, 32767, 65535, 2147483647, 4294967295, 9223372036854775807, 18446744073709551615, CAST(3.40e38 AS Float), 1.79e308, CAST('99999999999999999999.999999999' AS Decimal(22, 9)), NULL, Uuid('ccddeeff-aabb-8899-7766-554433221100'), Date('1999-12-31'), Datetime('1999-12-31T23:59:59Z'), Timestamp('1999-12-31T23:59:59.999Z'));
-            """;
-        await ydbCommand.ExecuteNonQueryAsync();
-    }
-
-    protected override async Task OnDisposeAsync()
-    {
-        await using var connection = CreateConnection();
-        connection.ConnectionString = ConnectionString;
-        await connection.OpenAsync();
-
-        await new YdbCommand { Connection = connection, CommandText = "DROP TABLE `select_value`" }
-            .ExecuteNonQueryAsync();
-    }
 }

@@ -17,14 +17,12 @@ public class YdbDataSourceTests : TestBase
     {
         var tasks = new Task[SelectedCount];
         for (var i = 0; i < SelectedCount; i++)
-        {
             tasks[i] = Task.Run(async () =>
             {
                 await using var ydbConnection = await _dataSource.OpenConnectionAsync();
                 var ydbCommand = new YdbCommand(ydbConnection) { CommandText = "SELECT 1" };
                 Assert.Equal(1, await ydbCommand.ExecuteScalarAsync());
             });
-        }
 
         await Task.WhenAll(tasks);
     }
@@ -70,10 +68,7 @@ public class YdbDataSourceTests : TestBase
         var attempt = 0;
         await _dataSource.ExecuteAsync(_ =>
         {
-            if (attempt++ < 3)
-            {
-                throw new YdbException(StatusCode.BadSession, "Bad Session");
-            }
+            if (attempt++ < 3) throw new YdbException(StatusCode.BadSession, "Bad Session");
 
             return Task.CompletedTask;
         });
@@ -88,10 +83,7 @@ public class YdbDataSourceTests : TestBase
         var attempt = 0;
         await _dataSource.ExecuteAsync(_ =>
         {
-            if (attempt++ < 3)
-            {
-                throw new YdbException(statusCode, "Bad Session");
-            }
+            if (attempt++ < 3) throw new YdbException(statusCode, "Bad Session");
 
             return Task.CompletedTask;
         }, new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
@@ -225,7 +217,6 @@ public class YdbDataSourceTests : TestBase
 
         var tasks = new List<Task>();
         for (var i = 0; i < concurrentJob; i++)
-        {
             tasks.Add(_dataSource.ExecuteInTransactionAsync(async ydbConnection =>
             {
                 var count = (int)(await new YdbCommand(ydbConnection)
@@ -237,7 +228,6 @@ public class YdbDataSourceTests : TestBase
                     Parameters = { new YdbParameter { Value = count, ParameterName = "count" } }
                 }.ExecuteNonQueryAsync();
             }, new YdbRetryPolicyConfig { MaxAttempts = concurrentJob }));
-        }
 
         await Task.WhenAll(tasks);
 
@@ -346,7 +336,8 @@ public class YdbDataSourceTests : TestBase
 
             await new YdbCommand($"INSERT INTO `{sourceTable}`" +
                                  "SELECT name FROM AS_TABLE(ListMap($list, ($x) -> { RETURN <|name: $x|> }))",
-                ydbConnection) { Parameters = { new YdbParameter("list", names) } }.ExecuteNonQueryAsync();
+                    ydbConnection)
+                { Parameters = { new YdbParameter("list", names) } }.ExecuteNonQueryAsync();
 
             var countSource = new YdbCommand($"SELECT COUNT(*) FROM {sourceTable}", ydbConnection);
             var countDestination = new YdbCommand($"SELECT COUNT(*) FROM {destinationTable}", ydbConnection);
@@ -391,7 +382,8 @@ public class YdbDataSourceTests : TestBase
                                  "SELECT name FROM AS_TABLE(ListMap($list, ($x) -> { RETURN <|name: $x|> }));" +
                                  $"INSERT INTO `{sourceTable}_another`" +
                                  "SELECT name FROM AS_TABLE(ListMap($list, ($x) -> { RETURN <|name: $x|> }));",
-                ydbConnection) { Parameters = { new YdbParameter("list", names) } }.ExecuteNonQueryAsync();
+                    ydbConnection)
+                { Parameters = { new YdbParameter("list", names) } }.ExecuteNonQueryAsync();
 
             var countSource = new YdbCommand($"SELECT COUNT(*) FROM {sourceTable}", ydbConnection);
             var countDestination1 = new YdbCommand($"SELECT COUNT(*) FROM {destinationTable1}", ydbConnection);
@@ -400,8 +392,8 @@ public class YdbDataSourceTests : TestBase
             Assert.Equal(size, await countSource.ExecuteScalarAsync());
 
             await _dataSource.CopyTables([
-                new CopyTableSettings(SourceTable: sourceTable, DestinationTable: destinationTable1),
-                new CopyTableSettings(SourceTable: $"{sourceTable}_another", DestinationTable: destinationTable2, true)
+                new CopyTableSettings(sourceTable, destinationTable1),
+                new CopyTableSettings($"{sourceTable}_another", destinationTable2, true)
             ]);
 
             Assert.Equal(size, await countSource.ExecuteScalarAsync());

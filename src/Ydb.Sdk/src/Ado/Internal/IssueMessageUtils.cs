@@ -14,10 +14,7 @@ internal static class IssueMessageUtils
             sb.Append(' ', currentIndent);
             sb.Append($"[{message.IssueCode}] ");
 
-            if (message.Position != null)
-            {
-                sb.Append(message.Position.PositionToString());
-            }
+            if (message.Position != null) sb.Append(message.Position.PositionToString());
 
             sb.Append($"{message.Severity.SeverityToString()}: ");
             sb.Append(message.Message);

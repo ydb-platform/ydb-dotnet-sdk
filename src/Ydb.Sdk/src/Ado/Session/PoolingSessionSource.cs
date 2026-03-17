@@ -11,24 +11,22 @@ namespace Ydb.Sdk.Ado.Session;
 internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSource where T : PoolingSessionBase<T>
 {
     private const int DisposeTimeoutSeconds = 10;
-
-    private readonly ConcurrentStack<T> _idleSessions = new();
-    private readonly ConcurrentQueue<TaskCompletionSource<T?>> _waiters = new();
+    private readonly Timer _cleanerTimer;
+    private readonly int _createSessionTimeout;
     private readonly CancellationTokenSource _disposeCts = new();
 
-    private readonly IPoolingSessionFactory<T> _sessionFactory;
-    private readonly int _minSizePool;
-    private readonly int _maxSizePool;
-    private readonly T?[] _sessions;
-    private readonly int _createSessionTimeout;
-    private readonly TimeSpan _sessionIdleTimeout;
-    private readonly Timer _cleanerTimer;
+    private readonly ConcurrentStack<T> _idleSessions = new();
     private readonly ILogger _logger;
+    private readonly int _maxSizePool;
+    private readonly int _minSizePool;
 
-    private volatile int _numSessions;
+    private readonly IPoolingSessionFactory<T> _sessionFactory;
+    private readonly TimeSpan _sessionIdleTimeout;
+    private readonly T?[] _sessions;
+    private readonly ConcurrentQueue<TaskCompletionSource<T?>> _waiters = new();
     private volatile int _disposed;
 
-    private bool IsDisposed => _disposed == 1;
+    private volatile int _numSessions;
 
     public PoolingSessionSource(IPoolingSessionFactory<T> sessionFactory, YdbConnectionStringBuilder settings)
     {
@@ -37,10 +35,8 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
         _maxSizePool = settings.MaxPoolSize;
 
         if (_minSizePool > _maxSizePool)
-        {
             throw new ArgumentException(
                 $"Connection can't have 'Max Session Pool' {_maxSizePool} under 'Min Session Pool' {_minSizePool}");
-        }
 
         _sessions = new T?[_maxSizePool];
         _createSessionTimeout = settings.CreateSessionTimeout;
@@ -48,8 +44,23 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
         _logger = settings.LoggerFactory.CreateLogger<PoolingSessionSource<T>>();
 
-        Driver.MetricsReporter.StatsProvider = this;
+        // ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+        // ReSharper disable ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
+        if (sessionFactory.Driver?.MetricsReporter is not null)
+        {
+            sessionFactory.Driver.MetricsReporter.StatsProvider = this;
+        }
+        // ReSharper restore ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
+        // ReSharper restore ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
     }
+
+    private bool IsDisposed => _disposed == 1;
+
+    private Exception ObjectDisposedException =>
+        new ObjectDisposedException(nameof(PoolingSessionSource<T>), "The session source has been closed.");
+
+    public int IdleCount => _idleSessions.Count;
+    public int BusyCount => Math.Max(0, _numSessions - _idleSessions.Count);
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken = default)
     {
@@ -62,16 +73,56 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
 
     public IDriver Driver => _sessionFactory.Driver;
 
+    public async ValueTask DisposeAsync()
+    {
+        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
+
+        await _cleanerTimer.DisposeAsync();
+        _disposeCts.Cancel();
+
+        var sw = Stopwatch.StartNew();
+        var spinWait = new SpinWait();
+        do
+        {
+            for (var i = 0; i < _maxSizePool; i++)
+            {
+                var session = Volatile.Read(ref _sessions[i]);
+
+                if (session != null && session.CompareAndSet(PoolingSessionState.In, PoolingSessionState.Clean))
+                    CloseSession(session);
+            }
+
+            spinWait.SpinOnce();
+        } while (_numSessions > 0 && sw.Elapsed < TimeSpan.FromSeconds(DisposeTimeoutSeconds));
+
+        try
+        {
+            await _sessionFactory.DisposeAsync();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Failed to dispose the transport driver");
+        }
+
+        for (var i = 0; i < _maxSizePool; i++)
+        {
+            var session = Volatile.Read(ref _sessions[i]);
+
+            if (session == null || session.CompareAndSet(PoolingSessionState.Clean, PoolingSessionState.Clean))
+                continue;
+            _logger.LogCritical("Disposal timed out: Some sessions are still active");
+
+            throw new YdbException("Timeout while disposing of the pool: some sessions are still active. " +
+                                   "This may indicate a connection leak or suspended operations.");
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetIdleSession([NotNullWhen(true)] out T? session)
     {
         while (_idleSessions.TryPop(out session))
-        {
             if (CheckIdleSession(session))
-            {
                 return true;
-            }
-        }
 
         return false;
     }
@@ -79,10 +130,7 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool CheckIdleSession([NotNullWhen(true)] T? session)
     {
-        if (session == null)
-        {
-            return false;
-        }
+        if (session == null) return false;
 
         if (session.IsBroken)
         {
@@ -115,10 +163,7 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
             {
                 if (!waiterTcs.TrySetResult(null))
                 {
-                    if (waiterTcs.Task is { IsCompleted: true, Result: not null } t)
-                    {
-                        _idleSessions.Push(t.Result);
-                    }
+                    if (waiterTcs.Task is { IsCompleted: true, Result: not null } t) _idleSessions.Push(t.Result);
 
                     WakeUpWaiter();
                 }
@@ -137,11 +182,11 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
                     new YdbException($"The connection pool has been exhausted, either raise 'MaxPoolSize' " +
                                      $"(currently {_maxSizePool}) or 'CreateSessionTimeout' " +
                                      $"(currently {_createSessionTimeout} seconds) in your connection string.")
-                ), useSynchronizationContext: false
+                ), false
             );
             await using var disposeRegistration = _disposeCts.Token.Register(
                 () => waiterTcs.TrySetException(ObjectDisposedException),
-                useSynchronizationContext: false
+                false
             );
             session = await waiterTcs.Task.ConfigureAwait(false);
 
@@ -170,10 +215,8 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
                 await session.Open(cancellationToken);
 
                 for (var i = 0; i < _maxSizePool; i++)
-                {
                     if (Interlocked.CompareExchange(ref _sessions[i], session, null) == null)
                         return session;
-                }
 
                 throw new YdbException($"Could not find free slot in {_sessions} when opening. Please report a bug.");
             }
@@ -211,12 +254,8 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
         session.Set(PoolingSessionState.In);
 
         while (_waiters.TryDequeue(out var waiter))
-        {
             if (waiter.TrySetResult(session))
-            {
                 return;
-            }
-        }
 
         _idleSessions.Push(session);
 
@@ -257,73 +296,15 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
                 session.IdleStartTime + pool._sessionIdleTimeout <= now &&
                 session.CompareAndSet(PoolingSessionState.In, PoolingSessionState.Clean)
             )
-            {
                 pool.CloseSession(session);
-            }
         }
     }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
-        {
-            return;
-        }
-
-        await _cleanerTimer.DisposeAsync();
-        _disposeCts.Cancel();
-
-        var sw = Stopwatch.StartNew();
-        var spinWait = new SpinWait();
-        do
-        {
-            for (var i = 0; i < _maxSizePool; i++)
-            {
-                var session = Volatile.Read(ref _sessions[i]);
-
-                if (session != null && session.CompareAndSet(PoolingSessionState.In, PoolingSessionState.Clean))
-                {
-                    CloseSession(session);
-                }
-            }
-
-            spinWait.SpinOnce();
-        } while (_numSessions > 0 && sw.Elapsed < TimeSpan.FromSeconds(DisposeTimeoutSeconds));
-
-        try
-        {
-            await _sessionFactory.DisposeAsync();
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "Failed to dispose the transport driver");
-        }
-
-        for (var i = 0; i < _maxSizePool; i++)
-        {
-            var session = Volatile.Read(ref _sessions[i]);
-
-            if (session == null || session.CompareAndSet(PoolingSessionState.Clean, PoolingSessionState.Clean))
-                continue;
-            _logger.LogCritical("Disposal timed out: Some sessions are still active");
-
-            throw new YdbException("Timeout while disposing of the pool: some sessions are still active. " +
-                                   "This may indicate a connection leak or suspended operations.");
-        }
-    }
-
-    private Exception ObjectDisposedException =>
-        new ObjectDisposedException(nameof(PoolingSessionSource<T>), "The session source has been closed.");
-
-    public int IdleCount => _idleSessions.Count;
-    public int BusyCount => Math.Max(0, _numSessions - _idleSessions.Count);
 }
 
 internal interface IPoolingSessionFactory<T> : IAsyncDisposable where T : PoolingSessionBase<T>
 {
-    T NewSession(PoolingSessionSource<T> source);
-
     IDriver Driver { get; }
+    T NewSession(PoolingSessionSource<T> source);
 }
 
 internal enum PoolingSessionState
@@ -344,20 +325,11 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
         _source = source;
     }
 
-    internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>
-        Interlocked.CompareExchange(ref _state, (int)actual, (int)expected) == (int)expected;
-
-    internal void Set(PoolingSessionState state) => Interlocked.Exchange(ref _state, (int)state);
-
     internal DateTime IdleStartTime { get; set; }
 
     public abstract IDriver Driver { get; }
 
     public abstract bool IsBroken { get; }
-
-    internal abstract Task Open(CancellationToken cancellationToken);
-
-    internal abstract Task DeleteSession();
 
     public abstract ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
@@ -373,4 +345,13 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
     public abstract void OnNotSuccessStatusCode(StatusCode code);
 
     public void Dispose() => _source.Return((T)this);
+
+    internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>
+        Interlocked.CompareExchange(ref _state, (int)actual, (int)expected) == (int)expected;
+
+    internal void Set(PoolingSessionState state) => Interlocked.Exchange(ref _state, (int)state);
+
+    internal abstract Task Open(CancellationToken cancellationToken);
+
+    internal abstract Task DeleteSession();
 }

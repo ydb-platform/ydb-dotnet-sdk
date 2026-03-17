@@ -1,44 +1,44 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <AssemblyName>Ydb.Sdk</AssemblyName>
-    <RootNamespace>Ydb.Sdk</RootNamespace>
-    <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <AssemblyName>Ydb.Sdk</AssemblyName>
+        <RootNamespace>Ydb.Sdk</RootNamespace>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</PackageProjectUrl>
-    <PackageId>Ydb.Sdk</PackageId>
-    <Description>YDB client libraries for .NET.</Description>
-    <Company>YANDEX LLC</Company>
-    <Authors>YDB</Authors>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+    <PropertyGroup>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/ydb-platform/ydb-dotnet-sdk</PackageProjectUrl>
+        <PackageId>Ydb.Sdk</PackageId>
+        <Description>YDB client libraries for .NET.</Description>
+        <Company>YANDEX LLC</Company>
+        <Authors>YDB</Authors>
+        <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
 
-  <PropertyGroup Condition="$(TargetFramework.Equals('net6.0'))">
-  </PropertyGroup>
+    <PropertyGroup Condition="$(TargetFramework.Equals('net6.0'))">
+    </PropertyGroup>
 
-  <PropertyGroup Condition="$(TargetFramework.Equals('net7.0'))">
-  </PropertyGroup>
+    <PropertyGroup Condition="$(TargetFramework.Equals('net7.0'))">
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Ydb.Protos" Version="1.1.3" />
-    <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.5.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Ydb.Protos" Version="1.1.3"/>
+        <PackageReference Include="Portable.BouncyCastle" Version="1.9.0"/>
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.5.0"/>
+    </ItemGroup>
 
-  <ItemGroup>
-      <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="9.0.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="9.0.0"/>
+    </ItemGroup>
 
-  <ItemGroup Condition="$(TargetFramework.Equals('net6.0'))">
-  </ItemGroup>
+    <ItemGroup Condition="$(TargetFramework.Equals('net6.0'))">
+    </ItemGroup>
 
-  <ItemGroup Condition="$(TargetFramework.Equals('net7.0'))">
-  </ItemGroup>
+    <ItemGroup Condition="$(TargetFramework.Equals('net7.0'))">
+    </ItemGroup>
 </Project>

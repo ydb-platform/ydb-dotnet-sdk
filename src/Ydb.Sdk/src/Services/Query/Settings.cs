@@ -8,12 +8,12 @@ public enum Syntax
     Unspecified = 0,
 
     /// <summary>
-    /// YQL
+    ///     YQL
     /// </summary>
     YqlV1 = 1,
 
     /// <summary>
-    /// PostgresSQL
+    ///     PostgresSQL
     /// </summary>
     Pg = 2
 }
@@ -26,26 +26,28 @@ public class ExecuteQuerySettings : GrpcRequestSettings
 
 public class ExecuteQueryPart
 {
-    public Value.ResultSet? ResultSet { get; }
-    public long ResultSetIndex { get; }
-
     internal ExecuteQueryPart(ExecuteQueryResponsePart part)
     {
         ResultSet = part.ResultSet?.FromProto();
         ResultSetIndex = part.ResultSetIndex;
     }
+
+    public Value.ResultSet? ResultSet { get; }
+    public long ResultSetIndex { get; }
 }
 
 public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAsyncEnumerable<ExecuteQueryPart>
 {
-    private readonly IServerStream<ExecuteQueryResponsePart> _stream;
     private readonly Action<string?> _onTxId;
+    private readonly IServerStream<ExecuteQueryResponsePart> _stream;
 
     internal ExecuteQueryStream(IServerStream<ExecuteQueryResponsePart> stream, Action<string?>? onTx = null)
     {
         _stream = stream;
         _onTxId = onTx ?? (_ => { });
     }
+
+    public IAsyncEnumerator<ExecuteQueryPart> GetAsyncEnumerator(CancellationToken cancellationToken = new()) => this;
 
     public ValueTask DisposeAsync()
     {
@@ -58,10 +60,7 @@ public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAs
     {
         var isNext = await _stream.MoveNextAsync();
 
-        if (!isNext)
-        {
-            return isNext;
-        }
+        if (!isNext) return isNext;
 
         Status.FromProto(_stream.Current.Status, _stream.Current.Issues).EnsureSuccess();
 
@@ -71,6 +70,4 @@ public sealed class ExecuteQueryStream : IAsyncEnumerator<ExecuteQueryPart>, IAs
     }
 
     public ExecuteQueryPart Current => new(_stream.Current);
-
-    public IAsyncEnumerator<ExecuteQueryPart> GetAsyncEnumerator(CancellationToken cancellationToken = new()) => this;
 }

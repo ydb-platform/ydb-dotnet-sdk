@@ -5,6 +5,7 @@ using Xunit;
 using Ydb.Issue;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic.Writer;
+using Ydb.Sdk.Tracing;
 using Ydb.Topic;
 using Range = Moq.Range;
 
@@ -16,8 +17,8 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 public class WriterUnitTests
 {
     private readonly IDriverFactoryMock _driverFactoryMock;
-    private readonly Mock<WriterStream> _mockStream = new();
     private readonly Task<bool> _lastMoveNext;
+    private readonly Mock<WriterStream> _mockStream = new();
 
     public WriterUnitTests()
     {
@@ -27,6 +28,7 @@ public class WriterUnitTests
             It.IsAny<GrpcRequestSettings>())
         ).ReturnsAsync(_mockStream.Object);
         mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
+        mockIDriver.Setup(m => m.MetricsReporter).Returns((YdbMetricsReporter)null!);
         mockIDriver.Setup(driver => driver.DisposeAsync())
             .Callback(() => mockIDriver.Setup(driver => driver.IsDisposed).Returns(true));
 
@@ -41,11 +43,6 @@ public class WriterUnitTests
 
             return Task.CompletedTask;
         });
-    }
-
-    private class FailSerializer : ISerializer<int>
-    {
-        public byte[] Serialize(int data) => throw new Exception("Some serialize exception");
     }
 
     [Fact]
@@ -319,7 +316,9 @@ public class WriterUnitTests
             {
                 InitResponse = new StreamWriteMessage.Types.InitResponse
                 {
-                    LastSeqNo = 1, PartitionId = 1, SessionId = "SessionId",
+                    LastSeqNo = 1,
+                    PartitionId = 1,
+                    SessionId = "SessionId",
                     SupportedCodecs = new SupportedCodecs { Codecs = { 2 /* Gzip */, 3 /* Lzop */ } }
                 },
                 Status = StatusIds.Types.StatusCode.Success
@@ -974,4 +973,9 @@ public class WriterUnitTests
                 },
                 Status = StatusIds.Types.StatusCode.Success
             });
+
+    private class FailSerializer : ISerializer<int>
+    {
+        public byte[] Serialize(int data) => throw new Exception("Some serialize exception");
+    }
 }

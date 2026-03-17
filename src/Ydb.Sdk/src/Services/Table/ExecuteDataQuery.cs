@@ -45,7 +45,7 @@ public class ExecuteDataQueryResponse : ResponseWithResultBase<ExecuteDataQueryR
                 .ToList();
 
             return new ResultData(
-                resultSets: resultSets
+                resultSets
             );
         }
     }
@@ -80,9 +80,9 @@ public partial class Session
         request.Parameters.Add(parameters.ToDictionary(p => p.Key, p => p.Value.GetProto()));
 
         var response = await UnaryCall(
-            method: TableService.ExecuteDataQueryMethod,
-            request: request,
-            settings: settings
+            TableService.ExecuteDataQueryMethod,
+            request,
+            settings
         );
 
         var status = response.Operation.TryUnpack(out ExecuteQueryResult? resultProto);
@@ -103,10 +103,7 @@ public partial class Session
         if (status.IsSuccess && resultProto != null)
         {
             result = ExecuteDataQueryResponse.ResultData.FromProto(resultProto);
-            if (!settings.AllowTruncated && result.ResultSets.Any(set => set.Truncated))
-            {
-                throw new TruncateException();
-            }
+            if (!settings.AllowTruncated && result.ResultSets.Any(set => set.Truncated)) throw new TruncateException();
         }
 
         return new ExecuteDataQueryResponse(status, txState, tx, result);

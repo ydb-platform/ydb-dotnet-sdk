@@ -256,18 +256,14 @@ public partial class YdbValue
     private void EnsureType(Type.TypeOneofCase expectedType)
     {
         if (_protoType.TypeCase != expectedType)
-        {
             throw new InvalidCastException(
                 $"Invalid type of YDB value, expected: {expectedType}, actual: {_protoType}.");
-        }
     }
 
     private void EnsurePrimitiveTypeId(Type.Types.PrimitiveTypeId primitiveTypeId)
     {
         if (_protoType.TypeCase != Type.TypeOneofCase.TypeId || _protoType.TypeId != primitiveTypeId)
-        {
             throw new InvalidCastException(
                 $"Invalid type of YDB value, expected: {primitiveTypeId}, actual: {_protoType}.");
-        }
     }
 }

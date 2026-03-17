@@ -32,15 +32,9 @@ internal class WriterConfig
     {
         var toString = new StringBuilder().Append("TopicPath: ").Append(TopicPath);
 
-        if (ProducerId != null)
-        {
-            toString.Append(", ProducerId: ").Append(ProducerId);
-        }
+        if (ProducerId != null) toString.Append(", ProducerId: ").Append(ProducerId);
 
-        if (PartitionId != null)
-        {
-            toString.Append(", PartitionId: ").Append(PartitionId);
-        }
+        if (PartitionId != null) toString.Append(", PartitionId: ").Append(PartitionId);
 
         return toString.Append(", Codec: ").Append(Codec).ToString();
     }
