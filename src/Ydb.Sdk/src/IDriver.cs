@@ -6,6 +6,7 @@ using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk;
 
@@ -88,6 +89,8 @@ public interface IDriver : IAsyncDisposable
     /// Gets the database path for this driver instance.
     /// </summary>
     string Database { get; }
+    
+    YdbMetricsReporter MetricsReporter { get; }
 }
 
 /// <summary>
@@ -168,6 +171,8 @@ public abstract class BaseDriver : IDriver
 
     private int _ownerCount;
     private volatile int _disposed;
+    
+    public YdbMetricsReporter MetricsReporter { get; } 
 
     internal BaseDriver(
         DriverConfig config,
@@ -181,6 +186,8 @@ public abstract class BaseDriver : IDriver
 
         GrpcChannelFactory = new GrpcChannelFactory(LoggerFactory, Config);
         ChannelPool = new ChannelPool<GrpcChannel>(LoggerFactory, GrpcChannelFactory);
+        
+        MetricsReporter = new YdbMetricsReporter(Config);
 
         _credentialsProvider = Config.User != null
             ? new CachedCredentialsProvider(
@@ -380,7 +387,11 @@ public abstract class BaseDriver : IDriver
         GC.SuppressFinalize(this);
     }
 
-    protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
+    protected virtual ValueTask DisposeAsyncCore()
+    {
+        MetricsReporter.Dispose();
+        return ValueTask.CompletedTask;
+    }
 }
 
 public sealed class ServerStream<TResponse> : IServerStream<TResponse>

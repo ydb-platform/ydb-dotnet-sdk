@@ -4,7 +4,14 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.AdoNet.OpenTelemetry;
 using Ydb.Sdk.OpenTelemetry;
+
+if (args.Length > 0 && args[0] == "--load")
+{
+    await LoadGenerator.Run();
+    return;
+}
 
 const string serviceName = "ydb-sdk-sample";
 var otlpEndpoint = new Uri("http://otel-collector:4317");
@@ -27,6 +34,7 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
     .SetResourceBuilder(resourceBuilder)
     .AddRuntimeInstrumentation()
+    .AddYdb()
     .AddOtlpExporter(o => { o.Endpoint = otlpEndpoint; })
     .Build();
 
@@ -38,9 +46,11 @@ await using var dataSource = new YdbDataSource("Host=ydb;Port=2136;Database=/loc
 const string appStartup = "app.startup";
 using (var activity = activitySource.StartActivity(appStartup))
 {
-    activity?.SetTag("app.message", "hello");
-
     await using var connInit = await dataSource.OpenConnectionAsync();
+    try {
+        await new YdbCommand("DROP TABLE bank", connInit).ExecuteNonQueryAsync();
+    } catch { }
+    
     await new YdbCommand("CREATE TABLE bank(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
         .ExecuteNonQueryAsync();
 }
@@ -71,23 +81,24 @@ for (var i = 0; i < 10; i++)
     var concurrentTaskNum = i;
     tasks.Add(Task.Run(async () =>
     {
-        const string exampleTli = "example_tli";
-        // ReSharper disable once AccessToDisposedClosure
-        using var concurrentActivity = activitySource.StartActivity(exampleTli);
-        concurrentActivity?.SetTag("app.message", $"concurrent task {concurrentTaskNum}");
-
-        // ReSharper disable once AccessToDisposedClosure
-        await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
+        for (int j = 0; j < 5; j++) 
         {
-            var count = (int)(await new YdbCommand(ydbConnection)
-                { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
-
-            await new YdbCommand(ydbConnection)
+            try 
             {
-                CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
-                Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
-            }.ExecuteNonQueryAsync();
-        });
+                await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
+                {
+                    var count = (int)(await new YdbCommand(ydbConnection)
+                        { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
+
+                    await new YdbCommand(ydbConnection)
+                    {
+                        CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
+                        Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
+                    }.ExecuteNonQueryAsync();
+                });
+            }
+            catch { }
+        }
     }));
 }
 
@@ -100,4 +111,5 @@ await using var ydbConnection = await dataSource.OpenRetryableConnectionAsync();
 await new YdbCommand(ydbConnection)
     { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteNonQueryAsync();
 
-Console.WriteLine("App finished.");
+Console.WriteLine("App finished. Waiting 15s to make sure all metrics are sent");
+await Task.Delay(15000);

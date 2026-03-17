@@ -44,6 +44,7 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: prometheus
     volumes:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yml:ro
     ports:

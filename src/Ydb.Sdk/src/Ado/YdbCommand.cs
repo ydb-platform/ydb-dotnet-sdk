@@ -196,6 +196,9 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
+        var reporter = YdbConnection.Session.Driver.MetricsReporter;
+        var startTimestamp = reporter.ReportCommandStart();
+        
         var dbActivity = YdbConnection.Session is not RetryableSession
             ? YdbActivitySource.StartActivity("ydb.ExecuteQuery")
             : null;
@@ -257,10 +260,14 @@ public sealed class YdbCommand : DbCommand
             YdbConnection.LastReader = ydbDataReader;
             YdbConnection.LastCommand = CommandText;
 
+            reporter.ReportCommandStop(startTimestamp);
             return ydbDataReader;
         }
         catch (Exception e)
         {
+            reporter.ReportCommandFailed();
+            reporter.ReportCommandStop(startTimestamp);
+            
             dbActivity?.SetException(e);
             dbActivity?.Dispose();
 

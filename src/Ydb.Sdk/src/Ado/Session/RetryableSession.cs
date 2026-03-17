@@ -17,7 +17,8 @@ internal class RetryableSession : ISession
         _retryPolicyExecutor = retryPolicyExecutor;
     }
 
-    public IDriver Driver => throw new NotImplementedException();
+    // public IDriver Driver => throw new NotImplementedException();
+    public IDriver Driver => _sessionSource.Driver;
     public bool IsBroken => false;
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(

@@ -1,0 +1,57 @@
+{
+  "title": "YDB .NET SDK Dashboard",
+  "uid": "ydb-sdk-main",
+  "panels": [
+    {
+      "title": "Total Requests (Count)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(db_client_operation_duration_seconds_count)",
+          "legendFormat": "Total Requests",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
+    },
+    {
+      "title": "Total Errors (Count)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(db_client_operation_failed_total)",
+          "legendFormat": "Total Errors",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
+    },
+    {
+      "title": "Currently Executing Commands",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(db_client_operation_ydb_executing)",
+          "legendFormat": "Commands",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
+    },
+    {
+      "title": "Average Latency (Lifetime)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "expr": "sum(db_client_operation_duration_seconds_sum) / sum(db_client_operation_duration_seconds_count)",
+          "legendFormat": "Avg Latency",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "timezone": "browser"
+}
