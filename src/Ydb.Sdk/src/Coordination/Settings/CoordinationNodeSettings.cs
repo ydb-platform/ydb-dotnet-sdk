@@ -1,6 +1,6 @@
-﻿using Ydb.Sdk.Coordinator.Description;
+﻿using Ydb.Sdk.Coordination.Description;
 
-namespace Ydb.Sdk.Coordinator.Settings;
+namespace Ydb.Sdk.Coordination.Settings;
 
 public class CoordinationNodeSettings : OperationSettings
 {

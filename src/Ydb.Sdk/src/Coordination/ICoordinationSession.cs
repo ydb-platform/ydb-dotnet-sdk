@@ -1,7 +1,7 @@
-﻿using Ydb.Sdk.Coordinator.Description;
-using Ydb.Sdk.Coordinator.Settings;
+﻿using Ydb.Sdk.Coordination.Description;
+using Ydb.Sdk.Coordination.Settings;
 
-namespace Ydb.Sdk.Coordinator;
+namespace Ydb.Sdk.Coordination;
 
 public interface ICoordinationSession : IDisposable
 {

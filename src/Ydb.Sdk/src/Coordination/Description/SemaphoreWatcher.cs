@@ -1,4 +1,4 @@
-﻿namespace Ydb.Sdk.Coordinator.Description;
+﻿namespace Ydb.Sdk.Coordination.Description;
 
 public class SemaphoreWatcher
 {

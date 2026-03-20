@@ -1,4 +1,4 @@
-﻿namespace Ydb.Sdk.Coordinator;
+﻿namespace Ydb.Sdk.Coordination;
 
 public interface ISemaphoreLease
 {

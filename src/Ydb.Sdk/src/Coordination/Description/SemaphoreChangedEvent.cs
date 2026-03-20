@@ -1,6 +1,6 @@
 ﻿using Ydb.Coordination;
 
-namespace Ydb.Sdk.Coordinator.Description;
+namespace Ydb.Sdk.Coordination.Description;
 
 public readonly struct SemaphoreChangedEvent
 {

@@ -1,4 +1,4 @@
-﻿namespace Ydb.Sdk.Coordinator.Settings;
+﻿namespace Ydb.Sdk.Coordination.Settings;
 
 public class DescribeSemaphoreModeUtils
 {

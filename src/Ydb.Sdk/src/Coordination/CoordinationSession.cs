@@ -3,9 +3,10 @@ using Google.Protobuf;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Coordinator.Settings;
+using Ydb.Sdk.Coordination.Impl;
+using Ydb.Sdk.Coordination.Settings;
 
-namespace Ydb.Sdk.Coordinator.Impl;
+namespace Ydb.Sdk.Coordination;
 
 public class CoordinationSession
 {

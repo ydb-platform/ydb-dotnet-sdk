@@ -1,10 +1,10 @@
 ﻿using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Coordinator.Description;
-using Ydb.Sdk.Coordinator.Settings;
+using Ydb.Sdk.Coordination.Description;
+using Ydb.Sdk.Coordination.Settings;
 
-namespace Ydb.Sdk.Coordinator.Impl;
+namespace Ydb.Sdk.Coordination;
 
 public class CoordinationClient
 {
@@ -68,19 +68,6 @@ public class CoordinationClient
         {
             Task task = _iDriver.UnaryCall(CoordinationService.CreateNodeMethod, request, grpcSettings);
             await task;
-            if (task.IsFaulted)
-            {
-                throw new YdbException("Create node failed");
-            }
-
-            if (task.IsCanceled)
-            {
-                throw new YdbException("Create node canceled");
-            }
-        }
-        catch (YdbException e)
-        {
-            throw new YdbException(e.Message);
         }
         catch (Exception)
         {
@@ -103,21 +90,8 @@ public class CoordinationClient
         {
             Task task = _iDriver.UnaryCall(CoordinationService.AlterNodeMethod, request, grpcSettings);
             await task;
-            if (task.IsFaulted)
-            {
-                throw new YdbException("Alter node failed");
-            }
-
-            if (task.IsCanceled)
-            {
-                throw new YdbException("Alter node canceled");
-            }
         }
-        catch (YdbException e)
-        {
-            throw new YdbException(e.Message);
-        }
-        catch (Exception e)
+        catch (Exception)
         {
             throw new YdbException("Alter node failed");
         }
@@ -137,21 +111,9 @@ public class CoordinationClient
         {
             Task task = _iDriver.UnaryCall(CoordinationService.DropNodeMethod, request, grpcSettings);
             await task;
-            if (task.IsFaulted)
-            {
-                throw new YdbException("Drop node failed");
-            }
+        }
 
-            if (task.IsCanceled)
-            {
-                throw new YdbException("Drop node canceled");
-            }
-        }
-        catch (YdbException e)
-        {
-            throw new YdbException(e.Message);
-        }
-        catch (Exception e)
+        catch (Exception)
         {
             throw new YdbException("Drop node failed");
         }
@@ -172,28 +134,14 @@ public class CoordinationClient
         {
             var task = _iDriver.UnaryCall(CoordinationService.DescribeNodeMethod, request, grpcSettings);
             await task;
-            if (task.IsFaulted)
-            {
-                throw new YdbException("Describe node failed");
-            }
-
-            if (task.IsCanceled)
-            {
-                throw new YdbException("Describe node canceled");
-            }
 
             return await new ValueTask<NodeConfig>(
                 NodeConfig.FromProto(task.Result.Operation.Result.Unpack<DescribeNodeResult>()));
         }
-        catch (YdbException e)
-        {
-            throw new YdbException(e.Message);
-        }
-        catch (Exception e)
+
+        catch (Exception)
         {
             throw new YdbException("Describe node failed");
         }
     }
-
-    public string GetDatabase() => _iDriver.Database;
 }

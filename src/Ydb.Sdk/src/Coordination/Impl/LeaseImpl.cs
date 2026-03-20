@@ -1,4 +1,4 @@
-﻿namespace Ydb.Sdk.Coordinator.Impl;
+﻿namespace Ydb.Sdk.Coordination.Impl;
 
 public class LeaseImpl : ISemaphoreLease
 {
