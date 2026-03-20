@@ -3,6 +3,8 @@ using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
+using static Ydb.Sdk.Ado.PoolManager;
+
 
 namespace Ydb.Sdk.Coordination;
 
@@ -12,9 +14,9 @@ public class CoordinationClient
     private readonly IDriver _iDriver;
     private readonly CancellationToken _cancellationToken;
 
-    public CoordinationClient(IDriver iDriver, CancellationToken cancellationToken = default)
+    public CoordinationClient(string connectionString, CancellationToken cancellationToken = default)
     {
-        _iDriver = iDriver;
+        _iDriver = GetDriver(new YdbConnectionStringBuilder(connectionString)).AsTask().Result;
         _cancellationToken = cancellationToken;
     }
 
