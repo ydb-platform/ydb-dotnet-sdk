@@ -56,6 +56,12 @@ public readonly struct NodeConfig
             "SessionGracePeriod must be strictly more than SelfCheckPeriod"
         );
         */
+        if (selfCheck <= TimeSpan.Zero)
+            throw new ArgumentException("SelfCheckPeriod must be strictly greater than zero");
+        if (sessionGrace <= TimeSpan.Zero)
+            throw new ArgumentException("SessionGracePeriod must be strictly greater than zero");
+        if (sessionGrace <= selfCheck)
+            throw new ArgumentException("SessionGracePeriod must be strictly more than SelfCheckPeriod");
         SelfCheckPeriod = selfCheck;
         SessionGracePeriod = sessionGrace;
         ReadConsistencyMode = read;
