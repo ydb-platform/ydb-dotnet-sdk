@@ -12,9 +12,11 @@ public class CoordinationClientIntegrationTests
 {
     private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString);
 
+    //  Given, When, Then
     [Fact]
     public async Task CreateNode()
     {
+        //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
             Config = NodeConfig.Create()
@@ -23,30 +25,30 @@ public class CoordinationClientIntegrationTests
                 .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
                 .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
         };
-
         var describeCoordinationNodeSettings = new DescribeCoordinationNodeSettings();
-
+        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var oldNodeConfig = coordinationNodeSettings.Config.ToProto();
         var pathNode = "/local/test";
 
+        // When
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var describeNode = await _coordinationClient.DescribeNode(pathNode, describeCoordinationNodeSettings);
         var describeNodeConfig = describeNode.ToProto();
 
+        //Then
         Assert.Equal(oldNodeConfig.SelfCheckPeriodMillis, describeNodeConfig.SelfCheckPeriodMillis);
         Assert.Equal(oldNodeConfig.SessionGracePeriodMillis, describeNodeConfig.SessionGracePeriodMillis);
         Assert.Equal(oldNodeConfig.ReadConsistencyMode, describeNodeConfig.ReadConsistencyMode);
         Assert.Equal(oldNodeConfig.AttachConsistencyMode, describeNodeConfig.AttachConsistencyMode);
         Assert.Equal(oldNodeConfig.RateLimiterCountersMode, describeNodeConfig.RateLimiterCountersMode);
-
-       
-       // await _coordinationClient.DropNode()
+        await _coordinationClient.DropNode(pathNode,dropCoordinationNodeSettings);
     }
 
 
     [Fact]
     public async Task AlterNode()
     {
+        //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
             Config = NodeConfig.Create()
@@ -55,7 +57,6 @@ public class CoordinationClientIntegrationTests
                 .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
                 .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
         };
-
         var alterCoordinationNodeSettings = new CoordinationNodeSettings
         {
             Config = NodeConfig.Create()
@@ -64,25 +65,26 @@ public class CoordinationClientIntegrationTests
                 .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
                 .WithRateLimiterCountersMode(RateLimiterCountersMode.Aggregated)
         };
-
         var describeCoordinationNodeSettings = new DescribeCoordinationNodeSettings();
-
+        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var alterNodeConfig = alterCoordinationNodeSettings.Config.ToProto();
         var pathNode = "/local/test";
 
+        // When
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         await _coordinationClient.AlterNode(pathNode, alterCoordinationNodeSettings);
 
         var describeNode = await _coordinationClient.DescribeNode(pathNode, describeCoordinationNodeSettings);
         var describeNodeConfig = describeNode.ToProto();
 
+        
+        //Then
         Assert.Equal(alterNodeConfig.SelfCheckPeriodMillis, describeNodeConfig.SelfCheckPeriodMillis);
         Assert.Equal(alterNodeConfig.SessionGracePeriodMillis, describeNodeConfig.SessionGracePeriodMillis);
         Assert.Equal(alterNodeConfig.ReadConsistencyMode, describeNodeConfig.ReadConsistencyMode);
         Assert.Equal(alterNodeConfig.AttachConsistencyMode, describeNodeConfig.AttachConsistencyMode);
         Assert.Equal(alterNodeConfig.RateLimiterCountersMode, describeNodeConfig.RateLimiterCountersMode);
-
-        await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
+        await _coordinationClient.DropNode(pathNode,dropCoordinationNodeSettings);
     }
 
     /*
