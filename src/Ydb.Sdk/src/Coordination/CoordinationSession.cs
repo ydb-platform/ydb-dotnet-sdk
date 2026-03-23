@@ -151,6 +151,36 @@ public class CoordinationSession
         */
     }
 
+    /*
+     * private void TryCompletePending(SessionResponse response)
+{
+    var reqId = ExtractReqId(response);
+    if (!reqId.HasValue)
+        return;
+
+    if (_pendingRequests.TryRemove(reqId.Value, out var pending))
+    {
+        try
+        {
+            var result = ExtractResult(response);
+
+            if (result == null)
+            {
+                pending.Tcs.TrySetException(
+                    new InvalidOperationException($"Unexpected response type: {response.ResponseCase}"));
+                return;
+            }
+
+            pending.Tcs.TrySetResult(result);
+        }
+        catch (Exception ex)
+        {
+            pending.Tcs.TrySetException(ex);
+        }
+    }
+}
+     */
+
     private static ulong? ExtractReqId(SessionResponse response) =>
         response.ResponseCase switch
         {
@@ -228,6 +258,22 @@ public class CoordinationSession
                 return null;
         }
     }
+
+    /* // повторящий код убрать
+    private static PendingResult HandleStatus(
+        SessionResponse response,
+        StatusIds.Types.StatusCode status,
+        object issues,
+        SessionResponse.ResponseOneofCase type)
+    {
+        if (status != StatusIds.Types.StatusCode.Success)
+        {
+            throw new YdbException($"{status} {issues}");
+        }
+
+        return new PendingResult(response, type);
+    }
+    */
 
 
     private async Task HandlePing(SessionResponse response)
@@ -458,7 +504,7 @@ public class CoordinationSession
         }
         catch (Exception)
         {
-            throw new YdbException("Delete semaphore failed");
+            throw new YdbException("Describe semaphore failed");
         }
     }
 
