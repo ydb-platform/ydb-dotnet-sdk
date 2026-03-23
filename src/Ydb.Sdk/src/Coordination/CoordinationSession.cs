@@ -519,7 +519,7 @@ public class CoordinationSession
         }
     }
 
-    public async Task AcquireSemaphore(string name, ulong count, byte[]? data,
+    public async Task AcquireSemaphore(string name, ulong count,bool ephemeral, byte[]? data,
         TimeSpan timeout)
     {
         var reqId = GetNextReqId();
@@ -527,9 +527,10 @@ public class CoordinationSession
         {
             AcquireSemaphore =
             {
-                Count = count,
+                Name = name,
+                Count = count, // обратить на число
                 Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
-                Ephemeral = false,
+                Ephemeral = ephemeral,
                 TimeoutMillis = (ulong)timeout.TotalMilliseconds,
                 ReqId = reqId
             }
