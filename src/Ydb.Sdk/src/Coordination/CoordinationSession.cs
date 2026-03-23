@@ -139,8 +139,9 @@ public class CoordinationSession
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            FailAllPending(ex);
             // Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages", SessionId);
         }
         /*
@@ -149,6 +150,16 @@ public class CoordinationSession
             // NOTE
         }
         */
+    }
+
+    private void FailAllPending(Exception ex)
+    {
+        foreach (var (_, pending) in _pendingRequests)
+        {
+            pending.Tcs.TrySetException(ex);
+        }
+
+        _pendingRequests.Clear();
     }
 
     /*
@@ -484,7 +495,7 @@ public class CoordinationSession
         DescribeSemaphoreMode mode)
     {
         var reqId = GetNextReqId();
-        var request = new SessionRequest
+        var describeSemaphore = new SessionRequest
         {
             DescribeSemaphore =
             {
@@ -499,12 +510,34 @@ public class CoordinationSession
 
         try
         {
-            var task = await SendRequest(reqId, request);
+            var task = await SendRequest(reqId, describeSemaphore);
             return task.Request.DescribeSemaphoreResult;
         }
         catch (Exception)
         {
             throw new YdbException("Describe semaphore failed");
+        }
+    }
+
+    public async Task ReleaseSemaphore(string name)
+    {
+        var reqId = GetNextReqId();
+        var releaseSemaphore = new SessionRequest
+        {
+            ReleaseSemaphore =
+            {
+                Name = name,
+                ReqId = reqId
+            }
+        };
+
+        try
+        {
+            await SendRequest(reqId, releaseSemaphore);
+        }
+        catch (Exception)
+        {
+            throw new YdbException("Release semaphore failed");
         }
     }
 
@@ -514,6 +547,7 @@ public class CoordinationSession
     {
     }
 
+/*
 
     public async void AcquireSemaphore(string name, long count, byte[] data,
         TimeSpan timeout)
@@ -526,8 +560,6 @@ public class CoordinationSession
     {
     }
 
-    public async void ReleaseSemaphore(String name)
-    {
-    }
+
     */
 }
