@@ -123,7 +123,6 @@ public class CoordinationSession
                 }
 
 
-                //var reqId = _extractReqId(response); //_extractReqId(response);
                 var reqId = ExtractReqId(response);
                 if (reqId.HasValue &&
                     _pendingRequests.TryRemove(reqId.Value, out var pending))
@@ -131,7 +130,7 @@ public class CoordinationSession
                     try
                     {
                         var result = ExtractResult(response);
-                        pending.Tcs.TrySetResult(result);
+                        pending.Tcs.TrySetResult(result!);
                     }
                     catch (Exception ex)
                     {
@@ -152,7 +151,7 @@ public class CoordinationSession
         */
     }
 
-    private ulong? ExtractReqId(SessionResponse response) =>
+    private static ulong? ExtractReqId(SessionResponse response) =>
         response.ResponseCase switch
         {
             SessionResponse.ResponseOneofCase.AcquireSemaphoreResult => response.AcquireSemaphoreResult.ReqId,
@@ -167,7 +166,7 @@ public class CoordinationSession
     // возвращать пару response и код и снаружи 
 
 
-    private PendingResult? ExtractResult(SessionResponse response)
+    private static PendingResult? ExtractResult(SessionResponse response)
     {
         switch (response.ResponseCase)
         {
@@ -175,7 +174,7 @@ public class CoordinationSession
                 var acquireResult = response.AcquireSemaphoreResult;
                 if (acquireResult.Status != StatusIds.Types.StatusCode.Success)
                 {
-                    throw new YdbException(acquireResult.Status + " " + acquireResult.Issues);
+                    throw new Exception(acquireResult.Status + " " + acquireResult.Issues);
                 }
 
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.AcquireSemaphoreResult);
@@ -184,7 +183,7 @@ public class CoordinationSession
                 var releaseResult = response.ReleaseSemaphoreResult;
                 if (releaseResult.Status != StatusIds.Types.StatusCode.Success)
                 {
-                    throw new YdbException(releaseResult.Status + " " + releaseResult.Issues);
+                    throw new Exception(releaseResult.Status + " " + releaseResult.Issues);
                 }
 
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult);
@@ -193,7 +192,7 @@ public class CoordinationSession
                 var describeResult = response.DescribeSemaphoreResult;
                 if (describeResult.Status != StatusIds.Types.StatusCode.Success)
                 {
-                    throw new YdbException(describeResult.Status + " " + describeResult.Issues);
+                    throw new Exception(describeResult.Status + " " + describeResult.Issues);
                 }
 
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.DescribeSemaphoreResult);
@@ -202,7 +201,7 @@ public class CoordinationSession
                 var createResult = response.CreateSemaphoreResult;
                 if (createResult.Status != StatusIds.Types.StatusCode.Success)
                 {
-                    throw new YdbException(createResult.Status + " " + createResult.Issues);
+                    throw new Exception(createResult.Status + " " + createResult.Issues);
                 }
 
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.CreateSemaphoreResult);
@@ -211,7 +210,7 @@ public class CoordinationSession
                 var updateResult = response.UpdateSemaphoreResult;
                 if (updateResult.Status != StatusIds.Types.StatusCode.Success)
                 {
-                    throw new YdbException(updateResult.Status + " " + updateResult.Issues);
+                    throw new Exception(updateResult.Status + " " + updateResult.Issues);
                 }
 
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.UpdateSemaphoreResult);
@@ -220,7 +219,7 @@ public class CoordinationSession
                 var deleteResult = response.DeleteSemaphoreResult;
                 if (deleteResult.Status != StatusIds.Types.StatusCode.Success)
                 {
-                    throw new YdbException(deleteResult.Status + " " + deleteResult.Issues);
+                    throw new Exception(deleteResult.Status + " " + deleteResult.Issues);
                 }
 
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.DeleteSemaphoreResult);
@@ -323,22 +322,34 @@ public class CoordinationSession
         await _sessionStartedTcs.Task;
     }
 
-    private async Task<PendingResult?> SendRequest(ulong reqIdCounter, SessionRequest request,
+    private async Task<PendingResult> SendRequest(ulong reqId, SessionRequest request,
         CancellationToken cancellationToken = default)
     {
-        var tcs = new TaskCompletionSource<PendingResult?>(
+        var tcs = new TaskCompletionSource<PendingResult>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        _pendingRequests[reqIdCounter] = new PendingRequest<PendingResult>(tcs);
-        var task = _stream!.Write(request);
-        await task;
+
+        _pendingRequests[reqId] = new PendingRequest<PendingResult>(tcs);
+
+        try
+        {
+            await _stream!.Write(request);
+        }
+        catch (Exception e)
+        {
+            _pendingRequests.TryRemove(reqId, out _);
+            tcs.TrySetException(e);
+            throw;
+        }
+
         await using (cancellationToken.Register(() =>
                      {
-                         if (_pendingRequests.TryRemove(reqIdCounter, out var pending))
+                         if (_pendingRequests.TryRemove(reqId, out var pending))
                          {
                              pending.Tcs.TrySetCanceled(cancellationToken);
                          }
                      }))
         {
+            // timeout + cancellation?
             return await tcs.Task;
         }
     }
@@ -431,6 +442,7 @@ public class CoordinationSession
         {
             DescribeSemaphore =
             {
+                Name = name,
                 IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(mode),
                 IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(mode),
                 WatchData = false,
@@ -438,13 +450,16 @@ public class CoordinationSession
                 ReqId = reqId
             }
         };
-        var task = await SendRequest(reqId, request);
-        if ((task == null) | (task!.EnumResponse != SessionResponse.ResponseOneofCase.DescribeSemaphoreResult))
+
+        try
+        {
+            var task = await SendRequest(reqId, request);
+            return task.Request.DescribeSemaphoreResult;
+        }
+        catch (Exception)
         {
             throw new YdbException("Delete semaphore failed");
         }
-
-        return task.Request.DescribeSemaphoreResult;
     }
 
     /*
