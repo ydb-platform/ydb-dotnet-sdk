@@ -328,23 +328,9 @@ public class CoordinationSession
     {
         var tcs = new TaskCompletionSource<PendingResult?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-
         _pendingRequests[reqIdCounter] = new PendingRequest<PendingResult>(tcs);
-
-        // ulong, PendingRequest<PendingResult
-
         var task = _stream!.Write(request);
         await task;
-        if (task.IsFaulted)
-        {
-            throw new YdbException("MESSAGE");
-        }
-
-        if (task.IsCanceled)
-        {
-            throw new YdbException("MESSAGE2");
-        }
-
         await using (cancellationToken.Register(() =>
                      {
                          if (_pendingRequests.TryRemove(reqIdCounter, out var pending))
@@ -379,21 +365,8 @@ public class CoordinationSession
         };
         try
         {
-            var task = _stream!.Write(createSemaphore);
+            var task = SendRequest(reqId, createSemaphore);
             await task;
-            if (task.IsFaulted)
-            {
-                throw new YdbException("Create semaphore failed");
-            }
-
-            if (task.IsCanceled)
-            {
-                throw new YdbException("Create semaphore canceled");
-            }
-        }
-        catch (YdbException e)
-        {
-            throw new YdbException(e.Message);
         }
         catch (Exception)
         {
@@ -416,21 +389,8 @@ public class CoordinationSession
         };
         try
         {
-            var task = _stream!.Write(updateSemaphore);
+            var task = SendRequest(reqId, updateSemaphore);
             await task;
-            if (task.IsFaulted)
-            {
-                throw new YdbException("Update semaphore failed");
-            }
-
-            if (task.IsCanceled)
-            {
-                throw new YdbException("Update semaphore canceled");
-            }
-        }
-        catch (YdbException e)
-        {
-            throw new YdbException(e.Message);
         }
         catch (Exception)
         {
@@ -453,21 +413,8 @@ public class CoordinationSession
         };
         try
         {
-            var task = _stream!.Write(deleteSemaphore);
+            var task = SendRequest(reqId, deleteSemaphore);
             await task;
-            if (task.IsFaulted)
-            {
-                throw new YdbException("Delete semaphore failed");
-            }
-
-            if (task.IsCanceled)
-            {
-                throw new YdbException("Delete semaphore canceled");
-            }
-        }
-        catch (YdbException e)
-        {
-            throw new YdbException(e.Message);
         }
         catch (Exception)
         {
