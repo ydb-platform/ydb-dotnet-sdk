@@ -519,6 +519,33 @@ public class CoordinationSession
         }
     }
 
+    public async Task AcquireSemaphore(string name, ulong count, byte[]? data,
+        TimeSpan timeout)
+    {
+        var reqId = GetNextReqId();
+        var acquireSemaphore = new SessionRequest
+        {
+            AcquireSemaphore =
+            {
+                Count = count,
+                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
+                Ephemeral = false,
+                TimeoutMillis = (ulong)timeout.TotalMilliseconds,
+                ReqId = reqId
+            }
+        };
+
+        try
+        {
+            var task = SendRequest(reqId, acquireSemaphore);
+            await task;
+        }
+        catch (Exception)
+        {
+            throw new YdbException("Acquire semaphore failed");
+        }
+    }
+
     public async Task ReleaseSemaphore(string name)
     {
         var reqId = GetNextReqId();
