@@ -519,7 +519,7 @@ public class CoordinationSession
         }
     }
 
-    public async Task AcquireSemaphore(string name, ulong count,bool ephemeral, byte[]? data,
+    public async Task AcquireSemaphore(string name, ulong count, bool ephemeral, byte[]? data,
         TimeSpan timeout)
     {
         var reqId = GetNextReqId();
