@@ -67,15 +67,15 @@ public class EndpointPoolTests
         [InlineData("http://n3.ydb.tech:2136")]
         [InlineData("https://n4.ydb.tech:2135")]
         [InlineData("http://n5.ydb.tech:2136")]
-        public void GetEndpoint_WhenResetNewStateThenPessimizedNode_ReturnRandomEndpoint(string endpoint)
+        public void GetEndpoint_WhenPessimizedEndpoint_ReturnRandomEndpoint(string endpoint)
         {
-            _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count - 1)).Returns(0);
-
             Assert.False(_endpointPool.PessimizeEndpoint(
-                _endpointSettingsList.Single(e => e.Endpoint == endpoint)));
+                _endpointSettingsList.Single(e => e.Endpoint.Equals(endpoint))));
 
             for (var i = 0; i < _endpointSettingsList.Count - 1; i++)
             {
+                _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count - 1)).Returns(i);
+
                 Assert.NotEqual(endpoint, _endpointPool.GetEndpoint().Endpoint);
             }
         }
@@ -93,6 +93,30 @@ public class EndpointPoolTests
             // More than half of the nodes are pessimized.
             Assert.True(_endpointPool.PessimizeEndpoint(_endpointSettingsList[1]));
         }
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [InlineData(5)]
+        public void GetEndpoint_WhePessimizedNode_ReturnRandomEndpoint(long nodeId)
+        {
+            var endpointInfo = _endpointPool.GetEndpoint(nodeId);
+
+            Assert.False(_endpointPool.PessimizeEndpoint(endpointInfo));
+
+            for (var i = 0; i < _endpointSettingsList.Count - 1; i++)
+            {
+                _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count - 1)).Returns(i);
+
+                Assert.NotEqual(endpointInfo.Endpoint, _endpointPool.GetEndpoint().Endpoint);
+            }
+        }
+
+        [Fact]
+        public void PessimizeByNodeId_WhenUnknownNode_ReturnsFalse() =>
+            Assert.False(_endpointPool.PessimizeByNodeId(999));
 
         [Fact]
         public void PessimizeEndpoint_Reset_WhenPessimizedMajorityNodesThenResetAndAddNewNodes_ReturnRandomEndpoint()
@@ -176,6 +200,33 @@ public class EndpointPoolTests
             {
                 _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count)).Returns(i);
                 Assert.Contains(_endpointPool.GetEndpoint().Endpoint, expectedEndpoints);
+            }
+        }
+
+        [Fact]
+        public void GetEndpoint_WhenThreeServerlessEndpoints_PessimizeByEndpoint_ExcludesFromRandomSelection()
+        {
+            var serverlessEndpoints = new List<EndpointInfo>
+            {
+                new(0, false, "serverless-a.example.com", 2136, "MAN"),
+                new(0, false, "serverless-b.example.com", 2136, "VLA"),
+                new(0, true, "serverless-c.example.com", 2135, "SAS")
+            };
+
+            var pool = new EndpointPool(TestUtils.LoggerFactory, _mockRandom.Object);
+            pool.Reset(serverlessEndpoints);
+
+            Assert.False(pool.PessimizeByNodeId(0)); // ignoring
+            _mockRandom.Setup(random => random.Next(2)).Returns(0);
+            Assert.Equal("http://serverless-a.example.com:2136", pool.GetEndpoint().Endpoint);
+
+            var pessimized = serverlessEndpoints[0];
+            Assert.False(pool.PessimizeEndpoint(pessimized));
+
+            for (var i = 0; i < 2; i++)
+            {
+                _mockRandom.Setup(random => random.Next(2)).Returns(i);
+                Assert.Equal(serverlessEndpoints[i + 1], pool.GetEndpoint());
             }
         }
     }

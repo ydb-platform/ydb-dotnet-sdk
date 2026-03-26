@@ -126,6 +126,22 @@ public sealed class Driver : BaseDriver
             return;
         }
 
+        ScheduleRediscoveryIfDegraded();
+    }
+
+    /// <inheritdoc />
+    public override void PessimizeNode(long nodeId)
+    {
+        if (!_endpointPool.PessimizeByNodeId(nodeId))
+        {
+            return;
+        }
+
+        ScheduleRediscoveryIfDegraded();
+    }
+
+    private void ScheduleRediscoveryIfDegraded()
+    {
         Logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
 
         // Reset timer to trigger discovery sooner, ensuring single-threaded execution through timer callback

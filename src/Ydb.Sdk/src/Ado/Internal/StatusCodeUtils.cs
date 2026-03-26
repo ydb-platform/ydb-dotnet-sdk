@@ -2,7 +2,7 @@ using Ydb.Issue;
 
 namespace Ydb.Sdk.Ado.Internal;
 
-public static class StatusCodeUtils
+internal static class StatusCodeUtils
 {
     internal static StatusCode Code(this Grpc.Core.Status rpcStatus) => rpcStatus.StatusCode switch
     {
