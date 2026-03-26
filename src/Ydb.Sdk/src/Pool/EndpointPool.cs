@@ -98,9 +98,6 @@ internal class EndpointPool
         {
             if (!_nodeIdToEndpoint.TryGetValue(nodeId, out endpointInfo!))
             {
-                _logger.LogInformation("Deprioritizing endpoint for node {NodeId} (explicit signal ShutdownNode)",
-                    nodeId);
-
                 return false;
             }
         }
@@ -108,6 +105,9 @@ internal class EndpointPool
         {
             _rwLock.ExitReadLock();
         }
+
+        _logger.LogInformation("Deprioritizing endpoint for node {NodeId} (explicit signal ShutdownNode)",
+            nodeId);
 
         return PessimizeEndpoint(endpointInfo);
     }

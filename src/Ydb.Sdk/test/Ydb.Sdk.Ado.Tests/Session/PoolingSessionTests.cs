@@ -251,6 +251,8 @@ public class PoolingSessionTests
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
 
+        await WaitUntilSessionBrokenAfterAttachAsync(session);
+
         Assert.True(session.IsBroken);
         _mockIDriver.Verify(driver => driver.PessimizeNode(NodeId), Times.Once());
     }
@@ -273,8 +275,12 @@ public class PoolingSessionTests
 
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
+
+        await WaitUntilSessionBrokenAfterAttachAsync(session);
+
         Assert.True(session.IsBroken);
         _mockIDriver.Verify(driver => driver.PessimizeNode(It.IsAny<long>()), Times.Never());
+        await CheckIsBrokenAndDeleteSessionNeverTimes(session);
     }
 
     [Fact]
@@ -297,6 +303,17 @@ public class PoolingSessionTests
         Assert.Equal(StatusCode.NotFound, ydbException.Code);
         Assert.Equal("Status: NotFound", ydbException.Message);
         tcsSecondMoveAttachStream.TrySetResult(false);
+    }
+
+    /// <summary>
+    /// <see cref="PoolingSession.Open"/> awaits only the first attach frame; hint handling runs on a background task after that.
+    /// </summary>
+    private static async Task WaitUntilSessionBrokenAfterAttachAsync(PoolingSession session)
+    {
+        for (var i = 0; i < 50 && !session.IsBroken; i++)
+        {
+            await Task.Delay(20);
+        }
     }
 
     private async Task CheckIsBrokenAndDeleteSessionNeverTimes(PoolingSession session)

@@ -228,7 +228,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             }
             finally
             {
-                _isBadSession = true;
+                // Do not set _isBadSession here: attach stream end (EOF) is not BadSession; DeleteSession must still run.
                 _isBroken = true;
             }
         }, cancellationToken);
