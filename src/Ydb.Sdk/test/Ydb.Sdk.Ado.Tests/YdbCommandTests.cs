@@ -373,10 +373,6 @@ public class YdbCommandTests : TestBase
                             new[] { -maxInterval64, maxInterval64 })
                     }
                 }.ExecuteScalarAsync());
-
-                await Task.Delay(100_000);
-                
-                
             }
         );
 

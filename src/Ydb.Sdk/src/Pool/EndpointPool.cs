@@ -98,8 +98,9 @@ internal class EndpointPool
         {
             if (!_nodeIdToEndpoint.TryGetValue(nodeId, out endpointInfo!))
             {
-                _logger.LogInformation("Deprioritizing endpoint for node {NodeId} (explicit signal ShutdownNode)", nodeId);
-                
+                _logger.LogInformation("Deprioritizing endpoint for node {NodeId} (explicit signal ShutdownNode)",
+                    nodeId);
+
                 return false;
             }
         }
@@ -133,7 +134,8 @@ internal class EndpointPool
         {
             knownEndpoint.Pessimize();
 
-            _sortedByPriorityEndpoints = [
+            _sortedByPriorityEndpoints =
+            [
                 .._sortedByPriorityEndpoints
                     .OrderBy(priorityEndpoint => priorityEndpoint.Priority)
                     .ThenBy(priorityEndpoint => priorityEndpoint.Endpoint)

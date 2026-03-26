@@ -210,22 +210,24 @@ public class EndpointPoolTests
             {
                 new(0, false, "serverless-a.example.com", 2136, "MAN"),
                 new(0, false, "serverless-b.example.com", 2136, "VLA"),
-                new(0, true, "serverless-c.example.com", 2135, "SAS"),
+                new(0, true, "serverless-c.example.com", 2135, "SAS")
             };
 
             var pool = new EndpointPool(TestUtils.LoggerFactory, _mockRandom.Object);
             pool.Reset(serverlessEndpoints);
 
-            Assert.False(pool.PessimizeByNodeId(0));
+            Assert.False(pool.PessimizeByNodeId(0)); // ignoring
+            _mockRandom.Setup(random => random.Next(2)).Returns(0);
+            Assert.Equal("http://serverless-a.example.com:2136", pool.GetEndpoint().Endpoint);
+
+            var pessimized = serverlessEndpoints[0];
+            Assert.False(pool.PessimizeEndpoint(pessimized));
 
             for (var i = 0; i < 2; i++)
             {
                 _mockRandom.Setup(random => random.Next(2)).Returns(i);
-                Assert.NotEqual("serverless-a.example.com", pool.GetEndpoint().Endpoint);
+                Assert.Equal(serverlessEndpoints[i + 1], pool.GetEndpoint());
             }
-
-            _mockRandom.Setup(random => random.Next(2)).Returns(0);
-            Assert.NotEqual("serverless-a.example.com", pool.GetEndpoint().Endpoint);
         }
     }
 
