@@ -1,3 +1,4 @@
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Moq;
 using Xunit;
@@ -229,6 +230,52 @@ public class PoolingSessionTests
         Assert.Equal(StatusCode.Aborted, ydbException.Code);
         Assert.Equal("Status: Aborted", ydbException.Message);
         tcsSecondMoveAttachStream.TrySetResult(false);
+    }
+
+    [Fact]
+    public async Task Open_WhenAttachStreamSendsNodeShutdownHint_CallsPessimizeNodeAndBreaksSession()
+    {
+        SetupSuccessCreateSession();
+        _mockIDriver.Setup(driver => driver.PessimizeNode(NodeId));
+
+        _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(true);
+        _mockAttachStream.SetupSequence(attachStream => attachStream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success })
+            .Returns(new SessionState
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                NodeShutdown = new NodeShutdownHint()
+            });
+
+        var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
+        await session.Open(CancellationToken.None);
+
+        Assert.True(session.IsBroken);
+        _mockIDriver.Verify(driver => driver.PessimizeNode(NodeId), Times.Once());
+    }
+
+    [Fact]
+    public async Task Open_WhenAttachStreamSendsSessionShutdownHint_DoesNotCallPessimizeNode_BreaksSession()
+    {
+        SetupSuccessCreateSession();
+
+        _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(true);
+        _mockAttachStream.SetupSequence(attachStream => attachStream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success })
+            .Returns(new SessionState
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                SessionShutdown = new SessionShutdownHint()
+            });
+
+        var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
+        await session.Open(CancellationToken.None);
+        Assert.True(session.IsBroken);
+        _mockIDriver.Verify(driver => driver.PessimizeNode(It.IsAny<long>()), Times.Never());
     }
 
     [Fact]

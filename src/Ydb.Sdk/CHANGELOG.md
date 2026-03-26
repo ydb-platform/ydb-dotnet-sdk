@@ -1,4 +1,6 @@
 - Feat ADO.NET tracing: Refined `error.type` for `YdbException` to classify failures as `transport_error` (client transport status codes) or `ydb_error` (database status codes), while keeping `db.response.status_code`.
+- Fixed bug: `EndpointPool.PessimizeEndpoint` / routing used node id only; in serverless mode (`nodeId == 0`) pessimization and sticky session routing did not work correctly — pessimization and pool lookup are now keyed by gRPC endpoint (`http(s)://host:port`).
+- Feat: Session attach stream handles `NodeShutdown` and `SessionShutdown` hints (deprioritizes endpoint on node shutdown, marks session broken on shutdown hints).
 
 ## v0.30.0
 

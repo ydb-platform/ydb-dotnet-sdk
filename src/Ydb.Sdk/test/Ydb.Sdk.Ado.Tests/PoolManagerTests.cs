@@ -152,6 +152,7 @@ public class PoolManagerTests
         public bool IsDisposed { get; private set; } = isDisposed;
 
         public string Database => "db";
+        public void PessimizeNode(long nodeId) => throw new NotImplementedException();
 
         public ValueTask DisposeAsync()
         {

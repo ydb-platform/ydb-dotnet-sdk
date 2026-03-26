@@ -81,10 +81,40 @@ internal class EndpointPool
         }
     }
 
+    /// <summary>
+    /// Pessimizes the endpoint registered for <paramref name="nodeId"/> if it exists in the pool.
+    /// </summary>
+    /// <returns><c>true</c> when rediscovery should be triggered (same semantics as <see cref="PessimizeEndpoint"/>).</returns>
+    public bool PessimizeByNodeId(long nodeId)
+    {
+        if (nodeId <= 0) // guard for serverless mode
+        {
+            return false;
+        }
+
+        EndpointInfo endpointInfo;
+        _rwLock.EnterReadLock();
+        try
+        {
+            if (!_nodeIdToEndpoint.TryGetValue(nodeId, out endpointInfo!))
+            {
+                _logger.LogInformation("Deprioritizing endpoint for node {NodeId} (explicit signal ShutdownNode)", nodeId);
+                
+                return false;
+            }
+        }
+        finally
+        {
+            _rwLock.ExitReadLock();
+        }
+
+        return PessimizeEndpoint(endpointInfo);
+    }
+
     // return needDiscovery 
     public bool PessimizeEndpoint(EndpointInfo endpointInfo)
     {
-        var knownEndpoint = _sortedByPriorityEndpoints.FirstOrDefault(pe => endpointInfo.NodeId == pe.NodeId);
+        var knownEndpoint = _sortedByPriorityEndpoints.FirstOrDefault(pe => endpointInfo.Endpoint.Equals(pe.Endpoint));
 
         if (knownEndpoint == null)
         {
@@ -103,10 +133,11 @@ internal class EndpointPool
         {
             knownEndpoint.Pessimize();
 
-            _sortedByPriorityEndpoints = _sortedByPriorityEndpoints
-                .OrderBy(priorityEndpoint => priorityEndpoint.Priority)
-                .ThenBy(priorityEndpoint => priorityEndpoint.Endpoint)
-                .ToImmutableArray();
+            _sortedByPriorityEndpoints = [
+                .._sortedByPriorityEndpoints
+                    .OrderBy(priorityEndpoint => priorityEndpoint.Priority)
+                    .ThenBy(priorityEndpoint => priorityEndpoint.Endpoint)
+            ];
 
             var bestPriority = _sortedByPriorityEndpoints[0].Priority;
             var preferredEndpointCount = 0;

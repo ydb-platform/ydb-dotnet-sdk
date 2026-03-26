@@ -182,11 +182,23 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
                         var statusCode = sessionState.Status.Code();
 
+                        OnNotSuccessStatusCode(statusCode);
+                        switch (sessionState.SessionHintCase)
+                        {
+                            case SessionState.SessionHintOneofCase.NodeShutdown:
+                                Driver.PessimizeNode(NodeId);
+                                _isBadSession = true;
+                                _isBroken = true;
+                                break;
+                            case SessionState.SessionHintOneofCase.SessionShutdown:
+                                _isBadSession = true;
+                                _isBroken = true;
+                                break;
+                        }
+
                         _logger.LogDebug(
                             "Session[{SessionId}] was received the status from the attach stream: {StatusMessage}",
-                            SessionId, statusCode.ToMessage(sessionState.Issues));
-
-                        OnNotSuccessStatusCode(statusCode);
+                            SessionId, sessionState.Status);
 
                         if (IsBroken)
                         {
@@ -216,6 +228,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             }
             finally
             {
+                _isBadSession = true;
                 _isBroken = true;
             }
         }, cancellationToken);

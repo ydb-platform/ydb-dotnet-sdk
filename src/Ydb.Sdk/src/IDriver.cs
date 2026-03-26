@@ -88,6 +88,13 @@ public interface IDriver : IAsyncDisposable
     /// Gets the database path for this driver instance.
     /// </summary>
     string Database { get; }
+    
+    /// <summary>
+    /// Deprioritizes the endpoint for the given node id (for example after a <c>NodeShutdown</c> session hint).
+    /// Implementations without a node pool (single fixed endpoint) typically no-op.
+    /// </summary>
+    /// <param name="nodeId">YDB node id; values less than or equal to zero are ignored.</param>
+    void PessimizeNode(long nodeId);
 }
 
 /// <summary>
@@ -188,6 +195,11 @@ public abstract class BaseDriver : IDriver
                 LoggerFactory
             )
             : Config.Credentials;
+    }
+    
+    /// <inheritdoc />
+    public virtual void PessimizeNode(long nodeId)
+    {
     }
 
     public async Task<TResponse> UnaryCall<TRequest, TResponse>(
