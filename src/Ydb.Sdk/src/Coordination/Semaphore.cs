@@ -5,41 +5,40 @@ namespace Ydb.Sdk.Coordination;
 
 public class Semaphore
 {
-    private readonly string _name;
-    private readonly CoordinationSession _coordinationSession;
+    public string Name { get; }
+    private readonly SessionRuntime _sessionRuntime;
 
-    public Semaphore(string name, CoordinationSession session)
+    public Semaphore(string name, SessionRuntime sessionRuntime)
     {
-        _name = name;
-        _coordinationSession = session;
+        Name = name;
+        _sessionRuntime = sessionRuntime;
     }
 
-    public string Name => _name;
 
     public async Task Create(ulong limit, byte[]? data)
-        => await _coordinationSession.CreateSemaphore(_name, limit, data);
+        => await _sessionRuntime.CreateSemaphore(Name, limit, data);
 
 
     public async Task Update(byte[]? data)
-        => await _coordinationSession.UpdateSemaphore(_name, data);
+        => await _sessionRuntime.UpdateSemaphore(Name, data);
 
 
     public async Task Delete(bool force)
-        => await _coordinationSession.DeleteSemaphore(_name, force);
+        => await _sessionRuntime.DeleteSemaphore(Name, force);
 
 
-    public async Task<SessionResponse.Types.DescribeSemaphoreResult> Describe(string name,
+    public async Task<SessionResponse.Types.DescribeSemaphoreResult> Describe(
         DescribeSemaphoreMode mode)
-        => await _coordinationSession.DescribeSemaphore(_name, mode);
+        => await _sessionRuntime.DescribeSemaphore(Name, mode);
 
 
     public async Task<Lease> Acquire(ulong count, bool ephemeral, byte[]? data,
         TimeSpan timeout)
     {
-        await _coordinationSession.AcquireSemaphore(_name, count, ephemeral, data, timeout);
+        await _sessionRuntime.AcquireSemaphore(Name, count, ephemeral, data, timeout);
         return new Lease(this);
     }
 
     public async Task Release()
-        => await _coordinationSession.ReleaseSemaphore(_name);
+        => await _sessionRuntime.ReleaseSemaphore(Name);
 }

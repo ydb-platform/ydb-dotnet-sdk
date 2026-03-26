@@ -1,4 +1,4 @@
-﻿namespace Ydb.Sdk.Coordination.Impl;
+﻿namespace Ydb.Sdk.Coordination.Dto;
 
 internal sealed class PendingRequest<TResult>
 {

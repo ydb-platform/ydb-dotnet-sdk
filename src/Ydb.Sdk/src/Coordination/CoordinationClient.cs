@@ -48,12 +48,13 @@ public class CoordinationClient
             CancellationToken = cancellationToken
         };
 
-    /*
-    @Override
-    public CoordinationSession createSession(String path, CoordinationSessionSettings settings) {
-        return new SessionImpl(rpc, Clock.systemUTC(), validatePath(path), settings);
+
+    public CoordinationSession CreateSession(string pathNode)
+    {
+        ValidatePath(pathNode);
+        return new CoordinationSession(_iDriver, pathNode);
     }
-    */
+
 
     public async Task CreateNode(string path, CoordinationNodeSettings settings)
     {

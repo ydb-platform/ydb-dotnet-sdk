@@ -1,5 +1,6 @@
 ﻿namespace Ydb.Sdk.Coordination;
 
+// BAD LEASE
 public class Lease
 {
     private readonly Semaphore _semaphore;

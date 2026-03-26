@@ -3,21 +3,21 @@ using Google.Protobuf;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Coordination.Impl;
+using Ydb.Sdk.Coordination.Dto;
 using Ydb.Sdk.Coordination.Settings;
 
 namespace Ydb.Sdk.Coordination;
 
-public class CoordinationSession
+public class SessionRuntime
 {
     private readonly IDriver _driver;
-    private readonly CoordinationNodeSettings _settings;
     //private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
 
 
     //private ulong _sessionId;
     private ulong _reqIdCounter;
     private ulong _seqNo;
+    private readonly string _pathNode;
 
 
     // Tasks for waiting SessionStarted and SessionStopped
@@ -45,11 +45,11 @@ public class CoordinationSession
 
     // private readonly CancellationTokenSource _disposeCts = new();
 
-    public CoordinationSession(IDriver driver, CoordinationNodeSettings settings) //IRetryPolicy retryPolicy
+    public SessionRuntime(IDriver driver, string pathNode) //IRetryPolicy retryPolicy
     {
         //_ydbRetryPolicyExecutor = new YdbRetryPolicyExecutor(retryPolicy);
         _driver = driver;
-        _settings = settings;
+        _pathNode = pathNode;
         Initialize();
     }
 
@@ -72,7 +72,7 @@ public class CoordinationSession
     // простой пример создания stream, отправляем серверу сообщение о старте и получаем ответ от сервера
     private async Task StreamCall()
     {
-        _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, _settings);
+        _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, new GrpcRequestSettings());
         await RunProcessingStreamResponse();
         await SendStartSession();
     }
@@ -360,7 +360,7 @@ public class CoordinationSession
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var reqId = _reqIdCounter;
-        var node = "";
+        var node = _pathNode;
         // var timeout = new TimeSpan(5);
         var key = ByteString.Empty;
         var initRequestStart = new SessionRequest
