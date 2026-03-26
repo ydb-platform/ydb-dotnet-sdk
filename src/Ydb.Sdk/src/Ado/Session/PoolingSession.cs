@@ -198,7 +198,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
                         _logger.LogDebug(
                             "Session[{SessionId}] was received the status from the attach stream: {StatusMessage}",
-                            SessionId, sessionState.Status);
+                            SessionId, statusCode.ToMessage(sessionState.Issues));
 
                         if (IsBroken)
                         {
