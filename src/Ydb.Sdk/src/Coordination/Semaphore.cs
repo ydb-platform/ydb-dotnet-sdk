@@ -27,7 +27,7 @@ public class Semaphore
         => await _sessionRuntime.DeleteSemaphore(Name, force);
 
 
-    public async Task<SessionResponse.Types.DescribeSemaphoreResult> Describe(
+    public async Task<SemaphoreDescription> Describe(
         DescribeSemaphoreMode mode)
         => await _sessionRuntime.DescribeSemaphore(Name, mode);
 

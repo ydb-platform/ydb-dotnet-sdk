@@ -186,9 +186,19 @@ public class CoordinationClientIntegrationTests
         var semaphore = coordinationSession.Semaphore(semaphoreName);
         await semaphore.Create(10, semaphoreData);
 
+        var task = await semaphore.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
+        _output.WriteLine("Describe Result:");
+        _output.WriteLine($"  Name: {task.Name}");
+        _output.WriteLine($"  Limit: {task.Limit}");
+        _output.WriteLine($"  Count: {task.Count}");
+        _output.WriteLine($"  Ephemeral: {task.Ephemeral}");
+        _output.WriteLine($"  Data: {(task.Data != null ? BitConverter.ToString(task.Data.ToByteArray()) : "null")}");
+        _output.WriteLine($"  Owners count: {task.Owners?.Count ?? 0}");
+        _output.WriteLine($"  Waiters count: {task.Waiters?.Count ?? 0}");
+
         //Then
         await semaphore.Delete(false);
-        coordinationSession.Close();
+        await coordinationSession.Close();
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
     }
 
@@ -218,18 +228,58 @@ public class CoordinationClientIntegrationTests
         var semaphore1 = coordinationSession1.Semaphore(semaphoreName);
         await semaphore1.Create(10, semaphoreData1);
         var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
-        var describeSemaphoreResultBefore = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
-        //сравниваем значения
-
+        var describeBefore = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
         await semaphore1.Update(semaphoreData2);
-        var describeSemaphoreResultAfter = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
+        var describeAfter = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
 
-        //сравниваем значения
 
+        // ---- OUTPUT BEFORE ----
+        _output.WriteLine("Describe BEFORE:");
+        _output.WriteLine($"  Name: {describeBefore.Name}");
+        _output.WriteLine($"  Limit: {describeBefore.Limit}");
+        _output.WriteLine($"  Count: {describeBefore.Count}");
+        _output.WriteLine($"  Ephemeral: {describeBefore.Ephemeral}");
+        _output.WriteLine($"  Data: {(describeBefore.Data != null ? BitConverter.ToString(describeBefore.Data.ToByteArray()) : "null")}");
+        _output.WriteLine($"  Owners count: {describeBefore.Owners?.Count ?? 0}");
+        _output.WriteLine($"  Waiters count: {describeBefore.Waiters?.Count ?? 0}");
+
+        // ---- OUTPUT AFTER ----
+        _output.WriteLine("Describe AFTER:");
+        _output.WriteLine($"  Name: {describeAfter.Name}");
+        _output.WriteLine($"  Limit: {describeAfter.Limit}");
+        _output.WriteLine($"  Count: {describeAfter.Count}");
+        _output.WriteLine($"  Ephemeral: {describeAfter.Ephemeral}");
+        _output.WriteLine($"  Data: {(describeAfter.Data != null ? BitConverter.ToString(describeAfter.Data.ToByteArray()) : "null")}");
+        _output.WriteLine($"  Owners count: {describeAfter.Owners?.Count ?? 0}");
+        _output.WriteLine($"  Waiters count: {describeAfter.Waiters?.Count ?? 0}");
+     
         //Then
+        // ---- Assert BEFORE ----
+        
+        Assert.Equal(semaphoreName, describeBefore.Name);
+        Assert.Equal((ulong)10, describeBefore.Limit);
+        Assert.Equal((ulong)0, describeBefore.Count);
+        Assert.False(describeBefore.Ephemeral);
+
+        Assert.NotNull(describeBefore.Data);
+        Assert.Equal(semaphoreData1, describeBefore.Data.ToByteArray());
+
+        Assert.Empty(describeBefore.Owners);
+        Assert.Empty(describeBefore.Waiters);
+        // ---- Assert AFTER ----
+
+        Assert.Equal(semaphoreName, describeAfter.Name);
+        Assert.Equal((ulong)10, describeAfter.Limit); // limit должен остаться
+        Assert.Equal((ulong)0, describeAfter.Count);
+
+        Assert.NotNull(describeAfter.Data);
+        Assert.Equal(semaphoreData2, describeAfter.Data.ToByteArray());
+
+        Assert.Empty(describeAfter.Owners);
+        Assert.Empty(describeAfter.Waiters);
         await semaphore2.Delete(false);
-        coordinationSession1.Close();
-        coordinationSession2.Close();
+        await coordinationSession1.Close();
+        await coordinationSession2.Close();
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
     }
 

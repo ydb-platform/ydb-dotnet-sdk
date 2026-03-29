@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using Google.Protobuf;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
@@ -44,47 +45,55 @@ public class SessionRuntime
     //public event Action<SemaphoreChangedEvent>? SemaphoreChanged;    
 
     // private readonly CancellationTokenSource _disposeCts = new();
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly Task _initTask;
+
+    private volatile bool _disposed;
+    private volatile bool _streamClosed;
 
     public SessionRuntime(IDriver driver, string pathNode) //IRetryPolicy retryPolicy
     {
         //_ydbRetryPolicyExecutor = new YdbRetryPolicyExecutor(retryPolicy);
         _driver = driver;
         _pathNode = pathNode;
-        Initialize();
+
+        _initTask = InitializeAsync();
     }
 
 
-    private async void Initialize()
-    {
-        try
-        {
-            // _ydbRetryPolicyExecutor.ExecuteAsync();
-            await StreamCall();
-        }
-        catch (Exception)
-        {
-            // Handle the exception (log it, rethrow it, etc.)
-            // Console.WriteLine($"An error occurred: {ex.Message}");
-        }
-    }
+    private async Task InitializeAsync()
+        => await StreamCall();
 
 
     // простой пример создания stream, отправляем серверу сообщение о старте и получаем ответ от сервера
     private async Task StreamCall()
     {
         _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, new GrpcRequestSettings());
-        await RunProcessingStreamResponse();
+        if (_stream == null)
+            throw new InvalidOperationException("Stream is null in SendStartSession");
+        _ = Task.Run(RunProcessingStreamResponse);
         await SendStartSession();
     }
 
+    private async Task EnsureInitialized()
+    {
+        await _initTask;
+
+        if (_stream == null || _streamClosed)
+            throw new InvalidOperationException("Stream is not initialized");
+    }
 
     private async Task RunProcessingStreamResponse()
     {
+        Console.WriteLine("RunProcessingStreamResponse STARTED");
+
         try
         {
             while (await _stream!.MoveNextAsync())
             {
                 var response = _stream.Current;
+
+
                 switch (response.ResponseCase)
                 {
                     case SessionResponse.ResponseOneofCase.Ping:
@@ -142,14 +151,12 @@ public class SessionRuntime
         catch (Exception ex)
         {
             FailAllPending(ex);
-            // Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages", SessionId);
         }
-        /*
         finally
         {
-            // NOTE
+            _streamClosed = true;
+            FailAllPending(new Exception("Session stream closed"));
         }
-        */
     }
 
     private void FailAllPending(Exception ex)
@@ -209,60 +216,36 @@ public class SessionRuntime
 
     private static PendingResult? ExtractResult(SessionResponse response)
     {
+        void EnsureSuccess(StatusIds.Types.StatusCode status, object issues)
+        {
+            if (status != StatusIds.Types.StatusCode.Success)
+                throw new Exception($"{status} {issues}");
+        }
+
         switch (response.ResponseCase)
         {
             case SessionResponse.ResponseOneofCase.AcquireSemaphoreResult:
-                var acquireResult = response.AcquireSemaphoreResult;
-                if (acquireResult.Status != StatusIds.Types.StatusCode.Success)
-                {
-                    throw new Exception(acquireResult.Status + " " + acquireResult.Issues);
-                }
-
+                EnsureSuccess(response.AcquireSemaphoreResult.Status, response.AcquireSemaphoreResult.Issues);
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.AcquireSemaphoreResult);
 
             case SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult:
-                var releaseResult = response.ReleaseSemaphoreResult;
-                if (releaseResult.Status != StatusIds.Types.StatusCode.Success)
-                {
-                    throw new Exception(releaseResult.Status + " " + releaseResult.Issues);
-                }
-
+                EnsureSuccess(response.ReleaseSemaphoreResult.Status, response.ReleaseSemaphoreResult.Issues);
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult);
 
             case SessionResponse.ResponseOneofCase.DescribeSemaphoreResult:
-                var describeResult = response.DescribeSemaphoreResult;
-                if (describeResult.Status != StatusIds.Types.StatusCode.Success)
-                {
-                    throw new Exception(describeResult.Status + " " + describeResult.Issues);
-                }
-
+                EnsureSuccess(response.DescribeSemaphoreResult.Status, response.DescribeSemaphoreResult.Issues);
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.DescribeSemaphoreResult);
 
             case SessionResponse.ResponseOneofCase.CreateSemaphoreResult:
-                var createResult = response.CreateSemaphoreResult;
-                if (createResult.Status != StatusIds.Types.StatusCode.Success)
-                {
-                    throw new Exception(createResult.Status + " " + createResult.Issues);
-                }
-
+                EnsureSuccess(response.CreateSemaphoreResult.Status, response.CreateSemaphoreResult.Issues);
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.CreateSemaphoreResult);
 
             case SessionResponse.ResponseOneofCase.UpdateSemaphoreResult:
-                var updateResult = response.UpdateSemaphoreResult;
-                if (updateResult.Status != StatusIds.Types.StatusCode.Success)
-                {
-                    throw new Exception(updateResult.Status + " " + updateResult.Issues);
-                }
-
+                EnsureSuccess(response.UpdateSemaphoreResult.Status, response.UpdateSemaphoreResult.Issues);
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.UpdateSemaphoreResult);
 
             case SessionResponse.ResponseOneofCase.DeleteSemaphoreResult:
-                var deleteResult = response.DeleteSemaphoreResult;
-                if (deleteResult.Status != StatusIds.Types.StatusCode.Success)
-                {
-                    throw new Exception(deleteResult.Status + " " + deleteResult.Issues);
-                }
-
+                EnsureSuccess(response.DeleteSemaphoreResult.Status, response.DeleteSemaphoreResult.Issues);
                 return new PendingResult(response, SessionResponse.ResponseOneofCase.DeleteSemaphoreResult);
 
             default:
@@ -270,21 +253,18 @@ public class SessionRuntime
         }
     }
 
-    /* // повторящий код убрать
-    private static PendingResult HandleStatus(
-        SessionResponse response,
-        StatusIds.Types.StatusCode status,
-        object issues,
-        SessionResponse.ResponseOneofCase type)
+    private async Task SafeWrite(SessionRequest request)
     {
-        if (status != StatusIds.Types.StatusCode.Success)
+        await _writeLock.WaitAsync();
+        try
         {
-            throw new YdbException($"{status} {issues}");
+            await _stream!.Write(request);
         }
-
-        return new PendingResult(response, type);
+        finally
+        {
+            _writeLock.Release();
+        }
     }
-    */
 
 
     private async Task HandlePing(SessionResponse response)
@@ -297,7 +277,7 @@ public class SessionRuntime
                 Opaque = opaque
             }
         };
-        await _stream!.Write(pongRequest);
+        await SafeWrite(pongRequest);
     }
 
     private async Task HandleFailure(SessionResponse response)
@@ -319,6 +299,7 @@ public class SessionRuntime
 
     private void HandleSessionStarted() //SessionResponse response
     {
+        Console.WriteLine("Response: SS");
         //_sessionId = response.SessionStarted.SessionId;
         // Resolve the sessionStarted promise
         _sessionStartedTcs?.TrySetResult();
@@ -354,29 +335,38 @@ public class SessionRuntime
     private async Task SendStartSession()
     {
         if (_stream == null)
-            return;
+            throw new InvalidOperationException("Stream not initialized");
+
 
         _sessionStartedTcs =
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var reqId = _reqIdCounter;
+        var reqId = GetNextReqId();
         var node = _pathNode;
         // var timeout = new TimeSpan(5);
-        var key = ByteString.Empty;
+        var key = CreateRandomKey();
         var initRequestStart = new SessionRequest
         {
-            SessionStart =
+            SessionStart = new SessionRequest.Types.SessionStart
             {
-                SessionId = reqId,
+                SessionId = 0,
                 Path = node,
-                TimeoutMillis = 5,
+                TimeoutMillis = 5000,
                 ProtectionKey = key,
                 SeqNo = _seqNo++
             }
         };
 
-        await _stream.Write(initRequestStart);
+        await SafeWrite(initRequestStart);
+
         await _sessionStartedTcs.Task;
+    }
+
+    private static ByteString CreateRandomKey()
+    {
+        var protectionKey = new byte[16];
+        RandomNumberGenerator.Fill(protectionKey);
+        return ByteString.CopyFrom(protectionKey);
     }
 
     private async Task<PendingResult> SendRequest(ulong reqId, SessionRequest request,
@@ -389,7 +379,7 @@ public class SessionRuntime
 
         try
         {
-            await _stream!.Write(request);
+            await SafeWrite(request);
         }
         catch (Exception e)
         {
@@ -420,10 +410,11 @@ public class SessionRuntime
 
     public async Task CreateSemaphore(string name, ulong limit, byte[]? data)
     {
+        await EnsureInitialized();
         var reqId = GetNextReqId();
         var createSemaphore = new SessionRequest
         {
-            CreateSemaphore =
+            CreateSemaphore = new SessionRequest.Types.CreateSemaphore()
             {
                 Name = name,
                 Limit = limit,
@@ -445,10 +436,11 @@ public class SessionRuntime
 
     public async Task UpdateSemaphore(string name, byte[]? data)
     {
+        await EnsureInitialized();
         var reqId = GetNextReqId();
         var updateSemaphore = new SessionRequest
         {
-            UpdateSemaphore =
+            UpdateSemaphore = new SessionRequest.Types.UpdateSemaphore()
             {
                 Name = name,
                 Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
@@ -469,10 +461,11 @@ public class SessionRuntime
 
     public async Task DeleteSemaphore(string name, bool force)
     {
+        await EnsureInitialized();
         var reqId = GetNextReqId();
         var deleteSemaphore = new SessionRequest
         {
-            DeleteSemaphore =
+            DeleteSemaphore = new SessionRequest.Types.DeleteSemaphore()
             {
                 Name = name,
                 Force = force,
@@ -491,13 +484,14 @@ public class SessionRuntime
     }
 
 
-    public async Task<SessionResponse.Types.DescribeSemaphoreResult> DescribeSemaphore(string name,
+    public async Task<SemaphoreDescription> DescribeSemaphore(string name,
         DescribeSemaphoreMode mode)
     {
+        await EnsureInitialized();
         var reqId = GetNextReqId();
         var describeSemaphore = new SessionRequest
         {
-            DescribeSemaphore =
+            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore()
             {
                 Name = name,
                 IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(mode),
@@ -511,7 +505,7 @@ public class SessionRuntime
         try
         {
             var task = await SendRequest(reqId, describeSemaphore);
-            return task.Request.DescribeSemaphoreResult;
+            return new SemaphoreDescription(task.Request.DescribeSemaphoreResult.SemaphoreDescription);
         }
         catch (Exception)
         {
@@ -522,10 +516,11 @@ public class SessionRuntime
     public async Task AcquireSemaphore(string name, ulong count, bool ephemeral, byte[]? data,
         TimeSpan timeout)
     {
+        await EnsureInitialized();
         var reqId = GetNextReqId();
         var acquireSemaphore = new SessionRequest
         {
-            AcquireSemaphore =
+            AcquireSemaphore = new SessionRequest.Types.AcquireSemaphore()
             {
                 Name = name,
                 Count = count, // обратить на число
@@ -549,10 +544,11 @@ public class SessionRuntime
 
     public async Task ReleaseSemaphore(string name)
     {
+        await EnsureInitialized();
         var reqId = GetNextReqId();
         var releaseSemaphore = new SessionRequest
         {
-            ReleaseSemaphore =
+            ReleaseSemaphore = new SessionRequest.Types.ReleaseSemaphore()
             {
                 Name = name,
                 ReqId = reqId
@@ -567,6 +563,25 @@ public class SessionRuntime
         {
             throw new YdbException("Release semaphore failed");
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        try
+        {
+            if (_stream != null)
+                await _stream.RequestStreamComplete().ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+
+        _writeLock.Dispose();
     }
 
     /*

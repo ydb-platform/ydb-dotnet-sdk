@@ -11,8 +11,9 @@ public class CoordinationSession
         _sessionRuntime = new SessionRuntime(driver, pathNode);
     }
 
-    public void Status()
+    public StateSession Status()
     {
+        return StateSession.Closed;
     }
 
     public Semaphore Semaphore(string name)
@@ -24,7 +25,6 @@ public class CoordinationSession
     public Election Election(string name)
         => new Election(Semaphore(name));
 
-    public void Close()
-    {
-    }
+    public async Task Close()
+        => await _sessionRuntime.DisposeAsync();
 }
