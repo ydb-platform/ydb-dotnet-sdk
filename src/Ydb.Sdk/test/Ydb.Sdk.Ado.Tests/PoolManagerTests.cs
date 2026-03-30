@@ -3,6 +3,7 @@ using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -117,6 +118,7 @@ public class PoolManagerTests
     private sealed class FakeDriver(bool registerOwnerResult, bool isDisposed) : IDriver
     {
         public int RegisterCalls { get; private set; }
+        public YdbMetricsReporter MetricsReporter => null!;
 
         public Task<TResponse> UnaryCall<TRequest, TResponse>(
             Method<TRequest, TResponse> method,

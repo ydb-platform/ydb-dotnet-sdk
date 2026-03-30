@@ -7,3 +7,6 @@ launchSettings.json
 ### JetBrains Rider
 .idea
 *.sln.DotSettings.user
+
+.DS_Store
+**/.DS_Store

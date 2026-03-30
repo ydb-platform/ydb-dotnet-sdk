@@ -2,6 +2,7 @@ using Moq;
 using Xunit;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 
@@ -15,6 +16,7 @@ public class YdbImplicitStressTests
         m.Setup(d => d.DisposeAsync())
             .Callback(() => _isDisposed = true)
             .Returns(ValueTask.CompletedTask);
+        m.Setup(mock => mock.MetricsReporter).Returns((YdbMetricsReporter)null!);
         return m.Object;
     }
 
