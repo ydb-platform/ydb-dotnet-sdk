@@ -26,7 +26,6 @@ public class PoolingSessionTests
 
         _mockIDriver = new Mock<IDriver>(MockBehavior.Strict);
         _mockIDriver.Setup(driver => driver.LoggerFactory).Returns(TestUtils.LoggerFactory);
-        _mockIDriver.Setup(m => m.MetricsReporter).Returns((YdbMetricsReporter)null!);
         _mockIDriver.Setup(driver => driver.ServerStreamCall(
             QueryService.AttachSessionMethod,
             It.Is<AttachSessionRequest>(request => request.SessionId.Equals(SessionId)),

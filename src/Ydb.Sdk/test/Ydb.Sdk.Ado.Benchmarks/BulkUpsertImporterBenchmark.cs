@@ -68,6 +68,4 @@ internal class BulkUpsertMockDriver : IDriver
     public bool IsDisposed => false;
     public string Database => throw new NotImplementedException();
     public void PessimizeNode(long nodeId) => throw new NotImplementedException();
-    
-    public YdbMetricsReporter MetricsReporter => null!;
 }

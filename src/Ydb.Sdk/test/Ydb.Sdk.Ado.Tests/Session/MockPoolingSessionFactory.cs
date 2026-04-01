@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using Xunit;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 
@@ -21,10 +20,6 @@ internal class MockPoolingSessionFactory(int maxPoolSize) : IPoolingSessionFacto
 
     internal Func<int, IServerStream<ExecuteQueryResponsePart>> ExecuteQuery { private get; init; } =
         _ => throw new NotImplementedException();
-    
-    [SuppressMessage("ReSharper", "UnusedMember.Global")]
-    [SuppressMessage("Performance", "CA1822:Mark members as static")]
-    public YdbMetricsReporter MetricsReporter => null!;
 
     public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
         new(source,

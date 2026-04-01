@@ -2,7 +2,7 @@ services:
   app:
     build:
       context: ../..
-      dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Dockerfile
+      dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Trace/Dockerfile
     depends_on:
       ydb:
         condition: service_healthy

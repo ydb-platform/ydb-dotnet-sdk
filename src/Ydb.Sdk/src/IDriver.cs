@@ -96,8 +96,6 @@ public interface IDriver : IAsyncDisposable
     /// </summary>
     /// <param name="nodeId">YDB node id; values less than or equal to zero are ignored.</param>
     void PessimizeNode(long nodeId);
-    
-    YdbMetricsReporter MetricsReporter { get; }
 }
 
 /// <summary>
@@ -169,6 +167,9 @@ public abstract class BaseDriver : IDriver
     private readonly ICredentialsProvider? _credentialsProvider;
 
     protected readonly DriverConfig Config;
+
+    internal DriverConfig DriverConfiguration => Config;
+
     protected readonly ILogger Logger;
 
     internal readonly GrpcChannelFactory GrpcChannelFactory;
@@ -178,8 +179,6 @@ public abstract class BaseDriver : IDriver
 
     private int _ownerCount;
     private volatile int _disposed;
-    
-    public YdbMetricsReporter MetricsReporter { get; }
 
     internal BaseDriver(
         DriverConfig config,
@@ -193,8 +192,6 @@ public abstract class BaseDriver : IDriver
 
         GrpcChannelFactory = new GrpcChannelFactory(LoggerFactory, Config);
         ChannelPool = new ChannelPool<GrpcChannel>(LoggerFactory, GrpcChannelFactory);
-        
-        MetricsReporter = new YdbMetricsReporter(Config);
 
         _credentialsProvider = Config.User != null
             ? new CachedCredentialsProvider(
@@ -399,11 +396,7 @@ public abstract class BaseDriver : IDriver
         GC.SuppressFinalize(this);
     }
 
-    protected virtual ValueTask DisposeAsyncCore()
-    {
-        MetricsReporter.Dispose();
-        return ValueTask.CompletedTask;
-    }
+    protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
 }
 
 public sealed class ServerStream<TResponse> : IServerStream<TResponse>

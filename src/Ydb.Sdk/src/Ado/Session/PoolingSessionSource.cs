@@ -4,11 +4,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
-using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSource where T : PoolingSessionBase<T>
+internal sealed class PoolingSessionSource<T> : ISessionSource where T : PoolingSessionBase<T>
 {
     private const int DisposeTimeoutSeconds = 10;
 
@@ -30,7 +29,10 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
 
     private bool IsDisposed => _disposed == 1;
 
-    public PoolingSessionSource(IPoolingSessionFactory<T> sessionFactory, YdbConnectionStringBuilder settings)
+    public PoolingSessionSource(
+        IPoolingSessionFactory<T> sessionFactory,
+        YdbConnectionStringBuilder settings,
+        YdbMetricsReporter? metricsReporter = null)
     {
         _sessionFactory = sessionFactory;
         _minSizePool = settings.MinPoolSize;
@@ -47,19 +49,21 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
         _sessionIdleTimeout = TimeSpan.FromSeconds(settings.SessionIdleTimeout);
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
         _logger = settings.LoggerFactory.CreateLogger<PoolingSessionSource<T>>();
-        
-        // ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-        // ReSharper disable ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
-        if (sessionFactory.Driver?.MetricsReporter is not null)
-        {
-            sessionFactory.Driver.MetricsReporter.StatsProvider = this;
-        }
-        // ReSharper restore ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
-        // ReSharper restore ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+
+        MetricsReporter = metricsReporter;
+        metricsReporter?.StatsProvider = this;
     }
-    
-    public int IdleCount => _idleSessions.Count;
-    public int BusyCount => Math.Max(0, _numSessions - _idleSessions.Count);
+
+    public YdbMetricsReporter? MetricsReporter { get; }
+
+    public (int Idle, int Busy) Statistics
+    {
+        get
+        {
+            var idle = _idleSessions.Count;
+            return (idle, Math.Max(0, _numSessions - idle));
+        }
+    }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken = default)
     {
@@ -281,7 +285,9 @@ internal sealed class PoolingSessionSource<T> : ISessionPoolStats, ISessionSourc
         }
 
         await _cleanerTimer.DisposeAsync();
-        _disposeCts.Cancel();
+        await _disposeCts.CancelAsync();
+
+        MetricsReporter?.Dispose();
 
         var sw = Stopwatch.StartNew();
         var spinWait = new SpinWait();
@@ -350,6 +356,8 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
     {
         _source = source;
     }
+
+    public YdbMetricsReporter? MetricsReporter => _source.MetricsReporter;
 
     internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>
         Interlocked.CompareExchange(ref _state, (int)actual, (int)expected) == (int)expected;

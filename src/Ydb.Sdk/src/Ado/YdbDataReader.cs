@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Threading;
 using Google.Protobuf.Collections;
 using Ydb.Issue;
 using Ydb.Query;
@@ -26,6 +27,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Action<StatusCode> _onNotSuccessStatusCode;
     private readonly Activity? _dbActivity;
+    private readonly YdbMetricsReporter? _metricsReporter;
+    private readonly long _commandStartTimestamp;
+    private int _metricsCompleted;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -70,12 +74,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         Action<StatusCode> onNotSuccessStatusCode,
         YdbTransaction? ydbTransaction,
-        Activity? dbActivity)
+        Activity? dbActivity,
+        YdbMetricsReporter? metricsReporter,
+        long commandStartTimestamp)
     {
         _stream = resultSetStream;
         _onNotSuccessStatusCode = onNotSuccessStatusCode;
         _ydbTransaction = ydbTransaction;
         _dbActivity = dbActivity;
+        _metricsReporter = metricsReporter;
+        _commandStartTimestamp = commandStartTimestamp;
     }
 
     /// <summary>
@@ -92,13 +100,26 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         Action<StatusCode> onNotSuccessStatusCode,
         YdbTransaction? ydbTransaction = null,
         Activity? dbActivity = null,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        YdbMetricsReporter? metricsReporter = null,
+        long commandStartTimestamp = 0
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, onNotSuccessStatusCode, ydbTransaction, dbActivity);
+        var ydbDataReader = new YdbDataReader(
+            resultSetStream, onNotSuccessStatusCode, ydbTransaction, dbActivity, metricsReporter, commandStartTimestamp);
         await ydbDataReader.Init(cancellationToken);
 
         return ydbDataReader;
+    }
+
+    private void CompleteCommandMetrics()
+    {
+        if (_metricsReporter is null || Interlocked.Exchange(ref _metricsCompleted, 1) != 0)
+        {
+            return;
+        }
+
+        _metricsReporter.ReportCommandStop(_commandStartTimestamp);
     }
 
     private async Task Init(CancellationToken cancellationToken)
@@ -869,24 +890,31 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        var isConsumed = ReaderState == State.IsConsumed || (!await ReadAsync() && ReaderState == State.IsConsumed);
-        ReaderMetadata = CloseMetadata.Instance;
-        ReaderState = State.Close;
-        _dbActivity?.Dispose();
-
-        if (isConsumed)
+        try
         {
-            return;
+            var isConsumed = ReaderState == State.IsConsumed || (!await ReadAsync() && ReaderState == State.IsConsumed);
+            ReaderMetadata = CloseMetadata.Instance;
+            ReaderState = State.Close;
+            _dbActivity?.Dispose();
+
+            if (isConsumed)
+            {
+                return;
+            }
+
+            _onNotSuccessStatusCode(StatusCode.SessionBusy);
+            _stream.Dispose();
+
+            if (_ydbTransaction != null)
+            {
+                _ydbTransaction.Failed = true;
+
+                throw new YdbException("YdbDataReader was closed during transaction execution. Transaction is broken!");
+            }
         }
-
-        _onNotSuccessStatusCode(StatusCode.SessionBusy);
-        _stream.Dispose();
-
-        if (_ydbTransaction != null)
+        finally
         {
-            _ydbTransaction.Failed = true;
-
-            throw new YdbException("YdbDataReader was closed during transaction execution. Transaction is broken!");
+            CompleteCommandMetrics();
         }
     }
 
@@ -980,6 +1008,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             _onNotSuccessStatusCode(e.Code);
             _dbActivity?.SetException(e);
             _dbActivity?.Dispose();
+
+            CompleteCommandMetrics();
 
             throw;
         }

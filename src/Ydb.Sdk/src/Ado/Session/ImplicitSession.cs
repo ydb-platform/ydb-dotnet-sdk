@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Ydb.Query;
 using Ydb.Query.V1;
+using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Ado.Session;
 
@@ -15,6 +16,7 @@ internal class ImplicitSession : ISession
     }
 
     public IDriver Driver { get; }
+    
     public bool IsBroken => false;
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(

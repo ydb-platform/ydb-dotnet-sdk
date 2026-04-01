@@ -54,11 +54,16 @@ Prometheus scrapes **the collector's Prometheus exporter** at `otel-collector:94
 From `examples/Ydb.Sdk.AdoNet.OpenTelemetry`:
 
 ```bash
-dotnet run -c Release --project "Ydb.Sdk.AdoNet.OpenTelemetry.csproj"
+# Traces only (Docker Compose `app` uses this project)
+dotnet run -c Release --project "Trace/Ydb.Sdk.AdoNet.OpenTelemetry.Trace.csproj"
+
+# Metrics + traces (+ optional load generator)
+dotnet run -c Release --project "Metrics/Ydb.Sdk.AdoNet.OpenTelemetry.Metrics.csproj"
+dotnet run -c Release --project "Metrics/Ydb.Sdk.AdoNet.OpenTelemetry.Metrics.csproj" -- --load
 ```
 
 1) Open Grafana → **Explore** → select datasource **Tempo**
 
-2) Find service **`ydb-sdk-adonet-sample`** (default) and inspect spans `app.startup` / `app.tick`.
+2) Find service **`ydb-sdk-otel-trace-sample`** / **`ydb-sdk-otel-metrics-sample`** and inspect spans such as `app.startup`.
 
 Tip: spans are also printed in `otel-collector` logs (the `debug` exporter is enabled).

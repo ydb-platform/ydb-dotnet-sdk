@@ -16,7 +16,6 @@ public class YdbImplicitStressTests
         m.Setup(d => d.DisposeAsync())
             .Callback(() => _isDisposed = true)
             .Returns(ValueTask.CompletedTask);
-        m.Setup(mock => mock.MetricsReporter).Returns((YdbMetricsReporter)null!);
         return m.Object;
     }
 
@@ -59,7 +58,7 @@ public class YdbImplicitStressTests
     public async Task DisposeAsync_WhenSessionIsLeaked_ThrowsYdbExceptionWithTimeoutMessage()
     {
         var driver = DummyDriver();
-        var source = new ImplicitSessionSource(driver, TestUtils.LoggerFactory);
+            var source = new ImplicitSessionSource(driver, TestUtils.LoggerFactory);
 #pragma warning disable CA2012
         _ = source.OpenSession(CancellationToken.None);
 #pragma warning restore CA2012

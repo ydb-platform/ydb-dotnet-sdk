@@ -75,6 +75,16 @@ public class YdbDataSource : DbDataSource
         _retryPolicyExecutor = new YdbRetryPolicyExecutor(builder.RetryPolicy);
     }
 
+    /// <summary>
+    /// Binds a data source to an existing session pool (e.g. tests).
+    /// </summary>
+    internal YdbDataSource(ISessionSource sessionSource, YdbDataSourceBuilder builder)
+    {
+        _sessionSource = sessionSource;
+        _ydbConnectionStringBuilder = builder.ConnectionStringBuilder;
+        _retryPolicyExecutor = new YdbRetryPolicyExecutor(builder.RetryPolicy);
+    }
+
     protected override YdbConnection CreateDbConnection() => new(_ydbConnectionStringBuilder);
 
     protected override YdbConnection OpenDbConnection()

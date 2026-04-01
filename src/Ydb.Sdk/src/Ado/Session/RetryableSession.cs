@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Ydb.Query;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Tracing;
@@ -18,6 +19,9 @@ internal class RetryableSession : ISession
     }
 
     public IDriver Driver => throw new NotImplementedException();
+
+    public YdbMetricsReporter? MetricsReporter => _sessionSource.MetricsReporter;
+
     public bool IsBroken => false;
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
