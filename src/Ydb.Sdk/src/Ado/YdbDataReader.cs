@@ -1,7 +1,6 @@
 using System.Data.Common;
 using System.Diagnostics;
 using System.Text.Json;
-using System.Threading;
 using Google.Protobuf.Collections;
 using Ydb.Issue;
 using Ydb.Query;
@@ -27,7 +26,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly YdbTransaction? _ydbTransaction;
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Activity? _dbActivity;
-    private readonly long _commandStartTimestamp;
+    private readonly long _startTimestamp;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -72,13 +71,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         YdbConnection connection,
         Activity? dbActivity,
-        long commandStartTimestamp)
+        long startTimestamp)
     {
         _stream = resultSetStream;
         _connection = connection;
         _ydbTransaction = connection.CurrentTransaction;
         _dbActivity = dbActivity;
-        _commandStartTimestamp = commandStartTimestamp;
+        _startTimestamp = startTimestamp;
     }
 
     /// <summary>
@@ -87,18 +86,18 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="resultSetStream">The server stream containing query results.</param>
     /// <param name="connection">The YDB connection associated with this reader.</param>
     /// <param name="dbActivity">OTel span for the current operation.</param>
-    /// <param name="commandStartTimestamp">Timestamp when the command execution started.</param>
+    /// <param name="startTimestamp">Timestamp when the command execution started.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized YdbDataReader.</returns>
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         YdbConnection connection,
         Activity? dbActivity,
-        long commandStartTimestamp,
+        long startTimestamp,
         CancellationToken cancellationToken = default
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, commandStartTimestamp);
+        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp);
         await ydbDataReader.Init(cancellationToken);
 
         return ydbDataReader;
@@ -876,10 +875,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         ReaderMetadata = CloseMetadata.Instance;
         ReaderState = State.Close;
         _dbActivity?.Dispose();
+        CompleteCommandMetrics();
 
         if (isConsumed)
         {
-            CompleteCommandMetrics();
             return;
         }
 
@@ -894,7 +893,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
-    private void CompleteCommandMetrics() => _connection.MetricsReporter.ReportCommandStop(_commandStartTimestamp);
+    private void CompleteCommandMetrics() => _connection.MetricsReporter.ReportCommandStop(_startTimestamp);
 
     /// <summary>
     /// Closes the <see cref="YdbDataReader"/> object.

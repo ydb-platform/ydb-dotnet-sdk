@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using Ydb.Sdk;
 using Ydb.Sdk.Ado.Session;
 
 namespace Ydb.Sdk.Ado;

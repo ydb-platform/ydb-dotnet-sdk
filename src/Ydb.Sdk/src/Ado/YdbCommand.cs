@@ -196,9 +196,7 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
-        var reporter = YdbConnection.MetricsReporter;
-        var startTimestamp = reporter.ReportCommandStart();
-
+        var startTimestamp = YdbConnection.MetricsReporter.ReportCommandStart();
         var dbActivity = YdbConnection.Session is not RetryableSession
             ? YdbActivitySource.StartActivity("ydb.ExecuteQuery")
             : null;
@@ -253,13 +251,9 @@ public sealed class YdbCommand : DbCommand
                 throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
             }
 
-            var ydbDataReader = await YdbDataReader.CreateYdbDataReader(
-                await YdbConnection.Session.ExecuteQuery(
-                    preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl),
-                YdbConnection,
-                dbActivity,
-                startTimestamp,
-                cancellationToken);
+            var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session
+                    .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl),
+                YdbConnection, dbActivity, startTimestamp, cancellationToken);
 
             YdbConnection.LastReader = ydbDataReader;
             YdbConnection.LastCommand = CommandText;
@@ -268,8 +262,10 @@ public sealed class YdbCommand : DbCommand
         }
         catch (Exception e)
         {
-            reporter.ReportCommandFailed(e is YdbException ydbEx ? ydbEx.Code : StatusCode.Unspecified);
-            reporter.ReportCommandStop(startTimestamp);
+            YdbConnection.MetricsReporter.ReportCommandFailed(e is YdbException ydbEx
+                ? ydbEx.Code
+                : StatusCode.Unspecified);
+            YdbConnection.MetricsReporter.ReportCommandStop(startTimestamp);
 
             dbActivity?.SetException(e);
             dbActivity?.Dispose();

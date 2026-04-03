@@ -57,7 +57,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         get
         {
             var idle = _idleSessions.Count;
-            return (idle, Math.Max(0, _numSessions - idle));
+            return (idle, _numSessions - idle);
         }
     }
 
@@ -282,7 +282,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
         await _cleanerTimer.DisposeAsync();
         await _disposeCts.CancelAsync();
-
         MetricsReporter.Dispose();
 
         var sw = Stopwatch.StartNew();
@@ -342,17 +341,10 @@ internal enum PoolingSessionState
     Clean
 }
 
-internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessionBase<T>
+internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : ISession
+    where T : PoolingSessionBase<T>
 {
-    private readonly PoolingSessionSource<T> _source;
-
     private int _state = (int)PoolingSessionState.Out;
-
-    protected PoolingSessionBase(PoolingSessionSource<T> source)
-    {
-        _source = source;
-    }
-
 
     internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>
         Interlocked.CompareExchange(ref _state, (int)actual, (int)expected) == (int)expected;
@@ -382,5 +374,5 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
 
     public abstract void OnNotSuccessStatusCode(StatusCode code);
 
-    public void Dispose() => _source.Return((T)this);
+    public void Dispose() => source.Return((T)this);
 }

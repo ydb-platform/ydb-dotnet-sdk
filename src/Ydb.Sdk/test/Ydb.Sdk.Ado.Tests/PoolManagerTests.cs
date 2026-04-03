@@ -3,7 +3,6 @@ using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -55,6 +54,7 @@ public class PoolManagerTests
         Assert.Equal(expectedPools, PoolManager.Pools.Count);
 
         await ClearAllConnections(connections);
+        connections = [..connectionStrings.Select(connectionString => new YdbConnection(connectionString))]; // A new session pool will be set.
         await Task.WhenAll(connections.Select(connection => connection.OpenAsync()));
 
         foreach (var (_, driver) in PoolManager.Drivers)

@@ -18,9 +18,7 @@ internal sealed class YdbMetricsReporter : IDisposable
     private static readonly UpDownCounter<int> CommandsExecuting;
 
     private static readonly InstrumentAdvice<double> ShortHistogramAdvice = new()
-    {
-        HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]
-    };
+        { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] };
 
     private static readonly List<YdbMetricsReporter> Reporters = [];
 
@@ -51,7 +49,7 @@ internal sealed class YdbMetricsReporter : IDisposable
             description: "The number of database commands which have failed.");
 
         CommandsExecuting = meter.CreateUpDownCounter<int>(
-            "db.client.operation.ydb.executing",
+            "db.client.operation.ydb.executing_query",
             unit: "{command}",
             description: "The number of currently executing YDB commands.");
     }

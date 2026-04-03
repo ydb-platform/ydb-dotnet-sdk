@@ -6,7 +6,6 @@ using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 using Ydb.Sdk.Services.Auth;
-using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk;
 

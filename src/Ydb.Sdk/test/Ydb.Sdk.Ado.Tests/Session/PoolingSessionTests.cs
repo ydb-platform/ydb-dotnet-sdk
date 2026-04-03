@@ -6,7 +6,6 @@ using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
-using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 

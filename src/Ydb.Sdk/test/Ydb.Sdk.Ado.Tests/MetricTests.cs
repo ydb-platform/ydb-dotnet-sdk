@@ -1,16 +1,10 @@
-// Pattern: https://github.com/npgsql/npgsql/blob/main/test/Npgsql.Tests/MetricTests.cs
-
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Xunit;
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Tests.Utils;
 
-namespace Ydb.Sdk.Ado.Tests.Metrics;
+namespace Ydb.Sdk.Ado.Tests;
 
 [Collection("DisableParallelization")]
 public class MetricTests : TestBase
@@ -21,7 +15,7 @@ public class MetricTests : TestBase
     public async Task OperationDuration()
     {
         var exportedItems = new List<Metric>();
-        using var meterProvider = global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+        using var meterProvider = OpenTelemetry.Sdk.CreateMeterProviderBuilder()
             .AddMeter("Ydb.Sdk")
             .AddInMemoryExporter(exportedItems)
             .Build();
@@ -57,7 +51,7 @@ public class MetricTests : TestBase
     public async Task ConnectionCount()
     {
         var exportedItems = new List<Metric>();
-        using var meterProvider = global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+        using var meterProvider = OpenTelemetry.Sdk.CreateMeterProviderBuilder()
             .AddMeter("Ydb.Sdk")
             .AddInMemoryExporter(exportedItems)
             .Build();

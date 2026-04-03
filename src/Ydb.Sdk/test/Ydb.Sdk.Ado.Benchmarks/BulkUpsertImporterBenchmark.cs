@@ -2,7 +2,6 @@ using BenchmarkDotNet.Attributes;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado.BulkUpsert;
-using Ydb.Sdk.Tracing;
 using Ydb.Table;
 
 namespace Ydb.Sdk.Ado.Benchmarks;

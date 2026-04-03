@@ -1,22 +1,13 @@
 using System.Diagnostics;
 using Ydb.Query;
 using Ydb.Query.V1;
-using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal class ImplicitSession : ISession
+internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : ISession
 {
-    private readonly ImplicitSessionSource _source;
+    public IDriver Driver { get; } = driver;
 
-    public ImplicitSession(IDriver driver, ImplicitSessionSource source)
-    {
-        Driver = driver;
-        _source = source;
-    }
-
-    public IDriver Driver { get; }
-    
     public bool IsBroken => false;
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
@@ -59,7 +50,7 @@ internal class ImplicitSession : ISession
     {
     }
 
-    public void Dispose() => _source.ReleaseLease();
+    public void Dispose() => source.ReleaseLease();
 
     private static YdbException NotSupportedTransaction => new("Transactions are not supported in implicit session");
 }
