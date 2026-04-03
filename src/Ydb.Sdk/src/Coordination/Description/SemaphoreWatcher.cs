@@ -1,19 +1,26 @@
-﻿namespace Ydb.Sdk.Coordination.Description;
+﻿using Ydb.Sdk.Coordination.Watcher;
 
-public class SemaphoreWatcher
+namespace Ydb.Sdk.Coordination.Description;
+
+public class SemaphoreWatcher : IDisposable
 {
     private readonly SemaphoreDescription _description;
-    private readonly Task<SemaphoreChangedEvent> _changedFuture;
+    private readonly WatchSubscription _subscription;
 
-    public SemaphoreWatcher(SemaphoreDescription desc, Task<SemaphoreChangedEvent> changed)
+    public SemaphoreWatcher(SemaphoreDescription desc,WatchSubscription subscription)
     {
         _description = desc;
-        _changedFuture = changed;
+        _subscription = subscription;
     }
 
     public SemaphoreDescription GetDescription()
         => _description;
-
-    public Task<SemaphoreChangedEvent> GetChangedFuture()
-        => _changedFuture;
+    
+    public IAsyncEnumerable<SemaphoreChangedEvent> WatchAsync(CancellationToken ct = default)
+        => _subscription.ReadAllAsync(ct);
+    
+    public void Dispose()
+    {
+        _subscription.Dispose();
+    }
 }

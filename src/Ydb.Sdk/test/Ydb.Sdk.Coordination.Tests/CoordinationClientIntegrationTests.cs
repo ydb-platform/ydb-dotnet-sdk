@@ -1,5 +1,6 @@
 ﻿using Xunit;
 using Xunit.Abstractions;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
 using ConsistencyMode = Ydb.Sdk.Coordination.Description.ConsistencyMode;
@@ -239,7 +240,8 @@ public class CoordinationClientIntegrationTests
         _output.WriteLine($"  Limit: {describeBefore.Limit}");
         _output.WriteLine($"  Count: {describeBefore.Count}");
         _output.WriteLine($"  Ephemeral: {describeBefore.Ephemeral}");
-        _output.WriteLine($"  Data: {(describeBefore.Data != null ? BitConverter.ToString(describeBefore.Data.ToByteArray()) : "null")}");
+        _output.WriteLine(
+            $"  Data: {(describeBefore.Data != null ? BitConverter.ToString(describeBefore.Data.ToByteArray()) : "null")}");
         _output.WriteLine($"  Owners count: {describeBefore.Owners?.Count ?? 0}");
         _output.WriteLine($"  Waiters count: {describeBefore.Waiters?.Count ?? 0}");
 
@@ -249,13 +251,14 @@ public class CoordinationClientIntegrationTests
         _output.WriteLine($"  Limit: {describeAfter.Limit}");
         _output.WriteLine($"  Count: {describeAfter.Count}");
         _output.WriteLine($"  Ephemeral: {describeAfter.Ephemeral}");
-        _output.WriteLine($"  Data: {(describeAfter.Data != null ? BitConverter.ToString(describeAfter.Data.ToByteArray()) : "null")}");
+        _output.WriteLine(
+            $"  Data: {(describeAfter.Data != null ? BitConverter.ToString(describeAfter.Data.ToByteArray()) : "null")}");
         _output.WriteLine($"  Owners count: {describeAfter.Owners?.Count ?? 0}");
         _output.WriteLine($"  Waiters count: {describeAfter.Waiters?.Count ?? 0}");
-     
+
         //Then
         // ---- Assert BEFORE ----
-        
+
         Assert.Equal(semaphoreName, describeBefore.Name);
         Assert.Equal((ulong)10, describeBefore.Limit);
         Assert.Equal((ulong)0, describeBefore.Count);
@@ -286,6 +289,52 @@ public class CoordinationClientIntegrationTests
     [Fact]
     public async Task AcquireSemaphore()
     {
+        //  Given
+        var coordinationNodeSettings = new CoordinationNodeSettings
+        {
+            Config = NodeConfig.Create()
+                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
+                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
+                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
+                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+        };
+        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
+        var pathNode = "/local/test";
+        var semaphoreName = "semaphore3";
+        byte[] semaphoreData1 = [0x00, 0x12];
+        await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
+        var coordinationSession1 = _coordinationClient.CreateSession(pathNode);
+        var semaphore = coordinationSession1.Semaphore(semaphoreName);
+        await semaphore.Create(20, semaphoreData1);
+        // When
+        var lease = await semaphore.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+        await lease.ReleaseAsync();
+        //Then
+        await semaphore.Delete(false);
+        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
+        await coordinationSession1.Close();
+
+        /*
+       var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
+       // When
+       var lease2 = await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+       await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+       await lease2.ReleaseAsync();
+       await lease2.ReleaseAsync();
+
+
+       Lease lease1;
+       var exception = await Assert.ThrowsAsync<YdbException>(async () =>
+       {
+           // Попытка повторного захвата семафора
+           lease1 = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+       });
+
+       await lease2.ReleaseAsync();
+
+       //Then
+       Assert.Equal("Acquire semaphore failed", exception.Message);
+       */
     }
 
     /*

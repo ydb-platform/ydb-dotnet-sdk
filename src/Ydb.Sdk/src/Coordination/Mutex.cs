@@ -8,4 +8,13 @@ public class Mutex
     {
         _semaphore = semaphore;
     }
+    
+    /*
+    public async Task<Lease> Acquire(ulong count, bool isEphemeral, byte[]? data,
+        TimeSpan timeout)
+    {
+
+        return await _semaphore.Acquire();
+    }
+    */
 }

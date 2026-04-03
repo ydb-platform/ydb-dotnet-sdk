@@ -32,10 +32,10 @@ public class Semaphore
         => await _sessionRuntime.DescribeSemaphore(Name, mode);
 
 
-    public async Task<Lease> Acquire(ulong count, bool ephemeral, byte[]? data,
+    public async Task<Lease> Acquire(ulong count, bool isEphemeral, byte[]? data,
         TimeSpan timeout)
     {
-        await _sessionRuntime.AcquireSemaphore(Name, count, ephemeral, data, timeout);
+        await _sessionRuntime.AcquireSemaphore(Name, count, isEphemeral, data, timeout);
         return new Lease(this);
     }
 

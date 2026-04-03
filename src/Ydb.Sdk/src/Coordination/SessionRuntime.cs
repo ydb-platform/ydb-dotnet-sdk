@@ -4,8 +4,11 @@ using Google.Protobuf;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Dto;
 using Ydb.Sdk.Coordination.Settings;
+using Ydb.Sdk.Coordination.Watcher;
+using SemaphoreDescription = Ydb.Coordination.SemaphoreDescription;
 
 namespace Ydb.Sdk.Coordination;
 
@@ -51,6 +54,8 @@ public class SessionRuntime
     private volatile bool _disposed;
     private volatile bool _streamClosed;
 
+    private readonly WatcherRegistry _watcherRegistry = new WatcherRegistry();
+
     public SessionRuntime(IDriver driver, string pathNode) //IRetryPolicy retryPolicy
     {
         //_ydbRetryPolicyExecutor = new YdbRetryPolicyExecutor(retryPolicy);
@@ -65,7 +70,6 @@ public class SessionRuntime
         => await StreamCall();
 
 
-    // простой пример создания stream, отправляем серверу сообщение о старте и получаем ответ от сервера
     private async Task StreamCall()
     {
         _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, new GrpcRequestSettings());
@@ -85,14 +89,11 @@ public class SessionRuntime
 
     private async Task RunProcessingStreamResponse()
     {
-        Console.WriteLine("RunProcessingStreamResponse STARTED");
-
         try
         {
             while (await _stream!.MoveNextAsync())
             {
                 var response = _stream.Current;
-
 
                 switch (response.ResponseCase)
                 {
@@ -113,7 +114,7 @@ public class SessionRuntime
                         // note
                         break;
                     case SessionResponse.ResponseOneofCase.DescribeSemaphoreChanged:
-                        // note
+                        HandleSemaphoreChanged(response.DescribeSemaphoreChanged);
                         break;
                     case SessionResponse.ResponseOneofCase.None:
                     case SessionResponse.ResponseOneofCase.Pong:
@@ -299,7 +300,6 @@ public class SessionRuntime
 
     private void HandleSessionStarted() //SessionResponse response
     {
-        Console.WriteLine("Response: SS");
         //_sessionId = response.SessionStarted.SessionId;
         // Resolve the sessionStarted promise
         _sessionStartedTcs?.TrySetResult();
@@ -316,21 +316,10 @@ public class SessionRuntime
         _sessionStoppedTcs = null;
     }
 
-    /*
-    private void HandleSemaphoreChanged(SessionResponse.Types.DescribeSemaphoreChanged change)
-    {
-        if (_watchedSemaphores.TryRemove(change.ReqId, out var name))
-        {
 
-            SemaphoreChanged?.Invoke(new SemaphoreChangedEvent
-            {
-                Name = name,
-                DataChanged = change.DataChanged,
-                OwnersChanged = change.OwnersChanged
-            });
-        }
-    }
-    */
+    private void HandleSemaphoreChanged(SessionResponse.Types.DescribeSemaphoreChanged change)
+        => _watcherRegistry.Notify(change);
+
 
     private async Task SendStartSession()
     {
@@ -513,7 +502,7 @@ public class SessionRuntime
         }
     }
 
-    public async Task AcquireSemaphore(string name, ulong count, bool ephemeral, byte[]? data,
+    public async Task AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
         TimeSpan timeout)
     {
         await EnsureInitialized();
@@ -525,7 +514,7 @@ public class SessionRuntime
                 Name = name,
                 Count = count, // обратить на число
                 Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
-                Ephemeral = ephemeral,
+                Ephemeral = isEphemeral,
                 TimeoutMillis = (ulong)timeout.TotalMilliseconds,
                 ReqId = reqId
             }
@@ -533,8 +522,7 @@ public class SessionRuntime
 
         try
         {
-            var task = SendRequest(reqId, acquireSemaphore);
-            await task;
+            var task = await SendRequest(reqId, acquireSemaphore);
         }
         catch (Exception)
         {
@@ -565,7 +553,24 @@ public class SessionRuntime
         }
     }
 
-    public async ValueTask DisposeAsync()
+    private async Task SendStop()
+    {
+        await EnsureInitialized();
+        var stopSession = new SessionRequest()
+        {
+            SessionStop = new SessionRequest.Types.SessionStop()
+        };
+        try
+        {
+            await SafeWrite(stopSession);
+        }
+        catch (Exception)
+        {
+            throw new YdbException("Stop session failed");
+        }
+    }
+
+    public async ValueTask Dispose()
     {
         if (_disposed)
             return;
@@ -575,19 +580,56 @@ public class SessionRuntime
         try
         {
             if (_stream != null)
+            {
+                await SendStop();
                 await _stream.RequestStreamComplete().ConfigureAwait(false);
+            }
         }
-        catch
+        catch (Exception e)
         {
         }
-
+        // добавить отключение подписок
         _writeLock.Dispose();
     }
 
-    /*
 
-    public async void WatchSemaphore(string name, DescribeSemaphoreMode describeMode, WatchSemaphoreMode watchMode)
+    public async Task<SemaphoreWatcher> WatchSemaphore(string name, DescribeSemaphoreMode describeMode,
+        WatchSemaphoreMode watchMode)
     {
+        await EnsureInitialized();
+        var subscription = _watcherRegistry.Watch(name);
+        var reqId = GetNextReqId();
+        var watchSemaphore = new SessionRequest()
+        {
+            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore()
+            {
+                Name = name,
+                IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
+                IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
+                WatchData = WatchSemaphoreModeUtils.WatchData(watchMode),
+                WatchOwners = WatchSemaphoreModeUtils.WatchOwners(watchMode),
+                ReqId = reqId
+            }
+        };
+
+        try
+        {
+            var task = await SendRequest(reqId, watchSemaphore);
+            var sessionResponse = task.Request;
+            if (sessionResponse.DescribeSemaphoreResult.WatchAdded)
+            {
+                _watcherRegistry.RemapWatch(name, subscription, reqId);
+            }
+
+            return new SemaphoreWatcher(
+                new Description.SemaphoreDescription(sessionResponse.DescribeSemaphoreResult.SemaphoreDescription),
+                subscription);
+        }
+        catch (Exception)
+        {
+            _watcherRegistry.RemoveWatch(name, subscription);
+            throw new YdbException("Watch semaphore failed");
+        }
     }
 
 /*

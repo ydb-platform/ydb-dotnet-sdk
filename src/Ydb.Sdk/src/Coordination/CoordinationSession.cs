@@ -26,5 +26,5 @@ public class CoordinationSession
         => new Election(Semaphore(name));
 
     public async Task Close()
-        => await _sessionRuntime.DisposeAsync();
+        => await _sessionRuntime.Dispose();
 }

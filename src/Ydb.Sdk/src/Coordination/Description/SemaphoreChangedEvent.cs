@@ -12,6 +12,12 @@ public readonly struct SemaphoreChangedEvent
         _dataChanged = semaphoreChangedEvent.DataChanged;
         _ownersChanged = semaphoreChangedEvent.OwnersChanged;
     }
+    
+    public SemaphoreChangedEvent(bool dataChanged, bool ownersChanged)
+    {
+        _dataChanged = dataChanged;
+        _ownersChanged =  ownersChanged;
+    }
 
     public bool IsDataChanged()
         => _dataChanged;
