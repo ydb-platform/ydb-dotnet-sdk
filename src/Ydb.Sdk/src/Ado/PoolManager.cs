@@ -33,7 +33,7 @@ internal static class PoolManager
             var driver = await GetDriver(settings, withLock: false);
 
             return Pools[settings.ConnectionString] = settings.EnableImplicitSession
-                ? new ImplicitSessionSource(driver, settings.LoggerFactory)
+                ? new ImplicitSessionSource(driver, settings)
                 : new PoolingSessionSource<PoolingSession>(new PoolingSessionFactory(driver, settings), settings);
         }
         finally

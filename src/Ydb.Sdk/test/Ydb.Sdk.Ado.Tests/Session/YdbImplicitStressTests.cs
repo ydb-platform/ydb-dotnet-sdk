@@ -25,7 +25,8 @@ public class YdbImplicitStressTests
         for (var it = 0; it < 1000; it++)
         {
             var driver = DummyDriver();
-            var source = new ImplicitSessionSource(driver, TestUtils.LoggerFactory);
+            var source = new ImplicitSessionSource(driver,
+                new YdbConnectionStringBuilder { LoggerFactory = TestUtils.LoggerFactory });
 
             var workers = Enumerable.Range(0, 1000).Select(async _ =>
             {
@@ -58,7 +59,8 @@ public class YdbImplicitStressTests
     public async Task DisposeAsync_WhenSessionIsLeaked_ThrowsYdbExceptionWithTimeoutMessage()
     {
         var driver = DummyDriver();
-            var source = new ImplicitSessionSource(driver, TestUtils.LoggerFactory);
+        var source = new ImplicitSessionSource(driver,
+            new YdbConnectionStringBuilder { LoggerFactory = TestUtils.LoggerFactory });
 #pragma warning disable CA2012
         _ = source.OpenSession(CancellationToken.None);
 #pragma warning restore CA2012

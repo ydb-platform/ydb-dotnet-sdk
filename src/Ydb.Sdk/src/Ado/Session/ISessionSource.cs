@@ -6,7 +6,7 @@ internal interface ISessionSource : IAsyncDisposable
 
     IDriver Driver { get; }
 
+    YdbMetricsReporter MetricsReporter { get; }
+    
     (int Idle, int Busy) Statistics { get; }
-
-    // YdbMetricsReporter? MetricsReporter { get; }
 }

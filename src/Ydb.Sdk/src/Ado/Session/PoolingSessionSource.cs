@@ -29,10 +29,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
     private bool IsDisposed => _disposed == 1;
 
-    public PoolingSessionSource(
-        IPoolingSessionFactory<T> sessionFactory,
-        YdbConnectionStringBuilder settings,
-        YdbMetricsReporter? metricsReporter = null)
+    public PoolingSessionSource(IPoolingSessionFactory<T> sessionFactory, YdbConnectionStringBuilder settings)
     {
         _sessionFactory = sessionFactory;
         _minSizePool = settings.MinPoolSize;
@@ -50,11 +47,10 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
         _logger = settings.LoggerFactory.CreateLogger<PoolingSessionSource<T>>();
 
-        MetricsReporter = metricsReporter;
-        metricsReporter?.StatsProvider = this;
+        MetricsReporter = new YdbMetricsReporter(this, settings);
     }
 
-    public YdbMetricsReporter? MetricsReporter { get; }
+    public YdbMetricsReporter MetricsReporter { get; }
 
     public (int Idle, int Busy) Statistics
     {
@@ -287,7 +283,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         await _cleanerTimer.DisposeAsync();
         await _disposeCts.CancelAsync();
 
-        MetricsReporter?.Dispose();
+        MetricsReporter.Dispose();
 
         var sw = Stopwatch.StartNew();
         var spinWait = new SpinWait();
@@ -357,7 +353,6 @@ internal abstract class PoolingSessionBase<T> : ISession where T : PoolingSessio
         _source = source;
     }
 
-    public YdbMetricsReporter? MetricsReporter => _source.MetricsReporter;
 
     internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>
         Interlocked.CompareExchange(ref _state, (int)actual, (int)expected) == (int)expected;

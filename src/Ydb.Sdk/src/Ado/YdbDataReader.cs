@@ -23,13 +23,11 @@ namespace Ydb.Sdk.Ado;
 public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord>
 {
     private readonly IServerStream<ExecuteQueryResponsePart> _stream;
+    private readonly YdbConnection _connection;
     private readonly YdbTransaction? _ydbTransaction;
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
-    private readonly Action<StatusCode> _onNotSuccessStatusCode;
     private readonly Activity? _dbActivity;
-    private readonly YdbMetricsReporter? _metricsReporter;
     private readonly long _commandStartTimestamp;
-    private int _metricsCompleted;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -72,17 +70,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private YdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
-        Action<StatusCode> onNotSuccessStatusCode,
-        YdbTransaction? ydbTransaction,
+        YdbConnection connection,
         Activity? dbActivity,
-        YdbMetricsReporter? metricsReporter,
         long commandStartTimestamp)
     {
         _stream = resultSetStream;
-        _onNotSuccessStatusCode = onNotSuccessStatusCode;
-        _ydbTransaction = ydbTransaction;
+        _connection = connection;
+        _ydbTransaction = connection.CurrentTransaction;
         _dbActivity = dbActivity;
-        _metricsReporter = metricsReporter;
         _commandStartTimestamp = commandStartTimestamp;
     }
 
@@ -90,36 +85,23 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// Creates a new instance of YdbDataReader from a result set stream.
     /// </summary>
     /// <param name="resultSetStream">The server stream containing query results.</param>
-    /// <param name="onNotSuccessStatusCode">Callback for handling non-success status codes.</param>
-    /// <param name="ydbTransaction">Optional transaction context.</param>
-    /// <param name="dbActivity">OTel span</param>
+    /// <param name="connection">The YDB connection associated with this reader.</param>
+    /// <param name="dbActivity">OTel span for the current operation.</param>
+    /// <param name="commandStartTimestamp">Timestamp when the command execution started.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized YdbDataReader.</returns>
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
-        Action<StatusCode> onNotSuccessStatusCode,
-        YdbTransaction? ydbTransaction = null,
-        Activity? dbActivity = null,
-        CancellationToken cancellationToken = default,
-        YdbMetricsReporter? metricsReporter = null,
-        long commandStartTimestamp = 0
+        YdbConnection connection,
+        Activity? dbActivity,
+        long commandStartTimestamp,
+        CancellationToken cancellationToken = default
     )
     {
-        var ydbDataReader = new YdbDataReader(
-            resultSetStream, onNotSuccessStatusCode, ydbTransaction, dbActivity, metricsReporter, commandStartTimestamp);
+        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, commandStartTimestamp);
         await ydbDataReader.Init(cancellationToken);
 
         return ydbDataReader;
-    }
-
-    private void CompleteCommandMetrics()
-    {
-        if (_metricsReporter is null || Interlocked.Exchange(ref _metricsCompleted, 1) != 0)
-        {
-            return;
-        }
-
-        _metricsReporter.ReportCommandStop(_commandStartTimestamp);
     }
 
     private async Task Init(CancellationToken cancellationToken)
@@ -890,33 +872,29 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        try
-        {
-            var isConsumed = ReaderState == State.IsConsumed || (!await ReadAsync() && ReaderState == State.IsConsumed);
-            ReaderMetadata = CloseMetadata.Instance;
-            ReaderState = State.Close;
-            _dbActivity?.Dispose();
+        var isConsumed = ReaderState == State.IsConsumed || (!await ReadAsync() && ReaderState == State.IsConsumed);
+        ReaderMetadata = CloseMetadata.Instance;
+        ReaderState = State.Close;
+        _dbActivity?.Dispose();
 
-            if (isConsumed)
-            {
-                return;
-            }
-
-            _onNotSuccessStatusCode(StatusCode.SessionBusy);
-            _stream.Dispose();
-
-            if (_ydbTransaction != null)
-            {
-                _ydbTransaction.Failed = true;
-
-                throw new YdbException("YdbDataReader was closed during transaction execution. Transaction is broken!");
-            }
-        }
-        finally
+        if (isConsumed)
         {
             CompleteCommandMetrics();
+            return;
+        }
+
+        _connection.OnNotSuccessStatusCode(StatusCode.SessionBusy);
+        _stream.Dispose();
+
+        if (_ydbTransaction != null)
+        {
+            _ydbTransaction.Failed = true;
+
+            throw new YdbException("YdbDataReader was closed during transaction execution. Transaction is broken!");
         }
     }
+
+    private void CompleteCommandMetrics() => _connection.MetricsReporter.ReportCommandStop(_commandStartTimestamp);
 
     /// <summary>
     /// Closes the <see cref="YdbDataReader"/> object.
@@ -1004,12 +982,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             {
                 _ydbTransaction.Failed = true;
             }
+            
+            CompleteCommandMetrics();
 
-            _onNotSuccessStatusCode(e.Code);
+            _connection.OnNotSuccessStatusCode(e.Code);
             _dbActivity?.SetException(e);
             _dbActivity?.Dispose();
-
-            CompleteCommandMetrics();
 
             throw;
         }

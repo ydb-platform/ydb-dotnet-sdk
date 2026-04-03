@@ -196,12 +196,8 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
-        var reporter = YdbConnection.Session.MetricsReporter;
-        long startTimestamp = 0;
-        if (reporter is not null)
-        {
-            startTimestamp = reporter.ReportCommandStart();
-        }
+        var reporter = YdbConnection.MetricsReporter;
+        var startTimestamp = reporter.ReportCommandStart();
 
         var dbActivity = YdbConnection.Session is not RetryableSession
             ? YdbActivitySource.StartActivity("ydb.ExecuteQuery")
@@ -257,9 +253,13 @@ public sealed class YdbCommand : DbCommand
                 throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
             }
 
-            var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery(
-                preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl
-            ), YdbConnection.OnNotSuccessStatusCode, transaction, dbActivity, cancellationToken, reporter, startTimestamp);
+            var ydbDataReader = await YdbDataReader.CreateYdbDataReader(
+                await YdbConnection.Session.ExecuteQuery(
+                    preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl),
+                YdbConnection,
+                dbActivity,
+                startTimestamp,
+                cancellationToken);
 
             YdbConnection.LastReader = ydbDataReader;
             YdbConnection.LastCommand = CommandText;
@@ -268,11 +268,8 @@ public sealed class YdbCommand : DbCommand
         }
         catch (Exception e)
         {
-            if (reporter is not null)
-            {
-                reporter.ReportCommandFailed();
-                reporter.ReportCommandStop(startTimestamp);
-            }
+            reporter.ReportCommandFailed(e is YdbException ydbEx ? ydbEx.Code : StatusCode.Unspecified);
+            reporter.ReportCommandStop(startTimestamp);
 
             dbActivity?.SetException(e);
             dbActivity?.Dispose();

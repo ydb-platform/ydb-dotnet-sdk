@@ -13,12 +13,14 @@ internal sealed class ImplicitSessionSource : ISessionSource
     private int _activeLeaseCount;
 
     public IDriver Driver { get; }
+    public YdbMetricsReporter MetricsReporter { get; }
     public (int Idle, int Busy) Statistics => (0, Volatile.Read(ref _activeLeaseCount));
 
-    internal ImplicitSessionSource(IDriver driver, ILoggerFactory loggerFactory)
+    internal ImplicitSessionSource(IDriver driver, YdbConnectionStringBuilder settings)
     {
         Driver = driver;
-        _logger = loggerFactory.CreateLogger<ImplicitSessionSource>();
+        _logger = settings.LoggerFactory.CreateLogger<ImplicitSessionSource>();
+        MetricsReporter = new YdbMetricsReporter(this, settings);
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
@@ -54,6 +56,8 @@ internal sealed class ImplicitSessionSource : ISessionSource
     {
         if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) != 0)
             return;
+
+        MetricsReporter.Dispose();
 
         try
         {
