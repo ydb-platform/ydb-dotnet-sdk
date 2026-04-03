@@ -26,7 +26,7 @@ public static class LoadGenerator
             .Build();
 
         await using var dataSource = new YdbDataSource("Host=ydb;Port=2136;Database=/local");
- 
+
         Console.WriteLine("=== YDB Metrics Load Generator Started ===");
 
         await using (var conn = await dataSource.OpenConnectionAsync())

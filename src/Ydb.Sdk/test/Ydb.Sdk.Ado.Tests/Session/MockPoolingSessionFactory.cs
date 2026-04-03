@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using Xunit;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;

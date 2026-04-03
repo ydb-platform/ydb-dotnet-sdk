@@ -981,7 +981,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             {
                 _ydbTransaction.Failed = true;
             }
-            
+
             CompleteCommandMetrics();
 
             _connection.OnNotSuccessStatusCode(e.Code);
