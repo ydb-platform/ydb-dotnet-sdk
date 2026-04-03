@@ -523,6 +523,8 @@ public class SessionRuntime
         try
         {
             var task = await SendRequest(reqId, acquireSemaphore);
+            
+            // доделать нюансы со взятием семафора
         }
         catch (Exception)
         {

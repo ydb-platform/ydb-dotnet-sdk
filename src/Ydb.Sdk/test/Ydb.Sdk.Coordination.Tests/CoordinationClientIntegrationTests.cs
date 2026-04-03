@@ -1,6 +1,5 @@
 ﻿using Xunit;
 using Xunit.Abstractions;
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
 using ConsistencyMode = Ydb.Sdk.Coordination.Description.ConsistencyMode;
@@ -308,7 +307,7 @@ public class CoordinationClientIntegrationTests
         await semaphore.Create(20, semaphoreData1);
         // When
         var lease = await semaphore.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-        await lease.ReleaseAsync();
+        await lease.Release();
         //Then
         await semaphore.Delete(false);
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
@@ -319,8 +318,8 @@ public class CoordinationClientIntegrationTests
        // When
        var lease2 = await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
        await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-       await lease2.ReleaseAsync();
-       await lease2.ReleaseAsync();
+       await lease2.Release();
+       await lease2.Release();
 
 
        Lease lease1;
@@ -330,7 +329,7 @@ public class CoordinationClientIntegrationTests
            lease1 = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
        });
 
-       await lease2.ReleaseAsync();
+       await lease2.Release();
 
        //Then
        Assert.Equal("Acquire semaphore failed", exception.Message);
@@ -375,12 +374,12 @@ public async Task AcquireSemaphoreTest()
         Assert.False(lease1Task.IsCompleted); // аналог isDone()
 
         // release first lease → второй должен завершиться
-        await lease2.ReleaseAsync();
+        await lease2.Release();
 
         var lease1 = await lease1Task; // теперь должен завершиться
 
         // release second lease
-        await lease1.ReleaseAsync();
+        await lease1.Release();
 
         // delete semaphore
         await semaphore2.Delete(false);
@@ -395,12 +394,12 @@ public async Task AcquireSemaphoreTest()
         Assert.False(lease1Task.IsCompleted);
 
         // release first → второй завершается
-        await lease2.ReleaseAsync();
+        await lease2.Release();
 
         lease1 = await lease1Task;
 
         // release second
-        await lease1.ReleaseAsync();
+        await lease1.Release();
     }
     finally
     {

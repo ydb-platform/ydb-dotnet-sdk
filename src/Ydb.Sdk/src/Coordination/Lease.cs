@@ -13,6 +13,6 @@ public class Lease
     public string GetSemaphoreName()
         => _semaphore.Name;
 
-    public async Task ReleaseAsync()
+    public async Task Release()
         => await _semaphore.Release();
 }
