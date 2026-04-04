@@ -12,18 +12,19 @@ public class WatchSubscription : IDisposable
     private bool _isClosed = false;
 
     private readonly Channel<SemaphoreChangedEvent> _channel =
-        Channel.CreateUnbounded<SemaphoreChangedEvent>(new UnboundedChannelOptions
+        Channel.CreateBounded<SemaphoreChangedEvent>(new BoundedChannelOptions(1)
         {
             SingleReader = true,
-            SingleWriter = true
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropOldest
         });
 
-    internal WatchSubscription(string name)
+    public WatchSubscription(string name)
     {
-        this.Name = name;
+        Name = name;
         ReqId = 0L;
     }
-    
+
 
     public void Push(SemaphoreChangedEvent item)
     {
@@ -32,12 +33,19 @@ public class WatchSubscription : IDisposable
             _channel.Writer.TryWrite(item);
         }
     }
-    
+
     public IAsyncEnumerable<SemaphoreChangedEvent> ReadAllAsync(CancellationToken ct = default)
+        => _channel.Reader.ReadAllAsync(ct);
+
+
+    // coalescing helper
+    public void Drain()
     {
-        return _channel.Reader.ReadAllAsync(ct);
+        while (_channel.Reader.TryRead(out _))
+        {
+        }
     }
-    
+
     public void Dispose()
     {
         _isClosed = true;

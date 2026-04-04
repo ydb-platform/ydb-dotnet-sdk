@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using Google.Protobuf;
 using Ydb.Coordination;
@@ -597,13 +598,13 @@ public class SessionRuntime
     }
 
 
-    public async Task<SemaphoreWatcher> WatchSemaphore(string name, DescribeSemaphoreMode describeMode,
-        WatchSemaphoreMode watchMode)
+    public async IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescription> WatchSemaphore(string name, DescribeSemaphoreMode describeMode,
+        WatchSemaphoreMode watchMode, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await EnsureInitialized();
         var subscription = _watcherRegistry.Watch(name);
         var reqId = GetNextReqId();
-        var watchSemaphore = new SessionRequest()
+        var watchRequest = new SessionRequest()
         {
             DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore()
             {
@@ -615,7 +616,53 @@ public class SessionRuntime
                 ReqId = reqId
             }
         };
+        SessionResponse firstResponse;
+        
+        try
+        {
+            var result = await SendRequest(reqId, watchRequest, ct);
+            firstResponse = result.Request;
 
+            if (firstResponse.DescribeSemaphoreResult.WatchAdded)
+            {
+                _watcherRegistry.RemapWatch(name, subscription, reqId);
+            }
+        }
+        catch
+        {
+            _watcherRegistry.RemoveWatch(name, subscription);
+            throw new YdbException("Watch semaphore failed");
+        }
+
+        //  1. initial state
+        yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescription(
+            firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
+
+        // 2. updates loop
+        await foreach (var _ in subscription.ReadAllAsync(ct))
+        {
+            //coalescing: схлопываем burst событий
+            subscription.Drain();
+
+            var describeReqId = GetNextReqId();
+
+            var describeRequest = new SessionRequest
+            {
+                DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
+                {
+                    Name = name,
+                    IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
+                    IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
+                    ReqId = describeReqId
+                }
+            };
+
+            var result = await SendRequest(describeReqId, describeRequest, ct);
+
+            yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescription(
+                result.Request.DescribeSemaphoreResult.SemaphoreDescription);
+        }
+        /*
         try
         {
             var task = await SendRequest(reqId, watchSemaphore);
@@ -634,6 +681,7 @@ public class SessionRuntime
             _watcherRegistry.RemoveWatch(name, subscription);
             throw new YdbException("Watch semaphore failed");
         }
+        */
     }
 
 /*

@@ -40,11 +40,10 @@ public class Election
 
         try
         {
-            while (true)
+            await foreach(var description in _semaphore.WatchSemaphore(DescribeSemaphoreMode.WithOwners, WatchSemaphoreMode.WatchOwners))
             {
-                var description =
-                    await _semaphore.WatchSemaphore(DescribeSemaphoreMode.WithOwners, WatchSemaphoreMode.WatchOwners);
-                var owner = description.GetDescription().GetOwnersList().FirstOrDefault();
+         
+                var owner = description.GetOwnersList().FirstOrDefault();
 
                 LeaderIdentity? currentLeader = owner != null
                     ? new LeaderIdentity(owner.Id, owner.OrderId)
@@ -91,9 +90,12 @@ public class Election
 
         finally
         {
+            if (currentCts != null)
+            {
+                currentCts.Cancel();
+                currentCts.Dispose();
+            }
             Console.WriteLine($"stopped observing {Name}");
-            currentCts?.Cancel();
-            currentCts?.Dispose();
         }
     }
 

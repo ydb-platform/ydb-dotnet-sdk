@@ -44,7 +44,7 @@ public class Semaphore
     public async Task Release()
         => await _sessionRuntime.ReleaseSemaphore(Name);
 
-    public async Task<SemaphoreWatcher> WatchSemaphore(DescribeSemaphoreMode describeMode,
+    public IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescription> WatchSemaphore(DescribeSemaphoreMode describeMode,
         WatchSemaphoreMode watchMode)
-        => await _sessionRuntime.WatchSemaphore(Name, describeMode, watchMode);
+        =>  _sessionRuntime.WatchSemaphore(Name, describeMode, watchMode);
 }

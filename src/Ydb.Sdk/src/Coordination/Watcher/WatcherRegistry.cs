@@ -67,7 +67,7 @@ public class WatcherRegistry
     {
         foreach (var subscription in _watchesByName.Values)
         {
-            subscription.Push(new SemaphoreChangedEvent(false, false));
+            subscription.Push(new SemaphoreChangedEvent(false, false));// почистить мб надо
         }
     }
 }
