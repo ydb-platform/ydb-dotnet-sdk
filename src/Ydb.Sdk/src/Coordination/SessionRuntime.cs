@@ -18,7 +18,7 @@ public class SessionRuntime
     //private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
 
 
-    //private ulong _sessionId;
+    private ulong _sessionId;
     private ulong _reqIdCounter;
     private ulong _seqNo;
     private readonly string _pathNode;
@@ -65,6 +65,7 @@ public class SessionRuntime
         _initTask = InitializeAsync();
     }
 
+    public ulong SessionId => _sessionId;
 
     private async Task InitializeAsync()
         => await StreamCall();
@@ -329,7 +330,7 @@ public class SessionRuntime
 
         _sessionStartedTcs =
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
+        _sessionId = 0;
         var reqId = GetNextReqId();
         var node = _pathNode;
         // var timeout = new TimeSpan(5);
@@ -523,7 +524,7 @@ public class SessionRuntime
         try
         {
             var task = await SendRequest(reqId, acquireSemaphore);
-            
+
             // доделать нюансы со взятием семафора
         }
         catch (Exception)
@@ -590,6 +591,7 @@ public class SessionRuntime
         catch (Exception e)
         {
         }
+
         // добавить отключение подписок
         _writeLock.Dispose();
     }

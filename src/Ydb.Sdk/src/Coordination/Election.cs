@@ -1,4 +1,5 @@
-﻿using Ydb.Sdk.Coordination.Dto;
+﻿using System.Runtime.CompilerServices;
+using Ydb.Sdk.Coordination.Dto;
 using Ydb.Sdk.Coordination.Settings;
 
 namespace Ydb.Sdk.Coordination;
@@ -27,15 +28,77 @@ public class Election
         var owner = description.Owners.FirstOrDefault();
         return owner != null ? new LeaderInfo(owner.Data.ToByteArray()) : null;
     }
-    
-    private static bool IsSameLeader(
-        (ulong sessionId, ulong orderId)? left,
-        (ulong sessionId, ulong orderId)? right)
-    {
-        if (!left.HasValue || !right.HasValue)
-            return left.Equals(right);
 
-        return left.Value.sessionId == right.Value.sessionId &&
-               left.Value.orderId == right.Value.orderId;
+
+    public async IAsyncEnumerable<LeaderState> ObserveAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        Console.WriteLine($"observing leadership changes on {Name}");
+
+        LeaderIdentity? previousLeader = null;
+        CancellationTokenSource? currentCts = null;
+
+        try
+        {
+            while (true)
+            {
+                var description =
+                    await _semaphore.WatchSemaphore(DescribeSemaphoreMode.WithOwners, WatchSemaphoreMode.WatchOwners);
+                var owner = description.GetDescription().GetOwnersList().FirstOrDefault();
+
+                LeaderIdentity? currentLeader = owner != null
+                    ? new LeaderIdentity(owner.Id, owner.OrderId)
+                    : null;
+
+                if (IsSameLeader(previousLeader, currentLeader))
+                {
+                    continue;
+                }
+
+                previousLeader = currentLeader;
+
+                if (currentCts != null)
+                {
+                    currentCts.Cancel();
+                    currentCts.Dispose();
+                }
+
+                currentCts = new CancellationTokenSource();
+
+                if (owner == null)
+                {
+                    Console.WriteLine($"no leader on {Name}");
+
+                    yield return new LeaderState(
+                        Array.Empty<byte>(),
+                        false,
+                        currentCts.Token
+                    );
+                    continue;
+                }
+
+                var sessionId1 = _semaphore.SessionId;
+                var isMe1 = owner.Id == sessionId1;
+
+                yield return new LeaderState
+                (
+                    owner.Data,
+                    isMe1,
+                    currentCts.Token
+                );
+            }
+        }
+
+        finally
+        {
+            Console.WriteLine($"stopped observing {Name}");
+            currentCts?.Cancel();
+            currentCts?.Dispose();
+        }
     }
+
+    private static bool IsSameLeader(
+        LeaderIdentity? left,
+        LeaderIdentity? right)
+        => Equals(left, right);
 }

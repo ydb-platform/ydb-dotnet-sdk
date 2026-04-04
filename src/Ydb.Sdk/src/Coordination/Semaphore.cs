@@ -1,5 +1,6 @@
-﻿using Ydb.Coordination;
+﻿using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
+using SemaphoreDescription = Ydb.Coordination.SemaphoreDescription;
 
 namespace Ydb.Sdk.Coordination;
 
@@ -14,6 +15,7 @@ public class Semaphore
         _sessionRuntime = sessionRuntime;
     }
 
+    public ulong SessionId => _sessionRuntime.SessionId;
 
     public async Task Create(ulong limit, byte[]? data)
         => await _sessionRuntime.CreateSemaphore(Name, limit, data);
@@ -41,4 +43,8 @@ public class Semaphore
 
     public async Task Release()
         => await _sessionRuntime.ReleaseSemaphore(Name);
+
+    public async Task<SemaphoreWatcher> WatchSemaphore(DescribeSemaphoreMode describeMode,
+        WatchSemaphoreMode watchMode)
+        => await _sessionRuntime.WatchSemaphore(Name, describeMode, watchMode);
 }
