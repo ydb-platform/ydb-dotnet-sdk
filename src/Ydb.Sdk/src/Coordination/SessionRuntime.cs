@@ -113,7 +113,7 @@ public class SessionRuntime
                         HandleSessionStopped(); //HandleSessionStopped(response)
                         break;
                     case SessionResponse.ResponseOneofCase.AcquireSemaphorePending:
-                        // note
+                        HandleAcquireSemaphorePending(response);
                         break;
                     case SessionResponse.ResponseOneofCase.DescribeSemaphoreChanged:
                         HandleSemaphoreChanged(response.DescribeSemaphoreChanged);
@@ -318,6 +318,10 @@ public class SessionRuntime
         _sessionStoppedTcs = null;
     }
 
+    private void HandleAcquireSemaphorePending(SessionResponse response) //SessionResponse response
+    {
+    }
+
 
     private void HandleSemaphoreChanged(SessionResponse.Types.DescribeSemaphoreChanged change)
         => _watcherRegistry.Notify(change);
@@ -366,7 +370,7 @@ public class SessionRuntime
         var tcs = new TaskCompletionSource<PendingResult>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        _pendingRequests[reqId] = new PendingRequest<PendingResult>(tcs);
+        _pendingRequests[reqId] = new PendingRequest<PendingResult>(tcs, request);
 
         try
         {
@@ -597,8 +601,84 @@ public class SessionRuntime
         _writeLock.Dispose();
     }
 
+    public async Task<WatchResult<SemaphoreDescription>> WatchSemaphore(
+        string name,
+        DescribeSemaphoreMode describeMode,
+        WatchSemaphoreMode watchMode,
+        CancellationToken ct = default)
+    {
+        await EnsureInitialized();
 
-    public async IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescription> WatchSemaphore(string name, DescribeSemaphoreMode describeMode,
+        var subscription = _watcherRegistry.Watch(name);
+        var reqId = GetNextReqId();
+
+        var watchRequest = new SessionRequest
+        {
+            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
+            {
+                Name = name,
+                IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
+                IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
+                WatchData = WatchSemaphoreModeUtils.WatchData(watchMode),
+                WatchOwners = WatchSemaphoreModeUtils.WatchOwners(watchMode),
+                ReqId = reqId
+            }
+        };
+
+        SessionResponse firstResponse;
+
+        try
+        {
+            var result = await SendRequest(reqId, watchRequest, ct);
+            firstResponse = result.Request;
+
+            if (firstResponse.DescribeSemaphoreResult.WatchAdded)
+            {
+                _watcherRegistry.RemapWatch(name, subscription, reqId);
+            }
+        }
+        catch
+        {
+            _watcherRegistry.RemoveWatch(name, subscription);
+            throw new YdbException("Watch semaphore failed");
+        }
+
+        var initial = new SemaphoreDescription(
+            firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
+
+        async IAsyncEnumerable<SemaphoreDescription> Updates([EnumeratorCancellation] CancellationToken token = default)
+        {
+            await foreach (var _ in subscription.ReadAllAsync(token))
+            {
+                subscription.Drain();
+
+                var describeReqId = GetNextReqId();
+
+                var describeRequest = new SessionRequest
+                {
+                    DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
+                    {
+                        Name = name,
+                        IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
+                        IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
+                        ReqId = describeReqId
+                    }
+                };
+
+                var result = await SendRequest(describeReqId, describeRequest, token);
+
+                yield return new SemaphoreDescription(
+                    result.Request.DescribeSemaphoreResult.SemaphoreDescription);
+            }
+        }
+
+        return new WatchResult<SemaphoreDescription>(initial, Updates(ct));
+    }
+
+
+    /*
+    public async IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescription> WatchSemaphore(string name,
+        DescribeSemaphoreMode describeMode,
         WatchSemaphoreMode watchMode, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await EnsureInitialized();
@@ -617,7 +697,7 @@ public class SessionRuntime
             }
         };
         SessionResponse firstResponse;
-        
+
         try
         {
             var result = await SendRequest(reqId, watchRequest, ct);
@@ -682,7 +762,7 @@ public class SessionRuntime
             throw new YdbException("Watch semaphore failed");
         }
         */
-    }
+
 
 /*
 

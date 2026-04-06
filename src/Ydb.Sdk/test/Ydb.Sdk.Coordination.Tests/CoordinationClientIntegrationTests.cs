@@ -336,6 +336,225 @@ public class CoordinationClientIntegrationTests
        */
     }
 
+    [Fact]
+    public async Task WatchSemaphore()
+    {
+        //  Given
+        var coordinationNodeSettings = new CoordinationNodeSettings
+        {
+            Config = NodeConfig.Create()
+                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
+                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
+                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
+                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+        };
+        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
+        var pathNode = "/local/test";
+        var semaphoreName = "semaphore4";
+        byte[] semaphoreData1 = [0x00, 0x12];
+        byte[] semaphoreData2 = [0x01, 0x02, 0x03];
+        await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
+        var coordinationSession1 = _coordinationClient.CreateSession(pathNode);
+        var coordinationSession2 = _coordinationClient.CreateSession(pathNode);
+        var semaphore1 = coordinationSession1.Semaphore(semaphoreName);
+        var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
+        // When
+        await semaphore1.Create(20, semaphoreData1);
+        // --- WATCH #1 ---
+        var watch = await semaphore2.WatchSemaphore(DescribeSemaphoreMode.WithOwners, WatchSemaphoreMode.WatchOwners);
+        var initial = watch.Initial;
+        Assert.Empty(initial.Owners);
+        var updates = watch.Updates.GetAsyncEnumerator();
+        var moveTask = updates.MoveNextAsync();
+        Assert.False(moveTask.IsCompleted);
+        // --- ACQUIRE ---
+         await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+        Assert.True(await moveTask);
+        var afterAcquire = updates.Current;
+        Assert.Single(afterAcquire.Owners);
+        // --- REWATCH (data) ---
+        await updates.DisposeAsync();
+        watch = await semaphore2.WatchSemaphore(
+            DescribeSemaphoreMode.WithOwnersAndWaiters,
+            WatchSemaphoreMode.WatchData);
+        updates = watch.Updates.GetAsyncEnumerator();
+        var moveTask2 = updates.MoveNextAsync();
+        Assert.False(moveTask2.IsCompleted);
+        // --- UPDATE DATA ---
+        await semaphore1.Update(semaphoreData2);
+        Assert.True(await moveTask2);
+        var afterUpdate = updates.Current;
+        Assert.Equal(semaphoreData2, afterUpdate.Data);
+        // --- REWATCH (all) ---
+        await updates.DisposeAsync();
+        watch = await semaphore2.WatchSemaphore(
+            DescribeSemaphoreMode.DataOnly,
+            WatchSemaphoreMode.WatchDataAndOwners);
+        updates = watch.Updates.GetAsyncEnumerator();
+        var moveTask3 = updates.MoveNextAsync();
+        Assert.False(moveTask3.IsCompleted);
+        // --- RELEASE ---
+        await semaphore1.Release();
+        Assert.True(await moveTask3);
+        var afterRelease = updates.Current;
+        Assert.Empty(afterRelease.Owners);
+        
+        // --- DESCRIBE ---
+        var final = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
+
+        Assert.Equal(semaphoreData2, final.Data);
+        Assert.Empty(final.Owners);
+
+        await updates.DisposeAsync();
+        /*
+        var moveTask1 = enumerator.MoveNextAsync();
+        var semaphoreDescription1 = enumerator.Current;
+        Assert.False(moveTask1.IsCompleted);
+        /*
+        var lease1 = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+        Assert.True(await moveTask1);
+
+        var description2 = enumerator.Current;
+       // Assert.Single(description2.GetOwnersList());
+        */
+
+        //Then
+        Assert.Equal(semaphoreName, initial.Name);
+        Assert.Equal((ulong)0, initial.Count);
+        Assert.Equal((ulong)20, initial.Limit);
+
+        //wait lease1.Release();
+        await updates.DisposeAsync();
+        await semaphore1.Release();
+        await semaphore1.Delete(false);
+
+        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
+        await coordinationSession1.Close();
+        await coordinationSession2.Close();
+        /*
+       var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
+       // When
+       var lease2 = await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+       await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+       await lease2.Release();
+       await lease2.Release();
+
+
+       Lease lease1;
+       var exception = await Assert.ThrowsAsync<YdbException>(async () =>
+       {
+           // Попытка повторного захвата семафора
+           lease1 = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+       });
+
+       await lease2.Release();
+
+       //Then
+       Assert.Equal("Acquire semaphore failed", exception.Message);
+       */
+    }
+
+    /*
+     *    public void watchSemaphoreTest() {
+        String nodePath = "test-sessions/watch-semaphore-test";
+        String semaphoreName = "semaphore4";
+        Duration timeout = Duration.ofSeconds(5);
+        byte[] updateData = new byte[] { 0x01, 0x02, 0x03 };
+
+        logger.info("create node");
+        CLIENT.createNode(nodePath).join().expectSuccess("creating of node failed");
+        logger.info("create sessions");
+        CoordinationSession session1 = CLIENT.createSession(nodePath);
+        CoordinationSession session2 = CLIENT.createSession(nodePath);
+        logger.info("connect sessions");
+        session1.connect().join().expectSuccess("cannot connect session");
+        session2.connect().join().expectSuccess("cannot connect session");
+
+        logger.info("create semaphore");
+        session1.createSemaphore(semaphoreName, 20).join().expectSuccess("cannot create semaphore");
+
+        logger.info("watch semaphore");
+        SemaphoreWatcher watcher = session2.watchSemaphore(semaphoreName,
+                DescribeSemaphoreMode.WITH_OWNERS, WatchSemaphoreMode.WATCH_OWNERS
+        ).join().getValue();
+
+        Assert.assertEquals(semaphoreName, watcher.getDescription().getName());
+        Assert.assertEquals(0, watcher.getDescription().getData().length);
+        Assert.assertEquals(20, watcher.getDescription().getLimit());
+        Assert.assertTrue(watcher.getDescription().getOwnersList().isEmpty());
+        Assert.assertTrue(watcher.getDescription().getWaitersList().isEmpty());
+
+        Assert.assertFalse(watcher.getChangedFuture().isDone());
+
+        logger.info("take lease");
+        CompletableFuture<Result<SemaphoreLease>> lease1 = session1.acquireSemaphore(semaphoreName, 15, timeout);
+        lease1.join().getStatus().expectSuccess("cannot acquire semaphore");
+
+        logger.info("rewatch semaphore");
+        SemaphoreChangedEvent changed = watcher.getChangedFuture().join().getValue();
+        Assert.assertFalse(changed.isDataChanged());
+        Assert.assertTrue(changed.isOwnersChanged());
+
+        watcher = session2.watchSemaphore(semaphoreName,
+                DescribeSemaphoreMode.WITH_OWNERS_AND_WAITERS, WatchSemaphoreMode.WATCH_DATA
+        ).join().getValue();
+
+        Assert.assertEquals(semaphoreName, watcher.getDescription().getName());
+        Assert.assertEquals(0, watcher.getDescription().getData().length);
+        Assert.assertEquals(20, watcher.getDescription().getLimit());
+        Assert.assertEquals(1, watcher.getDescription().getOwnersList().size());
+        Assert.assertEquals(session1.getId(), watcher.getDescription().getOwnersList().get(0).getId());
+        Assert.assertTrue(watcher.getDescription().getWaitersList().isEmpty());
+
+        Assert.assertFalse(watcher.getChangedFuture().isDone());
+
+        logger.info("describe updated semaphore");
+        session1.updateSemaphore(semaphoreName, updateData).join().expectSuccess("cannot update semaphore");
+
+        logger.info("rewatch semaphore");
+        changed = watcher.getChangedFuture().join().getValue();
+        Assert.assertTrue(changed.isDataChanged());
+        Assert.assertFalse(changed.isOwnersChanged());
+
+        watcher = session2.watchSemaphore(semaphoreName,
+                DescribeSemaphoreMode.DATA_ONLY, WatchSemaphoreMode.WATCH_DATA_AND_OWNERS
+        ).join().getValue();
+
+        Assert.assertEquals(semaphoreName, watcher.getDescription().getName());
+        Assert.assertArrayEquals(updateData, watcher.getDescription().getData());
+        Assert.assertEquals(20, watcher.getDescription().getLimit());
+        Assert.assertTrue(watcher.getDescription().getOwnersList().isEmpty());
+        Assert.assertTrue(watcher.getDescription().getWaitersList().isEmpty());
+
+        Assert.assertFalse(watcher.getChangedFuture().isDone());
+
+        logger.info("release lease");
+        lease1.join().getValue().release().join();
+
+        logger.info("rewatch semaphore");
+        changed = watcher.getChangedFuture().join().getValue();
+        Assert.assertFalse(changed.isDataChanged());
+        Assert.assertTrue(changed.isOwnersChanged());
+
+        SemaphoreDescription description = session2.describeSemaphore(semaphoreName,
+                DescribeSemaphoreMode.WITH_OWNERS_AND_WAITERS).join().getValue();
+
+        Assert.assertEquals(semaphoreName, description.getName());
+        Assert.assertArrayEquals(updateData, description.getData());
+        Assert.assertEquals(20, description.getLimit());
+        Assert.assertTrue(description.getOwnersList().isEmpty());
+        Assert.assertTrue(description.getWaitersList().isEmpty());
+
+        logger.info("delete semaphore");
+        session2.deleteSemaphore(semaphoreName).join().expectSuccess("cannot create semaphore");
+        logger.info("stop sessions");
+        session1.close();
+        session2.close();
+        logger.info("drop node");
+        CLIENT.dropNode(nodePath).join().expectSuccess("removing of node failed");
+    }
+     */
+
     /*
      *
      * [Fact]
