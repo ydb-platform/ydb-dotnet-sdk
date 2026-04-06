@@ -1,15 +1,52 @@
-using System.Diagnostics;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.AdoNet.OpenTelemetry.Metrics;
 using Ydb.Sdk.OpenTelemetry;
+
+await using var dataSource = new YdbDataSource("Host=ydb;Port=2136;Database=/local");
 
 if (args.Length > 0 && args[0] == "--load")
 {
-    await LoadGenerator.Run();
+    var durationSeconds = args.Length > 1 && int.TryParse(args[1], out var s) ? s : 600;
+    using var loadMeterProvider = Sdk.CreateMeterProviderBuilder()
+        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("ydb-load-generator"))
+        .AddYdb()
+        .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
+        {
+            exporterOptions.Endpoint = new Uri("http://otel-collector:4317");
+            metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 2000;
+        })
+        .Build();
+
+    await dataSource.ExecuteAsync(async conn =>
+    {
+        await new YdbCommand("DROP TABLE IF EXISTS load_test", conn).ExecuteNonQueryAsync();
+        await new YdbCommand("CREATE TABLE load_test(id Uuid, name Text, PRIMARY KEY (id))", conn)
+            .ExecuteNonQueryAsync();
+    });
+
+    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(durationSeconds));
+    Console.WriteLine($"=== YDB Metrics Load Generator Started ({durationSeconds}s) ===");
+
+    var workers = Enumerable.Range(0, 10).Select(_ => Task.Run(async () =>
+    {
+        while (!cts.IsCancellationRequested)
+        {
+            try
+            {
+                await dataSource.ExecuteAsync(async conn =>
+                    await new YdbCommand("INSERT INTO load_test(id, name) VALUES (RandomUuid(0), 'Text')", conn)
+                        .ExecuteNonQueryAsync());
+            }
+            catch
+            {
+                /* ignored */
+            }
+        }
+    }));
+
+    await Task.WhenAll(workers);
     return;
 }
 
@@ -20,16 +57,6 @@ var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "
 
 var resourceBuilder = ResourceBuilder.CreateDefault()
     .AddService(serviceName, serviceVersion: serviceVersion);
-
-const string activitySourceName = "Ydb.Sdk.AdoNet.OpenTelemetry.Sample";
-using var activitySource = new ActivitySource(activitySourceName);
-
-using var tracerProvider = Sdk.CreateTracerProviderBuilder()
-    .SetResourceBuilder(resourceBuilder)
-    .AddSource(activitySourceName)
-    .AddYdb()
-    .AddOtlpExporter(o => { o.Endpoint = otlpEndpoint; })
-    .Build();
 
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
     .SetResourceBuilder(resourceBuilder)
@@ -42,27 +69,10 @@ Console.WriteLine($"[{DateTimeOffset.UtcNow:u}] started, service.name={serviceNa
 
 Console.WriteLine("Initializing...");
 
-await using var dataSource = new YdbDataSource("Host=ydb;Port=2136;Database=/local");
-const string appStartup = "app.startup";
-var currentDataSource = dataSource;
-
-using (_ = activitySource.StartActivity(appStartup))
-{
-    await using var connInit = await dataSource.OpenConnectionAsync();
-    try
-    {
-        await new YdbCommand("DROP TABLE bank", connInit).ExecuteNonQueryAsync();
-    }
-    catch
-    {
-        // ignored
-    }
-
-    await new YdbCommand("CREATE TABLE bank(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
-        .ExecuteNonQueryAsync();
-}
-
-Console.WriteLine("Insert row...");
+await using var connInit = await dataSource.OpenConnectionAsync();
+await new YdbCommand("DROP TABLE IF EXISTS bank", connInit).ExecuteNonQueryAsync();
+await new YdbCommand("CREATE TABLE bank(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
+    .ExecuteNonQueryAsync();
 
 await using var connInsertRow = await dataSource.OpenConnectionAsync();
 await new YdbCommand("INSERT INTO bank(id, amount) VALUES (1, 0)", connInsertRow).ExecuteNonQueryAsync();
@@ -89,7 +99,7 @@ for (var i = 0; i < 10; i++)
         for (var j = 0; j < 5; j++)
             try
             {
-                await currentDataSource.ExecuteInTransactionAsync(async ydbConnection =>
+                await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
                 {
                     var count = (int)(await new YdbCommand(ydbConnection)
                         { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;

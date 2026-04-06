@@ -10,6 +10,18 @@ services:
         condition: service_started
     restart: on-failure
 
+  load-generator:
+    build:
+      context: ../..
+      dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Metrics/Dockerfile
+    command: ["--load"]
+    depends_on:
+      ydb:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: on-failure
+
   ydb:
     image: ydbplatform/local-ydb:trunk
     platform: linux/amd64

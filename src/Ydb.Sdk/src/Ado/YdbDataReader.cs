@@ -598,15 +598,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="name">The name of the column.</param>
     /// <returns>The zero-based column ordinal.</returns>
     /// <exception cref="IndexOutOfRangeException">Thrown when the column name is not found.</exception>
-    public override int GetOrdinal(string name)
-    {
-        if (ReaderMetadata.ColumnNameToOrdinal.TryGetValue(name, out var ordinal))
-        {
-            return ordinal;
-        }
-
-        throw new IndexOutOfRangeException($"Field not found in row: {name}");
-    }
+    public override int GetOrdinal(string name) =>
+        ReaderMetadata.ColumnNameToOrdinal.TryGetValue(name, out var ordinal)
+            ? ordinal
+            : throw new IndexOutOfRangeException($"Field not found in row: {name}");
 
     /// <summary>
     /// Gets the value of the specified column as a string.
@@ -1062,7 +1057,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private class Metadata : IMetadata
     {
-        private IReadOnlyList<Column> Columns { get; }
+        private RepeatedField<Column> Columns { get; }
 
         public IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
         public int FieldCount { get; }
