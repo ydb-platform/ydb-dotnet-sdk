@@ -5,9 +5,8 @@ namespace Ydb.Sdk.Coordination.Watcher;
 
 public class WatchSubscription : IDisposable
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1804:Remove unused locals", Justification = "Поле будет использоваться позже")]
     private readonly string _name;
-    
+
     public ulong ReqId { get; set; }
 
     private bool _isClosed;
@@ -25,6 +24,8 @@ public class WatchSubscription : IDisposable
         _name = name;
         ReqId = 0L;
     }
+
+    public string Name => _name;
 
 
     public void Push(SemaphoreChangedEvent item)
