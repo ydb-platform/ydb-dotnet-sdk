@@ -5,8 +5,6 @@ namespace Ydb.Sdk.Coordination.Watcher;
 
 public class WatchSubscription : IDisposable
 {
-    private readonly string _name;
-
     public ulong ReqId { get; set; }
 
     private bool _isClosed;
@@ -19,13 +17,10 @@ public class WatchSubscription : IDisposable
             FullMode = BoundedChannelFullMode.DropOldest
         });
 
-    public WatchSubscription(string name)
+    public WatchSubscription()
     {
-        _name = name;
         ReqId = 0L;
     }
-
-    public string Name => _name;
 
 
     public void Push(SemaphoreChangedEvent item)

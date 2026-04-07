@@ -16,14 +16,14 @@ public class WatcherRegistry
             previous.Dispose();
         }
 
-        var subscription = new WatchSubscription(name);
+        var subscription = new WatchSubscription();
         _watchesByName[name] = subscription;
         return subscription;
     }
 
     public void RemapWatch(string name, WatchSubscription subscription, ulong reqId)
     {
-        _watchesByName.GetOrAdd(name, _ => new WatchSubscription(name)); //var activeSubscription = 
+        _watchesByName.GetOrAdd(name, _ => new WatchSubscription()); //var activeSubscription = 
 
         if (!_watchesByName.TryGetValue(name, out var active))
             return;
