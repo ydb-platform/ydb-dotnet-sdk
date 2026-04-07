@@ -12,7 +12,7 @@ public class SemaphoreDescriptionClient
     private readonly List<Session> _ownersList;
     private readonly List<Session> _waitersList;
 
-    public SemaphoreDescriptionClient(Ydb.Coordination.SemaphoreDescription description)
+    public SemaphoreDescriptionClient(SemaphoreDescription description)
     {
         Name = description.Name;
         Data = description.Data.ToByteArray();

@@ -2,6 +2,7 @@
 
 public class Mutex
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1804:Remove unused locals", Justification = "Поле будет использоваться позже")]
     private readonly Semaphore _semaphore;
 
     public Mutex(Semaphore semaphore)
