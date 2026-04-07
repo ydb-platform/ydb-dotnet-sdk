@@ -21,6 +21,8 @@ namespace Ydb.Sdk.Ado;
 // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
 public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord>
 {
+    private const string operationName = "ExecuteQuery";
+
     private readonly IServerStream<ExecuteQueryResponsePart> _stream;
     private readonly YdbConnection _connection;
     private readonly YdbTransaction? _ydbTransaction;
@@ -877,6 +879,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
+        _connection.MetricsReporter.ReportOperationFailed(StatusCode.SessionBusy, operationName);
         _connection.OnNotSuccessStatusCode(StatusCode.SessionBusy);
         _stream.Dispose();
 
@@ -888,7 +891,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
     }
 
-    private void CompleteCommandMetrics() => _connection.MetricsReporter.ReportCommandStop(_startTimestamp);
+    private void CompleteCommandMetrics() =>
+        _connection.MetricsReporter.ReportCommandStop(_startTimestamp, operationName);
 
     /// <summary>
     /// Closes the <see cref="YdbDataReader"/> object.
@@ -979,6 +983,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             CompleteCommandMetrics();
 
+            _connection.MetricsReporter.ReportOperationFailed(e.Code, operationName);
             _connection.OnNotSuccessStatusCode(e.Code);
             _dbActivity?.SetException(e);
             _dbActivity?.Dispose();

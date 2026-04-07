@@ -12,6 +12,7 @@ if (args.Length > 0 && args[0] == "--load")
     using var loadMeterProvider = Sdk.CreateMeterProviderBuilder()
         .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("ydb-load-generator"))
         .AddYdb()
+        .AddMeter("System.Net.Http") // see http/2 metrics
         .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
         {
             exporterOptions.Endpoint = new Uri("http://otel-collector:4317");

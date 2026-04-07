@@ -232,11 +232,7 @@ public sealed class YdbConnection : DbConnection
 
     private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
 
-    internal void OnNotSuccessStatusCode(StatusCode code)
-    {
-        MetricsReporter.ReportCommandFailed(code);
-        _session.OnNotSuccessStatusCode(code);
-    }
+    internal void OnNotSuccessStatusCode(StatusCode code) => _session.OnNotSuccessStatusCode(code);
 
     internal YdbDataReader? LastReader { get; set; }
     internal string LastCommand { get; set; } = string.Empty;

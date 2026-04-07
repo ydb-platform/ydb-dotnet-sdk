@@ -116,51 +116,63 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         if (session != null)
             return session;
 
-        while (true)
+        MetricsReporter.ReportPendingConnectionRequestStart();
+
+        try
         {
-            // Statement order is important
-            var waiterTcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _waiters.Enqueue(waiterTcs);
-            if (_idleSessions.TryPop(out session))
+            while (true)
             {
-                if (!waiterTcs.TrySetResult(null))
+                // Statement order is important
+                var waiterTcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _waiters.Enqueue(waiterTcs);
+                if (_idleSessions.TryPop(out session))
                 {
-                    if (waiterTcs.Task is { IsCompleted: true, Result: not null } t)
+                    if (!waiterTcs.TrySetResult(null))
                     {
-                        _idleSessions.Push(t.Result);
+                        if (waiterTcs.Task is { IsCompleted: true, Result: not null } t)
+                        {
+                            _idleSessions.Push(t.Result);
+                        }
+
+                        WakeUpWaiter();
                     }
 
-                    WakeUpWaiter();
+                    if (CheckIdleSession(session))
+                        return session;
+
+                    session = await OpenNewSession(finalToken).ConfigureAwait(false);
+                    if (session != null)
+                        return session;
+
+                    continue;
                 }
 
-                if (CheckIdleSession(session))
+                await using var _ = finalToken.Register(() =>
+                    {
+                        MetricsReporter.ReportConnectionTimeout();
+                        waiterTcs.TrySetException(
+                            new YdbException($"The connection pool has been exhausted, either raise 'MaxPoolSize' " +
+                                             $"(currently {_maxSizePool}) or 'CreateSessionTimeout' " +
+                                             $"(currently {_createSessionTimeout} seconds) in your connection string."));
+                    }, useSynchronizationContext: false
+                );
+                await using var disposeRegistration = _disposeCts.Token.Register(
+                    () => waiterTcs.TrySetException(ObjectDisposedException),
+                    useSynchronizationContext: false
+                );
+                session = await waiterTcs.Task.ConfigureAwait(false);
+
+                if (CheckIdleSession(session) || TryGetIdleSession(out session))
                     return session;
 
                 session = await OpenNewSession(finalToken).ConfigureAwait(false);
                 if (session != null)
                     return session;
-
-                continue;
             }
-
-            await using var _ = finalToken.Register(() => waiterTcs.TrySetException(
-                    new YdbException($"The connection pool has been exhausted, either raise 'MaxPoolSize' " +
-                                     $"(currently {_maxSizePool}) or 'CreateSessionTimeout' " +
-                                     $"(currently {_createSessionTimeout} seconds) in your connection string.")
-                ), useSynchronizationContext: false
-            );
-            await using var disposeRegistration = _disposeCts.Token.Register(
-                () => waiterTcs.TrySetException(ObjectDisposedException),
-                useSynchronizationContext: false
-            );
-            session = await waiterTcs.Task.ConfigureAwait(false);
-
-            if (CheckIdleSession(session) || TryGetIdleSession(out session))
-                return session;
-
-            session = await OpenNewSession(finalToken).ConfigureAwait(false);
-            if (session != null)
-                return session;
+        }
+        finally
+        {
+            MetricsReporter.ReportPendingConnectionRequestStop();
         }
     }
 
@@ -344,6 +356,8 @@ internal enum PoolingSessionState
 internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : ISession
     where T : PoolingSessionBase<T>
 {
+    protected YdbMetricsReporter MetricsReporter => source.MetricsReporter;
+
     private int _state = (int)PoolingSessionState.Out;
 
     internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>

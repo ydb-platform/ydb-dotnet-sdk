@@ -13,17 +13,22 @@ internal sealed class YdbMetricsReporter : IDisposable
 {
     private const string Version = "0.1.0";
 
-    private static readonly Histogram<double> CommandDuration;
-    private static readonly Counter<int> CommandsFailed;
-    private static readonly UpDownCounter<int> CommandsExecuting;
-
+    /** Operation metrics - ExecuteQuery, Commit, Rollback **/
+    private static readonly Histogram<double> OperationDuration;
+    private static readonly Counter<int> OperationsFailed;
+    
     private static readonly InstrumentAdvice<double> ShortHistogramAdvice = new()
         { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] };
+    
+    /** Session pool metrics - ExecuteQuery, Commit, Rollback **/
+    private static readonly UpDownCounter<int> CommandsExecuting;
+    private static readonly Counter<int> ConnectionTimeouts;
+    private static readonly UpDownCounter<int> PendingConnectionRequests;
 
     private static readonly List<YdbMetricsReporter> Reporters = [];
 
-    private readonly TagList _tags;
-    private readonly KeyValuePair<string, object?>[] _tagsForMeasurement;
+    private readonly TagList _durationMetricTags;
+    private readonly KeyValuePair<string, object?> _poolNameTag;
     private readonly string _sortKey;
     private readonly ISessionSource _sessionPool;
 
@@ -31,7 +36,7 @@ internal sealed class YdbMetricsReporter : IDisposable
     {
         var meter = new Meter("Ydb.Sdk", Version);
 
-        CommandDuration = meter.CreateHistogram(
+        OperationDuration = meter.CreateHistogram(
             "db.client.operation.duration",
             unit: "s",
             description: "Duration of database client operations.",
@@ -43,7 +48,7 @@ internal sealed class YdbMetricsReporter : IDisposable
             unit: "{connection}",
             description: "The number of connections that are currently in state described by the state attribute.");
 
-        CommandsFailed = meter.CreateCounter<int>(
+        OperationsFailed = meter.CreateCounter<int>(
             "db.client.operation.failed",
             unit: "{command}",
             description: "The number of database commands which have failed.");
@@ -52,27 +57,33 @@ internal sealed class YdbMetricsReporter : IDisposable
             "db.client.operation.ydb.executing_query",
             unit: "{command}",
             description: "The number of currently executing YDB commands.");
+
+        ConnectionTimeouts = meter.CreateCounter<int>(
+            "db.client.connection.timeouts",
+            unit: "{connection}",
+            description:
+            "The number of times a connection could not be acquired from the pool before the timeout elapsed.");
+        
+        PendingConnectionRequests = meter.CreateUpDownCounter<int>(
+            "db.client.connection.npgsql.pending_requests",
+            unit: "{request}",
+            description: "The number of pending requests for an open connection, cumulative for the entire pool.");
     }
 
     internal YdbMetricsReporter(ISessionSource sessionPool, YdbConnectionStringBuilder settings)
     {
         _sessionPool = sessionPool;
 
-        _tags = new TagList
+        _durationMetricTags = new TagList
         {
             { "db.system.name", "ydb" },
             { "db.namespace", settings.Database },
             { "server.address", settings.Host },
             { "server.port", settings.Port }
         };
-
-        _tagsForMeasurement =
-        [
-            new KeyValuePair<string, object?>("db.system.name", "ydb"),
-            new KeyValuePair<string, object?>("db.namespace", settings.Database),
-            new KeyValuePair<string, object?>("server.address", settings.Host),
-            new KeyValuePair<string, object?>("server.port", settings.Port)
-        ];
+        
+        _poolNameTag = new KeyValuePair<string, object?>("db.client.connection.pool.name",
+            settings.PoolName ?? settings.ConnectionString);
 
         _sortKey = settings.ConnectionString;
 
@@ -93,26 +104,35 @@ internal sealed class YdbMetricsReporter : IDisposable
 
     internal long ReportCommandStart()
     {
-        CommandsExecuting.Add(1, _tags);
-        return CommandDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
+        CommandsExecuting.Add(1, _poolNameTag);
+        return OperationDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
     }
 
-    internal void ReportCommandStop(long startTimestamp)
+    internal void ReportCommandStop(long startTimestamp, string operationName)
     {
-        CommandsExecuting.Add(-1, _tags);
+        CommandsExecuting.Add(-1, _poolNameTag);
 
-        if (CommandDuration.Enabled && startTimestamp > 0)
+        if (OperationDuration.Enabled && startTimestamp > 0)
         {
-            CommandDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _tags);
+            var durationMetricTags = _durationMetricTags;
+            durationMetricTags.Add("db.operation.name", operationName);
+            OperationDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _durationMetricTags);
         }
     }
 
-    internal void ReportCommandFailed(StatusCode statusCode)
-    {
-        var tags = _tags;
-        tags.Add("ydb.status_code", statusCode.ToString());
-        CommandsFailed.Add(1, tags);
-    }
+    internal void ReportConnectionTimeout() => ConnectionTimeouts.Add(1, _poolNameTag);
+
+    internal void ReportOperationFailed(StatusCode statusCode, string operationName) => OperationsFailed
+        .Add(1, new TagList(_poolNameTag)
+        {
+            { "db.operation.name", operationName },
+            { "db.response.status_code", statusCode.ToString() }
+        });
+    
+    internal void ReportPendingConnectionRequestStart()
+        => PendingConnectionRequests.Add(1, _poolNameTag);
+    internal void ReportPendingConnectionRequestStop()
+        => PendingConnectionRequests.Add(-1, _poolNameTag);
 
     private static IEnumerable<Measurement<int>> GetSessionCount()
     {
@@ -123,19 +143,18 @@ internal sealed class YdbMetricsReporter : IDisposable
             foreach (var reporter in Reporters)
             {
                 var (idle, busy) = reporter._sessionPool.Statistics;
-                measurements.Add(MeasurementWithState(reporter, idle, "idle"));
-                measurements.Add(MeasurementWithState(reporter, busy, "used"));
+                measurements.Add(new Measurement<int>(
+                    idle,
+                    reporter._poolNameTag,
+                    new KeyValuePair<string, object?>("db.client.connection.state", "idle")));
+
+                measurements.Add(new Measurement<int>(
+                    busy,
+                    reporter._poolNameTag,
+                    new KeyValuePair<string, object?>("db.client.connection.state", "used")));
             }
 
             return measurements;
         }
-    }
-
-    private static Measurement<int> MeasurementWithState(YdbMetricsReporter reporter, int value, string state)
-    {
-        var tags = new KeyValuePair<string, object?>[reporter._tagsForMeasurement.Length + 1];
-        reporter._tagsForMeasurement.AsSpan().CopyTo(tags);
-        tags[^1] = new KeyValuePair<string, object?>("db.client.connection.state", state);
-        return new Measurement<int>(value, tags);
     }
 }
