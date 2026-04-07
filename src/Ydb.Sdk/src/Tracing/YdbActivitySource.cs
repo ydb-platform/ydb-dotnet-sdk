@@ -1,12 +1,11 @@
 using System.Diagnostics;
-using System.Reflection;
 using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Tracing;
 
 internal static class YdbActivitySource
 {
-    private static readonly ActivitySource Instance = new("Ydb.Sdk", LibraryVersion);
+    private static readonly ActivitySource Instance = new("Ydb.Sdk", YdbSdkVersion.Value);
 
     internal static Activity? StartActivity(string spanName, ActivityKind activityKind = ActivityKind.Client) =>
         Instance.StartActivity(spanName, activityKind);
@@ -31,8 +30,4 @@ internal static class YdbActivitySource
         activity.SetTag("ydb.retry.attempt", attempt);
         activity.SetTag("ydb.retry.backoff_ms", retryInterval.TotalMilliseconds);
     }
-
-    private static string LibraryVersion => typeof(YdbActivitySource).Assembly
-        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-        .InformationalVersion ?? "UNKNOWN";
 }

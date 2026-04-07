@@ -117,7 +117,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             return session;
 
         MetricsReporter.ReportPendingConnectionRequestStart();
-        var waitStartTimestamp = YdbMetricsReporter.ReportConnectionWaitTimeStart();
 
         try
         {
@@ -174,7 +173,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         finally
         {
             MetricsReporter.ReportPendingConnectionRequestStop();
-            MetricsReporter.ReportConnectionWaitTime(waitStartTimestamp);
         }
     }
 

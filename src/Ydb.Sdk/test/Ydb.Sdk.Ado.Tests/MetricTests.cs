@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Linq;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Xunit;
@@ -25,8 +24,7 @@ public class MetricTests : TestBase
         await using var dataSource = new YdbDataSource(settings);
         await using var conn = await dataSource.OpenConnectionAsync();
 
-        await using (var reader = await new YdbCommand("SELECT 1;", conn).ExecuteReaderAsync())
-            while (await reader.ReadAsync()) { }
+        await new YdbCommand("SELECT 1;", conn).ExecuteNonQueryAsync();
 
         await using var txConn = await dataSource.OpenConnectionAsync();
         await using var tx = await txConn.BeginTransactionAsync();
@@ -143,36 +141,6 @@ public class MetricTests : TestBase
         Assert.Equal("ydb", tags["db.system.name"]);
         Assert.Equal(settings.Database, tags["db.namespace"]);
         Assert.Equal(settings.PoolName, tags["db.client.connection.pool.name"]);
-    }
-
-    [Fact]
-    public async Task ConnectionWaitTime()
-    {
-        var exportedItems = new List<Metric>();
-        using var meterProvider = CreateMeterProvider(exportedItems);
-
-        var settings = CreateConnectionSettings(builder =>
-        {
-            builder.MaxPoolSize = 1;
-            builder.CreateSessionTimeout = 5;
-            builder.PoolName = "ado-metrics-wait";
-        });
-
-        await using var dataSource = new YdbDataSource(settings);
-        await using var firstConn = await dataSource.OpenConnectionAsync();
-
-        var secondConnectionTask = dataSource.OpenConnectionAsync();
-        await WaitForPendingRequestsAsync(exportedItems, meterProvider, 1);
-
-        await firstConn.DisposeAsync();
-        await using var secondConn = await secondConnectionTask;
-
-        exportedItems.Clear();
-        meterProvider.ForceFlush();
-
-        var metric = GetMetric(exportedItems, "db.client.connection.wait_time");
-        var point = GetFilteredPoints(metric.GetMetricPoints()).Single();
-        Assert.True(point.GetHistogramSum() > 0);
     }
 
     [Fact]

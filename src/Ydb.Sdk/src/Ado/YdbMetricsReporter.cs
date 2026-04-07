@@ -11,8 +11,6 @@ namespace Ydb.Sdk.Ado;
 /// </summary>
 internal sealed class YdbMetricsReporter : IDisposable
 {
-    private const string Version = "0.1.0";
-
     private static readonly InstrumentAdvice<double> ShortHistogramAdvice = new()
         { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] };
 
@@ -21,12 +19,11 @@ internal sealed class YdbMetricsReporter : IDisposable
     private static readonly Counter<int> OperationsFailed;
     private static readonly UpDownCounter<int> CommandsExecuting;
 
-    // Pool metrics: connection lifecycle (count, timeouts, wait, create)
+    // Pool metrics: connection lifecycle (count, timeouts, pending requests, create time)
     // create_time covers CreateSession RPC + first AttachStream message
     private static readonly Counter<int> ConnectionTimeouts;
     private static readonly UpDownCounter<int> PendingConnectionRequests;
     private static readonly Histogram<double> ConnectionCreateTime;
-    private static readonly Histogram<double> ConnectionWaitTime;
 
     private static readonly List<YdbMetricsReporter> Reporters = [];
 
@@ -37,7 +34,7 @@ internal sealed class YdbMetricsReporter : IDisposable
 
     static YdbMetricsReporter()
     {
-        var meter = new Meter("Ydb.Sdk", Version);
+        var meter = new Meter("Ydb.Sdk", YdbSdkVersion.Value);
 
         OperationDuration = meter.CreateHistogram(
             "db.client.operation.duration",
@@ -78,11 +75,6 @@ internal sealed class YdbMetricsReporter : IDisposable
             description: "The time it took to create a new connection (CreateSession + first AttachStream message).",
             advice: ShortHistogramAdvice);
 
-        ConnectionWaitTime = meter.CreateHistogram(
-            "db.client.connection.wait_time",
-            unit: "s",
-            description: "The time it took to obtain an open connection from the pool.",
-            advice: ShortHistogramAdvice);
     }
 
     internal YdbMetricsReporter(ISessionSource sessionPool, YdbConnectionStringBuilder settings)
@@ -96,7 +88,7 @@ internal sealed class YdbMetricsReporter : IDisposable
             { "server.address", settings.Host },
             { "server.port", settings.Port }
         };
-        
+
         _poolNameTag = new KeyValuePair<string, object?>("db.client.connection.pool.name",
             settings.PoolName ?? settings.ConnectionString);
 
@@ -156,15 +148,6 @@ internal sealed class YdbMetricsReporter : IDisposable
     {
         if (startTimestamp > 0)
             ConnectionCreateTime.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _poolNameTag);
-    }
-
-    internal static long ReportConnectionWaitTimeStart() =>
-        ConnectionWaitTime.Enabled ? Stopwatch.GetTimestamp() : 0;
-
-    internal void ReportConnectionWaitTime(long startTimestamp)
-    {
-        if (startTimestamp > 0)
-            ConnectionWaitTime.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _poolNameTag);
     }
 
     private static IEnumerable<Measurement<int>> GetSessionCount()
