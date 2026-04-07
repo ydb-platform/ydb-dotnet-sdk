@@ -72,11 +72,10 @@ public class MetricTests : TestBase
             meterProvider.ForceFlush();
 
             var metric = GetMetric(exportedItems, "db.client.connection.count");
-            var points = GetFilteredPoints(metric.GetMetricPoints());
+            var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!);
 
             var usedPoint = GetPoint(points, "used");
             Assert.Equal(1, usedPoint.GetSumLong());
-            Assert.Equal(settings.PoolName, ToDictionary(usedPoint.Tags)["db.client.connection.pool.name"]);
 
             var idlePoint = GetPoint(points, "idle");
             Assert.Equal(0, idlePoint.GetSumLong());
@@ -88,7 +87,7 @@ public class MetricTests : TestBase
 
         {
             var metric = GetMetric(exportedItems, "db.client.connection.count");
-            var points = GetFilteredPoints(metric.GetMetricPoints());
+            var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!);
 
             var usedPoint = GetPoint(points, "used");
             Assert.Equal(0, usedPoint.GetSumLong());
@@ -281,6 +280,17 @@ public class MetricTests : TestBase
 
         Assert.Fail($"Point with pending requests value '{expectedValue}' not found");
         throw new UnreachableException();
+    }
+
+    private static IEnumerable<MetricPoint> GetConnectionCountPoints(MetricPointsAccessor points, string poolName)
+    {
+        foreach (var point in points)
+        {
+            if (ToDictionary(point.Tags).GetValueOrDefault("db.client.connection.pool.name") as string == poolName)
+            {
+                yield return point;
+            }
+        }
     }
 
     private static MetricPoint GetPoint(IEnumerable<MetricPoint> points, string state)

@@ -121,6 +121,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
     internal override async Task Open(CancellationToken cancellationToken)
     {
+        var startTimestamp = YdbMetricsReporter.ReportConnectionCreateTimeStart();
         using var dbActivity = YdbActivitySource.StartActivity("ydb.CreateSession");
 
         var requestSettings = new GrpcRequestSettings
@@ -237,10 +238,14 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         {
             await completeTask.Task;
         }
-        catch (Exception e)
+        catch (YdbException e)
         {
             dbActivity?.SetException(e);
             throw;
+        }
+        finally
+        {
+            MetricsReporter.ReportConnectionCreateTime(startTimestamp);
         }
     }
 
