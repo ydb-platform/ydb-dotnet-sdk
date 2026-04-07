@@ -1,7 +1,6 @@
 ﻿using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
 using Ydb.Sdk.Coordination.Watcher;
-using SemaphoreDescription = Ydb.Coordination.SemaphoreDescription;
 
 namespace Ydb.Sdk.Coordination;
 
@@ -30,7 +29,7 @@ public class Semaphore
         => await _sessionRuntime.DeleteSemaphore(Name, force);
 
 
-    public async Task<Ydb.Sdk.Coordination.Description.SemaphoreDescription> Describe(
+    public async Task<SemaphoreDescriptionClient> Describe(
         DescribeSemaphoreMode mode)
         => await _sessionRuntime.DescribeSemaphore(Name, mode);
 
@@ -45,7 +44,7 @@ public class Semaphore
     public async Task Release()
         => await _sessionRuntime.ReleaseSemaphore(Name);
 
-    public Task<WatchResult<Ydb.Sdk.Coordination.Description.SemaphoreDescription>> WatchSemaphore(DescribeSemaphoreMode describeMode,
+    public Task<WatchResult<SemaphoreDescriptionClient>> WatchSemaphore(DescribeSemaphoreMode describeMode,
         WatchSemaphoreMode watchMode)
         => _sessionRuntime.WatchSemaphore(Name, describeMode, watchMode);
 }

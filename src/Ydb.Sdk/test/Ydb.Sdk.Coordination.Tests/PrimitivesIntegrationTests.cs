@@ -1,6 +1,4 @@
-﻿using Xunit.Abstractions;
-
-namespace Ydb.Sdk.Coordination.Tests;
+﻿namespace Ydb.Sdk.Coordination.Tests;
 
 public class PrimitivesIntegrationTests
 {

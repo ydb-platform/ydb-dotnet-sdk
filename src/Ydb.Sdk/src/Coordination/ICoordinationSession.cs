@@ -71,7 +71,7 @@ public interface ICoordinationSession : IDisposable
         byte[]? data,
         TimeSpan timeout);
 
-    Task<SemaphoreDescription> DescribeSemaphore(
+    Task<SemaphoreDescriptionClient> DescribeSemaphore(
         string name,
         DescribeSemaphoreMode mode);
 

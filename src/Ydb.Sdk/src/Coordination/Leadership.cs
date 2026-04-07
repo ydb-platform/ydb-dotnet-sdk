@@ -2,9 +2,9 @@
 
 public class Leadership : IAsyncDisposable
 {
-    private Semaphore _semaphore;
-    private Lease _lease;
-    private bool _resigned = false;
+    private readonly Semaphore _semaphore;
+    private readonly Lease _lease;
+    private bool _resigned;
 
     public Leadership(Semaphore semaphore, Lease lease)
     {

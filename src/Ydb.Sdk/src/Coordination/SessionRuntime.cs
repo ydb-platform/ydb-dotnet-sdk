@@ -5,10 +5,10 @@ using Google.Protobuf;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Dto;
 using Ydb.Sdk.Coordination.Settings;
 using Ydb.Sdk.Coordination.Watcher;
-using SemaphoreDescription = Ydb.Coordination.SemaphoreDescription;
 
 namespace Ydb.Sdk.Coordination;
 
@@ -478,7 +478,7 @@ public class SessionRuntime
     }
 
 
-    public async Task<Ydb.Sdk.Coordination.Description.SemaphoreDescription> DescribeSemaphore(string name,
+    public async Task<SemaphoreDescriptionClient> DescribeSemaphore(string name,
         DescribeSemaphoreMode mode)
     {
         await EnsureInitialized();
@@ -499,7 +499,8 @@ public class SessionRuntime
         try
         {
             var task = await SendRequest(reqId, describeSemaphore);
-            return new Ydb.Sdk.Coordination.Description.SemaphoreDescription(task.Request.DescribeSemaphoreResult.SemaphoreDescription);
+            return new SemaphoreDescriptionClient(task.Request.DescribeSemaphoreResult
+                .SemaphoreDescription);
         }
         catch (Exception)
         {
@@ -592,7 +593,7 @@ public class SessionRuntime
                 await _stream.RequestStreamComplete().ConfigureAwait(false);
             }
         }
-        catch (Exception )
+        catch (Exception)
         {
             throw new YdbException("Session closing failed");
         }
@@ -601,7 +602,7 @@ public class SessionRuntime
         _writeLock.Dispose();
     }
 
-    public async Task<WatchResult<Ydb.Sdk.Coordination.Description.SemaphoreDescription>> WatchSemaphore(
+    public async Task<WatchResult<SemaphoreDescriptionClient>> WatchSemaphore(
         string name,
         DescribeSemaphoreMode describeMode,
         WatchSemaphoreMode watchMode,
@@ -643,10 +644,11 @@ public class SessionRuntime
             throw new YdbException("Watch semaphore failed");
         }
 
-        var initial = new Ydb.Sdk.Coordination.Description.SemaphoreDescription(
+        var initial = new SemaphoreDescriptionClient(
             firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
 
-        async IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescription> Updates([EnumeratorCancellation] CancellationToken token = default)
+        async IAsyncEnumerable<SemaphoreDescriptionClient> Updates(
+            [EnumeratorCancellation] CancellationToken token = default)
         {
             await foreach (var _ in subscription.ReadAllAsync(token))
             {
@@ -667,17 +669,17 @@ public class SessionRuntime
 
                 var result = await SendRequest(describeReqId, describeRequest, token);
 
-                yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescription(
+                yield return new SemaphoreDescriptionClient(
                     result.Request.DescribeSemaphoreResult.SemaphoreDescription);
             }
         }
 
-        return new WatchResult<Ydb.Sdk.Coordination.Description.SemaphoreDescription>(initial, Updates(ct));
+        return new WatchResult<SemaphoreDescriptionClient>(initial, Updates(ct));
     }
 
 
     /*
-    public async IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescription> WatchSemaphore(string name,
+    public async IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescriptionClient> WatchSemaphore(string name,
         DescribeSemaphoreMode describeMode,
         WatchSemaphoreMode watchMode, [EnumeratorCancellation] CancellationToken ct = default)
     {
@@ -715,8 +717,8 @@ public class SessionRuntime
         }
 
         //  1. initial state
-        yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescription(
-            firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
+        yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescriptionClient(
+            firstResponse.DescribeSemaphoreResult.SemaphoreDescriptionClient);
 
         // 2. updates loop
         await foreach (var _ in subscription.ReadAllAsync(ct))
@@ -739,8 +741,8 @@ public class SessionRuntime
 
             var result = await SendRequest(describeReqId, describeRequest, ct);
 
-            yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescription(
-                result.Request.DescribeSemaphoreResult.SemaphoreDescription);
+            yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescriptionClient(
+                result.Request.DescribeSemaphoreResult.SemaphoreDescriptionClient);
         }
         /*
         try
@@ -753,7 +755,7 @@ public class SessionRuntime
             }
 
             return new SemaphoreWatcher(
-                new Description.SemaphoreDescription(sessionResponse.DescribeSemaphoreResult.SemaphoreDescription),
+                new Description.SemaphoreDescriptionClient(sessionResponse.DescribeSemaphoreResult.SemaphoreDescriptionClient),
                 subscription);
         }
         catch (Exception)

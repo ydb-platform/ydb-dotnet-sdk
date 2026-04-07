@@ -4,17 +4,17 @@ namespace Ydb.Sdk.Coordination.Description;
 
 public class SemaphoreWatcher : IDisposable
 {
-    private readonly SemaphoreDescription _description;
+    private readonly SemaphoreDescriptionClient _descriptionClient;
     private readonly WatchSubscription _subscription;
 
-    public SemaphoreWatcher(SemaphoreDescription desc, WatchSubscription subscription)
+    public SemaphoreWatcher(SemaphoreDescriptionClient desc, WatchSubscription subscription)
     {
-        _description = desc;
+        _descriptionClient = desc;
         _subscription = subscription;
     }
 
-    public SemaphoreDescription GetDescription()
-        => _description;
+    public SemaphoreDescriptionClient GetDescription()
+        => _descriptionClient;
 
     public IAsyncEnumerable<SemaphoreChangedEvent> WatchAsync(CancellationToken ct = default)
         => _subscription.ReadAllAsync(ct);

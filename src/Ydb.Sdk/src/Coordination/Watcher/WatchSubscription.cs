@@ -1,15 +1,14 @@
-﻿using System.Collections.Concurrent;
-using System.Threading.Channels;
+﻿using System.Threading.Channels;
 using Ydb.Sdk.Coordination.Description;
 
 namespace Ydb.Sdk.Coordination.Watcher;
 
 public class WatchSubscription : IDisposable
 {
-    private string Name { get; }
+    private readonly string _name;
     public ulong ReqId { get; set; }
 
-    private bool _isClosed = false;
+    private bool _isClosed;
 
     private readonly Channel<SemaphoreChangedEvent> _channel =
         Channel.CreateBounded<SemaphoreChangedEvent>(new BoundedChannelOptions(1)
@@ -21,7 +20,7 @@ public class WatchSubscription : IDisposable
 
     public WatchSubscription(string name)
     {
-        Name = name;
+        _name = name;
         ReqId = 0L;
     }
 
