@@ -11,19 +11,13 @@ public class CoordinationSession
         _sessionRuntime = new SessionRuntime(driver, pathNode);
     }
 
-    public StateSession Status()
-    {
-        return StateSession.Closed;
-    }
+    public StateSession Status() => StateSession.Closed;
 
-    public Semaphore Semaphore(string name)
-        => new Semaphore(name, _sessionRuntime);
+    public Semaphore Semaphore(string name) => new(name, _sessionRuntime);
 
-    public Mutex Mutex(string name)
-        => new Mutex(Semaphore(name));
+    public Mutex Mutex(string name) => new(Semaphore(name));
 
-    public Election Election(string name)
-        => new Election(Semaphore(name));
+    public Election Election(string name) => new(Semaphore(name));
 
     public async Task Close()
         => await _sessionRuntime.Dispose();

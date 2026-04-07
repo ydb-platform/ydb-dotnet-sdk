@@ -23,7 +23,7 @@ public class WatcherRegistry
 
     public void RemapWatch(string name, WatchSubscription subscription, ulong reqId)
     {
-        var activeSubscription = _watchesByName.GetOrAdd(name, _ => new WatchSubscription(name));
+        _watchesByName.GetOrAdd(name, _ => new WatchSubscription(name)); //var activeSubscription = 
 
         if (!_watchesByName.TryGetValue(name, out var active))
             return;
@@ -67,7 +67,7 @@ public class WatcherRegistry
     {
         foreach (var subscription in _watchesByName.Values)
         {
-            subscription.Push(new SemaphoreChangedEvent(false, false));// почистить мб надо
+            subscription.Push(new SemaphoreChangedEvent(false, false)); // почистить мб надо
         }
     }
 }

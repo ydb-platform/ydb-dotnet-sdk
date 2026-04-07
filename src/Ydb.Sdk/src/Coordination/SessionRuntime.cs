@@ -5,7 +5,6 @@ using Google.Protobuf;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Dto;
 using Ydb.Sdk.Coordination.Settings;
 using Ydb.Sdk.Coordination.Watcher;
@@ -55,7 +54,7 @@ public class SessionRuntime
     private volatile bool _disposed;
     private volatile bool _streamClosed;
 
-    private readonly WatcherRegistry _watcherRegistry = new WatcherRegistry();
+    private readonly WatcherRegistry _watcherRegistry = new();
 
     public SessionRuntime(IDriver driver, string pathNode) //IRetryPolicy retryPolicy
     {
@@ -66,7 +65,7 @@ public class SessionRuntime
         _initTask = InitializeAsync();
     }
 
-    public ulong SessionId => _sessionId;
+    public ulong SessionId { get; private set; }
 
     private async Task InitializeAsync()
         => await StreamCall();
@@ -113,7 +112,7 @@ public class SessionRuntime
                         HandleSessionStopped(); //HandleSessionStopped(response)
                         break;
                     case SessionResponse.ResponseOneofCase.AcquireSemaphorePending:
-                        HandleAcquireSemaphorePending(response);
+                        HandleAcquireSemaphorePending();
                         break;
                     case SessionResponse.ResponseOneofCase.DescribeSemaphoreChanged:
                         HandleSemaphoreChanged(response.DescribeSemaphoreChanged);
@@ -318,7 +317,7 @@ public class SessionRuntime
         _sessionStoppedTcs = null;
     }
 
-    private void HandleAcquireSemaphorePending(SessionResponse response) //SessionResponse response
+    private void HandleAcquireSemaphorePending() //SessionResponse response
     {
     }
 
@@ -335,8 +334,8 @@ public class SessionRuntime
 
         _sessionStartedTcs =
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _sessionId = 0;
-        var reqId = GetNextReqId();
+        SessionId = 0;
+        // var reqId = GetNextReqId();
         var node = _pathNode;
         // var timeout = new TimeSpan(5);
         var key = CreateRandomKey();
@@ -409,7 +408,7 @@ public class SessionRuntime
         var reqId = GetNextReqId();
         var createSemaphore = new SessionRequest
         {
-            CreateSemaphore = new SessionRequest.Types.CreateSemaphore()
+            CreateSemaphore = new SessionRequest.Types.CreateSemaphore
             {
                 Name = name,
                 Limit = limit,
@@ -435,7 +434,7 @@ public class SessionRuntime
         var reqId = GetNextReqId();
         var updateSemaphore = new SessionRequest
         {
-            UpdateSemaphore = new SessionRequest.Types.UpdateSemaphore()
+            UpdateSemaphore = new SessionRequest.Types.UpdateSemaphore
             {
                 Name = name,
                 Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
@@ -460,7 +459,7 @@ public class SessionRuntime
         var reqId = GetNextReqId();
         var deleteSemaphore = new SessionRequest
         {
-            DeleteSemaphore = new SessionRequest.Types.DeleteSemaphore()
+            DeleteSemaphore = new SessionRequest.Types.DeleteSemaphore
             {
                 Name = name,
                 Force = force,
@@ -479,14 +478,14 @@ public class SessionRuntime
     }
 
 
-    public async Task<SemaphoreDescription> DescribeSemaphore(string name,
+    public async Task<Ydb.Sdk.Coordination.Description.SemaphoreDescription> DescribeSemaphore(string name,
         DescribeSemaphoreMode mode)
     {
         await EnsureInitialized();
         var reqId = GetNextReqId();
         var describeSemaphore = new SessionRequest
         {
-            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore()
+            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
             {
                 Name = name,
                 IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(mode),
@@ -500,7 +499,7 @@ public class SessionRuntime
         try
         {
             var task = await SendRequest(reqId, describeSemaphore);
-            return new SemaphoreDescription(task.Request.DescribeSemaphoreResult.SemaphoreDescription);
+            return new Ydb.Sdk.Coordination.Description.SemaphoreDescription(task.Request.DescribeSemaphoreResult.SemaphoreDescription);
         }
         catch (Exception)
         {
@@ -515,7 +514,7 @@ public class SessionRuntime
         var reqId = GetNextReqId();
         var acquireSemaphore = new SessionRequest
         {
-            AcquireSemaphore = new SessionRequest.Types.AcquireSemaphore()
+            AcquireSemaphore = new SessionRequest.Types.AcquireSemaphore
             {
                 Name = name,
                 Count = count, // обратить на число
@@ -528,7 +527,7 @@ public class SessionRuntime
 
         try
         {
-            var task = await SendRequest(reqId, acquireSemaphore);
+            await SendRequest(reqId, acquireSemaphore);
 
             // доделать нюансы со взятием семафора
         }
@@ -544,7 +543,7 @@ public class SessionRuntime
         var reqId = GetNextReqId();
         var releaseSemaphore = new SessionRequest
         {
-            ReleaseSemaphore = new SessionRequest.Types.ReleaseSemaphore()
+            ReleaseSemaphore = new SessionRequest.Types.ReleaseSemaphore
             {
                 Name = name,
                 ReqId = reqId
@@ -564,7 +563,7 @@ public class SessionRuntime
     private async Task SendStop()
     {
         await EnsureInitialized();
-        var stopSession = new SessionRequest()
+        var stopSession = new SessionRequest
         {
             SessionStop = new SessionRequest.Types.SessionStop()
         };
@@ -593,15 +592,16 @@ public class SessionRuntime
                 await _stream.RequestStreamComplete().ConfigureAwait(false);
             }
         }
-        catch (Exception e)
+        catch (Exception )
         {
+            throw new YdbException("Session closing failed");
         }
 
         // добавить отключение подписок
         _writeLock.Dispose();
     }
 
-    public async Task<WatchResult<SemaphoreDescription>> WatchSemaphore(
+    public async Task<WatchResult<Ydb.Sdk.Coordination.Description.SemaphoreDescription>> WatchSemaphore(
         string name,
         DescribeSemaphoreMode describeMode,
         WatchSemaphoreMode watchMode,
@@ -643,10 +643,10 @@ public class SessionRuntime
             throw new YdbException("Watch semaphore failed");
         }
 
-        var initial = new SemaphoreDescription(
+        var initial = new Ydb.Sdk.Coordination.Description.SemaphoreDescription(
             firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
 
-        async IAsyncEnumerable<SemaphoreDescription> Updates([EnumeratorCancellation] CancellationToken token = default)
+        async IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescription> Updates([EnumeratorCancellation] CancellationToken token = default)
         {
             await foreach (var _ in subscription.ReadAllAsync(token))
             {
@@ -667,12 +667,12 @@ public class SessionRuntime
 
                 var result = await SendRequest(describeReqId, describeRequest, token);
 
-                yield return new SemaphoreDescription(
+                yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescription(
                     result.Request.DescribeSemaphoreResult.SemaphoreDescription);
             }
         }
 
-        return new WatchResult<SemaphoreDescription>(initial, Updates(ct));
+        return new WatchResult<Ydb.Sdk.Coordination.Description.SemaphoreDescription>(initial, Updates(ct));
     }
 
 

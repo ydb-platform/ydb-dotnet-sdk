@@ -1,9 +1,7 @@
-﻿using System.Runtime.CompilerServices;
-using Ydb.Sdk.Coordination.Dto;
+﻿using Ydb.Sdk.Coordination.Dto;
 using Ydb.Sdk.Coordination.Settings;
 
 namespace Ydb.Sdk.Coordination;
-
 
 public class Election
 {
@@ -26,8 +24,8 @@ public class Election
     public async Task<LeaderInfo?> Leader(CancellationToken ct = default)
     {
         var description = await _semaphore.Describe(DescribeSemaphoreMode.WithOwners);
-        var owner = description.Owners.FirstOrDefault();
-        return owner != null ? new LeaderInfo(owner.Data.ToByteArray()) : null;
+        var owner = description.GetOwnersList().FirstOrDefault();
+        return owner != null ? new LeaderInfo(owner.Data) : null;
     }
 
     /*
@@ -39,12 +37,12 @@ public class Election
         LeaderIdentity? previousLeader = null;
         CancellationTokenSource? currentCts = null;
 
-        
+
         try
         {
             await foreach(var description in _semaphore.WatchSemaphore(DescribeSemaphoreMode.WithOwners, WatchSemaphoreMode.WatchOwners))
             {
-         
+
                 var owner = description.GetOwnersList().FirstOrDefault();
 
                 LeaderIdentity? currentLeader = owner != null
@@ -100,12 +98,13 @@ public class Election
             Console.WriteLine($"stopped observing {Name}");
         }
     }
-    */
+
 
     private static bool IsSameLeader(
         LeaderIdentity? left,
         LeaderIdentity? right)
         => Equals(left, right);
+    */
 }
 
 /*
