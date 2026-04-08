@@ -131,19 +131,5 @@
         }
       ]
     },
-    {
-      "title": "Currently Executing Commands",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
-      "fieldConfig": { "defaults": { "unit": "short" } },
-      "options": { "legend": { "displayMode": "table", "placement": "right" } },
-      "targets": [
-        {
-          "expr": "sum by (db_client_connection_pool_name) (db_client_operation_ydb_executing_query)",
-          "legendFormat": "{{db_client_connection_pool_name}}",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
-        }
-      ]
-    }
   ]
 }

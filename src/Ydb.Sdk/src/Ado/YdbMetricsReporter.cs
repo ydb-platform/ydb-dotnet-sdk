@@ -14,10 +14,9 @@ internal sealed class YdbMetricsReporter : IDisposable
     private static readonly InstrumentAdvice<double> ShortHistogramAdvice = new()
         { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] };
 
-    // Operation metrics: duration, failures, and in-flight command count
+    // Operation metrics: duration and failures
     private static readonly Histogram<double> OperationDuration;
     private static readonly Counter<int> OperationsFailed;
-    private static readonly UpDownCounter<int> CommandsExecuting;
 
     // Pool metrics: connection lifecycle (count, timeouts, pending requests, create time)
     // create_time covers CreateSession RPC + first AttachStream message
@@ -52,11 +51,6 @@ internal sealed class YdbMetricsReporter : IDisposable
             "db.client.operation.failed",
             unit: "{command}",
             description: "The number of database commands which have failed.");
-
-        CommandsExecuting = meter.CreateUpDownCounter<int>(
-            "db.client.operation.ydb.executing_query",
-            unit: "{command}",
-            description: "The number of currently executing YDB commands.");
 
         ConnectionTimeouts = meter.CreateCounter<int>(
             "db.client.connection.timeouts",
@@ -108,16 +102,10 @@ internal sealed class YdbMetricsReporter : IDisposable
         }
     }
 
-    internal long ReportCommandStart()
-    {
-        CommandsExecuting.Add(1, _poolNameTag);
-        return OperationDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
-    }
+    internal long ReportCommandStart() => OperationDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
 
     internal void ReportCommandStop(long startTimestamp, string operationName)
     {
-        CommandsExecuting.Add(-1, _poolNameTag);
-
         if (OperationDuration.Enabled && startTimestamp > 0)
         {
             var durationMetricTags = _operationMetricTags;
