@@ -74,7 +74,6 @@ internal sealed class YdbMetricsReporter : IDisposable
             unit: "s",
             description: "The time it took to create a new connection (CreateSession + first AttachStream message).",
             advice: ShortHistogramAdvice);
-
     }
 
     internal YdbMetricsReporter(ISessionSource sessionPool, YdbConnectionStringBuilder settings)

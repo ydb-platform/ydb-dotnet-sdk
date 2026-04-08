@@ -13,6 +13,7 @@
         <PackageReference Include="OpenTelemetry" Version="1.15.0"/>
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.0"/>
         <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.0"/>
+        <PackageReference Include="System.Threading.RateLimiting" Version="9.0.4"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -1,16 +1,19 @@
 {
   "title": "YDB .NET SDK Dashboard",
   "uid": "ydb-sdk-main",
+  "schemaVersion": 38,
+  "timezone": "browser",
   "panels": [
     {
       "title": "Request Rate (RPS)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
       "targets": [
         {
-          "expr": "sum(rate(db_client_operation_duration_seconds_count[$__rate_interval]))",
-          "legendFormat": "Requests/s",
+          "expr": "sum by (db_operation_name) (rate(db_client_operation_duration_seconds_count[$__rate_interval]))",
+          "legendFormat": "{{db_operation_name}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
       ]
@@ -20,67 +23,57 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
       "targets": [
         {
-          "expr": "sum by (ydb_status_code) (rate(db_client_operation_failed_total[$__rate_interval]))",
-          "legendFormat": "{{ydb_status_code}}",
+          "expr": "sum by (db_response_status_code) (rate(db_client_operation_failed_total[$__rate_interval]))",
+          "legendFormat": "{{db_response_status_code}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
       ]
     },
     {
-      "title": "Currently Executing Commands",
-      "type": "gauge",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
-      "targets": [
-        {
-          "expr": "sum(db_client_operation_ydb_executing_query)",
-          "legendFormat": "Executing",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
-        }
-      ]
-    },
-    {
-      "title": "Session Pool State",
+      "title": "Session Pool (Used / Idle)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 8 },
-      "options": {
-        "legend": { "displayMode": "table", "placement": "right" }
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
       "targets": [
         {
-          "expr": "sum(db_client_connection_count{db_client_connection_state=\"used\"})",
-          "legendFormat": "Used",
+          "expr": "sum by (db_client_connection_pool_name) (db_client_connection_count{db_client_connection_state=\"used\"})",
+          "legendFormat": "used · {{db_client_connection_pool_name}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         },
         {
-          "expr": "sum(db_client_connection_count{db_client_connection_state=\"idle\"})",
-          "legendFormat": "Idle",
+          "expr": "sum by (db_client_connection_pool_name) (db_client_connection_count{db_client_connection_state=\"idle\"})",
+          "legendFormat": "idle · {{db_client_connection_pool_name}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
       ]
     },
     {
-      "title": "Session Pool Total",
+      "title": "Pending Connection Requests",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
-      "options": {
-        "legend": { "displayMode": "table", "placement": "right" }
-      },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
       "targets": [
         {
-          "expr": "sum(db_client_connection_count{db_client_connection_state=\"used\"})",
-          "legendFormat": "Used",
+          "expr": "sum by (db_client_connection_pool_name) (db_client_connection_pending_requests)",
+          "legendFormat": "{{db_client_connection_pool_name}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
-        },
+        }
+      ]
+    },
+    {
+      "title": "Connection Timeouts",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
+      "targets": [
         {
-          "expr": "sum(db_client_connection_count{db_client_connection_state=\"idle\"})",
-          "legendFormat": "Idle",
-          "datasource": { "type": "prometheus", "uid": "prometheus" }
-        },
-        {
-          "expr": "sum(db_client_connection_count)",
-          "legendFormat": "Total",
+          "expr": "sum by (db_client_connection_pool_name) (increase(db_client_connection_timeouts_total[$__rate_interval]))",
+          "legendFormat": "{{db_client_connection_pool_name}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
       ]
@@ -88,32 +81,64 @@
     {
       "title": "Operation Latency Percentiles",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
-      "fieldConfig": {
-        "defaults": { "unit": "s" }
-      },
-      "options": {
-        "legend": { "displayMode": "table", "placement": "right" }
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(db_client_operation_duration_seconds_bucket[$__rate_interval])) by (le))",
-          "legendFormat": "p50",
+          "expr": "histogram_quantile(0.50, sum by (le, db_operation_name) (rate(db_client_operation_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p50 · {{db_operation_name}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(db_client_operation_duration_seconds_bucket[$__rate_interval])) by (le))",
-          "legendFormat": "p95",
+          "expr": "histogram_quantile(0.95, sum by (le, db_operation_name) (rate(db_client_operation_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95 · {{db_operation_name}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(db_client_operation_duration_seconds_bucket[$__rate_interval])) by (le))",
-          "legendFormat": "p99",
+          "expr": "histogram_quantile(0.99, sum by (le, db_operation_name) (rate(db_client_operation_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p99 · {{db_operation_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
+    },
+    {
+      "title": "Session Create Time Percentiles",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, db_client_connection_pool_name) (rate(db_client_connection_create_time_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p50 · {{db_client_connection_pool_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, db_client_connection_pool_name) (rate(db_client_connection_create_time_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95 · {{db_client_connection_pool_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, db_client_connection_pool_name) (rate(db_client_connection_create_time_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p99 · {{db_client_connection_pool_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
+    },
+    {
+      "title": "Currently Executing Commands",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "sum by (db_client_connection_pool_name) (db_client_operation_ydb_executing_query)",
+          "legendFormat": "{{db_client_connection_pool_name}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
       ]
     }
-  ],
-  "schemaVersion": 38,
-  "timezone": "browser"
+  ]
 }

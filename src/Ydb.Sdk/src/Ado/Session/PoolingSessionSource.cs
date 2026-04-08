@@ -56,8 +56,13 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     {
         get
         {
-            var idle = _idleSessions.Count;
-            return (idle, _numSessions - idle);
+            // Both values are read without a lock, so the snapshot is inherently approximate.
+            // We clamp idle to total to prevent busy from going negative, which can happen when
+            // CleanIdleSessions closes a session (decrementing _numSessions) before it is popped
+            // from _idleSessions by TryGetIdleSession.
+            var total = _numSessions;
+            var idle = Math.Min(_idleSessions.Count, total);
+            return (idle, total - idle);
         }
     }
 
@@ -335,7 +340,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         }
     }
 
-    private Exception ObjectDisposedException =>
+    private static Exception ObjectDisposedException =>
         new ObjectDisposedException(nameof(PoolingSessionSource<T>), "The session source has been closed.");
 }
 

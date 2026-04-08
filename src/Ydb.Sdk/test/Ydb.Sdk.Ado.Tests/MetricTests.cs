@@ -40,7 +40,7 @@ public class MetricTests : TestBase
         var metric = GetMetric(exportedItems, "db.client.operation.duration");
         Assert.NotNull(metric);
 
-        var points = GetFilteredPoints(metric!.GetMetricPoints())
+        var points = GetFilteredPoints(metric.GetMetricPoints())
             .ToDictionary(p => (string)ToDictionary(p.Tags)["db.operation.name"]!);
 
         Assert.True(points["ExecuteQuery"].GetHistogramSum() > 0);
@@ -70,7 +70,7 @@ public class MetricTests : TestBase
             meterProvider.ForceFlush();
 
             var metric = GetMetric(exportedItems, "db.client.connection.count");
-            var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!);
+            var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
             Assert.Equal(1, usedPoint.GetSumLong());
@@ -85,7 +85,7 @@ public class MetricTests : TestBase
 
         {
             var metric = GetMetric(exportedItems, "db.client.connection.count");
-            var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!);
+            var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
             Assert.Equal(0, usedPoint.GetSumLong());
@@ -112,7 +112,7 @@ public class MetricTests : TestBase
 
         var failed = GetMetric(exportedItems, "db.client.operation.failed");
         Assert.NotNull(failed);
-        var point = GetFilteredPoints(failed!.GetMetricPoints()).Single();
+        var point = GetFilteredPoints(failed.GetMetricPoints()).Single();
         Assert.Equal(1, point.GetSumLong());
 
         var tags = ToDictionary(point.Tags);
@@ -157,7 +157,7 @@ public class MetricTests : TestBase
         });
 
         await using var dataSource = new YdbDataSource(settings);
-        await using var firstConn = await dataSource.OpenConnectionAsync();
+        var firstConn = await dataSource.OpenConnectionAsync();
 
         var secondConnectionTask = dataSource.OpenConnectionAsync();
         var pendingPoint = await WaitForPendingRequestsAsync(exportedItems, meterProvider, 1);
@@ -196,7 +196,7 @@ public class MetricTests : TestBase
         var metric = GetMetric(exportedItems, "db.client.connection.timeouts");
         Assert.NotNull(metric);
 
-        var point = GetFilteredPoints(metric!.GetMetricPoints()).Single();
+        var point = GetFilteredPoints(metric.GetMetricPoints()).Single();
         Assert.Equal(1, point.GetSumLong());
         Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["db.client.connection.pool.name"]);
     }
