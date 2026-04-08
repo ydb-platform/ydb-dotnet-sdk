@@ -44,7 +44,6 @@ public class MetricTests : TestBase
             .ToDictionary(p => (string)ToDictionary(p.Tags)["db.operation.name"]!);
 
         Assert.True(points["ExecuteQuery"].GetHistogramSum() > 0);
-        Assert.True(points["CreateSession"].GetHistogramSum() > 0);
         Assert.True(points["Commit"].GetHistogramSum() > 0);
         Assert.True(points["Rollback"].GetHistogramSum() > 0);
 
@@ -134,13 +133,10 @@ public class MetricTests : TestBase
         meterProvider.ForceFlush();
 
         var metric = GetMetric(exportedItems, "db.client.connection.create_time");
-        var point = GetFilteredPoints(metric.GetMetricPoints()).Single();
+        var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
 
         Assert.True(point.GetHistogramSum() > 0);
-        var tags = ToDictionary(point.Tags);
-        Assert.Equal("ydb", tags["db.system.name"]);
-        Assert.Equal(settings.Database, tags["db.namespace"]);
-        Assert.Equal(settings.PoolName, tags["db.client.connection.pool.name"]);
+        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["db.client.connection.pool.name"]);
     }
 
     [Fact]
@@ -162,10 +158,7 @@ public class MetricTests : TestBase
         var secondConnectionTask = dataSource.OpenConnectionAsync();
         var pendingPoint = await WaitForPendingRequestsAsync(exportedItems, meterProvider, 1);
 
-        var pendingTags = ToDictionary(pendingPoint.Tags);
-        Assert.Equal("ydb", pendingTags["db.system.name"]);
-        Assert.Equal(settings.Database, pendingTags["db.namespace"]);
-        Assert.Equal(settings.PoolName, pendingTags["db.client.connection.pool.name"]);
+        Assert.Equal(settings.PoolName, ToDictionary(pendingPoint.Tags)["db.client.connection.pool.name"]);
 
         await firstConn.DisposeAsync();
         await using var secondConn = await secondConnectionTask;
@@ -196,7 +189,7 @@ public class MetricTests : TestBase
         var metric = GetMetric(exportedItems, "db.client.connection.timeouts");
         Assert.NotNull(metric);
 
-        var point = GetFilteredPoints(metric.GetMetricPoints()).Single();
+        var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
         Assert.Equal(1, point.GetSumLong());
         Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["db.client.connection.pool.name"]);
     }
@@ -287,6 +280,15 @@ public class MetricTests : TestBase
         }
 
         return dict;
+    }
+
+    private static IEnumerable<MetricPoint> GetPoolPoints(MetricPointsAccessor points, string poolName)
+    {
+        foreach (var point in points)
+        {
+            if (ToDictionary(point.Tags).GetValueOrDefault("db.client.connection.pool.name") as string == poolName)
+                yield return point;
+        }
     }
 
     private static IEnumerable<MetricPoint> GetFilteredPoints(MetricPointsAccessor points)

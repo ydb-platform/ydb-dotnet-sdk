@@ -73,6 +73,7 @@ var controller = Task.Run(async () =>
         var stepToken = CancellationTokenSource.CreateLinkedTokenSource(token, currentRpsCts.Token).Token;
 
         Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Phase: {label} ({rps} RPS)");
+        // ReSharper disable once AccessToDisposedClosure
         _ = RunWorkersAsync(dataSource, rps, workerCount, stepToken);
     }
 }, token);
