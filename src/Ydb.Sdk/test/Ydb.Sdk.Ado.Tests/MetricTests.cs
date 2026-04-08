@@ -156,13 +156,13 @@ public class MetricTests : TestBase
         var firstConn = await dataSource.OpenConnectionAsync();
 
         var secondConnectionTask = dataSource.OpenConnectionAsync();
-        var pendingPoint = await WaitForPendingRequestsAsync(exportedItems, meterProvider, 1);
+        var pendingPoint = await WaitForPendingRequestsAsync(exportedItems, meterProvider, 1, settings.PoolName);
 
         Assert.Equal(settings.PoolName, ToDictionary(pendingPoint.Tags)["db.client.connection.pool.name"]);
 
         await firstConn.DisposeAsync();
         await using var secondConn = await secondConnectionTask;
-        await WaitForPendingRequestsAsync(exportedItems, meterProvider, 0);
+        await WaitForPendingRequestsAsync(exportedItems, meterProvider, 0, settings.PoolName);
     }
 
     [Fact]
@@ -217,7 +217,8 @@ public class MetricTests : TestBase
     private static async Task<MetricPoint> WaitForPendingRequestsAsync(
         List<Metric> exportedItems,
         MeterProvider meterProvider,
-        long expectedValue)
+        long expectedValue,
+        string? poolName = null)
     {
         for (var i = 0; i < 30; i++)
         {
@@ -227,9 +228,13 @@ public class MetricTests : TestBase
             var metric = exportedItems.SingleOrDefault(m => m.Name == "db.client.connection.pending_requests");
             if (metric != null)
             {
-                foreach (var point in GetFilteredPoints(metric.GetMetricPoints()))
+                var points = poolName != null
+                    ? GetPoolPoints(metric.GetMetricPoints(), poolName)
+                    : GetAllPoints(metric.GetMetricPoints());
+
+                foreach (var point in points)
                 {
-                    if (point.GetGaugeLastValueLong() == expectedValue)
+                    if (point.GetSumLong() == expectedValue)
                     {
                         return point;
                     }
@@ -280,6 +285,12 @@ public class MetricTests : TestBase
         }
 
         return dict;
+    }
+
+    private static IEnumerable<MetricPoint> GetAllPoints(MetricPointsAccessor points)
+    {
+        foreach (var point in points)
+            yield return point;
     }
 
     private static IEnumerable<MetricPoint> GetPoolPoints(MetricPointsAccessor points, string poolName)
