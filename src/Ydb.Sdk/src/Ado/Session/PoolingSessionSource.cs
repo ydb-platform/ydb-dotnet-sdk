@@ -56,13 +56,20 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     {
         get
         {
-            // Both values are read without a lock, so the snapshot is inherently approximate.
-            // We clamp idle to total to prevent busy from going negative, which can happen when
-            // CleanIdleSessions closes a session (decrementing _numSessions) before it is popped
-            // from _idleSessions by TryGetIdleSession.
+            // The snapshot is inherently approximate in a concurrent system.
+            // We count sessions in the In (idle) state by scanning the fixed-size _sessions array.
+            // This avoids the negative-busy bug that occurs when CleanIdleSessions decrements
+            // _numSessions while the session still sits in _idleSessions stack.
+            var idle = 0;
+            for (var i = 0; i < _maxSizePool; i++)
+            {
+                var s = Volatile.Read(ref _sessions[i]);
+                if (s is { State: PoolingSessionState.In })
+                    idle++;
+            }
+
             var total = _numSessions;
-            var idle = Math.Min(_idleSessions.Count, total);
-            return (idle, total - idle);
+            return (Math.Min(idle, total), total - Math.Min(idle, total));
         }
     }
 
@@ -364,6 +371,8 @@ internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : 
     protected YdbMetricsReporter MetricsReporter => source.MetricsReporter;
 
     private int _state = (int)PoolingSessionState.Out;
+
+    internal PoolingSessionState State => (PoolingSessionState)Volatile.Read(ref _state);
 
     internal bool CompareAndSet(PoolingSessionState expected, PoolingSessionState actual) =>
         Interlocked.CompareExchange(ref _state, (int)actual, (int)expected) == (int)expected;

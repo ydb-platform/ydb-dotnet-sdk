@@ -14,7 +14,6 @@ services:
     build:
       context: ../..
       dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Metrics/Dockerfile
-    command: ["--load"]
     depends_on:
       ydb:
         condition: service_healthy

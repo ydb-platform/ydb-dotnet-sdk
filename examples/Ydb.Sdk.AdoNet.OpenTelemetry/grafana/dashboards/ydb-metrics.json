@@ -47,6 +47,11 @@
           "expr": "sum by (db_client_connection_pool_name) (db_client_connection_count{db_client_connection_state=\"idle\"})",
           "legendFormat": "idle · {{db_client_connection_pool_name}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "sum by (db_client_connection_pool_name) (db_client_connection_count)",
+          "legendFormat": "total · {{db_client_connection_pool_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
       ]
     },

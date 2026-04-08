@@ -34,15 +34,6 @@ using (var activity = activitySource.StartActivity(appStartup))
     activity?.SetTag("app.message", "hello");
 
     await using var connInit = await dataSource.OpenConnectionAsync();
-    try
-    {
-        await new YdbCommand("DROP TABLE bank", connInit).ExecuteNonQueryAsync();
-    }
-    catch
-    {
-        // ignored
-    }
-
     await new YdbCommand("CREATE TABLE bank(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
         .ExecuteNonQueryAsync();
 }
@@ -51,6 +42,20 @@ Console.WriteLine("Insert row...");
 
 await using var connInsertRow = await dataSource.OpenConnectionAsync();
 await new YdbCommand("INSERT INTO bank(id, amount) VALUES (1, 0)", connInsertRow).ExecuteNonQueryAsync();
+
+
+Console.WriteLine("Preparing queries...");
+await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
+{
+    var count = (int)(await new YdbCommand(ydbConnection)
+        { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
+
+    await new YdbCommand(ydbConnection)
+    {
+        CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
+        Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
+    }.ExecuteNonQueryAsync();
+});
 
 Console.WriteLine("Emulation TLI...");
 
@@ -81,6 +86,15 @@ for (var i = 0; i < 10; i++)
 }
 
 await Task.WhenAll(tasks);
+
+Console.WriteLine("Retry connection example...");
+
+await using var ydbConnection = await dataSource.OpenRetryableConnectionAsync();
+
+await new YdbCommand(ydbConnection)
+    { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteNonQueryAsync();
+
+Console.WriteLine("App finished.");
 
 Console.WriteLine("App finished. Waiting 15s to flush traces");
 await Task.Delay(15000);
