@@ -156,13 +156,21 @@ public class MetricTests : TestBase
         var firstConn = await dataSource.OpenConnectionAsync();
 
         var secondConnectionTask = dataSource.OpenConnectionAsync();
-        var pendingPoint = await WaitForPendingRequestsAsync(exportedItems, meterProvider, 1, settings.PoolName);
+        await Task.Yield(); // let secondConnectionTask reach ReportPendingConnectionRequestStart
+        meterProvider.ForceFlush();
 
+        var pendingMetric = GetMetric(exportedItems, "db.client.connection.pending_requests");
+        var pendingPoint = GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single();
+        Assert.Equal(1, pendingPoint.GetSumLong());
         Assert.Equal(settings.PoolName, ToDictionary(pendingPoint.Tags)["db.client.connection.pool.name"]);
 
         await firstConn.DisposeAsync();
         await using var secondConn = await secondConnectionTask;
-        await WaitForPendingRequestsAsync(exportedItems, meterProvider, 0, settings.PoolName);
+
+        exportedItems.Clear();
+        meterProvider.ForceFlush();
+        pendingMetric = GetMetric(exportedItems, "db.client.connection.pending_requests");
+        Assert.Equal(0, GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single().GetSumLong());
     }
 
     [Fact]
@@ -214,40 +222,6 @@ public class MetricTests : TestBase
     private static Metric GetMetric(List<Metric> exportedItems, string name) =>
         exportedItems.Single(m => m.Name == name);
 
-    private static async Task<MetricPoint> WaitForPendingRequestsAsync(
-        List<Metric> exportedItems,
-        MeterProvider meterProvider,
-        long expectedValue,
-        string? poolName = null)
-    {
-        for (var i = 0; i < 30; i++)
-        {
-            exportedItems.Clear();
-            meterProvider.ForceFlush();
-
-            var metric = exportedItems.SingleOrDefault(m => m.Name == "db.client.connection.pending_requests");
-            if (metric != null)
-            {
-                var points = poolName != null
-                    ? GetPoolPoints(metric.GetMetricPoints(), poolName)
-                    : GetAllPoints(metric.GetMetricPoints());
-
-                foreach (var point in points)
-                {
-                    if (point.GetSumLong() == expectedValue)
-                    {
-                        return point;
-                    }
-                }
-            }
-
-            await Task.Delay(100);
-        }
-
-        Assert.Fail($"Point with pending requests value '{expectedValue}' not found");
-        throw new UnreachableException();
-    }
-
     private static IEnumerable<MetricPoint> GetConnectionCountPoints(MetricPointsAccessor points, string poolName)
     {
         foreach (var point in points)
@@ -285,12 +259,6 @@ public class MetricTests : TestBase
         }
 
         return dict;
-    }
-
-    private static IEnumerable<MetricPoint> GetAllPoints(MetricPointsAccessor points)
-    {
-        foreach (var point in points)
-            yield return point;
     }
 
     private static IEnumerable<MetricPoint> GetPoolPoints(MetricPointsAccessor points, string poolName)
