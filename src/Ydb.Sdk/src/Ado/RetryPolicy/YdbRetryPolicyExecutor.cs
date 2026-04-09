@@ -3,15 +3,8 @@ using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.RetryPolicy;
 
-internal sealed class YdbRetryPolicyExecutor
+internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
 {
-    private readonly IRetryPolicy _retryPolicy;
-
-    public YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
-    {
-        _retryPolicy = retryPolicy;
-    }
-
     /// <summary>
     /// Executes the specified asynchronous operation and returns the result.
     /// </summary>
@@ -61,7 +54,7 @@ internal sealed class YdbRetryPolicyExecutor
             {
                 dbActive?.SetException(e);
 
-                var delay = _retryPolicy.GetNextDelay(e, attempt++);
+                var delay = retryPolicy.GetNextDelay(e, attempt++);
                 if (delay == null)
                     throw;
 

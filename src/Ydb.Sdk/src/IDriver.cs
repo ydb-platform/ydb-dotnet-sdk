@@ -166,6 +166,9 @@ public abstract class BaseDriver : IDriver
     private readonly ICredentialsProvider? _credentialsProvider;
 
     protected readonly DriverConfig Config;
+
+    internal DriverConfig DriverConfiguration => Config;
+
     protected readonly ILogger Logger;
 
     internal readonly GrpcChannelFactory GrpcChannelFactory;

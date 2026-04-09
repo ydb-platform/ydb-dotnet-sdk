@@ -1,0 +1,285 @@
+using System.Diagnostics;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using Xunit;
+using Ydb.Sdk.Ado.Tests.Utils;
+
+namespace Ydb.Sdk.Ado.Tests;
+
+[Collection("DisableParallelization")]
+public class MetricTests : TestBase
+{
+    private static readonly YdbConnectionStringBuilder BaseConnectionSettings = new(TestUtils.ConnectionString)
+    {
+        PoolName = "ado-metrics-tests"
+    };
+
+    [Fact]
+    public async Task OperationDuration()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings();
+        await using var dataSource = new YdbDataSource(settings);
+        await using var conn = await dataSource.OpenConnectionAsync();
+
+        await new YdbCommand("SELECT 1;", conn).ExecuteNonQueryAsync();
+
+        await using var txConn = await dataSource.OpenConnectionAsync();
+        await using var tx = await txConn.BeginTransactionAsync();
+        await new YdbCommand("SELECT 1;", txConn).ExecuteNonQueryAsync();
+        await tx.CommitAsync();
+
+        await using var rollbackConn = await dataSource.OpenConnectionAsync();
+        await using var rollbackTx = await rollbackConn.BeginTransactionAsync();
+        await rollbackTx.RollbackAsync();
+
+        meterProvider.ForceFlush();
+
+        var metric = GetMetric(exportedItems, "db.client.operation.duration");
+        Assert.NotNull(metric);
+
+        var points = GetFilteredPoints(metric.GetMetricPoints())
+            .ToDictionary(p => (string)ToDictionary(p.Tags)["db.operation.name"]!);
+
+        Assert.True(points["ExecuteQuery"].GetHistogramSum() > 0);
+        Assert.True(points["Commit"].GetHistogramSum() > 0);
+        Assert.True(points["Rollback"].GetHistogramSum() > 0);
+
+        var tags = ToDictionary(points["ExecuteQuery"].Tags);
+        Assert.Equal("ydb", tags["db.system.name"]);
+        Assert.Equal(settings.Database, tags["db.namespace"]);
+        Assert.Equal(settings.Host, tags["server.address"]);
+        Assert.Equal(settings.Port.ToString(), tags["server.port"]?.ToString());
+        Assert.Equal("ExecuteQuery", tags["db.operation.name"]);
+    }
+
+    [Fact]
+    public async Task ConnectionCount()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings();
+        await using var dataSource = new YdbDataSource(settings);
+
+        await using (var _ = await dataSource.OpenConnectionAsync())
+        {
+            meterProvider.ForceFlush();
+
+            var metric = GetMetric(exportedItems, "db.client.connection.count");
+            var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
+
+            var usedPoint = GetPoint(points, "used");
+            Assert.Equal(1, usedPoint.GetSumLong());
+
+            var idlePoint = GetPoint(points, "idle");
+            Assert.Equal(0, idlePoint.GetSumLong());
+
+            exportedItems.Clear();
+        }
+
+        meterProvider.ForceFlush();
+
+        {
+            var metric = GetMetric(exportedItems, "db.client.connection.count");
+            var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
+
+            var usedPoint = GetPoint(points, "used");
+            Assert.Equal(0, usedPoint.GetSumLong());
+
+            var idlePoint = GetPoint(points, "idle");
+            Assert.Equal(1, idlePoint.GetSumLong());
+        }
+    }
+
+    [Fact]
+    public async Task OperationFailed()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings();
+        await using var dataSource = new YdbDataSource(settings);
+        await using var conn = await dataSource.OpenConnectionAsync();
+
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+            await new YdbCommand("SELECT * FROM table_that_does_not_exist_xyz", conn).ExecuteScalarAsync());
+
+        meterProvider.ForceFlush();
+
+        var failed = GetMetric(exportedItems, "db.client.operation.failed");
+        Assert.NotNull(failed);
+        var point = GetFilteredPoints(failed.GetMetricPoints()).Single();
+        Assert.Equal(1, point.GetSumLong());
+
+        var tags = ToDictionary(point.Tags);
+        Assert.Equal("ydb", tags["db.system.name"]);
+        Assert.Equal(settings.Database, tags["db.namespace"]);
+        Assert.Equal("ExecuteQuery", tags["db.operation.name"]);
+    }
+
+    [Fact]
+    public async Task ConnectionCreateTime()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings();
+        await using var dataSource = new YdbDataSource(settings);
+        await using var _ = await dataSource.OpenConnectionAsync();
+
+        meterProvider.ForceFlush();
+
+        var metric = GetMetric(exportedItems, "db.client.connection.create_time");
+        var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
+
+        Assert.True(point.GetHistogramSum() > 0);
+        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["db.client.connection.pool.name"]);
+    }
+
+    [Fact]
+    public async Task ConnectionPendingRequests()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MaxPoolSize = 1;
+            builder.CreateSessionTimeout = 5;
+            builder.PoolName = "ado-metrics-pending";
+        });
+
+        await using var dataSource = new YdbDataSource(settings);
+        var firstConn = await dataSource.OpenConnectionAsync();
+
+        var secondConnectionTask = dataSource.OpenConnectionAsync();
+        await Task.Yield(); // let secondConnectionTask reach ReportPendingConnectionRequestStart
+        meterProvider.ForceFlush();
+
+        var pendingMetric = GetMetric(exportedItems, "db.client.connection.pending_requests");
+        var pendingPoint = GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single();
+        Assert.Equal(1, pendingPoint.GetSumLong());
+        Assert.Equal(settings.PoolName, ToDictionary(pendingPoint.Tags)["db.client.connection.pool.name"]);
+
+        await firstConn.DisposeAsync();
+        await using var secondConn = await secondConnectionTask;
+
+        exportedItems.Clear();
+        meterProvider.ForceFlush();
+        pendingMetric = GetMetric(exportedItems, "db.client.connection.pending_requests");
+        Assert.Equal(0, GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single().GetSumLong());
+    }
+
+    [Fact]
+    public async Task ConnectionTimeouts()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MaxPoolSize = 1;
+            builder.CreateSessionTimeout = 1;
+            builder.PoolName = "ado-metrics-timeouts";
+        });
+
+        await using var dataSource = new YdbDataSource(settings);
+
+        await using var conn = await dataSource.OpenConnectionAsync();
+
+        await Assert.ThrowsAsync<YdbException>(async () => await dataSource.OpenConnectionAsync());
+
+        meterProvider.ForceFlush();
+
+        var metric = GetMetric(exportedItems, "db.client.connection.timeouts");
+        Assert.NotNull(metric);
+
+        var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
+        Assert.Equal(1, point.GetSumLong());
+        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["db.client.connection.pool.name"]);
+    }
+
+    private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
+        OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+            .AddMeter("Ydb.Sdk")
+            .AddInMemoryExporter(exportedItems)
+            .Build();
+
+    private static YdbConnectionStringBuilder CreateConnectionSettings(
+        Action<YdbConnectionStringBuilder>? configure = null)
+    {
+        var settings = new YdbConnectionStringBuilder(TestUtils.ConnectionString)
+        {
+            PoolName = BaseConnectionSettings.PoolName
+        };
+        configure?.Invoke(settings);
+        return settings;
+    }
+
+    private static Metric GetMetric(List<Metric> exportedItems, string name) =>
+        exportedItems.Single(m => m.Name == name);
+
+    private static IEnumerable<MetricPoint> GetConnectionCountPoints(MetricPointsAccessor points, string poolName)
+    {
+        foreach (var point in points)
+        {
+            if (ToDictionary(point.Tags).GetValueOrDefault("db.client.connection.pool.name") as string == poolName)
+            {
+                yield return point;
+            }
+        }
+    }
+
+    private static MetricPoint GetPoint(IEnumerable<MetricPoint> points, string state)
+    {
+        foreach (var point in points)
+        {
+            foreach (var tag in point.Tags)
+            {
+                if (tag.Key == "db.client.connection.state" && (string?)tag.Value == state)
+                {
+                    return point;
+                }
+            }
+        }
+
+        Assert.Fail($"Point with state '{state}' not found");
+        throw new UnreachableException();
+    }
+
+    private static Dictionary<string, object?> ToDictionary(ReadOnlyTagCollection tags)
+    {
+        var dict = new Dictionary<string, object?>();
+        foreach (var tag in tags)
+        {
+            dict[tag.Key] = tag.Value;
+        }
+
+        return dict;
+    }
+
+    private static IEnumerable<MetricPoint> GetPoolPoints(MetricPointsAccessor points, string poolName)
+    {
+        foreach (var point in points)
+        {
+            if (ToDictionary(point.Tags).GetValueOrDefault("db.client.connection.pool.name") as string == poolName)
+                yield return point;
+        }
+    }
+
+    private static IEnumerable<MetricPoint> GetFilteredPoints(MetricPointsAccessor points)
+    {
+        foreach (var point in points)
+        {
+            var tags = ToDictionary(point.Tags);
+            if (tags.GetValueOrDefault("db.namespace") as string == BaseConnectionSettings.Database &&
+                tags.GetValueOrDefault("server.address") as string == BaseConnectionSettings.Host)
+            {
+                yield return point;
+            }
+        }
+    }
+}
