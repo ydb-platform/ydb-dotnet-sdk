@@ -46,10 +46,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E6A907E2-6DB
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.OpenTelemetry", "Ydb.Sdk.OpenTelemetry\src\Ydb.Sdk.OpenTelemetry.csproj", "{226002DB-76F9-4E6C-BDEA-563D9B6FB76C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.OpenTelemetry.Trace", "..\examples\Ydb.Sdk.AdoNet.OpenTelemetry\Trace\Ydb.Sdk.AdoNet.OpenTelemetry.Trace.csproj", "{334E3960-F966-48BD-8412-FE5A2BEB51AB}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.OpenTelemetry.Metrics", "..\examples\Ydb.Sdk.AdoNet.OpenTelemetry\Metrics\Ydb.Sdk.AdoNet.OpenTelemetry.Metrics.csproj", "{445E3960-F966-48BD-8412-FE5A2BEB51AC}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -180,30 +176,6 @@ Global
 		{226002DB-76F9-4E6C-BDEA-563D9B6FB76C}.Release|x64.Build.0 = Release|Any CPU
 		{226002DB-76F9-4E6C-BDEA-563D9B6FB76C}.Release|x86.ActiveCfg = Release|Any CPU
 		{226002DB-76F9-4E6C-BDEA-563D9B6FB76C}.Release|x86.Build.0 = Release|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Debug|x64.Build.0 = Debug|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Debug|x86.Build.0 = Debug|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Release|x64.ActiveCfg = Release|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Release|x64.Build.0 = Release|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Release|x86.ActiveCfg = Release|Any CPU
-		{334E3960-F966-48BD-8412-FE5A2BEB51AB}.Release|x86.Build.0 = Release|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Debug|x64.Build.0 = Debug|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Debug|x86.Build.0 = Debug|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Release|x64.ActiveCfg = Release|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Release|x64.Build.0 = Release|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Release|x86.ActiveCfg = Release|Any CPU
-		{445E3960-F966-48BD-8412-FE5A2BEB51AC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
