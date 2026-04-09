@@ -121,6 +121,7 @@ const int demoWorkers = 10;
 
 var insertTasks = Enumerable.Range(0, demoWorkers).Select(i => Task.Run(async () =>
 {
+    // ReSharper disable once AccessToDisposedClosure
     await using var conn = await ds.OpenConnectionAsync();
     while (!demoToken.IsCancellationRequested)
     {
