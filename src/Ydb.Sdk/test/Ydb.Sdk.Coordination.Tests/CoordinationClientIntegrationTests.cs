@@ -35,7 +35,7 @@ public class CoordinationClientIntegrationTests
         var describeCoordinationNodeSettings = new DescribeCoordinationNodeSettings();
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var oldNodeConfig = coordinationNodeSettings.Config.ToProto();
-        var pathNode = "/local/test";
+        var pathNode = "/local/test1";
 
         _output.WriteLine($"Creating node at path: {pathNode}");
         _output.WriteLine("Old Config:");
@@ -93,7 +93,7 @@ public class CoordinationClientIntegrationTests
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var initialConfig = coordinationNodeSettings.Config.ToProto();
         var alterNodeConfig = alterCoordinationNodeSettings.Config.ToProto();
-        var pathNode = "/local/test";
+        var pathNode = "/local/test2";
 
         _output.WriteLine($"Node path: {pathNode}");
 
@@ -149,7 +149,7 @@ public class CoordinationClientIntegrationTests
                 .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-        var pathNode = "/local/test";
+        var pathNode = "/local/test3";
 
         // When
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
@@ -157,8 +157,8 @@ public class CoordinationClientIntegrationTests
 
         //Then
         coordinationSession.Status();
-        await coordinationSession.Close();
         coordinationSession.Status();
+        await coordinationSession.Close();
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
     }
 
@@ -175,7 +175,7 @@ public class CoordinationClientIntegrationTests
                 .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-        var pathNode = "/local/test";
+        var pathNode = "/local/test4";
         var semaphoreName = "semaphore1";
         byte[] semaphoreData = [0x00, 0x12];
 
@@ -215,7 +215,7 @@ public class CoordinationClientIntegrationTests
                 .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-        var pathNode = "/local/test";
+        var pathNode = "/local/test5";
         var semaphoreName = "semaphore2";
         byte[] semaphoreData1 = [0x00, 0x12];
         byte[] semaphoreData2 = [0x01, 0x02, 0x03];
@@ -286,7 +286,7 @@ public class CoordinationClientIntegrationTests
     }
 
     [Fact]
-    public async Task AcquireSemaphore()
+    public async Task AcquireSemaphore1()
     {
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
@@ -298,7 +298,7 @@ public class CoordinationClientIntegrationTests
                 .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-        var pathNode = "/local/test";
+        var pathNode = "/local/test6";
         var semaphoreName = "semaphore3";
         byte[] semaphoreData1 = [0x00, 0x12];
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
@@ -310,8 +310,58 @@ public class CoordinationClientIntegrationTests
         await lease.Release();
         //Then
         await semaphore.Delete(false);
-        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
         await coordinationSession1.Close();
+        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
+
+        /*
+       var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
+       // When
+       var lease2 = await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+       await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+       await lease2.Release();
+       await lease2.Release();
+
+
+       Lease lease1;
+       var exception = await Assert.ThrowsAsync<YdbException>(async () =>
+       {
+           // Попытка повторного захвата семафора
+           lease1 = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+       });
+
+       await lease2.Release();
+
+       //Then
+       Assert.Equal("Acquire semaphore failed", exception.Message);
+       */
+    }
+
+    [Fact]
+    public async Task AcquireEphemeralSemaphore() // fix  Ephemeral Semaphore
+    {
+        //  Given
+        var coordinationNodeSettings = new CoordinationNodeSettings
+        {
+            Config = NodeConfig.Create()
+                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
+                .WithReadConsistencyMode(ConsistencyMode.Strict)
+                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
+                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+        };
+        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
+        var pathNode = "/local/test7";
+        var semaphoreName = "semaphore3_2";
+        await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
+        var coordinationSession1 = _coordinationClient.CreateSession(pathNode);
+        var semaphore = coordinationSession1.Semaphore(semaphoreName);
+        await semaphore.Create(1, null);
+        // When
+        var lease = await semaphore.Acquire(1, false, null, TimeSpan.FromSeconds(5));
+        await lease.Release();
+        //Then
+        await semaphore.Delete(false);
+        await coordinationSession1.Close();
+        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
 
         /*
        var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
@@ -349,7 +399,7 @@ public class CoordinationClientIntegrationTests
                 .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-        var pathNode = "/local/test";
+        var pathNode = "/local/test8";
         var semaphoreName = "semaphore4";
         byte[] semaphoreData1 = [0x00, 0x12];
         byte[] semaphoreData2 = [0x01, 0x02, 0x03];
@@ -360,7 +410,7 @@ public class CoordinationClientIntegrationTests
         var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
         // When
         await semaphore1.Create(20, semaphoreData1);
-        // --- WATCH #1 ---
+        // --- WATCH ---
         var watch = await semaphore2.WatchSemaphore(DescribeSemaphoreMode.WithOwners, WatchSemaphoreMode.WatchOwners);
         var initial = watch.Initial;
         Assert.Empty(initial.GetOwnersList());
@@ -423,9 +473,8 @@ public class CoordinationClientIntegrationTests
         await updates.DisposeAsync();
         await semaphore1.Release();
         await semaphore1.Delete(false);
-
-        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
         await coordinationSession1.Close();
         await coordinationSession2.Close();
+        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
     }
 }

@@ -509,10 +509,11 @@ public class SessionRuntime
     }
 
     public async Task AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
-        TimeSpan timeout)
+        TimeSpan? timeout)
     {
         await EnsureInitialized();
         var reqId = GetNextReqId();
+
         var acquireSemaphore = new SessionRequest
         {
             AcquireSemaphore = new SessionRequest.Types.AcquireSemaphore
@@ -521,7 +522,7 @@ public class SessionRuntime
                 Count = count, // обратить на число
                 Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
                 Ephemeral = isEphemeral,
-                TimeoutMillis = (ulong)timeout.TotalMilliseconds,
+                TimeoutMillis = timeout == null ? ulong.MaxValue : (ulong)timeout.Value.TotalMilliseconds,
                 ReqId = reqId
             }
         };

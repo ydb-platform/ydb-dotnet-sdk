@@ -35,7 +35,7 @@ public class Semaphore
 
 
     public async Task<Lease> Acquire(ulong count, bool isEphemeral, byte[]? data,
-        TimeSpan timeout)
+        TimeSpan? timeout)
     {
         await _sessionRuntime.AcquireSemaphore(Name, count, isEphemeral, data, timeout);
         return new Lease(this);
