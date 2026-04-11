@@ -58,7 +58,11 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
                 {
                     var delay = retryPolicy.GetNextDelay(e, attempt++);
                     if (delay == null)
+                    {
+                        dbRetryActivity?.SetException(e);
+                        dbActivity?.SetException(e);
                         throw;
+                    }
 
                     // Close the previous retry span before starting a new one
                     dbRetryActivity?.SetException(e);

@@ -267,8 +267,29 @@ public class YdbTracingTests : TestBase
         await Assert.ThrowsAsync<YdbException>(() =>
             executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Unauthorized, "no access")));
 
-        GetSingleActivity(activities, "ydb.Execute");
+        var executeActivity = GetSingleActivity(activities, "ydb.Execute", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal(StatusCode.Unauthorized, executeActivity.GetTagItem("db.response.status_code"));
         Assert.DoesNotContain(activities, a => a.DisplayName == "ydb.Retry");
+    }
+
+    [Fact]
+    public async Task Execute_RetriesExhausted_EmitsExecuteAndRetryActivitiesWithError()
+    {
+        using var activityListener = StartListener(out var activities);
+
+        var policy = new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 2 });
+        var executor = new YdbRetryPolicyExecutor(policy);
+
+        // Aborted is retryable; with MaxAttempts=2 we get 1 retry then failure
+        await Assert.ThrowsAsync<YdbException>(() =>
+            executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Aborted, "always fails")));
+
+        var executeActivity = GetSingleActivity(activities, "ydb.Execute", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal(StatusCode.Aborted, executeActivity.GetTagItem("db.response.status_code"));
+
+        var retryActivity = GetSingleActivity(activities, "ydb.Retry", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal(1, retryActivity.GetTagItem("ydb.retry.attempt"));
+        Assert.Equal(StatusCode.Aborted, retryActivity.GetTagItem("db.response.status_code"));
     }
 
     private static ActivityListener StartListener(out List<Activity> activities)
