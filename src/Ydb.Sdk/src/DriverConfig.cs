@@ -74,7 +74,7 @@ public class DriverConfig
     /// </summary>
     public int MaxReceiveMessageSize { get; init; } = GrpcDefaultSettings.MaxReceiveMessageSize;
 
-    internal X509Certificate2Collection CustomServerCertificates { get; } = new();
+    internal X509Certificate2Collection CustomServerCertificates { get; } = [];
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
     internal string SdkVersion { get; }
