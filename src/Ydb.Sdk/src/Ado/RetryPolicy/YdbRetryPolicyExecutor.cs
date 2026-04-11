@@ -40,27 +40,39 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
         CancellationToken cancellationToken
     )
     {
+        using var dbActivity = YdbActivitySource.StartActivity("ydb.Execute", ActivityKind.Internal);
+
         var attempt = 0;
-        while (true)
+        Activity? dbRetryActivity = null;
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            using var dbActive = YdbActivitySource.StartActivity("ydb.ExecuteWithRetry", ActivityKind.Internal);
-
-            try
+            while (true)
             {
-                return await operation(cancellationToken).ConfigureAwait(false);
-            }
-            catch (YdbException e)
-            {
-                dbActive?.SetException(e);
+                cancellationToken.ThrowIfCancellationRequested();
 
-                var delay = retryPolicy.GetNextDelay(e, attempt++);
-                if (delay == null)
-                    throw;
+                try
+                {
+                    return await operation(cancellationToken).ConfigureAwait(false);
+                }
+                catch (YdbException e)
+                {
+                    var delay = retryPolicy.GetNextDelay(e, attempt++);
+                    if (delay == null)
+                        throw;
 
-                dbActive?.SetRetryAttributes(attempt, delay.Value);
-                await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
+                    // Close the previous retry span before starting a new one
+                    dbRetryActivity?.SetException(e);
+                    dbRetryActivity?.Dispose();
+                    dbRetryActivity = YdbActivitySource.StartActivity("ydb.Retry", ActivityKind.Internal);
+                    dbRetryActivity?.SetRetryAttributes(attempt, delay.Value);
+                    await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
+                    // dbRetryActivity stays open so the next operation() call is a child of it
+                }
             }
+        }
+        finally
+        {
+            dbRetryActivity?.Dispose();
         }
     }
 }
