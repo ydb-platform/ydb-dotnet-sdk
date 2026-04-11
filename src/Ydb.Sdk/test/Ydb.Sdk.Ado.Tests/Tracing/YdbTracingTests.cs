@@ -267,7 +267,8 @@ public class YdbTracingTests : TestBase
         await Assert.ThrowsAsync<YdbException>(() =>
             executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Unauthorized, "no access")));
 
-        var executeActivity = GetSingleActivity(activities, "ydb.Execute", expectedStatusCode: ActivityStatusCode.Error);
+        var executeActivity =
+            GetSingleActivity(activities, "ydb.Execute", expectedStatusCode: ActivityStatusCode.Error);
         Assert.Equal(StatusCode.Unauthorized, executeActivity.GetTagItem("db.response.status_code"));
         Assert.DoesNotContain(activities, a => a.DisplayName == "ydb.Retry");
     }
@@ -284,7 +285,8 @@ public class YdbTracingTests : TestBase
         await Assert.ThrowsAsync<YdbException>(() =>
             executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Aborted, "always fails")));
 
-        var executeActivity = GetSingleActivity(activities, "ydb.Execute", expectedStatusCode: ActivityStatusCode.Error);
+        var executeActivity =
+            GetSingleActivity(activities, "ydb.Execute", expectedStatusCode: ActivityStatusCode.Error);
         Assert.Equal(StatusCode.Aborted, executeActivity.GetTagItem("db.response.status_code"));
 
         var retryActivity = GetSingleActivity(activities, "ydb.Retry", expectedStatusCode: ActivityStatusCode.Error);
