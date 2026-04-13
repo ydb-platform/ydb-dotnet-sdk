@@ -241,7 +241,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         }
 
         // Statement order is important
-        session.IdleStartTime = DateTime.Now;
+        session.IdleStartTime = DateTime.UtcNow;
         session.Set(PoolingSessionState.In);
 
         while (_waiters.TryDequeue(out var waiter))
@@ -279,7 +279,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     private static void CleanIdleSessions(object? state)
     {
         var pool = (PoolingSessionSource<T>)state!;
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
 
         for (var i = 0; i < pool._maxSizePool; i++)
         {
