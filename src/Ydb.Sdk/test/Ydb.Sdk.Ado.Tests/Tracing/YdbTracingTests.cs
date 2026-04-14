@@ -351,13 +351,13 @@ public class YdbTracingTests : TestBase
 
         var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
         var firstAttempt = true;
-        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             executor.ExecuteAsync(_ =>
             {
                 if (!firstAttempt)
                     return Task.CompletedTask; // should never reach here
                 firstAttempt = false;
-                cts.Cancel(); // delay after this will throw OCE
+                cts.Cancel(); // delay after this will throw TaskCanceledException (subclass of OCE)
                 throw new YdbException(StatusCode.Aborted, "retry me");
             }, cts.Token));
 
