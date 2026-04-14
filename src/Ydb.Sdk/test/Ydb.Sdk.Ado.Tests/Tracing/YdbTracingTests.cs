@@ -50,7 +50,7 @@ public class YdbTracingTests : TestBase
 
         var capturedNames = activities.Select(a => a.DisplayName).ToList();
         Assert.Contains("test.parent", capturedNames);
-        Assert.DoesNotContain(capturedNames, name => name.StartsWith("ydb.", StringComparison.Ordinal));
+        Assert.DoesNotContain(capturedNames, name => name.StartsWith("ydb."));
     }
 
     [Fact]
@@ -113,14 +113,15 @@ public class YdbTracingTests : TestBase
         await using var connection = await CreateOpenConnectionAsync();
         using var activityListener = StartListener(out var activities);
 
-        _ = await Assert.ThrowsAnyAsync<Exception>(async () =>
+        _ = await Assert.ThrowsAnyAsync<YdbException>(async () =>
             await new YdbCommand("SELECT * FROM non_existing_table", connection).ExecuteScalarAsync());
 
         var activity = GetSingleActivity(activities, "ydb.ExecuteQuery", expectedStatusCode: ActivityStatusCode.Error);
         Assert.NotNull(activity.StatusDescription);
 
         var tags = activity.TagObjects.ToDictionary(t => t.Key, t => t.Value);
-        Assert.Contains("error.type", tags.Keys);
+        Assert.Equal("ydb_error", tags.GetValueOrDefault("error.type"));
+        Assert.Equal("SchemeError", tags.GetValueOrDefault("db.response.status_code")!.ToString());
     }
 
     [Fact]
@@ -173,6 +174,7 @@ public class YdbTracingTests : TestBase
         Assert.Empty(executeWithRetryActivity.TagObjects);
 
         var tryActivity = GetSingleActivity(activities, "ydb.Try");
+        Assert.Empty(tryActivity.Events);
         Assert.Empty(tryActivity.TagObjects);
         Assert.Equal(ActivityKind.Internal, tryActivity.Kind);
 
@@ -207,6 +209,7 @@ public class YdbTracingTests : TestBase
         Assert.Empty(executeWithRetryActivity.TagObjects);
 
         var tryActivity = GetSingleActivity(activities, "ydb.Try");
+        Assert.Empty(tryActivity.Events);
         Assert.Empty(tryActivity.TagObjects);
         Assert.Equal(ActivityKind.Internal, tryActivity.Kind);
 
@@ -215,24 +218,6 @@ public class YdbTracingTests : TestBase
         Assert.Equal(ActivityKind.Client, executeQueryActivity.Kind);
         Assert.Equal(true, executeQueryActivity.GetTagItem("ydb.execute.in_memory"));
         AssertCommonDbTags(executeQueryActivity);
-    }
-
-    [Fact]
-    public async Task Execute_NoRetry_EmitsSingleExecuteAndTryActivity()
-    {
-        using var activityListener = StartListener(out var activities);
-
-        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
-        await executor.ExecuteAsync(_ => Task.CompletedTask);
-
-        var executeActivity = GetSingleActivity(activities, "ydb.RunWithRetry");
-        Assert.Equal(ActivityKind.Internal, executeActivity.Kind);
-        Assert.Empty(executeActivity.TagObjects);
-
-        // First attempt is always wrapped in ydb.Try with no retry attributes
-        var tryActivity = GetSingleActivity(activities, "ydb.Try");
-        Assert.Equal(ActivityKind.Internal, tryActivity.Kind);
-        Assert.Empty(tryActivity.TagObjects);
     }
 
     [Fact]
@@ -306,6 +291,7 @@ public class YdbTracingTests : TestBase
         var executeActivity =
             GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
         Assert.Equal(StatusCode.Aborted, executeActivity.GetTagItem("db.response.status_code"));
+        Assert.Equal("ydb_error", executeActivity.GetTagItem("error.type"));
 
         var tryActivities = activities.Where(a => a.DisplayName == "ydb.Try").ToList();
         Assert.Equal(2, tryActivities.Count);
@@ -314,26 +300,23 @@ public class YdbTracingTests : TestBase
         // First ydb.Try: no backoff attribute, has error
         var firstTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") == null);
         Assert.Equal(StatusCode.Aborted, firstTry.GetTagItem("db.response.status_code"));
+        Assert.Equal("ydb_error", firstTry.GetTagItem("error.type"));
 
         // Second ydb.Try: backoff attribute present, also has error
         var retryTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") != null);
         Assert.NotNull(retryTry.GetTagItem("ydb.retry.backoff_ms"));
         Assert.Equal(StatusCode.Aborted, retryTry.GetTagItem("db.response.status_code"));
+        Assert.Equal("ydb_error", retryTry.GetTagItem("error.type"));
     }
 
     [Fact]
     public async Task Execute_CancellationDuringOperation_SetsErrorTypeOnTryAndExecuteSpans()
     {
         using var activityListener = StartListener(out var activities);
-        var cts = new CancellationTokenSource();
 
         var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            executor.ExecuteAsync(_ =>
-            {
-                cts.Cancel();
-                throw new OperationCanceledException(cts.Token);
-            }, cts.Token));
+            executor.ExecuteAsync(_ => throw new OperationCanceledException()));
 
         var executeActivity =
             GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
@@ -450,6 +433,10 @@ public class YdbTracingTests : TestBase
             GetSingleActivity(activities, "ydb.Try", expectedStatusCode: ActivityStatusCode.Error);
         Assert.Null(tryActivity.GetTagItem("ydb.retry.backoff_ms"));
         Assert.Equal("System.OperationCanceledException", tryActivity.GetTagItem("error.type"));
+
+        var rollbackActivity = GetSingleActivity(activities, "ydb.Rollback");
+        Assert.Equal(ActivityKind.Client, rollbackActivity.Kind);
+        Assert.Empty(rollbackActivity.TagObjects);
     }
 
     [Fact]
@@ -482,6 +469,10 @@ public class YdbTracingTests : TestBase
             GetSingleActivity(activities, "ydb.Try", expectedStatusCode: ActivityStatusCode.Error);
         Assert.Null(tryActivity.GetTagItem("ydb.retry.backoff_ms"));
         Assert.Equal("System.OperationCanceledException", tryActivity.GetTagItem("error.type"));
+
+        var rollbackActivity = GetSingleActivity(activities, "ydb.Rollback");
+        Assert.Equal(ActivityKind.Client, rollbackActivity.Kind);
+        AssertCommonDbTags(rollbackActivity);
     }
 
     private static ActivityListener StartListener(out List<Activity> activities)

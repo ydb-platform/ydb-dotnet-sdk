@@ -7,7 +7,7 @@ using Ydb.Sdk.Ado.Tests.Utils;
 namespace Ydb.Sdk.Ado.Tests;
 
 [Collection("DisableParallelization")]
-public class MetricTests : TestBase
+public class YdbMetricTests : TestBase
 {
     private static readonly YdbConnectionStringBuilder BaseConnectionSettings = new(TestUtils.ConnectionString)
     {
