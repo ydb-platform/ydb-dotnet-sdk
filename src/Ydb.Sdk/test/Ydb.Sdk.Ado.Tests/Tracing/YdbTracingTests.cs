@@ -325,7 +325,7 @@ public class YdbTracingTests : TestBase
     public async Task Execute_CancellationDuringOperation_SetsErrorTypeOnTryAndExecuteSpans()
     {
         using var activityListener = StartListener(out var activities);
-        using var cts = new CancellationTokenSource();
+        var cts = new CancellationTokenSource();
 
         var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
@@ -347,7 +347,7 @@ public class YdbTracingTests : TestBase
     public async Task Execute_CancellationDuringRetryDelay_SetsErrorTypeOnExecuteSpan()
     {
         using var activityListener = StartListener(out var activities);
-        using var cts = new CancellationTokenSource();
+        var cts = new CancellationTokenSource();
 
         var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
         var firstAttempt = true;
@@ -384,7 +384,7 @@ public class YdbTracingTests : TestBase
     public async Task Execute_CancellationDuringRetryOperation_SetsErrorOnBothSpans()
     {
         using var activityListener = StartListener(out var activities);
-        using var cts = new CancellationTokenSource();
+        var cts = new CancellationTokenSource();
 
         var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
         var firstAttempt = true;
@@ -397,6 +397,7 @@ public class YdbTracingTests : TestBase
                     cts.Cancel();
                     ct.ThrowIfCancellationRequested();
                 }
+
                 firstAttempt = false;
                 throw new YdbException(StatusCode.Aborted, "retry me");
             }, cts.Token));
@@ -429,12 +430,12 @@ public class YdbTracingTests : TestBase
         await new YdbCommand("SELECT 1;", initConnection).ExecuteNonQueryAsync();
 
         using var activityListener = StartListener(out var activities);
-        using var cts = new CancellationTokenSource();
+        var cts = new CancellationTokenSource();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
             ydbDataSource.ExecuteInTransactionAsync(async (_, ct) =>
             {
-                cts.Cancel();
+                await cts.CancelAsync();
                 ct.ThrowIfCancellationRequested();
                 await Task.CompletedTask;
             }, cancellationToken: cts.Token));
@@ -461,13 +462,13 @@ public class YdbTracingTests : TestBase
         await new YdbCommand("SELECT 1;", initConnection).ExecuteNonQueryAsync();
 
         using var activityListener = StartListener(out var activities);
-        using var cts = new CancellationTokenSource();
+        var cts = new CancellationTokenSource();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
             ydbDataSource.ExecuteInTransactionAsync(async (conn, ct) =>
             {
                 await new YdbCommand("SELECT 1;", conn).ExecuteNonQueryAsync(ct);
-                cts.Cancel();
+                await cts.CancelAsync();
                 ct.ThrowIfCancellationRequested();
             }, cancellationToken: cts.Token));
 
