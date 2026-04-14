@@ -40,10 +40,10 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
         CancellationToken cancellationToken
     )
     {
-        using var dbActivity = YdbActivitySource.StartActivity("ydb.Execute", ActivityKind.Internal);
+        using var dbActivity = YdbActivitySource.StartActivity("ydb.RunWithRetry", ActivityKind.Internal);
 
         var attempt = 0;
-        Activity? dbRetryActivity = null;
+        var dbTryActivity = YdbActivitySource.StartActivity("ydb.Try", ActivityKind.Internal);
         try
         {
             while (true)
@@ -59,24 +59,28 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
                     var delay = retryPolicy.GetNextDelay(e, attempt++);
                     if (delay == null)
                     {
-                        dbRetryActivity?.SetException(e);
-                        dbActivity?.SetException(e);
                         throw;
                     }
 
                     // Close the previous retry span before starting a new one
-                    dbRetryActivity?.SetException(e);
-                    dbRetryActivity?.Dispose();
-                    dbRetryActivity = YdbActivitySource.StartActivity("ydb.Retry", ActivityKind.Internal);
-                    dbRetryActivity?.SetRetryAttributes(attempt, delay.Value);
+                    dbTryActivity?.SetException(e);
+                    dbTryActivity?.Dispose();
+                    dbTryActivity = YdbActivitySource.StartActivity("ydb.Try", ActivityKind.Internal);
+                    dbTryActivity?.SetRetryAttributes(delay.Value);
                     await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
-                    // dbRetryActivity stays open so the next operation() call is a child of it
+                    // dbTryActivity stays open so the next operation() call is a child of it
                 }
             }
         }
+        catch (Exception e)
+        {
+            dbTryActivity?.SetException(e);
+            dbActivity?.SetException(e);
+            throw;
+        }
         finally
         {
-            dbRetryActivity?.Dispose();
+            dbTryActivity?.Dispose();
         }
     }
 }

@@ -111,7 +111,7 @@ Key design notes:
 | `IRetryPolicy` | Interface: `TimeSpan? GetNextDelay(YdbException, int attempt)` |
 | `YdbRetryPolicy` | Default implementation. Exponential backoff with jitter (AWS pattern). |
 | `YdbRetryPolicyConfig` | Configuration: `MaxAttempts`, base/cap delays for fast/slow paths, idempotence flag. |
-| `YdbRetryPolicyExecutor` | Wraps an `IRetryPolicy` and an async operation. Emits `ydb.Execute` / `ydb.Retry` tracing spans. |
+| `YdbRetryPolicyExecutor` | Wraps an `IRetryPolicy` and an async operation. Emits `ydb.RunWithRetry` / `ydb.Try` tracing spans. |
 
 Retry delay strategy by status code:
 
@@ -144,22 +144,23 @@ ActivitySource name: **`Ydb.Sdk`**.
 |---|---|---|
 | `ydb.Driver.Initialize` | Internal | Driver first initialization |
 | `ydb.CreateSession` | Client | Session creation (gRPC call) |
-| `ydb.Execute` | Internal | Wraps the full retry loop in `YdbRetryPolicyExecutor` |
-| `ydb.Retry` | Internal | Emitted only when a retry actually happens; one per retry attempt |
+| `ydb.RunWithRetry` | Internal | Wraps the full retry loop in `YdbRetryPolicyExecutor` |
+| `ydb.Try` | Internal | One per attempt (including the first); each attempt's `operation()` call runs inside it |
 | `ydb.ExecuteQuery` | Client | Individual YQL query execution |
 | `ydb.Commit` | Client | Transaction commit |
 | `ydb.Rollback` | Client | Transaction rollback |
 
-Span lifecycle for `ydb.Execute` / `ydb.Retry`:
-- `ydb.Execute` is the outer span for the whole operation.
-- `ydb.Retry` is created only on a retryable error and stays open across the backoff delay
-  and the next `operation()` invocation, so child spans (RPCs) appear nested inside it.
-- On non-retryable error: both `ydb.Retry` (if active) and `ydb.Execute` get error status.
-- On retries exhausted: `ydb.Retry` and `ydb.Execute` both get error status.
+Span lifecycle for `ydb.RunWithRetry` / `ydb.Try`:
+- `ydb.RunWithRetry` is the outer span for the whole operation.
+- `ydb.Try` is created for every attempt. The first attempt's span has no extra tags.
+- Retry attempt spans carry the `ydb.retry.backoff_ms` tag (the backoff waited before that attempt).
+- On non-retryable error: the current `ydb.Try` and `ydb.RunWithRetry` both get error status.
+- On retries exhausted: all `ydb.Try` spans and `ydb.RunWithRetry` get error status.
+- On cancellation: `error.type` is set to the exception type full name on the affected spans.
 
-Error tags set by `SetException(YdbException)`:
-- `db.response.status_code` — the YDB `StatusCode`
-- `error.type` — `"transport_error"` for client transport codes, `"ydb_error"` otherwise
+Error tags set by `SetException(Exception)`:
+- For `YdbException`: `db.response.status_code` — the YDB `StatusCode`; `error.type` — `"transport_error"` for client transport codes, `"ydb_error"` otherwise
+- For other exceptions (e.g. `OperationCanceledException`): `error.type` — the full exception type name
 
 ### Topic Client (`Topic/`)
 
@@ -196,9 +197,8 @@ Pub/Sub client for YDB Topics (similar to Kafka). Key classes: `TopicClient`, `T
    registry (not the `ConcurrentStack`), because `ConcurrentStack` can contain stale references
    to sessions already closed by `CleanIdleSessions`.
 
-4. **`ydb.Retry` span is held open across the backoff + next attempt** so that child RPC spans
-   are correctly parented. The span is only closed (and given error/ok status) just before the
-   next retry span is opened, or when the operation terminates.
+4. **`ydb.Try` spans one attempt each**. The backoff delay is inside next span `ydb.Try`. 
+   Child RPC spans are correctly parented inside the `ydb.Try` of the attempt that produced them.
 
 5. **`EnableImplicitSession`** switches from `PoolingSessionSource` to `ImplicitSessionSource`,
    which relies on server-managed sessions. Useful for write-heavy workloads that don't benefit

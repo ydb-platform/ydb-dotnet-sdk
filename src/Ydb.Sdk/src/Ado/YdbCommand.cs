@@ -196,8 +196,6 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
-        const string operationName = "ExecuteQuery";
-
         cancellationToken.ThrowIfCancellationRequested();
 
         if (YdbConnection.IsBusy)
@@ -209,7 +207,7 @@ public sealed class YdbCommand : DbCommand
 
         var startTimestamp = YdbConnection.MetricsReporter.ReportCommandStart();
         var dbActivity = YdbConnection.Session is not RetryableSession
-            ? YdbActivitySource.StartActivity($"ydb.{operationName}")
+            ? YdbActivitySource.StartActivity("ydb.ExecuteQuery")
             : null;
 
         var ydbParameterCollection = DbParameterCollection.YdbParameters;
