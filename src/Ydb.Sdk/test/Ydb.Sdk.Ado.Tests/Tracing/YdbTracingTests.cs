@@ -361,13 +361,13 @@ public class YdbTracingTests : TestBase
                 throw new YdbException(StatusCode.Aborted, "retry me");
             }, cts.Token));
 
-        // ydb.RunWithRetry gets OCE error type (from the cancelled delay)
+        // ydb.RunWithRetry gets TaskCanceledException (Task.Delay throws this subtype of OCE)
         var executeActivity =
             GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
-        Assert.Equal("System.OperationCanceledException", executeActivity.GetTagItem("error.type"));
+        Assert.Equal("System.Threading.Tasks.TaskCanceledException", executeActivity.GetTagItem("error.type"));
 
         // Two ydb.Try spans: the first attempt (Aborted) and the retry span that was opened before
-        // the delay but received OCE when the delay was cancelled
+        // the delay but received TaskCanceledException when the delay was cancelled
         var tryActivities = activities.Where(a => a.DisplayName == "ydb.Try").ToList();
         Assert.Equal(2, tryActivities.Count);
         Assert.All(tryActivities, a => Assert.Equal(ActivityStatusCode.Error, a.Status));
@@ -377,7 +377,7 @@ public class YdbTracingTests : TestBase
         Assert.Equal("ydb_error", firstTry.GetTagItem("error.type"));
 
         var retryTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") != null);
-        Assert.Equal("System.OperationCanceledException", retryTry.GetTagItem("error.type"));
+        Assert.Equal("System.Threading.Tasks.TaskCanceledException", retryTry.GetTagItem("error.type"));
     }
 
     [Fact]
