@@ -167,10 +167,14 @@ public class YdbTracingTests : TestBase
         await ydbDataSource.ExecuteInTransactionAsync(connection =>
             new YdbCommand("SELECT 1;", connection).ExecuteNonQueryAsync());
 
-        var executeWithRetryActivity = GetSingleActivity(activities, "ydb.Execute");
+        var executeWithRetryActivity = GetSingleActivity(activities, "ydb.RunWithRetry");
         Assert.Empty(executeWithRetryActivity.Events);
         Assert.Equal(ActivityKind.Internal, executeWithRetryActivity.Kind);
         Assert.Empty(executeWithRetryActivity.TagObjects);
+
+        var tryActivity = GetSingleActivity(activities, "ydb.Try");
+        Assert.Empty(tryActivity.TagObjects);
+        Assert.Equal(ActivityKind.Internal, tryActivity.Kind);
 
         var executeQueryActivity = GetSingleActivity(activities, "ydb.ExecuteQuery");
         Assert.Empty(executeQueryActivity.Events);
@@ -181,8 +185,6 @@ public class YdbTracingTests : TestBase
         Assert.Empty(commitActivity.Events);
         Assert.Equal(ActivityKind.Client, commitActivity.Kind);
         AssertCommonDbTags(commitActivity);
-
-        Assert.DoesNotContain(activities, a => a.DisplayName == "ydb.Retry");
     }
 
     [Fact]
@@ -199,36 +201,42 @@ public class YdbTracingTests : TestBase
         await using var ydbRetryableConnection = await ydbDataSource.OpenRetryableConnectionAsync();
         await new YdbCommand("SELECT 1;", ydbRetryableConnection).ExecuteNonQueryAsync();
 
-        var executeWithRetryActivity = GetSingleActivity(activities, "ydb.Execute");
+        var executeWithRetryActivity = GetSingleActivity(activities, "ydb.RunWithRetry");
         Assert.Empty(executeWithRetryActivity.Events);
         Assert.Equal(ActivityKind.Internal, executeWithRetryActivity.Kind);
         Assert.Empty(executeWithRetryActivity.TagObjects);
+
+        var tryActivity = GetSingleActivity(activities, "ydb.Try");
+        Assert.Empty(tryActivity.TagObjects);
+        Assert.Equal(ActivityKind.Internal, tryActivity.Kind);
 
         var executeQueryActivity = GetSingleActivity(activities, "ydb.ExecuteQuery");
         Assert.Empty(executeQueryActivity.Events);
         Assert.Equal(ActivityKind.Client, executeQueryActivity.Kind);
         Assert.Equal(true, executeQueryActivity.GetTagItem("ydb.execute.in_memory"));
         AssertCommonDbTags(executeQueryActivity);
-
-        Assert.DoesNotContain(activities, a => a.DisplayName == "ydb.Retry");
     }
 
     [Fact]
-    public async Task Execute_NoRetry_EmitsSingleExecuteActivity()
+    public async Task Execute_NoRetry_EmitsSingleExecuteAndTryActivity()
     {
         using var activityListener = StartListener(out var activities);
 
         var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
         await executor.ExecuteAsync(_ => Task.CompletedTask);
 
-        var executeActivity = GetSingleActivity(activities, "ydb.Execute");
+        var executeActivity = GetSingleActivity(activities, "ydb.RunWithRetry");
         Assert.Equal(ActivityKind.Internal, executeActivity.Kind);
         Assert.Empty(executeActivity.TagObjects);
-        Assert.DoesNotContain(activities, a => a.DisplayName == "ydb.Retry");
+
+        // First attempt is always wrapped in ydb.Try with no retry attributes
+        var tryActivity = GetSingleActivity(activities, "ydb.Try");
+        Assert.Equal(ActivityKind.Internal, tryActivity.Kind);
+        Assert.Empty(tryActivity.TagObjects);
     }
 
     [Fact]
-    public async Task Execute_WithRetry_EmitsExecuteAndRetryActivities()
+    public async Task Execute_WithRetry_EmitsTwoTryActivities()
     {
         using var activityListener = StartListener(out var activities);
 
@@ -244,21 +252,27 @@ public class YdbTracingTests : TestBase
             throw new YdbException(StatusCode.Aborted, "TLI!");
         });
 
-        // ydb.Execute wraps everything, ydb.Retry only on actual retry
-        var executeActivity = GetSingleActivity(activities, "ydb.Execute");
+        var executeActivity = GetSingleActivity(activities, "ydb.RunWithRetry");
         Assert.Equal(ActivityKind.Internal, executeActivity.Kind);
         Assert.Empty(executeActivity.TagObjects);
 
-        // ydb.Retry span has no error: the attempt under it succeeded.
-        // The error that triggered the retry is recorded on the span of the previous attempt.
-        var retryActivity = GetSingleActivity(activities, "ydb.Retry");
-        Assert.Equal(ActivityKind.Internal, retryActivity.Kind);
-        Assert.Equal(1, retryActivity.GetTagItem("ydb.retry.attempt"));
-        Assert.NotNull(retryActivity.GetTagItem("ydb.retry.backoff_ms"));
+        var tryActivities = activities.Where(a => a.DisplayName == "ydb.Try").ToList();
+        Assert.Equal(2, tryActivities.Count);
+
+        // First ydb.Try: the failing attempt — has error, no backoff attribute
+        var firstTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") == null);
+        Assert.Equal(ActivityStatusCode.Error, firstTry.Status);
+        Assert.Equal(StatusCode.Aborted, firstTry.GetTagItem("db.response.status_code"));
+        Assert.Equal("ydb_error", firstTry.GetTagItem("error.type"));
+
+        // Second ydb.Try: the successful retry — has backoff attribute, no error
+        var retryTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") != null);
+        Assert.Equal(ActivityStatusCode.Unset, retryTry.Status);
+        Assert.NotNull(retryTry.GetTagItem("ydb.retry.backoff_ms"));
     }
 
     [Fact]
-    public async Task Execute_NonRetryableError_EmitsExecuteWithoutRetryActivity()
+    public async Task Execute_NonRetryableError_EmitsExecuteAndTryWithError()
     {
         using var activityListener = StartListener(out var activities);
 
@@ -268,13 +282,17 @@ public class YdbTracingTests : TestBase
             executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Unauthorized, "no access")));
 
         var executeActivity =
-            GetSingleActivity(activities, "ydb.Execute", expectedStatusCode: ActivityStatusCode.Error);
+            GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
         Assert.Equal(StatusCode.Unauthorized, executeActivity.GetTagItem("db.response.status_code"));
-        Assert.DoesNotContain(activities, a => a.DisplayName == "ydb.Retry");
+        Assert.Equal("ydb_error", executeActivity.GetTagItem("error.type"));
+
+        var tryActivity = GetSingleActivity(activities, "ydb.Try", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal(StatusCode.Unauthorized, tryActivity.GetTagItem("db.response.status_code"));
+        Assert.Equal("ydb_error", tryActivity.GetTagItem("error.type"));
     }
 
     [Fact]
-    public async Task Execute_RetriesExhausted_EmitsExecuteAndRetryActivitiesWithError()
+    public async Task Execute_RetriesExhausted_EmitsTwoTryActivitiesWithError()
     {
         using var activityListener = StartListener(out var activities);
 
@@ -286,12 +304,183 @@ public class YdbTracingTests : TestBase
             executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Aborted, "always fails")));
 
         var executeActivity =
-            GetSingleActivity(activities, "ydb.Execute", expectedStatusCode: ActivityStatusCode.Error);
+            GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
         Assert.Equal(StatusCode.Aborted, executeActivity.GetTagItem("db.response.status_code"));
 
-        var retryActivity = GetSingleActivity(activities, "ydb.Retry", expectedStatusCode: ActivityStatusCode.Error);
-        Assert.Equal(1, retryActivity.GetTagItem("ydb.retry.attempt"));
-        Assert.Equal(StatusCode.Aborted, retryActivity.GetTagItem("db.response.status_code"));
+        var tryActivities = activities.Where(a => a.DisplayName == "ydb.Try").ToList();
+        Assert.Equal(2, tryActivities.Count);
+        Assert.All(tryActivities, a => Assert.Equal(ActivityStatusCode.Error, a.Status));
+
+        // First ydb.Try: no backoff attribute, has error
+        var firstTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") == null);
+        Assert.Equal(StatusCode.Aborted, firstTry.GetTagItem("db.response.status_code"));
+
+        // Second ydb.Try: backoff attribute present, also has error
+        var retryTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") != null);
+        Assert.NotNull(retryTry.GetTagItem("ydb.retry.backoff_ms"));
+        Assert.Equal(StatusCode.Aborted, retryTry.GetTagItem("db.response.status_code"));
+    }
+
+    [Fact]
+    public async Task Execute_CancellationDuringOperation_SetsErrorTypeOnTryAndExecuteSpans()
+    {
+        using var activityListener = StartListener(out var activities);
+        using var cts = new CancellationTokenSource();
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            executor.ExecuteAsync(_ =>
+            {
+                cts.Cancel();
+                throw new OperationCanceledException(cts.Token);
+            }, cts.Token));
+
+        var executeActivity =
+            GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal("System.OperationCanceledException", executeActivity.GetTagItem("error.type"));
+
+        var tryActivity = GetSingleActivity(activities, "ydb.Try", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal("System.OperationCanceledException", tryActivity.GetTagItem("error.type"));
+    }
+
+    [Fact]
+    public async Task Execute_CancellationDuringRetryDelay_SetsErrorTypeOnExecuteSpan()
+    {
+        using var activityListener = StartListener(out var activities);
+        using var cts = new CancellationTokenSource();
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
+        var firstAttempt = true;
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            executor.ExecuteAsync(_ =>
+            {
+                if (!firstAttempt)
+                    return Task.CompletedTask; // should never reach here
+                firstAttempt = false;
+                cts.Cancel(); // delay after this will throw OCE
+                throw new YdbException(StatusCode.Aborted, "retry me");
+            }, cts.Token));
+
+        // ydb.RunWithRetry gets OCE error type (from the cancelled delay)
+        var executeActivity =
+            GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal("System.OperationCanceledException", executeActivity.GetTagItem("error.type"));
+
+        // Two ydb.Try spans: the first attempt (Aborted) and the retry span that was opened before
+        // the delay but received OCE when the delay was cancelled
+        var tryActivities = activities.Where(a => a.DisplayName == "ydb.Try").ToList();
+        Assert.Equal(2, tryActivities.Count);
+        Assert.All(tryActivities, a => Assert.Equal(ActivityStatusCode.Error, a.Status));
+
+        var firstTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") == null);
+        Assert.Equal(StatusCode.Aborted, firstTry.GetTagItem("db.response.status_code"));
+        Assert.Equal("ydb_error", firstTry.GetTagItem("error.type"));
+
+        var retryTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") != null);
+        Assert.Equal("System.OperationCanceledException", retryTry.GetTagItem("error.type"));
+    }
+
+    [Fact]
+    public async Task Execute_CancellationDuringRetryOperation_SetsErrorOnBothSpans()
+    {
+        using var activityListener = StartListener(out var activities);
+        using var cts = new CancellationTokenSource();
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
+        var firstAttempt = true;
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            executor.ExecuteAsync(ct =>
+            {
+                if (!firstAttempt)
+                {
+                    // Second attempt (retry): cancel and throw OCE
+                    cts.Cancel();
+                    ct.ThrowIfCancellationRequested();
+                }
+                firstAttempt = false;
+                throw new YdbException(StatusCode.Aborted, "retry me");
+            }, cts.Token));
+
+        // ydb.RunWithRetry gets OCE error type
+        var executeActivity =
+            GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal("System.OperationCanceledException", executeActivity.GetTagItem("error.type"));
+
+        var tryActivities = activities.Where(a => a.DisplayName == "ydb.Try").ToList();
+        Assert.Equal(2, tryActivities.Count);
+        Assert.All(tryActivities, a => Assert.Equal(ActivityStatusCode.Error, a.Status));
+
+        // First ydb.Try: failed with Aborted
+        var firstTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") == null);
+        Assert.Equal(StatusCode.Aborted, firstTry.GetTagItem("db.response.status_code"));
+
+        // Retry ydb.Try: cancelled with OCE during the retry operation itself
+        var retryTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") != null);
+        Assert.Equal("System.OperationCanceledException", retryTry.GetTagItem("error.type"));
+    }
+
+    [Fact]
+    public async Task ExecuteInTransaction_CancellationDuringOperation_SetsErrorOnExecuteAndTrySpans()
+    {
+        await using var ydbDataSource = new YdbDataSource(ConnectionString);
+
+        // Warm up the driver so session creation doesn't appear in recorded activities
+        await using var initConnection = await ydbDataSource.OpenConnectionAsync();
+        await new YdbCommand("SELECT 1;", initConnection).ExecuteNonQueryAsync();
+
+        using var activityListener = StartListener(out var activities);
+        using var cts = new CancellationTokenSource();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            ydbDataSource.ExecuteInTransactionAsync(async (_, ct) =>
+            {
+                cts.Cancel();
+                ct.ThrowIfCancellationRequested();
+                await Task.CompletedTask;
+            }, cancellationToken: cts.Token));
+
+        // Root retry span gets the OCE
+        var executeActivity =
+            GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal("System.OperationCanceledException", executeActivity.GetTagItem("error.type"));
+
+        // The single ydb.Try (first attempt, no backoff attr) also gets the OCE
+        var tryActivity =
+            GetSingleActivity(activities, "ydb.Try", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Null(tryActivity.GetTagItem("ydb.retry.backoff_ms"));
+        Assert.Equal("System.OperationCanceledException", tryActivity.GetTagItem("error.type"));
+    }
+
+    [Fact]
+    public async Task ExecuteInTransaction_CancellationAfterQueryExecuted_SetsErrorOnExecuteAndTrySpans()
+    {
+        await using var ydbDataSource = new YdbDataSource(ConnectionString);
+
+        // Warm up the driver
+        await using var initConnection = await ydbDataSource.OpenConnectionAsync();
+        await new YdbCommand("SELECT 1;", initConnection).ExecuteNonQueryAsync();
+
+        using var activityListener = StartListener(out var activities);
+        using var cts = new CancellationTokenSource();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            ydbDataSource.ExecuteInTransactionAsync(async (conn, ct) =>
+            {
+                await new YdbCommand("SELECT 1;", conn).ExecuteNonQueryAsync(ct);
+                cts.Cancel();
+                ct.ThrowIfCancellationRequested();
+            }, cancellationToken: cts.Token));
+
+        // Root retry span gets the OCE
+        var executeActivity =
+            GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal("System.OperationCanceledException", executeActivity.GetTagItem("error.type"));
+
+        // Single ydb.Try (first attempt) gets the same OCE
+        var tryActivity =
+            GetSingleActivity(activities, "ydb.Try", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Null(tryActivity.GetTagItem("ydb.retry.backoff_ms"));
+        Assert.Equal("System.OperationCanceledException", tryActivity.GetTagItem("error.type"));
     }
 
     private static ActivityListener StartListener(out List<Activity> activities)
