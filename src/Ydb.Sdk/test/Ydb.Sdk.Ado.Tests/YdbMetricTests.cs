@@ -1,7 +1,12 @@
 using System.Diagnostics;
+using Grpc.Core;
+using Moq;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Xunit;
+using Ydb.Query;
+using Ydb.Query.V1;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -121,6 +126,91 @@ public class YdbMetricTests : TestBase
     }
 
     [Fact]
+    public async Task OperationFailed_CreateSessionUnaryCall()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder => builder.PoolName = "ado-metrics-create-session-unary");
+        var driver = CreateMockDriver();
+        driver.Setup(d => d.UnaryCall(
+                QueryService.CreateSessionMethod,
+                It.IsAny<CreateSessionRequest>(),
+                It.Is<GrpcRequestSettings>(s => s.ClientCapabilities.Contains("session-balancer"))))
+            .ThrowsAsync(new YdbException(
+                new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
+
+        var factory = new PoolingSessionFactory(driver.Object, settings);
+        await using var source = new PoolingSessionSource<PoolingSession>(factory, settings);
+        var session = factory.NewSession(source);
+
+        var ex = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
+        Assert.Equal(StatusCode.ClientTransportResourceExhausted, ex.Code);
+
+        meterProvider.ForceFlush();
+
+        var metric = GetMetric(exportedItems, "db.client.operation.failed");
+        var point = GetOperationFailedPoint(
+            metric.GetMetricPoints(),
+            settings,
+            operationName: "CreateSession",
+            statusCode: "ClientTransportResourceExhausted");
+
+        Assert.Equal(1, point.GetSumLong());
+    }
+
+    [Fact]
+    public async Task OperationFailed_CreateSessionAttachStream()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder => builder.PoolName = "ado-metrics-create-session-attach");
+        var driver = CreateMockDriver();
+        var attachStream = new Mock<IServerStream<SessionState>>(MockBehavior.Strict);
+
+        driver.Setup(d => d.UnaryCall(
+                QueryService.CreateSessionMethod,
+                It.IsAny<CreateSessionRequest>(),
+                It.Is<GrpcRequestSettings>(s => s.ClientCapabilities.Contains("session-balancer"))))
+            .ReturnsAsync(new CreateSessionResponse
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                SessionId = "sessionId",
+                NodeId = 3
+            });
+
+        driver.Setup(d => d.ServerStreamCall(
+                QueryService.AttachSessionMethod,
+                It.Is<AttachSessionRequest>(r => r.SessionId == "sessionId"),
+                It.Is<GrpcRequestSettings>(s => s.NodeId == 3)))
+            .ReturnsAsync(attachStream.Object);
+
+        attachStream.Setup(s => s.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new YdbException(
+                new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
+        attachStream.Setup(s => s.Dispose());
+
+        var factory = new PoolingSessionFactory(driver.Object, settings);
+        await using var source = new PoolingSessionSource<PoolingSession>(factory, settings);
+        var session = factory.NewSession(source);
+
+        var ex = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
+        Assert.Equal(StatusCode.ClientTransportResourceExhausted, ex.Code);
+
+        meterProvider.ForceFlush();
+
+        var metric = GetMetric(exportedItems, "db.client.operation.failed");
+        var point = GetOperationFailedPoint(
+            metric.GetMetricPoints(),
+            settings,
+            operationName: "CreateSession",
+            statusCode: "ClientTransportResourceExhausted");
+
+        Assert.Equal(1, point.GetSumLong());
+    }
+
+    [Fact]
     public async Task ConnectionCreateTime()
     {
         var exportedItems = new List<Metric>();
@@ -222,6 +312,14 @@ public class YdbMetricTests : TestBase
     private static Metric GetMetric(List<Metric> exportedItems, string name) =>
         exportedItems.Single(m => m.Name == name);
 
+    private static Mock<IDriver> CreateMockDriver()
+    {
+        var driver = new Mock<IDriver>(MockBehavior.Strict);
+        driver.SetupGet(d => d.LoggerFactory).Returns(TestUtils.LoggerFactory);
+        driver.Setup(d => d.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        return driver;
+    }
+
     private static IEnumerable<MetricPoint> GetConnectionCountPoints(MetricPointsAccessor points, string poolName)
     {
         foreach (var point in points)
@@ -247,6 +345,28 @@ public class YdbMetricTests : TestBase
         }
 
         Assert.Fail($"Point with state '{state}' not found");
+        throw new UnreachableException();
+    }
+
+    private static MetricPoint GetOperationFailedPoint(
+        MetricPointsAccessor points,
+        YdbConnectionStringBuilder settings,
+        string operationName,
+        string statusCode)
+    {
+        foreach (var point in points)
+        {
+            var tags = ToDictionary(point.Tags);
+            if (tags.GetValueOrDefault("db.namespace") as string == settings.Database &&
+                tags.GetValueOrDefault("server.address") as string == settings.Host &&
+                tags.GetValueOrDefault("db.operation.name") as string == operationName &&
+                tags.GetValueOrDefault("db.response.status_code") as string == statusCode)
+            {
+                return point;
+            }
+        }
+
+        Assert.Fail($"Point for operation '{operationName}' with status '{statusCode}' not found");
         throw new UnreachableException();
     }
 
