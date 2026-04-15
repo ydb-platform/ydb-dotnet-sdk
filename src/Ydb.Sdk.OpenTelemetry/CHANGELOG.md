@@ -1,3 +1,5 @@
+## v1.0.0
+
 - Feat: Initial release. Extension methods for registering `Ydb.Sdk` as an OpenTelemetry source.
-  - `TracerProviderBuilder.AddYdb()` — subscribes to the `Ydb.Sdk` activity source (ActivitySource name: `Ydb.Sdk`).
-  - `MeterProviderBuilder.AddYdb()` — subscribes to the `Ydb.Sdk` meter (Meter name: `Ydb.Sdk`).
+    - `TracerProviderBuilder.AddYdb()` — subscribes to the `Ydb.Sdk` activity source (ActivitySource name: `Ydb.Sdk`).
+    - `MeterProviderBuilder.AddYdb()` — subscribes to the `Ydb.Sdk` meter (Meter name: `Ydb.Sdk`).
