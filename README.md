@@ -1,7 +1,8 @@
 # YDB .NET Ecosystem
 
-[![Telegram](https://img.shields.io/badge/Telegram-Русский_чат-2ba2d9.svg?logo=telegram)](https://t.me/ydb_ru)
-[![Telegram](https://img.shields.io/badge/Telegram-English_chat-2ba2d9.svg?logo=telegram)](https://t.me/ydb_en)
+[![Telegram](https://img.shields.io/badge/Telegram-.NET_чат-2ba2d9.svg?logo=telegram)](https://t.me/ydb_ru_dot_net)
+[![Telegram](https://img.shields.io/badge/Telegram-YDB_русский-2ba2d9.svg?logo=telegram)](https://t.me/ydb_ru)
+[![Telegram](https://img.shields.io/badge/Telegram-YDB_English-2ba2d9.svg?logo=telegram)](https://t.me/ydb_en)
 [![WebSite](https://img.shields.io/badge/website-ydb.tech-blue.svg)](https://ydb.tech)
 
 ## Overview
