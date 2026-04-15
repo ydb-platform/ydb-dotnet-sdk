@@ -1,4 +1,46 @@
-- Feat ADO.NET tracing: Refined `error.type` for `YdbException` to classify failures as `transport_error` (client transport status codes) or `ydb_error` (database status codes), while keeping `db.response.status_code`.
+## v0.31.0
+
+- **Breaking Change** ADO.NET tracing: Renamed span `ydb.ExecuteWithRetry` → `ydb.RunWithRetry` and `ydb.Retry` → `ydb.Try`. The first attempt is now always wrapped in `ydb.Try` (previously the first attempt's child spans attached directly to `ydb.RunWithRetry`).
+- Feat ADO.NET tracing: Finalized span set. ActivitySource name: `Ydb.Sdk`. Enable via `TracerProviderBuilder.AddYdb()` from `Ydb.Sdk.OpenTelemetry`.
+
+  | Span | Kind | Description |
+  |---|---|---|
+  | `ydb.Driver.Initialize` | Internal | Driver first initialization (discovery + auth handshake) |
+  | `ydb.CreateSession` | Client | Session creation (gRPC CreateSession + AttachStream) |
+  | `ydb.RunWithRetry` | Internal | Wraps the entire retry loop for a single ADO.NET operation |
+  | `ydb.Try` | Internal | One span per attempt, including the first; child RPC spans attach here |
+  | `ydb.ExecuteQuery` | Client | Individual YQL query execution |
+  | `ydb.Commit` | Client | Transaction commit |
+  | `ydb.Rollback` | Client | Transaction rollback |
+
+  `ydb.RunWithRetry` / `ydb.Try` lifecycle: `ydb.RunWithRetry` is the outer span for the whole operation; `ydb.Try` wraps each attempt including the first. Retry spans carry `ydb.retry.backoff_ms`. On non-retryable error or retries exhausted both `ydb.Try` and `ydb.RunWithRetry` receive error status. On cancellation `error.type` is set to the exception type full name.
+
+  Tags propagated on RPC spans:
+
+  | Tag | Description |
+  |---|---|
+  | `db.system.name` | Always `"ydb"` |
+  | `db.namespace` | YDB database path |
+  | `server.address` / `server.port` | Primary endpoint from connection string |
+  | `network.peer.address` / `network.peer.port` | Actual gRPC endpoint used for the call |
+  | `ydb.node.id` / `ydb.node.dc` | YDB node identity |
+  | `db.response.status_code` | YDB status code (on `YdbException`) |
+  | `error.type` | `"transport_error"` for client transport codes, `"ydb_error"` for database errors, or the full exception type name for other exceptions |
+
+  W3C trace context (`traceparent`) is automatically propagated to YDB server so server-side traces link to client spans.
+
+- Feat ADO.NET metrics (beta): Added OpenTelemetry metrics. Meter name: `Ydb.Sdk`. Enable via `MeterProviderBuilder.AddYdb()` from `Ydb.Sdk.OpenTelemetry`.
+
+  | Metric | Kind | Unit | Tags | Description |
+  |---|---|---|---|---|
+  | `db.client.operation.duration` | Histogram | `s` | `db.system.name`, `db.namespace`, `server.address`, `server.port`, `db.operation.name` | Latency of ADO.NET operations (`ExecuteQuery`, `Commit`, `Rollback`) |
+  | `db.client.operation.failed` | Counter | `{command}` | `db.operation.name`, `db.response.status_code` | Count of failed operations |
+  | `db.client.connection.count` | ObservableUpDownCounter | `{connection}` | `db.client.connection.pool.name`, `db.client.connection.state` (`idle`/`used`) | Current session pool counts |
+  | `db.client.connection.create_time` | Histogram | `s` | `db.client.connection.pool.name` | Time to create a new session (CreateSession RPC + first AttachStream message) |
+  | `db.client.connection.pending_requests` | UpDownCounter | `{request}` | `db.client.connection.pool.name` | Requests waiting for a free session |
+  | `db.client.connection.timeouts` | Counter | `{connection}` | `db.client.connection.pool.name` | Session acquisition timeouts |
+
+- Feat ADO.NET metrics: Added `PoolName` connection string option. When set, reported as the `db.client.connection.pool.name` metric attribute; defaults to the full connection string.
 - Fixed bug: `EndpointPool.PessimizeEndpoint` / routing used node id only; in serverless mode (`nodeId == 0`) pessimization and sticky session routing did not work correctly — pessimization and pool lookup are now keyed by gRPC endpoint (`http(s)://host:port`).
 - Feat: Session attach stream handles `NodeShutdown` and `SessionShutdown` hints (deprioritizes endpoint on node shutdown, marks session broken on shutdown hints).
 
