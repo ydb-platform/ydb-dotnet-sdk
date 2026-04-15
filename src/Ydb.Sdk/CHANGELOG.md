@@ -1,5 +1,3 @@
-## v0.31.0
-
 - **Breaking Change** ADO.NET tracing: Renamed span `ydb.ExecuteWithRetry` → `ydb.RunWithRetry` and `ydb.Retry` → `ydb.Try`. The first attempt is now always wrapped in `ydb.Try` (previously the first attempt's child spans attached directly to `ydb.RunWithRetry`).
 - Feat ADO.NET tracing: Finalized span set. ActivitySource name: `Ydb.Sdk`. Enable via `TracerProviderBuilder.AddYdb()` from `Ydb.Sdk.OpenTelemetry`.
 
