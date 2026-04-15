@@ -4,15 +4,22 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Pool;
 
+internal interface ITcpConnector
+{
+    Task ConnectAsync(string host, int port, CancellationToken cancellationToken);
+}
+
 internal sealed class EndpointLocalDcDetector
 {
     private const int MaxEndpointsCheckPerLocation = 5;
 
     private readonly ILogger<EndpointLocalDcDetector> _logger;
+    private readonly ITcpConnector _tcpConnector;
 
-    public EndpointLocalDcDetector(ILoggerFactory loggerFactory)
+    public EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcpConnector? tcpConnector = null)
     {
         _logger = loggerFactory.CreateLogger<EndpointLocalDcDetector>();
+        _tcpConnector = tcpConnector ?? new SocketTcpConnector();
     }
 
     public async Task<string?> DetectNearestLocationDc(
@@ -76,7 +83,7 @@ internal sealed class EndpointLocalDcDetector
         cts.CancelAfter(timeout);
 
         var winner = new TaskCompletionSource<EndpointInfo?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var tasks = endpoints.Select(endpoint => TryConnect(endpoint, winner, cts.Token)).ToArray();
+        var tasks = endpoints.Select(endpoint => TryConnect(endpoint, winner, cts)).ToArray();
 
         try
         {
@@ -97,28 +104,21 @@ internal sealed class EndpointLocalDcDetector
     private async Task TryConnect(
         EndpointInfo endpoint,
         TaskCompletionSource<EndpointInfo?> winner,
-        CancellationToken cancellationToken)
+        CancellationTokenSource cts)
     {
         try
         {
-            var addresses = await Dns.GetHostAddressesAsync(endpoint.Host, cancellationToken);
-            foreach (var address in addresses)
+            await _tcpConnector.ConnectAsync(endpoint.Host, checked((int)endpoint.Port), cts.Token);
+
+            if (winner.TrySetResult(endpoint))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                using var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                await socket.ConnectAsync(new IPEndPoint(address, checked((int)endpoint.Port)), cancellationToken);
-
-                if (winner.TrySetResult(endpoint))
-                {
-                    _logger.LogDebug("TCP race winner endpoint: {Endpoint}", endpoint.Endpoint);
-                }
-
-                return;
+                _logger.LogDebug("TCP race winner endpoint: {Endpoint}", endpoint.Endpoint);
+                cts.Cancel();
             }
         }
         catch (OperationCanceledException)
         {
+            // Expected: either timeout expired or another endpoint won the race
         }
         catch (SocketException e)
         {
@@ -159,5 +159,21 @@ internal sealed class EndpointLocalDcDetector
             .OrderBy(_ => Random.Shared.Next())
             .Take(count)
             .ToArray();
+    }
+}
+
+internal sealed class SocketTcpConnector : ITcpConnector
+{
+    public async Task ConnectAsync(string host, int port, CancellationToken cancellationToken)
+    {
+        var addresses = await Dns.GetHostAddressesAsync(host, cancellationToken);
+        foreach (var address in addresses)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            await socket.ConnectAsync(new IPEndPoint(address, port), cancellationToken);
+            return;
+        }
     }
 }
