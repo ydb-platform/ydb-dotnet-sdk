@@ -571,9 +571,11 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                             if (messageFromClient.MessageData.SeqNo > ack.SeqNo)
                             {
                                 Logger.LogCritical(
-                                    @"The sequence number of the client's message in the queue is greater than the server's write acknowledgment number. 
-Skipping the WriteAck... 
-Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
+                                    """
+                                    The sequence number of the client's message in the queue is greater than the server's write acknowledgment number. 
+                                    Skipping the WriteAck... 
+                                    Client SeqNo: {SeqNo}, WriteAck: {WriteAck}
+                                    """,
                                     messageFromClient.MessageData.SeqNo, ack);
 
                                 continue;
@@ -582,9 +584,11 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
                             if (messageFromClient.MessageData.SeqNo < ack.SeqNo)
                             {
                                 Logger.LogCritical(
-                                    @"The sequence number of the client's message in the queue is less than the server's write acknowledgment number. 
-Completing task on exception...
-Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
+                                    """
+                                    The sequence number of the client's message in the queue is less than the server's write acknowledgment number. 
+                                    Completing task on exception...
+                                    Client SeqNo: {SeqNo}, WriteAck: {WriteAck}
+                                    """,
                                     messageFromClient.MessageData.SeqNo, ack);
 
                                 messageFromClient.Tcs.TrySetException(new WriterException(
@@ -597,6 +601,7 @@ Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
 
                             _inFlightMessages.TryDequeue(out _); // Dequeue 
                         }
+
                         break;
                     case MessageFromServer.ServerMessageOneofCase.None:
                         Logger.LogWarning("WriterSession[{SessionId}] received response without payload", SessionId);
