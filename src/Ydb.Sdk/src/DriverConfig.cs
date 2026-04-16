@@ -74,6 +74,15 @@ public class DriverConfig
     /// </summary>
     public int MaxReceiveMessageSize { get; init; } = GrpcDefaultSettings.MaxReceiveMessageSize;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether nearest-datacenter balancing should be enabled.
+    /// </summary>
+    /// <remarks>
+    /// When enabled, the driver performs a TCP race across discovered endpoints and prefers
+    /// endpoints from the fastest datacenter. Default value: false.
+    /// </remarks>
+    public bool EnablePreferNearestDcBalancing { get; init; }
+
     internal X509Certificate2Collection CustomServerCertificates { get; } = [];
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
