@@ -129,12 +129,12 @@ One instance per session pool. Meter name: **`Ydb.Sdk`**.
 
 | Metric | Kind | Tags | Description |
 |---|---|---|---|
-| `db.client.operation.duration` | Histogram (seconds) | `db.system.name`, `db.namespace`, `server.address`, `server.port`, `db.operation.name` | Latency of ADO.NET operations (ExecuteQuery, Commit, Rollback) |
-| `db.client.operation.failed` | Counter | `db.operation.name`, `db.response.status_code` | Count of failed operations |
-| `db.client.connection.count` | ObservableUpDownCounter | `db.client.connection.pool.name`, `db.client.connection.state` (`idle`/`used`) | Current pool session counts |
-| `db.client.connection.create_time` | Histogram (seconds) | `db.client.connection.pool.name` | Time to create a new session (RPC + first message) |
-| `db.client.connection.pending_requests` | UpDownCounter | `db.client.connection.pool.name` | Requests waiting for a session |
-| `db.client.connection.timeouts` | Counter | `db.client.connection.pool.name` | Timed-out connection acquisitions |
+| `db.client.operation.duration` | Histogram (seconds) | `db.system.name`, `db.namespace`, `server.address`, `server.port`, `ydb.operation.name` | Latency of ADO.NET operations (ExecuteQuery, Commit, Rollback) |
+| `ydb.client.operation.failed` | Counter | `ydb.operation.name`, `db.response.status_code` | Count of failed operations |
+| `ydb.query.session.count` | ObservableUpDownCounter | `ydb.query.session.pool.name`, `ydb.query.session.state` (`idle`/`used`) | Current pool session counts |
+| `ydb.query.session.create_time` | Histogram (seconds) | `ydb.query.session.pool.name` | Time to create a new session (RPC + first message) |
+| `ydb.query.session.pending_requests` | UpDownCounter | `ydb.query.session.pool.name` | Requests waiting for a session |
+| `ydb.query.session.timeouts` | Counter | `ydb.query.session.pool.name` | Timed-out connection acquisitions |
 
 #### Tracing (`Tracing/YdbActivitySource`)
 

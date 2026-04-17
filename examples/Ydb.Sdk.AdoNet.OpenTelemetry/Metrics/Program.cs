@@ -10,7 +10,7 @@ const string ydbConnectionString = "Host=ydb;Port=2136;Database=/local";
 
 // ── Load-tank mode ────────────────────────────────────────────────────────
 // Runs a rising / falling RPS pattern so that pool session-count metrics
-// (db.client.connection.count) visibly change over time in Grafana.
+// (ydb.query.session.count) visibly change over time in Grafana.
 //
 // Pattern per cycle (repeating):
 //   Peak   (200 RPS, 60 s) → Medium (40 RPS, 90 s) → Min (4 RPS, 60 s)
@@ -95,7 +95,7 @@ Console.WriteLine("Load tank finished.");
 
 // ── Demo mode ────────────────────────────────────────────────────────────────
 // Phase 1: N workers continuously insert rows (happy-path operation metrics).
-// Phase 2: a few intentional errors to populate db.client.operation.failed.
+// Phase 2: a few intentional errors to populate ydb.client.operation.failed.
 
 await using var ds = new YdbDataSource(ydbConnectionString);
 
@@ -145,7 +145,7 @@ var insertTasks = Enumerable.Range(0, demoWorkers).Select(i => Task.Run(async ()
 
 await Task.WhenAll(insertTasks);
 
-// Phase 2 — error pass: query a non-existent table to populate db.client.operation.failed
+// Phase 2 — error pass: query a non-existent table to populate ydb.client.operation.failed
 Console.WriteLine("Phase 2: generating errors...");
 await using var errConn = await ds.OpenConnectionAsync();
 for (var i = 0; i < 100; i++)

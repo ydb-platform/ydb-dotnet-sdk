@@ -32,14 +32,14 @@
 
   | Metric | Kind | Unit | Tags | Description |
   |---|---|---|---|---|
-  | `db.client.operation.duration` | Histogram | `s` | `db.system.name`, `db.namespace`, `server.address`, `server.port`, `db.operation.name` | Latency of ADO.NET operations (`ExecuteQuery`, `Commit`, `Rollback`) |
-  | `db.client.operation.failed` | Counter | `{command}` | `db.operation.name`, `db.response.status_code` | Count of failed operations |
-  | `db.client.connection.count` | ObservableUpDownCounter | `{connection}` | `db.client.connection.pool.name`, `db.client.connection.state` (`idle`/`used`) | Current session pool counts |
-  | `db.client.connection.create_time` | Histogram | `s` | `db.client.connection.pool.name` | Time to create a new session (CreateSession RPC + first AttachStream message) |
-  | `db.client.connection.pending_requests` | UpDownCounter | `{request}` | `db.client.connection.pool.name` | Requests waiting for a free session |
-  | `db.client.connection.timeouts` | Counter | `{connection}` | `db.client.connection.pool.name` | Session acquisition timeouts |
+  | `db.client.operation.duration` | Histogram | `s` | `db.system.name`, `db.namespace`, `server.address`, `server.port`, `ydb.operation.name` | Latency of ADO.NET operations (`ExecuteQuery`, `Commit`, `Rollback`) |
+  | `ydb.client.operation.failed` | Counter | `{command}` | `ydb.operation.name`, `db.response.status_code` | Count of failed operations |
+  | `ydb.query.session.count` | ObservableUpDownCounter | `{connection}` | `ydb.query.session.pool.name`, `ydb.query.session.state` (`idle`/`used`) | Current session pool counts |
+  | `ydb.query.session.create_time` | Histogram | `s` | `ydb.query.session.pool.name` | Time to create a new session (CreateSession RPC + first AttachStream message) |
+  | `ydb.query.session.pending_requests` | UpDownCounter | `{request}` | `ydb.query.session.pool.name` | Requests waiting for a free session |
+  | `ydb.query.session.timeouts` | Counter | `{connection}` | `ydb.query.session.pool.name` | Session acquisition timeouts |
 
-- Feat ADO.NET metrics: Added `PoolName` connection string option. When set, reported as the `db.client.connection.pool.name` metric attribute; defaults to the full connection string.
+- Feat ADO.NET metrics: Added `PoolName` connection string option. When set, reported as the `ydb.query.session.pool.name` metric attribute; defaults to the full connection string.
 - Fixed bug: `EndpointPool.PessimizeEndpoint` / routing used node id only; in serverless mode (`nodeId == 0`) pessimization and sticky session routing did not work correctly — pessimization and pool lookup are now keyed by gRPC endpoint (`http(s)://host:port`).
 - Feat: Session attach stream handles `NodeShutdown` and `SessionShutdown` hints (deprioritizes endpoint on node shutdown, marks session broken on shutdown hints).
 
