@@ -1,18 +1,17 @@
 using System.Diagnostics;
 using OpenTelemetry;
-using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.OpenTelemetry;
 
-const string serviceName = "ydb-sdk-sample";
+const string serviceName = "ydb-sdk-otel-trace-sample";
 var otlpEndpoint = new Uri("http://otel-collector:4317");
 
 var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown";
 
 var resourceBuilder = ResourceBuilder.CreateDefault()
-    .AddService(serviceName: serviceName, serviceVersion: serviceVersion);
+    .AddService(serviceName, serviceVersion: serviceVersion);
 
 const string activitySourceName = "Ydb.Sdk.AdoNet.OpenTelemetry.Sample";
 using var activitySource = new ActivitySource(activitySourceName);
@@ -21,12 +20,6 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .SetResourceBuilder(resourceBuilder)
     .AddSource(activitySourceName)
     .AddYdb()
-    .AddOtlpExporter(o => { o.Endpoint = otlpEndpoint; })
-    .Build();
-
-using var meterProvider = Sdk.CreateMeterProviderBuilder()
-    .SetResourceBuilder(resourceBuilder)
-    .AddRuntimeInstrumentation()
     .AddOtlpExporter(o => { o.Endpoint = otlpEndpoint; })
     .Build();
 
@@ -49,6 +42,7 @@ Console.WriteLine("Insert row...");
 
 await using var connInsertRow = await dataSource.OpenConnectionAsync();
 await new YdbCommand("INSERT INTO bank(id, amount) VALUES (1, 0)", connInsertRow).ExecuteNonQueryAsync();
+
 
 Console.WriteLine("Preparing queries...");
 await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
@@ -101,3 +95,6 @@ await new YdbCommand(ydbConnection)
     { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteNonQueryAsync();
 
 Console.WriteLine("App finished.");
+
+Console.WriteLine("App finished. Waiting 15s to flush traces");
+await Task.Delay(15000);

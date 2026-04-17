@@ -4,13 +4,9 @@ using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Transport;
 
-public class DirectGrpcChannelDriver : BaseDriver
+public class DirectGrpcChannelDriver(DriverConfig driverConfig, ILoggerFactory loggerFactory)
+    : BaseDriver(driverConfig, loggerFactory, loggerFactory.CreateLogger<DirectGrpcChannelDriver>())
 {
-    public DirectGrpcChannelDriver(DriverConfig driverConfig, ILoggerFactory loggerFactory) :
-        base(driverConfig, loggerFactory, loggerFactory.CreateLogger<DirectGrpcChannelDriver>())
-    {
-    }
-
     protected override EndpointInfo GetEndpoint(long nodeId) => Config.EndpointInfo;
 
     protected override void OnRpcError(EndpointInfo endpointInfo, RpcException e)

@@ -21,11 +21,14 @@ namespace Ydb.Sdk.Ado;
 // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
 public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord>
 {
+    private const string operationName = "ExecuteQuery";
+
     private readonly IServerStream<ExecuteQueryResponsePart> _stream;
+    private readonly YdbConnection _connection;
     private readonly YdbTransaction? _ydbTransaction;
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
-    private readonly Action<StatusCode> _onNotSuccessStatusCode;
     private readonly Activity? _dbActivity;
+    private readonly long _startTimestamp;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -68,34 +71,35 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private YdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
-        Action<StatusCode> onNotSuccessStatusCode,
-        YdbTransaction? ydbTransaction,
-        Activity? dbActivity)
+        YdbConnection connection,
+        Activity? dbActivity,
+        long startTimestamp)
     {
         _stream = resultSetStream;
-        _onNotSuccessStatusCode = onNotSuccessStatusCode;
-        _ydbTransaction = ydbTransaction;
+        _connection = connection;
+        _ydbTransaction = connection.CurrentTransaction;
         _dbActivity = dbActivity;
+        _startTimestamp = startTimestamp;
     }
 
     /// <summary>
     /// Creates a new instance of YdbDataReader from a result set stream.
     /// </summary>
     /// <param name="resultSetStream">The server stream containing query results.</param>
-    /// <param name="onNotSuccessStatusCode">Callback for handling non-success status codes.</param>
-    /// <param name="ydbTransaction">Optional transaction context.</param>
-    /// <param name="dbActivity">OTel span</param>
+    /// <param name="connection">The YDB connection associated with this reader.</param>
+    /// <param name="dbActivity">OTel span for the current operation.</param>
+    /// <param name="startTimestamp">Timestamp when the command execution started.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized YdbDataReader.</returns>
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
-        Action<StatusCode> onNotSuccessStatusCode,
-        YdbTransaction? ydbTransaction = null,
-        Activity? dbActivity = null,
+        YdbConnection connection,
+        Activity? dbActivity,
+        long startTimestamp,
         CancellationToken cancellationToken = default
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, onNotSuccessStatusCode, ydbTransaction, dbActivity);
+        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp);
         await ydbDataReader.Init(cancellationToken);
 
         return ydbDataReader;
@@ -596,15 +600,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="name">The name of the column.</param>
     /// <returns>The zero-based column ordinal.</returns>
     /// <exception cref="IndexOutOfRangeException">Thrown when the column name is not found.</exception>
-    public override int GetOrdinal(string name)
-    {
-        if (ReaderMetadata.ColumnNameToOrdinal.TryGetValue(name, out var ordinal))
-        {
-            return ordinal;
-        }
-
-        throw new IndexOutOfRangeException($"Field not found in row: {name}");
-    }
+    public override int GetOrdinal(string name) =>
+        ReaderMetadata.ColumnNameToOrdinal.TryGetValue(name, out var ordinal)
+            ? ordinal
+            : throw new IndexOutOfRangeException($"Field not found in row: {name}");
 
     /// <summary>
     /// Gets the value of the specified column as a string.
@@ -873,13 +872,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         ReaderMetadata = CloseMetadata.Instance;
         ReaderState = State.Close;
         _dbActivity?.Dispose();
+        CompleteCommandMetrics();
 
         if (isConsumed)
         {
             return;
         }
 
-        _onNotSuccessStatusCode(StatusCode.SessionBusy);
+        _connection.MetricsReporter.ReportOperationFailed(StatusCode.SessionBusy, operationName);
+        _connection.OnNotSuccessStatusCode(StatusCode.SessionBusy);
         _stream.Dispose();
 
         if (_ydbTransaction != null)
@@ -889,6 +890,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             throw new YdbException("YdbDataReader was closed during transaction execution. Transaction is broken!");
         }
     }
+
+    private void CompleteCommandMetrics() =>
+        _connection.MetricsReporter.ReportCommandStop(_startTimestamp, operationName);
 
     /// <summary>
     /// Closes the <see cref="YdbDataReader"/> object.
@@ -977,7 +981,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 _ydbTransaction.Failed = true;
             }
 
-            _onNotSuccessStatusCode(e.Code);
+            CompleteCommandMetrics();
+
+            _connection.MetricsReporter.ReportOperationFailed(e.Code, operationName);
+            _connection.OnNotSuccessStatusCode(e.Code);
             _dbActivity?.SetException(e);
             _dbActivity?.Dispose();
 
@@ -1055,7 +1062,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private class Metadata : IMetadata
     {
-        private IReadOnlyList<Column> Columns { get; }
+        private RepeatedField<Column> Columns { get; }
 
         public IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
         public int FieldCount { get; }

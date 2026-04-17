@@ -83,7 +83,7 @@ public sealed class Driver : BaseDriver
                 );
             });
         }
-        catch (Exception e)
+        catch (YdbException e)
         {
             dbActivity?.SetException(e);
             throw;
@@ -126,6 +126,22 @@ public sealed class Driver : BaseDriver
             return;
         }
 
+        ScheduleRediscoveryIfDegraded();
+    }
+
+    /// <inheritdoc />
+    public override void PessimizeNode(long nodeId)
+    {
+        if (!_endpointPool.PessimizeByNodeId(nodeId))
+        {
+            return;
+        }
+
+        ScheduleRediscoveryIfDegraded();
+    }
+
+    private void ScheduleRediscoveryIfDegraded()
+    {
         Logger.LogInformation("Too many pessimized endpoints, initiated endpoint rediscovery.");
 
         // Reset timer to trigger discovery sooner, ensuring single-threaded execution through timer callback
@@ -145,40 +161,40 @@ public sealed class Driver : BaseDriver
 
     private async Task DiscoverEndpoints()
     {
-        using var channel = GrpcChannelFactory.CreateChannel(Config.Endpoint);
-
-        var client = new DiscoveryService.DiscoveryServiceClient(channel);
-
-        var request = new ListEndpointsRequest
+        try
         {
-            Database = Config.Database
-        };
+            using var channel = GrpcChannelFactory.CreateChannel(Config.Endpoint);
 
-        var requestSettings = new GrpcRequestSettings
-        {
-            TransportTimeout = Config.EndpointDiscoveryTimeout
-        };
+            var client = new DiscoveryService.DiscoveryServiceClient(channel);
 
-        var response = await client.ListEndpointsAsync(
-            request: request,
-            options: await GetCallOptions(requestSettings, Config.EndpointInfo)
-        );
+            var request = new ListEndpointsRequest { Database = Config.Database };
+            var grpcSettings = new GrpcRequestSettings { TransportTimeout = Config.EndpointDiscoveryTimeout };
 
-        var operation = response.Operation;
-        if (operation.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(operation.Status, operation.Issues);
+            var response = await client.ListEndpointsAsync(
+                request: request,
+                options: await GetCallOptions(grpcSettings, Config.EndpointInfo)
+            );
+
+            var operation = response.Operation;
+            if (operation.Status.IsNotSuccess())
+            {
+                throw YdbException.FromServer(operation.Status, operation.Issues);
+            }
+
+            var resultProto = operation.Result.Unpack<ListEndpointsResult>();
+
+            Logger.LogDebug(
+                "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, sdk info: {SdkInfo}",
+                resultProto.Endpoints.Count, resultProto.SelfLocation, Config.SdkVersion
+            );
+
+            await ChannelPool.RemoveChannels(_endpointPool.Reset(resultProto.Endpoints.Select(infoProto =>
+                new EndpointInfo(infoProto.NodeId, infoProto.Ssl, infoProto.Address, infoProto.Port, infoProto.Location)
+            ).ToImmutableList()));
         }
-
-        var resultProto = operation.Result.Unpack<ListEndpointsResult>();
-
-        Logger.LogDebug(
-            "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, sdk info: {SdkInfo}",
-            resultProto.Endpoints.Count, resultProto.SelfLocation, Config.SdkVersion
-        );
-
-        await ChannelPool.RemoveChannels(_endpointPool.Reset(resultProto.Endpoints.Select(infoProto =>
-            new EndpointInfo(infoProto.NodeId, infoProto.Ssl, infoProto.Address, infoProto.Port, infoProto.Location)
-        ).ToImmutableList()));
+        catch (RpcException e)
+        {
+            throw new YdbException(e);
+        }
     }
 }

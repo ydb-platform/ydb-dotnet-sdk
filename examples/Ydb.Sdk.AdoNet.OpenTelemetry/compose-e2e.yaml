@@ -2,7 +2,18 @@ services:
   app:
     build:
       context: ../..
-      dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Dockerfile
+      dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Trace/Dockerfile
+    depends_on:
+      ydb:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: on-failure
+
+  load-generator:
+    build:
+      context: ../..
+      dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Metrics/Dockerfile
     depends_on:
       ydb:
         condition: service_healthy
@@ -44,12 +55,13 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: prometheus
     volumes:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "9090:9090"
     depends_on: [ otel-collector ]
-  
+
   tempo:
     image: grafana/tempo:2.4.1
     command: [ "-config.file=/etc/tempo.yaml" ]
@@ -58,7 +70,7 @@ services:
     ports:
       - "3200:3200"
     depends_on: [ otel-collector ]
-    
+
   grafana:
     image: grafana/grafana:10.4.2
     environment:

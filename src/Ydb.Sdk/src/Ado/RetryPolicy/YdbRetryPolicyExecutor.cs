@@ -3,15 +3,8 @@ using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.RetryPolicy;
 
-internal sealed class YdbRetryPolicyExecutor
+internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
 {
-    private readonly IRetryPolicy _retryPolicy;
-
-    public YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
-    {
-        _retryPolicy = retryPolicy;
-    }
-
     /// <summary>
     /// Executes the specified asynchronous operation and returns the result.
     /// </summary>
@@ -47,27 +40,47 @@ internal sealed class YdbRetryPolicyExecutor
         CancellationToken cancellationToken
     )
     {
+        using var dbActivity = YdbActivitySource.StartActivity("ydb.RunWithRetry", ActivityKind.Internal);
+
         var attempt = 0;
-        while (true)
+        var dbTryActivity = YdbActivitySource.StartActivity("ydb.Try", ActivityKind.Internal);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            using var dbActive = YdbActivitySource.StartActivity("ydb.ExecuteWithRetry", ActivityKind.Internal);
-
-            try
+            while (true)
             {
-                return await operation(cancellationToken).ConfigureAwait(false);
-            }
-            catch (YdbException e)
-            {
-                dbActive?.SetException(e);
+                cancellationToken.ThrowIfCancellationRequested();
 
-                var delay = _retryPolicy.GetNextDelay(e, attempt++);
-                if (delay == null)
-                    throw;
+                try
+                {
+                    return await operation(cancellationToken).ConfigureAwait(false);
+                }
+                catch (YdbException e)
+                {
+                    var delay = retryPolicy.GetNextDelay(e, attempt++);
+                    if (delay == null)
+                    {
+                        throw;
+                    }
 
-                dbActive?.SetRetryAttributes(attempt, delay.Value);
-                await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
+                    // Close the previous retry span before starting a new one
+                    dbTryActivity?.SetException(e);
+                    dbTryActivity?.Dispose();
+                    dbTryActivity = YdbActivitySource.StartActivity("ydb.Try", ActivityKind.Internal);
+                    dbTryActivity?.SetRetryAttributes(delay.Value);
+                    await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
+                    // dbTryActivity stays open so the next operation() call is a child of it
+                }
             }
+        }
+        catch (Exception e)
+        {
+            dbTryActivity?.SetException(e);
+            dbActivity?.SetException(e);
+            throw;
+        }
+        finally
+        {
+            dbTryActivity?.Dispose();
         }
     }
 }

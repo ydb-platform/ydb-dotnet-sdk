@@ -216,6 +216,8 @@ public sealed class YdbTransaction : DbTransaction
             throw new YdbOperationInProgressException(DbConnection);
         }
 
+        var operationName = isCommit ? "Commit" : "Rollback";
+        var startTimestamp = DbConnection.MetricsReporter.ReportCommandStart();
         try
         {
             Completed = true;
@@ -237,6 +239,7 @@ public sealed class YdbTransaction : DbTransaction
         catch (YdbException e)
         {
             Failed = true;
+            DbConnection.MetricsReporter.ReportOperationFailed(e.Code, operationName);
             DbConnection.OnNotSuccessStatusCode(e.Code);
             dbActivity?.SetException(e);
 
@@ -244,6 +247,7 @@ public sealed class YdbTransaction : DbTransaction
         }
         finally
         {
+            DbConnection.MetricsReporter.ReportCommandStop(startTimestamp, operationName);
             _ydbConnection = null;
         }
     }

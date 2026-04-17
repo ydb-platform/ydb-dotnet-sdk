@@ -610,6 +610,27 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     private bool _enableMetadataCredentials;
 
     /// <summary>
+    /// Gets or sets an optional name for this connection pool, used as a metric tag.
+    /// </summary>
+    /// <remarks>
+    /// When set, this value is reported as the <c>db.client.connection.pool.name</c> attribute on
+    /// connection-pool metrics. Useful when multiple pools connect to the same database and you need
+    /// to distinguish them in dashboards.
+    /// <para>Default value: null (the connection string is used instead).</para>
+    /// </remarks>
+    public string? PoolName
+    {
+        get => _poolName;
+        set
+        {
+            _poolName = value;
+            SaveValue(nameof(PoolName), value);
+        }
+    }
+
+    private string? _poolName;
+
+    /// <summary>
     /// Gets or sets the logger factory for logging operations.
     /// </summary>
     /// <remarks>
@@ -858,6 +879,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, enableMetadataCredentials) =>
                     builder.EnableMetadataCredentials = enableMetadataCredentials),
                 "EnableMetadataCredentials", "Enable Metadata Credentials");
+            AddOption(new YdbConnectionOption<string>(StringExtractor,
+                    (builder, poolName) => builder.PoolName = poolName),
+                "PoolName", "Pool Name");
         }
 
         private static void AddOption(YdbConnectionOption option, params string[] keys)
