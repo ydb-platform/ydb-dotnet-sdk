@@ -53,13 +53,13 @@ Meter name: `Ydb.Sdk`.
 | Metric | Kind | Unit | Description |
 |---|---|---|---|
 | `db.client.operation.duration` | Histogram | `s` | Latency of ADO.NET operations (`ExecuteQuery`, `Commit`, `Rollback`) |
-| `db.client.operation.failed` | Counter | `{command}` | Count of failed operations |
-| `db.client.connection.count` | ObservableUpDownCounter | `{connection}` | Current session pool counts (`idle` / `used`) |
-| `db.client.connection.create_time` | Histogram | `s` | Time to create a new session |
-| `db.client.connection.pending_requests` | UpDownCounter | `{request}` | Requests waiting for a free session |
-| `db.client.connection.timeouts` | Counter | `{connection}` | Session acquisition timeouts |
+| `ydb.client.operation.failed` | Counter | `{command}` | Count of failed operations |
+| `ydb.query.session.count` | ObservableUpDownCounter | `{connection}` | Current session pool counts (`idle` / `used`) |
+| `ydb.query.session.create_time` | Histogram | `s` | Time to create a new session |
+| `ydb.query.session.pending_requests` | UpDownCounter | `{request}` | Requests waiting for a free session |
+| `ydb.query.session.timeouts` | Counter | `{connection}` | Session acquisition timeouts |
 
-Pool-scoped metrics carry the `db.client.connection.pool.name` tag — set via the `PoolName` connection string option, defaults to the full connection string.
+Pool-scoped metrics carry the `ydb.query.session.pool.name` tag — set via the `PoolName` connection string option, defaults to the full connection string.
 
 ## Example
 

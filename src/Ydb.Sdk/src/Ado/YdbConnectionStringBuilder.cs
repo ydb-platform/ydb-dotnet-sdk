@@ -613,7 +613,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     /// Gets or sets an optional name for this connection pool, used as a metric tag.
     /// </summary>
     /// <remarks>
-    /// When set, this value is reported as the <c>db.client.connection.pool.name</c> attribute on
+    /// When set, this value is reported as the <c>ydb.query.session.pool.name</c> attribute on
     /// connection-pool metrics. Useful when multiple pools connect to the same database and you need
     /// to distinguish them in dashboards.
     /// <para>Default value: null (the connection string is used instead).</para>

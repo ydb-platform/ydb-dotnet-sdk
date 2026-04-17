@@ -46,7 +46,7 @@ public class YdbMetricTests : TestBase
         Assert.NotNull(metric);
 
         var points = GetFilteredPoints(metric.GetMetricPoints())
-            .ToDictionary(p => (string)ToDictionary(p.Tags)["db.operation.name"]!);
+            .ToDictionary(p => (string)ToDictionary(p.Tags)["ydb.operation.name"]!);
 
         Assert.True(points["ExecuteQuery"].GetHistogramSum() > 0);
         Assert.True(points["Commit"].GetHistogramSum() > 0);
@@ -57,7 +57,7 @@ public class YdbMetricTests : TestBase
         Assert.Equal(settings.Database, tags["db.namespace"]);
         Assert.Equal(settings.Host, tags["server.address"]);
         Assert.Equal(settings.Port.ToString(), tags["server.port"]?.ToString());
-        Assert.Equal("ExecuteQuery", tags["db.operation.name"]);
+        Assert.Equal("ExecuteQuery", tags["ydb.operation.name"]);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class YdbMetricTests : TestBase
         {
             meterProvider.ForceFlush();
 
-            var metric = GetMetric(exportedItems, "db.client.connection.count");
+            var metric = GetMetric(exportedItems, "ydb.query.session.count");
             var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
@@ -88,7 +88,7 @@ public class YdbMetricTests : TestBase
         meterProvider.ForceFlush();
 
         {
-            var metric = GetMetric(exportedItems, "db.client.connection.count");
+            var metric = GetMetric(exportedItems, "ydb.query.session.count");
             var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
@@ -114,7 +114,7 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var failed = GetMetric(exportedItems, "db.client.operation.failed");
+        var failed = GetMetric(exportedItems, "ydb.client.operation.failed");
         Assert.NotNull(failed);
         var point = GetFilteredPoints(failed.GetMetricPoints()).Single();
         Assert.Equal(1, point.GetSumLong());
@@ -122,7 +122,7 @@ public class YdbMetricTests : TestBase
         var tags = ToDictionary(point.Tags);
         Assert.Equal("ydb", tags["db.system.name"]);
         Assert.Equal(settings.Database, tags["db.namespace"]);
-        Assert.Equal("ExecuteQuery", tags["db.operation.name"]);
+        Assert.Equal("ExecuteQuery", tags["ydb.operation.name"]);
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.operation.failed");
+        var metric = GetMetric(exportedItems, "ydb.client.operation.failed");
         var point = GetOperationFailedPoint(
             metric.GetMetricPoints(),
             settings,
@@ -200,7 +200,7 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.operation.failed");
+        var metric = GetMetric(exportedItems, "ydb.client.operation.failed");
         var point = GetOperationFailedPoint(
             metric.GetMetricPoints(),
             settings,
@@ -222,11 +222,11 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.connection.create_time");
+        var metric = GetMetric(exportedItems, "ydb.query.session.create_time");
         var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
 
         Assert.True(point.GetHistogramSum() > 0);
-        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["db.client.connection.pool.name"]);
+        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["ydb.query.session.pool.name"]);
     }
 
     [Fact]
@@ -249,17 +249,17 @@ public class YdbMetricTests : TestBase
         await Task.Yield(); // let secondConnectionTask reach ReportPendingConnectionRequestStart
         meterProvider.ForceFlush();
 
-        var pendingMetric = GetMetric(exportedItems, "db.client.connection.pending_requests");
+        var pendingMetric = GetMetric(exportedItems, "ydb.query.session.pending_requests");
         var pendingPoint = GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single();
         Assert.Equal(1, pendingPoint.GetSumLong());
-        Assert.Equal(settings.PoolName, ToDictionary(pendingPoint.Tags)["db.client.connection.pool.name"]);
+        Assert.Equal(settings.PoolName, ToDictionary(pendingPoint.Tags)["ydb.query.session.pool.name"]);
 
         await firstConn.DisposeAsync();
         await using var secondConn = await secondConnectionTask;
 
         exportedItems.Clear();
         meterProvider.ForceFlush();
-        pendingMetric = GetMetric(exportedItems, "db.client.connection.pending_requests");
+        pendingMetric = GetMetric(exportedItems, "ydb.query.session.pending_requests");
         Assert.Equal(0, GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single().GetSumLong());
     }
 
@@ -284,12 +284,12 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.connection.timeouts");
+        var metric = GetMetric(exportedItems, "ydb.query.session.timeouts");
         Assert.NotNull(metric);
 
         var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
         Assert.Equal(1, point.GetSumLong());
-        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["db.client.connection.pool.name"]);
+        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["ydb.query.session.pool.name"]);
     }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
@@ -324,7 +324,7 @@ public class YdbMetricTests : TestBase
     {
         foreach (var point in points)
         {
-            if (ToDictionary(point.Tags).GetValueOrDefault("db.client.connection.pool.name") as string == poolName)
+            if (ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string == poolName)
             {
                 yield return point;
             }
@@ -337,7 +337,7 @@ public class YdbMetricTests : TestBase
         {
             foreach (var tag in point.Tags)
             {
-                if (tag.Key == "db.client.connection.state" && (string?)tag.Value == state)
+                if (tag.Key == "ydb.query.session.state" && (string?)tag.Value == state)
                 {
                     return point;
                 }
@@ -359,7 +359,7 @@ public class YdbMetricTests : TestBase
             var tags = ToDictionary(point.Tags);
             if (tags.GetValueOrDefault("db.namespace") as string == settings.Database &&
                 tags.GetValueOrDefault("server.address") as string == settings.Host &&
-                tags.GetValueOrDefault("db.operation.name") as string == operationName &&
+                tags.GetValueOrDefault("ydb.operation.name") as string == operationName &&
                 tags.GetValueOrDefault("db.response.status_code") as string == statusCode)
             {
                 return point;
@@ -385,7 +385,7 @@ public class YdbMetricTests : TestBase
     {
         foreach (var point in points)
         {
-            if (ToDictionary(point.Tags).GetValueOrDefault("db.client.connection.pool.name") as string == poolName)
+            if (ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string == poolName)
                 yield return point;
         }
     }
