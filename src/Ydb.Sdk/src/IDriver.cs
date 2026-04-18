@@ -379,7 +379,7 @@ public abstract class BaseDriver : IDriver
                     return;
                 case < 0:
                     throw new InvalidOperationException(
-                        "DisposeAsync called more times than RegisterOwner (report bug!).");
+                        "Dispose called more times than RegisterOwner (report bug!).");
                 default:
                     _disposed = 1;
                     break;
