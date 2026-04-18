@@ -9,7 +9,6 @@ public class Mutex
         _semaphore = semaphore;
     }
 
-    public async Task<Lease> Acquire(ulong count, bool isEphemeral, byte[]? data,
-        TimeSpan timeout)
-        => await _semaphore.Acquire(count, isEphemeral, data, timeout);
+    public async Task<Lease> Lock(CancellationToken cancellationToken)
+        => await _semaphore.Acquire(ulong.MaxValue, true, null, null, cancellationToken);
 }

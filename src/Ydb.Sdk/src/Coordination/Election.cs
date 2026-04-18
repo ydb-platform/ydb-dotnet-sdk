@@ -17,15 +17,15 @@ public class Election
     public string Name
         => _semaphore.Name;
 
-    public async Task<Leadership> Campaign(byte[] data, CancellationToken ct = default)
+    public async Task<Leadership> Campaign(byte[] data, CancellationToken cancellationToken = default)
     {
-        var lease = await _semaphore.Acquire(1, false, data, null);
+        var lease = await _semaphore.Acquire(1, false, data, null, cancellationToken);
         return new Leadership(_semaphore, lease);
     }
 
-    public async Task<LeaderInfo?> Leader(CancellationToken ct = default)
+    public async Task<LeaderInfo?> Leader(CancellationToken cancellationToken = default)
     {
-        var description = await _semaphore.Describe(DescribeSemaphoreMode.WithOwners);
+        var description = await _semaphore.Describe(DescribeSemaphoreMode.WithOwners, cancellationToken);
         var owner = description.GetOwnersList().FirstOrDefault();
         return owner != null ? new LeaderInfo(owner.Data) : null;
     }
@@ -42,11 +42,11 @@ public class Election
         try
         {
             var watch = await _semaphore.WatchSemaphore(DescribeSemaphoreMode.WithOwners,
-                WatchSemaphoreMode.WatchOwners);
-            var stateInital = HandleState(watch.Initial, ref previousLeader, ref currentCts);
-            if (stateInital != null)
+                WatchSemaphoreMode.WatchOwners, cancellationToken);
+            var stateInitial = HandleState(watch.Initial, ref previousLeader, ref currentCts);
+            if (stateInitial != null)
             {
-                yield return stateInital;
+                yield return stateInitial;
             }
 
             await foreach (var description in watch.Updates.WithCancellation(cancellationToken))
@@ -58,12 +58,11 @@ public class Election
                 }
             }
         }
-
         finally
         {
             if (currentCts != null)
             {
-                currentCts.Cancel();
+                await currentCts.CancelAsync();
                 currentCts.Dispose();
             }
 

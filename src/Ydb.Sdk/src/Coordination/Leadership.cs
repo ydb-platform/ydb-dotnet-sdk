@@ -28,9 +28,18 @@ public class Leadership : IAsyncDisposable
 
         Console.WriteLine($"resigning from leadership on {_semaphore.Name}");
 
-        await _lease.Release();
+        await _lease.Release(cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
-        => await Resign();
+    {
+        try
+        {
+            await Resign();
+        }
+        finally
+        {
+            GC.SuppressFinalize(this);
+        }
+    }
 }

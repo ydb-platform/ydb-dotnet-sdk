@@ -2,4 +2,4 @@
 
 namespace Ydb.Sdk.Coordination.Dto;
 
-public record PendingResult(SessionResponse Request, SessionResponse.ResponseOneofCase EnumResponse);
+public record PendingResult(SessionResponse Request);

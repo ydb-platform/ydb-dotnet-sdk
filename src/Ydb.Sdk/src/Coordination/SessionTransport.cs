@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using Google.Protobuf;
+using Microsoft.Extensions.Logging;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
@@ -12,9 +13,11 @@ using Ydb.Sdk.Coordination.Watcher;
 
 namespace Ydb.Sdk.Coordination;
 
-public class SessionRuntime
+public class SessionTransport : IAsyncDisposable
 {
     private readonly IDriver _driver;
+
+    private readonly CancellationToken _cancellationToken;
     //private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
 
 
@@ -56,14 +59,20 @@ public class SessionRuntime
 
     private readonly WatcherRegistry _watcherRegistry = new();
 
-    public SessionRuntime(IDriver driver, string pathNode) //IRetryPolicy retryPolicy
+    private readonly ILogger<SessionTransport> _logger;
+
+    public SessionTransport(IDriver driver, ILoggerFactory loggerFactory, string pathNode,
+        CancellationToken cancellationToken = default) //IRetryPolicy retryPolicy
     {
         //_ydbRetryPolicyExecutor = new YdbRetryPolicyExecutor(retryPolicy);
+        _logger = loggerFactory.CreateLogger<SessionTransport>();
+        _logger.LogInformation("Starting session transport...");
         _driver = driver;
         _pathNode = pathNode;
-
+        _cancellationToken = cancellationToken;
         _initTask = InitializeAsync();
     }
+
 
     public ulong SessionId { get; private set; }
 
@@ -76,7 +85,7 @@ public class SessionRuntime
         _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, new GrpcRequestSettings());
         if (_stream == null)
             throw new InvalidOperationException("Stream is null in SendStartSession");
-        _ = Task.Run(RunProcessingStreamResponse);
+        _ = Task.Run(RunProcessingStreamResponse, _cancellationToken);
         await SendStartSession();
     }
 
@@ -94,7 +103,10 @@ public class SessionRuntime
         {
             while (await _stream!.MoveNextAsync())
             {
+                _logger.LogInformation("New response received...");
                 var response = _stream.Current;
+                _logger.LogInformation("Response received == " + response);
+                var handleSemaphoreCount = 0;
 
                 switch (response.ResponseCase)
                 {
@@ -115,6 +127,9 @@ public class SessionRuntime
                         HandleAcquireSemaphorePending();
                         break;
                     case SessionResponse.ResponseOneofCase.DescribeSemaphoreChanged:
+                        handleSemaphoreCount++;
+                        _logger.LogInformation("HandleSemaphoreChanged... handleSemaphoreCount=" +
+                                               handleSemaphoreCount);
                         HandleSemaphoreChanged(response.DescribeSemaphoreChanged);
                         break;
                     case SessionResponse.ResponseOneofCase.None:
@@ -171,35 +186,247 @@ public class SessionRuntime
         _pendingRequests.Clear();
     }
 
-    /*
-     * private void TryCompletePending(SessionResponse response)
-{
-    var reqId = ExtractReqId(response);
-    if (!reqId.HasValue)
-        return;
+    public CancellationToken Token => _cancellationToken;
 
-    if (_pendingRequests.TryRemove(reqId.Value, out var pending))
+    public async Task CreateSemaphore(string name, ulong limit, byte[]? data,
+        CancellationToken cancellationToken = default)
     {
+        await EnsureInitialized();
+        var reqId = GetNextReqId();
+        var createSemaphore = new SessionRequest
+        {
+            CreateSemaphore = new SessionRequest.Types.CreateSemaphore
+            {
+                Name = name,
+                Limit = limit,
+                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
+                ReqId = reqId
+            }
+        };
         try
         {
-            var result = ExtractResult(response);
-
-            if (result == null)
-            {
-                pending.Tcs.TrySetException(
-                    new InvalidOperationException($"Unexpected response type: {response.ResponseCase}"));
-                return;
-            }
-
-            pending.Tcs.TrySetResult(result);
+            var task = SendRequest(reqId, createSemaphore, cancellationToken);
+            await task;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            pending.Tcs.TrySetException(ex);
+            throw new YdbException("Create semaphore failed");
         }
     }
-}
-     */
+
+
+    public async Task UpdateSemaphore(string name, byte[]? data, CancellationToken cancellationToken = default)
+    {
+        await EnsureInitialized();
+        var reqId = GetNextReqId();
+        var updateSemaphore = new SessionRequest
+        {
+            UpdateSemaphore = new SessionRequest.Types.UpdateSemaphore
+            {
+                Name = name,
+                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
+                ReqId = reqId
+            }
+        };
+        try
+        {
+            var task = SendRequest(reqId, updateSemaphore, cancellationToken);
+            await task;
+        }
+        catch (Exception)
+        {
+            throw new YdbException("Update semaphore failed");
+        }
+    }
+
+
+    public async Task DeleteSemaphore(string name, bool force, CancellationToken cancellationToken = default)
+    {
+        await EnsureInitialized();
+        var reqId = GetNextReqId();
+        var deleteSemaphore = new SessionRequest
+        {
+            DeleteSemaphore = new SessionRequest.Types.DeleteSemaphore
+            {
+                Name = name,
+                Force = force,
+                ReqId = reqId
+            }
+        };
+        try
+        {
+            var task = SendRequest(reqId, deleteSemaphore, cancellationToken);
+            await task;
+        }
+        catch (Exception)
+        {
+            throw new YdbException("Delete semaphore failed");
+        }
+    }
+
+
+    public async Task<SemaphoreDescriptionClient> DescribeSemaphore(string name,
+        DescribeSemaphoreMode mode, CancellationToken cancellationToken = default)
+    {
+        await EnsureInitialized();
+        var reqId = GetNextReqId();
+        var describeSemaphore = new SessionRequest
+        {
+            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
+            {
+                Name = name,
+                IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(mode),
+                IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(mode),
+                WatchData = false,
+                WatchOwners = false,
+                ReqId = reqId
+            }
+        };
+
+        try
+        {
+            var task = await SendRequest(reqId, describeSemaphore, cancellationToken);
+            return new SemaphoreDescriptionClient(task.Request.DescribeSemaphoreResult
+                .SemaphoreDescription);
+        }
+        catch (Exception)
+        {
+            throw new YdbException("Describe semaphore failed");
+        }
+    }
+
+    public async Task AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
+        TimeSpan? timeout, CancellationToken cancellationToken = default)
+    {
+        await EnsureInitialized();
+        var reqId = GetNextReqId();
+
+        var acquireSemaphore = new SessionRequest
+        {
+            AcquireSemaphore = new SessionRequest.Types.AcquireSemaphore
+            {
+                Name = name,
+                Count = count,
+                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
+                Ephemeral = isEphemeral,
+                TimeoutMillis = timeout == null ? ulong.MaxValue : (ulong)timeout.Value.TotalMilliseconds,
+                ReqId = reqId
+            }
+        };
+
+        try
+        {
+            await SendRequest(reqId, acquireSemaphore, cancellationToken);
+        }
+        catch (Exception)
+        {
+            throw new YdbException("Acquire semaphore failed");
+        }
+    }
+
+    public async Task ReleaseSemaphore(string name, CancellationToken cancellationToken = default)
+    {
+        await EnsureInitialized();
+        var reqId = GetNextReqId();
+        var releaseSemaphore = new SessionRequest
+        {
+            ReleaseSemaphore = new SessionRequest.Types.ReleaseSemaphore
+            {
+                Name = name,
+                ReqId = reqId
+            }
+        };
+
+        try
+        {
+            await SendRequest(reqId, releaseSemaphore, cancellationToken);
+        }
+        catch (Exception)
+        {
+            throw new YdbException("Release semaphore failed");
+        }
+    }
+
+    public async Task<WatchResult<SemaphoreDescriptionClient>> WatchSemaphore(
+        string name,
+        DescribeSemaphoreMode describeMode,
+        WatchSemaphoreMode watchMode,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureInitialized();
+
+        var subscription = _watcherRegistry.Watch(name);
+        var reqId = GetNextReqId();
+
+        var watchRequest = new SessionRequest
+        {
+            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
+            {
+                Name = name,
+                IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
+                IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
+                WatchData = WatchSemaphoreModeUtils.WatchData(watchMode),
+                WatchOwners = WatchSemaphoreModeUtils.WatchOwners(watchMode),
+                ReqId = reqId
+            }
+        };
+
+        SessionResponse firstResponse;
+
+        try
+        {
+            var result = await SendRequest(reqId, watchRequest, cancellationToken);
+            firstResponse = result.Request;
+
+            if (firstResponse.DescribeSemaphoreResult.WatchAdded)
+            {
+                _watcherRegistry.RemapWatch(name, subscription, reqId);
+            }
+        }
+        catch (Exception e)
+        {
+            _watcherRegistry.RemoveWatch(name, subscription);
+            throw new YdbException("Watch semaphore failed " + e.Message);
+        }
+
+        var initial = new SemaphoreDescriptionClient(
+            firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
+        return new WatchResult<SemaphoreDescriptionClient>(initial, Updates(cancellationToken));
+
+        async IAsyncEnumerable<SemaphoreDescriptionClient> Updates(
+            [EnumeratorCancellation] CancellationToken token = default)
+        {
+            try
+            {
+                await foreach (var _ in subscription.ReadAllAsync(token))
+                {
+                    var describeReqId = GetNextReqId();
+
+                    var describeRequest = new SessionRequest
+                    {
+                        DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
+                        {
+                            Name = name,
+                            IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
+                            IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
+                            WatchData = WatchSemaphoreModeUtils.WatchData(watchMode),
+                            WatchOwners = WatchSemaphoreModeUtils.WatchOwners(watchMode),
+                            ReqId = describeReqId
+                        }
+                    };
+
+                    var result = await SendRequest(describeReqId, describeRequest, token);
+
+                    yield return new SemaphoreDescriptionClient(
+                        result.Request.DescribeSemaphoreResult.SemaphoreDescription);
+                }
+            }
+            finally
+            {
+                _watcherRegistry.RemoveWatch(name, subscription);
+            }
+        }
+    }
 
     private static ulong? ExtractReqId(SessionResponse response) =>
         response.ResponseCase switch
@@ -228,43 +455,78 @@ public class SessionRuntime
         {
             case SessionResponse.ResponseOneofCase.AcquireSemaphoreResult:
                 EnsureSuccess(response.AcquireSemaphoreResult.Status, response.AcquireSemaphoreResult.Issues);
-                return new PendingResult(response, SessionResponse.ResponseOneofCase.AcquireSemaphoreResult);
+                return new PendingResult(response);
 
             case SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult:
                 EnsureSuccess(response.ReleaseSemaphoreResult.Status, response.ReleaseSemaphoreResult.Issues);
-                return new PendingResult(response, SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult);
+                return new PendingResult(response);
 
             case SessionResponse.ResponseOneofCase.DescribeSemaphoreResult:
                 EnsureSuccess(response.DescribeSemaphoreResult.Status, response.DescribeSemaphoreResult.Issues);
-                return new PendingResult(response, SessionResponse.ResponseOneofCase.DescribeSemaphoreResult);
+                return new PendingResult(response);
 
             case SessionResponse.ResponseOneofCase.CreateSemaphoreResult:
                 EnsureSuccess(response.CreateSemaphoreResult.Status, response.CreateSemaphoreResult.Issues);
-                return new PendingResult(response, SessionResponse.ResponseOneofCase.CreateSemaphoreResult);
+                return new PendingResult(response);
 
             case SessionResponse.ResponseOneofCase.UpdateSemaphoreResult:
                 EnsureSuccess(response.UpdateSemaphoreResult.Status, response.UpdateSemaphoreResult.Issues);
-                return new PendingResult(response, SessionResponse.ResponseOneofCase.UpdateSemaphoreResult);
+                return new PendingResult(response);
 
             case SessionResponse.ResponseOneofCase.DeleteSemaphoreResult:
                 EnsureSuccess(response.DeleteSemaphoreResult.Status, response.DeleteSemaphoreResult.Issues);
-                return new PendingResult(response, SessionResponse.ResponseOneofCase.DeleteSemaphoreResult);
+                return new PendingResult(response);
 
             default:
                 return null;
         }
     }
 
-    private async Task SafeWrite(SessionRequest request)
+
+    private async Task SendStartSession()
     {
-        await _writeLock.WaitAsync();
+        if (_stream == null)
+            throw new InvalidOperationException("Stream not initialized");
+
+
+        _sessionStartedTcs =
+            new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        SessionId = 0;
+        // var reqId = GetNextReqId();
+        var node = _pathNode;
+        // var timeout = new TimeSpan(5);
+        var key = CreateRandomKey();
+        var initRequestStart = new SessionRequest
+        {
+            SessionStart = new SessionRequest.Types.SessionStart
+            {
+                SessionId = 0,
+                Path = node,
+                TimeoutMillis = 5000,
+                ProtectionKey = key,
+                SeqNo = _seqNo++
+            }
+        };
+
+        await SafeWrite(initRequestStart);
+
+        await _sessionStartedTcs.Task;
+    }
+
+    private async Task SendStop()
+    {
+        await EnsureInitialized();
+        var stopSession = new SessionRequest
+        {
+            SessionStop = new SessionRequest.Types.SessionStop()
+        };
         try
         {
-            await _stream!.Write(request);
+            await SafeWrite(stopSession);
         }
-        finally
+        catch (Exception)
         {
-            _writeLock.Release();
+            throw new YdbException("Stop session failed");
         }
     }
 
@@ -326,41 +588,24 @@ public class SessionRuntime
         => _watcherRegistry.Notify(change);
 
 
-    private async Task SendStartSession()
-    {
-        if (_stream == null)
-            throw new InvalidOperationException("Stream not initialized");
-
-
-        _sessionStartedTcs =
-            new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        SessionId = 0;
-        // var reqId = GetNextReqId();
-        var node = _pathNode;
-        // var timeout = new TimeSpan(5);
-        var key = CreateRandomKey();
-        var initRequestStart = new SessionRequest
-        {
-            SessionStart = new SessionRequest.Types.SessionStart
-            {
-                SessionId = 0,
-                Path = node,
-                TimeoutMillis = 5000,
-                ProtectionKey = key,
-                SeqNo = _seqNo++
-            }
-        };
-
-        await SafeWrite(initRequestStart);
-
-        await _sessionStartedTcs.Task;
-    }
-
     private static ByteString CreateRandomKey()
     {
         var protectionKey = new byte[16];
         RandomNumberGenerator.Fill(protectionKey);
         return ByteString.CopyFrom(protectionKey);
+    }
+
+    private async Task SafeWrite(SessionRequest request, CancellationToken cancellationToken = default)
+    {
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            await _stream!.Write(request).WaitAsync(cancellationToken);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
     }
 
     private async Task<PendingResult> SendRequest(ulong reqId, SessionRequest request,
@@ -373,7 +618,7 @@ public class SessionRuntime
 
         try
         {
-            await SafeWrite(request);
+            await SafeWrite(request, cancellationToken);
         }
         catch (Exception e)
         {
@@ -402,184 +647,7 @@ public class SessionRuntime
         => Interlocked.Increment(ref _reqIdCounter);
 
 
-    public async Task CreateSemaphore(string name, ulong limit, byte[]? data)
-    {
-        await EnsureInitialized();
-        var reqId = GetNextReqId();
-        var createSemaphore = new SessionRequest
-        {
-            CreateSemaphore = new SessionRequest.Types.CreateSemaphore
-            {
-                Name = name,
-                Limit = limit,
-                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
-                ReqId = reqId
-            }
-        };
-        try
-        {
-            var task = SendRequest(reqId, createSemaphore);
-            await task;
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Create semaphore failed");
-        }
-    }
-
-
-    public async Task UpdateSemaphore(string name, byte[]? data)
-    {
-        await EnsureInitialized();
-        var reqId = GetNextReqId();
-        var updateSemaphore = new SessionRequest
-        {
-            UpdateSemaphore = new SessionRequest.Types.UpdateSemaphore
-            {
-                Name = name,
-                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
-                ReqId = reqId
-            }
-        };
-        try
-        {
-            var task = SendRequest(reqId, updateSemaphore);
-            await task;
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Update semaphore failed");
-        }
-    }
-
-
-    public async Task DeleteSemaphore(string name, bool force)
-    {
-        await EnsureInitialized();
-        var reqId = GetNextReqId();
-        var deleteSemaphore = new SessionRequest
-        {
-            DeleteSemaphore = new SessionRequest.Types.DeleteSemaphore
-            {
-                Name = name,
-                Force = force,
-                ReqId = reqId
-            }
-        };
-        try
-        {
-            var task = SendRequest(reqId, deleteSemaphore);
-            await task;
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Delete semaphore failed");
-        }
-    }
-
-
-    public async Task<SemaphoreDescriptionClient> DescribeSemaphore(string name,
-        DescribeSemaphoreMode mode)
-    {
-        await EnsureInitialized();
-        var reqId = GetNextReqId();
-        var describeSemaphore = new SessionRequest
-        {
-            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
-            {
-                Name = name,
-                IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(mode),
-                IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(mode),
-                WatchData = false,
-                WatchOwners = false,
-                ReqId = reqId
-            }
-        };
-
-        try
-        {
-            var task = await SendRequest(reqId, describeSemaphore);
-            return new SemaphoreDescriptionClient(task.Request.DescribeSemaphoreResult
-                .SemaphoreDescription);
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Describe semaphore failed");
-        }
-    }
-
-    public async Task AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
-        TimeSpan? timeout)
-    {
-        await EnsureInitialized();
-        var reqId = GetNextReqId();
-
-        var acquireSemaphore = new SessionRequest
-        {
-            AcquireSemaphore = new SessionRequest.Types.AcquireSemaphore
-            {
-                Name = name,
-                Count = count, // обратить на число
-                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
-                Ephemeral = isEphemeral,
-                TimeoutMillis = timeout == null ? ulong.MaxValue : (ulong)timeout.Value.TotalMilliseconds,
-                ReqId = reqId
-            }
-        };
-
-        try
-        {
-            await SendRequest(reqId, acquireSemaphore);
-
-            // доделать нюансы со взятием семафора
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Acquire semaphore failed");
-        }
-    }
-
-    public async Task ReleaseSemaphore(string name)
-    {
-        await EnsureInitialized();
-        var reqId = GetNextReqId();
-        var releaseSemaphore = new SessionRequest
-        {
-            ReleaseSemaphore = new SessionRequest.Types.ReleaseSemaphore
-            {
-                Name = name,
-                ReqId = reqId
-            }
-        };
-
-        try
-        {
-            await SendRequest(reqId, releaseSemaphore);
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Release semaphore failed");
-        }
-    }
-
-    private async Task SendStop()
-    {
-        await EnsureInitialized();
-        var stopSession = new SessionRequest
-        {
-            SessionStop = new SessionRequest.Types.SessionStop()
-        };
-        try
-        {
-            await SafeWrite(stopSession);
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Stop session failed");
-        }
-    }
-
-    public async ValueTask Dispose()
+    public async ValueTask DisposeAsync()
     {
         if (_disposed)
             return;
@@ -598,91 +666,19 @@ public class SessionRuntime
         {
             throw new YdbException("Session closing failed");
         }
-
-        // добавить отключение подписок
-        _writeLock.Dispose();
+        finally
+        {
+            // добавить отключение подписок
+            _watcherRegistry.Dispose();
+            _writeLock.Dispose();
+            GC.SuppressFinalize(this);
+        }
     }
-
-    public async Task<WatchResult<SemaphoreDescriptionClient>> WatchSemaphore(
-        string name,
-        DescribeSemaphoreMode describeMode,
-        WatchSemaphoreMode watchMode,
-        CancellationToken ct = default)
-    {
-        await EnsureInitialized();
-
-        var subscription = _watcherRegistry.Watch(name);
-        var reqId = GetNextReqId();
-
-        var watchRequest = new SessionRequest
-        {
-            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
-            {
-                Name = name,
-                IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
-                IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
-                WatchData = WatchSemaphoreModeUtils.WatchData(watchMode),
-                WatchOwners = WatchSemaphoreModeUtils.WatchOwners(watchMode),
-                ReqId = reqId
-            }
-        };
-
-        SessionResponse firstResponse;
-
-        try
-        {
-            var result = await SendRequest(reqId, watchRequest, ct);
-            firstResponse = result.Request;
-
-            if (firstResponse.DescribeSemaphoreResult.WatchAdded)
-            {
-                _watcherRegistry.RemapWatch(name, subscription, reqId);
-            }
-        }
-        catch
-        {
-            _watcherRegistry.RemoveWatch(name, subscription);
-            throw new YdbException("Watch semaphore failed");
-        }
-
-        var initial = new SemaphoreDescriptionClient(
-            firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
-
-        async IAsyncEnumerable<SemaphoreDescriptionClient> Updates(
-            [EnumeratorCancellation] CancellationToken token = default)
-        {
-            await foreach (var _ in subscription.ReadAllAsync(token))
-            {
-                subscription.Drain();
-
-                var describeReqId = GetNextReqId();
-
-                var describeRequest = new SessionRequest
-                {
-                    DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
-                    {
-                        Name = name,
-                        IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
-                        IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
-                        ReqId = describeReqId
-                    }
-                };
-
-                var result = await SendRequest(describeReqId, describeRequest, token);
-
-                yield return new SemaphoreDescriptionClient(
-                    result.Request.DescribeSemaphoreResult.SemaphoreDescription);
-            }
-        }
-
-        return new WatchResult<SemaphoreDescriptionClient>(initial, Updates(ct));
-    }
-
 
     /*
     public async IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescriptionClient> WatchSemaphore(string name,
         DescribeSemaphoreMode describeMode,
-        WatchSemaphoreMode watchMode, [EnumeratorCancellation] CancellationToken ct = default)
+        WatchSemaphoreMode watchMode, [EnumeratorCancellation] _cancellationToken ct = default)
     {
         await EnsureInitialized();
         var subscription = _watcherRegistry.Watch(name);

@@ -4,5 +4,5 @@ namespace Ydb.Sdk.Coordination.Settings;
 
 public class CoordinationNodeSettings : OperationSettings
 {
-    public NodeConfig Config { get; set; }
+    public NodeConfig Config { get; init; }
 }

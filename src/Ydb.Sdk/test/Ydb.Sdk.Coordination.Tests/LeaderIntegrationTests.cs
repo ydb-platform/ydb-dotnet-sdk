@@ -6,15 +6,15 @@ using Ydb.Sdk.Coordination.Settings;
 
 namespace Ydb.Sdk.Coordination.Tests;
 
-public class PrimitivesIntegrationTests
+public class LeaderIntegrationTests
 {
     private static readonly Encoding Utf8 = Encoding.UTF8;
     private readonly string _nodePath = "/local/electionExample";
     private readonly string _electionName = "apiLeader";
-    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString);
+    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString, Utils.LoggerFactory);
     private readonly ITestOutputHelper _output;
 
-    public PrimitivesIntegrationTests(ITestOutputHelper output)
+    public LeaderIntegrationTests(ITestOutputHelper output)
     {
         _output = output;
     }
@@ -66,6 +66,8 @@ public class PrimitivesIntegrationTests
     public async Task LeaderElection()
     {
         using var cts = new CancellationTokenSource();
+        // Stop everything after 10 seconds
+        cts.CancelAfter(TimeSpan.FromSeconds(10));
 
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
@@ -76,32 +78,38 @@ public class PrimitivesIntegrationTests
                 .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-        await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings);
+        await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings, CancellationToken.None);
         var coordinationSession1 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession2 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
         var semaphore = coordinationSession1.Semaphore(_electionName);
-        await semaphore.Create(1, null);
+        await semaphore.Create(1, null, CancellationToken.None);
 
-        await Task.WhenAll(
-            RunLeader(coordinationSession1, 1, "worker-a:starting1", "worker-a:8088", cts.Token),
-            RunLeader(coordinationSession2, 2, "worker-a:starting2", "worker-a:8089", cts.Token),
-            RunLeader(coordinationSession3, 3, "worker-a:starting3", "worker-a:8090", cts.Token),
-            PrintCurrentLeader(coordinationSession1, cts.Token),
-            PrintCurrentLeader(coordinationSession2, cts.Token),
-            PrintCurrentLeader(coordinationSession3, cts.Token),
-            RunFollower(coordinationSession1, 1, cts.Token),
-            RunFollower(coordinationSession2, 2, cts.Token),
-            RunFollower(coordinationSession3, 3, cts.Token)
-        );
-
-
-        await PrintCurrentLeader(coordinationSession1, cts.Token);
-        await PrintCurrentLeader(coordinationSession2, cts.Token);
-        await PrintCurrentLeader(coordinationSession3, cts.Token);
-
-        await coordinationSession1.Close();
-        await _coordinationClient.DropNode(_nodePath, dropCoordinationNodeSettings);
+        try
+        {
+            await Task.WhenAll(
+                RunLeader(coordinationSession1, 1, "worker-a:starting1", "worker-a:8088", cts.Token),
+                RunLeader(coordinationSession2, 2, "worker-a:starting2", "worker-a:8089", cts.Token),
+                RunLeader(coordinationSession3, 3, "worker-a:starting3", "worker-a:8090", cts.Token),
+                PrintCurrentLeader(coordinationSession1, cts.Token),
+                PrintCurrentLeader(coordinationSession2, cts.Token),
+                PrintCurrentLeader(coordinationSession3, cts.Token),
+                RunFollower(coordinationSession1, 1, cts.Token),
+                RunFollower(coordinationSession2, 2, cts.Token),
+                RunFollower(coordinationSession3, 3, cts.Token)
+            );
+            await PrintCurrentLeader(coordinationSession1, CancellationToken.None);
+            await PrintCurrentLeader(coordinationSession2, CancellationToken.None);
+            await PrintCurrentLeader(coordinationSession3, CancellationToken.None);
+        }
+        finally
+        {
+            await cts.CancelAsync();
+            await coordinationSession1.Close();
+            await coordinationSession2.Close();
+            await coordinationSession3.Close();
+            await _coordinationClient.DropNode(_nodePath, dropCoordinationNodeSettings, CancellationToken.None);
+        }
     }
 
     // ── leader ────────────────────────────────────────────────────────────────────
@@ -111,7 +119,7 @@ public class PrimitivesIntegrationTests
     {
         _output.WriteLine("[leader {0}] campaigning...", number);
         var election = coordinationSession.Election(_electionName);
-        var leadership = await election.Campaign(Utf8.GetBytes(campaign), token);
+        await using var leadership = await election.Campaign(Utf8.GetBytes(campaign), token);
         _output.WriteLine("[leader {0}] elected — publishing endpoint", number);
 
         await Task.Delay(300, token);
@@ -122,7 +130,7 @@ public class PrimitivesIntegrationTests
         await Task.Delay(2000, token);
 
         _output.WriteLine("[leader {0}] resigning", number);
-        await leadership.Resign(token);
+        //await leadership.Resign(token);
 
         _output.WriteLine("[leader {0}] done", number);
     }
@@ -134,23 +142,29 @@ public class PrimitivesIntegrationTests
         _output.WriteLine("[follower {0}] starting", number);
         var election = coordinationSession.Election(_electionName);
 
-
-        await foreach (var state in election.Observe(token))
+        try
         {
-            var endpoint = Utf8.GetString(state.Data);
-            if (state.Data.Length == 0)
+            await foreach (var state in election.Observe(token))
             {
-                _output.WriteLine("[follower {0}] no leader currently", number);
-                continue;
-            }
+                var endpoint = Utf8.GetString(state.Data);
+                if (state.Data.Length == 0)
+                {
+                    _output.WriteLine("[follower {0}] no leader currently", number);
+                    continue;
+                }
 
-            if (state.IsMe)
-            {
-                _output.WriteLine("[follower {0}] i am the leader: {1}", number, endpoint);
-                return;
-            }
+                if (state.IsMe)
+                {
+                    _output.WriteLine("[follower {0}] i am the leader: {1}", number, endpoint);
+                    return;
+                }
 
-            _output.WriteLine("[follower {0}] current leader: {1}", number, endpoint);
+                _output.WriteLine("[follower {0}] current leader: {1}", number, endpoint);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _output.WriteLine("[follower {0}] stopped", number);
         }
     }
 

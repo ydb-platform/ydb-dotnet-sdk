@@ -9,7 +9,7 @@ namespace Ydb.Sdk.Coordination.Tests;
 
 public class CoordinationClientIntegrationTests
 {
-    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString);
+    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString, Utils.LoggerFactory);
 
     private readonly ITestOutputHelper _output;
 
@@ -286,7 +286,7 @@ public class CoordinationClientIntegrationTests
     }
 
     [Fact]
-    public async Task AcquireSemaphore1()
+    public async Task AcquireSemaphore()
     {
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
@@ -337,7 +337,7 @@ public class CoordinationClientIntegrationTests
     }
 
     [Fact]
-    public async Task AcquireEphemeralSemaphore() // fix  Ephemeral Semaphore
+    public async Task AcquireEphemeralSemaphore()
     {
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
@@ -354,12 +354,12 @@ public class CoordinationClientIntegrationTests
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var coordinationSession1 = _coordinationClient.CreateSession(pathNode);
         var semaphore = coordinationSession1.Semaphore(semaphoreName);
-        await semaphore.Create(1, null);
+        //await semaphore.Create(1, null);
         // When
-        var lease = await semaphore.Acquire(1, false, null, TimeSpan.FromSeconds(5));
+        var lease = await semaphore.Acquire(ulong.MaxValue, true, null, null);
         await lease.Release();
         //Then
-        await semaphore.Delete(false);
+        //await semaphore.Delete(false);
         await coordinationSession1.Close();
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
 

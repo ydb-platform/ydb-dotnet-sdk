@@ -1,4 +1,5 @@
-﻿using Ydb.Coordination;
+﻿using Microsoft.Extensions.Logging;
+using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Coordination.Description;
@@ -10,14 +11,13 @@ namespace Ydb.Sdk.Coordination;
 
 public class CoordinationClient
 {
-    // IDriverFactory _driverFactory надо добавлять его через конструктор , а не IDriver?
     private readonly IDriver _iDriver;
-    private readonly CancellationToken _cancellationToken;
+    private readonly ILoggerFactory _loggerFactory;
 
-    public CoordinationClient(string connectionString, CancellationToken cancellationToken = default)
+    public CoordinationClient(string connectionString, ILoggerFactory loggerFactory)
     {
         _iDriver = GetDriver(new YdbConnectionStringBuilder(connectionString)).AsTask().Result;
-        _cancellationToken = cancellationToken;
+        _loggerFactory = loggerFactory;
     }
 
 
@@ -28,7 +28,7 @@ public class CoordinationClient
             throw new ArgumentException("Coordination node path cannot be empty", nameof(path));
         }
 
-        return path.StartsWith("/")
+        return path.StartsWith('/')
             ? path
             : $"{_iDriver.Database}/{path}";
     }
@@ -38,7 +38,6 @@ public class CoordinationClient
             ? Guid.NewGuid().ToString()
             : traceId;
 
-    // могут быть проблемы, связанные с withDeadline, так как его нет , аналог походу settings.TransportTimeout
     private static GrpcRequestSettings MakeGrpcRequestSettings(OperationSettings settings, string traceId,
         CancellationToken cancellationToken)
         => new()
@@ -49,14 +48,15 @@ public class CoordinationClient
         };
 
 
-    public CoordinationSession CreateSession(string pathNode)
+    public CoordinationSession CreateSession(string pathNode, CancellationToken cancellationToken = default)
     {
         ValidatePath(pathNode);
-        return new CoordinationSession(_iDriver, pathNode);
+        return new CoordinationSession(_iDriver, _loggerFactory, pathNode, cancellationToken);
     }
 
 
-    public async Task CreateNode(string path, CoordinationNodeSettings settings)
+    public async Task CreateNode(string path, CoordinationNodeSettings settings,
+        CancellationToken cancellationToken = default)
     {
         var request = new CreateNodeRequest
         {
@@ -66,7 +66,7 @@ public class CoordinationClient
         };
 
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
-        var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
+        var grpcSettings = MakeGrpcRequestSettings(settings, traceId, cancellationToken);
         try
         {
             Task task = _iDriver.UnaryCall(CoordinationService.CreateNodeMethod, request, grpcSettings);
@@ -78,7 +78,8 @@ public class CoordinationClient
         }
     }
 
-    public async Task AlterNode(string path, CoordinationNodeSettings settings)
+    public async Task AlterNode(string path, CoordinationNodeSettings settings,
+        CancellationToken cancellationToken = default)
     {
         var request = new AlterNodeRequest
         {
@@ -88,7 +89,7 @@ public class CoordinationClient
         };
 
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
-        var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
+        var grpcSettings = MakeGrpcRequestSettings(settings, traceId, cancellationToken);
         try
         {
             Task task = _iDriver.UnaryCall(CoordinationService.AlterNodeMethod, request, grpcSettings);
@@ -100,7 +101,8 @@ public class CoordinationClient
         }
     }
 
-    public async Task DropNode(string path, DropCoordinationNodeSettings settings)
+    public async Task DropNode(string path, DropCoordinationNodeSettings settings,
+        CancellationToken cancellationToken = default)
     {
         var request = new DropNodeRequest
         {
@@ -109,7 +111,7 @@ public class CoordinationClient
         };
 
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
-        var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
+        var grpcSettings = MakeGrpcRequestSettings(settings, traceId, cancellationToken);
         try
         {
             Task task = _iDriver.UnaryCall(CoordinationService.DropNodeMethod, request, grpcSettings);
@@ -122,8 +124,8 @@ public class CoordinationClient
         }
     }
 
-    public async ValueTask<NodeConfig> DescribeNode(string path,
-        DescribeCoordinationNodeSettings settings)
+    public async Task<NodeConfig> DescribeNode(string path,
+        DescribeCoordinationNodeSettings settings, CancellationToken cancellationToken = default)
     {
         var request = new DescribeNodeRequest
         {
@@ -131,15 +133,14 @@ public class CoordinationClient
             OperationParams = settings.MakeOperationParams()
         };
         var traceId = GetTraceIdOrGenerateNew(settings.TraceId);
-        var grpcSettings = MakeGrpcRequestSettings(settings, traceId, _cancellationToken);
+        var grpcSettings = MakeGrpcRequestSettings(settings, traceId, cancellationToken);
 
         try
         {
             var task = _iDriver.UnaryCall(CoordinationService.DescribeNodeMethod, request, grpcSettings);
             await task;
 
-            return await new ValueTask<NodeConfig>(
-                NodeConfig.FromProto(task.Result.Operation.Result.Unpack<DescribeNodeResult>()));
+            return NodeConfig.FromProto(task.Result.Operation.Result.Unpack<DescribeNodeResult>());
         }
 
         catch (Exception)

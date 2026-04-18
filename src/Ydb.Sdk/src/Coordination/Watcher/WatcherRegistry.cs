@@ -4,27 +4,34 @@ using Ydb.Sdk.Coordination.Description;
 
 namespace Ydb.Sdk.Coordination.Watcher;
 
-public class WatcherRegistry
+public class WatcherRegistry : IDisposable
 {
     private readonly ConcurrentDictionary<string, WatchSubscription> _watchesByName = new();
     private readonly ConcurrentDictionary<ulong, WatchSubscription> _watchesByReqId = new();
+    private volatile bool _isDisposed;
 
     public WatchSubscription Watch(string name)
     {
-        if (_watchesByName.TryGetValue(name, out var previous))
-        {
-            previous.Dispose();
-        }
+        if (_isDisposed)
+            throw new ObjectDisposedException(nameof(WatcherRegistry));
+        var sub = new WatchSubscription();
 
-        var subscription = new WatchSubscription();
-        _watchesByName[name] = subscription;
-        return subscription;
+        _watchesByName.AddOrUpdate(
+            name,
+            _ => sub,
+            (_, old) =>
+            {
+                old.Dispose();
+                return sub;
+            });
+
+        return sub;
     }
 
     public void RemapWatch(string name, WatchSubscription subscription, ulong reqId)
     {
-        _watchesByName.GetOrAdd(name, _ => new WatchSubscription()); //var activeSubscription = 
-
+        if (_isDisposed)
+            return;
         if (!_watchesByName.TryGetValue(name, out var active))
             return;
 
@@ -43,6 +50,8 @@ public class WatcherRegistry
 
     public void RemoveWatch(string name, WatchSubscription subscription)
     {
+        if (_isDisposed)
+            return;
         if (_watchesByName.TryGetValue(name, out var active) &&
             ReferenceEquals(active, subscription))
         {
@@ -57,6 +66,8 @@ public class WatcherRegistry
 
     public void Notify(SessionResponse.Types.DescribeSemaphoreChanged evt)
     {
+        if (_isDisposed)
+            return;
         if (_watchesByReqId.TryGetValue(evt.ReqId, out var subscription))
         {
             subscription.Push(new SemaphoreChangedEvent(evt));
@@ -65,9 +76,35 @@ public class WatcherRegistry
 
     public void NotifyAllWatches()
     {
+        if (_isDisposed)
+            return;
         foreach (var subscription in _watchesByName.Values)
         {
-            subscription.Push(new SemaphoreChangedEvent(false, false)); // почистить мб надо
+            subscription.Push(new SemaphoreChangedEvent());
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+            return;
+
+        _isDisposed = true;
+
+        var subscriptions = _watchesByName.Values.ToArray();
+
+        _watchesByName.Clear();
+        _watchesByReqId.Clear();
+        try
+        {
+            foreach (var sub in subscriptions)
+            {
+                sub.Dispose();
+            }
+        }
+        finally
+        {
+            GC.SuppressFinalize(this);
         }
     }
 }
