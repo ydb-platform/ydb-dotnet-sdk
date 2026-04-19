@@ -1,8 +1,8 @@
 ﻿using Ydb.Coordination;
 
-namespace Ydb.Sdk.Coordination.Dto;
+namespace Ydb.Sdk.Coordination.RequestRegistry;
 
-internal sealed class PendingRequest<TResult>
+public class PendingRequest<TResult>
 {
     public TaskCompletionSource<TResult> Tcs { get; }
     public SessionRequest Request { get; }

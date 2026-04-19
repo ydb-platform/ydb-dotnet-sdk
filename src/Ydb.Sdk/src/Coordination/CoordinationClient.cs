@@ -48,10 +48,10 @@ public class CoordinationClient
         };
 
 
-    public CoordinationSession CreateSession(string pathNode, CancellationToken cancellationToken = default)
+    public CoordinationSession CreateSession(string pathNode, CancellationTokenSource? cancelTokenSource = null)
     {
         ValidatePath(pathNode);
-        return new CoordinationSession(_iDriver, _loggerFactory, pathNode, cancellationToken);
+        return new CoordinationSession(_iDriver, _loggerFactory, pathNode, cancelTokenSource);
     }
 
 

@@ -7,7 +7,7 @@ using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Coordination.Description;
-using Ydb.Sdk.Coordination.Dto;
+using Ydb.Sdk.Coordination.RequestRegistry;
 using Ydb.Sdk.Coordination.Settings;
 using Ydb.Sdk.Coordination.Watcher;
 
@@ -17,7 +17,7 @@ public class SessionTransport : IAsyncDisposable
 {
     private readonly IDriver _driver;
 
-    private readonly CancellationToken _cancellationToken;
+    private readonly CancellationTokenSource _cancelTokenSource;
     //private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
 
 
@@ -26,31 +26,18 @@ public class SessionTransport : IAsyncDisposable
     private ulong _seqNo;
     private readonly string _pathNode;
 
-
-    // Tasks for waiting SessionStarted and SessionStopped
     private TaskCompletionSource? _sessionStartedTcs;
-    private TaskCompletionSource? _sessionStoppedTcs;
 
     // Bidirectional stream handler
     private IBidirectionalStream<SessionRequest, SessionResponse>? _stream;
-    private readonly ConcurrentDictionary<ulong, PendingRequest<PendingResult>> _pendingRequests = new();
-    //private readonly List<SessionRequest> _fireAndForgetRequests = new();
+    private readonly SessionRequestRegistry _requestRegistry = new();
 
     // Reconnection state
     //private bool _closed = false;
 
-    // Map of _reqIdCounter to semaphore name for watch tracking
-    //private readonly ConcurrentDictionary<ulong, string> _watchedSemaphores = new();
-
-
     private readonly TaskCompletionSource _firstSessionStartedTcs =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    // EVENTS
-    //public event Action<SessionExpiredEvent>? SessionExpired;
-    //public event Action<SemaphoreChangedEvent>? SemaphoreChanged;    
-
-    // private readonly CancellationTokenSource _disposeCts = new();
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly Task _initTask;
 
@@ -61,15 +48,18 @@ public class SessionTransport : IAsyncDisposable
 
     private readonly ILogger<SessionTransport> _logger;
 
+    private volatile bool _sessionStopped;
+    private readonly CancellationTokenSource _sessionStoppedCts = new();
+
     public SessionTransport(IDriver driver, ILoggerFactory loggerFactory, string pathNode,
-        CancellationToken cancellationToken = default) //IRetryPolicy retryPolicy
+        CancellationTokenSource? cancelTokenSource) //IRetryPolicy retryPolicy
     {
         //_ydbRetryPolicyExecutor = new YdbRetryPolicyExecutor(retryPolicy);
         _logger = loggerFactory.CreateLogger<SessionTransport>();
         _logger.LogInformation("Starting session transport...");
         _driver = driver;
         _pathNode = pathNode;
-        _cancellationToken = cancellationToken;
+        _cancelTokenSource = cancelTokenSource ?? new CancellationTokenSource();
         _initTask = InitializeAsync();
     }
 
@@ -77,17 +67,14 @@ public class SessionTransport : IAsyncDisposable
     public ulong SessionId { get; private set; }
 
     private async Task InitializeAsync()
-        => await StreamCall();
-
-
-    private async Task StreamCall()
     {
         _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, new GrpcRequestSettings());
         if (_stream == null)
             throw new InvalidOperationException("Stream is null in SendStartSession");
-        _ = Task.Run(RunProcessingStreamResponse, _cancellationToken);
+        _ = Task.Run(RunProcessingStreamResponse, _cancelTokenSource.Token);
         await SendStartSession();
     }
+
 
     private async Task EnsureInitialized()
     {
@@ -106,30 +93,25 @@ public class SessionTransport : IAsyncDisposable
                 _logger.LogInformation("New response received...");
                 var response = _stream.Current;
                 _logger.LogInformation("Response received == " + response);
-                var handleSemaphoreCount = 0;
 
                 switch (response.ResponseCase)
                 {
                     case SessionResponse.ResponseOneofCase.Ping:
-                        // Server sent ping, respond with pong
                         await HandlePing(response);
                         break;
                     case SessionResponse.ResponseOneofCase.Failure:
                         await HandleFailure(response);
                         break;
                     case SessionResponse.ResponseOneofCase.SessionStarted:
-                        HandleSessionStarted(); //HandleSessionStarted(response);
+                        HandleSessionStarted(response);
                         break;
                     case SessionResponse.ResponseOneofCase.SessionStopped:
-                        HandleSessionStopped(); //HandleSessionStopped(response)
+                        HandleSessionStopped(response);
                         break;
                     case SessionResponse.ResponseOneofCase.AcquireSemaphorePending:
-                        HandleAcquireSemaphorePending();
+                        HandleAcquireSemaphorePending(response);
                         break;
                     case SessionResponse.ResponseOneofCase.DescribeSemaphoreChanged:
-                        handleSemaphoreCount++;
-                        _logger.LogInformation("HandleSemaphoreChanged... handleSemaphoreCount=" +
-                                               handleSemaphoreCount);
                         HandleSemaphoreChanged(response.DescribeSemaphoreChanged);
                         break;
                     case SessionResponse.ResponseOneofCase.None:
@@ -150,48 +132,37 @@ public class SessionTransport : IAsyncDisposable
 
 
                 var reqId = ExtractReqId(response);
-                if (reqId.HasValue &&
-                    _pendingRequests.TryRemove(reqId.Value, out var pending))
+                if (reqId.HasValue)
                 {
-                    try
-                    {
-                        var result = ExtractResult(response);
-                        pending.Tcs.TrySetResult(result!);
-                    }
-                    catch (Exception ex)
-                    {
-                        pending.Tcs.TrySetException(ex);
-                    }
+                    _requestRegistry.TryResolve(reqId.Value, () => ExtractResult(response)!);
                 }
             }
         }
         catch (Exception ex)
         {
-            FailAllPending(ex);
+            _logger.LogError(ex, "Stream processing failed");
         }
         finally
         {
             _streamClosed = true;
-            FailAllPending(new Exception("Session stream closed"));
+            if (!_sessionStopped)
+            {
+                _sessionStopped = true;
+
+                if (!_sessionStoppedCts.IsCancellationRequested)
+                    await _sessionStoppedCts.CancelAsync();
+            }
         }
     }
 
-    private void FailAllPending(Exception ex)
-    {
-        foreach (var (_, pending) in _pendingRequests)
-        {
-            pending.Tcs.TrySetException(ex);
-        }
 
-        _pendingRequests.Clear();
-    }
-
-    public CancellationToken Token => _cancellationToken;
+    public CancellationToken Token => _cancelTokenSource.Token;
 
     public async Task CreateSemaphore(string name, ulong limit, byte[]? data,
         CancellationToken cancellationToken = default)
     {
         await EnsureInitialized();
+        var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
         var createSemaphore = new SessionRequest
         {
@@ -205,7 +176,7 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            var task = SendRequest(reqId, createSemaphore, cancellationToken);
+            var task = SendRequest(reqId, createSemaphore, combineToken);
             await task;
         }
         catch (Exception)
@@ -218,6 +189,7 @@ public class SessionTransport : IAsyncDisposable
     public async Task UpdateSemaphore(string name, byte[]? data, CancellationToken cancellationToken = default)
     {
         await EnsureInitialized();
+        var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
         var updateSemaphore = new SessionRequest
         {
@@ -230,7 +202,7 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            var task = SendRequest(reqId, updateSemaphore, cancellationToken);
+            var task = SendRequest(reqId, updateSemaphore, combineToken);
             await task;
         }
         catch (Exception)
@@ -243,6 +215,7 @@ public class SessionTransport : IAsyncDisposable
     public async Task DeleteSemaphore(string name, bool force, CancellationToken cancellationToken = default)
     {
         await EnsureInitialized();
+        var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
         var deleteSemaphore = new SessionRequest
         {
@@ -255,7 +228,7 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            var task = SendRequest(reqId, deleteSemaphore, cancellationToken);
+            var task = SendRequest(reqId, deleteSemaphore, combineToken);
             await task;
         }
         catch (Exception)
@@ -269,6 +242,7 @@ public class SessionTransport : IAsyncDisposable
         DescribeSemaphoreMode mode, CancellationToken cancellationToken = default)
     {
         await EnsureInitialized();
+        var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
         var describeSemaphore = new SessionRequest
         {
@@ -285,7 +259,7 @@ public class SessionTransport : IAsyncDisposable
 
         try
         {
-            var task = await SendRequest(reqId, describeSemaphore, cancellationToken);
+            var task = await SendRequest(reqId, describeSemaphore, combineToken);
             return new SemaphoreDescriptionClient(task.Request.DescribeSemaphoreResult
                 .SemaphoreDescription);
         }
@@ -299,6 +273,7 @@ public class SessionTransport : IAsyncDisposable
         TimeSpan? timeout, CancellationToken cancellationToken = default)
     {
         await EnsureInitialized();
+        var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
 
         var acquireSemaphore = new SessionRequest
@@ -316,7 +291,7 @@ public class SessionTransport : IAsyncDisposable
 
         try
         {
-            await SendRequest(reqId, acquireSemaphore, cancellationToken);
+            await SendRequest(reqId, acquireSemaphore, combineToken);
         }
         catch (Exception)
         {
@@ -327,6 +302,7 @@ public class SessionTransport : IAsyncDisposable
     public async Task ReleaseSemaphore(string name, CancellationToken cancellationToken = default)
     {
         await EnsureInitialized();
+        var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
         var releaseSemaphore = new SessionRequest
         {
@@ -339,7 +315,7 @@ public class SessionTransport : IAsyncDisposable
 
         try
         {
-            await SendRequest(reqId, releaseSemaphore, cancellationToken);
+            await SendRequest(reqId, releaseSemaphore, combineToken);
         }
         catch (Exception)
         {
@@ -354,7 +330,7 @@ public class SessionTransport : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         await EnsureInitialized();
-
+        var combineToken = LinkToken(cancellationToken);
         var subscription = _watcherRegistry.Watch(name);
         var reqId = GetNextReqId();
 
@@ -375,7 +351,7 @@ public class SessionTransport : IAsyncDisposable
 
         try
         {
-            var result = await SendRequest(reqId, watchRequest, cancellationToken);
+            var result = await SendRequest(reqId, watchRequest, combineToken);
             firstResponse = result.Request;
 
             if (firstResponse.DescribeSemaphoreResult.WatchAdded)
@@ -391,7 +367,7 @@ public class SessionTransport : IAsyncDisposable
 
         var initial = new SemaphoreDescriptionClient(
             firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
-        return new WatchResult<SemaphoreDescriptionClient>(initial, Updates(cancellationToken));
+        return new WatchResult<SemaphoreDescriptionClient>(initial, Updates(combineToken));
 
         async IAsyncEnumerable<SemaphoreDescriptionClient> Updates(
             [EnumeratorCancellation] CancellationToken token = default)
@@ -440,8 +416,6 @@ public class SessionTransport : IAsyncDisposable
             _ => null
         };
 
-    // возвращать пару response и код и снаружи 
-
 
     private static PendingResult? ExtractResult(SessionResponse response)
     {
@@ -482,6 +456,15 @@ public class SessionTransport : IAsyncDisposable
         }
     }
 
+    private CancellationToken LinkToken(CancellationToken token)
+    {
+        if (token == CancellationToken.None)
+            return _cancelTokenSource.Token;
+
+        return CancellationTokenSource
+            .CreateLinkedTokenSource(_cancelTokenSource.Token, token)
+            .Token;
+    }
 
     private async Task SendStartSession()
     {
@@ -492,9 +475,7 @@ public class SessionTransport : IAsyncDisposable
         _sessionStartedTcs =
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         SessionId = 0;
-        // var reqId = GetNextReqId();
         var node = _pathNode;
-        // var timeout = new TimeSpan(5);
         var key = CreateRandomKey();
         var initRequestStart = new SessionRequest
         {
@@ -508,7 +489,7 @@ public class SessionTransport : IAsyncDisposable
             }
         };
 
-        await SafeWrite(initRequestStart);
+        await SafeWrite(initRequestStart,_cancelTokenSource.Token);
 
         await _sessionStartedTcs.Task;
     }
@@ -522,7 +503,7 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            await SafeWrite(stopSession);
+            await SafeWrite(stopSession,_cancelTokenSource.Token);
         }
         catch (Exception)
         {
@@ -541,47 +522,49 @@ public class SessionTransport : IAsyncDisposable
                 Opaque = opaque
             }
         };
-        await SafeWrite(pongRequest);
+        await SafeWrite(pongRequest,_cancelTokenSource.Token);
     }
 
     private async Task HandleFailure(SessionResponse response)
     {
         var failure = response.Failure;
-        if ((failure.Status == StatusIds.Types.StatusCode.BadSession) |
-            (failure.Status == StatusIds.Types.StatusCode.SessionExpired))
-        {
-            // If session is expired or not accessible, reset session ID to create a new session on reconnect
-            //var expiredId = _sessionId;
-            // _sessionId = 0;
-            //_watchedSemaphores.Clear();
 
-            // // Emit sessionExpired event to notify user
+        _logger.LogWarning(
+            "Session failure received. Status: {Status}, Issues: {Issues}",
+            failure.Status,
+            failure.Issues);
+
+        if (failure.Status == StatusIds.Types.StatusCode.BadSession ||
+            failure.Status == StatusIds.Types.StatusCode.SessionExpired)
+        {
+            _logger.LogInformation("Session is invalid or expired");
+            SessionId = 0;
         }
 
-        await _stream!.RequestStreamComplete();
+        await _cancelTokenSource.CancelAsync();
     }
 
-    private void HandleSessionStarted() //SessionResponse response
+    private void HandleSessionStarted(SessionResponse response)
     {
-        //_sessionId = response.SessionStarted.SessionId;
-        // Resolve the sessionStarted promise
+        _logger.LogTrace("Session started with id {SessionId}", response.SessionStarted.SessionId);
+        _sessionId = response.SessionStarted.SessionId;
         _sessionStartedTcs?.TrySetResult();
         _sessionStartedTcs = null;
-
-        // Resolve the first session started promise (only once)
         _firstSessionStartedTcs.TrySetResult();
     }
 
-    private void HandleSessionStopped() //SessionResponse response
+    private void HandleSessionStopped(SessionResponse response)
     {
-        //_sessionId = response.SessionStopped.SessionId; // в логи записываем
-        _sessionStoppedTcs?.TrySetResult();
-        _sessionStoppedTcs = null;
+        _logger.LogTrace("Session stopped with id {SessionId}", response.SessionStopped.SessionId);
+        _sessionStopped = true;
+
+        if (!_sessionStoppedCts.IsCancellationRequested)
+            _sessionStoppedCts.Cancel();
     }
 
-    private void HandleAcquireSemaphorePending() //SessionResponse response
-    {
-    }
+    private void HandleAcquireSemaphorePending(SessionResponse response)
+        => _logger.LogTrace("Session got acquire semaphore pending msg {ReqId}",
+            response.AcquireSemaphorePending.ReqId);
 
 
     private void HandleSemaphoreChanged(SessionResponse.Types.DescribeSemaphoreChanged change)
@@ -611,10 +594,7 @@ public class SessionTransport : IAsyncDisposable
     private async Task<PendingResult> SendRequest(ulong reqId, SessionRequest request,
         CancellationToken cancellationToken = default)
     {
-        var tcs = new TaskCompletionSource<PendingResult>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        _pendingRequests[reqId] = new PendingRequest<PendingResult>(tcs, request);
+        var pending = _requestRegistry.Register(reqId, request);
 
         try
         {
@@ -622,21 +602,15 @@ public class SessionTransport : IAsyncDisposable
         }
         catch (Exception e)
         {
-            _pendingRequests.TryRemove(reqId, out _);
-            tcs.TrySetException(e);
+            _requestRegistry.TryCancel(reqId, cancellationToken);
+            pending.Tcs.TrySetException(e);
             throw;
         }
 
         await using (cancellationToken.Register(() =>
-                     {
-                         if (_pendingRequests.TryRemove(reqId, out var pending))
-                         {
-                             pending.Tcs.TrySetCanceled(cancellationToken);
-                         }
-                     }))
+                         _requestRegistry.TryCancel(reqId, cancellationToken)))
         {
-            // timeout + cancellation?
-            return await tcs.Task;
+            return await pending.Tcs.Task;
         }
     }
 
@@ -644,8 +618,21 @@ public class SessionTransport : IAsyncDisposable
      * Gets the next request ID
      */
     private ulong GetNextReqId()
-        => Interlocked.Increment(ref _reqIdCounter);
+        => _requestRegistry.NextReqId();
 
+    private async Task WaitSessionStopped()
+    {
+        if (_sessionStopped)
+            return;
+
+        try
+        {
+            await Task.Delay(Timeout.Infinite, _sessionStoppedCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -656,10 +643,19 @@ public class SessionTransport : IAsyncDisposable
 
         try
         {
-            if (_stream != null)
+            if (_stream != null && !_streamClosed)
             {
-                await SendStop();
-                await _stream.RequestStreamComplete().ConfigureAwait(false);
+                try
+                {
+                    await SendStop();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send stop session request");
+                }
+
+                await Task.WhenAny(
+                    WaitSessionStopped(), Task.Delay(TimeSpan.FromSeconds(60))); //Task.Delay(TimeSpan.FromSeconds(10))
             }
         }
         catch (Exception)
@@ -668,114 +664,25 @@ public class SessionTransport : IAsyncDisposable
         }
         finally
         {
-            // добавить отключение подписок
+            try
+            {
+                if (_stream != null)
+                {
+                    await _stream.RequestStreamComplete().ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error while completing request stream");
+            }
+
+            _requestRegistry.Dispose();
             _watcherRegistry.Dispose();
             _writeLock.Dispose();
+
+            _cancelTokenSource.Dispose();
+            _sessionStoppedCts.Dispose();
             GC.SuppressFinalize(this);
         }
     }
-
-    /*
-    public async IAsyncEnumerable<Ydb.Sdk.Coordination.Description.SemaphoreDescriptionClient> WatchSemaphore(string name,
-        DescribeSemaphoreMode describeMode,
-        WatchSemaphoreMode watchMode, [EnumeratorCancellation] _cancellationToken ct = default)
-    {
-        await EnsureInitialized();
-        var subscription = _watcherRegistry.Watch(name);
-        var reqId = GetNextReqId();
-        var watchRequest = new SessionRequest()
-        {
-            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore()
-            {
-                Name = name,
-                IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
-                IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
-                WatchData = WatchSemaphoreModeUtils.WatchData(watchMode),
-                WatchOwners = WatchSemaphoreModeUtils.WatchOwners(watchMode),
-                ReqId = reqId
-            }
-        };
-        SessionResponse firstResponse;
-
-        try
-        {
-            var result = await SendRequest(reqId, watchRequest, ct);
-            firstResponse = result.Request;
-
-            if (firstResponse.DescribeSemaphoreResult.WatchAdded)
-            {
-                _watcherRegistry.RemapWatch(name, subscription, reqId);
-            }
-        }
-        catch
-        {
-            _watcherRegistry.RemoveWatch(name, subscription);
-            throw new YdbException("Watch semaphore failed");
-        }
-
-        //  1. initial state
-        yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescriptionClient(
-            firstResponse.DescribeSemaphoreResult.SemaphoreDescriptionClient);
-
-        // 2. updates loop
-        await foreach (var _ in subscription.ReadAllAsync(ct))
-        {
-            //coalescing: схлопываем burst событий
-            subscription.Drain();
-
-            var describeReqId = GetNextReqId();
-
-            var describeRequest = new SessionRequest
-            {
-                DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
-                {
-                    Name = name,
-                    IncludeOwners = DescribeSemaphoreModeUtils.IncludeOwners(describeMode),
-                    IncludeWaiters = DescribeSemaphoreModeUtils.IncludeWaiters(describeMode),
-                    ReqId = describeReqId
-                }
-            };
-
-            var result = await SendRequest(describeReqId, describeRequest, ct);
-
-            yield return new Ydb.Sdk.Coordination.Description.SemaphoreDescriptionClient(
-                result.Request.DescribeSemaphoreResult.SemaphoreDescriptionClient);
-        }
-        /*
-        try
-        {
-            var task = await SendRequest(reqId, watchSemaphore);
-            var sessionResponse = task.Request;
-            if (sessionResponse.DescribeSemaphoreResult.WatchAdded)
-            {
-                _watcherRegistry.RemapWatch(name, subscription, reqId);
-            }
-
-            return new SemaphoreWatcher(
-                new Description.SemaphoreDescriptionClient(sessionResponse.DescribeSemaphoreResult.SemaphoreDescriptionClient),
-                subscription);
-        }
-        catch (Exception)
-        {
-            _watcherRegistry.RemoveWatch(name, subscription);
-            throw new YdbException("Watch semaphore failed");
-        }
-        */
-
-
-/*
-
-    public async void AcquireSemaphore(string name, long count, byte[] data,
-        TimeSpan timeout)
-    {
-    }
-
-
-    public async void AcquireEphemeralSemaphore(String name, bool exclusive,
-        byte[] data, TimeSpan timeout)
-    {
-    }
-
-
-    */
 }

@@ -1,5 +1,6 @@
 ﻿using Xunit;
 using Xunit.Abstractions;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
 using ConsistencyMode = Ydb.Sdk.Coordination.Description.ConsistencyMode;
@@ -67,6 +68,96 @@ public class CoordinationClientIntegrationTests
         _output.WriteLine("Assertions passed.");
     }
 
+    [Fact]
+    public async Task DoubleCreateNode()
+    {
+        _output.WriteLine("=== START DoubleCreateNode test ===");
+        //  Given
+        var coordinationNodeSettings = new CoordinationNodeSettings
+        {
+            Config = NodeConfig.Create()
+                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
+                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
+                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
+                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+        };
+        var describeCoordinationNodeSettings = new DescribeCoordinationNodeSettings();
+        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
+        var alterCoordinationNodeSettings = new CoordinationNodeSettings
+        {
+            Config = NodeConfig.Create()
+                .WithDurationsConfig(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20))
+                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
+                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
+                .WithRateLimiterCountersMode(RateLimiterCountersMode.Aggregated)
+        };
+        var pathNode = "/local/doubleCreateNode";
+
+        // When
+        await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
+        var oldDescribeNode = await _coordinationClient.DescribeNode(pathNode, describeCoordinationNodeSettings);
+        var oldNodeConfig = oldDescribeNode.ToProto();
+        // We can send other config to create node, but it won't be applied
+        await _coordinationClient.CreateNode(pathNode, alterCoordinationNodeSettings);
+        var describeNode = await _coordinationClient.DescribeNode(pathNode, describeCoordinationNodeSettings);
+        var describeNodeConfig = describeNode.ToProto();
+
+        //Then
+        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
+        Assert.Equal(oldNodeConfig.SelfCheckPeriodMillis, describeNodeConfig.SelfCheckPeriodMillis);
+        Assert.Equal(oldNodeConfig.SessionGracePeriodMillis, describeNodeConfig.SessionGracePeriodMillis);
+        Assert.Equal(oldNodeConfig.ReadConsistencyMode, describeNodeConfig.ReadConsistencyMode);
+        Assert.Equal(oldNodeConfig.AttachConsistencyMode, describeNodeConfig.AttachConsistencyMode);
+        Assert.Equal(oldNodeConfig.RateLimiterCountersMode, describeNodeConfig.RateLimiterCountersMode);
+
+        _output.WriteLine("Assertions passed.");
+    }
+
+    [Fact]
+    public async Task DoubleDropNode()
+    {
+        _output.WriteLine("=== START DoubleDropNode test ===");
+        //  Given
+        var coordinationNodeSettings = new CoordinationNodeSettings
+        {
+            Config = NodeConfig.Create()
+                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
+                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
+                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
+                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+        };
+        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
+        var pathNode = "/local/doubleDropNode";
+
+        // When
+        await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
+        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
+
+        //Then
+        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
+        _output.WriteLine("Assertions passed.");
+    }
+
+    [Fact]
+    public async Task DescribeNonExistentNode()
+    {
+        _output.WriteLine("=== START DescribeNonExistentNode test ===");
+        //  Given
+        var describeCoordinationNodeSettings = new DescribeCoordinationNodeSettings();
+
+        var pathNode = "/local/test1";
+
+
+        // When
+        var exception = await Assert.ThrowsAsync<YdbException>(async () =>
+        {
+            await _coordinationClient.DescribeNode(pathNode, describeCoordinationNodeSettings);
+        });
+
+        //Then
+        Assert.Equal("Describe node failed", exception.Message);
+        _output.WriteLine("Assertions passed.");
+    }
 
     [Fact]
     public async Task AlterNode()

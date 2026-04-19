@@ -8,9 +8,9 @@ public class CoordinationSession : IAsyncDisposable
     private readonly SessionTransport _sessionTransport;
 
     public CoordinationSession(IDriver driver, ILoggerFactory loggerFactory, string pathNode,
-        CancellationToken cancellationToken = default)
+        CancellationTokenSource? cancelTokenSource)
     {
-        _sessionTransport = new SessionTransport(driver, loggerFactory, pathNode, cancellationToken);
+        _sessionTransport = new SessionTransport(driver, loggerFactory, pathNode, cancelTokenSource);
     }
 
     public CancellationToken Token => _sessionTransport.Token;

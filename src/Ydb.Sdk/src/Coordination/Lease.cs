@@ -1,6 +1,5 @@
 ﻿namespace Ydb.Sdk.Coordination;
 
-// BAD LEASE
 public class Lease : IAsyncDisposable
 {
     private readonly Semaphore _semaphore;

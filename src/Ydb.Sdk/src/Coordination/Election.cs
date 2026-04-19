@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Ydb.Sdk.Coordination.Description;
-using Ydb.Sdk.Coordination.Dto;
+using Ydb.Sdk.Coordination.DtoElection;
 using Ydb.Sdk.Coordination.Settings;
 
 namespace Ydb.Sdk.Coordination;

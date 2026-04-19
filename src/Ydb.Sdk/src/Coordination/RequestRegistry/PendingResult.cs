@@ -1,5 +1,5 @@
 ﻿using Ydb.Coordination;
 
-namespace Ydb.Sdk.Coordination.Dto;
+namespace Ydb.Sdk.Coordination.RequestRegistry;
 
 public record PendingResult(SessionResponse Request);

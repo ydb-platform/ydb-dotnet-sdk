@@ -1,4 +1,4 @@
-﻿namespace Ydb.Sdk.Coordination;
+﻿namespace Ydb.Sdk.Coordination.DtoElection;
 
 public class Leadership : IAsyncDisposable
 {
