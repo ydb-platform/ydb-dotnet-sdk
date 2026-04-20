@@ -5,19 +5,19 @@ namespace Ydb.Sdk.Coordination.Description;
 public readonly struct NodeConfig
 {
     /// Period in milliseconds for self-checks (default 1 second).
-    private TimeSpan SelfCheckPeriod { get; init; } = TimeSpan.FromSeconds(1);
+    public TimeSpan SelfCheckPeriod { get; init; } = TimeSpan.FromSeconds(1);
     
     /// Grace period for sessions on leader change (default 10 seconds).
-    private TimeSpan SessionGracePeriod { get; init; } = TimeSpan.FromSeconds(10);
+    public TimeSpan SessionGracePeriod { get; init; } = TimeSpan.FromSeconds(10);
     
     /// Consistency mode for read operations.
-    private ConsistencyMode ReadConsistencyMode { get; init; } = ConsistencyMode.Unset;
+    public ConsistencyMode ReadConsistencyMode { get; init; } = ConsistencyMode.Unset;
     
     /// Consistency mode for attach operations.
-    private ConsistencyMode AttachConsistencyMode { get; init; } = ConsistencyMode.Unset;
+    public ConsistencyMode AttachConsistencyMode { get; init; } = ConsistencyMode.Unset;
     
     /// Rate limiter counters mode.
-    private RateLimiterCountersMode RateLimiterCountersModeValue { get; init; } = RateLimiterCountersMode.Unset;
+    public RateLimiterCountersMode RateLimiterCountersModeValue { get; init; } = RateLimiterCountersMode.Unset;
 
     private NodeConfig(DescribeNodeResult result)
     {
@@ -47,29 +47,7 @@ public readonly struct NodeConfig
         AttachConsistencyMode = attach;
         RateLimiterCountersModeValue = rateLimiter;
     }
-
-    public NodeConfig WithDurationsConfig(TimeSpan selfCheck, TimeSpan sessionGrace)
-        => new(
-            selfCheck, sessionGrace, ReadConsistencyMode, AttachConsistencyMode, RateLimiterCountersModeValue
-        );
-
-
-    public NodeConfig WithReadConsistencyMode(ConsistencyMode mode)
-        => new(
-            SelfCheckPeriod, SessionGracePeriod, mode, AttachConsistencyMode, RateLimiterCountersModeValue
-        );
-
-
-    public NodeConfig WithAttachConsistencyMode(ConsistencyMode mode)
-        => new(
-            SelfCheckPeriod, SessionGracePeriod, ReadConsistencyMode, mode, RateLimiterCountersModeValue
-        );
-
-
-    public NodeConfig WithRateLimiterCountersMode(RateLimiterCountersMode mode)
-        => new(
-            SelfCheckPeriod, SessionGracePeriod, ReadConsistencyMode, AttachConsistencyMode, mode
-        );
+    
 
     public Config ToProto()
         => new()

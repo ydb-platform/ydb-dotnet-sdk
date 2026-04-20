@@ -29,11 +29,14 @@ public class LeaderIntegrationTests
 
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+            SelfCheckPeriod = TimeSpan.FromSeconds(1),
+            SessionGracePeriod = TimeSpan.FromSeconds(3),
+            ReadConsistencyMode = ConsistencyMode.Relaxed,
+            AttachConsistencyMode = ConsistencyMode.Relaxed,
+            RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+        }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings, CancellationToken.None);

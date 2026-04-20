@@ -26,11 +26,14 @@ public class SharedConfigIntegrationTests
 
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Strict)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Unset)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings, CancellationToken.None);
@@ -75,11 +78,10 @@ public class SharedConfigIntegrationTests
         CancellationToken token)
     {
         _output.WriteLine("[watcher] starting");
-        //await Task.Delay(1000, token);
         var semaphore = coordinationSession.Semaphore(_semaphoreName);
 
-        var watch = await semaphore.WatchSemaphore(DescribeSemaphoreMode.WithOwnersAndWaiters,
-            WatchSemaphoreMode.WatchDataAndOwners, token);
+        var watch = await semaphore.WatchSemaphore(DescribeSemaphoreMode.DataOnly,
+            WatchSemaphoreMode.WatchData, token);
         HandleConfigUpdate(watch.Initial);
         try
         {

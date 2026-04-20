@@ -26,12 +26,16 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
+
         var describeCoordinationNodeSettings = new DescribeCoordinationNodeSettings();
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var oldNodeConfig = coordinationNodeSettings.Config.ToProto();
@@ -74,21 +78,27 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var describeCoordinationNodeSettings = new DescribeCoordinationNodeSettings();
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var alterCoordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Aggregated)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(10),
+                SessionGracePeriod = TimeSpan.FromSeconds(20),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Aggregated
+            }
         };
         var pathNode = "/local/doubleCreateNode";
 
@@ -119,11 +129,14 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var pathNode = "/local/doubleDropNode";
@@ -163,19 +176,25 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(25))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(5),
+                SessionGracePeriod = TimeSpan.FromSeconds(25),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var alterCoordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Aggregated)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(5),
+                SessionGracePeriod = TimeSpan.FromSeconds(25),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var describeCoordinationNodeSettings = new DescribeCoordinationNodeSettings();
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
@@ -230,11 +249,14 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var pathNode = "/local/test3";
@@ -243,7 +265,7 @@ public class CoordinationClientIntegrationTests
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var coordinationSession = _coordinationClient.CreateSession(pathNode);
         var stateSession1 = coordinationSession.Status();
-        
+
         //Then
         Assert.Equal(StateSession.Connecting, stateSession1);
         coordinationSession.Status();
@@ -258,17 +280,20 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var pathNode = "/local/test4";
         var semaphoreName = "semaphore1";
         byte[] semaphoreData = [0x00, 0x12];
-        
+
         // When
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var coordinationSession = _coordinationClient.CreateSession(pathNode);
@@ -297,11 +322,14 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var pathNode = "/local/test5";
@@ -319,7 +347,7 @@ public class CoordinationClientIntegrationTests
         var describeBefore = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
         await semaphore1.Update(semaphoreData2);
         var describeAfter = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
-        
+
         // ---- OUTPUT BEFORE ----
         _output.WriteLine("Describe BEFORE:");
         _output.WriteLine($"  Name: {describeBefore.Name}");
@@ -355,10 +383,10 @@ public class CoordinationClientIntegrationTests
 
         Assert.Empty(describeBefore.GetOwnersList());
         Assert.Empty(describeBefore.GetWaitersList());
-        
+
         // ---- Assert AFTER ----
         Assert.Equal(semaphoreName, describeAfter.Name);
-        Assert.Equal((ulong)10, describeAfter.Limit); 
+        Assert.Equal((ulong)10, describeAfter.Limit);
         Assert.Equal((ulong)0, describeAfter.Count);
 
         Assert.NotNull(describeAfter.Data);
@@ -378,11 +406,14 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var pathNode = "/local/test6";
@@ -394,14 +425,14 @@ public class CoordinationClientIntegrationTests
         var semaphore1 = coordinationSession1.Semaphore(semaphoreName);
         var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
         await semaphore1.Create(20, semaphoreData1);
-        
+
         // When
         var lease = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
         var exception = await Assert.ThrowsAsync<YdbException>(async () =>
         {
             await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
         });
-        
+
         //Then
         Assert.Equal("Acquire semaphore failed", exception.Message);
         await lease.Release();
@@ -417,11 +448,14 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Strict)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Strict,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var pathNode = "/local/test7";
@@ -429,11 +463,11 @@ public class CoordinationClientIntegrationTests
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var coordinationSession1 = _coordinationClient.CreateSession(pathNode);
         var semaphore = coordinationSession1.Semaphore(semaphoreName);
-        
+
         // When
         var lease = await semaphore.Acquire(ulong.MaxValue, true, null, null);
         await lease.Release();
-        
+
         //Then
         await coordinationSession1.Close();
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
@@ -445,11 +479,14 @@ public class CoordinationClientIntegrationTests
         // Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var pathNode = "/local/test_try";
@@ -461,11 +498,11 @@ public class CoordinationClientIntegrationTests
         var semaphore1 = coordinationSession1.Semaphore(semaphoreName);
         var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
         await semaphore1.Create(10, semaphoreData1);
-        
+
         // When
         var lease1 = await semaphore1.TryAcquire(10, false, null);
         var lease2 = await semaphore2.TryAcquire(5, false, null);
-        
+
         // Then
         Assert.NotNull(lease1);
         Assert.Null(lease2);
@@ -481,11 +518,14 @@ public class CoordinationClientIntegrationTests
         //  Given
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+            Config = new NodeConfig
+            {
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         var pathNode = "/local/test8";
@@ -500,7 +540,7 @@ public class CoordinationClientIntegrationTests
         // When
         await semaphore1.Create(20, semaphoreData1);
         // --- WATCH ---
-        
+
         var watch = await semaphore2.WatchSemaphore(DescribeSemaphoreMode.WithOwners, WatchSemaphoreMode.WatchOwners);
         var initial = watch.Initial;
         Assert.Empty(initial.GetOwnersList());
@@ -508,13 +548,13 @@ public class CoordinationClientIntegrationTests
         var moveTask = updates.MoveNextAsync();
         Assert.False(moveTask.IsCompleted);
         // --- ACQUIRE ---
-        
+
         await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
         Assert.True(await moveTask);
         var afterAcquire = updates.Current;
         Assert.Single(afterAcquire.GetOwnersList());
         // --- REWATCH (data) ---
-        
+
         await updates.DisposeAsync();
         watch = await semaphore2.WatchSemaphore(
             DescribeSemaphoreMode.WithOwnersAndWaiters,
@@ -523,12 +563,12 @@ public class CoordinationClientIntegrationTests
         var moveTask2 = updates.MoveNextAsync();
         Assert.False(moveTask2.IsCompleted);
         // --- UPDATE DATA ---
-        
+
         await semaphore1.Update(semaphoreData2);
         Assert.True(await moveTask2);
         var afterUpdate = updates.Current;
         Assert.Equal(semaphoreData2, afterUpdate.Data);
-        
+
         // --- REWATCH (all) ---
         watch = await semaphore2.WatchSemaphore(
             DescribeSemaphoreMode.DataOnly,
@@ -536,13 +576,13 @@ public class CoordinationClientIntegrationTests
         updates = watch.Updates.GetAsyncEnumerator();
         var moveTask3 = updates.MoveNextAsync();
         Assert.False(moveTask3.IsCompleted);
-        
+
         // --- RELEASE ---
         await semaphore1.Release();
         Assert.True(await moveTask3);
         var afterRelease = updates.Current;
         Assert.Empty(afterRelease.GetOwnersList());
-        
+
         // --- DESCRIBE ---
         var final = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
         Assert.Equal(semaphoreData2, final.Data);
