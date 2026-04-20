@@ -61,6 +61,7 @@ public class CoordinationClient
     public async Task CreateNode(string path, CoordinationNodeSettings settings,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Creating coordination node at {Path}", path);
         var request = new CreateNodeRequest
         {
             Path = ValidatePath(path),
@@ -84,6 +85,7 @@ public class CoordinationClient
     public async Task AlterNode(string path, CoordinationNodeSettings settings,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Updating configuration of coordination node at {Path}", path);
         var request = new AlterNodeRequest
         {
             Path = ValidatePath(path),
@@ -107,6 +109,7 @@ public class CoordinationClient
     public async Task DropNode(string path, DropCoordinationNodeSettings settings,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Dropping coordination node at {Path}", path);
         var request = new DropNodeRequest
         {
             Path = ValidatePath(path),
@@ -130,6 +133,7 @@ public class CoordinationClient
     public async Task<NodeConfig> DescribeNode(string path,
         DescribeCoordinationNodeSettings settings, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Reading configuration of coordination node at {Path}", path);
         var request = new DescribeNodeRequest
         {
             Path = ValidatePath(path),

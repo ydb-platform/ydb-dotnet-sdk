@@ -52,7 +52,7 @@ public class SessionTransport : IAsyncDisposable
     {
         _logger = driver.LoggerFactory.CreateLogger<SessionTransport>();
         _sessionOptions = sessionOptions;
-        _logger.LogInformation("Starting session transport...");
+        _logger.LogInformation("Creating session on {Path}", pathNode);
         _driver = driver;
         _pathNode = pathNode;
         _cancelTokenSource = cancelTokenSource ?? new CancellationTokenSource();
@@ -86,10 +86,7 @@ public class SessionTransport : IAsyncDisposable
         {
             while (await _stream!.MoveNextAsync().WaitAsync(_cancelTokenSource.Token))
             {
-                _logger.LogInformation("New response received...");
                 var response = _stream.Current;
-                _logger.LogInformation("Response received == " + response);
-
                 switch (response.ResponseCase)
                 {
                     case SessionResponse.ResponseOneofCase.Ping:
@@ -153,6 +150,7 @@ public class SessionTransport : IAsyncDisposable
     public async Task CreateSemaphore(string name, ulong limit, byte[]? data,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Creating {Name} (limit={Limit})", name, limit);
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
@@ -184,6 +182,11 @@ public class SessionTransport : IAsyncDisposable
 
     public async Task UpdateSemaphore(string name, byte[]? data, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation(
+            "Updating data on {Name} ({Bytes} bytes)",
+            name,
+            data?.Length ?? 0
+        );
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
@@ -214,6 +217,11 @@ public class SessionTransport : IAsyncDisposable
 
     public async Task DeleteSemaphore(string name, bool force, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation(
+            "Deleting {Name}, force = {Force}",
+            name,
+            force
+        );
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
@@ -280,6 +288,7 @@ public class SessionTransport : IAsyncDisposable
     public async Task<bool> AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
         TimeSpan? timeout, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Waiting to acquire {Name} (count={Count})", name, count);
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
@@ -314,6 +323,7 @@ public class SessionTransport : IAsyncDisposable
 
     public async Task ReleaseSemaphore(string name, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Releasing {Name}", name);
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
         var reqId = GetNextReqId();
