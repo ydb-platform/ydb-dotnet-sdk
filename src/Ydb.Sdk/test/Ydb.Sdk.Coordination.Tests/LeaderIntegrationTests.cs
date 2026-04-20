@@ -18,7 +18,7 @@ public class LeaderIntegrationTests
     {
         _output = output;
     }
-    
+
     [Fact]
     public async Task LeaderElection()
     {
@@ -30,12 +30,12 @@ public class LeaderIntegrationTests
         {
             Config = new NodeConfig
             {
-            SelfCheckPeriod = TimeSpan.FromSeconds(1),
-            SessionGracePeriod = TimeSpan.FromSeconds(3),
-            ReadConsistencyMode = ConsistencyMode.Relaxed,
-            AttachConsistencyMode = ConsistencyMode.Relaxed,
-            RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
-        }
+                SelfCheckPeriod = TimeSpan.FromSeconds(1),
+                SessionGracePeriod = TimeSpan.FromSeconds(3),
+                ReadConsistencyMode = ConsistencyMode.Relaxed,
+                AttachConsistencyMode = ConsistencyMode.Relaxed,
+                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
+            }
         };
         var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
         await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings, CancellationToken.None);

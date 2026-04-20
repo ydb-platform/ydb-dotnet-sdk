@@ -22,8 +22,6 @@ public class MutexIntegrationTests
     public async Task Mutex()
     {
         using var cts = new CancellationTokenSource();
-        // Stop everything after 10 seconds
-        //cts.CancelAfter(TimeSpan.FromSeconds(10));
 
         var coordinationNodeSettings = new CoordinationNodeSettings
         {
@@ -43,6 +41,7 @@ public class MutexIntegrationTests
         var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession4 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession5 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession6 = _coordinationClient.CreateSession(_nodePath);
 
         try
         {
@@ -50,7 +49,8 @@ public class MutexIntegrationTests
                 RunWorker("2", coordinationSession2, cts.Token),
                 RunWorker("3", coordinationSession3, cts.Token),
                 RunWorker("4", coordinationSession4, cts.Token),
-                RunWorker("5", coordinationSession5, cts.Token)
+                RunWorker("5", coordinationSession5, cts.Token),
+                TryWork(coordinationSession6, cts.Token)
             );
         }
         finally
@@ -61,6 +61,7 @@ public class MutexIntegrationTests
             await coordinationSession3.Close();
             await coordinationSession4.Close();
             await coordinationSession5.Close();
+            await coordinationSession6.Close();
             await _coordinationClient.DropNode(_nodePath, dropCoordinationNodeSettings, CancellationToken.None);
         }
     }
@@ -83,5 +84,29 @@ public class MutexIntegrationTests
         _output.WriteLine($"[worker-{id}] work done, releasing");
 
         _output.WriteLine($"[worker-{id}] done");
+    }
+
+    private async Task TryWork(
+        CoordinationSession coordinationSession,
+        CancellationToken token)
+    {
+        var mutex = coordinationSession.Mutex(_mutexName);
+
+        var lease = await mutex.TryLock(token);
+
+        if (lease == null)
+        {
+            _output.WriteLine("[tryLock] mutex is busy — skipping optional work");
+            return;
+        }
+
+        await using (lease)
+        {
+            _output.WriteLine("[tryLock] lock acquired — doing optional work");
+
+            await Task.Delay(200, lease.Token);
+
+            _output.WriteLine("[tryLock] optional work done");
+        }
     }
 }

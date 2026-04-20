@@ -4,19 +4,29 @@ namespace Ydb.Sdk.Coordination.Description;
 
 public readonly struct NodeConfig
 {
+    /// <summary>
     /// Period in milliseconds for self-checks (default 1 second).
+    /// </summary>
     public TimeSpan SelfCheckPeriod { get; init; } = TimeSpan.FromSeconds(1);
-    
+
+    /// <summary>
     /// Grace period for sessions on leader change (default 10 seconds).
+    /// </summary>
     public TimeSpan SessionGracePeriod { get; init; } = TimeSpan.FromSeconds(10);
-    
+
+    /// <summary>
     /// Consistency mode for read operations.
+    /// </summary>
     public ConsistencyMode ReadConsistencyMode { get; init; } = ConsistencyMode.Unset;
-    
+
+    /// <summary>
     /// Consistency mode for attach operations.
+    /// </summary>
     public ConsistencyMode AttachConsistencyMode { get; init; } = ConsistencyMode.Unset;
-    
+
+    /// <summary>
     /// Rate limiter counters mode.
+    /// </summary>
     public RateLimiterCountersMode RateLimiterCountersModeValue { get; init; } = RateLimiterCountersMode.Unset;
 
     private NodeConfig(DescribeNodeResult result)
@@ -30,24 +40,6 @@ public readonly struct NodeConfig
         AttachConsistencyMode = FromProto(result.Config.AttachConsistencyMode);
         RateLimiterCountersModeValue = FromProto(result.Config.RateLimiterCountersMode);
     }
-
-
-    private NodeConfig(TimeSpan selfCheck, TimeSpan sessionGrace, ConsistencyMode read, ConsistencyMode attach,
-        RateLimiterCountersMode rateLimiter)
-    {
-        if (selfCheck <= TimeSpan.Zero)
-            throw new ArgumentException("SelfCheckPeriod must be strictly greater than zero");
-        if (sessionGrace <= TimeSpan.Zero)
-            throw new ArgumentException("SessionGracePeriod must be strictly greater than zero");
-        if (sessionGrace <= selfCheck)
-            throw new ArgumentException("SessionGracePeriod must be strictly more than SelfCheckPeriod");
-        SelfCheckPeriod = selfCheck;
-        SessionGracePeriod = sessionGrace;
-        ReadConsistencyMode = read;
-        AttachConsistencyMode = attach;
-        RateLimiterCountersModeValue = rateLimiter;
-    }
-    
 
     public Config ToProto()
         => new()

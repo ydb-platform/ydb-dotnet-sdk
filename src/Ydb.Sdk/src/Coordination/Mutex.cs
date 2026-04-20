@@ -11,4 +11,7 @@ public class Mutex
 
     public async Task<Lease> Lock(CancellationToken cancellationToken)
         => await _semaphore.Acquire(ulong.MaxValue, true, null, null, cancellationToken);
+
+    public async Task<Lease?> TryLock(CancellationToken cancellationToken)
+        => await _semaphore.TryAcquire(ulong.MaxValue, true, null, cancellationToken);
 }
