@@ -62,7 +62,7 @@ public class SharedConfigIntegrationTests
         CancellationToken token)
     {
         var coordinationSession = _coordinationClient.CreateSession(_nodePath);
-        _output.WriteLine($"[publisher] start:");
+        _output.WriteLine("[publisher] start:");
         var semaphore = coordinationSession.Semaphore(_semaphoreName);
         var bytes = Encoding.UTF8.GetBytes(
             JsonSerializer.Serialize(config));

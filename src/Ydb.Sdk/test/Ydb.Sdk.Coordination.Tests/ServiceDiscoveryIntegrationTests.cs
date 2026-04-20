@@ -1,10 +1,8 @@
 ﻿using System.Text;
 using Xunit;
 using Xunit.Abstractions;
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
-using Ydb.Sdk.Coordination.Watcher;
 
 namespace Ydb.Sdk.Coordination.Tests;
 

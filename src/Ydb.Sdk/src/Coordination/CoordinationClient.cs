@@ -53,7 +53,7 @@ public class CoordinationClient
         CancellationTokenSource? cancelTokenSource = null)
     {
         ValidatePath(pathNode);
-        var options = (sessionOptions ?? SessionOptions.Default);
+        var options = sessionOptions ?? SessionOptions.Default;
         return new CoordinationSession(_iDriver, pathNode, options, cancelTokenSource);
     }
 

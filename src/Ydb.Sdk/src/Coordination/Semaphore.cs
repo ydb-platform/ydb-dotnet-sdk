@@ -21,19 +21,15 @@ public class Semaphore
     public async Task Create(ulong limit, byte[]? data, CancellationToken cancellationToken = default)
         => await _sessionTransport.CreateSemaphore(Name, limit, data, cancellationToken);
 
-
     public async Task Update(byte[]? data, CancellationToken cancellationToken = default)
         => await _sessionTransport.UpdateSemaphore(Name, data, cancellationToken);
-
 
     public async Task Delete(bool force, CancellationToken cancellationToken = default)
         => await _sessionTransport.DeleteSemaphore(Name, force, cancellationToken);
 
-
     public async Task<SemaphoreDescriptionClient> Describe(
         DescribeSemaphoreMode mode, CancellationToken cancellationToken = default)
         => await _sessionTransport.DescribeSemaphore(Name, mode, cancellationToken);
-
 
     public async Task<Lease> Acquire(ulong count, bool isEphemeral, byte[]? data,
         TimeSpan? timeout, CancellationToken cancellationToken = default)
@@ -53,6 +49,7 @@ public class Semaphore
         {
             return new Lease(this);
         }
+
         return null;
     }
 

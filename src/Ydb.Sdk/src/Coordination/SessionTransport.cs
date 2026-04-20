@@ -48,7 +48,7 @@ public class SessionTransport : IAsyncDisposable
     private readonly CancellationTokenSource _sessionStoppedCts = new();
 
     public SessionTransport(IDriver driver, string pathNode, SessionOptions sessionOptions,
-        CancellationTokenSource? cancelTokenSource) 
+        CancellationTokenSource? cancelTokenSource)
     {
         _logger = driver.LoggerFactory.CreateLogger<SessionTransport>();
         _sessionOptions = sessionOptions;

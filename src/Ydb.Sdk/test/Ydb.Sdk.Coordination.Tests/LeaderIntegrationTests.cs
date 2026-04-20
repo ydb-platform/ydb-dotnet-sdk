@@ -19,7 +19,6 @@ public class LeaderIntegrationTests
         _output = output;
     }
     
-
     [Fact]
     public async Task LeaderElection()
     {
