@@ -9,7 +9,7 @@ public class SessionRequestRegistry
     private long _reqIdCounter;
     private volatile bool _closed;
 
-    private readonly ConcurrentDictionary<ulong, PendingRequest<PendingResult>> _pending = new();
+    private readonly ConcurrentDictionary<ulong, PendingRequest> _pending = new();
 
     public ulong NextReqId()
     {
@@ -19,15 +19,15 @@ public class SessionRequestRegistry
         return (ulong)Interlocked.Increment(ref _reqIdCounter);
     }
 
-    public PendingRequest<PendingResult> Register(ulong reqId, SessionRequest request)
+    public PendingRequest Register(ulong reqId, SessionRequest request)
     {
         if (_closed)
             throw new InvalidOperationException("Session request registry is closed");
 
-        var tcs = new TaskCompletionSource<PendingResult>(
+        var tcs = new TaskCompletionSource<SessionResponse>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var pending = new PendingRequest<PendingResult>(tcs, request);
+        var pending = new PendingRequest(tcs, request);
 
         if (!_pending.TryAdd(reqId, pending))
             throw new InvalidOperationException($"Duplicate reqId: {reqId}");
@@ -35,7 +35,7 @@ public class SessionRequestRegistry
         return pending;
     }
 
-    public bool TryResolve(ulong reqId, Func<PendingResult> resultFactory)
+    public bool TryResolve(ulong reqId, Func<SessionResponse> resultFactory)
     {
         if (!_pending.TryRemove(reqId, out var pending))
             return false;
@@ -84,13 +84,12 @@ public class SessionRequestRegistry
 
         foreach (var (_, pending) in _pending)
         {
-            pending.Tcs.TrySetException(new Exception("Session closed"));
+            pending.Tcs.TrySetException(new YdbException("Session closed"));
         }
 
         _pending.Clear();
     }
 
 
-    public void Dispose()
-        => Close();
+    public void Dispose() => Close();
 }

@@ -1,4 +1,5 @@
 ﻿using Ydb.Sdk.Coordination.Description;
+using Ydb.Sdk.Coordination.PrimitiveElection;
 using Ydb.Sdk.Coordination.Settings;
 
 namespace Ydb.Sdk.Coordination;
@@ -24,8 +25,7 @@ public class CoordinationSession : IAsyncDisposable
 
     public Election Election(string name) => new(Semaphore(name));
 
-    public async Task Close()
-        => await _sessionTransport.DisposeAsync();
+    public async Task Close() => await _sessionTransport.DisposeAsync();
 
     public async ValueTask DisposeAsync()
     {

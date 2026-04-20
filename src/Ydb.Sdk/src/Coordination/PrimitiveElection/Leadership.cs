@@ -1,10 +1,10 @@
-﻿namespace Ydb.Sdk.Coordination.DtoElection;
+﻿namespace Ydb.Sdk.Coordination.PrimitiveElection;
 
 public class Leadership : IAsyncDisposable
 {
     private readonly Semaphore _semaphore;
     private readonly Lease _lease;
-    private bool _resigned;
+    private bool _isResigned;
 
     public Leadership(Semaphore semaphore, Lease lease)
     {
@@ -21,10 +21,10 @@ public class Leadership : IAsyncDisposable
 
     public async Task Resign(CancellationToken cancellationToken = default)
     {
-        if (_resigned)
+        if (_isResigned)
             return;
 
-        _resigned = true;
+        _isResigned = true;
 
         Console.WriteLine($"resigning from leadership on {_semaphore.Name}");
 

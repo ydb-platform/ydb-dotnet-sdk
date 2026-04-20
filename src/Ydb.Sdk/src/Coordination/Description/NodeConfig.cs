@@ -31,9 +31,6 @@ public readonly struct NodeConfig
 
     private NodeConfig(DescribeNodeResult result)
     {
-        ArgumentNullException.ThrowIfNull(result);
-        ArgumentNullException.ThrowIfNull(result.Config);
-
         SelfCheckPeriod = TimeSpan.FromMilliseconds(result.Config.SelfCheckPeriodMillis);
         SessionGracePeriod = TimeSpan.FromMilliseconds(result.Config.SessionGracePeriodMillis);
         ReadConsistencyMode = FromProto(result.Config.ReadConsistencyMode);
@@ -41,21 +38,16 @@ public readonly struct NodeConfig
         RateLimiterCountersModeValue = FromProto(result.Config.RateLimiterCountersMode);
     }
 
-    public Config ToProto()
-        => new()
-        {
-            SelfCheckPeriodMillis = (uint)SelfCheckPeriod.TotalMilliseconds,
-            SessionGracePeriodMillis = (uint)SessionGracePeriod.TotalMilliseconds,
-            ReadConsistencyMode = ToProto(ReadConsistencyMode),
-            AttachConsistencyMode = ToProto(AttachConsistencyMode),
-            RateLimiterCountersMode = ToProto(RateLimiterCountersModeValue)
-        };
+    public Config ToProto() => new()
+    {
+        SelfCheckPeriodMillis = (uint)SelfCheckPeriod.TotalMilliseconds,
+        SessionGracePeriodMillis = (uint)SessionGracePeriod.TotalMilliseconds,
+        ReadConsistencyMode = ToProto(ReadConsistencyMode), AttachConsistencyMode = ToProto(AttachConsistencyMode),
+        RateLimiterCountersMode = ToProto(RateLimiterCountersModeValue)
+    };
 
-    public static NodeConfig Create()
-        => new();
 
-    public static NodeConfig FromProto(DescribeNodeResult result)
-        => new(result);
+    internal static NodeConfig FromProto(DescribeNodeResult result) => new(result);
 
     private static Ydb.Coordination.ConsistencyMode ToProto(ConsistencyMode mode)
     {

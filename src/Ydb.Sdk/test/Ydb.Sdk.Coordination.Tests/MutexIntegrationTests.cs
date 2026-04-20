@@ -1,7 +1,6 @@
 ﻿using Xunit;
 using Xunit.Abstractions;
 using Ydb.Sdk.Coordination.Description;
-using Ydb.Sdk.Coordination.Settings;
 
 namespace Ydb.Sdk.Coordination.Tests;
 
@@ -23,19 +22,15 @@ public class MutexIntegrationTests
     {
         using var cts = new CancellationTokenSource();
 
-        var coordinationNodeSettings = new CoordinationNodeSettings
+        var config = new NodeConfig
         {
-            Config = new NodeConfig
-            {
-                SelfCheckPeriod = TimeSpan.FromSeconds(1),
-                SessionGracePeriod = TimeSpan.FromSeconds(3),
-                ReadConsistencyMode = ConsistencyMode.Relaxed,
-                AttachConsistencyMode = ConsistencyMode.Relaxed,
-                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
-            }
+            SelfCheckPeriod = TimeSpan.FromSeconds(1),
+            SessionGracePeriod = TimeSpan.FromSeconds(3),
+            ReadConsistencyMode = ConsistencyMode.Relaxed,
+            AttachConsistencyMode = ConsistencyMode.Relaxed,
+            RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
         };
-        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-        await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings, CancellationToken.None);
+        await _coordinationClient.CreateNode(_nodePath, config, CancellationToken.None);
         var coordinationSession1 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession2 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
@@ -62,7 +57,7 @@ public class MutexIntegrationTests
             await coordinationSession4.Close();
             await coordinationSession5.Close();
             await coordinationSession6.Close();
-            await _coordinationClient.DropNode(_nodePath, dropCoordinationNodeSettings, CancellationToken.None);
+            await _coordinationClient.DropNode(_nodePath, CancellationToken.None);
         }
     }
 

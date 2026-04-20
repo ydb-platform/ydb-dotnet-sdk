@@ -10,54 +10,44 @@ public class MutexExample
 
     public static async Task Main(string[] args)
     {
-        using var cts = new CancellationTokenSource();
+         using var cts = new CancellationTokenSource();
 
-        var coordinationNodeSettings = new CoordinationNodeSettings
+        var config = new NodeConfig
         {
-            Config = new NodeConfig
-            {
-                SelfCheckPeriod = TimeSpan.FromSeconds(1),
-                SessionGracePeriod = TimeSpan.FromSeconds(3),
-                ReadConsistencyMode = ConsistencyMode.Relaxed,
-                AttachConsistencyMode = ConsistencyMode.Relaxed,
-                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
-            }
+            SelfCheckPeriod = TimeSpan.FromSeconds(1),
+            SessionGracePeriod = TimeSpan.FromSeconds(3),
+            ReadConsistencyMode = ConsistencyMode.Relaxed,
+            AttachConsistencyMode = ConsistencyMode.Relaxed,
+            RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
         };
-
-        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-
-        await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings, CancellationToken.None);
-
-        var s1 = _coordinationClient.CreateSession(_nodePath);
-        var s2 = _coordinationClient.CreateSession(_nodePath);
-        var s3 = _coordinationClient.CreateSession(_nodePath);
-        var s4 = _coordinationClient.CreateSession(_nodePath);
-        var s5 = _coordinationClient.CreateSession(_nodePath);
-        var s6 = _coordinationClient.CreateSession(_nodePath);
+        await _coordinationClient.CreateNode(_nodePath, config, CancellationToken.None);
+        var coordinationSession1 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession2 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession4 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession5 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession6 = _coordinationClient.CreateSession(_nodePath);
 
         try
         {
-            await Task.WhenAll(
-                RunWorker("1", s1, cts.Token),
-                RunWorker("2", s2, cts.Token),
-                RunWorker("3", s3, cts.Token),
-                RunWorker("4", s4, cts.Token),
-                RunWorker("5", s5, cts.Token),
-                TryWork(s6, cts.Token)
+            await Task.WhenAll(RunWorker("1", coordinationSession1, cts.Token),
+                RunWorker("2", coordinationSession2, cts.Token),
+                RunWorker("3", coordinationSession3, cts.Token),
+                RunWorker("4", coordinationSession4, cts.Token),
+                RunWorker("5", coordinationSession5, cts.Token),
+                TryWork(coordinationSession6, cts.Token)
             );
         }
         finally
         {
             await cts.CancelAsync();
-
-            await s1.Close();
-            await s2.Close();
-            await s3.Close();
-            await s4.Close();
-            await s5.Close();
-            await s6.Close();
-
-            await _coordinationClient.DropNode(_nodePath, dropCoordinationNodeSettings, CancellationToken.None);
+            await coordinationSession1.Close();
+            await coordinationSession2.Close();
+            await coordinationSession3.Close();
+            await coordinationSession4.Close();
+            await coordinationSession5.Close();
+            await coordinationSession6.Close();
+            await _coordinationClient.DropNode(_nodePath, CancellationToken.None);
         }
     }
 

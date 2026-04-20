@@ -2,7 +2,6 @@
 using Xunit;
 using Xunit.Abstractions;
 using Ydb.Sdk.Coordination.Description;
-using Ydb.Sdk.Coordination.Settings;
 
 namespace Ydb.Sdk.Coordination.Tests;
 
@@ -26,19 +25,15 @@ public class LeaderIntegrationTests
         // Stop everything after 10 seconds
         cts.CancelAfter(TimeSpan.FromSeconds(10));
 
-        var coordinationNodeSettings = new CoordinationNodeSettings
+        var config = new NodeConfig
         {
-            Config = new NodeConfig
-            {
-                SelfCheckPeriod = TimeSpan.FromSeconds(1),
-                SessionGracePeriod = TimeSpan.FromSeconds(3),
-                ReadConsistencyMode = ConsistencyMode.Relaxed,
-                AttachConsistencyMode = ConsistencyMode.Relaxed,
-                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
-            }
+            SelfCheckPeriod = TimeSpan.FromSeconds(1),
+            SessionGracePeriod = TimeSpan.FromSeconds(3),
+            ReadConsistencyMode = ConsistencyMode.Relaxed,
+            AttachConsistencyMode = ConsistencyMode.Relaxed,
+            RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
         };
-        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-        await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings, CancellationToken.None);
+        await _coordinationClient.CreateNode(_nodePath, config, CancellationToken.None);
         var coordinationSession1 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession2 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
@@ -68,7 +63,7 @@ public class LeaderIntegrationTests
             await coordinationSession1.Close();
             await coordinationSession2.Close();
             await coordinationSession3.Close();
-            await _coordinationClient.DropNode(_nodePath, dropCoordinationNodeSettings, CancellationToken.None);
+            await _coordinationClient.DropNode(_nodePath, CancellationToken.None);
         }
     }
 

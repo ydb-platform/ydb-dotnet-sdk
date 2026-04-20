@@ -1,3 +1,3 @@
-﻿namespace Ydb.Sdk.Coordination.DtoElection;
+﻿namespace Ydb.Sdk.Coordination.PrimitiveElection;
 
 public record LeaderState(byte[] Data, bool IsMe, CancellationToken Cancellation);

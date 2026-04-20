@@ -2,7 +2,7 @@
 
 namespace Ydb.Sdk.Coordination.Settings;
 
-public class CoordinationNodeSettings : OperationSettings
+public class CoordinationNodeSettings
 {
     public NodeConfig Config { get; init; }
 }

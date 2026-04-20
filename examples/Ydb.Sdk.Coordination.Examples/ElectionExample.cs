@@ -18,56 +18,48 @@ public class Election
     public static async Task Main(string[] args)
     {
         using var cts = new CancellationTokenSource();
+        // Stop everything after 10 seconds
         cts.CancelAfter(TimeSpan.FromSeconds(10));
 
-        var coordinationNodeSettings = new CoordinationNodeSettings
+        var config = new NodeConfig
         {
-            Config = new NodeConfig
-            {
-                SelfCheckPeriod = TimeSpan.FromSeconds(1),
-                SessionGracePeriod = TimeSpan.FromSeconds(3),
-                ReadConsistencyMode = ConsistencyMode.Relaxed,
-                AttachConsistencyMode = ConsistencyMode.Relaxed,
-                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
-            }
+            SelfCheckPeriod = TimeSpan.FromSeconds(1),
+            SessionGracePeriod = TimeSpan.FromSeconds(3),
+            ReadConsistencyMode = ConsistencyMode.Relaxed,
+            AttachConsistencyMode = ConsistencyMode.Relaxed,
+            RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
         };
-
-        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-
-        await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings, CancellationToken.None);
-
-        var session1 = _coordinationClient.CreateSession(_nodePath);
-        var session2 = _coordinationClient.CreateSession(_nodePath);
-        var session3 = _coordinationClient.CreateSession(_nodePath);
-
-        var semaphore = session1.Semaphore(_electionName);
+        await _coordinationClient.CreateNode(_nodePath, config, CancellationToken.None);
+        var coordinationSession1 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession2 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
+        var semaphore = coordinationSession1.Semaphore(_electionName);
         await semaphore.Create(1, null, CancellationToken.None);
 
         try
         {
             await Task.WhenAll(
-                RunLeader(session1, 1, "worker-a:starting1", "worker-a:8088", cts.Token),
-                RunLeader(session2, 2, "worker-a:starting2", "worker-a:8089", cts.Token),
-                RunLeader(session3, 3, "worker-a:starting3", "worker-a:8090", cts.Token),
-
-                PrintCurrentLeader(session1, cts.Token),
-                PrintCurrentLeader(session2, cts.Token),
-                PrintCurrentLeader(session3, cts.Token),
+                RunLeader(coordinationSession1, 1, "worker-a:starting1", "worker-a:8088", cts.Token),
+                RunLeader(coordinationSession2, 2, "worker-a:starting2", "worker-a:8089", cts.Token),
+                RunLeader(coordinationSession3, 3, "worker-a:starting3", "worker-a:8090", cts.Token),
+                PrintCurrentLeader(coordinationSession1, cts.Token),
+                PrintCurrentLeader(coordinationSession2, cts.Token),
+                PrintCurrentLeader(coordinationSession3, cts.Token),
+                RunFollower(coordinationSession1, 1, cts.Token),
+                RunFollower(coordinationSession2, 2, cts.Token),
+                RunFollower(coordinationSession3, 3, cts.Token)
             );
-
-            await PrintCurrentLeader(session1, CancellationToken.None);
-            await PrintCurrentLeader(session2, CancellationToken.None);
-            await PrintCurrentLeader(session3, CancellationToken.None);
+            await PrintCurrentLeader(coordinationSession1, CancellationToken.None);
+            await PrintCurrentLeader(coordinationSession2, CancellationToken.None);
+            await PrintCurrentLeader(coordinationSession3, CancellationToken.None);
         }
         finally
         {
             await cts.CancelAsync();
-
-            await session1.Close();
-            await session2.Close();
-            await session3.Close();
-
-            await _coordinationClient.DropNode(_nodePath, dropCoordinationNodeSettings, CancellationToken.None);
+            await coordinationSession1.Close();
+            await coordinationSession2.Close();
+            await coordinationSession3.Close();
+            await _coordinationClient.DropNode(_nodePath, CancellationToken.None);
         }
     }
 

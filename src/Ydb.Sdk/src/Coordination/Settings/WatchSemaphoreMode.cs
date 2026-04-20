@@ -2,12 +2,18 @@
 
 public enum WatchSemaphoreMode
 {
-    // Watch for changes in semaphore data
+    /// <summary>
+    /// Watch for changes in semaphore data.
+    /// </summary>
     WatchData,
 
-    // Watch for changes in semaphore owners
+    /// <summary>
+    /// Watch for changes in semaphore owners.
+    /// </summary>
     WatchOwners,
 
-    // Watch for changes in semaphore data or owners
+    /// <summary>
+    /// Watch for changes in semaphore data or owners.
+    /// </summary>
     WatchDataAndOwners
 }

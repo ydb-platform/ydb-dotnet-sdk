@@ -1,9 +1,8 @@
 ﻿using System.Runtime.CompilerServices;
 using Ydb.Sdk.Coordination.Description;
-using Ydb.Sdk.Coordination.DtoElection;
 using Ydb.Sdk.Coordination.Settings;
 
-namespace Ydb.Sdk.Coordination;
+namespace Ydb.Sdk.Coordination.PrimitiveElection;
 
 public class Election
 {
@@ -26,7 +25,7 @@ public class Election
     public async Task<LeaderInfo?> Leader(CancellationToken cancellationToken = default)
     {
         var description = await _semaphore.Describe(DescribeSemaphoreMode.WithOwners, cancellationToken);
-        var owner = description.GetOwnersList().FirstOrDefault();
+        var owner = description.OwnersList.FirstOrDefault();
         return owner != null ? new LeaderInfo(owner.Data) : null;
     }
 
@@ -75,7 +74,7 @@ public class Election
         ref LeaderIdentity? previousLeader,
         ref CancellationTokenSource? currentCts)
     {
-        var owner = description.GetOwnersList().FirstOrDefault();
+        var owner = description.OwnersList.FirstOrDefault();
 
         var currentLeader = owner != null
             ? new LeaderIdentity(owner.Id, owner.OrderId)

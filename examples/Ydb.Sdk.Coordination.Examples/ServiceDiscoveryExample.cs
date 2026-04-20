@@ -12,52 +12,41 @@ public class ServiceDiscoveryExample
 
     public static async Task Main(string[] args)
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-
-        var coordinationNodeSettings = new CoordinationNodeSettings
+         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var config = new NodeConfig
         {
-            Config = new NodeConfig
-            {
-                SelfCheckPeriod = TimeSpan.FromSeconds(1),
-                SessionGracePeriod = TimeSpan.FromSeconds(3),
-                ReadConsistencyMode = ConsistencyMode.Relaxed,
-                AttachConsistencyMode = ConsistencyMode.Relaxed,
-                RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
-            }
+            SelfCheckPeriod = TimeSpan.FromSeconds(1),
+            SessionGracePeriod = TimeSpan.FromSeconds(3),
+            ReadConsistencyMode = ConsistencyMode.Relaxed,
+            AttachConsistencyMode = ConsistencyMode.Relaxed,
+            RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
         };
-
-        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-
-        await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings, CancellationToken.None);
-
-        var s1 = _coordinationClient.CreateSession(_nodePath);
-        var s2 = _coordinationClient.CreateSession(_nodePath);
-        var s3 = _coordinationClient.CreateSession(_nodePath);
-        var s4 = _coordinationClient.CreateSession(_nodePath);
+        await _coordinationClient.CreateNode(_nodePath, config, CancellationToken.None);
+        var coordinationSession1 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession2 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
+        var coordinationSession4 = _coordinationClient.CreateSession(_nodePath);
 
         using var bCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         using var watchCts = new CancellationTokenSource(TimeSpan.FromSeconds(7));
-
         try
         {
             await Task.WhenAll(
-                RunWorker("worker-a:8080", s1, cts.Token),
-                RunWorker("worker-b:8081", s2, bCts.Token),
-                RunWorker("worker-c:8082", s3, cts.Token),
-                WatchEndpoints(s4, watchCts.Token)
+                RunWorker("worker-a:8080", coordinationSession1, cts.Token),
+                RunWorker("worker-b:8081", coordinationSession2, bCts.Token),
+                RunWorker("worker-c:8082", coordinationSession3, cts.Token),
+                WatchEndpoints(coordinationSession4, watchCts.Token)
             );
         }
         finally
         {
             await cts.CancelAsync();
             await bCts.CancelAsync();
-
-            await s1.Close();
-            await s2.Close();
-            await s3.Close();
-            await s4.Close();
-
-            await _coordinationClient.DropNode(_nodePath, dropCoordinationNodeSettings, CancellationToken.None);
+            await coordinationSession1.Close();
+            await coordinationSession2.Close();
+            await coordinationSession3.Close();
+            await coordinationSession4.Close();
+            await _coordinationClient.DropNode(_nodePath, CancellationToken.None);
         }
     }
 

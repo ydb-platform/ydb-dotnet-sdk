@@ -2,12 +2,12 @@
 
 namespace Ydb.Sdk.Coordination.RequestRegistry;
 
-public class PendingRequest<TResult>
+public class PendingRequest
 {
-    public TaskCompletionSource<TResult> Tcs { get; }
+    public TaskCompletionSource<SessionResponse> Tcs { get; }
     public SessionRequest Request { get; }
 
-    public PendingRequest(TaskCompletionSource<TResult> tcs, SessionRequest request)
+    public PendingRequest(TaskCompletionSource<SessionResponse> tcs, SessionRequest request)
     {
         Tcs = tcs;
         Request = request;

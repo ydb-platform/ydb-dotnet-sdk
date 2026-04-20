@@ -9,31 +9,25 @@ public class SemaphoreDescriptionClient
     public ulong Count { get; }
     public ulong Limit { get; }
     public bool Ephemeral { get; }
-    private readonly IReadOnlyList<Session> _ownersList;
-    private readonly IReadOnlyList<Session> _waitersList;
+    public IReadOnlyList<Session> OwnersList { get; }
+    public IReadOnlyList<Session> WaitersList { get; }
 
-    public SemaphoreDescriptionClient(SemaphoreDescription description)
+    internal SemaphoreDescriptionClient(SemaphoreDescription description)
     {
         Name = description.Name;
         Data = description.Data.ToByteArray();
         Count = description.Count;
         Limit = description.Limit;
         Ephemeral = description.Ephemeral;
-        _ownersList = description.Owners?
-                          .Select(o => new Session(o))
-                          .ToList()
-                          .AsReadOnly()
-                      ?? new List<Session>().AsReadOnly();
+        OwnersList = description.Owners?
+            .Select(o => new Session(o))
+            .ToList() ?? [];
 
-        _waitersList = description.Waiters?
-                           .Select(w => new Session(w))
-                           .ToList()
-                           .AsReadOnly()
-                       ?? new List<Session>().AsReadOnly();
+        WaitersList = description.Waiters?
+            .Select(w => new Session(w))
+            .ToList() ?? [];
     }
 
-    public IReadOnlyList<Session> GetOwnersList() => _ownersList;
-    public IReadOnlyList<Session> GetWaitersList() => _waitersList;
 
     public class Session
     {
@@ -45,8 +39,6 @@ public class SemaphoreDescriptionClient
 
         public Session(SemaphoreSession semaphoreSession)
         {
-            if (semaphoreSession == null)
-                throw new ArgumentNullException(nameof(semaphoreSession));
             Id = semaphoreSession.SessionId;
             TimeoutMillis = semaphoreSession.TimeoutMillis;
             Count = semaphoreSession.Count;
