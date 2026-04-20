@@ -4,9 +4,7 @@ using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Schema;
 using Ydb.Sdk.Coordination.Description;
-using Ydb.Sdk.Coordination.Settings;
 using static Ydb.Sdk.Ado.PoolManager;
-
 
 namespace Ydb.Sdk.Coordination;
 
@@ -48,7 +46,7 @@ public class CoordinationClient
 
     public CoordinationSession CreateSession(string pathNode, SessionOptions? sessionOptions = null,
         CancellationTokenSource? cancelTokenSource = null)
-    {   
+    {
         _connectionString.FullPath(pathNode);
         var options = sessionOptions ?? SessionOptions.Default;
         return new CoordinationSession(_iDriver, pathNode, options, cancelTokenSource);
@@ -65,9 +63,16 @@ public class CoordinationClient
             Config = config.ToProto()
         };
 
-        var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
-        var response = await _iDriver.UnaryCall(CoordinationService.CreateNodeMethod, request, grpcSettings);
-        Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+        try
+        {
+            var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
+            var response = await _iDriver.UnaryCall(CoordinationService.CreateNodeMethod, request, grpcSettings);
+            Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+        }
+        catch (Exception e)
+        {
+            throw new YdbException("Create node failed " + e.Message);
+        }
     }
 
     public async Task AlterNode(string path, NodeConfig config,
@@ -80,9 +85,16 @@ public class CoordinationClient
             Config = config.ToProto()
         };
 
-        var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
-        var response = await _iDriver.UnaryCall(CoordinationService.AlterNodeMethod, request, grpcSettings);
-        Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+        try
+        {
+            var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
+            var response = await _iDriver.UnaryCall(CoordinationService.AlterNodeMethod, request, grpcSettings);
+            Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+        }
+        catch (Exception e)
+        {
+            throw new YdbException("Alter node failed " + e.Message);
+        }
     }
 
     public async Task DropNode(string path,
@@ -94,9 +106,16 @@ public class CoordinationClient
             Path = ValidatePath(path),
         };
 
-        var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
-        var response = await _iDriver.UnaryCall(CoordinationService.DropNodeMethod, request, grpcSettings);
-        Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+        try
+        {
+            var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
+            var response = await _iDriver.UnaryCall(CoordinationService.DropNodeMethod, request, grpcSettings);
+            Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+        }
+        catch (Exception e)
+        {
+            throw new YdbException("Drop node failed " + e.Message);
+        }
     }
 
     public async Task<NodeConfig> DescribeNode(string path, CancellationToken cancellationToken = default)
@@ -107,11 +126,17 @@ public class CoordinationClient
             Path = ValidatePath(path),
         };
 
-        var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
-
-        var response = await _iDriver.UnaryCall(CoordinationService.DescribeNodeMethod, request, grpcSettings);
-        Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
-        return NodeConfig.FromProto(response.Operation.Result.Unpack<DescribeNodeResult>());
+        try
+        {
+            var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
+            var response = await _iDriver.UnaryCall(CoordinationService.DescribeNodeMethod, request, grpcSettings);
+            Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+            return NodeConfig.FromProto(response.Operation.Result.Unpack<DescribeNodeResult>());
+        }
+        catch (Exception e)
+        {
+            throw new YdbException("Describe node failed " + e.Message);
+        }
     }
 }
 

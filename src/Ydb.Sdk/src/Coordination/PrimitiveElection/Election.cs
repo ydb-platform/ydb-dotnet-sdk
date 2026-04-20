@@ -70,7 +70,7 @@ public class Election
     }
 
     private LeaderState? HandleState(
-        SemaphoreDescriptionClient description,
+        SemaphoreDescription description,
         ref LeaderIdentity? previousLeader,
         ref CancellationTokenSource? currentCts)
     {

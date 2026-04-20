@@ -128,8 +128,14 @@ public class CoordinationClientIntegrationTests
         await _coordinationClient.CreateNode(pathNode, config);
         await _coordinationClient.DropNode(pathNode);
 
+        var exception = await Assert.ThrowsAsync<YdbException>(async () =>
+        {
+            await _coordinationClient.DropNode(pathNode);
+        });
+        _output.WriteLine(exception.Message);
         //Then
-        await _coordinationClient.DropNode(pathNode);
+        Assert.Equal("Drop node failed [200200] Error: Path does not exist\r\n", exception.Message);
+            
         _output.WriteLine("Assertions passed.");
     }
 
@@ -147,7 +153,7 @@ public class CoordinationClientIntegrationTests
         });
 
         //Then
-        Assert.Equal("Describe node failed", exception.Message);
+        Assert.Equal("Describe node failed ", exception.Message);
         _output.WriteLine("Assertions passed.");
     }
 

@@ -93,7 +93,7 @@ public class SharedConfigIntegrationTests
     }
 
 
-    private void HandleConfigUpdate(SemaphoreDescriptionClient description)
+    private void HandleConfigUpdate(SemaphoreDescription description)
     {
         if (description.Data.Length == 0)
         {

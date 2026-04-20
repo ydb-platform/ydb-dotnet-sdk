@@ -2,7 +2,7 @@
 
 namespace Ydb.Sdk.Coordination.Description;
 
-public class SemaphoreDescriptionClient
+public class SemaphoreDescription
 {
     public string Name { get; }
     public byte[] Data { get; }
@@ -12,7 +12,7 @@ public class SemaphoreDescriptionClient
     public IReadOnlyList<Session> OwnersList { get; }
     public IReadOnlyList<Session> WaitersList { get; }
 
-    internal SemaphoreDescriptionClient(SemaphoreDescription description)
+    private SemaphoreDescription(Ydb.Coordination.SemaphoreDescription description)
     {
         Name = description.Name;
         Data = description.Data.ToByteArray();
@@ -27,6 +27,8 @@ public class SemaphoreDescriptionClient
             .Select(w => new Session(w))
             .ToList() ?? [];
     }
+
+    internal static SemaphoreDescription FromProto(Ydb.Coordination.SemaphoreDescription description) => new(description);
 
 
     public class Session

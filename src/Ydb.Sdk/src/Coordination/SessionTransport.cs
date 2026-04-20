@@ -9,6 +9,7 @@ using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.RequestRegistry;
 using Ydb.Sdk.Coordination.Settings;
 using Ydb.Sdk.Coordination.Watcher;
+using SemaphoreDescription = Ydb.Sdk.Coordination.Description.SemaphoreDescription;
 
 namespace Ydb.Sdk.Coordination;
 
@@ -250,7 +251,7 @@ public class SessionTransport : IAsyncDisposable
     }
 
 
-    public async Task<SemaphoreDescriptionClient> DescribeSemaphore(string name,
+    public async Task<SemaphoreDescription> DescribeSemaphore(string name,
         DescribeSemaphoreMode mode, CancellationToken cancellationToken = default)
     {
         await EnsureInitialized();
@@ -272,7 +273,7 @@ public class SessionTransport : IAsyncDisposable
         try
         {
             var response = await SendRequest(reqId, describeSemaphore, combineToken);
-            return new SemaphoreDescriptionClient(response.DescribeSemaphoreResult
+            return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult
                 .SemaphoreDescription);
         }
         catch (OperationCanceledException)
@@ -350,7 +351,7 @@ public class SessionTransport : IAsyncDisposable
         }
     }
 
-    public async Task<WatchResult<SemaphoreDescriptionClient>> WatchSemaphore(
+    public async Task<WatchResult<SemaphoreDescription>> WatchSemaphore(
         string name,
         DescribeSemaphoreMode describeMode,
         WatchSemaphoreMode watchMode,
@@ -366,11 +367,11 @@ public class SessionTransport : IAsyncDisposable
             watchMode,
             subscription,
             combineToken);
-        var initial = new SemaphoreDescriptionClient(
+        var initial = SemaphoreDescription.FromProto(
             firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
-        return new WatchResult<SemaphoreDescriptionClient>(initial, Updates(combineToken));
+        return new WatchResult<SemaphoreDescription>(initial, Updates(combineToken));
 
-        async IAsyncEnumerable<SemaphoreDescriptionClient> Updates(
+        async IAsyncEnumerable<SemaphoreDescription> Updates(
             [EnumeratorCancellation] CancellationToken token = default)
         {
             try
@@ -384,7 +385,7 @@ public class SessionTransport : IAsyncDisposable
                         subscription,
                         token);
 
-                    yield return new SemaphoreDescriptionClient(
+                    yield return SemaphoreDescription.FromProto(
                         response.DescribeSemaphoreResult.SemaphoreDescription);
                 }
             }

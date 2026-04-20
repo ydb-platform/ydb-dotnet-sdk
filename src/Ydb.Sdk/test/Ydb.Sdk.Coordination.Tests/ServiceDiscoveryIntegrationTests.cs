@@ -137,7 +137,7 @@ public class ServiceDiscoveryIntegrationTests
     }
 
     private void PrintAvailableWorkers(
-        SemaphoreDescriptionClient description)
+        SemaphoreDescription description)
     {
         var endpoints = description.OwnersList
             .Select(o => Utf8.GetString(o.Data))

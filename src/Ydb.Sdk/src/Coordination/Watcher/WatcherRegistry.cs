@@ -8,7 +8,6 @@ public class WatcherRegistry : IDisposable
 {
     private readonly ConcurrentDictionary<string, WatchSubscription> _watchesByName = new();
     private readonly ConcurrentDictionary<ulong, WatchSubscription> _watchesByReqId = new();
-    private volatile bool _isDisposed;
 
     public WatchSubscription Watch(string name)
     {

@@ -27,7 +27,7 @@ public class Semaphore
     public async Task Delete(bool force, CancellationToken cancellationToken = default)
         => await _sessionTransport.DeleteSemaphore(Name, force, cancellationToken);
 
-    public async Task<SemaphoreDescriptionClient> Describe(
+    public async Task<SemaphoreDescription> Describe(
         DescribeSemaphoreMode mode, CancellationToken cancellationToken = default)
         => await _sessionTransport.DescribeSemaphore(Name, mode, cancellationToken);
 
@@ -56,7 +56,7 @@ public class Semaphore
     public async Task Release(CancellationToken cancellationToken = default)
         => await _sessionTransport.ReleaseSemaphore(Name, cancellationToken);
 
-    public Task<WatchResult<SemaphoreDescriptionClient>> WatchSemaphore(DescribeSemaphoreMode describeMode,
+    public Task<WatchResult<SemaphoreDescription>> WatchSemaphore(DescribeSemaphoreMode describeMode,
         WatchSemaphoreMode watchMode, CancellationToken cancellationToken = default)
         => _sessionTransport.WatchSemaphore(Name, describeMode, watchMode, cancellationToken);
 }
