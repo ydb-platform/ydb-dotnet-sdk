@@ -28,7 +28,8 @@ public class SemaphoreDescription
             .ToList() ?? [];
     }
 
-    internal static SemaphoreDescription FromProto(Ydb.Coordination.SemaphoreDescription description) => new(description);
+    internal static SemaphoreDescription FromProto(Ydb.Coordination.SemaphoreDescription description) =>
+        new(description);
 
 
     public class Session

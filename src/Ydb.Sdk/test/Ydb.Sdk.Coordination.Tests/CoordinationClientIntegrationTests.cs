@@ -135,7 +135,6 @@ public class CoordinationClientIntegrationTests
         _output.WriteLine(exception.Message);
         //Then
         Assert.Equal("Drop node failed [200200] Error: Path does not exist\r\n", exception.Message);
-            
         _output.WriteLine("Assertions passed.");
     }
 

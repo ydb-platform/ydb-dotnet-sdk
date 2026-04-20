@@ -103,7 +103,7 @@ public class CoordinationClient
         _logger.LogInformation("Dropping coordination node at {Path}", path);
         var request = new DropNodeRequest
         {
-            Path = ValidatePath(path),
+            Path = ValidatePath(path)
         };
 
         try
@@ -123,7 +123,7 @@ public class CoordinationClient
         _logger.LogInformation("Reading configuration of coordination node at {Path}", path);
         var request = new DescribeNodeRequest
         {
-            Path = ValidatePath(path),
+            Path = ValidatePath(path)
         };
 
         try

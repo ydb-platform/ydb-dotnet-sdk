@@ -37,35 +37,22 @@ public class ServiceDiscoveryIntegrationTests
         var coordinationSession2 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession4 = _coordinationClient.CreateSession(_nodePath);
-
-     //   var semaphore = coordinationSession1.Semaphore(_semaphoreName);
-     //   await semaphore.Create(ulong.MaxValue, null, CancellationToken.None);
-
+        
         using var bCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         using var watchCts = new CancellationTokenSource(TimeSpan.FromSeconds(7));
         try
         {
-            
             await Task.WhenAll(
                 RunWorker("worker-a:8080", coordinationSession1, cts.Token),
                 RunWorker("worker-b:8081", coordinationSession2, bCts.Token),
                 RunWorker("worker-c:8082", coordinationSession3, cts.Token),
                 WatchEndpoints(coordinationSession4, watchCts.Token)
             );
-            /*
-            await Task.WhenAll(
-                RunWorker1("worker-a:8080", coordinationSession1, cts.Token),
-                RunWorker1("worker-b:8081", coordinationSession2, bCts.Token),
-                RunWorker1("worker-c:8082", coordinationSession3, cts.Token),
-                WatchEndpoints(coordinationSession4, watchCts.Token)
-            );
-            */
         }
         finally
         {
             await cts.CancelAsync();
             await bCts.CancelAsync();
-         //   await semaphore.Delete(false, CancellationToken.None);
             await coordinationSession1.Close();
             await coordinationSession2.Close();
             await coordinationSession3.Close();
@@ -89,24 +76,6 @@ public class ServiceDiscoveryIntegrationTests
 
         _output.WriteLine($"[worker] {endpoint} unregistered");
     }
-    /*
-    private async Task RunWorker1(
-        string endpoint,
-        CoordinationSession coordinationSession,
-        CancellationToken token)
-    {
-        _output.WriteLine($"[worker] {endpoint} starting");
-
-        var semaphore = coordinationSession.Semaphore(_semaphoreName);
-        await using var lease =
-            await semaphore.Acquire(1, false, Utf8.GetBytes(endpoint), null, CancellationToken.None);
-        _output.WriteLine($"[worker] {endpoint} registered");
-        await Task.Delay(100, token);
-        await WaitForCancellation(token);
-
-        _output.WriteLine($"[worker] {endpoint} unregistered");
-    }
-    */
 
     private async Task WatchEndpoints(
         CoordinationSession coordinationSession,
