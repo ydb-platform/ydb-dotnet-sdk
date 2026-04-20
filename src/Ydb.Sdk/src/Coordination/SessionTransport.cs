@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
@@ -15,14 +14,12 @@ namespace Ydb.Sdk.Coordination;
 
 public class SessionTransport : IAsyncDisposable
 {
+    private readonly SessionOptions _sessionOptions;
     private readonly IDriver _driver;
 
     private readonly CancellationTokenSource _cancelTokenSource;
-    //private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
 
-
-    private ulong _sessionId;
-    private ulong _reqIdCounter;
+    public ulong SessionId { get; private set; }
     private ulong _seqNo;
     private readonly string _pathNode;
 
@@ -31,9 +28,7 @@ public class SessionTransport : IAsyncDisposable
     // Bidirectional stream handler
     private IBidirectionalStream<SessionRequest, SessionResponse>? _stream;
     private readonly SessionRequestRegistry _requestRegistry = new();
-
-    // Reconnection state
-    //private bool _closed = false;
+    public StateSession StateSession { get; private set; } = StateSession.Initial;
 
     private readonly TaskCompletionSource _firstSessionStartedTcs =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -44,6 +39,7 @@ public class SessionTransport : IAsyncDisposable
     private volatile bool _disposed;
     private volatile bool _streamClosed;
 
+
     private readonly WatcherRegistry _watcherRegistry = new();
 
     private readonly ILogger<SessionTransport> _logger;
@@ -51,11 +47,11 @@ public class SessionTransport : IAsyncDisposable
     private volatile bool _sessionStopped;
     private readonly CancellationTokenSource _sessionStoppedCts = new();
 
-    public SessionTransport(IDriver driver, ILoggerFactory loggerFactory, string pathNode,
-        CancellationTokenSource? cancelTokenSource) //IRetryPolicy retryPolicy
+    public SessionTransport(IDriver driver, string pathNode, SessionOptions sessionOptions,
+        CancellationTokenSource? cancelTokenSource) 
     {
-        //_ydbRetryPolicyExecutor = new YdbRetryPolicyExecutor(retryPolicy);
-        _logger = loggerFactory.CreateLogger<SessionTransport>();
+        _logger = driver.LoggerFactory.CreateLogger<SessionTransport>();
+        _sessionOptions = sessionOptions;
         _logger.LogInformation("Starting session transport...");
         _driver = driver;
         _pathNode = pathNode;
@@ -64,15 +60,15 @@ public class SessionTransport : IAsyncDisposable
     }
 
 
-    public ulong SessionId { get; private set; }
-
     private async Task InitializeAsync()
     {
+        StateSession = StateSession.Connecting;
         _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, new GrpcRequestSettings());
         if (_stream == null)
             throw new InvalidOperationException("Stream is null in SendStartSession");
         _ = Task.Run(RunProcessingStreamResponse, _cancelTokenSource.Token);
         await SendStartSession();
+        StateSession = StateSession.Connected;
     }
 
 
@@ -88,7 +84,7 @@ public class SessionTransport : IAsyncDisposable
     {
         try
         {
-            while (await _stream!.MoveNextAsync())
+            while (await _stream!.MoveNextAsync().WaitAsync(_cancelTokenSource.Token))
             {
                 _logger.LogInformation("New response received...");
                 var response = _stream.Current;
@@ -130,7 +126,6 @@ public class SessionTransport : IAsyncDisposable
                         break;
                 }
 
-
                 var reqId = ExtractReqId(response);
                 if (reqId.HasValue)
                 {
@@ -138,20 +133,17 @@ public class SessionTransport : IAsyncDisposable
                 }
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Stream processing failed");
         }
         finally
         {
-            _streamClosed = true;
-            if (!_sessionStopped)
-            {
-                _sessionStopped = true;
-
-                if (!_sessionStoppedCts.IsCancellationRequested)
-                    await _sessionStoppedCts.CancelAsync();
-            }
+            await _cancelTokenSource.CancelAsync();
         }
     }
 
@@ -179,6 +171,10 @@ public class SessionTransport : IAsyncDisposable
             var task = SendRequest(reqId, createSemaphore, combineToken);
             await task;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             throw new YdbException("Create semaphore failed");
@@ -205,6 +201,10 @@ public class SessionTransport : IAsyncDisposable
             var task = SendRequest(reqId, updateSemaphore, combineToken);
             await task;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             throw new YdbException("Update semaphore failed");
@@ -230,6 +230,10 @@ public class SessionTransport : IAsyncDisposable
         {
             var task = SendRequest(reqId, deleteSemaphore, combineToken);
             await task;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {
@@ -263,13 +267,17 @@ public class SessionTransport : IAsyncDisposable
             return new SemaphoreDescriptionClient(task.Request.DescribeSemaphoreResult
                 .SemaphoreDescription);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             throw new YdbException("Describe semaphore failed");
         }
     }
 
-    public async Task AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
+    public async Task<bool> AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
         TimeSpan? timeout, CancellationToken cancellationToken = default)
     {
         await EnsureInitialized();
@@ -291,7 +299,12 @@ public class SessionTransport : IAsyncDisposable
 
         try
         {
-            await SendRequest(reqId, acquireSemaphore, combineToken);
+            var response = await SendRequest(reqId, acquireSemaphore, combineToken);
+            return response.Request.AcquireSemaphoreResult.Acquired;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {
@@ -316,6 +329,10 @@ public class SessionTransport : IAsyncDisposable
         try
         {
             await SendRequest(reqId, releaseSemaphore, combineToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {
@@ -474,22 +491,21 @@ public class SessionTransport : IAsyncDisposable
 
         _sessionStartedTcs =
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        SessionId = 0;
-        var node = _pathNode;
         var key = CreateRandomKey();
         var initRequestStart = new SessionRequest
         {
             SessionStart = new SessionRequest.Types.SessionStart
             {
-                SessionId = 0,
-                Path = node,
-                TimeoutMillis = 5000,
+                SessionId = SessionId,
+                Path = _pathNode,
+                Description = _sessionOptions.Description,
+                TimeoutMillis = (ulong)_sessionOptions.StartTimeout.TotalMilliseconds,
                 ProtectionKey = key,
                 SeqNo = _seqNo++
             }
         };
 
-        await SafeWrite(initRequestStart,_cancelTokenSource.Token);
+        await SafeWrite(initRequestStart, _cancelTokenSource.Token);
 
         await _sessionStartedTcs.Task;
     }
@@ -503,7 +519,7 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            await SafeWrite(stopSession,_cancelTokenSource.Token);
+            await SafeWrite(stopSession, _cancelTokenSource.Token);
         }
         catch (Exception)
         {
@@ -522,7 +538,7 @@ public class SessionTransport : IAsyncDisposable
                 Opaque = opaque
             }
         };
-        await SafeWrite(pongRequest,_cancelTokenSource.Token);
+        await SafeWrite(pongRequest, _cancelTokenSource.Token);
     }
 
     private async Task HandleFailure(SessionResponse response)
@@ -547,7 +563,7 @@ public class SessionTransport : IAsyncDisposable
     private void HandleSessionStarted(SessionResponse response)
     {
         _logger.LogTrace("Session started with id {SessionId}", response.SessionStarted.SessionId);
-        _sessionId = response.SessionStarted.SessionId;
+        SessionId = response.SessionStarted.SessionId;
         _sessionStartedTcs?.TrySetResult();
         _sessionStartedTcs = null;
         _firstSessionStartedTcs.TrySetResult();
@@ -640,6 +656,7 @@ public class SessionTransport : IAsyncDisposable
             return;
 
         _disposed = true;
+        _streamClosed = true;
 
         try
         {
@@ -655,7 +672,7 @@ public class SessionTransport : IAsyncDisposable
                 }
 
                 await Task.WhenAny(
-                    WaitSessionStopped(), Task.Delay(TimeSpan.FromSeconds(60))); //Task.Delay(TimeSpan.FromSeconds(10))
+                    WaitSessionStopped(), Task.Delay(TimeSpan.FromSeconds(60), _cancelTokenSource.Token));
             }
         }
         catch (Exception)
@@ -676,6 +693,7 @@ public class SessionTransport : IAsyncDisposable
                 _logger.LogWarning(ex, "Error while completing request stream");
             }
 
+            StateSession = StateSession.Closed;
             _requestRegistry.Dispose();
             _watcherRegistry.Dispose();
             _writeLock.Dispose();

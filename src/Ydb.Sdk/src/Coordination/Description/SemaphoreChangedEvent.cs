@@ -4,18 +4,12 @@ namespace Ydb.Sdk.Coordination.Description;
 
 public readonly struct SemaphoreChangedEvent
 {
-    private readonly bool _dataChanged = false;
-    private readonly bool _ownersChanged = false;
+    public bool DataChanged { get; }
+    public bool OwnersChanged { get; }
 
     public SemaphoreChangedEvent(SessionResponse.Types.DescribeSemaphoreChanged semaphoreChangedEvent)
     {
-        _dataChanged = semaphoreChangedEvent.DataChanged;
-        _ownersChanged = semaphoreChangedEvent.OwnersChanged;
+        DataChanged = semaphoreChangedEvent.DataChanged;
+        OwnersChanged = semaphoreChangedEvent.OwnersChanged;
     }
-
-    public bool IsDataChanged()
-        => _dataChanged;
-
-    public bool OwnersChanged()
-        => _ownersChanged;
 }

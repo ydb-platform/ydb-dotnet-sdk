@@ -11,56 +11,14 @@ public class LeaderIntegrationTests
     private static readonly Encoding Utf8 = Encoding.UTF8;
     private readonly string _nodePath = "/local/electionExample";
     private readonly string _electionName = "apiLeader";
-    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString, Utils.LoggerFactory);
+    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString);
     private readonly ITestOutputHelper _output;
 
     public LeaderIntegrationTests(ITestOutputHelper output)
     {
         _output = output;
     }
-
-    /*
-    [Fact]
-    public async Task LeaderElection1()
-    {
-        using var cts = new CancellationTokenSource();
-
-        var coordinationNodeSettings = new CoordinationNodeSettings
-        {
-            Config = NodeConfig.Create()
-                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
-                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
-                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
-                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
-        };
-        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
-        await _coordinationClient.CreateNode(_nodePath, coordinationNodeSettings);
-        var coordinationSession = _coordinationClient.CreateSession(_nodePath);
-        var semaphore = coordinationSession.Semaphore(_electionName);
-        await semaphore.Create(2, null);
-        //var lease = await semaphore.Acquire(1, false, null, null); //Utf8.GetBytes("worker-a:starting")
-        //await lease.Release();
-        // var election = coordinationSession.Election(_electionName);
-        // var leadership = await election.Campaign(Utf8.GetBytes("worker-a:starting"), new CancellationToken());
-        //var lease = await semaphore.Acquire(1, false, Utf8.GetBytes("worker-a:starting"), null);
-        //await lease.Release();
-        //var lease = await semaphore.Acquire(1, true, null, null);
-        // await RunLeader(_coordinationClient, cts.Token);
-
-        await Task.WhenAll(
-            RunLeader(_coordinationClient, cts.Token),
-            RunLeader2(_coordinationClient, cts.Token),
-            RunLeader3(_coordinationClient, cts.Token)
-            // RunFollower(_coordinationClient, cts.Token)
-        );
-
-
-        await PrintCurrentLeader(_coordinationClient, cts.Token);
-
-        await coordinationSession.Close();
-        await _coordinationClient.DropNode(_nodePath, dropCoordinationNodeSettings);
-    }
-    */
+    
 
     [Fact]
     public async Task LeaderElection()

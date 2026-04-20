@@ -14,5 +14,5 @@ public enum StateSession
 
     Closed,
 
-    Lost
+    Expired
 }

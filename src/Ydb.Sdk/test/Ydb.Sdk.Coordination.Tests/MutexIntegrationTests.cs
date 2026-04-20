@@ -10,7 +10,7 @@ public class MutexIntegrationTests
 {
     private readonly string _nodePath = "/local/mutexExample";
     private readonly string _mutexName = "jobLock";
-    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString, Utils.LoggerFactory);
+    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString);
     private readonly ITestOutputHelper _output;
 
     public MutexIntegrationTests(ITestOutputHelper output)

@@ -10,8 +10,7 @@ namespace Ydb.Sdk.Coordination.Tests;
 
 public class CoordinationClientIntegrationTests
 {
-    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString, Utils.LoggerFactory);
-
+    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString);
     private readonly ITestOutputHelper _output;
 
     public CoordinationClientIntegrationTests(ITestOutputHelper output)
@@ -144,9 +143,7 @@ public class CoordinationClientIntegrationTests
         _output.WriteLine("=== START DescribeNonExistentNode test ===");
         //  Given
         var describeCoordinationNodeSettings = new DescribeCoordinationNodeSettings();
-
         var pathNode = "/local/test1";
-
 
         // When
         var exception = await Assert.ThrowsAsync<YdbException>(async () =>
@@ -245,11 +242,13 @@ public class CoordinationClientIntegrationTests
         // When
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var coordinationSession = _coordinationClient.CreateSession(pathNode);
-
+        var stateSession1 = coordinationSession.Status();
+        
         //Then
-        coordinationSession.Status();
+        Assert.Equal(StateSession.Connecting, stateSession1);
         coordinationSession.Status();
         await coordinationSession.Close();
+        Assert.Equal(StateSession.Closed, coordinationSession.Status());
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
     }
 
@@ -269,8 +268,7 @@ public class CoordinationClientIntegrationTests
         var pathNode = "/local/test4";
         var semaphoreName = "semaphore1";
         byte[] semaphoreData = [0x00, 0x12];
-
-
+        
         // When
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var coordinationSession = _coordinationClient.CreateSession(pathNode);
@@ -315,15 +313,13 @@ public class CoordinationClientIntegrationTests
         var coordinationSession2 = _coordinationClient.CreateSession(pathNode);
 
         // When
-
         var semaphore1 = coordinationSession1.Semaphore(semaphoreName);
         await semaphore1.Create(10, semaphoreData1);
         var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
         var describeBefore = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
         await semaphore1.Update(semaphoreData2);
         var describeAfter = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
-
-
+        
         // ---- OUTPUT BEFORE ----
         _output.WriteLine("Describe BEFORE:");
         _output.WriteLine($"  Name: {describeBefore.Name}");
@@ -359,10 +355,10 @@ public class CoordinationClientIntegrationTests
 
         Assert.Empty(describeBefore.GetOwnersList());
         Assert.Empty(describeBefore.GetWaitersList());
+        
         // ---- Assert AFTER ----
-
         Assert.Equal(semaphoreName, describeAfter.Name);
-        Assert.Equal((ulong)10, describeAfter.Limit); // limit должен остаться
+        Assert.Equal((ulong)10, describeAfter.Limit); 
         Assert.Equal((ulong)0, describeAfter.Count);
 
         Assert.NotNull(describeAfter.Data);
@@ -394,37 +390,25 @@ public class CoordinationClientIntegrationTests
         byte[] semaphoreData1 = [0x00, 0x12];
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var coordinationSession1 = _coordinationClient.CreateSession(pathNode);
-        var semaphore = coordinationSession1.Semaphore(semaphoreName);
-        await semaphore.Create(20, semaphoreData1);
+        var coordinationSession2 = _coordinationClient.CreateSession(pathNode);
+        var semaphore1 = coordinationSession1.Semaphore(semaphoreName);
+        var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
+        await semaphore1.Create(20, semaphoreData1);
+        
         // When
-        var lease = await semaphore.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-        await lease.Release();
+        var lease = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+        var exception = await Assert.ThrowsAsync<YdbException>(async () =>
+        {
+            await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
+        });
+        
         //Then
-        await semaphore.Delete(false);
+        Assert.Equal("Acquire semaphore failed", exception.Message);
+        await lease.Release();
+        await semaphore1.Delete(false);
         await coordinationSession1.Close();
+        await coordinationSession2.Close();
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
-
-        /*
-       var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
-       // When
-       var lease2 = await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-       await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-       await lease2.Release();
-       await lease2.Release();
-
-
-       Lease lease1;
-       var exception = await Assert.ThrowsAsync<YdbException>(async () =>
-       {
-           // Попытка повторного захвата семафора
-           lease1 = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-       });
-
-       await lease2.Release();
-
-       //Then
-       Assert.Equal("Acquire semaphore failed", exception.Message);
-       */
     }
 
     [Fact]
@@ -445,36 +429,50 @@ public class CoordinationClientIntegrationTests
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var coordinationSession1 = _coordinationClient.CreateSession(pathNode);
         var semaphore = coordinationSession1.Semaphore(semaphoreName);
-        //await semaphore.Create(1, null);
+        
         // When
         var lease = await semaphore.Acquire(ulong.MaxValue, true, null, null);
         await lease.Release();
+        
         //Then
-        //await semaphore.Delete(false);
         await coordinationSession1.Close();
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
+    }
 
-        /*
-       var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
-       // When
-       var lease2 = await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-       await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-       await lease2.Release();
-       await lease2.Release();
-
-
-       Lease lease1;
-       var exception = await Assert.ThrowsAsync<YdbException>(async () =>
-       {
-           // Попытка повторного захвата семафора
-           lease1 = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-       });
-
-       await lease2.Release();
-
-       //Then
-       Assert.Equal("Acquire semaphore failed", exception.Message);
-       */
+    [Fact]
+    public async Task TryAcquireSemaphore()
+    {
+        // Given
+        var coordinationNodeSettings = new CoordinationNodeSettings
+        {
+            Config = NodeConfig.Create()
+                .WithDurationsConfig(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3))
+                .WithReadConsistencyMode(ConsistencyMode.Relaxed)
+                .WithAttachConsistencyMode(ConsistencyMode.Relaxed)
+                .WithRateLimiterCountersMode(RateLimiterCountersMode.Detailed)
+        };
+        var dropCoordinationNodeSettings = new DropCoordinationNodeSettings();
+        var pathNode = "/local/test_try";
+        var semaphoreName = "semaphore_try";
+        byte[] semaphoreData1 = [0x00, 0x12];
+        await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
+        var coordinationSession1 = _coordinationClient.CreateSession(pathNode);
+        var coordinationSession2 = _coordinationClient.CreateSession(pathNode);
+        var semaphore1 = coordinationSession1.Semaphore(semaphoreName);
+        var semaphore2 = coordinationSession2.Semaphore(semaphoreName);
+        await semaphore1.Create(10, semaphoreData1);
+        
+        // When
+        var lease1 = await semaphore1.TryAcquire(10, false, null);
+        var lease2 = await semaphore2.TryAcquire(5, false, null);
+        
+        // Then
+        Assert.NotNull(lease1);
+        Assert.Null(lease2);
+        await lease1.Release();
+        await semaphore1.Delete(false);
+        await coordinationSession1.Close();
+        await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
     }
 
     [Fact]
@@ -502,6 +500,7 @@ public class CoordinationClientIntegrationTests
         // When
         await semaphore1.Create(20, semaphoreData1);
         // --- WATCH ---
+        
         var watch = await semaphore2.WatchSemaphore(DescribeSemaphoreMode.WithOwners, WatchSemaphoreMode.WatchOwners);
         var initial = watch.Initial;
         Assert.Empty(initial.GetOwnersList());
@@ -509,11 +508,13 @@ public class CoordinationClientIntegrationTests
         var moveTask = updates.MoveNextAsync();
         Assert.False(moveTask.IsCompleted);
         // --- ACQUIRE ---
+        
         await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
         Assert.True(await moveTask);
         var afterAcquire = updates.Current;
         Assert.Single(afterAcquire.GetOwnersList());
         // --- REWATCH (data) ---
+        
         await updates.DisposeAsync();
         watch = await semaphore2.WatchSemaphore(
             DescribeSemaphoreMode.WithOwnersAndWaiters,
@@ -522,10 +523,12 @@ public class CoordinationClientIntegrationTests
         var moveTask2 = updates.MoveNextAsync();
         Assert.False(moveTask2.IsCompleted);
         // --- UPDATE DATA ---
+        
         await semaphore1.Update(semaphoreData2);
         Assert.True(await moveTask2);
         var afterUpdate = updates.Current;
         Assert.Equal(semaphoreData2, afterUpdate.Data);
+        
         // --- REWATCH (all) ---
         watch = await semaphore2.WatchSemaphore(
             DescribeSemaphoreMode.DataOnly,
@@ -533,27 +536,18 @@ public class CoordinationClientIntegrationTests
         updates = watch.Updates.GetAsyncEnumerator();
         var moveTask3 = updates.MoveNextAsync();
         Assert.False(moveTask3.IsCompleted);
+        
         // --- RELEASE ---
         await semaphore1.Release();
         Assert.True(await moveTask3);
         var afterRelease = updates.Current;
         Assert.Empty(afterRelease.GetOwnersList());
+        
         // --- DESCRIBE ---
         var final = await semaphore2.Describe(DescribeSemaphoreMode.WithOwnersAndWaiters);
         Assert.Equal(semaphoreData2, final.Data);
         Assert.Empty(final.GetOwnersList());
         await updates.DisposeAsync();
-        /*
-        var moveTask1 = enumerator.MoveNextAsync();
-        var semaphoreDescription1 = enumerator.Current;
-        Assert.False(moveTask1.IsCompleted);
-        /*
-        var lease1 = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-        Assert.True(await moveTask1);
-
-        var description2 = enumerator.Current;
-       // Assert.Single(description2.GetOwnersList());
-        */
 
         //Then
         Assert.Equal(semaphoreName, initial.Name);

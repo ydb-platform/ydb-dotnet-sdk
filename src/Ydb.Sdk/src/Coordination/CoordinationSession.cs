@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
 
 namespace Ydb.Sdk.Coordination;
@@ -7,15 +7,16 @@ public class CoordinationSession : IAsyncDisposable
 {
     private readonly SessionTransport _sessionTransport;
 
-    public CoordinationSession(IDriver driver, ILoggerFactory loggerFactory, string pathNode,
+    public CoordinationSession(IDriver driver, string pathNode, SessionOptions sessionOptions,
         CancellationTokenSource? cancelTokenSource)
     {
-        _sessionTransport = new SessionTransport(driver, loggerFactory, pathNode, cancelTokenSource);
+        _sessionTransport = new SessionTransport(driver, pathNode, sessionOptions, cancelTokenSource);
     }
 
-    public CancellationToken Token => _sessionTransport.Token;
+    public ulong SessionId() => _sessionTransport.SessionId;
+    public StateSession Status() => _sessionTransport.StateSession;
+    public CancellationToken Token() => _sessionTransport.Token;
 
-    public StateSession Status() => StateSession.Closed;
 
     public Semaphore Semaphore(string name) => new(name, _sessionTransport);
 

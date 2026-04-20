@@ -11,7 +11,7 @@ public class SharedConfigIntegrationTests
 {
     private readonly string _nodePath = "/local/sharedConfigExample";
     private readonly string _semaphoreName = "config";
-    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString, Utils.LoggerFactory);
+    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString);
     private readonly ITestOutputHelper _output;
 
     public SharedConfigIntegrationTests(ITestOutputHelper output)

@@ -2,12 +2,18 @@
 
 public enum RateLimiterCountersMode
 {
-    /// <summary>The default or current value</summary>
+    /// <summary>
+    /// The default or current value.
+    /// </summary>
     Unset,
 
-    /// <summary>Aggregated counters for resource tree</summary>
+    /// <summary>
+    /// Aggregated counters for resource tree
+    /// </summary>
     Aggregated,
 
-    /// <summary>Counters on every resource</summary>
+    /// <summary>
+    /// Counters on every resource
+    /// </summary>
     Detailed
 }

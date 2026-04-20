@@ -4,35 +4,25 @@ namespace Ydb.Sdk.Coordination.Description;
 
 public readonly struct NodeConfig
 {
-    /// <summary>Period for self-checks (default 1 second)</summary>
-    private TimeSpan SelfCheckPeriod { get; }
-
-    /// <summary>Grace period for sessions on leader change (default 10 seconds)</summary>
-    private TimeSpan SessionGracePeriod { get; }
-
-    /// <summary>Consistency mode for read operations</summary>
-    private ConsistencyMode ReadConsistencyMode { get; }
-
-    /// <summary>Consistency mode for attach operations</summary>
-    private ConsistencyMode AttachConsistencyMode { get; }
-
-    /// <summary>Rate limiter counters mode</summary>
-    private RateLimiterCountersMode RateLimiterCountersModeValue { get; }
-
-
-    public NodeConfig()
-    {
-        SelfCheckPeriod = TimeSpan.FromSeconds(1);
-        SessionGracePeriod = TimeSpan.FromSeconds(10);
-        ReadConsistencyMode = ConsistencyMode.Unset;
-        AttachConsistencyMode = ConsistencyMode.Unset;
-        RateLimiterCountersModeValue = RateLimiterCountersMode.Unset;
-    }
+    /// Period in milliseconds for self-checks (default 1 second).
+    private TimeSpan SelfCheckPeriod { get; init; } = TimeSpan.FromSeconds(1);
+    
+    /// Grace period for sessions on leader change (default 10 seconds).
+    private TimeSpan SessionGracePeriod { get; init; } = TimeSpan.FromSeconds(10);
+    
+    /// Consistency mode for read operations.
+    private ConsistencyMode ReadConsistencyMode { get; init; } = ConsistencyMode.Unset;
+    
+    /// Consistency mode for attach operations.
+    private ConsistencyMode AttachConsistencyMode { get; init; } = ConsistencyMode.Unset;
+    
+    /// Rate limiter counters mode.
+    private RateLimiterCountersMode RateLimiterCountersModeValue { get; init; } = RateLimiterCountersMode.Unset;
 
     private NodeConfig(DescribeNodeResult result)
     {
-        //Preconditions.checkNotNull(result, "DescriptionNodeResult must be not null");
-        //Preconditions.checkNotNull(result.getConfig(), "DescriptionNodeResult config must be not null");
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(result.Config);
 
         SelfCheckPeriod = TimeSpan.FromMilliseconds(result.Config.SelfCheckPeriodMillis);
         SessionGracePeriod = TimeSpan.FromMilliseconds(result.Config.SessionGracePeriodMillis);
@@ -45,17 +35,6 @@ public readonly struct NodeConfig
     private NodeConfig(TimeSpan selfCheck, TimeSpan sessionGrace, ConsistencyMode read, ConsistencyMode attach,
         RateLimiterCountersMode rateLimiter)
     {
-        /*
-        Preconditions.checkArgument(!selfCheck.isNegative() && !selfCheck.isZero(),
-            "SelfCheckPeriod must be strictly greater than zero"
-        );
-        Preconditions.checkArgument(!sessionGrace.isNegative() && !sessionGrace.isZero(),
-            "SessionGracePeriod must be strictly greater than zero"
-        );
-        Preconditions.checkArgument(sessionGrace.compareTo(selfCheck) > 0,
-            "SessionGracePeriod must be strictly more than SelfCheckPeriod"
-        );
-        */
         if (selfCheck <= TimeSpan.Zero)
             throw new ArgumentException("SelfCheckPeriod must be strictly greater than zero");
         if (sessionGrace <= TimeSpan.Zero)

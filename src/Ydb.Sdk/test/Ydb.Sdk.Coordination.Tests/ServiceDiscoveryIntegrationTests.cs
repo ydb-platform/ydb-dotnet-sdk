@@ -13,7 +13,7 @@ public class ServiceDiscoveryIntegrationTests
     private static readonly Encoding Utf8 = Encoding.UTF8;
     private readonly string _nodePath = "/local/ServiceDiscoveryExample";
     private readonly string _semaphoreName = "endpoints";
-    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString, Utils.LoggerFactory);
+    private readonly CoordinationClient _coordinationClient = new(Utils.ConnectionString);
     private readonly ITestOutputHelper _output;
 
     public ServiceDiscoveryIntegrationTests(ITestOutputHelper output)

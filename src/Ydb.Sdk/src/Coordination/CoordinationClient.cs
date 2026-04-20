@@ -12,12 +12,13 @@ namespace Ydb.Sdk.Coordination;
 public class CoordinationClient
 {
     private readonly IDriver _iDriver;
-    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<CoordinationClient> _logger;
 
-    public CoordinationClient(string connectionString, ILoggerFactory loggerFactory)
+
+    public CoordinationClient(string connectionString)
     {
         _iDriver = GetDriver(new YdbConnectionStringBuilder(connectionString)).AsTask().Result;
-        _loggerFactory = loggerFactory;
+        _logger = _iDriver.LoggerFactory.CreateLogger<CoordinationClient>();
     }
 
 
@@ -48,10 +49,12 @@ public class CoordinationClient
         };
 
 
-    public CoordinationSession CreateSession(string pathNode, CancellationTokenSource? cancelTokenSource = null)
+    public CoordinationSession CreateSession(string pathNode, SessionOptions? sessionOptions = null,
+        CancellationTokenSource? cancelTokenSource = null)
     {
         ValidatePath(pathNode);
-        return new CoordinationSession(_iDriver, _loggerFactory, pathNode, cancelTokenSource);
+        var options = (sessionOptions ?? SessionOptions.Default);
+        return new CoordinationSession(_iDriver, pathNode, options, cancelTokenSource);
     }
 
 
