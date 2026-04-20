@@ -124,7 +124,7 @@ services.AddOpenTelemetry().WithMetrics(b => b.AddYdb());
 ```
 
 Emitted spans: `ydb.RunWithRetry`, `ydb.Try`, `ydb.ExecuteQuery`, `ydb.Commit`, `ydb.Rollback`, `ydb.CreateSession`.  
-Emitted metrics: `db.client.operation.duration`, `db.client.connection.count`, and more — see [AGENTS.md](../../AGENTS.md).
+Emitted metrics: `db.client.operation.duration`, `ydb.query.session.count`, and more — see [AGENTS.md](../../AGENTS.md).
 
 ## More Examples
 
