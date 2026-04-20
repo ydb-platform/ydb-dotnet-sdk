@@ -31,11 +31,7 @@ public class WatcherRegistry : IDisposable
         if (!ReferenceEquals(active, subscription))
             return;
 
-        if (subscription.ReqId != 0L)
-        {
-            _watchesByReqId.TryRemove(subscription.ReqId, out _);
-        }
-
+        _watchesByReqId.TryRemove(subscription.ReqId, out _);
         subscription.ReqId = reqId;
 
         _watchesByReqId[reqId] = subscription;
@@ -49,10 +45,7 @@ public class WatcherRegistry : IDisposable
             _watchesByName.TryRemove(name, out _);
         }
 
-        if (subscription.ReqId != 0)
-        {
-            _watchesByReqId.TryRemove(subscription.ReqId, out _);
-        }
+        _watchesByReqId.TryRemove(subscription.ReqId, out _);
     }
 
     public void Notify(SessionResponse.Types.DescribeSemaphoreChanged evt)

@@ -34,8 +34,7 @@ public class CoordinationClientIntegrationTests
         };
 
         var oldNodeConfig = coordinationNodeSettings.ToProto();
-        var pathNode = "/local/test1";
-
+        var pathNode = "local/test1";
         _output.WriteLine($"Creating node at path: {pathNode}");
         _output.WriteLine("Old Config:");
         _output.WriteLine($"  SelfCheckPeriodMillis: {oldNodeConfig.SelfCheckPeriodMillis}");
@@ -48,6 +47,9 @@ public class CoordinationClientIntegrationTests
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var describeNode = await _coordinationClient.DescribeNode(pathNode);
         var describeNodeConfig = describeNode.ToProto();
+        _output.WriteLine("MyValidate: " + _coordinationClient.MyValidate(pathNode));
+        _output.WriteLine("YdbValidate: " + _coordinationClient.YdbValidate(pathNode));
+        _output.WriteLine("YdbValidate2: " + _coordinationClient.YdbValidate2(pathNode));
         _output.WriteLine("New Config:");
         _output.WriteLine($"  SelfCheckPeriodMillis: {describeNodeConfig.SelfCheckPeriodMillis}");
         _output.WriteLine($"  SessionGracePeriodMillis: {describeNodeConfig.SessionGracePeriodMillis}");
@@ -122,7 +124,7 @@ public class CoordinationClientIntegrationTests
             AttachConsistencyMode = ConsistencyMode.Relaxed,
             RateLimiterCountersModeValue = RateLimiterCountersMode.Detailed
         };
-        var pathNode = "/local/doubleDropNode";
+        var pathNode = "local/doubleDropNode";
 
         // When
         await _coordinationClient.CreateNode(pathNode, config);

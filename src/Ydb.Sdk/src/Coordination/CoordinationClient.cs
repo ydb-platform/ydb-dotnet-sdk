@@ -35,13 +35,17 @@ public class CoordinationClient
             : $"{_iDriver.Database}/{path}";
     }
 
-
     private static GrpcRequestSettings MakeGrpcRequestSettings(
         CancellationToken cancellationToken)
         => new()
         {
             CancellationToken = cancellationToken
         };
+
+    public string MyValidate(string path) => ValidatePath(path);
+    public string YdbValidate(string path) => _connectionString.FullPath(path);
+
+    public string YdbValidate2(string path) => path.FullPath(_connectionString);
 
 
     public CoordinationSession CreateSession(string pathNode, SessionOptions? sessionOptions = null,

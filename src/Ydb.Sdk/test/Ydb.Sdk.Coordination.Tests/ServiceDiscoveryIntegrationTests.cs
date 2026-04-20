@@ -19,7 +19,6 @@ public class ServiceDiscoveryIntegrationTests
         _output = output;
     }
 
-
     [Fact]
     public async Task ServiceDiscovery()
     {
@@ -37,7 +36,6 @@ public class ServiceDiscoveryIntegrationTests
         var coordinationSession2 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession4 = _coordinationClient.CreateSession(_nodePath);
-        
         using var bCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         using var watchCts = new CancellationTokenSource(TimeSpan.FromSeconds(7));
         try
