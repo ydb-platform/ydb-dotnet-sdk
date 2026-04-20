@@ -263,13 +263,14 @@ public class CoordinationClientIntegrationTests
 
         // When
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
-        var coordinationSession = _coordinationClient.CreateSession(pathNode);
-        var stateSession1 = coordinationSession.Status();
+        var coordinationSessionq = _coordinationClient.CreateSession(pathNode);
+        await using var coordinationSessionw = _coordinationClient.CreateSession(pathNode);
+        var stateSession1 = coordinationSessionq.Status();
         //Then
         Assert.Equal(StateSession.Connecting, stateSession1);
-        coordinationSession.Status();
-        await coordinationSession.Close();
-        Assert.Equal(StateSession.Closed, coordinationSession.Status());
+        coordinationSessionq.Status();
+        await coordinationSessionq.Close();
+        Assert.Equal(StateSession.Closed, coordinationSessionq.Status());
         await _coordinationClient.DropNode(pathNode, dropCoordinationNodeSettings);
     }
 
