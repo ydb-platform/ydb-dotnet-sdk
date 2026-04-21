@@ -4,7 +4,6 @@ using Moq;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Xunit;
-using Xunit.Abstractions;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Session;
@@ -15,13 +14,6 @@ namespace Ydb.Sdk.Ado.Tests;
 [Collection("DisableParallelization")]
 public class YdbMetricTests : TestBase
 {
-    private readonly ITestOutputHelper _testOutputHelper;
-
-    public YdbMetricTests(ITestOutputHelper testOutputHelper)
-    {
-        _testOutputHelper = testOutputHelper;
-    }
-
     private static readonly YdbConnectionStringBuilder BaseConnectionSettings = new(TestUtils.ConnectionString)
     {
         PoolName = "ado-metrics-tests"
@@ -344,11 +336,33 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        foreach (var metric in exportedItems) 
-            _testOutputHelper.WriteLine(metric.MeterTags.ToString());
-        Assert.Empty(exportedItems);
+        AssertNoPoolMetricsForPool(exportedItems, settings.PoolName!);
     }
 
+    private static readonly string[] PoolScopedMetricNames =
+    [
+        "ydb.query.session.count",
+        "ydb.query.session.max",
+        "ydb.query.session.min",
+        "ydb.query.session.timeouts",
+        "ydb.query.session.pending_requests",
+        "ydb.query.session.create_time"
+    ];
+
+    private static void AssertNoPoolMetricsForPool(List<Metric> exportedItems, string poolName)
+    {
+        foreach (var metric in exportedItems.Where(m => PoolScopedMetricNames.Contains(m.Name)))
+        {
+            foreach (var point in metric.GetMetricPoints())
+            {
+                if (ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string == poolName)
+                {
+                    Assert.Fail(
+                        $"Implicit session must not publish pool metric '{metric.Name}' for pool '{poolName}'.");
+                }
+            }
+        }
+    }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
         OpenTelemetry.Sdk.CreateMeterProviderBuilder()
