@@ -132,6 +132,8 @@ One instance per session pool. Meter name: **`Ydb.Sdk`**.
 | `db.client.operation.duration` | Histogram (seconds) | `db.system.name`, `db.namespace`, `server.address`, `server.port`, `ydb.operation.name` | Latency of ADO.NET operations (ExecuteQuery, Commit, Rollback) |
 | `ydb.client.operation.failed` | Counter | `ydb.operation.name`, `db.response.status_code` | Count of failed operations |
 | `ydb.query.session.count` | ObservableUpDownCounter | `ydb.query.session.pool.name`, `ydb.query.session.state` (`idle`/`used`) | Current pool session counts |
+| `ydb.query.session.max` | ObservableGauge | `ydb.query.session.pool.name` | Configured `MaxPoolSize` (pooling sources only) |
+| `ydb.query.session.min` | ObservableGauge | `ydb.query.session.pool.name` | Configured `MinPoolSize` (pooling sources only) |
 | `ydb.query.session.create_time` | Histogram (seconds) | `ydb.query.session.pool.name` | Time to create a new session (RPC + first message) |
 | `ydb.query.session.pending_requests` | UpDownCounter | `ydb.query.session.pool.name` | Requests waiting for a session |
 | `ydb.query.session.timeouts` | Counter | `ydb.query.session.pool.name` | Timed-out connection acquisitions |

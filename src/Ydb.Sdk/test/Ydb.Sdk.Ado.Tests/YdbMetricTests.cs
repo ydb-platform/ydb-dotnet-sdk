@@ -264,6 +264,35 @@ public class YdbMetricTests : TestBase
     }
 
     [Fact]
+    public async Task PoolSizeMaxMin()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MinPoolSize = 2;
+            builder.MaxPoolSize = 7;
+            builder.PoolName = "ado-metrics-max-min";
+        });
+
+        await using var dataSource = new YdbDataSource(settings);
+        await using var _ = await dataSource.OpenConnectionAsync();
+
+        meterProvider.ForceFlush();
+
+        var max = GetMetric(exportedItems, "ydb.query.session.max");
+        var maxPoint = GetPoolPoints(max.GetMetricPoints(), settings.PoolName!).Single();
+        Assert.Equal(7, maxPoint.GetSumLong());
+        Assert.Equal(settings.PoolName, ToDictionary(maxPoint.Tags)["ydb.query.session.pool.name"]);
+
+        var min = GetMetric(exportedItems, "ydb.query.session.min");
+        var minPoint = GetPoolPoints(min.GetMetricPoints(), settings.PoolName!).Single();
+        Assert.Equal(2, minPoint.GetSumLong());
+        Assert.Equal(settings.PoolName, ToDictionary(minPoint.Tags)["ydb.query.session.pool.name"]);
+    }
+
+    [Fact]
     public async Task ConnectionTimeouts()
     {
         var exportedItems = new List<Metric>();
