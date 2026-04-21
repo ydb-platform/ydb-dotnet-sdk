@@ -4,6 +4,7 @@ using Moq;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Xunit;
+using Xunit.Abstractions;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Session;
@@ -14,6 +15,13 @@ namespace Ydb.Sdk.Ado.Tests;
 [Collection("DisableParallelization")]
 public class YdbMetricTests : TestBase
 {
+    private readonly ITestOutputHelper _testOutputHelper;
+
+    public YdbMetricTests(ITestOutputHelper testOutputHelper)
+    {
+        _testOutputHelper = testOutputHelper;
+    }
+
     private static readonly YdbConnectionStringBuilder BaseConnectionSettings = new(TestUtils.ConnectionString)
     {
         PoolName = "ado-metrics-tests"
@@ -336,6 +344,8 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
+        foreach (var metric in exportedItems) 
+            _testOutputHelper.WriteLine(metric.MeterTags.ToString());
         Assert.Empty(exportedItems);
     }
 
