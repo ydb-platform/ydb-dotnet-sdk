@@ -321,6 +321,23 @@ public class YdbMetricTests : TestBase
         Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["ydb.query.session.pool.name"]);
     }
 
+    [Fact]
+    public async Task ImplicitSessionSource_DoesNotPublishPoolMetrics()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder => { builder.EnableImplicitSession = true; });
+
+        await using var dataSource = new YdbDataSource(settings);
+        await using var _ = await dataSource.OpenConnectionAsync();
+
+        meterProvider.ForceFlush();
+
+        Assert.Empty(exportedItems);
+    }
+
+
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
         OpenTelemetry.Sdk.CreateMeterProviderBuilder()
             .AddMeter("Ydb.Sdk")
