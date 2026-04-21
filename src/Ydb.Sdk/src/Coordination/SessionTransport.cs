@@ -167,16 +167,11 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            var task = SendRequest(reqId, createSemaphore, combineToken);
-            await task;
+            await SendRequest(reqId, createSemaphore, combineToken);
         }
-        catch (OperationCanceledException)
+        catch (Exception e)
         {
-            throw;
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Create semaphore failed");
+            throw new YdbException("Create semaphore failed " + e.Message);
         }
     }
 
@@ -202,16 +197,11 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            var task = SendRequest(reqId, updateSemaphore, combineToken);
-            await task;
+            await SendRequest(reqId, updateSemaphore, combineToken);
         }
-        catch (OperationCanceledException)
+        catch (Exception e)
         {
-            throw;
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Update semaphore failed");
+            throw new YdbException("Update semaphore failed " + e.Message);
         }
     }
 
@@ -237,16 +227,11 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            var task = SendRequest(reqId, deleteSemaphore, combineToken);
-            await task;
+            await SendRequest(reqId, deleteSemaphore, combineToken);
         }
-        catch (OperationCanceledException)
+        catch (Exception e)
         {
-            throw;
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Delete semaphore failed");
+            throw new YdbException("Delete semaphore failed " + e.Message);
         }
     }
 
@@ -276,13 +261,9 @@ public class SessionTransport : IAsyncDisposable
             return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult
                 .SemaphoreDescription);
         }
-        catch (OperationCanceledException)
+        catch (Exception e)
         {
-            throw;
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Describe semaphore failed");
+            throw new YdbException("Describe semaphore failed " + e.Message);
         }
     }
 
@@ -312,13 +293,9 @@ public class SessionTransport : IAsyncDisposable
             var response = await SendRequest(reqId, acquireSemaphore, combineToken);
             return response.AcquireSemaphoreResult.Acquired;
         }
-        catch (OperationCanceledException)
+        catch (Exception e)
         {
-            throw;
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Acquire semaphore failed");
+            throw new YdbException("Acquire semaphore failed " + e.Message);
         }
     }
 
@@ -341,13 +318,9 @@ public class SessionTransport : IAsyncDisposable
         {
             await SendRequest(reqId, releaseSemaphore, combineToken);
         }
-        catch (OperationCanceledException)
+        catch (Exception e)
         {
-            throw;
-        }
-        catch (Exception)
-        {
-            throw new YdbException("Release semaphore failed");
+            throw new YdbException("Release semaphore failed " + e.Message);
         }
     }
 
