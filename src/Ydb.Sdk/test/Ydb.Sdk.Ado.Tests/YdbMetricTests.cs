@@ -77,10 +77,10 @@ public class YdbMetricTests : TestBase
             var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
-            Assert.Equal(1, usedPoint.GetSumLong());
+            Assert.Equal(1, usedPoint.GetGaugeLastValueLong());
 
             var idlePoint = GetPoint(points, "idle");
-            Assert.Equal(0, idlePoint.GetSumLong());
+            Assert.Equal(0, idlePoint.GetGaugeLastValueLong());
 
             exportedItems.Clear();
         }
@@ -92,10 +92,10 @@ public class YdbMetricTests : TestBase
             var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
-            Assert.Equal(0, usedPoint.GetSumLong());
+            Assert.Equal(0, usedPoint.GetGaugeLastValueLong());
 
             var idlePoint = GetPoint(points, "idle");
-            Assert.Equal(1, idlePoint.GetSumLong());
+            Assert.Equal(1, idlePoint.GetGaugeLastValueLong());
         }
     }
 
@@ -324,6 +324,8 @@ public class YdbMetricTests : TestBase
     [Fact]
     public async Task ImplicitSessionSource_DoesNotPublishPoolMetrics()
     {
+        await PoolManager.ClearAllPools();
+
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
 

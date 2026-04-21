@@ -41,7 +41,7 @@ internal sealed class YdbMetricsReporter : IDisposable
             description: "Duration of database client operations.",
             advice: ShortHistogramAdvice);
 
-        meter.CreateObservableUpDownCounter(
+        meter.CreateObservableGauge(
             "ydb.query.session.count",
             GetSessionCount,
             unit: "{session}",
