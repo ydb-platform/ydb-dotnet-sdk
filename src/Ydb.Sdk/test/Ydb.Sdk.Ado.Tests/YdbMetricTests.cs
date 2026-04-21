@@ -283,12 +283,12 @@ public class YdbMetricTests : TestBase
 
         var max = GetMetric(exportedItems, "ydb.query.session.max");
         var maxPoint = GetPoolPoints(max.GetMetricPoints(), settings.PoolName!).Single();
-        Assert.Equal(7, maxPoint.GetSumLong());
+        Assert.Equal(7, maxPoint.GetGaugeLastValueLong());
         Assert.Equal(settings.PoolName, ToDictionary(maxPoint.Tags)["ydb.query.session.pool.name"]);
 
         var min = GetMetric(exportedItems, "ydb.query.session.min");
         var minPoint = GetPoolPoints(min.GetMetricPoints(), settings.PoolName!).Single();
-        Assert.Equal(2, minPoint.GetSumLong());
+        Assert.Equal(2, minPoint.GetGaugeLastValueLong());
         Assert.Equal(settings.PoolName, ToDictionary(minPoint.Tags)["ydb.query.session.pool.name"]);
     }
 
