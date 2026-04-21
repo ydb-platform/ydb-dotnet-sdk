@@ -1,8 +1,5 @@
-// Semantics: https://opentelemetry.io/docs/specs/semconv/database/database-metrics/
-
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Ydb.Sdk.Ado.Session;
 
 namespace Ydb.Sdk.Ado;
 
