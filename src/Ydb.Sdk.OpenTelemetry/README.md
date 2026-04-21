@@ -60,8 +60,8 @@ Meter name: `Ydb.Sdk`.
 | `ydb.query.session.create_time`      | Histogram               | `s`         | Time to create a new session                                         |
 | `ydb.query.session.pending_requests` | UpDownCounter           | `{request}` | Requests waiting for a free session                                  |
 | `ydb.query.session.timeouts`         | Counter                 | `{timeout}` | Session acquisition timeouts                                         |
-| `ydb.query.session.max`              | ObservableGauge         | `{session}` | Configured `MaxPoolSize` (pooling sources only)                      |
-| `ydb.query.session.min`              | ObservableGauge         | `{session}` | Configured `MinPoolSize` (pooling sources only)                      |
+| `ydb.query.session.max`              | ObservableGauge         | `{session}` | Configured `MaxPoolSize`                                             |
+| `ydb.query.session.min`              | ObservableGauge         | `{session}` | Configured `MinPoolSize`                                             |
 
 Pool-scoped metrics carry the `ydb.query.session.pool.name` tag — set via the `PoolName` connection string option,
 defaults to the full connection string.
