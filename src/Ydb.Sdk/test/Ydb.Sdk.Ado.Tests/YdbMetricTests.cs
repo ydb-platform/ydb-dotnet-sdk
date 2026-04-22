@@ -324,8 +324,6 @@ public class YdbMetricTests : TestBase
     [Fact]
     public async Task ImplicitSessionSource_DoesNotPublishPoolMetrics()
     {
-        await PoolManager.ClearAllPools();
-
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
 
