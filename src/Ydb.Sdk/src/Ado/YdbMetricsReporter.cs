@@ -1,8 +1,5 @@
-// Semantics: https://opentelemetry.io/docs/specs/semconv/database/database-metrics/
-
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Ydb.Sdk.Ado.Session;
 
 namespace Ydb.Sdk.Ado;
 
@@ -29,7 +26,10 @@ internal sealed class YdbMetricsReporter : IDisposable
     private readonly TagList _operationMetricTags;
     private readonly KeyValuePair<string, object?> _poolNameTag;
     private readonly string _sortKey;
-    private readonly ISessionSource _sessionPool;
+
+    private readonly Func<(int Idle, int Busy)> _statisticsProvider = null!;
+    private readonly int _maxPoolSize;
+    private readonly int _minPoolSize;
 
     static YdbMetricsReporter()
     {
@@ -41,11 +41,23 @@ internal sealed class YdbMetricsReporter : IDisposable
             description: "Duration of database client operations.",
             advice: ShortHistogramAdvice);
 
-        meter.CreateObservableUpDownCounter(
+        meter.CreateObservableGauge(
             "ydb.query.session.count",
             GetSessionCount,
-            unit: "{connection}",
-            description: "The number of connections that are currently in state described by the state attribute.");
+            unit: "{session}",
+            description: "The number of sessions that are currently in state described by the state attribute.");
+
+        meter.CreateObservableGauge(
+            "ydb.query.session.max",
+            GetSessionMax,
+            unit: "{session}",
+            description: "The maximum number of open sessions allowed in the pool.");
+
+        meter.CreateObservableGauge(
+            "ydb.query.session.min",
+            GetSessionMin,
+            unit: "{session}",
+            description: "The minimum number of idle open sessions allowed in the pool.");
 
         OperationsFailed = meter.CreateCounter<int>(
             "ydb.client.operation.failed",
@@ -54,9 +66,9 @@ internal sealed class YdbMetricsReporter : IDisposable
 
         ConnectionTimeouts = meter.CreateCounter<int>(
             "ydb.query.session.timeouts",
-            unit: "{connection}",
+            unit: "{timeout}",
             description:
-            "The number of times a connection could not be acquired from the pool before the timeout elapsed.");
+            "The number of times a session could not be acquired from the pool before the timeout elapsed.");
 
         PendingConnectionRequests = meter.CreateUpDownCounter<int>(
             "ydb.query.session.pending_requests",
@@ -70,23 +82,39 @@ internal sealed class YdbMetricsReporter : IDisposable
             advice: ShortHistogramAdvice);
     }
 
-    internal YdbMetricsReporter(ISessionSource sessionPool, YdbConnectionStringBuilder settings)
+    internal YdbMetricsReporter(YdbConnectionStringBuilder settings)
     {
-        _sessionPool = sessionPool;
+        (_operationMetricTags, _poolNameTag, _sortKey) = BuildTags(settings);
+    }
 
-        _operationMetricTags = new TagList
+    internal YdbMetricsReporter(
+        int maxPoolSize,
+        int minPoolSize,
+        Func<(int Idle, int Busy)> statisticsProvider,
+        YdbConnectionStringBuilder settings)
+    {
+        _maxPoolSize = maxPoolSize;
+        _minPoolSize = minPoolSize;
+        _statisticsProvider = statisticsProvider;
+        (_operationMetricTags, _poolNameTag, _sortKey) = BuildTags(settings);
+        Register();
+    }
+
+    private static (TagList, KeyValuePair<string, object?>, string) BuildTags(YdbConnectionStringBuilder settings) => (
+        new TagList
         {
             { "db.system.name", "ydb" },
             { "db.namespace", settings.Database },
             { "server.address", settings.Host },
             { "server.port", settings.Port }
-        };
+        },
+        new KeyValuePair<string, object?>("ydb.query.session.pool.name",
+            settings.PoolName ?? settings.ConnectionString),
+        settings.ConnectionString
+    );
 
-        _poolNameTag = new KeyValuePair<string, object?>("ydb.query.session.pool.name",
-            settings.PoolName ?? settings.ConnectionString);
-
-        _sortKey = settings.ConnectionString;
-
+    private void Register()
+    {
         lock (Reporters)
         {
             Reporters.Add(this);
@@ -102,7 +130,7 @@ internal sealed class YdbMetricsReporter : IDisposable
         }
     }
 
-    internal long ReportCommandStart() => OperationDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
+    internal static long ReportCommandStart() => OperationDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
 
     internal void ReportCommandStop(long startTimestamp, string operationName)
     {
@@ -145,7 +173,7 @@ internal sealed class YdbMetricsReporter : IDisposable
 
             foreach (var reporter in Reporters)
             {
-                var (idle, busy) = reporter._sessionPool.Statistics;
+                var (idle, busy) = reporter._statisticsProvider();
                 measurements.Add(new Measurement<int>(
                     idle,
                     reporter._poolNameTag,
@@ -158,6 +186,24 @@ internal sealed class YdbMetricsReporter : IDisposable
             }
 
             return measurements;
+        }
+    }
+
+    private static IEnumerable<Measurement<int>> GetSessionMax()
+    {
+        lock (Reporters)
+        {
+            return Reporters.Select(reporter => new Measurement<int>(reporter._maxPoolSize, reporter._poolNameTag))
+                .ToList();
+        }
+    }
+
+    private static IEnumerable<Measurement<int>> GetSessionMin()
+    {
+        lock (Reporters)
+        {
+            return Reporters.Select(reporter => new Measurement<int>(reporter._minPoolSize, reporter._poolNameTag))
+                .ToList();
         }
     }
 }

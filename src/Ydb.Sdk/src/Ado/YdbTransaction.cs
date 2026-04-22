@@ -217,7 +217,7 @@ public sealed class YdbTransaction : DbTransaction
         }
 
         var operationName = isCommit ? "Commit" : "Rollback";
-        var startTimestamp = DbConnection.MetricsReporter.ReportCommandStart();
+        var startTimestamp = YdbMetricsReporter.ReportCommandStart();
         try
         {
             Completed = true;

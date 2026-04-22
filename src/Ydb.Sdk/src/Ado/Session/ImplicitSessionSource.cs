@@ -20,7 +20,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
     {
         Driver = driver;
         _logger = settings.LoggerFactory.CreateLogger<ImplicitSessionSource>();
-        MetricsReporter = new YdbMetricsReporter(this, settings);
+        MetricsReporter = new YdbMetricsReporter(settings);
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)

@@ -77,10 +77,10 @@ public class YdbMetricTests : TestBase
             var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
-            Assert.Equal(1, usedPoint.GetSumLong());
+            Assert.Equal(1, usedPoint.GetGaugeLastValueLong());
 
             var idlePoint = GetPoint(points, "idle");
-            Assert.Equal(0, idlePoint.GetSumLong());
+            Assert.Equal(0, idlePoint.GetGaugeLastValueLong());
 
             exportedItems.Clear();
         }
@@ -92,10 +92,10 @@ public class YdbMetricTests : TestBase
             var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
-            Assert.Equal(0, usedPoint.GetSumLong());
+            Assert.Equal(0, usedPoint.GetGaugeLastValueLong());
 
             var idlePoint = GetPoint(points, "idle");
-            Assert.Equal(1, idlePoint.GetSumLong());
+            Assert.Equal(1, idlePoint.GetGaugeLastValueLong());
         }
     }
 
@@ -264,6 +264,35 @@ public class YdbMetricTests : TestBase
     }
 
     [Fact]
+    public async Task PoolSizeMaxMin()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MinPoolSize = 2;
+            builder.MaxPoolSize = 7;
+            builder.PoolName = "ado-metrics-max-min";
+        });
+
+        await using var dataSource = new YdbDataSource(settings);
+        await using var _ = await dataSource.OpenConnectionAsync();
+
+        meterProvider.ForceFlush();
+
+        var max = GetMetric(exportedItems, "ydb.query.session.max");
+        var maxPoint = GetPoolPoints(max.GetMetricPoints(), settings.PoolName!).Single();
+        Assert.Equal(7, maxPoint.GetGaugeLastValueLong());
+        Assert.Equal(settings.PoolName, ToDictionary(maxPoint.Tags)["ydb.query.session.pool.name"]);
+
+        var min = GetMetric(exportedItems, "ydb.query.session.min");
+        var minPoint = GetPoolPoints(min.GetMetricPoints(), settings.PoolName!).Single();
+        Assert.Equal(2, minPoint.GetGaugeLastValueLong());
+        Assert.Equal(settings.PoolName, ToDictionary(minPoint.Tags)["ydb.query.session.pool.name"]);
+    }
+
+    [Fact]
     public async Task ConnectionTimeouts()
     {
         var exportedItems = new List<Metric>();
@@ -290,6 +319,47 @@ public class YdbMetricTests : TestBase
         var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
         Assert.Equal(1, point.GetSumLong());
         Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["ydb.query.session.pool.name"]);
+    }
+
+    [Fact]
+    public async Task ImplicitSessionSource_DoesNotPublishPoolMetrics()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder => { builder.EnableImplicitSession = true; });
+
+        await using var dataSource = new YdbDataSource(settings);
+        await using var _ = await dataSource.OpenConnectionAsync();
+
+        meterProvider.ForceFlush();
+
+        AssertNoPoolMetricsForPool(exportedItems, settings.PoolName!);
+    }
+
+    private static readonly string[] PoolScopedMetricNames =
+    [
+        "ydb.query.session.count",
+        "ydb.query.session.max",
+        "ydb.query.session.min",
+        "ydb.query.session.timeouts",
+        "ydb.query.session.pending_requests",
+        "ydb.query.session.create_time"
+    ];
+
+    private static void AssertNoPoolMetricsForPool(List<Metric> exportedItems, string poolName)
+    {
+        foreach (var metric in exportedItems.Where(m => PoolScopedMetricNames.Contains(m.Name)))
+        {
+            foreach (var point in metric.GetMetricPoints())
+            {
+                if (ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string == poolName)
+                {
+                    Assert.Fail(
+                        $"Implicit session must not publish pool metric '{metric.Name}' for pool '{poolName}'.");
+                }
+            }
+        }
     }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
