@@ -38,29 +38,47 @@ internal class EndpointPool
         }
     }
 
-    public ImmutableArray<EndpointInfo> Reset(IReadOnlyList<EndpointInfo> endpointSettingsList)
+    public ImmutableArray<EndpointInfo> Reset(IReadOnlyList<EndpointInfo> endpointSettingsList,
+        string? preferredLocationDc = null)
     {
         Dictionary<long, EndpointInfo> nodeIdToEndpoint = new();
         HashSet<string> newEndpoints = new();
 
-        _logger.LogDebug("Init endpoint pool with {EndpointLength} endpoints", endpointSettingsList.Count);
+        _logger.LogDebug(
+            "Init endpoint pool with {EndpointLength} endpoints. Preferred location: {PreferredLocation}",
+            endpointSettingsList.Count,
+            preferredLocationDc ?? "<none>"
+        );
 
-        foreach (var endpointSettings in endpointSettingsList)
-        {
-            _logger.LogDebug("Registered endpoint: {Endpoint}", endpointSettings.Endpoint);
-
-            if (!newEndpoints.Add(endpointSettings.Endpoint))
+        var prioritizedEndpoints = endpointSettingsList
+            .Select(endpointSettings =>
             {
-                _logger.LogWarning("Duplicate endpoint: {Endpoint}", endpointSettings.Endpoint);
+                _logger.LogDebug("Registered endpoint: {Endpoint}", endpointSettings.Endpoint);
 
-                continue;
-            }
+                if (!newEndpoints.Add(endpointSettings.Endpoint))
+                {
+                    _logger.LogWarning("Duplicate endpoint: {Endpoint}", endpointSettings.Endpoint);
+                    return null;
+                }
 
-            if (endpointSettings.NodeId != 0) // NodeId == 0 - serverless proxy
-            {
-                nodeIdToEndpoint.Add(endpointSettings.NodeId, endpointSettings);
-            }
-        }
+                var prioritizedEndpoint = endpointSettings;
+                if (!string.IsNullOrEmpty(preferredLocationDc) &&
+                    !string.Equals(endpointSettings.LocationDc, preferredLocationDc, StringComparison.Ordinal))
+                {
+                    prioritizedEndpoint = endpointSettings with { };
+                    prioritizedEndpoint.Pessimize();
+                }
+
+                if (prioritizedEndpoint.NodeId != 0) // NodeId == 0 - serverless proxy
+                {
+                    nodeIdToEndpoint.Add(prioritizedEndpoint.NodeId, prioritizedEndpoint);
+                }
+
+                return prioritizedEndpoint;
+            })
+            .Where(endpointSettings => endpointSettings is not null)
+            .Select(endpointSettings => endpointSettings!)
+            .ToImmutableArray();
 
         _rwLock.EnterWriteLock();
         try
@@ -69,8 +87,16 @@ internal class EndpointPool
                 .Where(priorityEndpoint => !newEndpoints.Contains(priorityEndpoint.Endpoint))
                 .ToImmutableArray();
 
-            _sortedByPriorityEndpoints = endpointSettingsList;
-            _preferredEndpointCount = endpointSettingsList.Count;
+            _sortedByPriorityEndpoints =
+            [
+                ..prioritizedEndpoints
+                    .OrderBy(priorityEndpoint => priorityEndpoint.Priority)
+            ];
+
+            _preferredEndpointCount =
+                _sortedByPriorityEndpoints.Count(endpoint =>
+                    endpoint.Priority == _sortedByPriorityEndpoints[0].Priority);
+
             _nodeIdToEndpoint = nodeIdToEndpoint;
 
             return removed;
