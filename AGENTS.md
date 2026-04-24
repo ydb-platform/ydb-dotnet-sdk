@@ -128,16 +128,20 @@ Retry delay strategy by status code:
 
 One instance per session pool. Meter name: **`Ydb.Sdk`**.
 
-| Metric                               | Kind                    | Tags                                                                                    | Description                                                    |
-|--------------------------------------|-------------------------|-----------------------------------------------------------------------------------------|----------------------------------------------------------------|
-| `db.client.operation.duration`       | Histogram (seconds)     | `db.system.name`, `db.namespace`, `server.address`, `server.port`, `ydb.operation.name` | Latency of ADO.NET operations (ExecuteQuery, Commit, Rollback) |
-| `ydb.client.operation.failed`        | Counter                 | `ydb.operation.name`, `db.response.status_code`                                         | Count of failed operations                                     |
-| `ydb.query.session.count`            | ObservableUpDownCounter | `ydb.query.session.pool.name`, `ydb.query.session.state` (`idle`/`used`)                | Current pool session counts                                    |
-| `ydb.query.session.max`              | ObservableGauge         | `ydb.query.session.pool.name`                                                           | Configured `MaxPoolSize`                                       |
-| `ydb.query.session.min`              | ObservableGauge         | `ydb.query.session.pool.name`                                                           | Configured `MinPoolSize`                                       |
-| `ydb.query.session.create_time`      | Histogram (seconds)     | `ydb.query.session.pool.name`                                                           | Time to create a new session (RPC + first message)             |
-| `ydb.query.session.pending_requests` | UpDownCounter           | `ydb.query.session.pool.name`                                                           | Requests waiting for a session                                 |
-| `ydb.query.session.timeouts`         | Counter                 | `ydb.query.session.pool.name`                                                           | Timed-out connection acquisitions                              |
+All `ydb.query.session.*` metrics include the attribute **`ydb.query.session.pool.name`** (from the `PoolName` connection string option; defaults to the full connection string).
+
+| Metric                               | Kind            | Unit          | Attributes                                                                 | Description                                                                                                               |
+|--------------------------------------|-----------------|---------------|----------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `ydb.client.operation.duration`      | Histogram       | `s`           | `endpoint`, `database`, `operation.name`                                   | Latency of each actual attempt for `ExecuteQuery`, `Commit`, or `Rollback`.                                               |
+| `ydb.client.operation.failed`        | Counter         | `{operation}` | `endpoint`, `database`,`operation.name`, `status_code`                     | Number of unsuccessful operation attempts.                                                                                |
+| `ydb.query.session.create_time`      | Histogram       | `s`           | `ydb.query.session.pool.name`                                              | Cost of creating a session (CreateSession + first AttachStream message).                                                  |
+| `ydb.query.session.pending_requests` | Counter         | `{request}`   | `ydb.query.session.pool.name`                                              | Increments when a request starts waiting for a free session; use **rate** to see wait pressure (not current queue depth). |
+| `ydb.query.session.timeouts`         | Counter         | `{timeout}`   | `ydb.query.session.pool.name`                                              | Pool could not serve demand in time (session acquisition timeouts).                                                       |
+| `ydb.query.session.count`            | ObservableGauge | `{session}`   | `ydb.query.session.pool.name`, `ydb.query.session.state` (`idle` / `used`) | Current pool state.                                                                                                       |
+| `ydb.query.session.max`              | ObservableGauge | `{session}`   | `ydb.query.session.pool.name`                                              | Context: configured `MaxPoolSize`.                                                                                        |
+| `ydb.query.session.min`              | ObservableGauge | `{session}`   | `ydb.query.session.pool.name`                                              | Context: configured `MinPoolSize`.                                                                                        |
+
+`database` is the YDB database path; `endpoint` is `host:port` from the connection string.
 
 #### Tracing (`Tracing/YdbActivitySource`)
 

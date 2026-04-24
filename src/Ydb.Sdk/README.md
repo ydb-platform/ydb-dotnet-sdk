@@ -124,7 +124,7 @@ services.AddOpenTelemetry().WithMetrics(b => b.AddYdb());
 ```
 
 Emitted spans: `ydb.RunWithRetry`, `ydb.Try`, `ydb.ExecuteQuery`, `ydb.Commit`, `ydb.Rollback`, `ydb.CreateSession`.  
-Emitted metrics: `db.client.operation.duration`, `ydb.query.session.count`, and more — see [AGENTS.md](../../AGENTS.md).
+ADO metrics (meter `Ydb.Sdk`): operation histogram/counter use `database`, `endpoint`, `operation.name` (and `status_code` on failures); pool metrics use `ydb.query.session.pool.name`. See [AGENTS.md](../../AGENTS.md).
 
 ## More Examples
 

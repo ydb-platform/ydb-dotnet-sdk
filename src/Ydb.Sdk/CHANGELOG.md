@@ -2,44 +2,44 @@
 - **Breaking Change** ADO.NET tracing: Renamed span `ydb.ExecuteWithRetry` → `ydb.RunWithRetry` and `ydb.Retry` → `ydb.Try`. The first attempt is now always wrapped in `ydb.Try` (previously the first attempt's child spans attached directly to `ydb.RunWithRetry`).
 - Feat ADO.NET tracing: Finalized span set. ActivitySource name: `Ydb.Sdk`. Enable via `TracerProviderBuilder.AddYdb()` from `Ydb.Sdk.OpenTelemetry`.
 
-  | Span | Kind | Description |
-  |---|---|---|
-  | `ydb.Driver.Initialize` | Internal | Driver first initialization (discovery + auth handshake) |
-  | `ydb.CreateSession` | Client | Session creation (gRPC CreateSession + AttachStream) |
-  | `ydb.RunWithRetry` | Internal | Wraps the entire retry loop for a single ADO.NET operation |
-  | `ydb.Try` | Internal | One span per attempt, including the first; child RPC spans attach here |
-  | `ydb.ExecuteQuery` | Client | Individual YQL query execution |
-  | `ydb.Commit` | Client | Transaction commit |
-  | `ydb.Rollback` | Client | Transaction rollback |
+  | Span                    | Kind     | Description                                                            |
+  |-------------------------|----------|------------------------------------------------------------------------|
+  | `ydb.Driver.Initialize` | Internal | Driver first initialization (discovery + auth handshake)               |
+  | `ydb.CreateSession`     | Client   | Session creation (gRPC CreateSession + AttachStream)                   |
+  | `ydb.RunWithRetry`      | Internal | Wraps the entire retry loop for a single ADO.NET operation             |
+  | `ydb.Try`               | Internal | One span per attempt, including the first; child RPC spans attach here |
+  | `ydb.ExecuteQuery`      | Client   | Individual YQL query execution                                         |
+  | `ydb.Commit`            | Client   | Transaction commit                                                     |
+  | `ydb.Rollback`          | Client   | Transaction rollback                                                   |
 
   `ydb.RunWithRetry` / `ydb.Try` lifecycle: `ydb.RunWithRetry` is the outer span for the whole operation; `ydb.Try` wraps each attempt including the first. Retry spans carry `ydb.retry.backoff_ms`. On non-retryable error or retries exhausted both `ydb.Try` and `ydb.RunWithRetry` receive error status. On cancellation `error.type` is set to the exception type full name.
 
   Tags propagated on RPC spans:
 
-  | Tag | Description |
-  |---|---|
-  | `db.system.name` | Always `"ydb"` |
-  | `db.namespace` | YDB database path |
-  | `server.address` / `server.port` | Primary endpoint from connection string |
-  | `network.peer.address` / `network.peer.port` | Actual gRPC endpoint used for the call |
-  | `ydb.node.id` / `ydb.node.dc` | YDB node identity |
-  | `db.response.status_code` | YDB status code (on `YdbException`) |
-  | `error.type` | `"transport_error"` for client transport codes, `"ydb_error"` for database errors, or the full exception type name for other exceptions |
+  | Tag                                          | Description                                                                                                                             |
+  |----------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+  | `db.system.name`                             | Always `"ydb"`                                                                                                                          |
+  | `db.namespace`                               | YDB database path                                                                                                                       |
+  | `server.address` / `server.port`             | Primary endpoint from connection string                                                                                                 |
+  | `network.peer.address` / `network.peer.port` | Actual gRPC endpoint used for the call                                                                                                  |
+  | `ydb.node.id` / `ydb.node.dc`                | YDB node identity                                                                                                                       |
+  | `db.response.status_code`                    | YDB status code (on `YdbException`)                                                                                                     |
+  | `error.type`                                 | `"transport_error"` for client transport codes, `"ydb_error"` for database errors, or the full exception type name for other exceptions |
 
   W3C trace context (`traceparent`) is automatically propagated to YDB server so server-side traces link to client spans.
 
  Feat ADO.NET metrics (beta): Added OpenTelemetry metrics. Meter name: `Ydb.Sdk`. Enable via `MeterProviderBuilder.AddYdb()` from `Ydb.Sdk.OpenTelemetry`.
 
-  | Metric                               | Kind             | Unit                          | Tags                                                                                    | Description                                                                   |
-  |--------------------------------------|------------------|-------------------------------|-----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
-  | `db.client.operation.duration`       | Histogram        | `s`                           | `db.system.name`, `db.namespace`, `server.address`, `server.port`, `ydb.operation.name` | Latency of ADO.NET operations (`ExecuteQuery`, `Commit`, `Rollback`)          |
-  | `ydb.client.operation.failed`        | Counter          | `{command}`                   | `ydb.operation.name`, `db.response.status_code`                                         | Count of failed operations                                                    |
-  | `ydb.query.session.count`            | ObservableGauge  | `{session}`                   | `ydb.query.session.pool.name`, `ydb.query.session.state` (`idle`/`used`)                | Current session pool counts                                                   |
-  | `ydb.query.session.create_time`      | Histogram        | `s`                           | `ydb.query.session.pool.name`                                                           | Time to create a new session (CreateSession RPC + first AttachStream message) |
-  | `ydb.query.session.pending_requests` | UpDownCounter    | `{request}`                   | `ydb.query.session.pool.name`                                                           | Requests waiting for a free session                                           |
-  | `ydb.query.session.timeouts`         | Counter          | `{timeout}`                   | `ydb.query.session.pool.name`                                                           | Session acquisition timeouts                                                  |
-  | `ydb.query.session.max`              | ObservableGauge  | `ydb.query.session.pool.name` | `ydb.query.session.pool.name`                                                           | Configured `MaxPoolSize`                                                      |
-  | `ydb.query.session.min`              | ObservableGauge  | `ydb.query.session.pool.name` | `ydb.query.session.pool.name`                                                           | Configured `MinPoolSize`                                                      |
+  | Metric                               | Kind             | Unit            | Tags                                                     | Description                                                           |
+  |--------------------------------------|------------------|-----------------|----------------------------------------------------------|-----------------------------------------------------------------------|
+  | `ydb.client.operation.duration`      | Histogram        | `s`             | `database`, `endpoint`, `operation.name`                 | Latency of each actual `ExecuteQuery` / `Commit` / `Rollback` attempt |
+  | `ydb.client.operation.failed`        | Counter          | `{operation}`   | `database`, `endpoint`, `operation.name`, `status_code`  | Unsuccessful operation attempts                                       |
+  | `ydb.query.session.count`            | ObservableGauge  | `{session}`     | `ydb.query.session.pool.name`, `ydb.query.session.state` | Current pool session counts                                           |
+  | `ydb.query.session.create_time`      | Histogram        | `s`             | `ydb.query.session.pool.name`                            | Session creation cost (CreateSession + first AttachStream message)    |
+  | `ydb.query.session.pending_requests` | Counter          | `{request}`     | `ydb.query.session.pool.name`                            | Increments when a caller starts waiting; use rate for wait pressure   |
+  | `ydb.query.session.timeouts`         | Counter          | `{timeout}`     | `ydb.query.session.pool.name`                            | Session acquisition timeouts                                          |
+  | `ydb.query.session.max`              | ObservableGauge  | `{session}`     | `ydb.query.session.pool.name`                            | Configured `MaxPoolSize`                                              |
+  | `ydb.query.session.min`              | ObservableGauge  | `{session}`     | `ydb.query.session.pool.name`                            | Configured `MinPoolSize`                                              |
 
 - Feat ADO.NET metrics: Added `PoolName` connection string option. When set, reported as the `ydb.query.session.pool.name` metric attribute; defaults to the full connection string.
 - Fixed bug: `EndpointPool.PessimizeEndpoint` / routing used node id only; in serverless mode (`nodeId == 0`) pessimization and sticky session routing did not work correctly — pessimization and pool lookup are now keyed by gRPC endpoint (`http(s)://host:port`).
