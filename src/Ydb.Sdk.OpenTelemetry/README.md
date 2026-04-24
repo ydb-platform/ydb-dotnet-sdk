@@ -52,19 +52,20 @@ spans.
 
 Meter name: `Ydb.Sdk`.
 
-| Metric                               | Kind                    | Unit        | Description                                                          |
-|--------------------------------------|-------------------------|-------------|----------------------------------------------------------------------|
-| `db.client.operation.duration`       | Histogram               | `s`         | Latency of ADO.NET operations (`ExecuteQuery`, `Commit`, `Rollback`) |
-| `ydb.client.operation.failed`        | Counter                 | `{command}` | Count of failed operations                                           |
-| `ydb.query.session.count`            | ObservableUpDownCounter | `{session}` | Current session pool counts (`idle` / `used`)                        |
-| `ydb.query.session.create_time`      | Histogram               | `s`         | Time to create a new session                                         |
-| `ydb.query.session.pending_requests` | UpDownCounter           | `{request}` | Requests waiting for a free session                                  |
-| `ydb.query.session.timeouts`         | Counter                 | `{timeout}` | Session acquisition timeouts                                         |
-| `ydb.query.session.max`              | ObservableGauge         | `{session}` | Configured `MaxPoolSize`                                             |
-| `ydb.query.session.min`              | ObservableGauge         | `{session}` | Configured `MinPoolSize`                                             |
+Every `ydb.query.session.*` metric includes **`ydb.query.session.pool.name`** (via `PoolName` in the connection string; otherwise the full connection string).
 
-Pool-scoped metrics carry the `ydb.query.session.pool.name` tag — set via the `PoolName` connection string option,
-defaults to the full connection string.
+| Metric                               | Kind              | Unit          | Attributes                                                                 | Description                                                                                         |
+|--------------------------------------|-------------------|---------------|----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| `ydb.client.operation.duration`      | Histogram         | `s`           | `database`, `endpoint`, `operation.name`                                   | Latency of each actual `ExecuteQuery`, `Commit`, or `Rollback` attempt.                             |
+| `ydb.client.operation.failed`        | Counter           | `{operation}` | `database`, `endpoint`, `operation.name`, `status_code`                    | Unsuccessful operation attempts.                                                                    |
+| `ydb.query.session.create_time`      | Histogram         | `s`           | `ydb.query.session.pool.name`                                              | Cost of session creation (CreateSession + first AttachStream message).                              |
+| `ydb.query.session.pending_requests` | Counter           | `{request}`   | `ydb.query.session.pool.name`                                              | Increments when a caller starts waiting for a session; use **rate** (not level) for queue pressure. |
+| `ydb.query.session.timeouts`         | Counter           | `{timeout}`   | `ydb.query.session.pool.name`                                              | Pool could not satisfy demand within the acquisition timeout.                                       |
+| `ydb.query.session.count`            | ObservableGauge   | `{session}`   | `ydb.query.session.pool.name`, `ydb.query.session.state` (`idle` / `used`) | Current pool occupancy.                                                                             |
+| `ydb.query.session.max`              | ObservableGauge   | `{session}`   | `ydb.query.session.pool.name`                                              | Configured `MaxPoolSize` (context).                                                                 |
+| `ydb.query.session.min`              | ObservableGauge   | `{session}`   | `ydb.query.session.pool.name`                                              | Configured `MinPoolSize` (context).                                                                 |
+
+`database` is the YDB database path; `endpoint` is `host:port` from the connection string.
 
 ## Example
 

@@ -127,61 +127,54 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
         MetricsReporter.ReportPendingConnectionRequestStart();
 
-        try
+        while (true)
         {
-            while (true)
+            // Statement order is important
+            var waiterTcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _waiters.Enqueue(waiterTcs);
+            if (_idleSessions.TryPop(out session))
             {
-                // Statement order is important
-                var waiterTcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
-                _waiters.Enqueue(waiterTcs);
-                if (_idleSessions.TryPop(out session))
+                if (!waiterTcs.TrySetResult(null))
                 {
-                    if (!waiterTcs.TrySetResult(null))
+                    if (waiterTcs.Task is { IsCompleted: true, Result: not null } t)
                     {
-                        if (waiterTcs.Task is { IsCompleted: true, Result: not null } t)
-                        {
-                            _idleSessions.Push(t.Result);
-                        }
-
-                        WakeUpWaiter();
+                        _idleSessions.Push(t.Result);
                     }
 
-                    if (CheckIdleSession(session))
-                        return session;
-
-                    session = await OpenNewSession(finalToken).ConfigureAwait(false);
-                    if (session != null)
-                        return session;
-
-                    continue;
+                    WakeUpWaiter();
                 }
 
-                await using var _ = finalToken.Register(() =>
-                    {
-                        MetricsReporter.ReportConnectionTimeout();
-                        waiterTcs.TrySetException(
-                            new YdbException($"The connection pool has been exhausted, either raise 'MaxPoolSize' " +
-                                             $"(currently {_maxPoolSize}) or 'CreateSessionTimeout' " +
-                                             $"(currently {_createSessionTimeout} seconds) in your connection string."));
-                    }, useSynchronizationContext: false
-                );
-                await using var disposeRegistration = _disposeCts.Token.Register(
-                    () => waiterTcs.TrySetException(ObjectDisposedException),
-                    useSynchronizationContext: false
-                );
-                session = await waiterTcs.Task.ConfigureAwait(false);
-
-                if (CheckIdleSession(session) || TryGetIdleSession(out session))
+                if (CheckIdleSession(session))
                     return session;
 
                 session = await OpenNewSession(finalToken).ConfigureAwait(false);
                 if (session != null)
                     return session;
+
+                continue;
             }
-        }
-        finally
-        {
-            MetricsReporter.ReportPendingConnectionRequestStop();
+
+            await using var _ = finalToken.Register(() =>
+                {
+                    MetricsReporter.ReportConnectionTimeout();
+                    waiterTcs.TrySetException(
+                        new YdbException($"The connection pool has been exhausted, either raise 'MaxPoolSize' " +
+                                         $"(currently {_maxPoolSize}) or 'CreateSessionTimeout' " +
+                                         $"(currently {_createSessionTimeout} seconds) in your connection string."));
+                }, useSynchronizationContext: false
+            );
+            await using var disposeRegistration = _disposeCts.Token.Register(
+                () => waiterTcs.TrySetException(ObjectDisposedException),
+                useSynchronizationContext: false
+            );
+            session = await waiterTcs.Task.ConfigureAwait(false);
+
+            if (CheckIdleSession(session) || TryGetIdleSession(out session))
+                return session;
+
+            session = await OpenNewSession(finalToken).ConfigureAwait(false);
+            if (session != null)
+                return session;
         }
     }
 

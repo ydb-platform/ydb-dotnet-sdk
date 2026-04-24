@@ -8,6 +8,7 @@ using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
+using Ydb.Sdk.OpenTelemetry;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -18,6 +19,8 @@ public class YdbMetricTests : TestBase
     {
         PoolName = "ado-metrics-tests"
     };
+
+    private static string EndpointFor(YdbConnectionStringBuilder settings) => $"{settings.Host}:{settings.Port}";
 
     [Fact]
     public async Task OperationDuration()
@@ -42,22 +45,20 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.operation.duration");
+        var metric = GetMetric(exportedItems, "ydb.client.operation.duration");
         Assert.NotNull(metric);
 
         var points = GetFilteredPoints(metric.GetMetricPoints())
-            .ToDictionary(p => (string)ToDictionary(p.Tags)["ydb.operation.name"]!);
+            .ToDictionary(p => (string)ToDictionary(p.Tags)["operation.name"]!);
 
         Assert.True(points["ExecuteQuery"].GetHistogramSum() > 0);
         Assert.True(points["Commit"].GetHistogramSum() > 0);
         Assert.True(points["Rollback"].GetHistogramSum() > 0);
 
         var tags = ToDictionary(points["ExecuteQuery"].Tags);
-        Assert.Equal("ydb", tags["db.system.name"]);
-        Assert.Equal(settings.Database, tags["db.namespace"]);
-        Assert.Equal(settings.Host, tags["server.address"]);
-        Assert.Equal(settings.Port.ToString(), tags["server.port"]?.ToString());
-        Assert.Equal("ExecuteQuery", tags["ydb.operation.name"]);
+        Assert.Equal(settings.Database, tags["database"]);
+        Assert.Equal(EndpointFor(settings), tags["endpoint"]);
+        Assert.Equal("ExecuteQuery", tags["operation.name"]);
     }
 
     [Fact]
@@ -120,9 +121,10 @@ public class YdbMetricTests : TestBase
         Assert.Equal(1, point.GetSumLong());
 
         var tags = ToDictionary(point.Tags);
-        Assert.Equal("ydb", tags["db.system.name"]);
-        Assert.Equal(settings.Database, tags["db.namespace"]);
-        Assert.Equal("ExecuteQuery", tags["ydb.operation.name"]);
+        Assert.Equal(settings.Database, tags["database"]);
+        Assert.Equal(EndpointFor(settings), tags["endpoint"]);
+        Assert.Equal("ExecuteQuery", tags["operation.name"]);
+        Assert.NotNull(tags["status_code"]);
     }
 
     [Fact]
@@ -260,7 +262,8 @@ public class YdbMetricTests : TestBase
         exportedItems.Clear();
         meterProvider.ForceFlush();
         pendingMetric = GetMetric(exportedItems, "ydb.query.session.pending_requests");
-        Assert.Equal(0, GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single().GetSumLong());
+        // Counter only increases; cumulative sum does not return to zero when wait ends.
+        Assert.True(GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single().GetSumLong() >= 1);
     }
 
     [Fact]
@@ -363,8 +366,8 @@ public class YdbMetricTests : TestBase
     }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
-        OpenTelemetry.Sdk.CreateMeterProviderBuilder()
-            .AddMeter("Ydb.Sdk")
+        global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+            .AddYdb()
             .AddInMemoryExporter(exportedItems)
             .Build();
 
@@ -394,7 +397,8 @@ public class YdbMetricTests : TestBase
     {
         foreach (var point in points)
         {
-            if (ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string == poolName)
+            var tagPoolName = ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string;
+            if (string.Equals(tagPoolName, poolName, StringComparison.Ordinal))
             {
                 yield return point;
             }
@@ -427,10 +431,13 @@ public class YdbMetricTests : TestBase
         foreach (var point in points)
         {
             var tags = ToDictionary(point.Tags);
-            if (tags.GetValueOrDefault("db.namespace") as string == settings.Database &&
-                tags.GetValueOrDefault("server.address") as string == settings.Host &&
-                tags.GetValueOrDefault("ydb.operation.name") as string == operationName &&
-                tags.GetValueOrDefault("db.response.status_code") as string == statusCode)
+            if (string.Equals(tags.GetValueOrDefault("database") as string, settings.Database,
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(settings),
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("operation.name") as string, operationName,
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("status_code") as string, statusCode, StringComparison.Ordinal))
             {
                 return point;
             }
@@ -455,7 +462,8 @@ public class YdbMetricTests : TestBase
     {
         foreach (var point in points)
         {
-            if (ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string == poolName)
+            var tagPoolName = ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string;
+            if (string.Equals(tagPoolName, poolName, StringComparison.Ordinal))
                 yield return point;
         }
     }
@@ -465,8 +473,10 @@ public class YdbMetricTests : TestBase
         foreach (var point in points)
         {
             var tags = ToDictionary(point.Tags);
-            if (tags.GetValueOrDefault("db.namespace") as string == BaseConnectionSettings.Database &&
-                tags.GetValueOrDefault("server.address") as string == BaseConnectionSettings.Host)
+            if (string.Equals(tags.GetValueOrDefault("database") as string, BaseConnectionSettings.Database,
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(BaseConnectionSettings),
+                    StringComparison.Ordinal))
             {
                 yield return point;
             }

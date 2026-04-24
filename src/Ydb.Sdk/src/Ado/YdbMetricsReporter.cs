@@ -18,7 +18,7 @@ internal sealed class YdbMetricsReporter : IDisposable
     // Pool metrics: connection lifecycle (count, timeouts, pending requests, create time)
     // create_time covers CreateSession RPC + first AttachStream message
     private static readonly Counter<int> ConnectionTimeouts;
-    private static readonly UpDownCounter<int> PendingConnectionRequests;
+    private static readonly Counter<int> PendingConnectionRequests;
     private static readonly Histogram<double> ConnectionCreateTime;
 
     private static readonly List<YdbMetricsReporter> Reporters = [];
@@ -36,9 +36,9 @@ internal sealed class YdbMetricsReporter : IDisposable
         var meter = new Meter("Ydb.Sdk", YdbSdkVersion.Value);
 
         OperationDuration = meter.CreateHistogram(
-            "db.client.operation.duration",
+            "ydb.client.operation.duration",
             unit: "s",
-            description: "Duration of database client operations.",
+            description: "Duration of each attempt for ExecuteQuery, Commit, or Rollback.",
             advice: ShortHistogramAdvice);
 
         meter.CreateObservableGauge(
@@ -61,8 +61,8 @@ internal sealed class YdbMetricsReporter : IDisposable
 
         OperationsFailed = meter.CreateCounter<int>(
             "ydb.client.operation.failed",
-            unit: "{command}",
-            description: "The number of database commands which have failed.");
+            unit: "{operation}",
+            description: "The number of unsuccessful operation attempts.");
 
         ConnectionTimeouts = meter.CreateCounter<int>(
             "ydb.query.session.timeouts",
@@ -70,10 +70,11 @@ internal sealed class YdbMetricsReporter : IDisposable
             description:
             "The number of times a session could not be acquired from the pool before the timeout elapsed.");
 
-        PendingConnectionRequests = meter.CreateUpDownCounter<int>(
+        PendingConnectionRequests = meter.CreateCounter<int>(
             "ydb.query.session.pending_requests",
             unit: "{request}",
-            description: "The number of pending requests for an open connection, cumulative for the entire pool.");
+            description:
+            "Increments when a connection request begins waiting for a free session; use rate to observe wait pressure.");
 
         ConnectionCreateTime = meter.CreateHistogram(
             "ydb.query.session.create_time",
@@ -103,10 +104,8 @@ internal sealed class YdbMetricsReporter : IDisposable
     private static (TagList, KeyValuePair<string, object?>, string) BuildTags(YdbConnectionStringBuilder settings) => (
         new TagList
         {
-            { "db.system.name", "ydb" },
-            { "db.namespace", settings.Database },
-            { "server.address", settings.Host },
-            { "server.port", settings.Port }
+            { "database", settings.Database },
+            { "endpoint", $"{settings.Host}:{settings.Port}" }
         },
         new KeyValuePair<string, object?>("ydb.query.session.pool.name",
             settings.PoolName ?? settings.ConnectionString),
@@ -137,7 +136,7 @@ internal sealed class YdbMetricsReporter : IDisposable
         if (OperationDuration.Enabled && startTimestamp > 0)
         {
             var durationMetricTags = _operationMetricTags;
-            durationMetricTags.Add("ydb.operation.name", operationName);
+            durationMetricTags.Add("operation.name", operationName);
             OperationDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, durationMetricTags);
         }
     }
@@ -147,14 +146,12 @@ internal sealed class YdbMetricsReporter : IDisposable
     internal void ReportOperationFailed(StatusCode statusCode, string operationName)
     {
         var tags = _operationMetricTags;
-        tags.Add("ydb.operation.name", operationName);
-        tags.Add("db.response.status_code", statusCode.ToString());
+        tags.Add("operation.name", operationName);
+        tags.Add("status_code", statusCode.ToString());
         OperationsFailed.Add(1, tags);
     }
 
     internal void ReportPendingConnectionRequestStart() => PendingConnectionRequests.Add(1, _poolNameTag);
-
-    internal void ReportPendingConnectionRequestStop() => PendingConnectionRequests.Add(-1, _poolNameTag);
 
     internal static long ReportConnectionCreateTimeStart() =>
         ConnectionCreateTime.Enabled ? Stopwatch.GetTimestamp() : 0;
