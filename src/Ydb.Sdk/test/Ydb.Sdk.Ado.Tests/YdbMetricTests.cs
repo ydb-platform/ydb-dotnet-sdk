@@ -8,6 +8,7 @@ using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
+using Ydb.Sdk.OpenTelemetry;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -365,8 +366,8 @@ public class YdbMetricTests : TestBase
     }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
-        OpenTelemetry.Sdk.CreateMeterProviderBuilder()
-            .AddMeter("Ydb.Sdk")
+        global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+            .AddYdb()
             .AddInMemoryExporter(exportedItems)
             .Build();
 
@@ -430,9 +431,12 @@ public class YdbMetricTests : TestBase
         foreach (var point in points)
         {
             var tags = ToDictionary(point.Tags);
-            if (string.Equals(tags.GetValueOrDefault("database") as string, settings.Database, StringComparison.Ordinal) &&
-                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(settings), StringComparison.Ordinal) &&
-                string.Equals(tags.GetValueOrDefault("operation.name") as string, operationName, StringComparison.Ordinal) &&
+            if (string.Equals(tags.GetValueOrDefault("database") as string, settings.Database,
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(settings),
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("operation.name") as string, operationName,
+                    StringComparison.Ordinal) &&
                 string.Equals(tags.GetValueOrDefault("status_code") as string, statusCode, StringComparison.Ordinal))
             {
                 return point;
@@ -469,8 +473,10 @@ public class YdbMetricTests : TestBase
         foreach (var point in points)
         {
             var tags = ToDictionary(point.Tags);
-            if (string.Equals(tags.GetValueOrDefault("database") as string, BaseConnectionSettings.Database, StringComparison.Ordinal) &&
-                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(BaseConnectionSettings), StringComparison.Ordinal))
+            if (string.Equals(tags.GetValueOrDefault("database") as string, BaseConnectionSettings.Database,
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(BaseConnectionSettings),
+                    StringComparison.Ordinal))
             {
                 yield return point;
             }

@@ -9,6 +9,7 @@
 
     <ItemGroup>
         <ProjectReference Include="../../src/Ydb.Sdk.csproj"/>
+        <ProjectReference Include="../../../Ydb.Sdk.OpenTelemetry/src/Ydb.Sdk.OpenTelemetry.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
