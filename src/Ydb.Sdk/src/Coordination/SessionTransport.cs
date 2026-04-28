@@ -167,7 +167,14 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            await SendRequest(reqId, createSemaphore, combineToken);
+            var response = await SendRequest(reqId, createSemaphore, combineToken);
+            if (response.ResponseCase != SessionResponse.ResponseOneofCase.CreateSemaphoreResult)
+            {
+                throw new YdbException("Unexpected response for createSemaphore");
+            }
+
+            Status.FromProto(response.CreateSemaphoreResult.Status, response.CreateSemaphoreResult.Issues)
+                .EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -197,7 +204,14 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            await SendRequest(reqId, updateSemaphore, combineToken);
+            var response = await SendRequest(reqId, updateSemaphore, combineToken);
+            if (response.ResponseCase != SessionResponse.ResponseOneofCase.UpdateSemaphoreResult)
+            {
+                throw new YdbException("Unexpected response for updateSemaphore");
+            }
+
+            Status.FromProto(response.UpdateSemaphoreResult.Status, response.UpdateSemaphoreResult.Issues)
+                .EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -227,7 +241,14 @@ public class SessionTransport : IAsyncDisposable
         };
         try
         {
-            await SendRequest(reqId, deleteSemaphore, combineToken);
+            var response = await SendRequest(reqId, deleteSemaphore, combineToken);
+            if (response.ResponseCase != SessionResponse.ResponseOneofCase.DeleteSemaphoreResult)
+            {
+                throw new YdbException("Unexpected response for deleteSemaphore");
+            }
+
+            Status.FromProto(response.DeleteSemaphoreResult.Status, response.DeleteSemaphoreResult.Issues)
+                .EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -258,6 +279,13 @@ public class SessionTransport : IAsyncDisposable
         try
         {
             var response = await SendRequest(reqId, describeSemaphore, combineToken);
+            if (response.ResponseCase != SessionResponse.ResponseOneofCase.DescribeSemaphoreResult)
+            {
+                throw new YdbException("Unexpected response for describeSemaphore");
+            }
+
+            Status.FromProto(response.DescribeSemaphoreResult.Status, response.DescribeSemaphoreResult.Issues)
+                .EnsureSuccess();
             return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult
                 .SemaphoreDescription);
         }
@@ -291,6 +319,13 @@ public class SessionTransport : IAsyncDisposable
         try
         {
             var response = await SendRequest(reqId, acquireSemaphore, combineToken);
+            if (response.ResponseCase != SessionResponse.ResponseOneofCase.AcquireSemaphoreResult)
+            {
+                throw new YdbException("Unexpected response for acquireSemaphore");
+            }
+
+            Status.FromProto(response.AcquireSemaphoreResult.Status, response.AcquireSemaphoreResult.Issues)
+                .EnsureSuccess();
             return response.AcquireSemaphoreResult.Acquired;
         }
         catch (Exception e)
@@ -316,7 +351,14 @@ public class SessionTransport : IAsyncDisposable
 
         try
         {
-            await SendRequest(reqId, releaseSemaphore, combineToken);
+            var response = await SendRequest(reqId, releaseSemaphore, combineToken);
+            if (response.ResponseCase != SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult)
+            {
+                throw new YdbException("Unexpected response for releaseSemaphore");
+            }
+
+            Status.FromProto(response.ReleaseSemaphoreResult.Status, response.ReleaseSemaphoreResult.Issues)
+                .EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -394,6 +436,14 @@ public class SessionTransport : IAsyncDisposable
             };
 
             var response = await SendRequest(reqId, request, token);
+
+            if (response.ResponseCase != SessionResponse.ResponseOneofCase.DescribeSemaphoreResult)
+            {
+                throw new YdbException("Unexpected response for describeSemaphore (watch)");
+            }
+
+            Status.FromProto(response.DescribeSemaphoreResult.Status, response.DescribeSemaphoreResult.Issues)
+                .EnsureSuccess();
             if (response.DescribeSemaphoreResult.WatchAdded)
             {
                 _watcherRegistry.RemapWatch(name, subscription, reqId);
@@ -411,6 +461,7 @@ public class SessionTransport : IAsyncDisposable
     private static ulong? ExtractReqId(SessionResponse response) =>
         response.ResponseCase switch
         {
+            SessionResponse.ResponseOneofCase.AcquireSemaphorePending => response.AcquireSemaphorePending.ReqId,
             SessionResponse.ResponseOneofCase.AcquireSemaphoreResult => response.AcquireSemaphoreResult.ReqId,
             SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult => response.ReleaseSemaphoreResult.ReqId,
             SessionResponse.ResponseOneofCase.DescribeSemaphoreResult => response.DescribeSemaphoreResult.ReqId,
@@ -641,10 +692,6 @@ public class SessionTransport : IAsyncDisposable
     {
         if (_disposed)
             return;
-
-        _disposed = true;
-        _streamClosed = true;
-
         try
         {
             if (_stream != null && !_streamClosed)
@@ -660,6 +707,8 @@ public class SessionTransport : IAsyncDisposable
 
                 await Task.WhenAny(
                     WaitSessionStopped(), Task.Delay(TimeSpan.FromSeconds(60), _cancelTokenSource.Token));
+                _disposed = true;
+                _streamClosed = true;
             }
         }
         catch (Exception)
