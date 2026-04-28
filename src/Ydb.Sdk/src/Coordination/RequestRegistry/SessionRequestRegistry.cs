@@ -35,20 +35,12 @@ public class SessionRequestRegistry
         return pending;
     }
 
-    public bool TryResolve(ulong reqId, Func<SessionResponse> resultFactory)
+    public bool Resolve(ulong reqId, SessionResponse response)
     {
         if (!_pending.TryRemove(reqId, out var pending))
             return false;
-
-        try
-        {
-            var result = resultFactory();
-            pending.Tcs.TrySetResult(result);
-        }
-        catch (Exception ex)
-        {
-            pending.Tcs.TrySetException(ex);
-        }
+        
+        pending.Tcs.TrySetResult(response);
 
         return true;
     }

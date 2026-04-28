@@ -102,9 +102,6 @@ public class SessionTransport : IAsyncDisposable
                     case SessionResponse.ResponseOneofCase.SessionStopped:
                         HandleSessionStopped(response);
                         break;
-                    case SessionResponse.ResponseOneofCase.AcquireSemaphorePending:
-                        HandleAcquireSemaphorePending(response);
-                        break;
                     case SessionResponse.ResponseOneofCase.DescribeSemaphoreChanged:
                         HandleSemaphoreChanged(response.DescribeSemaphoreChanged);
                         break;
@@ -127,7 +124,7 @@ public class SessionTransport : IAsyncDisposable
                 var reqId = ExtractReqId(response);
                 if (reqId.HasValue)
                 {
-                    _requestRegistry.TryResolve(reqId.Value, () => ExtractResult(response)!);
+                    _requestRegistry.Resolve(reqId.Value, response);
                 }
             }
         }
@@ -154,20 +151,20 @@ public class SessionTransport : IAsyncDisposable
         _logger.LogInformation("Creating {Name} (limit={Limit})", name, limit);
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
-        var reqId = GetNextReqId();
-        var createSemaphore = new SessionRequest
-        {
-            CreateSemaphore = new SessionRequest.Types.CreateSemaphore
-            {
-                Name = name,
-                Limit = limit,
-                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
-                ReqId = reqId
-            }
-        };
+
         try
         {
-            var response = await SendRequest(reqId, createSemaphore, combineToken);
+            var response = await SendRequest(reqId => new SessionRequest
+            {
+                CreateSemaphore = new SessionRequest.Types.CreateSemaphore
+                {
+                    Name = name,
+                    Limit = limit,
+                    Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
+                    ReqId = reqId
+                }
+            }, combineToken);
+
             if (response.ResponseCase != SessionResponse.ResponseOneofCase.CreateSemaphoreResult)
             {
                 throw new YdbException("Unexpected response for createSemaphore");
@@ -192,19 +189,17 @@ public class SessionTransport : IAsyncDisposable
         );
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
-        var reqId = GetNextReqId();
-        var updateSemaphore = new SessionRequest
-        {
-            UpdateSemaphore = new SessionRequest.Types.UpdateSemaphore
-            {
-                Name = name,
-                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
-                ReqId = reqId
-            }
-        };
         try
         {
-            var response = await SendRequest(reqId, updateSemaphore, combineToken);
+            var response = await SendRequest(reqId => new SessionRequest
+            {
+                UpdateSemaphore = new SessionRequest.Types.UpdateSemaphore
+                {
+                    Name = name,
+                    Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
+                    ReqId = reqId
+                }
+            }, combineToken);
             if (response.ResponseCase != SessionResponse.ResponseOneofCase.UpdateSemaphoreResult)
             {
                 throw new YdbException("Unexpected response for updateSemaphore");
@@ -229,19 +224,17 @@ public class SessionTransport : IAsyncDisposable
         );
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
-        var reqId = GetNextReqId();
-        var deleteSemaphore = new SessionRequest
-        {
-            DeleteSemaphore = new SessionRequest.Types.DeleteSemaphore
-            {
-                Name = name,
-                Force = force,
-                ReqId = reqId
-            }
-        };
         try
         {
-            var response = await SendRequest(reqId, deleteSemaphore, combineToken);
+            var response = await SendRequest(reqId => new SessionRequest
+            {
+                DeleteSemaphore = new SessionRequest.Types.DeleteSemaphore
+                {
+                    Name = name,
+                    Force = force,
+                    ReqId = reqId
+                }
+            }, combineToken);
             if (response.ResponseCase != SessionResponse.ResponseOneofCase.DeleteSemaphoreResult)
             {
                 throw new YdbException("Unexpected response for deleteSemaphore");
@@ -262,23 +255,21 @@ public class SessionTransport : IAsyncDisposable
     {
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
-        var reqId = GetNextReqId();
-        var describeSemaphore = new SessionRequest
-        {
-            DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
-            {
-                Name = name,
-                IncludeOwners = mode.IncludeOwners(),
-                IncludeWaiters = mode.IncludeWaiters(),
-                WatchData = false,
-                WatchOwners = false,
-                ReqId = reqId
-            }
-        };
 
         try
         {
-            var response = await SendRequest(reqId, describeSemaphore, combineToken);
+            var response = await SendRequest(reqId => new SessionRequest
+            {
+                DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
+                {
+                    Name = name,
+                    IncludeOwners = mode.IncludeOwners(),
+                    IncludeWaiters = mode.IncludeWaiters(),
+                    WatchData = false,
+                    WatchOwners = false,
+                    ReqId = reqId
+                }
+            }, combineToken);
             if (response.ResponseCase != SessionResponse.ResponseOneofCase.DescribeSemaphoreResult)
             {
                 throw new YdbException("Unexpected response for describeSemaphore");
@@ -301,24 +292,49 @@ public class SessionTransport : IAsyncDisposable
         _logger.LogInformation("Waiting to acquire {Name} (count={Count})", name, count);
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
-        var reqId = GetNextReqId();
 
-        var acquireSemaphore = new SessionRequest
+
+        SessionRequest BuildRequest(ulong reqId)
         {
-            AcquireSemaphore = new SessionRequest.Types.AcquireSemaphore
+            return new SessionRequest
             {
-                Name = name,
-                Count = count,
-                Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
-                Ephemeral = isEphemeral,
-                TimeoutMillis = timeout == null ? ulong.MaxValue : (ulong)timeout.Value.TotalMilliseconds,
-                ReqId = reqId
-            }
-        };
+                AcquireSemaphore = new SessionRequest.Types.AcquireSemaphore
+                {
+                    Name = name,
+                    Count = count,
+                    Data = data == null ? ByteString.Empty : ByteString.CopyFrom(data),
+                    Ephemeral = isEphemeral,
+                    TimeoutMillis = timeout == null ? ulong.MaxValue : (ulong)timeout.Value.TotalMilliseconds,
+                    ReqId = reqId
+                }
+            };
+        }
 
         try
         {
-            var response = await SendRequest(reqId, acquireSemaphore, combineToken);
+            ulong pinnedReqId = 0;
+            // The initial request allocates a reqId that is pinned for the entire
+            // acquire flow — the server uses it to identify the waiter slot.
+            var response = await SendRequest(reqId =>
+            {
+                pinnedReqId = reqId;
+                return BuildRequest(reqId);
+            }, combineToken);
+
+            // The server may respond with acquireSemaphorePending before the final
+            // result. We keep waiting with the same pinned reqId — on reconnect
+            // the full request is re-sent because the server lost the waiter state.
+
+            while (response.ResponseCase == SessionResponse.ResponseOneofCase.AcquireSemaphorePending)
+            {
+                response = await SendRequestPinned(
+                    pinnedReqId,
+                    () =>
+                        BuildRequest(pinnedReqId), cancellationToken
+                );
+            }
+
+
             if (response.ResponseCase != SessionResponse.ResponseOneofCase.AcquireSemaphoreResult)
             {
                 throw new YdbException("Unexpected response for acquireSemaphore");
@@ -339,19 +355,16 @@ public class SessionTransport : IAsyncDisposable
         _logger.LogInformation("Releasing {Name}", name);
         await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
-        var reqId = GetNextReqId();
-        var releaseSemaphore = new SessionRequest
-        {
-            ReleaseSemaphore = new SessionRequest.Types.ReleaseSemaphore
-            {
-                Name = name,
-                ReqId = reqId
-            }
-        };
-
         try
         {
-            var response = await SendRequest(reqId, releaseSemaphore, combineToken);
+            var response = await SendRequest(reqId => new SessionRequest
+            {
+                ReleaseSemaphore = new SessionRequest.Types.ReleaseSemaphore
+                {
+                    Name = name,
+                    ReqId = reqId
+                }
+            }, combineToken);
             if (response.ResponseCase != SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult)
             {
                 throw new YdbException("Unexpected response for releaseSemaphore");
@@ -420,22 +433,23 @@ public class SessionTransport : IAsyncDisposable
     {
         try
         {
-            var reqId = GetNextReqId();
-
-            var request = new SessionRequest
+            ulong watchReqId = 0;
+            var response = await SendRequest(reqId =>
             {
-                DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
+                watchReqId = reqId;
+                return new SessionRequest
                 {
-                    Name = name,
-                    IncludeOwners = describeMode.IncludeOwners(),
-                    IncludeWaiters = describeMode.IncludeWaiters(),
-                    WatchData = watchMode.WatchData(),
-                    WatchOwners = watchMode.WatchOwners(),
-                    ReqId = reqId
-                }
-            };
-
-            var response = await SendRequest(reqId, request, token);
+                    DescribeSemaphore = new SessionRequest.Types.DescribeSemaphore
+                    {
+                        Name = name,
+                        IncludeOwners = describeMode.IncludeOwners(),
+                        IncludeWaiters = describeMode.IncludeWaiters(),
+                        WatchData = watchMode.WatchData(),
+                        WatchOwners = watchMode.WatchOwners(),
+                        ReqId = reqId
+                    }
+                };
+            }, token);
 
             if (response.ResponseCase != SessionResponse.ResponseOneofCase.DescribeSemaphoreResult)
             {
@@ -446,7 +460,7 @@ public class SessionTransport : IAsyncDisposable
                 .EnsureSuccess();
             if (response.DescribeSemaphoreResult.WatchAdded)
             {
-                _watcherRegistry.RemapWatch(name, subscription, reqId);
+                _watcherRegistry.RemapWatch(name, subscription, watchReqId);
             }
 
             return response;
@@ -470,46 +484,6 @@ public class SessionTransport : IAsyncDisposable
             SessionResponse.ResponseOneofCase.DeleteSemaphoreResult => response.DeleteSemaphoreResult.ReqId,
             _ => null
         };
-
-
-    private static SessionResponse? ExtractResult(SessionResponse response)
-    {
-        switch (response.ResponseCase)
-        {
-            case SessionResponse.ResponseOneofCase.AcquireSemaphoreResult:
-                Status.FromProto(response.AcquireSemaphoreResult.Status, response.AcquireSemaphoreResult.Issues)
-                    .EnsureSuccess();
-                return response;
-
-            case SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult:
-                Status.FromProto(response.ReleaseSemaphoreResult.Status, response.ReleaseSemaphoreResult.Issues)
-                    .EnsureSuccess();
-                return response;
-
-            case SessionResponse.ResponseOneofCase.DescribeSemaphoreResult:
-                Status.FromProto(response.DescribeSemaphoreResult.Status, response.DescribeSemaphoreResult.Issues)
-                    .EnsureSuccess();
-                return response;
-
-            case SessionResponse.ResponseOneofCase.CreateSemaphoreResult:
-                Status.FromProto(response.CreateSemaphoreResult.Status, response.CreateSemaphoreResult.Issues)
-                    .EnsureSuccess();
-                return response;
-
-            case SessionResponse.ResponseOneofCase.UpdateSemaphoreResult:
-                Status.FromProto(response.UpdateSemaphoreResult.Status, response.UpdateSemaphoreResult.Issues)
-                    .EnsureSuccess();
-                return response;
-
-            case SessionResponse.ResponseOneofCase.DeleteSemaphoreResult:
-                Status.FromProto(response.DeleteSemaphoreResult.Status, response.DeleteSemaphoreResult.Issues)
-                    .EnsureSuccess();
-                return response;
-
-            default:
-                return null;
-        }
-    }
 
     private CancellationToken LinkToken(CancellationToken token)
     {
@@ -616,11 +590,6 @@ public class SessionTransport : IAsyncDisposable
             _sessionStoppedCts.Cancel();
     }
 
-    private void HandleAcquireSemaphorePending(SessionResponse response)
-        => _logger.LogTrace("Session got acquire semaphore pending msg {ReqId}",
-            response.AcquireSemaphorePending.ReqId);
-
-
     private void HandleSemaphoreChanged(SessionResponse.Types.DescribeSemaphoreChanged change)
         => _watcherRegistry.Notify(change);
 
@@ -645,28 +614,93 @@ public class SessionTransport : IAsyncDisposable
         }
     }
 
-    private async Task<SessionResponse> SendRequest(ulong reqId, SessionRequest request,
+    // 1 if YdbException is an error, we repeat the request
+    // 2 OperationCanceledException cancellation
+    private async Task<SessionResponse> SendRequest(
+        Func<ulong, SessionRequest> requestFactory,
         CancellationToken cancellationToken = default)
     {
-        var pending = _requestRegistry.Register(reqId, request);
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
 
-        try
-        {
-            await SafeWrite(request, cancellationToken);
-        }
-        catch (Exception e)
-        {
-            _requestRegistry.TryCancel(reqId, cancellationToken);
-            pending.Tcs.TrySetException(e);
-            throw;
-        }
+            var reqId = GetNextReqId();
+            var request = requestFactory(reqId);
 
-        await using (cancellationToken.Register(() =>
-                         _requestRegistry.TryCancel(reqId, cancellationToken)))
-        {
-            return await pending.Tcs.Task;
+            var pending = _requestRegistry.Register(reqId, request);
+
+            try
+            {
+                await SafeWrite(request, cancellationToken);
+
+                await using (cancellationToken.Register(() =>
+                                 _requestRegistry.TryCancel(reqId, cancellationToken)))
+                {
+                    return await pending.Tcs.Task;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                _requestRegistry.TryCancel(reqId, cancellationToken);
+                throw;
+            }
+            catch (YdbException)
+            {
+                // retry
+                _requestRegistry.TryCancel(reqId, cancellationToken);
+            }
+            catch (Exception)
+            {
+                _requestRegistry.TryCancel(reqId, cancellationToken);
+                throw;
+            }
         }
     }
+
+    // 1 if YdbException is an error, we repeat the request
+    // 2 OperationCanceledException cancellation
+    private async Task<SessionResponse> SendRequestPinned(
+        ulong reqId,
+        Func<SessionRequest> buildRequest,
+        CancellationToken cancellationToken = default)
+    {
+        var isFirstRequest = true;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var pending = _requestRegistry.Register(reqId, buildRequest());
+            try
+            {
+                if (!isFirstRequest)
+                {
+                    isFirstRequest = false;
+                    await SafeWrite(buildRequest(), cancellationToken);
+                }
+
+                await using (cancellationToken.Register(() =>
+                                 _requestRegistry.TryCancel(reqId, cancellationToken)))
+                {
+                    return await pending.Tcs.Task;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                _requestRegistry.TryCancel(reqId, cancellationToken);
+                throw;
+            }
+            catch (YdbException)
+            {
+                // retry
+                _requestRegistry.TryCancel(reqId, cancellationToken);
+            }
+            catch (Exception)
+            {
+                _requestRegistry.TryCancel(reqId, cancellationToken);
+                throw;
+            }
+        }
+    }
+
 
     /**
      * Gets the next request ID
