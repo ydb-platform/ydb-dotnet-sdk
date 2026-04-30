@@ -8,9 +8,9 @@ public static class Cli
         "connectionString",
         "YDB connection string ADO NET format");
 
-    private static readonly Option<string> OtlpEndpointOption = new(
+    private static readonly Option<string?> OtlpEndpointOption = new(
         "--otlp-endpoint",
-        "OpenTelemetry OTLP endpoint URL (e.g., http://localhost:4318)");
+        "OpenTelemetry OTLP metrics endpoint URL. Falls back to OTEL_EXPORTER_OTLP_METRICS_ENDPOINT / OTEL_EXPORTER_OTLP_ENDPOINT env vars.");
 
     private static readonly Option<int> WriteTimeoutOption = new(
         "--write-timeout",
@@ -19,7 +19,7 @@ public static class Cli
 
     private static readonly Option<int> ReportPeriodOption = new(
         "--report-period",
-        () => 250,
+        () => 1000,
         "metrics export period in milliseconds");
 
     private static readonly Option<int> ReadRpsOption = new(
@@ -39,8 +39,8 @@ public static class Cli
 
     private static readonly Option<int> TimeOption = new(
         "--time",
-        () => 600,
-        "run time in seconds");
+        () => int.TryParse(Environment.GetEnvironmentVariable("WORKLOAD_DURATION"), out var t) ? t : 600,
+        "run time in seconds. Falls back to WORKLOAD_DURATION env var.");
 
     private static readonly Option<int> InitialDataCountOption = new(
         new[] { "-c", "--initial-data-count" },
@@ -58,7 +58,7 @@ public static class Cli
 
     private static readonly Command RunCommand = new(
         "run",
-        "runs workload (read and write to table with sets RPS)")
+        "runs workload (read and write to table with sets RPS). Creates table and seeds initial data if missing.")
     {
         ConnectionStringArgument,
         InitialDataCountOption,
@@ -97,7 +97,8 @@ public static class Cli
                 ReadTimeoutOption,
                 WriteRpsOption,
                 WriteTimeoutOption,
-                TimeOption
+                TimeOption,
+                InitialDataCountOption
             )
         );
 

@@ -159,131 +159,42 @@ jobs:
             --ref "${{ steps.baseline.outputs.ref }}" \
             --workload "${{ matrix.workload.name }}"
 
-      - name: Initialize YDB SLO
-        id: ydb-slo
-        uses: ydb-platform/ydb-slo-action/init@main
+      - name: Run YDB SLO
+        uses: ydb-platform/ydb-slo-action/init@v2
+        timeout-minutes: 30
         with:
           github_issue: ${{ github.event.inputs.github_issue }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workload_name: ${{ matrix.workload.name }}
+          workload_duration: ${{ inputs.slo_workload_duration_seconds || '600' }}
           workload_current_ref: ${{ github.head_ref || github.ref_name }}
+          workload_current_image: ydb-app-current
+          workload_current_command: >-
+            run "Host=ydb;Port=2136;Database=/Root/testdb"
+            --read-rps ${{ inputs.slo_workload_read_max_rps || '1000' }}
+            --write-rps ${{ inputs.slo_workload_write_max_rps || '100' }}
+            --read-timeout 1000
+            --write-timeout 1000
           workload_baseline_ref: ${{ steps.baseline.outputs.ref }}
+          workload_baseline_image: ydb-app-baseline
+          workload_baseline_command: >-
+            run "Host=ydb;Port=2136;Database=/Root/testdb"
+            --read-rps ${{ inputs.slo_workload_read_max_rps || '1000' }}
+            --write-rps ${{ inputs.slo_workload_write_max_rps || '100' }}
+            --read-timeout 1000
+            --write-timeout 1000
 
-      - name: Prepare SLO Database
-        run: |
-          echo "Preparing SLO database..."
-
-          IFS=',' read -ra DATABASE_IPS <<< "${{ steps.ydb-slo.outputs.ydb-database-ips }}"
-          ADD_HOST_ARGS=""
-          for ip in "${DATABASE_IPS[@]}"; do
-            ADD_HOST_ARGS="$ADD_HOST_ARGS --add-host ydb:$ip"
-          done
-
-          docker run --rm --network ydb_ydb-net \
-            $ADD_HOST_ARGS \
-            ydb-app-current create "Host=ydb;Port=2136;Database=/Root/testdb"
-
-      - name: Run SLO Tests (parallel)
-        timeout-minutes: 15
-        run: |
-          DURATION=${{ inputs.slo_workload_duration_seconds || 600 }}
-          READ_RPS=${{ inputs.slo_workload_read_max_rps || 1000 }}
-          WRITE_RPS=${{ inputs.slo_workload_write_max_rps || 100 }}
-          CURRENT_REF="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
-
-          IFS=',' read -ra DATABASE_IPS <<< "${{ steps.ydb-slo.outputs.ydb-database-ips }}"
-          ADD_HOST_ARGS=""
-          for ip in "${DATABASE_IPS[@]}"; do
-            ADD_HOST_ARGS="$ADD_HOST_ARGS --add-host ydb:$ip"
-          done
-
-          CONNECTION_STRING="Host=ydb;Port=2136;Database=/Root/testdb"
-          OTLP_ENDPOINT="${{ steps.ydb-slo.outputs.ydb-prometheus-otlp }}"
-
-          echo "Connection string: $CONNECTION_STRING"
-          echo "OTLP endpoint: $OTLP_ENDPOINT"
-
-          echo "Starting ydb-app-current..."
-          docker run -d \
-            --name ydb-app-current \
-            --network ydb_ydb-net \
-            $ADD_HOST_ARGS \
-            -e "REF=${CURRENT_REF}" \
-            -e "WORKLOAD=${{ matrix.workload.name }}" \
-            ydb-app-current run "$CONNECTION_STRING" \
-              --otlp-endpoint "$OTLP_ENDPOINT" \
-              --report-period 250 \
-              --time $DURATION \
-              --read-rps $READ_RPS \
-              --write-rps $WRITE_RPS \
-              --read-timeout 1000 \
-              --write-timeout 1000
-
-          echo "Starting ydb-app-baseline..."
-          docker run -d \
-            --name ydb-app-baseline \
-            --network ydb_ydb-net \
-            $ADD_HOST_ARGS \
-            -e "REF=${{ steps.baseline.outputs.ref }}" \
-            -e "WORKLOAD=${{ matrix.workload.name }}" \
-            ydb-app-baseline run "$CONNECTION_STRING" \
-              --otlp-endpoint "$OTLP_ENDPOINT" \
-              --report-period 250 \
-              --time $DURATION \
-              --read-rps $READ_RPS \
-              --write-rps $WRITE_RPS \
-              --read-timeout 1000 \
-              --write-timeout 1000
-
-          # Show initial logs
-          echo ""
-          echo "==================== INITIAL CURRENT LOGS ===================="
-          docker logs -n 15 ydb-app-current 2>&1 || echo "No current container"
-          echo ""
-          echo "==================== INITIAL BASELINE LOGS ===================="
-          docker logs -n 15 ydb-app-baseline 2>&1 || echo "No baseline container"
-          echo ""
-
-          # Wait for workloads to complete
-          echo "Waiting for workloads to complete (${DURATION}s)..."
-          sleep ${DURATION}
-
-          # Stop containers after workload duration and wait for graceful shutdown
-          echo "Stopping containers after ${DURATION}s..."
-          docker stop --timeout=30 ydb-app-current ydb-app-baseline 2>&1 || true
-
-          # Force kill if still running
-          docker kill ydb-app-current ydb-app-baseline 2>&1 || true
-
-          # Check exit codes
-          CURRENT_EXIT=$(docker inspect ydb-app-current --format='{{.State.ExitCode}}' 2>/dev/null || echo "1")
-          BASELINE_EXIT=$(docker inspect ydb-app-baseline --format='{{.State.ExitCode}}' 2>/dev/null || echo "0")
-
-          echo "Current container exit code: $CURRENT_EXIT"
-          echo "Baseline container exit code: $BASELINE_EXIT"
-
-          # Show final logs
-          echo ""
-          echo "==================== FINAL CURRENT LOGS ===================="
-          docker logs -n 15 ydb-app-current 2>&1 || echo "No current container"
-          echo ""
-          echo "==================== FINAL BASELINE LOGS ===================="
-          docker logs -n 15 ydb-app-baseline 2>&1 || echo "No baseline container"
-          echo ""
-
-          echo "SUCCESS: Workloads completed successfully"
-
-      - if: always()
-        name: Store logs
-        run: |
-          docker logs ydb-app-current > current.log 2>&1 || echo "No current container"
-          docker logs ydb-app-baseline > baseline.log 2>&1 || echo "No baseline container"
-
-      - if: always()
-        uses: actions/upload-artifact@v4
+  ydb-slo-report:
+    if: always() && (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'SLO'))
+    needs: ydb-slo-action
+    name: Publish YDB SLO report
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: ydb-platform/ydb-slo-action/report@v2
         with:
-          name: ${{ matrix.workload.name }}-logs
-          path: |
-            ./current.log
-            ./baseline.log
-          retention-days: 1
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_run_id: ${{ github.run_id }}

@@ -19,7 +19,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         await new YdbCommand(ydbConnection)
         {
             CommandText = $"""
-                           CREATE TABLE `{SloTable.Name}` (
+                           CREATE TABLE IF NOT EXISTS `{SloTable.Name}` (
                                Guid             Uuid,
                                Id               Int32,
                                PayloadStr       Text,

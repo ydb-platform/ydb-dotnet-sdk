@@ -24,7 +24,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         db.CommandTimeout = operationTimeout;
 
         await db.ExecuteAsync($"""
-                                   CREATE TABLE `{SloTable.Name}` (
+                                   CREATE TABLE IF NOT EXISTS `{SloTable.Name}` (
                                        Guid             Uuid,
                                        Id               Int32,
                                        PayloadStr       Text,
