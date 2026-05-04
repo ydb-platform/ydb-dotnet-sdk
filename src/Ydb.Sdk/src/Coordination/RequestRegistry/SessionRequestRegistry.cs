@@ -39,9 +39,7 @@ public class SessionRequestRegistry
     {
         if (!_pending.TryRemove(reqId, out var pending))
             return false;
-        
         pending.Tcs.TrySetResult(response);
-
         return true;
     }
 
@@ -49,7 +47,6 @@ public class SessionRequestRegistry
     {
         if (!_pending.TryRemove(reqId, out var pending))
             return false;
-
         pending.Tcs.TrySetCanceled(ct);
         return true;
     }
