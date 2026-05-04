@@ -379,16 +379,13 @@ public class CoordinationClientIntegrationTests
         await semaphore1.Create(20, semaphoreData1);
         // When
         var lease = await semaphore1.Acquire(15, false, null, TimeSpan.FromSeconds(5));
-        
         var exception = await Assert.ThrowsAsync<YdbException>(async () =>
         {
             await semaphore2.Acquire(15, false, null, TimeSpan.FromSeconds(5));
         });
-    
         //Then
         _output.WriteLine($"Waiting for semaphore {exception.Message}");
         Assert.Equal("Acquire semaphore failed", exception.Message);
-        
         await lease.Release();
         await semaphore1.Delete(false);
         await coordinationSession1.Close();

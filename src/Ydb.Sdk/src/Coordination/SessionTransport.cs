@@ -282,6 +282,7 @@ public class SessionTransport : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Creating {Name} (limit={Limit})", name, limit);
+        await _initTask;
         var combineToken = LinkToken(cancellationToken);
 
         try
@@ -319,6 +320,7 @@ public class SessionTransport : IAsyncDisposable
             name,
             data?.Length ?? 0
         );
+        await _initTask;
         var combineToken = LinkToken(cancellationToken);
         try
         {
@@ -353,6 +355,7 @@ public class SessionTransport : IAsyncDisposable
             name,
             force
         );
+        await _initTask;
         var combineToken = LinkToken(cancellationToken);
         try
         {
@@ -383,6 +386,7 @@ public class SessionTransport : IAsyncDisposable
     public async Task<SemaphoreDescription> DescribeSemaphore(string name,
         DescribeSemaphoreMode mode, CancellationToken cancellationToken = default)
     {
+        await _initTask;
         var combineToken = LinkToken(cancellationToken);
 
         try
@@ -481,6 +485,7 @@ public class SessionTransport : IAsyncDisposable
     public async Task ReleaseSemaphore(string name, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Releasing {Name}", name);
+        await _initTask;
         var combineToken = LinkToken(cancellationToken);
         try
         {
@@ -512,6 +517,7 @@ public class SessionTransport : IAsyncDisposable
         WatchSemaphoreMode watchMode,
         CancellationToken cancellationToken = default)
     {
+        await _initTask;
         var combineToken = LinkToken(cancellationToken);
         var subscription = _watcherRegistry.Watch(name);
 
@@ -700,6 +706,7 @@ public class SessionTransport : IAsyncDisposable
         {
             _logger.LogInformation("Session is invalid or expired");
             SessionId = 0;
+            StateSession = StateSession.Expired;
         }
 
         await _cancelTokenSource.CancelAsync();

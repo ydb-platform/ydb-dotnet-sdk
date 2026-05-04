@@ -9,10 +9,8 @@ public enum StateSession
     Connected,
     
     Recovery,
-
+    
     Reconnecting,
-
-    Reconnected,
 
     Closed,
 
