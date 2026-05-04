@@ -167,13 +167,28 @@ internal sealed class SocketTcpConnector : ITcpConnector
     public async Task ConnectAsync(string host, int port, CancellationToken cancellationToken)
     {
         var addresses = await Dns.GetHostAddressesAsync(host, cancellationToken);
+        if (addresses.Length == 0)
+        {
+            throw new SocketException((int)SocketError.HostNotFound);
+        }
+
+        SocketException? lastException = null;
         foreach (var address in addresses)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            using var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            await socket.ConnectAsync(new IPEndPoint(address, port), cancellationToken);
-            return;
+            try
+            {
+                using var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                await socket.ConnectAsync(new IPEndPoint(address, port), cancellationToken);
+                return;
+            }
+            catch (SocketException e)
+            {
+                lastException = e;
+            }
         }
+
+        throw lastException!;
     }
 }
