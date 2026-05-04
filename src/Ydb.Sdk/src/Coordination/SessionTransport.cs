@@ -40,8 +40,8 @@ public class SessionTransport : IAsyncDisposable
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly Task _initTask;
 
-    private volatile TaskCompletionSource _sessionReadyTcs =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private volatile TaskCompletionSource _sessionReadyTcs = NewSessionReadyTcs();
+    private volatile TaskCompletionSource _sessionFailureTcs = NewSessionFailureTcs();
 
     private volatile bool _disposed;
     private volatile bool _streamClosed;
@@ -53,6 +53,12 @@ public class SessionTransport : IAsyncDisposable
 
     private volatile bool _sessionStopped;
     private readonly CancellationTokenSource _sessionStoppedCts = new();
+
+    private static TaskCompletionSource NewSessionReadyTcs() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private static TaskCompletionSource NewSessionFailureTcs() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public SessionTransport(IDriver driver, string pathNode, SessionOptions sessionOptions,
         CancellationTokenSource? cancelTokenSource)
@@ -69,44 +75,85 @@ public class SessionTransport : IAsyncDisposable
 
     private async Task RecoverSession()
     {
-        await _executor.ExecuteAsync(async ct =>
+        try
         {
-            switch (StateSession)
+            await _executor.ExecuteAsync(async ct =>
             {
-                case StateSession.Initial:
-                    await CreateSession(false, ct);
-                    StateSession = StateSession.Connected;
-                    break;
-                case StateSession.Recovery:
-                    try
-                    {
-                        await CreateSession(true, ct);
+                Interlocked.Exchange(ref _sessionFailureTcs, NewSessionFailureTcs());
+
+                switch (StateSession)
+                {
+                    case StateSession.Initial:
+                        await CreateSession(false, ct);
                         StateSession = StateSession.Connected;
-                    }
-                    catch (YdbException)
-                    {
-                        StateSession = StateSession.Reconnecting;
-                        goto case StateSession.Reconnecting;
-                    }
+                        break;
+                    case StateSession.Recovery:
+                        try
+                        {
+                            await CreateSession(true, ct);
+                            StateSession = StateSession.Connected;
+                        }
+                        catch (Exception)
+                        {
+                            StateSession = StateSession.Reconnecting;
+                            goto case StateSession.Reconnecting;
+                        }
 
-                    break;
-                case StateSession.Reconnecting:
-                    await CreateSession(false, ct);
-                    StateSession = StateSession.Connected;
-                    break;
-            }
+                        break;
+                    case StateSession.Reconnecting:
+                        await CreateSession(false, ct);
+                        StateSession = StateSession.Connected;
+                        break;
+                }
 
-            /*
-            if (sessionRecovery)
+                // Wait for a YdbException signal from SendRequest/SendRequestPinned
+                // or from the stream reader. The exception is intentionally observed
+                // inside ExecuteAsync, so retry policy can restore the session.
+                await _sessionFailureTcs.Task.WaitAsync(ct);
+            }, _cancelTokenSource.Token);
+        }
+        catch (OperationCanceledException) when (_cancelTokenSource.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Coordination session recovery loop failed");
+            _sessionReadyTcs.TrySetException(ex);
+        }
+    }
+
+    private void FailSession(YdbException ex, StateSession nextState = StateSession.Recovery)
+    {
+        if (_disposed || _cancelTokenSource.IsCancellationRequested)
+            return;
+
+        _logger.LogWarning(ex, "Coordination session failed, starting recovery");
+
+        StateSession = StateSession == StateSession.Recovery
+            ? StateSession.Reconnecting
+            : nextState;
+
+        if (_sessionReadyTcs.Task.IsCompleted)
+        {
+            Interlocked.Exchange(ref _sessionReadyTcs, NewSessionReadyTcs());
+        }
+
+        _sessionFailureTcs.TrySetException(ex);
+    }
+
+    private async Task WaitSessionReady(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var ready = _sessionReadyTcs.Task;
+            await ready.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            if (ready == _sessionReadyTcs.Task)
             {
-                await CreateSession(true, ct);
+                return;
             }
-            else
-            {
-                await CreateSession(false, ct);
-            }
-            */
-        }, _cancelTokenSource.Token);
+        }
     }
 
     private async Task CloseBrokenStream()
@@ -139,7 +186,7 @@ public class SessionTransport : IAsyncDisposable
         _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, new GrpcRequestSettings());
         if (_stream == null)
             throw new InvalidOperationException("Stream is null in SendStartSession");
-        _ = Task.Run(RunProcessingStreamResponse, cancellationToken);
+        _ = Task.Run(() => RunProcessingStreamResponse(_stream), cancellationToken);
         await SendStartSession(isSessionRecovery);
         _watcherRegistry.NotifyAllWatches();
         StateSession = StateSession.Connected;
@@ -147,30 +194,21 @@ public class SessionTransport : IAsyncDisposable
 
     private async Task CreateSession(bool isSessionRecovery, CancellationToken cancellationToken = default)
     {
-        var newTcs = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        Interlocked.Exchange(ref _sessionReadyTcs, newTcs);
-        try
-        {
-            await CloseBrokenStream();
-            await OpenStream(isSessionRecovery, cancellationToken);
+        var readyTcs = _sessionReadyTcs;
 
-            newTcs.TrySetResult();
-        }
-        catch (YdbException ex)
-        {
-            newTcs.TrySetException(ex);
-            throw;
-        }
+        await CloseBrokenStream();
+        await OpenStream(isSessionRecovery, cancellationToken);
+
+        readyTcs.TrySetResult();
     }
 
-    private async Task RunProcessingStreamResponse()
+    private async Task RunProcessingStreamResponse(IBidirectionalStream<SessionRequest, SessionResponse> stream)
     {
         try
         {
-            while (await _stream!.MoveNextAsync())
+            while (await stream.MoveNextAsync())
             {
-                var response = _stream.Current;
+                var response = stream.Current;
                 switch (response.ResponseCase)
                 {
                     case SessionResponse.ResponseOneofCase.Ping:
@@ -178,7 +216,7 @@ public class SessionTransport : IAsyncDisposable
                         break;
                     case SessionResponse.ResponseOneofCase.Failure:
                         await HandleFailure(response);
-                        break;
+                        return;
                     case SessionResponse.ResponseOneofCase.SessionStarted:
                         HandleSessionStarted(response);
                         break;
@@ -210,22 +248,30 @@ public class SessionTransport : IAsyncDisposable
                     _requestRegistry.Resolve(reqId.Value, response);
                 }
             }
+
+            if (ReferenceEquals(_stream, stream) && !_disposed && !_cancelTokenSource.IsCancellationRequested)
+            {
+                FailSession(new YdbException(StatusCode.BadSession, "Coordination session stream closed"));
+            }
         }
         catch (YdbException ex)
         {
             _logger.LogError(ex, "Stream processing failed");
-            StateSession = StateSession.Recovery;
-            throw;
+            if (ReferenceEquals(_stream, stream))
+            {
+                FailSession(ex);
+            }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_cancelTokenSource.IsCancellationRequested)
         {
-            throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Stream processing failed");
-            StateSession = StateSession.Recovery;
-            throw new YdbException(StatusCode.BadSession, ex.Message);
+            if (ReferenceEquals(_stream, stream))
+            {
+                FailSession(new YdbException(StatusCode.BadSession, ex.Message, ex));
+            }
         }
     }
 
@@ -602,8 +648,12 @@ public class SessionTransport : IAsyncDisposable
         };
 
         await SafeWrite(initRequestStart, _cancelTokenSource.Token);
+        var completed = await Task.WhenAny(
+            _sessionStartedTcs.Task,
+            _sessionFailureTcs.Task
+        );
 
-        await _sessionStartedTcs.Task;
+        await completed.WaitAsync(_cancelTokenSource.Token);
     }
 
     private async Task SendStop()
@@ -697,12 +747,6 @@ public class SessionTransport : IAsyncDisposable
         }
     }
 
-    private void FailSession(Exception ex)
-    {
-        StateSession = StateSession.Recovery;
-        var tcs = _sessionReadyTcs;
-        tcs.TrySetException(ex);
-    }
 
     // 1 if YdbException is an error, we repeat the request
     // 2 OperationCanceledException cancellation
@@ -713,7 +757,7 @@ public class SessionTransport : IAsyncDisposable
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
+            await WaitSessionReady(cancellationToken);
             var reqId = GetNextReqId();
             var request = requestFactory(reqId);
 
@@ -739,7 +783,7 @@ public class SessionTransport : IAsyncDisposable
                 // retry
                 FailSession(ex);
                 _requestRegistry.TryCancel(reqId, cancellationToken);
-                await _sessionReadyTcs.Task.WaitAsync(cancellationToken);
+                await WaitSessionReady(cancellationToken);
             }
             catch (Exception)
             {
@@ -760,15 +804,14 @@ public class SessionTransport : IAsyncDisposable
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            await WaitSessionReady(cancellationToken);
             var pending = _requestRegistry.Register(reqId, buildRequest());
+
             try
             {
                 if (!isFirstRequest)
                 {
                     isFirstRequest = false;
-                }
-                else
-                {
                     await SafeWrite(buildRequest(), cancellationToken);
                 }
 
@@ -788,7 +831,7 @@ public class SessionTransport : IAsyncDisposable
                 // retry
                 FailSession(ex);
                 _requestRegistry.TryCancel(reqId, cancellationToken);
-                await _sessionReadyTcs.Task.WaitAsync(cancellationToken);
+                await WaitSessionReady(cancellationToken);
             }
             catch (Exception)
             {
@@ -861,7 +904,6 @@ public class SessionTransport : IAsyncDisposable
             }
 
             StateSession = StateSession.Closed;
-            _initTask.Dispose();
             _requestRegistry.Dispose();
             _watcherRegistry.Dispose();
             _writeLock.Dispose();
