@@ -191,7 +191,6 @@ public sealed class Driver : BaseDriver
             string? preferredLocation = null;
             if (Config.EnablePreferNearestDcBalancing)
             {
-                preferredLocation = resultProto.SelfLocation;
                 try
                 {
                     var detectedLocation = await _endpointLocalDcDetector.DetectNearestLocationDc(
@@ -211,8 +210,7 @@ public sealed class Driver : BaseDriver
                     else
                     {
                         Logger.LogWarning(
-                            "Failed to detect nearest DC via TCP latency, using server location: {SelfLocation}",
-                            resultProto.SelfLocation
+                            "Failed to detect nearest DC via TCP latency, no preferred location will be used"
                         );
                     }
                 }
@@ -220,8 +218,7 @@ public sealed class Driver : BaseDriver
                 {
                     Logger.LogWarning(
                         e,
-                        "Failed to detect nearest DC via TCP latency, using server location: {SelfLocation}",
-                        resultProto.SelfLocation
+                        "Failed to detect nearest DC via TCP latency, no preferred location will be used"
                     );
                 }
             }
