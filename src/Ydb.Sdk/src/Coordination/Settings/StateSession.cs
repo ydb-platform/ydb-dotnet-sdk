@@ -7,6 +7,8 @@ public enum StateSession
     Connecting,
 
     Connected,
+    
+    Recovery,
 
     Reconnecting,
 

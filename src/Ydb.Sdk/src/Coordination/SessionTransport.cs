@@ -32,6 +32,7 @@ public class SessionTransport : IAsyncDisposable
     private readonly YdbRetryPolicyExecutor _executor;
     private readonly SessionRequestRegistry _requestRegistry = new();
     public StateSession StateSession { get; private set; } = StateSession.Initial;
+    private byte[] _key = [];
 
     private readonly TaskCompletionSource _firstSessionStartedTcs =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -63,30 +64,52 @@ public class SessionTransport : IAsyncDisposable
         _driver = driver;
         _pathNode = pathNode;
         _cancelTokenSource = cancelTokenSource ?? new CancellationTokenSource();
-        _initTask = RecoverSessionAsync();
+        _initTask = RecoverSession();
     }
 
-    private async Task RecoverSessionAsync()
+    private async Task RecoverSession()
     {
         await _executor.ExecuteAsync(async ct =>
         {
-            var newTcs = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            Interlocked.Exchange(ref _sessionReadyTcs, newTcs);
-            try
+            switch (StateSession)
             {
-                await CloseBrokenStreamAsync();
-                await OpenStreamAsync(ct);
+                case StateSession.Initial:
+                    await CreateSession(false, ct);
+                    StateSession = StateSession.Connected;
+                    break;
+                case StateSession.Recovery:
+                    try
+                    {
+                        await CreateSession(true, ct);
+                        StateSession = StateSession.Connected;
+                    }
+                    catch (YdbException)
+                    {
+                        StateSession = StateSession.Reconnecting;
+                        goto case StateSession.Reconnecting;
+                    }
+
+                    break;
+                case StateSession.Reconnecting:
+                    await CreateSession(false, ct);
+                    StateSession = StateSession.Connected;
+                    break;
             }
-            catch (Exception ex)
+
+            /*
+            if (sessionRecovery)
             {
-                newTcs.TrySetException(ex);
-                throw;
+                await CreateSession(true, ct);
             }
+            else
+            {
+                await CreateSession(false, ct);
+            }
+            */
         }, _cancelTokenSource.Token);
     }
-    
-    private async Task CloseBrokenStreamAsync()
+
+    private async Task CloseBrokenStream()
     {
         var stream = _stream;
         _stream = null;
@@ -96,7 +119,7 @@ public class SessionTransport : IAsyncDisposable
             return;
 
         try
-        {  
+        {
             _requestRegistry.Reconnect();
             await stream.RequestStreamComplete().ConfigureAwait(false);
         }
@@ -110,25 +133,35 @@ public class SessionTransport : IAsyncDisposable
         }
     }
 
-    private async Task OpenStreamAsync(CancellationToken cancellationToken = default)
+    private async Task OpenStream(bool isSessionRecovery, CancellationToken cancellationToken = default)
     {
         StateSession = StateSession.Connecting;
         _stream = await _driver.BidirectionalStreamCall(CoordinationService.SessionMethod, new GrpcRequestSettings());
         if (_stream == null)
             throw new InvalidOperationException("Stream is null in SendStartSession");
         _ = Task.Run(RunProcessingStreamResponse, cancellationToken);
-        await SendStartSession();
+        await SendStartSession(isSessionRecovery);
         _watcherRegistry.NotifyAllWatches();
         StateSession = StateSession.Connected;
     }
 
-
-    private async Task EnsureInitialized()
+    private async Task CreateSession(bool isSessionRecovery, CancellationToken cancellationToken = default)
     {
-        await _initTask;
+        var newTcs = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Interlocked.Exchange(ref _sessionReadyTcs, newTcs);
+        try
+        {
+            await CloseBrokenStream();
+            await OpenStream(isSessionRecovery, cancellationToken);
 
-        if (_stream == null || _streamClosed)
-            throw new InvalidOperationException("Stream is not initialized");
+            newTcs.TrySetResult();
+        }
+        catch (YdbException ex)
+        {
+            newTcs.TrySetException(ex);
+            throw;
+        }
     }
 
     private async Task RunProcessingStreamResponse()
@@ -178,6 +211,12 @@ public class SessionTransport : IAsyncDisposable
                 }
             }
         }
+        catch (YdbException ex)
+        {
+            _logger.LogError(ex, "Stream processing failed");
+            StateSession = StateSession.Recovery;
+            throw;
+        }
         catch (OperationCanceledException)
         {
             throw;
@@ -185,7 +224,8 @@ public class SessionTransport : IAsyncDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Stream processing failed");
-            throw new YdbException(ex.Message);
+            StateSession = StateSession.Recovery;
+            throw new YdbException(StatusCode.BadSession, ex.Message);
         }
     }
 
@@ -196,7 +236,6 @@ public class SessionTransport : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Creating {Name} (limit={Limit})", name, limit);
-        await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
 
         try
@@ -234,7 +273,6 @@ public class SessionTransport : IAsyncDisposable
             name,
             data?.Length ?? 0
         );
-        await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
         try
         {
@@ -269,7 +307,6 @@ public class SessionTransport : IAsyncDisposable
             name,
             force
         );
-        await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
         try
         {
@@ -300,7 +337,6 @@ public class SessionTransport : IAsyncDisposable
     public async Task<SemaphoreDescription> DescribeSemaphore(string name,
         DescribeSemaphoreMode mode, CancellationToken cancellationToken = default)
     {
-        await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
 
         try
@@ -337,7 +373,6 @@ public class SessionTransport : IAsyncDisposable
         TimeSpan? timeout, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Waiting to acquire {Name} (count={Count})", name, count);
-        await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
 
 
@@ -400,7 +435,6 @@ public class SessionTransport : IAsyncDisposable
     public async Task ReleaseSemaphore(string name, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Releasing {Name}", name);
-        await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
         try
         {
@@ -432,7 +466,6 @@ public class SessionTransport : IAsyncDisposable
         WatchSemaphoreMode watchMode,
         CancellationToken cancellationToken = default)
     {
-        await EnsureInitialized();
         var combineToken = LinkToken(cancellationToken);
         var subscription = _watcherRegistry.Watch(name);
 
@@ -542,15 +575,19 @@ public class SessionTransport : IAsyncDisposable
             .Token;
     }
 
-    private async Task SendStartSession()
+    private async Task SendStartSession(bool isSessionRecovery)
     {
         if (_stream == null)
             throw new InvalidOperationException("Stream not initialized");
 
-
         _sessionStartedTcs =
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var key = CreateRandomKey();
+        if (!isSessionRecovery)
+        {
+            SessionId = 0;
+            _key = CreateRandomKey();
+        }
+
         var initRequestStart = new SessionRequest
         {
             SessionStart = new SessionRequest.Types.SessionStart
@@ -559,7 +596,7 @@ public class SessionTransport : IAsyncDisposable
                 Path = _pathNode,
                 Description = _sessionOptions.Description,
                 TimeoutMillis = (ulong)_sessionOptions.StartTimeout.TotalMilliseconds,
-                ProtectionKey = key,
+                ProtectionKey = ByteString.CopyFrom(_key),
                 SeqNo = _seqNo++
             }
         };
@@ -571,7 +608,6 @@ public class SessionTransport : IAsyncDisposable
 
     private async Task SendStop()
     {
-        await EnsureInitialized();
         var stopSession = new SessionRequest
         {
             SessionStop = new SessionRequest.Types.SessionStop()
@@ -641,11 +677,11 @@ public class SessionTransport : IAsyncDisposable
         => _watcherRegistry.Notify(change);
 
 
-    private static ByteString CreateRandomKey()
+    private static byte[] CreateRandomKey()
     {
         var protectionKey = new byte[16];
         RandomNumberGenerator.Fill(protectionKey);
-        return ByteString.CopyFrom(protectionKey);
+        return protectionKey;
     }
 
     private async Task SafeWrite(SessionRequest request, CancellationToken cancellationToken = default)
@@ -663,8 +699,8 @@ public class SessionTransport : IAsyncDisposable
 
     private void FailSession(Exception ex)
     {
+        StateSession = StateSession.Recovery;
         var tcs = _sessionReadyTcs;
-
         tcs.TrySetException(ex);
     }
 
@@ -730,6 +766,9 @@ public class SessionTransport : IAsyncDisposable
                 if (!isFirstRequest)
                 {
                     isFirstRequest = false;
+                }
+                else
+                {
                     await SafeWrite(buildRequest(), cancellationToken);
                 }
 
@@ -822,6 +861,7 @@ public class SessionTransport : IAsyncDisposable
             }
 
             StateSession = StateSession.Closed;
+            _initTask.Dispose();
             _requestRegistry.Dispose();
             _watcherRegistry.Dispose();
             _writeLock.Dispose();

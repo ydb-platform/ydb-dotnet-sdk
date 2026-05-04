@@ -51,7 +51,6 @@ public class CoordinationClient
     public CoordinationSession CreateSession(string pathNode, SessionOptions? sessionOptions = null,
         CancellationTokenSource? cancelTokenSource = null)
     {
-        _connectionString.FullPath(pathNode);
         var options = sessionOptions ?? SessionOptions.Default;
         return new CoordinationSession(_iDriver, pathNode, options, cancelTokenSource);
     }
