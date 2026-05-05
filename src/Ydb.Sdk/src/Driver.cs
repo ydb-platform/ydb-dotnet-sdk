@@ -28,6 +28,7 @@ public sealed class Driver : BaseDriver
     );
 
     private readonly EndpointPool _endpointPool;
+    private readonly EndpointLocalDcDetector _endpointLocalDcDetector;
 
     private volatile Timer? _discoveryTimer;
 
@@ -41,6 +42,7 @@ public sealed class Driver : BaseDriver
             (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>())
     {
         _endpointPool = new EndpointPool(LoggerFactory);
+        _endpointLocalDcDetector = new EndpointLocalDcDetector(LoggerFactory);
     }
 
     /// <summary>
@@ -182,15 +184,57 @@ public sealed class Driver : BaseDriver
             }
 
             var resultProto = operation.Result.Unpack<ListEndpointsResult>();
+            var discoveredEndpoints = resultProto.Endpoints.Select(infoProto =>
+                new EndpointInfo(infoProto.NodeId, infoProto.Ssl, infoProto.Address, infoProto.Port, infoProto.Location)
+            ).ToImmutableList();
+
+            string? preferredLocation = null;
+            if (Config.EnablePreferNearestDcBalancing)
+            {
+                try
+                {
+                    var detectedLocation = await _endpointLocalDcDetector.DetectNearestLocationDc(
+                        discoveredEndpoints,
+                        Config.ConnectTimeout
+                    );
+
+                    if (!string.IsNullOrEmpty(detectedLocation))
+                    {
+                        preferredLocation = detectedLocation;
+                        Logger.LogInformation(
+                            "Detected nearest DC via TCP latency: {DetectedLocation} (server reported: {SelfLocation})",
+                            detectedLocation,
+                            resultProto.SelfLocation
+                        );
+                    }
+                    else
+                    {
+                        Logger.LogWarning(
+                            "Failed to detect nearest DC via TCP latency, no preferred location will be used"
+                        );
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logger.LogWarning(
+                        e,
+                        "Failed to detect nearest DC via TCP latency, no preferred location will be used"
+                    );
+                }
+            }
 
             Logger.LogDebug(
-                "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, sdk info: {SdkInfo}",
-                resultProto.Endpoints.Count, resultProto.SelfLocation, Config.SdkVersion
+                "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, preferred location: {PreferredLocation}, sdk info: {SdkInfo}",
+                resultProto.Endpoints.Count,
+                resultProto.SelfLocation,
+                preferredLocation ?? "<disabled>",
+                Config.SdkVersion
             );
 
-            await ChannelPool.RemoveChannels(_endpointPool.Reset(resultProto.Endpoints.Select(infoProto =>
-                new EndpointInfo(infoProto.NodeId, infoProto.Ssl, infoProto.Address, infoProto.Port, infoProto.Location)
-            ).ToImmutableList()));
+            await ChannelPool.RemoveChannels(_endpointPool.Reset(
+                discoveredEndpoints,
+                preferredLocation
+            ));
         }
         catch (RpcException e)
         {
