@@ -1,69 +1,20 @@
 name: SLO
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     types: [opened, reopened, synchronize, labeled]
-    branches:
-      - main
-  workflow_dispatch:
-    inputs:
-      github_issue:
-        description: "GitHub issue number where the SLO results will be reported"
-        required: true
-      baseline_ref:
-        description: "Baseline commit/branch/tag to compare against (leave empty to auto-detect merge-base with main)"
-        required: false
-      slo_workload_duration_seconds:
-        description: "Duration of the SLO workload in seconds"
-        required: false
-        default: "600"
-      slo_workload_read_max_rps:
-        description: "Maximum read RPS for the SLO workload"
-        required: false
-        default: "1000"
-      slo_workload_write_max_rps:
-        description: "Maximum write RPS for the SLO workload"
-        required: false
-        default: "100"
 
 jobs:
-  remove-slo-label:
-    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'SLO')
-    runs-on: ubuntu-latest
-    name: Remove SLO Label
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Remove SLO label
-        uses: actions/github-script@v7
-        with:
-          script: |
-            try {
-              await github.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
-                name: 'SLO'
-              });
-              console.log(`Removed SLO label from PR #${context.payload.pull_request.number}`);
-            } catch (error) {
-              if (error.status === 404) {
-                console.log('SLO label not found, skipping');
-              } else {
-                throw error;
-              }
-            }
-
   ydb-slo-action:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'SLO')
-
+    if: contains(github.event.pull_request.labels.*.name, 'SLO')
     name: Run YDB SLO Tests
     runs-on: "large-runner-dotnet-sdk"
 
+    permissions:
+      contents: read
+
     strategy:
+      fail-fast: false
       matrix:
         workload:
           - name: AdoNet
@@ -105,21 +56,18 @@ jobs:
           docker compose version
 
       - name: Checkout current version
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: current
           fetch-depth: 0
 
       - name: Determine baseline commit
         id: baseline
+        working-directory: current
         run: |
-          cd current
-          if [[ -n "${{ inputs.baseline_ref }}" ]]; then
-            BASELINE="${{ inputs.baseline_ref }}"
-          else
-            BASELINE=$(git merge-base HEAD origin/main)
-          fi
-          echo "sha=$BASELINE" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          BASELINE=$(git merge-base HEAD origin/main)
+          echo "sha=${BASELINE}" >> "$GITHUB_OUTPUT"
 
           # Try to determine a human-readable ref name for baseline
           if git merge-base --is-ancestor $BASELINE origin/main && \
@@ -136,28 +84,32 @@ jobs:
           echo "ref=$BASELINE_REF" >> $GITHUB_OUTPUT
 
       - name: Checkout baseline version
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.baseline.outputs.sha }}
           path: baseline
           fetch-depth: 1
 
-      - name: Build workload images
+      - name: Build current workload image
         run: |
-          SCRIPT="$GITHUB_WORKSPACE/current/.github/scripts/build-slo-image.sh"
-          CURRENT_REF="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          set -euxo pipefail
+          chmod +x current/.github/scripts/build-slo-image.sh
 
-          bash "$SCRIPT" \
-            --context "$GITHUB_WORKSPACE/current" \
+          current/.github/scripts/build-slo-image.sh \
             --tag "ydb-app-current" \
-            --ref "${CURRENT_REF}" \
+            --context "$GITHUB_WORKSPACE/current" \
             --workload "${{ matrix.workload.name }}"
 
-          bash "$SCRIPT" \
-            --context "$GITHUB_WORKSPACE/baseline" \
+      - name: Build baseline workload image
+        run: |
+          set -euxo pipefail
+          chmod +x baseline/.github/scripts/build-slo-image.sh
+
+          baseline/.github/scripts/build-slo-image.sh \
             --tag "ydb-app-baseline" \
-            --ref "${{ steps.baseline.outputs.ref }}" \
-            --workload "${{ matrix.workload.name }}"
+            --context "$GITHUB_WORKSPACE/baseline" \
+            --workload "${{ matrix.workload.name }}" \
+            --ref "${{ steps.baseline.outputs.ref }}"
 
       - name: Run YDB SLO
         uses: ydb-platform/ydb-slo-action/init@v2
@@ -183,18 +135,3 @@ jobs:
             --write-rps ${{ inputs.slo_workload_write_max_rps || '100' }}
             --read-timeout 1000
             --write-timeout 1000
-
-  ydb-slo-report:
-    if: always() && (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'SLO'))
-    needs: ydb-slo-action
-    name: Publish YDB SLO report
-    runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: ydb-platform/ydb-slo-action/report@v2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          github_run_id: ${{ github.run_id }}
