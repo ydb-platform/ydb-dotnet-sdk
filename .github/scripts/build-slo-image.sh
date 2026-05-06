@@ -8,14 +8,12 @@ Usage:
   build-slo-image.sh \
     --context <path> \
     --tag <docker-tag> \
-    --workload <workload-name> \
-    --ref <git-ref>
+    --workload <workload-name>
 
 Options:
   --context     Docker build context directory (e.g. $GITHUB_WORKSPACE/current).
   --tag         Docker image tag to build (e.g. ydb-app-current).
   --workload    Workload name (e.g. AdoNet, Dapper, EF, Linq2db.Slo, TopicService).
-  --ref         Git ref (e.g. branch name / sha).
 ENDUSAGE
 }
 
@@ -26,7 +24,6 @@ die() {
 
 context_dir=""
 tag=""
-ref=""
 workload=""
 
 while [[ $# -gt 0 ]]; do
@@ -37,10 +34,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --tag)
       tag="${2:-}"
-      shift 2
-      ;;
-    --ref)
-      ref="${2:-}"
       shift 2
       ;;
     --workload)
@@ -57,7 +50,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$context_dir" || -z "$tag" || -z "$workload" || -z "$ref" ]]; then
+if [[ -z "$context_dir" || -z "$tag" || -z "$workload" ]]; then
   usage
   exit 2
 fi
@@ -70,7 +63,6 @@ dockerfile="slo/src/${workload}/Dockerfile"
 
 echo "Building SLO image..."
 echo "  TAG:        $tag"
-echo "  REF:        $ref"
 echo "  WORKLOAD:   $workload"
 echo "  DOCKERFILE: $dockerfile"
 
