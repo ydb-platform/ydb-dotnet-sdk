@@ -133,6 +133,13 @@ public class EndpointLocalDcDetectorTests
             catch (ObjectDisposedException)
             {
             }
+            catch (InvalidOperationException)
+            {
+                // AcceptTcpClientAsync raced with listener.Stop(): the Task.Run in StartListener
+                // hadn't started yet when Stop() was called, so the accept call sees a non-listening
+                // listener. The connection itself is accepted by the OS backlog, so the test still
+                // observes the winner correctly — this only affects cleanup.
+            }
         }
     }
 
@@ -156,15 +163,11 @@ public class EndpointLocalDcDetectorTests
         public void SetupThrow(string host, Exception ex) =>
             _handlers[host] = _ => Task.FromException(ex);
 
-        public Task ConnectAsync(string host, int port, CancellationToken cancellationToken)
-        {
-            if (_handlers.TryGetValue(host, out var handler))
-            {
-                return handler(cancellationToken);
-            }
-
-            // Default: throw SocketException (connection refused)
-            return Task.FromException(new SocketException());
-        }
+        public Task ConnectAsync(string host, int port, CancellationToken cancellationToken) =>
+            _handlers.TryGetValue(host, out var handler)
+                ? handler(cancellationToken)
+                :
+                // Default: throw SocketException (connection refused)
+                Task.FromException(new SocketException());
     }
 }

@@ -21,7 +21,17 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
     )
     {
         await using var dbContext = await client.CreateDbContextAsync();
-        await dbContext.Database.EnsureCreatedAsync();
+        await dbContext.Database.ExecuteSqlRawAsync(
+            $"""
+             CREATE TABLE IF NOT EXISTS `{SloTable.Name}` (
+                 Guid             Uuid,
+                 Id               Int32,
+                 PayloadStr       Text,
+                 PayloadDouble    Double,
+                 PayloadTimestamp Timestamp,
+                 PRIMARY KEY (Guid, Id)
+             );
+             """);
         await dbContext.Database.ExecuteSqlRawAsync(SloTable.Options);
     }
 
