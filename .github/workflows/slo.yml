@@ -108,8 +108,7 @@ jobs:
           baseline/.github/scripts/build-slo-image.sh \
             --tag "ydb-app-baseline" \
             --context "$GITHUB_WORKSPACE/baseline" \
-            --workload "${{ matrix.workload.name }}" \
-            --ref "${{ steps.baseline.outputs.ref }}"
+            --workload "${{ matrix.workload.name }}"
 
       - name: Run YDB SLO
         uses: ydb-platform/ydb-slo-action/init@v2
