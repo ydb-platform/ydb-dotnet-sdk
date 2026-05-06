@@ -164,7 +164,9 @@ public class EndpointLocalDcDetectorTests
             _handlers[host] = _ => Task.FromException(ex);
 
         public Task ConnectAsync(string host, int port, CancellationToken cancellationToken) =>
-            _handlers.TryGetValue(host, out var handler) ? handler(cancellationToken) :
+            _handlers.TryGetValue(host, out var handler)
+                ? handler(cancellationToken)
+                :
                 // Default: throw SocketException (connection refused)
                 Task.FromException(new SocketException());
     }
