@@ -1,4 +1,4 @@
-- Feat: add nearest DC detection with TCP race (#622).
+- Feat: add nearest DC detection with TCP race ([#622](https://github.com/ydb-platform/ydb-dotnet-sdk/pull/622)).
 
 ## v0.31.0
 

@@ -37,7 +37,7 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
         // Retry SCHEME_ERROR: schema cache on query nodes propagates async from
         // SchemeBoard after CREATE TABLE returns — first INSERTs can hit a node
         // whose cache still misses the table (ydb-platform/ydb#23386, #36335).
-        for (var attempt = 0; ; attempt++)
+        for (var attempt = 0;; attempt++)
         {
             try
             {
