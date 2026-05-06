@@ -3,6 +3,7 @@ using EntityFrameworkCore.Ydb.Extensions;
 using Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Ydb.Sdk;
 using Ydb.Sdk.Ado;
 
 namespace EF;
@@ -21,8 +22,33 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
     )
     {
         await using var dbContext = await client.CreateDbContextAsync();
-        await dbContext.Database.EnsureCreatedAsync();
-        await dbContext.Database.ExecuteSqlRawAsync(SloTable.Options);
+        await dbContext.Database.ExecuteSqlRawAsync(
+            $"""
+             CREATE TABLE IF NOT EXISTS `{SloTable.Name}` (
+                 Guid             Uuid,
+                 Id               Int32,
+                 PayloadStr       Text,
+                 PayloadDouble    Double,
+                 PayloadTimestamp Timestamp,
+                 PRIMARY KEY (Guid, Id)
+             );
+             """);
+
+        // Retry SCHEME_ERROR: schema cache on query nodes propagates async from
+        // SchemeBoard after CREATE TABLE returns — first INSERTs can hit a node
+        // whose cache still misses the table (ydb-platform/ydb#23386, #36335).
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await dbContext.Database.ExecuteSqlRawAsync(SloTable.Options);
+                return;
+            }
+            catch (YdbException e) when (e.Code == StatusCode.SchemeError && attempt < 5)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(200 * (attempt + 1)));
+            }
+        }
     }
 
     protected override async Task<int> Save(

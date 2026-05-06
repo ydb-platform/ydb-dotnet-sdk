@@ -1,3 +1,5 @@
+- Feat: add nearest DC detection with TCP race (#622).
+
 ## v0.31.0
 
 - Fixed bug Topic Writer: ignore `UpdateTokenResponse` while processing write acknowledgements to avoid `NullReferenceException`.

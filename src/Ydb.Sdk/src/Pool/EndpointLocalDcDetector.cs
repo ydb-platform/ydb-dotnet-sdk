@@ -9,18 +9,12 @@ internal interface ITcpConnector
     Task ConnectAsync(string host, int port, CancellationToken cancellationToken);
 }
 
-internal sealed class EndpointLocalDcDetector
+internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcpConnector? tcpConnector = null)
 {
     private const int MaxEndpointsCheckPerLocation = 5;
 
-    private readonly ILogger<EndpointLocalDcDetector> _logger;
-    private readonly ITcpConnector _tcpConnector;
-
-    public EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcpConnector? tcpConnector = null)
-    {
-        _logger = loggerFactory.CreateLogger<EndpointLocalDcDetector>();
-        _tcpConnector = tcpConnector ?? new SocketTcpConnector();
-    }
+    private readonly ILogger<EndpointLocalDcDetector> _logger = loggerFactory.CreateLogger<EndpointLocalDcDetector>();
+    private readonly ITcpConnector _tcpConnector = tcpConnector ?? new SocketTcpConnector();
 
     public async Task<string?> DetectNearestLocationDc(
         IReadOnlyList<EndpointInfo> endpoints,
