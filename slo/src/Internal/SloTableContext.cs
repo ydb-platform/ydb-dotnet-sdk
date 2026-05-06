@@ -36,6 +36,9 @@ public abstract class SloTableContext<T> : ISloContext
 
     public async Task Create(CreateConfig createConfig)
     {
+        // Retries cover SCHEME_ERROR: schema cache on query nodes propagates async from
+        // SchemeBoard after CREATE TABLE returns — a follow-up ALTER/INSERT can hit a node
+        // whose cache still misses the table (ydb-platform/ydb#23386, #36335).
         const int maxCreateAttempts = 10;
         var client = CreateClient(createConfig);
 
