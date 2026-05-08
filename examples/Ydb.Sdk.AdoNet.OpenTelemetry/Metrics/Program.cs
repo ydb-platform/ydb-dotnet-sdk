@@ -54,7 +54,8 @@ await using var dataSource = new YdbDataSource(
 // which the retry policy retries; non-colliding picks keep throughput moving.
 await dataSource.ExecuteAsync(async conn =>
 {
-    await new YdbCommand("CREATE TABLE IF NOT EXISTS retry_demo_account(id Int32, amount Int64, PRIMARY KEY (id))", conn)
+    await new YdbCommand("CREATE TABLE IF NOT EXISTS retry_demo_account(id Int32, amount Int64, PRIMARY KEY (id))",
+            conn)
         .ExecuteNonQueryAsync();
     for (var id = 1; id <= hotRowCount; id++)
     {
@@ -89,6 +90,7 @@ var currentRpsCts = new CancellationTokenSource();
 // Contention lane: keeps running for the whole tank duration to produce a
 // steady stream of Aborted/TLI retries on the hot rows.
 var contentionTask = Task.Run(
+    // ReSharper disable once AccessToDisposedClosure
     () => RunContentionWorkersAsync(dataSource, transferWorkerCount, hotRowCount, transferRetryConfig, token),
     token);
 
