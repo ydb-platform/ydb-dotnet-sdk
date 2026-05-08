@@ -6,6 +6,7 @@ using OpenTelemetry.Metrics;
 using Xunit;
 using Ydb.Query;
 using Ydb.Query.V1;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.OpenTelemetry;
@@ -339,6 +340,166 @@ public class YdbMetricTests : TestBase
 
         AssertNoPoolMetricsForPool(exportedItems, settings.PoolName!);
     }
+
+    private const string RetryDurationMetric = "ydb.client.retry.duration";
+    private const string RetryAttemptsMetric = "ydb.client.retry.attempts";
+
+    [Fact]
+    public async Task RetryMetrics_FirstTrySuccess_RecordsOneAttempt()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default, operationName);
+        await executor.ExecuteAsync(_ => Task.CompletedTask);
+
+        meterProvider.ForceFlush();
+
+        var attemptsPoint = SinglePointForOperation(exportedItems, RetryAttemptsMetric, operationName);
+        Assert.Equal(1, attemptsPoint.GetHistogramCount());
+        Assert.Equal(1, attemptsPoint.GetHistogramSum());
+
+        var durationPoint = SinglePointForOperation(exportedItems, RetryDurationMetric, operationName);
+        Assert.Equal(1, durationPoint.GetHistogramCount());
+        Assert.True(durationPoint.GetHistogramSum() >= 0);
+    }
+
+    [Fact]
+    public async Task RetryMetrics_WithRetries_RecordsTotalAttempts()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        // MaxAttempts=5 → up to 4 retries; we'll succeed on the 3rd call (after 2 retries).
+        var policy = new YdbRetryPolicy(new YdbRetryPolicyConfig
+        {
+            MaxAttempts = 5,
+            FastBackoffBaseMs = 1,
+            FastCapBackoffMs = 1
+        });
+        var executor = new YdbRetryPolicyExecutor(policy, operationName);
+
+        var calls = 0;
+        await executor.ExecuteAsync(_ =>
+        {
+            calls++;
+            if (calls < 3)
+                throw new YdbException(StatusCode.Aborted, "retry me");
+            return Task.CompletedTask;
+        });
+
+        Assert.Equal(3, calls);
+
+        meterProvider.ForceFlush();
+
+        var attemptsPoint = SinglePointForOperation(exportedItems, RetryAttemptsMetric, operationName);
+        Assert.Equal(1, attemptsPoint.GetHistogramCount());
+        Assert.Equal(3, attemptsPoint.GetHistogramSum());
+    }
+
+    [Fact]
+    public async Task RetryMetrics_NonRetryableError_StillRecorded()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default, operationName);
+        await Assert.ThrowsAsync<YdbException>(() =>
+            executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Unauthorized, "no")));
+
+        meterProvider.ForceFlush();
+
+        var attemptsPoint = SinglePointForOperation(exportedItems, RetryAttemptsMetric, operationName);
+        Assert.Equal(1, attemptsPoint.GetHistogramSum());
+
+        var durationPoint = SinglePointForOperation(exportedItems, RetryDurationMetric, operationName);
+        Assert.Equal(1, durationPoint.GetHistogramCount());
+    }
+
+    [Fact]
+    public async Task RetryMetrics_RetriesExhausted_RecordsAllAttempts()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var policy = new YdbRetryPolicy(new YdbRetryPolicyConfig
+        {
+            MaxAttempts = 3,
+            FastBackoffBaseMs = 1,
+            FastCapBackoffMs = 1
+        });
+        var executor = new YdbRetryPolicyExecutor(policy, operationName);
+
+        await Assert.ThrowsAsync<YdbException>(() =>
+            executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Aborted, "always fails")));
+
+        meterProvider.ForceFlush();
+
+        var attemptsPoint = SinglePointForOperation(exportedItems, RetryAttemptsMetric, operationName);
+        // MaxAttempts=3 ⇒ initial + 2 retries ⇒ 3 calls total
+        Assert.Equal(3, attemptsPoint.GetHistogramSum());
+    }
+
+    [Fact]
+    public async Task RetryMetrics_NoOperationName_OmitsOperationNameTag()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
+        await executor.ExecuteAsync(_ => Task.CompletedTask);
+
+        meterProvider.ForceFlush();
+
+        foreach (var name in new[] { RetryAttemptsMetric, RetryDurationMetric })
+        {
+            var metric = GetMetric(exportedItems, name);
+            // At least one point with no operation.name tag must be present (the call we just made).
+            Assert.Contains(EnumeratePoints(metric),
+                point => !ToDictionary(point.Tags).ContainsKey("operation.name"));
+        }
+    }
+
+    [Fact]
+    public async Task RetryMetrics_WithOperationName_TagsBothMetrics()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default, operationName);
+        await executor.ExecuteAsync(_ => Task.CompletedTask);
+
+        meterProvider.ForceFlush();
+
+        foreach (var name in new[] { RetryAttemptsMetric, RetryDurationMetric })
+        {
+            var point = SinglePointForOperation(exportedItems, name, operationName);
+            Assert.Equal(operationName, ToDictionary(point.Tags)["operation.name"]);
+        }
+    }
+
+    private static MetricPoint SinglePointForOperation(
+        List<Metric> exportedItems,
+        string metricName,
+        string operationName)
+    {
+        var metric = GetMetric(exportedItems, metricName);
+        return EnumeratePoints(metric)
+            .Single(p => ToDictionary(p.Tags).GetValueOrDefault("operation.name") as string == operationName);
+    }
+
+    private static IEnumerable<MetricPoint> EnumeratePoints(Metric metric)
+    {
+        foreach (var point in metric.GetMetricPoints())
+            yield return point;
+    }
+
+    private static string NewOperationName() => "TestOp." + Guid.NewGuid().ToString("N");
 
     private static readonly string[] PoolScopedMetricNames =
     [
