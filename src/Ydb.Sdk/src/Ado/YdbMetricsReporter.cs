@@ -11,9 +11,19 @@ internal sealed class YdbMetricsReporter : IDisposable
     private static readonly InstrumentAdvice<double> ShortHistogramAdvice = new()
         { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] };
 
+    private static readonly InstrumentAdvice<double> RetryDurationAdvice = new()
+        { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30] };
+
+    private static readonly InstrumentAdvice<int> RetryAttemptsAdvice = new()
+        { HistogramBucketBoundaries = [1, 2, 3, 4, 5, 7, 10, 20] };
+
     // Operation metrics: duration and failures
     private static readonly Histogram<double> OperationDuration;
     private static readonly Counter<int> OperationsFailed;
+
+    // Retry-policy metrics: full logical operation duration and total attempts per call
+    private static readonly Histogram<double> RetryDuration;
+    private static readonly Histogram<int> RetryAttempts;
 
     // Pool metrics: connection lifecycle (count, timeouts, pending requests, create time)
     // create_time covers CreateSession RPC + first AttachStream message
@@ -81,6 +91,22 @@ internal sealed class YdbMetricsReporter : IDisposable
             unit: "s",
             description: "The time it took to create a new connection (CreateSession + first AttachStream message).",
             advice: ShortHistogramAdvice);
+
+        RetryDuration = meter.CreateHistogram(
+            "ydb.client.retry.duration",
+            unit: "s",
+            description:
+            "Total user-visible duration of a logical operation executed through the retry policy, " +
+            "including all attempts and back-off delays.",
+            advice: RetryDurationAdvice);
+
+        RetryAttempts = meter.CreateHistogram(
+            "ydb.client.retry.attempts",
+            unit: "{attempt}",
+            description:
+            "Total number of attempts performed by the retry policy for one logical operation. " +
+            "A value of 1 means the operation succeeded on the first try.",
+            advice: RetryAttemptsAdvice);
     }
 
     internal YdbMetricsReporter(YdbConnectionStringBuilder settings)
@@ -160,6 +186,24 @@ internal sealed class YdbMetricsReporter : IDisposable
     {
         if (startTimestamp > 0)
             ConnectionCreateTime.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _poolNameTag);
+    }
+
+    internal static long ReportRetryStart() =>
+        RetryDuration.Enabled || RetryAttempts.Enabled ? Stopwatch.GetTimestamp() : 0;
+
+    internal static void ReportRetryStop(long startTimestamp, int attempts, string? operationName)
+    {
+        if (startTimestamp <= 0)
+            return;
+
+        var tags = new TagList();
+        if (operationName != null)
+            tags.Add("operation.name", operationName);
+
+        if (RetryDuration.Enabled)
+            RetryDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, tags);
+        if (RetryAttempts.Enabled)
+            RetryAttempts.Record(attempts, tags);
     }
 
     private static IEnumerable<Measurement<int>> GetSessionCount()

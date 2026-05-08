@@ -85,6 +85,22 @@ public class YdbRetryPolicyConfig
     public bool EnableRetryIdempotence { get; init; }
 
     /// <summary>
+    /// Gets or sets the logical operation name used for tracing and metrics.
+    /// </summary>
+    /// <remarks>
+    /// When set, this name overrides the default <c>ydb.RunWithRetry</c> activity
+    /// (span) name and is reported as the <c>operation.name</c> attribute on the
+    /// <c>ydb.client.retry.duration</c> and <c>ydb.client.retry.attempts</c> histograms.
+    /// <para>
+    /// When <c>null</c>, the default activity name <c>ydb.RunWithRetry</c> is used and
+    /// the metric attribute <c>operation.name</c> is omitted entirely (no synthetic
+    /// "unknown" label is published).
+    /// </para>
+    /// <para>Default value: null.</para>
+    /// </remarks>
+    public string? OperationName { get; init; }
+
+    /// <summary>
     /// Returns a string representation of the retry policy configuration.
     /// </summary>
     /// <returns>A string containing all configuration values in a readable format.</returns>
@@ -97,5 +113,6 @@ public class YdbRetryPolicyConfig
                                          $"SlowBackoffBaseMs={SlowBackoffBaseMs};" +
                                          $"FastCapBackoffMs={FastCapBackoffMs};" +
                                          $"SlowCapBackoffMs={SlowCapBackoffMs};" +
-                                         $"EnableRetryIdempotence={EnableRetryIdempotence}";
+                                         $"EnableRetryIdempotence={EnableRetryIdempotence};" +
+                                         $"OperationName={OperationName}";
 }

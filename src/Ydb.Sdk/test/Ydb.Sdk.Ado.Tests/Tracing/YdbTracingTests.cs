@@ -257,6 +257,45 @@ public class YdbTracingTests : TestBase
     }
 
     [Fact]
+    public async Task Execute_NoOperationName_UsesDefaultRunWithRetrySpan()
+    {
+        using var activityListener = StartListener(out var activities);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
+        await executor.ExecuteAsync(_ => Task.CompletedTask);
+
+        var activity = GetSingleActivity(activities, "ydb.RunWithRetry");
+        Assert.Equal(ActivityKind.Internal, activity.Kind);
+    }
+
+    [Fact]
+    public async Task Execute_WithOperationName_OverridesRunWithRetrySpanName()
+    {
+        using var activityListener = StartListener(out var activities);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default, "MyApp.GetOrder");
+        await executor.ExecuteAsync(_ => Task.CompletedTask);
+
+        var activity = GetSingleActivity(activities, "MyApp.GetOrder");
+        Assert.Equal(ActivityKind.Internal, activity.Kind);
+        Assert.DoesNotContain(activities, a => a.DisplayName == "ydb.RunWithRetry");
+    }
+
+    [Fact]
+    public async Task Execute_WithOperationName_KeepsErrorTagsOnRenamedSpan()
+    {
+        using var activityListener = StartListener(out var activities);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default, "MyApp.Failing");
+        await Assert.ThrowsAsync<YdbException>(() =>
+            executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Unauthorized, "nope")));
+
+        var activity = GetSingleActivity(activities, "MyApp.Failing", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal(StatusCode.Unauthorized, activity.GetTagItem("db.response.status_code"));
+        Assert.Equal("ydb_error", activity.GetTagItem("error.type"));
+    }
+
+    [Fact]
     public async Task Execute_NonRetryableError_EmitsExecuteAndTryWithError()
     {
         using var activityListener = StartListener(out var activities);
