@@ -130,6 +130,86 @@
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
       ]
+    },
+    {
+      "title": "Retry: Logical Operation Latency",
+      "description": "End-to-end duration of one retry-policy call: includes every attempt + every back-off. Diverges from `ydb.client.operation.duration` exactly when the call needed retries.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, operation_name) (rate(ydb_client_retry_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p50 · {{operation_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, operation_name) (rate(ydb_client_retry_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95 · {{operation_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, operation_name) (rate(ydb_client_retry_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p99 · {{operation_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
+    },
+    {
+      "title": "Retry: Attempts per Operation",
+      "description": "Distribution of total attempts (initial + retries) per logical operation. p50=1 means median operation succeeded first try.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, operation_name) (rate(ydb_client_retry_attempts_bucket[$__rate_interval])))",
+          "legendFormat": "p50 · {{operation_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, operation_name) (rate(ydb_client_retry_attempts_bucket[$__rate_interval])))",
+          "legendFormat": "p95 · {{operation_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, operation_name) (rate(ydb_client_retry_attempts_bucket[$__rate_interval])))",
+          "legendFormat": "p99 · {{operation_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
+    },
+    {
+      "title": "Retry: First-try Success Rate",
+      "description": "Share of operations that completed in exactly one attempt (no retries). A drop here is an early signal of infra degradation or contention.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "sum by (operation_name) (rate(ydb_client_retry_attempts_bucket{le=\"1.0\"}[$__rate_interval])) / sum by (operation_name) (rate(ydb_client_retry_attempts_count[$__rate_interval]))",
+          "legendFormat": "{{operation_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
+    },
+    {
+      "title": "Retry: Average Attempts per Operation",
+      "description": "Mean total attempts per logical operation — `sum / count` of `ydb.client.retry.attempts`. 1.0 = no retries; rising trend = growing retry pressure.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 1 } },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "sum by (operation_name) (rate(ydb_client_retry_attempts_sum[$__rate_interval])) / sum by (operation_name) (rate(ydb_client_retry_attempts_count[$__rate_interval]))",
+          "legendFormat": "{{operation_name}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ]
     }
   ]
 }

@@ -4,6 +4,7 @@ using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.OpenTelemetry;
 
 const string ydbConnectionString = "Host=ydb;Port=2136;Database=/local";
@@ -28,14 +29,41 @@ const int minDurationSec = 600;
 var totalSec = args.Length > 1 && int.TryParse(args[1], out var s) ? s : 3000;
 const int workerCount = 60;
 
+// One operation name per lane — surfaces as `operation.name` on
+// `ydb.client.retry.duration` / `ydb.client.retry.attempts`.
+var selectRetryConfig = new YdbRetryPolicyConfig { OperationName = "select-1" };
+var transferRetryConfig = new YdbRetryPolicyConfig { OperationName = "bank-transfer" };
+
+// Contention pool: 8 workers race on 5 hot rows. With more rows than workers
+// would be idle; with one row throughput collapses to ~0. 8 vs 5 gives steady
+// progress with a healthy fraction of TLI retries.
+const int transferWorkerCount = 8;
+const int hotRowCount = 5;
+
 await using var dataSource = new YdbDataSource(
     new YdbConnectionStringBuilder(ydbConnectionString)
     {
-        MaxPoolSize = workerCount,
+        MaxPoolSize = workerCount + transferWorkerCount,
         MinPoolSize = 0,
         SessionIdleTimeout = 15,
         PoolName = "load-tank"
     });
+
+// Hot rows used by the contention lane. Workers pick a random PK from this set
+// per transaction — collisions on the same PK produce StatusCode.Aborted (TLI),
+// which the retry policy retries; non-colliding picks keep throughput moving.
+await dataSource.ExecuteAsync(async conn =>
+{
+    await new YdbCommand("CREATE TABLE IF NOT EXISTS retry_demo_account(id Int32, amount Int64, PRIMARY KEY (id))",
+            conn)
+        .ExecuteNonQueryAsync();
+    for (var id = 1; id <= hotRowCount; id++)
+    {
+        await new YdbCommand(
+                $"UPSERT INTO retry_demo_account(id, amount) VALUES ({id}, 0)", conn)
+            .ExecuteNonQueryAsync();
+    }
+});
 
 using var loadMeterProvider = Sdk.CreateMeterProviderBuilder()
     .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("ydb-load-tank"))
@@ -59,6 +87,13 @@ Console.WriteLine(
 
 var currentRpsCts = new CancellationTokenSource();
 
+// Contention lane: keeps running for the whole tank duration to produce a
+// steady stream of Aborted/TLI retries on the hot rows.
+var contentionTask = Task.Run(
+    // ReSharper disable once AccessToDisposedClosure
+    () => RunContentionWorkersAsync(dataSource, transferWorkerCount, hotRowCount, transferRetryConfig, token),
+    token);
+
 // RPS controller: iterates the load pattern and restarts workers on each step
 var controller = Task.Run(async () =>
 {
@@ -74,13 +109,13 @@ var controller = Task.Run(async () =>
 
         Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Phase: {label} ({rps} RPS)");
         // ReSharper disable once AccessToDisposedClosure
-        _ = RunWorkersAsync(dataSource, rps, workerCount, stepToken);
+        _ = RunWorkersAsync(dataSource, rps, workerCount, selectRetryConfig, stepToken);
     }
 }, token);
 
 try
 {
-    await controller;
+    await Task.WhenAll(controller, contentionTask);
 }
 catch (OperationCanceledException)
 {
@@ -226,7 +261,7 @@ static async IAsyncEnumerable<(int Rps, string Label)> LoadStepsAsync(
 }
 
 static async Task RunWorkersAsync(YdbDataSource dataSource, int targetRps, int workerCount,
-    CancellationToken cancellationToken)
+    YdbRetryPolicyConfig retryConfig, CancellationToken cancellationToken)
 {
     // Each rate-limiter window is 100 ms → permitLimit = targetRps / 10
     var permitsPer100Ms = Math.Max(1, targetRps / 10);
@@ -251,7 +286,8 @@ static async Task RunWorkersAsync(YdbDataSource dataSource, int targetRps, int w
             try
             {
                 await dataSource.ExecuteAsync(async conn =>
-                    await new YdbCommand("SELECT 1;", conn).ExecuteNonQueryAsync(cancellationToken));
+                        await new YdbCommand("SELECT 1;", conn).ExecuteNonQueryAsync(cancellationToken),
+                    retryConfig);
             }
             catch (OperationCanceledException)
             {
@@ -260,6 +296,57 @@ static async Task RunWorkersAsync(YdbDataSource dataSource, int targetRps, int w
             catch
             {
                 /* ignored */
+            }
+        }
+    }, cancellationToken));
+
+    await Task.WhenAll(workers);
+}
+
+// SELECT-then-UPDATE on a randomly-picked hot row. With more workers than rows,
+// some transactions collide on the same PK and produce StatusCode.Aborted (TLI),
+// which the retry policy retries — populating `ydb.client.retry.attempts` > 1.
+// Random PK selection keeps the system converging instead of livelocking on one row.
+static async Task RunContentionWorkersAsync(
+    YdbDataSource dataSource,
+    int workerCount,
+    int hotRowCount,
+    YdbRetryPolicyConfig retryConfig,
+    CancellationToken cancellationToken)
+{
+    var workers = Enumerable.Range(0, workerCount).Select(_ => Task.Run(async () =>
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var id = Random.Shared.Next(1, hotRowCount + 1);
+            try
+            {
+                await dataSource.ExecuteInTransactionAsync(async (conn, ct) =>
+                {
+                    var current = (long)(await new YdbCommand(conn)
+                    {
+                        CommandText = "SELECT amount FROM retry_demo_account WHERE id = @id",
+                        Parameters = { new YdbParameter { ParameterName = "id", Value = id } }
+                    }.ExecuteScalarAsync(ct))!;
+
+                    await new YdbCommand(conn)
+                    {
+                        CommandText = "UPDATE retry_demo_account SET amount = @a + 1 WHERE id = @id",
+                        Parameters =
+                        {
+                            new YdbParameter { ParameterName = "a", Value = current },
+                            new YdbParameter { ParameterName = "id", Value = id }
+                        }
+                    }.ExecuteNonQueryAsync(ct);
+                }, retryConfig, cancellationToken: cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch
+            {
+                /* ignored — retry budget exceeded; metric still recorded */
             }
         }
     }, cancellationToken));
