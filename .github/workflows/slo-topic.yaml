@@ -13,6 +13,9 @@ jobs:
     name: SLO Topic test
     runs-on: "large-runner-dotnet-sdk"
 
+    permissions:
+      contents: read
+
     steps:
       - name: Install dependencies
         run: |
