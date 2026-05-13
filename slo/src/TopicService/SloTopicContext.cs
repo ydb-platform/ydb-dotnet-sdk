@@ -17,37 +17,33 @@ public class SloTopicContext : ISloContext
 
     private static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTopicContext>();
 
-    public async Task Create(CreateConfig createConfig)
-    {
-        var connectionStringBuilder = new YdbConnectionStringBuilder(createConfig.ConnectionString)
-            { LoggerFactory = ISloContext.Factory };
-        await using var topicClient = new TopicClient(connectionStringBuilder);
-
-        await topicClient.CreateTopic(
-            new CreateTopicSettings
-            {
-                Path = PathTopic,
-                PartitioningSettings = new PartitioningSettings
-                {
-                    MinActivePartitions = PartitionSize
-                },
-                Consumers =
-                {
-                    new Consumer(ConsumerName)
-                    {
-                        Important = true
-                    }
-                }
-            }
-        );
-
-        Logger.LogInformation("Topic[{TopicName}] created!", PathTopic);
-    }
-
-    public async Task Run(RunConfig config)
+    public async Task Run(SloConfig config)
     {
         var connectionStringBuilder = new YdbConnectionStringBuilder(config.ConnectionString)
             { LoggerFactory = ISloContext.Factory };
+
+        await using (var topicClient = new TopicClient(connectionStringBuilder))
+        {
+            await topicClient.CreateTopic(
+                new CreateTopicSettings
+                {
+                    Path = PathTopic,
+                    PartitioningSettings = new PartitioningSettings
+                    {
+                        MinActivePartitions = PartitionSize
+                    },
+                    Consumers =
+                    {
+                        new Consumer(ConsumerName)
+                        {
+                            Important = true
+                        }
+                    }
+                }
+            );
+
+            Logger.LogInformation("Topic[{TopicName}] created!", PathTopic);
+        }
 
         Logger.LogInformation("Started Run topic slo test");
 

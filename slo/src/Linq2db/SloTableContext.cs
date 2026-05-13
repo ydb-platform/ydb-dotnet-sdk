@@ -16,7 +16,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
             => new(new DataOptions().UseConnectionString("YDB", connectionString));
     }
 
-    protected override Linq2dbClient CreateClient(Config config) => new(config.ConnectionString);
+    protected override Linq2dbClient CreateClient(SloConfig config) => new(config.ConnectionString);
 
     protected override async Task Create(Linq2dbClient client, int operationTimeout)
     {

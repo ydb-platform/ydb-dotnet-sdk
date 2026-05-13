@@ -9,7 +9,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
 {
     protected override string Job => "Dapper";
 
-    protected override YdbDataSource CreateClient(Config config) => new YdbDataSourceBuilder(
+    protected override YdbDataSource CreateClient(SloConfig config) => new YdbDataSourceBuilder(
         new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
     ) { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
 
