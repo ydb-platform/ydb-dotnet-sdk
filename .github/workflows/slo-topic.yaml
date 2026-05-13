@@ -11,10 +11,7 @@ on:
 jobs:
   ydb-slo-topic-action:
     name: SLO Topic test
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
+    runs-on: "large-runner-dotnet-sdk"
 
     steps:
       - name: Install dependencies
