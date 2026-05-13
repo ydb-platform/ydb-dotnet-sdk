@@ -59,8 +59,7 @@ public static class Cli
         ReadTimeoutOption,
         WriteRpsOption,
         WriteTimeoutOption,
-        TimeOption,
-        InitialDataCountOption
+        TimeOption
     };
 
     private static readonly RootCommand RootCommand = new("SLO app")
