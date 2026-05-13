@@ -17,9 +17,7 @@ public interface ISloContext
 {
     public static readonly ILoggerFactory Factory = LoggerFactory.Create(builder => builder.AddNLog());
 
-    public Task Create(CreateConfig createConfig);
-
-    public Task Run(RunConfig runConfig);
+    public Task Run(SloConfig sloConfig);
 }
 
 public abstract class SloTableContext<T> : ISloContext
@@ -32,22 +30,22 @@ public abstract class SloTableContext<T> : ISloContext
 
     protected abstract string Job { get; }
 
-    protected abstract T CreateClient(Config config);
+    protected abstract T CreateClient(SloConfig config);
 
-    public async Task Create(CreateConfig createConfig)
+    public async Task Create(SloConfig sloConfig)
     {
         // Retries cover SCHEME_ERROR: schema cache on query nodes propagates async from
         // SchemeBoard after CREATE TABLE returns — a follow-up ALTER/INSERT can hit a node
         // whose cache still misses the table (ydb-platform/ydb#23386, #36335).
         const int maxCreateAttempts = 10;
-        var client = CreateClient(createConfig);
+        var client = CreateClient(sloConfig);
 
         for (var attempt = 0; attempt < maxCreateAttempts; attempt++)
         {
             Logger.LogInformation("Creating table {Name}...", SloTable.Name);
             try
             {
-                await Create(client, createConfig.WriteTimeout);
+                await Create(client, sloConfig.WriteTimeout);
 
                 Logger.LogInformation("Created table {Name}", SloTable.Name);
 
@@ -66,10 +64,10 @@ public abstract class SloTableContext<T> : ISloContext
             }
         }
 
-        var tasks = new Task[createConfig.InitialDataCount];
-        for (var i = 0; i < createConfig.InitialDataCount; i++)
+        var tasks = new Task[sloConfig.InitialDataCount];
+        for (var i = 0; i < sloConfig.InitialDataCount; i++)
         {
-            tasks[i] = Save(client, createConfig);
+            tasks[i] = Save(client, sloConfig);
         }
 
         try
@@ -88,15 +86,12 @@ public abstract class SloTableContext<T> : ISloContext
 
     protected abstract Task Create(T client, int operationTimeout);
 
-    public async Task Run(RunConfig runConfig)
+    public async Task Run(SloConfig sloConfig)
     {
         var refLabel = Environment.GetEnvironmentVariable("WORKLOAD_REF") ?? "unknown";
         var workloadLabel = Environment.GetEnvironmentVariable("WORKLOAD_NAME") ?? Job;
 
-        await Create(new CreateConfig(
-            runConfig.ConnectionString,
-            runConfig.InitialDataCount,
-            runConfig.WriteTimeout));
+        await Create(sloConfig);
 
         using var meter = new Meter("YDB.SLO");
 
@@ -144,7 +139,7 @@ public abstract class SloTableContext<T> : ISloContext
             .AddMeter("YDB.SLO")
             .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
             {
-                var endpointUri = ResolveOtlpEndpoint(runConfig.OtlpEndpoint);
+                var endpointUri = ResolveOtlpEndpoint(sloConfig.OtlpEndpoint);
                 if (endpointUri != null)
                 {
                     exporterOptions.Endpoint = endpointUri;
@@ -152,7 +147,7 @@ public abstract class SloTableContext<T> : ISloContext
 
                 exporterOptions.Protocol = OtlpExportProtocol.HttpProtobuf;
                 metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
-                    runConfig.ReportPeriod;
+                    sloConfig.ReportPeriod;
             })
             .Build();
 
@@ -168,9 +163,9 @@ public abstract class SloTableContext<T> : ISloContext
                     snapshots[kv.Key] = snapshot;
                 }
             }
-        }, null, runConfig.ReportPeriod, runConfig.ReportPeriod);
+        }, null, sloConfig.ReportPeriod, sloConfig.ReportPeriod);
 
-        var client = CreateClient(runConfig);
+        var client = CreateClient(sloConfig);
 
         _maxId = await SelectCount(client) + 1;
 
@@ -178,17 +173,17 @@ public abstract class SloTableContext<T> : ISloContext
 
         var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.WriteRps / 10,
+            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = sloConfig.WriteRps / 10,
             QueueLimit = int.MaxValue
         });
         var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = runConfig.ReadRps / 10,
+            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = sloConfig.ReadRps / 10,
             QueueLimit = int.MaxValue
         });
 
         var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(runConfig.Time));
+        cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(sloConfig.Time));
 
         var writeTask = ShootingTask(writeLimiter, "write", Save);
         var readTask = ShootingTask(readLimiter, "read", Select);
@@ -209,7 +204,7 @@ public abstract class SloTableContext<T> : ISloContext
         Logger.LogInformation("Run task is finished");
         return;
 
-        async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, RunConfig, Task> action)
+        async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, SloConfig, Task> action)
         {
             var successTags = new TagList
             {
@@ -244,7 +239,7 @@ public abstract class SloTableContext<T> : ISloContext
 
                         try
                         {
-                            await action(client, runConfig);
+                            await action(client, sloConfig);
                             sw.Stop();
                             operationsTotal.Add(1, successTags);
                             latencyAggregators[operationType].Record(sw.Elapsed.TotalSeconds);
@@ -350,7 +345,7 @@ public abstract class SloTableContext<T> : ISloContext
 
     protected abstract Task<int> SelectCount(T client);
 
-    private Task<int> Save(T client, Config config)
+    private Task<int> Save(T client, SloConfig config)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
@@ -370,7 +365,7 @@ public abstract class SloTableContext<T> : ISloContext
         return Save(client, sloTable, config.WriteTimeout);
     }
 
-    private async Task Select(T client, RunConfig config)
+    private async Task Select(T client, SloConfig config)
     {
         var id = Random.Shared.Next(_maxId);
         _ = await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);

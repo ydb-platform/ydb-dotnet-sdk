@@ -9,7 +9,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
 {
     protected override string Job => "AdoNet";
 
-    protected override YdbDataSource CreateClient(Config config) => new YdbDataSourceBuilder(
+    protected override YdbDataSource CreateClient(SloConfig config) => new YdbDataSourceBuilder(
         new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
     ) { RetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true }) }.Build();
 

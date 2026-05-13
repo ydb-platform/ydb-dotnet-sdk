@@ -7,29 +7,87 @@ on:
   pull_request:
   schedule:
     - cron: "45 * * * *"
+  workflow_dispatch:
+    inputs:
+      slo_workload_duration_seconds:
+        description: "Workload duration in seconds"
+        required: false
+        default: "600"
+      slo_workload_read_max_rps:
+        description: "Read RPS cap"
+        required: false
+        default: "1000"
+      slo_workload_write_max_rps:
+        description: "Write RPS cap"
+        required: false
+        default: "50"
+
 jobs:
   ydb-slo-topic-action:
     name: SLO Topic test
     runs-on: ubuntu-latest
-    
+
+    permissions:
+      contents: read
+
     steps:
+      - name: Install dependencies
+        run: |
+          YQ_VERSION=v4.48.2
+          BUILDX_VERSION=0.30.1
+          COMPOSE_VERSION=2.40.3
+
+          sudo curl -L https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -o /usr/local/bin/yq && \
+            sudo chmod +x /usr/local/bin/yq
+
+          echo "Updating Docker plugins..."
+          sudo mkdir -p /usr/local/lib/docker/cli-plugins
+
+          echo "Installing Docker Buildx ${BUILDX_VERSION}..."
+          sudo curl -fLo /usr/local/lib/docker/cli-plugins/docker-buildx \
+            "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64"
+          sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
+          echo "Installing Docker Compose ${COMPOSE_VERSION}..."
+          sudo curl -fLo /usr/local/lib/docker/cli-plugins/docker-compose \
+            "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-x86_64"
+          sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+          echo "Installed versions:"
+          yq --version
+          docker --version
+          docker buildx version
+          docker compose version
+
       - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/checkout@v6
         with:
-          dotnet-version: 8.0.x
-      - name: Set up Docker Compose
-        uses: hoverkraft-tech/compose-action@v2.1.0
+          path: current
+          fetch-depth: 0
+
+      - name: Build current workload image
+        run: |
+          set -euxo pipefail
+          chmod +x current/.github/scripts/build-slo-image.sh
+
+          current/.github/scripts/build-slo-image.sh \
+            --tag "ydb-app-current" \
+            --context "$GITHUB_WORKSPACE/current" \
+            --workload "TopicService"
+
+      - name: Run YDB SLO Topic
+        uses: ydb-platform/ydb-slo-action/init@v2
+        timeout-minutes: 30
         with:
-          compose-file: "./slo/playground/configs/compose.yaml"
-      - name: Prepare SLO Database
-        run: |
-          cd slo/src/TopicService
-          dotnet run create "Host=localhost;Port=2135;Database=/Root/testdb"
-      - name: Run SLO Tests
-        run: |
-          cd slo/src/TopicService
-          dotnet run run "Host=localhost;Port=2135;Database=/Root/testdb" \
-            --write-rps 50 \
-            --time 600
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workload_name: "TopicService"
+          workload_duration: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.slo_workload_duration_seconds) || '600' }}
+          workload_current_ref: ${{ github.head_ref || github.ref_name }}
+          workload_current_image: ydb-app-current
+          workload_current_command: >-
+            run "Host=ydb;Port=2136;Database=/Root/testdb"
+            --read-rps ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.slo_workload_read_max_rps) || '1000' }}
+            --write-rps ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.slo_workload_write_max_rps) || '50' }}
+            --read-timeout 1000
+            --write-timeout 1000
+          disable_compose_profiles: workload-baseline,chaos,telemetry
