@@ -1,6 +1,7 @@
 # EntityFrameworkCore.Ydb
 
 [![NuGet](https://img.shields.io/nuget/v/EntityFrameworkCore.Ydb)](https://www.nuget.org/packages/EntityFrameworkCore.Ydb)
+[![Сoverage](https://codecov.io/gh/ydb-platform/ydb-dotnet-sdk/graph/badge.svg?flag=efcore-ydb)](https://app.codecov.io/gh/ydb-platform/ydb-dotnet-sdk/flags/efcore-ydb)
 
 Entity Framework Core provider for [YDB](https://ydb.tech) — a distributed SQL database by Yandex.
 Built on top of the `Ydb.Sdk` ADO.NET provider.

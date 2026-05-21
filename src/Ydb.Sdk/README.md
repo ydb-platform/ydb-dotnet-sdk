@@ -1,6 +1,7 @@
 # Ydb.Sdk
 
 [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk)](https://www.nuget.org/packages/Ydb.Sdk)
+[![Coverage](https://codecov.io/gh/ydb-platform/ydb-dotnet-sdk/graph/badge.svg?flag=ydb-sdk)](https://app.codecov.io/gh/ydb-platform/ydb-dotnet-sdk/flags/ydb-sdk)
 
 Core .NET SDK for [YDB](https://ydb.tech) — a distributed SQL database by Yandex.
 Includes a full ADO.NET provider and a Topic (Pub/Sub) client.

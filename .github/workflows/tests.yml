@@ -1,4 +1,5 @@
 name: tests
+
 on:
   push:
     branches:
@@ -9,13 +10,18 @@ on:
   schedule:
     - cron: "45 * * * *"
 
+permissions:
+  contents: read
+
 jobs:
   ydb-sdk-tests:
     strategy:
       matrix:
         ydb-version: [ 'latest', 'trunk' ]
         dotnet-version: [ 8.0.x, 9.0.x ]
+
     runs-on: ubuntu-22.04
+
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
@@ -24,6 +30,10 @@ jobs:
           YDB_LOCAL_SURVIVE_RESTART: true
           YDB_FEATURE_FLAGS: enable_parameterized_decimal,enable_table_datetime64
         options: '--name ydb-local -h localhost'
+
+    env:
+      COVERAGE_ENABLED: ${{ github.event_name != 'schedule' && matrix.ydb-version == 'latest' && matrix.dotnet-version == '9.0.x' }}
+      COVERAGE_DIR: ${{ github.workspace }}/artifacts/coverage/ydb-sdk
 
     steps:
       - name: Checkout code
@@ -34,29 +44,81 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
 
+      - name: Prepare coverage directory
+        if: env.COVERAGE_ENABLED == 'true'
+        run: mkdir -p "$COVERAGE_DIR"
+
       - name: Run ADO.NET Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test --logger "GitHubActions;report-warnings=false"
+
+          if [ "$COVERAGE_ENABLED" = "true" ]; then
+            dotnet test \
+              --logger "console;verbosity=normal" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory "$COVERAGE_DIR/ado" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+          else
+            dotnet test --logger "console;verbosity=normal"
+          fi
 
       - name: Run ADO.NET Specification Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Specification.Tests
-        run: dotnet test --logger "GitHubActions;report-warnings=false"
+        run: |
+          if [ "$COVERAGE_ENABLED" = "true" ]; then
+            dotnet test \
+              --logger "console;verbosity=normal" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory "$COVERAGE_DIR/specification" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+          else
+            dotnet test --logger "console;verbosity=normal"
+          fi
 
       - name: Run ADO.NET Dapper Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Dapper.Tests
-        run: dotnet test --logger "GitHubActions;report-warnings=false"
+        run: |
+          if [ "$COVERAGE_ENABLED" = "true" ]; then
+            dotnet test \
+              --logger "console;verbosity=normal" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory "$COVERAGE_DIR/dapper" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+          else
+            dotnet test --logger "console;verbosity=normal"
+          fi
 
       - name: Run Topic Tests
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Topic.Tests
-        run: dotnet test --logger "GitHubActions;report-warnings=false"
+        run: |
+          if [ "$COVERAGE_ENABLED" = "true" ]; then
+            dotnet test \
+              --logger "console;verbosity=normal" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory "$COVERAGE_DIR/topic" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+          else
+            dotnet test --logger "console;verbosity=normal"
+          fi
+
+      - name: Upload Ydb.Sdk coverage to Codecov
+        if: env.COVERAGE_ENABLED == 'true'
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: artifacts/coverage/ydb-sdk
+          flags: ydb-sdk
+          name: ydb-sdk
+          fail_ci_if_error: true
 
   efcore-tests:
     runs-on: ubuntu-22.04
+
     strategy:
       matrix:
         ydb-version: [ 'latest' ]
+
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
@@ -65,6 +127,10 @@ jobs:
           YDB_LOCAL_SURVIVE_RESTART: true
           YDB_FEATURE_FLAGS: enable_parameterized_decimal,enable_table_datetime64
         options: '--name ydb-local -h localhost'
+
+    env:
+      COVERAGE_ENABLED: ${{ github.event_name != 'schedule' && matrix.ydb-version == 'latest' }}
+      COVERAGE_DIR: ${{ github.workspace }}/artifacts/coverage/efcore-ydb
 
     steps:
       - name: Checkout code
@@ -75,18 +141,43 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Prepare coverage directory
+        if: env.COVERAGE_ENABLED == 'true'
+        run: mkdir -p "$COVERAGE_DIR"
+
       - name: Run EFCore.Ydb functional tests
         working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
-          dotnet test -f net9.0 --logger "GitHubActions;report-warnings=false"
+
+          if [ "$COVERAGE_ENABLED" = "true" ]; then
+            dotnet test -f net9.0 \
+              --logger "console;verbosity=normal" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory "$COVERAGE_DIR/functional" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+          else
+            dotnet test -f net9.0 --logger "console;verbosity=normal"
+          fi
+
+      - name: Upload EFCore.Ydb coverage to Codecov
+        if: env.COVERAGE_ENABLED == 'true'
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: artifacts/coverage/efcore-ydb
+          flags: efcore-ydb
+          name: efcore-ydb
+          fail_ci_if_error: true
 
   run-examples:
     runs-on: ubuntu-22.04
+
     strategy:
       matrix:
         ydb-version: [ 'latest', 'trunk' ]
         dotnet-version: [ 8.0.x, 9.0.x ]
+
     services:
       ydb:
         image: ydbplatform/local-ydb:${{ matrix.ydb-version }}
@@ -95,6 +186,7 @@ jobs:
           YDB_LOCAL_SURVIVE_RESTART: true
           YDB_USE_IN_MEMORY_PDISKS: true
         options: '--name ydb-local -h localhost'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -137,8 +229,8 @@ jobs:
           dotnet ef migrations add InitialCreate
           dotnet ef database update
           dotnet run
+
       - name: Run Linq2db.QuickStart
         run: |
           cd ./examples/Linq2db.QuickStart
           dotnet run
-    
