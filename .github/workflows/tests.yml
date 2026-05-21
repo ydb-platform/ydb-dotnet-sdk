@@ -52,13 +52,15 @@ jobs:
         working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
+
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
-              --logger "GitHubActions;report-warnings=false" \
+              --logger "console;verbosity=normal" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/ado"
+              --results-directory "$COVERAGE_DIR/ado" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
           else
-            dotnet test --logger "GitHubActions;report-warnings=false"
+            dotnet test --logger "console;verbosity=normal"
           fi
 
       - name: Run ADO.NET Specification Tests
@@ -66,11 +68,12 @@ jobs:
         run: |
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
-              --logger "GitHubActions;report-warnings=false" \
+              --logger "console;verbosity=normal" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/specification"
+              --results-directory "$COVERAGE_DIR/specification" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
           else
-            dotnet test --logger "GitHubActions;report-warnings=false"
+            dotnet test --logger "console;verbosity=normal"
           fi
 
       - name: Run ADO.NET Dapper Tests
@@ -78,11 +81,12 @@ jobs:
         run: |
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
-              --logger "GitHubActions;report-warnings=false" \
+              --logger "console;verbosity=normal" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/dapper"
+              --results-directory "$COVERAGE_DIR/dapper" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
           else
-            dotnet test --logger "GitHubActions;report-warnings=false"
+            dotnet test --logger "console;verbosity=normal"
           fi
 
       - name: Run Topic Tests
@@ -90,16 +94,23 @@ jobs:
         run: |
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
-              --logger "GitHubActions;report-warnings=false" \
+              --logger "console;verbosity=normal" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/topic"
+              --results-directory "$COVERAGE_DIR/topic" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
           else
-            dotnet test --logger "GitHubActions;report-warnings=false"
+            dotnet test --logger "console;verbosity=normal"
           fi
+
+      - name: List Ydb.Sdk coverage files
+        if: env.COVERAGE_ENABLED == 'true'
+        run: |
+          echo "COVERAGE_DIR=$COVERAGE_DIR"
+          find "$COVERAGE_DIR" -type f -print
 
       - name: Upload Ydb.Sdk coverage to Codecov
         if: env.COVERAGE_ENABLED == 'true'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: artifacts/coverage/ydb-sdk/**/coverage.cobertura.xml
@@ -136,7 +147,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Prepare coverage directory
+      - name: Prepare EFCore.Ydb coverage directory
         if: env.COVERAGE_ENABLED == 'true'
         run: mkdir -p "$COVERAGE_DIR"
 
@@ -144,21 +155,45 @@ jobs:
         working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
+
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test -f net9.0 \
-              --logger "GitHubActions;report-warnings=false" \
+              --logger "console;verbosity=normal" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/functional"
+              --results-directory "$COVERAGE_DIR/functional" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
           else
-            dotnet test -f net9.0 --logger "GitHubActions;report-warnings=false"
+            dotnet test -f net9.0 --logger "console;verbosity=normal"
           fi
+
+      - name: List EFCore.Ydb coverage files
+        if: env.COVERAGE_ENABLED == 'true'
+        run: |
+          echo "COVERAGE_DIR=$COVERAGE_DIR"
+          find "$COVERAGE_DIR" -type f -print
+
+      - name: Normalize EFCore.Ydb coverage files
+        if: env.COVERAGE_ENABLED == 'true'
+        run: |
+          mkdir -p artifacts/coverage-upload/efcore-ydb
+
+          i=0
+          while IFS= read -r file; do
+            i=$((i + 1))
+            cp "$file" "artifacts/coverage-upload/efcore-ydb/coverage-$i.cobertura.xml"
+          done < <(find "$COVERAGE_DIR" -name "coverage.cobertura.xml" | sort)
+
+          echo "Normalized EFCore.Ydb coverage files:"
+          ls -la artifacts/coverage-upload/efcore-ydb
+
+          test "$i" -gt 0
 
       - name: Upload EFCore.Ydb coverage to Codecov
         if: env.COVERAGE_ENABLED == 'true'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: artifacts/coverage/efcore-ydb/**/coverage.cobertura.xml
+          directory: artifacts/coverage-upload/efcore-ydb
           flags: efcore-ydb
           name: efcore-ydb
           fail_ci_if_error: true
