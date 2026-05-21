@@ -17,11 +17,13 @@ single monorepo.
 
 ## Packages
 
-| Package | NuGet | README | Documentation |
-|---|---|---|---|
-| `Ydb.Sdk` | [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk)](https://www.nuget.org/packages/Ydb.Sdk) | [README](./src/Ydb.Sdk/README.md) | [ADO.NET](https://ydb.tech/docs/en/reference/languages-and-apis/ado-net), [Topic](https://ydb.tech/docs/en/reference/ydb-sdk/topic) |
-| `EntityFrameworkCore.Ydb` | [![NuGet](https://img.shields.io/nuget/v/EntityFrameworkCore.Ydb)](https://www.nuget.org/packages/EntityFrameworkCore.Ydb) | [README](./src/EFCore.Ydb/README.md) | [EF Core](https://ydb.tech/docs/en/integrations/orm/entity-framework?version=main) |
-| `Ydb.Sdk.OpenTelemetry` | [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk.OpenTelemetry)](https://www.nuget.org/packages/Ydb.Sdk.OpenTelemetry) | [README](./src/Ydb.Sdk.OpenTelemetry/README.md) | — |
+## Packages
+
+| Package                   | NuGet                                                                                                                      | Coverage                                                                                                                                                                            | README                                          | Documentation                                                                                                                       |
+|---------------------------|----------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| `Ydb.Sdk`                 | [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk)](https://www.nuget.org/packages/Ydb.Sdk)                                 | [![Ydb.Sdk coverage](https://codecov.io/gh/ydb-platform/ydb-dotnet-sdk/graph/badge.svg?flag=ydb-sdk)](https://app.codecov.io/gh/ydb-platform/ydb-dotnet-sdk/flags/ydb-sdk)          | [README](./src/Ydb.Sdk/README.md)               | [ADO.NET](https://ydb.tech/docs/en/reference/languages-and-apis/ado-net), [Topic](https://ydb.tech/docs/en/reference/ydb-sdk/topic) |
+| `EntityFrameworkCore.Ydb` | [![NuGet](https://img.shields.io/nuget/v/EntityFrameworkCore.Ydb)](https://www.nuget.org/packages/EntityFrameworkCore.Ydb) | [![EFCore.Ydb coverage](https://codecov.io/gh/ydb-platform/ydb-dotnet-sdk/graph/badge.svg?flag=efcore-ydb)](https://app.codecov.io/gh/ydb-platform/ydb-dotnet-sdk/flags/efcore-ydb) | [README](./src/EFCore.Ydb/README.md)            | [EF Core](https://ydb.tech/docs/en/integrations/orm/entity-framework?version=main)                                                  |
+| `Ydb.Sdk.OpenTelemetry`   | [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk.OpenTelemetry)](https://www.nuget.org/packages/Ydb.Sdk.OpenTelemetry)     | —                                                                                                                                                                                   | [README](./src/Ydb.Sdk.OpenTelemetry/README.md) | —                                                                                                                                   |
 
 ## Quick Start
 
@@ -41,20 +43,21 @@ await cmd.ExecuteNonQueryAsync();
 
 Ready-to-run example projects live in the [`examples/`](./examples) folder:
 
-| Example | Description |
-|---|---|
-| [AdoNet.QuickStart](./examples/Ydb.Sdk.AdoNet.QuickStart) | Minimal ADO.NET usage |
-| [AdoNet.Dapper.QuickStart](./examples/Ydb.Sdk.AdoNet.Dapper.QuickStart) | Dapper integration |
-| [AdoNet.Yandex.Cloud](./examples/Ydb.Sdk.AdoNet.Yandex.Cloud) | Connecting to YDB in Yandex Cloud |
-| [AdoNet.OpenTelemetry](./examples/Ydb.Sdk.AdoNet.OpenTelemetry) | Full OTel stack: Grafana + Tempo + Prometheus |
-| [Topic.QuickStart](./examples/Ydb.Sdk.Topic.QuickStart) | Topic Pub/Sub client |
-| [EntityFrameworkCore.QuickStart](./examples/EntityFrameworkCore.Ydb.QuickStart) | EF Core basics |
-| [EntityFrameworkCore.Samples](./examples/EntityFrameworkCore.Ydb.Samples) | EF Core — LINQ queries, relationships |
-| [Linq2db.QuickStart](./examples/Linq2db.QuickStart) | Linq2db integration |
+| Example                                                                         | Description                                   |
+|---------------------------------------------------------------------------------|-----------------------------------------------|
+| [AdoNet.QuickStart](./examples/Ydb.Sdk.AdoNet.QuickStart)                       | Minimal ADO.NET usage                         |
+| [AdoNet.Dapper.QuickStart](./examples/Ydb.Sdk.AdoNet.Dapper.QuickStart)         | Dapper integration                            |
+| [AdoNet.Yandex.Cloud](./examples/Ydb.Sdk.AdoNet.Yandex.Cloud)                   | Connecting to YDB in Yandex Cloud             |
+| [AdoNet.OpenTelemetry](./examples/Ydb.Sdk.AdoNet.OpenTelemetry)                 | Full OTel stack: Grafana + Tempo + Prometheus |
+| [Topic.QuickStart](./examples/Ydb.Sdk.Topic.QuickStart)                         | Topic Pub/Sub client                          |
+| [EntityFrameworkCore.QuickStart](./examples/EntityFrameworkCore.Ydb.QuickStart) | EF Core basics                                |
+| [EntityFrameworkCore.Samples](./examples/EntityFrameworkCore.Ydb.Samples)       | EF Core — LINQ queries, relationships         |
+| [Linq2db.QuickStart](./examples/Linq2db.QuickStart)                             | Linq2db integration                           |
 
 ## Versioning
 
 This project follows **[SemVer 2.0.0](https://semver.org)**:
+
 - `MAJOR` — breaking changes
 - `MINOR` — new features, backward compatible
 - `PATCH` — bug fixes and internal improvements
