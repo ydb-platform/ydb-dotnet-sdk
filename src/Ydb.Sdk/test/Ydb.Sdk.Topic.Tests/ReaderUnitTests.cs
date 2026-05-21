@@ -80,7 +80,7 @@ public class ReaderUnitTests
         var tcsCommitMessage = new TaskCompletionSource<bool>();
 
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)))
             .Returns(Task.CompletedTask)
             .Returns(Task.CompletedTask)
             .Returns(() =>
@@ -190,7 +190,7 @@ public class ReaderUnitTests
             });
 
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .Returns(tcsMoveNext.Task)
@@ -304,7 +304,7 @@ public class ReaderUnitTests
             })
             .Returns(InitResponseFromServer)
             .Returns(StartPartitionSessionRequest(10))
-            .Returns(ReadResponse(10, Encoding.UTF8.GetBytes("First"), Encoding.UTF8.GetBytes("Second")))
+            .Returns(ReadResponse(10, "First"u8.ToArray(), "Second"u8.ToArray()))
             .Returns(CommitOffsetResponse(12));
 
         await using var reader = new ReaderBuilder<string>(_driverFactoryMock)
@@ -445,7 +445,7 @@ public class ReaderUnitTests
 
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .Returns(tcsMoveNext.Task)
@@ -554,7 +554,7 @@ public class ReaderUnitTests
             {
                 tcsMoveNextFirst.SetResult(false);
 
-                return new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+                return new YdbException(new RpcException(Status.DefaultCancelled));
             })
             .Returns(Task.CompletedTask)
             .Returns(Task.CompletedTask)
@@ -719,7 +719,7 @@ public class ReaderUnitTests
             })
             .Throws(() =>
             {
-                var error = new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+                var error = new YdbException(new RpcException(Status.DefaultCancelled));
                 tcsMoveNextSecond.TrySetException(error);
 
                 return error;
@@ -854,7 +854,7 @@ public class ReaderUnitTests
             .Returns(Task.CompletedTask)
             .Throws(() =>
             {
-                var error = new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+                var error = new YdbException(new RpcException(Status.DefaultCancelled));
                 tcsMoveNextSecond.TrySetException(error);
 
                 return error;
@@ -1031,7 +1031,7 @@ public class ReaderUnitTests
             .Returns(() =>
             {
                 tcsMoveNextSecond.TrySetException(
-                    new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
+                    new YdbException(new RpcException(Status.DefaultCancelled)));
 
                 return Task.CompletedTask;
             })
@@ -1166,7 +1166,7 @@ public class ReaderUnitTests
             .Returns(() =>
             {
                 tcsMoveNextSecond.TrySetException(
-                    new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
+                    new YdbException(new RpcException(Status.DefaultCancelled)));
 
                 return Task.CompletedTask;
             })
@@ -1373,7 +1373,7 @@ public class ReaderUnitTests
         var tcsMoveNext = new TaskCompletionSource<bool>();
 
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)))
             .Returns(Task.CompletedTask)
             .Returns(Task.CompletedTask)
             .Returns(() =>

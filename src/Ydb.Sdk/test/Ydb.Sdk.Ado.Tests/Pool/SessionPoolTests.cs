@@ -26,6 +26,8 @@ public class SessionPoolTests
 
         var e = await Assert.ThrowsAsync<YdbException>(async () => await _testSessionPool.GetSession());
 
+        _testSessionPool.ThrowException = null;
+
         Assert.Equal(StatusCode.Unavailable, e.Code);
 
         StressTestSessionPoolAndCheckCreatedSessions(100, TestSessionPoolSize + 1);
@@ -36,8 +38,7 @@ public class SessionPoolTests
     [InlineData(StatusCode.BadSession)]
     [InlineData(StatusCode.SessionBusy)]
     [InlineData(StatusCode.InternalError)]
-    public void GetSession_WhenCreatedSessionIsInvalidated_ExpectedRecreatedSession(
-        StatusCode statusCode)
+    public void GetSession_WhenCreatedSessionIsInvalidated_ExpectedRecreatedSession(StatusCode statusCode)
     {
         StressTestSessionPoolAndCheckCreatedSessions(100, TestSessionPoolSize);
         StressTestSessionPoolAndCheckCreatedSessions(70, 70, session => session.OnNotSuccessStatusCode(statusCode));
