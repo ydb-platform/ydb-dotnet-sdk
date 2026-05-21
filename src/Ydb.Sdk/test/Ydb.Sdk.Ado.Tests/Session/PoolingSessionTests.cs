@@ -98,7 +98,7 @@ public class PoolingSessionTests
     {
         SetupSuccessCreateSession();
         _mockAttachStream.Setup(attachStream => attachStream.MoveNextAsync(CancellationToken.None))
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)));
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Transport RPC call error", ydbException.Message);
