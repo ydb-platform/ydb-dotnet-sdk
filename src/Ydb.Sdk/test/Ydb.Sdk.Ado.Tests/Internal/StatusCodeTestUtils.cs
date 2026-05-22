@@ -1,3 +1,4 @@
+using Grpc.Core;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Sdk.Ado.Internal;
@@ -15,7 +16,7 @@ public class StatusCodeTestUtils
     public void Code_GrpcCoreStatusCodeConvertToStatusCode_Assert(
         Grpc.Core.StatusCode statusCode,
         StatusCode expectedStatusCode
-    ) => Assert.Equal(expectedStatusCode, new Grpc.Core.Status(statusCode, "Mock status").Code());
+    ) => Assert.Equal(expectedStatusCode, new Status(statusCode, "Mock status").Code());
 
 
     [Fact]

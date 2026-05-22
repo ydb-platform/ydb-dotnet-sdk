@@ -141,7 +141,7 @@ public class YdbMetricTests : TestBase
                 It.IsAny<CreateSessionRequest>(),
                 It.Is<GrpcRequestSettings>(s => s.ClientCapabilities.Contains("session-balancer"))))
             .ThrowsAsync(new YdbException(
-                new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
+                new RpcException(new Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
 
         var factory = new PoolingSessionFactory(driver.Object, settings);
         await using var source = new PoolingSessionSource<PoolingSession>(factory, settings);
@@ -191,7 +191,7 @@ public class YdbMetricTests : TestBase
 
         attachStream.Setup(s => s.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new YdbException(
-                new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
+                new RpcException(new Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
         attachStream.Setup(s => s.Dispose());
 
         var factory = new PoolingSessionFactory(driver.Object, settings);

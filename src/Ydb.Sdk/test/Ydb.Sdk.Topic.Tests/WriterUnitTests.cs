@@ -129,7 +129,7 @@ public class WriterUnitTests
     {
         var taskNextComplete = new TaskCompletionSource<bool>();
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)))
             .Returns(Task.CompletedTask)
             .Returns(() =>
             {
@@ -184,7 +184,7 @@ public class WriterUnitTests
             });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ThrowsAsync(new YdbException(
-                new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))))
+                new RpcException(new Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))))
             .ReturnsAsync(true)
             .Returns(taskNextComplete.Task)
             .Returns(_lastMoveNext);
@@ -365,7 +365,7 @@ public class WriterUnitTests
             .Throws(() =>
             {
                 moveTcs.SetResult(false);
-                return new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+                return new YdbException(new RpcException(Status.DefaultCancelled));
             })
             .Returns(Task.CompletedTask)
             .Returns(() =>
@@ -450,7 +450,7 @@ public class WriterUnitTests
             });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .Returns(moveTcs.Task) // retry init writer session
             .Returns(_lastMoveNext);
@@ -993,7 +993,7 @@ public class WriterUnitTests
         Assert.False(writeTask1.IsCompleted);
         Assert.False(disposedTask.IsCompleted);
         writeTcs1.TrySetException(new YdbException(
-            new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))));
+            new RpcException(new Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))));
         Assert.Equal("Writer[TopicPath: /topic-16, ProducerId: producerId, Codec: Raw] is disposed",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(12))).Message);
 

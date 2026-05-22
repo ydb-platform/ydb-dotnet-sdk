@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+
+          <Include>
+            [Ydb.Sdk]*,
+            [EntityFrameworkCore.Ydb]*
+          </Include>
+
+          <Exclude>
+            [*.Tests]*,
+            [*.FunctionalTests]*,
+            [*.Benchmarks]*,
+            [*.Stress*]*
+          </Exclude>
+
+          <ExcludeByFile>
+            **/test/**/*.cs,
+            **/tests/**/*.cs,
+            **/bin/**/*.cs,
+            **/obj/**/*.cs
+          </ExcludeByFile>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

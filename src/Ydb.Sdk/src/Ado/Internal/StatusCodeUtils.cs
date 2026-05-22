@@ -1,10 +1,11 @@
+using Grpc.Core;
 using Ydb.Issue;
 
 namespace Ydb.Sdk.Ado.Internal;
 
 internal static class StatusCodeUtils
 {
-    internal static StatusCode Code(this Grpc.Core.Status rpcStatus) => rpcStatus.StatusCode switch
+    internal static StatusCode Code(this Status rpcStatus) => rpcStatus.StatusCode switch
     {
         Grpc.Core.StatusCode.Unavailable => StatusCode.ClientTransportUnavailable,
         Grpc.Core.StatusCode.DeadlineExceeded or Grpc.Core.StatusCode.Cancelled => StatusCode.ClientTransportTimeout,

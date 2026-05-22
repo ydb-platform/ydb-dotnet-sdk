@@ -34,6 +34,7 @@ jobs:
     env:
       COVERAGE_ENABLED: ${{ github.event_name != 'schedule' && matrix.ydb-version == 'latest' && matrix.dotnet-version == '9.0.x' }}
       COVERAGE_DIR: ${{ github.workspace }}/artifacts/coverage/ydb-sdk
+      COVERAGE_SETTINGS: ${{ github.workspace }}/.github/coverlet.runsettings
 
     steps:
       - name: Checkout code
@@ -56,9 +57,9 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
               --logger "console;verbosity=normal" \
+              --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/ado" \
-              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+              --results-directory "$COVERAGE_DIR/ado"
           else
             dotnet test --logger "console;verbosity=normal"
           fi
@@ -69,9 +70,9 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
               --logger "console;verbosity=normal" \
+              --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/specification" \
-              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+              --results-directory "$COVERAGE_DIR/specification"
           else
             dotnet test --logger "console;verbosity=normal"
           fi
@@ -82,9 +83,9 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
               --logger "console;verbosity=normal" \
+              --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/dapper" \
-              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+              --results-directory "$COVERAGE_DIR/dapper"
           else
             dotnet test --logger "console;verbosity=normal"
           fi
@@ -95,9 +96,9 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
               --logger "console;verbosity=normal" \
+              --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/topic" \
-              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+              --results-directory "$COVERAGE_DIR/topic"
           else
             dotnet test --logger "console;verbosity=normal"
           fi
@@ -131,6 +132,7 @@ jobs:
     env:
       COVERAGE_ENABLED: ${{ github.event_name != 'schedule' && matrix.ydb-version == 'latest' }}
       COVERAGE_DIR: ${{ github.workspace }}/artifacts/coverage/efcore-ydb
+      COVERAGE_SETTINGS: ${{ github.workspace }}/.github/coverlet.runsettings
 
     steps:
       - name: Checkout code
@@ -153,9 +155,9 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test -f net9.0 \
               --logger "console;verbosity=normal" \
+              --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
-              --results-directory "$COVERAGE_DIR/functional" \
-              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+              --results-directory "$COVERAGE_DIR/functional"
           else
             dotnet test -f net9.0 --logger "console;verbosity=normal"
           fi

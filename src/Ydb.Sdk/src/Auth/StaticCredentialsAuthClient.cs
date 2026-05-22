@@ -5,10 +5,9 @@ using Ydb.Auth;
 using Ydb.Auth.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
-using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
 
-namespace Ydb.Sdk.Services.Auth;
+namespace Ydb.Sdk.Auth;
 
 internal class StaticCredentialsAuthClient : IAuthClient
 {
