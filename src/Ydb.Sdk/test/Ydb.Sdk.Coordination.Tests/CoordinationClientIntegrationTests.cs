@@ -47,9 +47,6 @@ public class CoordinationClientIntegrationTests
         await _coordinationClient.CreateNode(pathNode, coordinationNodeSettings);
         var describeNode = await _coordinationClient.DescribeNode(pathNode);
         var describeNodeConfig = describeNode.ToProto();
-        _output.WriteLine("MyValidate: " + _coordinationClient.MyValidate(pathNode));
-        _output.WriteLine("YdbValidate: " + _coordinationClient.YdbValidate(pathNode));
-        _output.WriteLine("YdbValidate2: " + _coordinationClient.YdbValidate2(pathNode));
         _output.WriteLine("New Config:");
         _output.WriteLine($"  SelfCheckPeriodMillis: {describeNodeConfig.SelfCheckPeriodMillis}");
         _output.WriteLine($"  SessionGracePeriodMillis: {describeNodeConfig.SessionGracePeriodMillis}");

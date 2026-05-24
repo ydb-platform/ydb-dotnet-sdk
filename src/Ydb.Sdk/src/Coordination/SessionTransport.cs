@@ -283,7 +283,7 @@ public class SessionTransport : IAsyncDisposable
     {
         _logger.LogInformation("Creating {Name} (limit={Limit})", name, limit);
         await _initTask;
-        var combineToken = LinkToken(cancellationToken);
+        var (combineToken, linkedCts) = LinkToken(cancellationToken);
 
         try
         {
@@ -310,6 +310,10 @@ public class SessionTransport : IAsyncDisposable
         {
             throw new YdbException("Create semaphore failed " + e.Message);
         }
+        finally
+        {
+            linkedCts?.Dispose();
+        }
     }
 
 
@@ -321,7 +325,7 @@ public class SessionTransport : IAsyncDisposable
             data?.Length ?? 0
         );
         await _initTask;
-        var combineToken = LinkToken(cancellationToken);
+        var (combineToken, linkedCts) = LinkToken(cancellationToken);
         try
         {
             var response = await SendRequest(reqId => new SessionRequest
@@ -345,6 +349,10 @@ public class SessionTransport : IAsyncDisposable
         {
             throw new YdbException("Update semaphore failed " + e.Message);
         }
+        finally
+        {
+            linkedCts?.Dispose();
+        }
     }
 
 
@@ -356,7 +364,7 @@ public class SessionTransport : IAsyncDisposable
             force
         );
         await _initTask;
-        var combineToken = LinkToken(cancellationToken);
+        var (combineToken, linkedCts) = LinkToken(cancellationToken);
         try
         {
             var response = await SendRequest(reqId => new SessionRequest
@@ -380,6 +388,10 @@ public class SessionTransport : IAsyncDisposable
         {
             throw new YdbException("Delete semaphore failed " + e.Message);
         }
+        finally
+        {
+            linkedCts?.Dispose();
+        }
     }
 
 
@@ -387,7 +399,7 @@ public class SessionTransport : IAsyncDisposable
         DescribeSemaphoreMode mode, CancellationToken cancellationToken = default)
     {
         await _initTask;
-        var combineToken = LinkToken(cancellationToken);
+        var (combineToken, linkedCts) = LinkToken(cancellationToken);
 
         try
         {
@@ -417,13 +429,17 @@ public class SessionTransport : IAsyncDisposable
         {
             throw new YdbException("Describe semaphore failed " + e.Message);
         }
+        finally
+        {
+            linkedCts?.Dispose();
+        }
     }
 
     public async Task<bool> AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
         TimeSpan? timeout, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Waiting to acquire {Name} (count={Count})", name, count);
-        var combineToken = LinkToken(cancellationToken);
+        var (combineToken, linkedCts) = LinkToken(cancellationToken);
 
 
         SessionRequest BuildRequest(ulong reqId)
@@ -480,13 +496,18 @@ public class SessionTransport : IAsyncDisposable
         {
             throw new YdbException("Acquire semaphore failed " + e.Message);
         }
+        finally
+        {
+            linkedCts?.Dispose();
+        }
     }
 
     public async Task ReleaseSemaphore(string name, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Releasing {Name}", name);
         await _initTask;
-        var combineToken = LinkToken(cancellationToken);
+        var (combineToken, linkedCts) = LinkToken(cancellationToken);
+
         try
         {
             var response = await SendRequest(reqId => new SessionRequest
@@ -509,6 +530,10 @@ public class SessionTransport : IAsyncDisposable
         {
             throw new YdbException("Release semaphore failed " + e.Message);
         }
+        finally
+        {
+            linkedCts?.Dispose();
+        }
     }
 
     public async Task<WatchResult<SemaphoreDescription>> WatchSemaphore(
@@ -518,25 +543,36 @@ public class SessionTransport : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         await _initTask;
-        var combineToken = LinkToken(cancellationToken);
         var subscription = _watcherRegistry.Watch(name);
 
-        var firstResponse = await DescribeSemaphoreInternal(
-            name,
-            describeMode,
-            watchMode,
-            subscription,
-            combineToken);
+        var (initialToken, initialLinkedCts) = LinkToken(cancellationToken);
+        SessionResponse firstResponse;
+        try
+        {
+            firstResponse = await DescribeSemaphoreInternal(
+                name,
+                describeMode,
+                watchMode,
+                subscription,
+                initialToken);
+        }
+        finally
+        {
+            initialLinkedCts?.Dispose();
+        }
+
         var initial = SemaphoreDescription.FromProto(
             firstResponse.DescribeSemaphoreResult.SemaphoreDescription);
-        return new WatchResult<SemaphoreDescription>(initial, Updates(combineToken));
+
+        return new WatchResult<SemaphoreDescription>(initial, Updates(cancellationToken));
 
         async IAsyncEnumerable<SemaphoreDescription> Updates(
             [EnumeratorCancellation] CancellationToken token = default)
         {
+            var (updatesToken, updatesLinkedCts) = LinkToken(token);
             try
             {
-                await foreach (var _ in subscription.ReadAllAsync(token))
+                await foreach (var _ in subscription.ReadAllAsync(updatesToken))
                 {
                     var response = await DescribeSemaphoreInternal(
                         name,
@@ -552,6 +588,7 @@ public class SessionTransport : IAsyncDisposable
             finally
             {
                 _watcherRegistry.RemoveWatch(name, subscription);
+                updatesLinkedCts?.Dispose();
             }
         }
     }
@@ -617,14 +654,13 @@ public class SessionTransport : IAsyncDisposable
             _ => null
         };
 
-    private CancellationToken LinkToken(CancellationToken token)
+    private (CancellationToken Token, CancellationTokenSource? Cts) LinkToken(CancellationToken token)
     {
         if (token == CancellationToken.None)
-            return _cancelTokenSource.Token;
+            return (_cancelTokenSource.Token, null);
 
-        return CancellationTokenSource
-            .CreateLinkedTokenSource(_cancelTokenSource.Token, token)
-            .Token;
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(_cancelTokenSource.Token, token);
+        return (cts.Token, cts);
     }
 
     private async Task SendStartSession(bool isSessionRecovery)
@@ -818,10 +854,10 @@ public class SessionTransport : IAsyncDisposable
             {
                 if (!isFirstRequest)
                 {
-                    isFirstRequest = false;
                     await SafeWrite(buildRequest(), cancellationToken);
                 }
 
+                isFirstRequest = false;
                 await using (cancellationToken.Register(() =>
                                  _requestRegistry.TryCancel(reqId, cancellationToken)))
                 {
@@ -873,6 +909,7 @@ public class SessionTransport : IAsyncDisposable
     {
         if (_disposed)
             return;
+        _disposed = true;
         try
         {
             if (_stream != null && !_streamClosed)
@@ -888,7 +925,6 @@ public class SessionTransport : IAsyncDisposable
 
                 await Task.WhenAny(
                     WaitSessionStopped(), Task.Delay(TimeSpan.FromSeconds(60), _cancelTokenSource.Token));
-                _disposed = true;
                 _streamClosed = true;
             }
         }
