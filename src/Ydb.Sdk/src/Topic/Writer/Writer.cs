@@ -23,7 +23,10 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
-    private readonly GrpcRequestSettings _writerGrpcRequestSettings = new();
+
+    private readonly GrpcRequestSettings _writerGrpcRequestSettings =
+        new() { ClientInfo = Sdk.Metadata.TopicWriterClientInfo };
+
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeCts = new();

@@ -13,6 +13,7 @@ public class GrpcRequestSettings
     internal Activity? DbActivity { get; set; }
     internal List<string> ClientCapabilities { get; } = new();
     internal long NodeId { get; set; }
+    internal string? ClientInfo { get; set; }
 }
 
 public class OperationSettings : GrpcRequestSettings

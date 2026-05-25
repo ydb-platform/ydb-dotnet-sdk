@@ -327,6 +327,10 @@ public abstract class BaseDriver : IDriver
             meta.Add(Metadata.RpcClientCapabilitiesHeader, clientCapabilitiesHeader);
         }
 
+        meta.Add(Metadata.RpcSdkInfoHeader, settings.ClientInfo is null
+            ? Config.SdkVersion
+            : $"{Config.SdkVersion};{settings.ClientInfo}");
+
         var options = new CallOptions(headers: meta, cancellationToken: settings.CancellationToken);
 
         if (settings.TransportTimeout != TimeSpan.Zero)

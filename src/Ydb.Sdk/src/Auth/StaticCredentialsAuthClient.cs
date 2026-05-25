@@ -66,8 +66,11 @@ internal class StaticCredentialsAuthClient : IAuthClient
 
         using var channel = _grpcChannelFactory.CreateChannel(_config.Endpoint);
 
+        var meta = _config.GetCallMetadata;
+        meta.Add(Metadata.RpcSdkInfoHeader, _config.SdkVersion);
+
         var response = await new AuthService.AuthServiceClient(channel)
-            .LoginAsync(request, new CallOptions(_config.GetCallMetadata));
+            .LoginAsync(request, new CallOptions(meta));
 
         var operation = response.Operation;
         if (operation.Status.IsNotSuccess())

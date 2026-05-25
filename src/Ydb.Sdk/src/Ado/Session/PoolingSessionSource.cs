@@ -46,11 +46,13 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         _sessionIdleTimeout = TimeSpan.FromSeconds(settings.SessionIdleTimeout);
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
         _logger = settings.LoggerFactory.CreateLogger<PoolingSessionSource<T>>();
+        ClientInfo = settings.AdoNetClientInfoChain;
 
         MetricsReporter = new YdbMetricsReporter(_maxPoolSize, _minPoolSize, Statistics, settings);
     }
 
     public YdbMetricsReporter MetricsReporter { get; }
+    public string ClientInfo { get; }
 
     private (int Idle, int Busy) Statistics()
     {
@@ -359,6 +361,7 @@ internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : 
     where T : PoolingSessionBase<T>
 {
     protected YdbMetricsReporter MetricsReporter => source.MetricsReporter;
+    protected string ClientInfo => source.ClientInfo;
 
     private int _state = (int)PoolingSessionState.Out;
 

@@ -127,7 +127,6 @@ public class DriverConfig
     internal Grpc.Core.Metadata GetCallMetadata => new()
     {
         { Metadata.RpcDatabaseHeader, Database },
-        { Metadata.RpcSdkInfoHeader, SdkVersion },
         { Metadata.RpcClientPid, _pid }
     };
 }

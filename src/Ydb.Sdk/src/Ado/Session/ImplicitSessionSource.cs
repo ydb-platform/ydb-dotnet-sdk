@@ -14,13 +14,14 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     public IDriver Driver { get; }
     public YdbMetricsReporter MetricsReporter { get; }
-    public (int Idle, int Busy) Statistics => (0, Volatile.Read(ref _activeLeaseCount));
+    public string ClientInfo { get; }
 
     internal ImplicitSessionSource(IDriver driver, YdbConnectionStringBuilder settings)
     {
         Driver = driver;
         _logger = settings.LoggerFactory.CreateLogger<ImplicitSessionSource>();
         MetricsReporter = new YdbMetricsReporter(settings);
+        ClientInfo = settings.AdoNetClientInfoChain;
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
@@ -28,7 +29,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
         cancellationToken.ThrowIfCancellationRequested();
 
         return TryAcquireLease()
-            ? new ValueTask<ISession>(new ImplicitSession(Driver, this))
+            ? new ValueTask<ISession>(new ImplicitSession(Driver, this, ClientInfo))
             : throw new ObjectDisposedException(nameof(ImplicitSessionSource),
                 "The implicit session source has been closed.");
     }

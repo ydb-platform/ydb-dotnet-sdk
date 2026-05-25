@@ -23,7 +23,9 @@ internal class Reader<TValue> : IReader<TValue>
     private readonly ReaderConfig _config;
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ILogger _logger;
-    private readonly GrpcRequestSettings _readerGrpcRequestSettings = new();
+
+    private readonly GrpcRequestSettings _readerGrpcRequestSettings =
+        new() { ClientInfo = Sdk.Metadata.TopicReaderClientInfo };
 
     private IDriver? _driver;
     private ReaderSession<TValue>? _currentReaderSession;

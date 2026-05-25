@@ -50,6 +50,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
     )
     {
         settings.NodeId = NodeId;
+        settings.ClientInfo = ClientInfo;
 
         var request = new ExecuteQueryRequest
         {
@@ -73,7 +74,13 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         var response = await Driver.UnaryCall(
             QueryService.CommitTransactionMethod,
             new CommitTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
+            new GrpcRequestSettings
+            {
+                CancellationToken = cancellationToken,
+                NodeId = NodeId,
+                DbActivity = dbActivity,
+                ClientInfo = ClientInfo
+            }
         );
 
         if (response.Status.IsNotSuccess())
@@ -91,7 +98,13 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         var response = await Driver.UnaryCall(
             QueryService.RollbackTransactionMethod,
             new RollbackTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
+            new GrpcRequestSettings
+            {
+                CancellationToken = cancellationToken,
+                NodeId = NodeId,
+                DbActivity = dbActivity,
+                ClientInfo = ClientInfo
+            }
         );
 
         if (response.Status.IsNotSuccess())
@@ -127,7 +140,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         try
         {
             var requestSettings = new GrpcRequestSettings
-                { CancellationToken = cancellationToken, DbActivity = dbActivity };
+                { CancellationToken = cancellationToken, DbActivity = dbActivity, ClientInfo = ClientInfo };
 
             if (!_disableServerBalancer)
             {
@@ -155,7 +168,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                     using var stream = await Driver.ServerStreamCall(
                         QueryService.AttachSessionMethod,
                         new AttachSessionRequest { SessionId = SessionId },
-                        new GrpcRequestSettings { NodeId = NodeId }
+                        new GrpcRequestSettings { NodeId = NodeId, ClientInfo = ClientInfo }
                     );
 
                     if (!await stream.MoveNextAsync(cancellationToken))
@@ -268,7 +281,8 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             var deleteSessionResponse = await Driver.UnaryCall(
                 QueryService.DeleteSessionMethod,
                 new DeleteSessionRequest { SessionId = SessionId },
-                new GrpcRequestSettings { TransportTimeout = DeleteSessionTimeout, NodeId = NodeId }
+                new GrpcRequestSettings
+                    { TransportTimeout = DeleteSessionTimeout, NodeId = NodeId, ClientInfo = ClientInfo }
             );
 
             if (deleteSessionResponse.Status.IsNotSuccess())
