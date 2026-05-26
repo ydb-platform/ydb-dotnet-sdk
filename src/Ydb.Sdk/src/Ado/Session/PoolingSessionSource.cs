@@ -23,7 +23,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     private readonly TimeSpan _sessionIdleTimeout;
     private readonly Timer _cleanerTimer;
     private readonly ILogger _logger;
-
     private readonly string? _frameworkClientInfo;
 
     private volatile int _numSessions;

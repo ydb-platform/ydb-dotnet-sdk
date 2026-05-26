@@ -719,7 +719,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     /// Expected format: <c>component-name/SemVer</c>, where <c>component-name</c> is a
     /// stable lowercase identifier (e.g. <c>entity-framework-core-ydb</c>) and
     /// <c>SemVer</c> is the framework's own version (e.g. <c>1.2.3</c>).
-    /// Example: <c>entity-framework-core-ydb/1.2.3</c>.
+    /// Example: <c>ef-core/1.2.3</c>.
     /// </remarks>
     internal string? ClientInfo { get; init; }
 

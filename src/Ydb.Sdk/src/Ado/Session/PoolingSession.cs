@@ -73,12 +73,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         var response = await Driver.UnaryCall(
             QueryService.CommitTransactionMethod,
             new CommitTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings
-            {
-                CancellationToken = cancellationToken,
-                NodeId = NodeId,
-                DbActivity = dbActivity
-            }
+            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
         );
 
         if (response.Status.IsNotSuccess())
@@ -96,12 +91,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         var response = await Driver.UnaryCall(
             QueryService.RollbackTransactionMethod,
             new RollbackTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings
-            {
-                CancellationToken = cancellationToken,
-                NodeId = NodeId,
-                DbActivity = dbActivity
-            }
+            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
         );
 
         if (response.Status.IsNotSuccess())
@@ -278,8 +268,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             var deleteSessionResponse = await Driver.UnaryCall(
                 QueryService.DeleteSessionMethod,
                 new DeleteSessionRequest { SessionId = SessionId },
-                new GrpcRequestSettings
-                    { TransportTimeout = DeleteSessionTimeout, NodeId = NodeId }
+                new GrpcRequestSettings { TransportTimeout = DeleteSessionTimeout, NodeId = NodeId }
             );
 
             if (deleteSessionResponse.Status.IsNotSuccess())
