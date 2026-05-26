@@ -3,19 +3,12 @@ using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using Ydb.Sdk.Ado.Session;
+using Ydb.Sdk.Ado.Tests.Session;
 using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Ado.Tests;
 
-/// <summary>
-/// Verifies the <c>x-ydb-sdk-build-info</c> header chain (Python-compatible:
-/// <c>ydb-dotnet-sdk/{V};lib1/x;lib2/y</c>).
-///
-/// The header is assembled inside <see cref="BaseDriver.GetCallOptions"/>; the SDK never sends
-/// per-call <c>ClientInfo</c> for internal calls (Discovery, schema, bulk upsert, etc.) — those
-/// fall through with the bare <c>ydb-dotnet-sdk/{V}</c> entry coming from
-/// <see cref="DriverConfig.SdkVersion"/>.
-/// </summary>
 public class SdkBuildInfoHeaderTests
 {
     private static readonly string SdkVersion = $"ydb-dotnet-sdk/{YdbSdkVersion.Value}";
@@ -28,15 +21,27 @@ public class SdkBuildInfoHeaderTests
         Assert.Equal(SdkVersion, GetBuildInfoHeader(options));
     }
 
-    [Fact]
-    public async Task GetCallOptions_AdoNetClientInfo_AppendsAdoNetComponent()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetCallOptions_AdoNetSession_AppendsAdoNetComponent(bool enableImplicitSession)
     {
-        var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings
-        {
-            ClientInfo = $"ado-net/{YdbSdkVersion.Value}"
-        });
+        var clientInfo = GetAdoNetSessionClientInfo(enableImplicitSession, frameworkClientInfo: null);
+        var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings { ClientInfo = clientInfo });
 
         Assert.Equal($"{SdkVersion};ado-net/{YdbSdkVersion.Value}", GetBuildInfoHeader(options));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetCallOptions_FrameworkChain_StacksOnTopOfAdoNet(bool enableImplicitSession)
+    {
+        const string framework = "EntityFrameworkCore.Ydb/1.0.0";
+        var clientInfo = GetAdoNetSessionClientInfo(enableImplicitSession, framework);
+        var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings { ClientInfo = clientInfo });
+
+        Assert.Equal($"{SdkVersion};ado-net/{YdbSdkVersion.Value};{framework}", GetBuildInfoHeader(options));
     }
 
     [Fact]
@@ -62,21 +67,21 @@ public class SdkBuildInfoHeaderTests
     }
 
     [Fact]
-    public async Task GetCallOptions_FrameworkChain_StacksMultipleComponents()
+    public void YdbSdkVersion_HasNumericDottedFormat() =>
+        Assert.Matches(@"^\d+\.\d+\.\d+$", YdbSdkVersion.Value);
+
+    private static string GetAdoNetSessionClientInfo(bool enableImplicitSession, string? frameworkClientInfo)
     {
-        var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings
+        var builder = new YdbConnectionStringBuilder("Host=localhost;Port=2136;Database=/local")
         {
-            ClientInfo = $"ado-net/{YdbSdkVersion.Value};EntityFrameworkCore.Ydb/1.0.0"
-        });
+            EnableImplicitSession = enableImplicitSession,
+            ClientInfo = frameworkClientInfo
+        };
 
-        Assert.Equal(
-            $"{SdkVersion};ado-net/{YdbSdkVersion.Value};EntityFrameworkCore.Ydb/1.0.0",
-            GetBuildInfoHeader(options));
+        return enableImplicitSession
+            ? new ImplicitSessionSource(new TestDriver(), builder).ClientInfo
+            : new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(1), builder).ClientInfo;
     }
-
-    [Fact]
-    public void YdbSdkVersion_DoesNotIncludeGitRevisionBuildMetadata() =>
-        Assert.DoesNotContain('+', YdbSdkVersion.Value);
 
     private static string GetBuildInfoHeader(CallOptions options) =>
         options.Headers!.Get(Metadata.RpcSdkInfoHeader)!.Value;
@@ -87,8 +92,6 @@ public class SdkBuildInfoHeaderTests
     {
         public async ValueTask<CallOptions> InvokeGetCallOptions(GrpcRequestSettings settings)
         {
-            // GetCallOptions is protected; the rest of the BaseDriver surface is too gRPC-heavy
-            // for a header-only unit test, so we reach in via reflection.
             var method = typeof(BaseDriver).GetMethod("GetCallOptions",
                 BindingFlags.Instance | BindingFlags.NonPublic)!;
 
