@@ -23,7 +23,6 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
-
     private readonly GrpcRequestSettings _writerGrpcRequestSettings = new();
 
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();

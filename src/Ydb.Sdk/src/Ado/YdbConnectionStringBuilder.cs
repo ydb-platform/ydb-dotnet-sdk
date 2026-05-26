@@ -710,6 +710,17 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     /// </remarks>
     public X509Certificate2Collection? ServerCertificates { get; init; }
 
+    /// <summary>
+    /// Optional client component identifier appended to the active client chain reported
+    /// in the <c>x-ydb-sdk-build-info</c> header on Driver Discovery calls. Intended for
+    /// frameworks layered on top of the ADO.NET provider (e.g. EntityFrameworkCore.Ydb).
+    /// </summary>
+    /// <remarks>
+    /// Expected format: <c>component-name/SemVer</c>, where <c>component-name</c> is a
+    /// stable lowercase identifier (e.g. <c>entity-framework-core-ydb</c>) and
+    /// <c>SemVer</c> is the framework's own version (e.g. <c>1.2.3</c>).
+    /// Example: <c>entity-framework-core-ydb/1.2.3</c>.
+    /// </remarks>
     internal string? ClientInfo { get; init; }
 
     private void SaveValue(string propertyName, object? value)
