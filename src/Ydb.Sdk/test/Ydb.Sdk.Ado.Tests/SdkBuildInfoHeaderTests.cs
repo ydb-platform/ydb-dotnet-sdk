@@ -10,7 +10,11 @@ namespace Ydb.Sdk.Ado.Tests;
 
 public class SdkBuildInfoHeaderTests : IDisposable
 {
-    public SdkBuildInfoHeaderTests() => SdkClientInfoRegistry.Reset();
+    public SdkBuildInfoHeaderTests()
+    {
+        SdkClientInfoRegistry.Reset();
+    }
+
     public void Dispose() => SdkClientInfoRegistry.Reset();
 
     [Fact]
