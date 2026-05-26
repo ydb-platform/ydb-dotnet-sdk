@@ -8,6 +8,7 @@ using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Ado.Tests;
 
+[Collection("DisableParallelization")]
 public class SdkBuildInfoHeaderTests : IDisposable
 {
     public SdkBuildInfoHeaderTests()
@@ -70,13 +71,15 @@ public class SdkBuildInfoHeaderTests : IDisposable
     public async Task SessionSource_DisposeAsync_RemovesFromRegistry()
     {
         // Registration happens in PoolManager.Get before driver creation; here we simulate that.
+        const string frameworkClientInfo = "EntityFrameworkCore.Ydb/1.0.0";
+
         SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
-        SdkClientInfoRegistry.Register("EntityFrameworkCore.Ydb/1.0.0");
+        SdkClientInfoRegistry.Register(frameworkClientInfo);
 
         var builder = new YdbConnectionStringBuilder("Host=localhost;Port=2136;Database=/local")
         {
             EnableImplicitSession = true,
-            ClientInfo = "EntityFrameworkCore.Ydb/1.0.0"
+            ClientInfo = frameworkClientInfo
         };
 
         var driver = new TestDriver();
