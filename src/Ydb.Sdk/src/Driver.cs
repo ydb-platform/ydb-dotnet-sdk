@@ -175,7 +175,7 @@ public sealed class Driver : BaseDriver
             // Discovery is the only call site without a natural per-call ClientInfo; merge the
             // active component chain (registered before driver creation) directly into metadata.
             var options = await GetCallOptions(grpcSettings, Config.EndpointInfo);
-            options.Headers.Add(Metadata.RpcSdkInfoHeader, SdkClientInfoRegistry.Chain is null
+            options.Headers?.Add(Metadata.RpcSdkInfoHeader, SdkClientInfoRegistry.Chain is null
                 ? Config.SdkVersion
                 : $"{Config.SdkVersion};{SdkClientInfoRegistry.Chain}");
 
