@@ -1,3 +1,5 @@
+## v0.32.0
+
 - **Breaking Change**: Removed legacy TableClient.
 - **Breaking Change**: Removed legacy SchemeClient.
 - Feat ADO.NET retry policy: added `YdbRetryPolicyConfig.OperationName`. When set, it overrides the default `ydb.RunWithRetry` activity name and is reported as the `operation.name` attribute on the new retry metrics. When `null`, the default activity name is kept and the metric attribute is omitted.
