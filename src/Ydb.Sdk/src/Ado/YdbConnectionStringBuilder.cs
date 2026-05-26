@@ -712,10 +712,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
 
     internal string? ClientInfo { get; init; }
 
-    internal string AdoNetClientInfoChain => ClientInfo is null
-        ? $"ado-net/{YdbSdkVersion.Value}"
-        : $"ado-net/{YdbSdkVersion.Value};{ClientInfo}";
-
     private void SaveValue(string propertyName, object? value)
     {
         if (value == null)

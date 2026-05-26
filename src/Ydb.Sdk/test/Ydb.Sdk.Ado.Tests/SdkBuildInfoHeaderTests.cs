@@ -4,87 +4,94 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Ado.Tests.Session;
 using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Ado.Tests;
 
-public class SdkBuildInfoHeaderTests
+public class SdkBuildInfoHeaderTests : IDisposable
 {
-    private static readonly string SdkVersion = $"ydb-dotnet-sdk/{YdbSdkVersion.Value}";
+    public SdkBuildInfoHeaderTests() => SdkClientInfoRegistry.Reset();
+    public void Dispose() => SdkClientInfoRegistry.Reset();
 
     [Fact]
-    public async Task GetCallOptions_NoClientInfo_KeepsBaseSdkVersion()
+    public async Task GetCallOptions_DoesNotAddSdkInfoHeader()
     {
+        // x-ydb-sdk-build-info is intentionally NOT added by the common path:
+        // only Driver Discovery (ListEndpoints) emits the header, with the registry chain merged.
+        SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
+        SdkClientInfoRegistry.Register(Metadata.TopicWriterClientInfo);
+
         var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings());
 
-        Assert.Equal(SdkVersion, GetBuildInfoHeader(options));
-    }
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task GetCallOptions_AdoNetSession_AppendsAdoNetComponent(bool enableImplicitSession)
-    {
-        var clientInfo = GetAdoNetSessionClientInfo(enableImplicitSession, frameworkClientInfo: null);
-        var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings { ClientInfo = clientInfo });
-
-        Assert.Equal($"{SdkVersion};ado-net/{YdbSdkVersion.Value}", GetBuildInfoHeader(options));
-    }
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task GetCallOptions_FrameworkChain_StacksOnTopOfAdoNet(bool enableImplicitSession)
-    {
-        const string framework = "EntityFrameworkCore.Ydb/1.0.0";
-        var clientInfo = GetAdoNetSessionClientInfo(enableImplicitSession, framework);
-        var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings { ClientInfo = clientInfo });
-
-        Assert.Equal($"{SdkVersion};ado-net/{YdbSdkVersion.Value};{framework}", GetBuildInfoHeader(options));
+        Assert.Null(options.Headers!.Get(Metadata.RpcSdkInfoHeader));
     }
 
     [Fact]
-    public async Task GetCallOptions_TopicWriterClientInfo_AppendsWriterComponent()
+    public void SdkClientInfoRegistry_DeduplicatesRegistrations()
     {
-        var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings
-        {
-            ClientInfo = Metadata.TopicWriterClientInfo
-        });
+        SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
+        SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
+        SdkClientInfoRegistry.Register(Metadata.TopicWriterClientInfo);
 
-        Assert.Equal($"{SdkVersion};topic-writer/{YdbSdkVersion.Value}", GetBuildInfoHeader(options));
+        Assert.Equal(
+            $"ado-net/{YdbSdkVersion.Value};topic-writer/{YdbSdkVersion.Value}",
+            SdkClientInfoRegistry.Chain);
     }
 
     [Fact]
-    public async Task GetCallOptions_TopicReaderClientInfo_AppendsReaderComponent()
+    public void SdkClientInfoRegistry_UnregisterDecrementsRefCount_RemovesOnlyAfterLastOwner()
     {
-        var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings
-        {
-            ClientInfo = Metadata.TopicReaderClientInfo
-        });
+        SdkClientInfoRegistry.Register(Metadata.TopicWriterClientInfo);
+        SdkClientInfoRegistry.Register(Metadata.TopicWriterClientInfo);
+        SdkClientInfoRegistry.Register(Metadata.TopicReaderClientInfo);
 
-        Assert.Equal($"{SdkVersion};topic-reader/{YdbSdkVersion.Value}", GetBuildInfoHeader(options));
+        Assert.Equal(
+            $"topic-reader/{YdbSdkVersion.Value};topic-writer/{YdbSdkVersion.Value}",
+            SdkClientInfoRegistry.Chain);
+
+        SdkClientInfoRegistry.Unregister(Metadata.TopicWriterClientInfo);
+
+        Assert.Equal(
+            $"topic-reader/{YdbSdkVersion.Value};topic-writer/{YdbSdkVersion.Value}",
+            SdkClientInfoRegistry.Chain);
+
+        SdkClientInfoRegistry.Unregister(Metadata.TopicWriterClientInfo);
+        Assert.Equal($"topic-reader/{YdbSdkVersion.Value}", SdkClientInfoRegistry.Chain);
+
+        SdkClientInfoRegistry.Unregister(Metadata.TopicReaderClientInfo);
+        Assert.Null(SdkClientInfoRegistry.Chain);
+    }
+
+    [Fact]
+    public async Task SessionSource_DisposeAsync_RemovesFromRegistry()
+    {
+        // Registration happens in PoolManager.Get before driver creation; here we simulate that.
+        SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
+        SdkClientInfoRegistry.Register("EntityFrameworkCore.Ydb/1.0.0");
+
+        var builder = new YdbConnectionStringBuilder("Host=localhost;Port=2136;Database=/local")
+        {
+            EnableImplicitSession = true,
+            ClientInfo = "EntityFrameworkCore.Ydb/1.0.0"
+        };
+
+        var driver = new TestDriver();
+        driver.RegisterOwner();
+
+        var source = new ImplicitSessionSource(driver, builder);
+
+        Assert.Equal(
+            $"EntityFrameworkCore.Ydb/1.0.0;ado-net/{YdbSdkVersion.Value}",
+            SdkClientInfoRegistry.Chain);
+
+        await source.DisposeAsync();
+
+        Assert.Null(SdkClientInfoRegistry.Chain);
     }
 
     [Fact]
     public void YdbSdkVersion_HasNumericDottedFormat() =>
         Assert.Matches(@"^\d+\.\d+\.\d+$", YdbSdkVersion.Value);
-
-    private static string GetAdoNetSessionClientInfo(bool enableImplicitSession, string? frameworkClientInfo)
-    {
-        var builder = new YdbConnectionStringBuilder("Host=localhost;Port=2136;Database=/local")
-        {
-            EnableImplicitSession = enableImplicitSession,
-            ClientInfo = frameworkClientInfo
-        };
-
-        return enableImplicitSession
-            ? new ImplicitSessionSource(new TestDriver(), builder).ClientInfo
-            : new PoolingSessionSource<MockPoolingSession>(new MockPoolingSessionFactory(1), builder).ClientInfo;
-    }
-
-    private static string GetBuildInfoHeader(CallOptions options) =>
-        options.Headers!.Get(Metadata.RpcSdkInfoHeader)!.Value;
 
     private sealed class TestDriver() : BaseDriver(new DriverConfig(false, "localhost", 2136, "/local"),
         NullLoggerFactory.Instance,

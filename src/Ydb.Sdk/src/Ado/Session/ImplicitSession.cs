@@ -31,8 +31,6 @@ internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : I
         };
         request.Parameters.Add(parameters);
 
-        settings.ClientInfo = source.ClientInfo;
-
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 

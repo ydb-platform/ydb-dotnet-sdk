@@ -24,6 +24,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     private readonly Timer _cleanerTimer;
     private readonly ILogger _logger;
 
+    private readonly string? _frameworkClientInfo;
+
     private volatile int _numSessions;
     private volatile int _disposed;
 
@@ -46,13 +48,12 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         _sessionIdleTimeout = TimeSpan.FromSeconds(settings.SessionIdleTimeout);
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
         _logger = settings.LoggerFactory.CreateLogger<PoolingSessionSource<T>>();
-        ClientInfo = settings.AdoNetClientInfoChain;
+        _frameworkClientInfo = settings.ClientInfo;
 
         MetricsReporter = new YdbMetricsReporter(_maxPoolSize, _minPoolSize, Statistics, settings);
     }
 
     public YdbMetricsReporter MetricsReporter { get; }
-    public string ClientInfo { get; }
 
     private (int Idle, int Busy) Statistics()
     {
@@ -326,6 +327,12 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             _logger.LogError(e, "Failed to dispose the transport driver");
         }
 
+        SdkClientInfoRegistry.Unregister($"ado-net/{YdbSdkVersion.Value}");
+        if (_frameworkClientInfo is not null)
+        {
+            SdkClientInfoRegistry.Unregister(_frameworkClientInfo);
+        }
+
         for (var i = 0; i < _maxPoolSize; i++)
         {
             var session = Volatile.Read(ref _sessions[i]);
@@ -361,7 +368,6 @@ internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : 
     where T : PoolingSessionBase<T>
 {
     protected YdbMetricsReporter MetricsReporter => source.MetricsReporter;
-    protected string ClientInfo => source.ClientInfo;
 
     private int _state = (int)PoolingSessionState.Out;
 

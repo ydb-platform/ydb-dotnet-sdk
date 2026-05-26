@@ -24,8 +24,7 @@ internal class Reader<TValue> : IReader<TValue>
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ILogger _logger;
 
-    private readonly GrpcRequestSettings _readerGrpcRequestSettings =
-        new() { ClientInfo = Sdk.Metadata.TopicReaderClientInfo };
+    private readonly GrpcRequestSettings _readerGrpcRequestSettings = new();
 
     private IDriver? _driver;
     private ReaderSession<TValue>? _currentReaderSession;
@@ -48,6 +47,8 @@ internal class Reader<TValue> : IReader<TValue>
         _config = config;
         _deserializer = deserializer;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Reader<TValue>>();
+
+        SdkClientInfoRegistry.Register(Sdk.Metadata.TopicReaderClientInfo);
 
         _ = Initialize();
     }
@@ -228,6 +229,8 @@ internal class Reader<TValue> : IReader<TValue>
         {
             await _driver.DisposeAsync();
         }
+
+        SdkClientInfoRegistry.Unregister(Sdk.Metadata.TopicReaderClientInfo);
 
         _logger.LogInformation("Reader[{ReaderConfig}] is disposed", _config);
     }

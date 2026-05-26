@@ -50,7 +50,6 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
     )
     {
         settings.NodeId = NodeId;
-        settings.ClientInfo = ClientInfo;
 
         var request = new ExecuteQueryRequest
         {
@@ -78,8 +77,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             {
                 CancellationToken = cancellationToken,
                 NodeId = NodeId,
-                DbActivity = dbActivity,
-                ClientInfo = ClientInfo
+                DbActivity = dbActivity
             }
         );
 
@@ -102,8 +100,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             {
                 CancellationToken = cancellationToken,
                 NodeId = NodeId,
-                DbActivity = dbActivity,
-                ClientInfo = ClientInfo
+                DbActivity = dbActivity
             }
         );
 
@@ -140,7 +137,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         try
         {
             var requestSettings = new GrpcRequestSettings
-                { CancellationToken = cancellationToken, DbActivity = dbActivity, ClientInfo = ClientInfo };
+                { CancellationToken = cancellationToken, DbActivity = dbActivity };
 
             if (!_disableServerBalancer)
             {
@@ -168,7 +165,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                     using var stream = await Driver.ServerStreamCall(
                         QueryService.AttachSessionMethod,
                         new AttachSessionRequest { SessionId = SessionId },
-                        new GrpcRequestSettings { NodeId = NodeId, ClientInfo = ClientInfo }
+                        new GrpcRequestSettings { NodeId = NodeId }
                     );
 
                     if (!await stream.MoveNextAsync(cancellationToken))
@@ -282,7 +279,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 QueryService.DeleteSessionMethod,
                 new DeleteSessionRequest { SessionId = SessionId },
                 new GrpcRequestSettings
-                    { TransportTimeout = DeleteSessionTimeout, NodeId = NodeId, ClientInfo = ClientInfo }
+                    { TransportTimeout = DeleteSessionTimeout, NodeId = NodeId }
             );
 
             if (deleteSessionResponse.Status.IsNotSuccess())

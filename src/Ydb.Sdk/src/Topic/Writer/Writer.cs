@@ -24,8 +24,7 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
 
-    private readonly GrpcRequestSettings _writerGrpcRequestSettings =
-        new() { ClientInfo = Sdk.Metadata.TopicWriterClientInfo };
+    private readonly GrpcRequestSettings _writerGrpcRequestSettings = new();
 
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
@@ -47,6 +46,8 @@ internal class Writer<TValue> : IWriter<TValue>
         _serializer = serializer;
         _limitBufferMaxSize = config.BufferMaxSize;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Writer<TValue>>();
+
+        SdkClientInfoRegistry.Register(Sdk.Metadata.TopicWriterClientInfo);
 
         StartWriteWorker();
     }
@@ -397,6 +398,8 @@ internal class Writer<TValue> : IWriter<TValue>
         {
             await _driver.DisposeAsync();
         }
+
+        SdkClientInfoRegistry.Unregister(Sdk.Metadata.TopicWriterClientInfo);
 
         _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);
     }
