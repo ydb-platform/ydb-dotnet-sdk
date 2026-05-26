@@ -29,7 +29,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
         cancellationToken.ThrowIfCancellationRequested();
 
         return TryAcquireLease()
-            ? new ValueTask<ISession>(new ImplicitSession(Driver, this, ClientInfo))
+            ? new ValueTask<ISession>(new ImplicitSession(Driver, this))
             : throw new ObjectDisposedException(nameof(ImplicitSessionSource),
                 "The implicit session source has been closed.");
     }

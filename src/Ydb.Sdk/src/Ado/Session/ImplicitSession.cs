@@ -4,7 +4,7 @@ using Ydb.Query.V1;
 
 namespace Ydb.Sdk.Ado.Session;
 
-internal class ImplicitSession(IDriver driver, ImplicitSessionSource source, string clientInfo) : ISession
+internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : ISession
 {
     public IDriver Driver { get; } = driver;
 
@@ -31,7 +31,7 @@ internal class ImplicitSession(IDriver driver, ImplicitSessionSource source, str
         };
         request.Parameters.Add(parameters);
 
-        settings.ClientInfo = clientInfo;
+        settings.ClientInfo = source.ClientInfo;
 
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
