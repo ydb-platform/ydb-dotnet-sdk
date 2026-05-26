@@ -7,12 +7,11 @@ internal sealed class ImplicitSessionSource : ISessionSource
     private const int DisposeTimeoutSeconds = 10;
 
     private readonly ILogger _logger;
+    private readonly string? _frameworkClientInfo;
     private readonly TaskCompletionSource _drainedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private int _isDisposed;
     private int _activeLeaseCount;
-
-    private readonly string? _frameworkClientInfo;
 
     public IDriver Driver { get; }
     public YdbMetricsReporter MetricsReporter { get; }

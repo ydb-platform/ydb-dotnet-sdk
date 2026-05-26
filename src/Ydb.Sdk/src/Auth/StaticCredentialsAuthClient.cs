@@ -70,11 +70,9 @@ internal class StaticCredentialsAuthClient : IAuthClient
             .LoginAsync(request, _config.GetCallMetadata);
 
         var operation = response.Operation;
-        if (operation.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(operation.Status, operation.Issues);
-        }
-
-        return operation.Result.Unpack<LoginResult>().Token;
+        
+        return operation.Status.IsNotSuccess()
+            ? throw YdbException.FromServer(operation.Status, operation.Issues)
+            : operation.Result.Unpack<LoginResult>().Token;
     }
 }

@@ -28,7 +28,6 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly SemaphoreSlim _sendInFlightMessagesSemaphoreSlim = new(1);
-    
     private volatile TaskCompletionSource _tcsWakeUp = new();
     private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
     private volatile IWriteSession _session = DummyWriterSession.Instance;
