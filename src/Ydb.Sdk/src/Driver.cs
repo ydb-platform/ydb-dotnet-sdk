@@ -172,10 +172,14 @@ public sealed class Driver : BaseDriver
             var request = new ListEndpointsRequest { Database = Config.Database };
             var grpcSettings = new GrpcRequestSettings { TransportTimeout = Config.EndpointDiscoveryTimeout };
 
-            var response = await client.ListEndpointsAsync(
-                request: request,
-                options: await GetCallOptions(grpcSettings, Config.EndpointInfo)
-            );
+            // Discovery is the only call site without a natural per-call ClientInfo; merge the
+            // active component chain (registered before driver creation) directly into metadata.
+            var options = await GetCallOptions(grpcSettings, Config.EndpointInfo);
+            options.Headers?.Add(Metadata.RpcSdkInfoHeader, SdkClientInfoRegistry.Chain is null
+                ? Config.SdkVersion
+                : $"{Config.SdkVersion};{SdkClientInfoRegistry.Chain}");
+
+            var response = await client.ListEndpointsAsync(request: request, options: options);
 
             var operation = response.Operation;
             if (operation.Status.IsNotSuccess())

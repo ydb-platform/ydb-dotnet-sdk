@@ -28,7 +28,6 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly SemaphoreSlim _sendInFlightMessagesSemaphoreSlim = new(1);
-
     private volatile TaskCompletionSource _tcsWakeUp = new();
     private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
     private volatile IWriteSession _session = DummyWriterSession.Instance;
@@ -44,6 +43,8 @@ internal class Writer<TValue> : IWriter<TValue>
         _serializer = serializer;
         _limitBufferMaxSize = config.BufferMaxSize;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Writer<TValue>>();
+
+        SdkClientInfoRegistry.Register(Sdk.Metadata.TopicWriterClientInfo);
 
         StartWriteWorker();
     }
@@ -394,6 +395,8 @@ internal class Writer<TValue> : IWriter<TValue>
         {
             await _driver.DisposeAsync();
         }
+
+        SdkClientInfoRegistry.Unregister(Sdk.Metadata.TopicWriterClientInfo);
 
         _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);
     }

@@ -1,5 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Ydb.Auth;
 using Ydb.Auth.V1;
@@ -67,14 +66,12 @@ internal class StaticCredentialsAuthClient : IAuthClient
         using var channel = _grpcChannelFactory.CreateChannel(_config.Endpoint);
 
         var response = await new AuthService.AuthServiceClient(channel)
-            .LoginAsync(request, new CallOptions(_config.GetCallMetadata));
+            .LoginAsync(request, _config.GetCallMetadata);
 
         var operation = response.Operation;
-        if (operation.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(operation.Status, operation.Issues);
-        }
 
-        return operation.Result.Unpack<LoginResult>().Token;
+        return operation.Status.IsNotSuccess()
+            ? throw YdbException.FromServer(operation.Status, operation.Issues)
+            : operation.Result.Unpack<LoginResult>().Token;
     }
 }

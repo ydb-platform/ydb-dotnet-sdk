@@ -5,6 +5,7 @@
   - `ydb.client.retry.duration` (unit `s`, attribute `operation.name`) — total user-visible duration of a logical operation executed through the retry policy, including all attempts and back-off delays.
   - `ydb.client.retry.attempts` (unit `{attempt}`, attribute `operation.name`) — total number of attempts performed for one logical operation; a value of 1 means the operation succeeded on the first try.
 - Feat: add nearest DC detection with TCP race ([#622](https://github.com/ydb-platform/ydb-dotnet-sdk/pull/622)).
+- Feat: client component chain in the `x-ydb-sdk-build-info` header (`sdk-name/version;component/version` format). Active components are tracked in a process-wide `SdkClientInfoRegistry` with refcounted register/unregister — ADO.NET registers `ado-net/{V}` (and the optional framework component from the new internal `YdbConnectionStringBuilder.ClientInfo` init-only property, e.g. EFCore) in `PoolManager.Get` before driver creation and unregisters in the session source's `DisposeAsync`; Topic readers/writers register `topic-{reader,writer}/{V}` in their constructors and unregister in `DisposeAsync`. The header is emitted only by the Driver Discovery (`ListEndpoints`) RPC, which merges the full registry chain into its metadata; the bootstrap static-credentials `Login` still sends the bare `ydb-dotnet-sdk/{V}`.
 
 ## v0.31.0
 
