@@ -1,5 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Ydb.Auth;
 using Ydb.Auth.V1;
@@ -70,7 +69,7 @@ internal class StaticCredentialsAuthClient : IAuthClient
             .LoginAsync(request, _config.GetCallMetadata);
 
         var operation = response.Operation;
-        
+
         return operation.Status.IsNotSuccess()
             ? throw YdbException.FromServer(operation.Status, operation.Issues)
             : operation.Result.Unpack<LoginResult>().Token;
