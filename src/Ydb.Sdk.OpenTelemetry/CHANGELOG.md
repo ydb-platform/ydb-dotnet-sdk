@@ -1,4 +1,4 @@
-- ## v1.0.1
+## v1.0.1
 
 - Fix: Replaced `OpenTelemetry` SDK dependency (>= 1.15.0) with `OpenTelemetry.Api` (>= 1.15.3). The package now only
   relies on the public OpenTelemetry API surface (`TracerProviderBuilder` / `MeterProviderBuilder`), so it can be added
