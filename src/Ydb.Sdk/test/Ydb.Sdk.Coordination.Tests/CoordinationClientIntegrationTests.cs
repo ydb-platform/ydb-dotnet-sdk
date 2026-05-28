@@ -445,6 +445,7 @@ public class CoordinationClientIntegrationTests
         await lease1.Release();
         await semaphore1.Delete(false);
         await coordinationSession1.Close();
+        await coordinationSession2.Close();
         await _coordinationClient.DropNode(pathNode);
     }
 
@@ -517,8 +518,6 @@ public class CoordinationClientIntegrationTests
         Assert.Equal(semaphoreName, initial.Name);
         Assert.Equal((ulong)0, initial.Count);
         Assert.Equal((ulong)20, initial.Limit);
-        //wait lease1.Release();
-        await updates.DisposeAsync();
         await semaphore1.Release();
         await semaphore1.Delete(false);
         await coordinationSession1.Close();
