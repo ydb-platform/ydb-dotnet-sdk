@@ -205,7 +205,7 @@ public sealed class YdbCommand : DbCommand
 
         YdbConnection.ThrowIfConnectionClosed();
 
-        var startTimestamp = YdbConnection.MetricsReporter.ReportCommandStart();
+        var startTimestamp = YdbMetricsReporter.ReportCommandStart();
         var dbActivity = YdbConnection.Session is not RetryableSession
             ? YdbActivitySource.StartActivity("ydb.ExecuteQuery")
             : null;

@@ -188,6 +188,65 @@ public class EndpointPoolTests
         }
 
         [Fact]
+        public void Reset_WhenEmptyList_DoesNotThrow()
+        {
+            var exception = Record.Exception(() => _endpointPool.Reset([]));
+
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void Reset_WhenPreferredLocationSpecified_ReturnEndpointByNodeId()
+        {
+            _endpointPool.Reset(_endpointSettingsList, "SAS");
+
+            Assert.Equal(_endpointSettingsList.Single(endpoint => endpoint.NodeId == 1).Endpoint,
+                _endpointPool.GetEndpoint(1).Endpoint);
+            Assert.Equal(_endpointSettingsList.Single(endpoint => endpoint.NodeId == 3).Endpoint,
+                _endpointPool.GetEndpoint(3).Endpoint);
+            Assert.Equal(_endpointSettingsList.Single(endpoint => endpoint.NodeId == 4).Endpoint,
+                _endpointPool.GetEndpoint(4).Endpoint);
+        }
+
+        [Fact]
+        public void
+            Reset_WhenPreferredLocationSpecifiedAndFirstEndpointIsNonPreferred_GetEndpointUsesOnlyPreferredEndpoints()
+        {
+            var endpoints = new List<EndpointInfo>
+            {
+                new(1, false, "n1.ydb.tech", 2136, "MAN"),
+                new(2, true, "n2.ydb.tech", 2135, "SAS"),
+                new(3, false, "n3.ydb.tech", 2136, "SAS")
+            };
+
+            _endpointPool.Reset(endpoints, "SAS");
+
+            _mockRandom.Setup(random => random.Next(2)).Returns(0);
+            Assert.Contains(_endpointPool.GetEndpoint().Endpoint, new[]
+            {
+                "https://n2.ydb.tech:2135",
+                "http://n3.ydb.tech:2136"
+            });
+
+            _mockRandom.Setup(random => random.Next(2)).Returns(1);
+            Assert.Contains(_endpointPool.GetEndpoint().Endpoint, new[]
+            {
+                "https://n2.ydb.tech:2135",
+                "http://n3.ydb.tech:2136"
+            });
+        }
+
+        [Fact]
+        public void Reset_WhenPreferredLocationNotSpecified_KeepsAllEndpointsPreferred()
+        {
+            for (var i = 0; i < _endpointSettingsList.Count; i++)
+            {
+                _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count)).Returns(i);
+                Assert.Equal(_endpointSettingsList[i].Endpoint, _endpointPool.GetEndpoint().Endpoint);
+            }
+        }
+
+        [Fact]
         public void PessimizeEndpoint_WhenPessimizedAllNodes_ReturnRandomEndpoint()
         {
             foreach (var endpointSettings in _endpointSettingsList)

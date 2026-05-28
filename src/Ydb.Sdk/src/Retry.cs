@@ -106,8 +106,6 @@ public class RetrySettings
         StatusCode.Unsupported => new RetryRule(NoBackoff, false, RetryPolicy.None),
         StatusCode.SessionBusy => new RetryRule(FastBackoff, true, RetryPolicy.Unconditional),
         StatusCode.Success => new RetryRule(NoBackoff, false, RetryPolicy.None),
-        StatusCode.ClientResourceExhausted => new RetryRule(SlowBackoff, false, RetryPolicy.Unconditional),
-        StatusCode.ClientInternalError => new RetryRule(FastBackoff, true, RetryPolicy.IdempotentOnly),
         StatusCode.ClientTransportUnknown => new RetryRule(NoBackoff, true, RetryPolicy.None),
         StatusCode.ClientTransportUnavailable => new RetryRule(FastBackoff, true, RetryPolicy.IdempotentOnly),
         StatusCode.ClientTransportTimeout => new RetryRule(FastBackoff, true, RetryPolicy.IdempotentOnly),

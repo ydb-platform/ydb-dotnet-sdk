@@ -14,19 +14,11 @@ internal record PrimitiveParam(string Name, bool IsNative) : ISqlParam
     public TypedValue YdbValueFetch(Dictionary<string, TypedValue> ydbParameters) => ydbParameters.Get(Name);
 }
 
-internal class ListPrimitiveParam : ISqlParam
+internal class ListPrimitiveParam(IReadOnlyList<string> paramNames, int globalNumber) : ISqlParam
 {
     private const string PrefixParamName = "$Gen_List_Primitive";
 
-    private readonly IReadOnlyList<string> _paramNames;
-
-    public ListPrimitiveParam(IReadOnlyList<string> paramNames, int globalNumber)
-    {
-        _paramNames = paramNames;
-        Name = $"{PrefixParamName}_{globalNumber}";
-    }
-
-    public string Name { get; }
+    public string Name { get; } = $"{PrefixParamName}_{globalNumber}";
 
     public bool IsNative => false;
 
@@ -35,7 +27,7 @@ internal class ListPrimitiveParam : ISqlParam
         TypedValue? first = null;
         var value = new Ydb.Value();
 
-        foreach (var v in _paramNames.Select(ydbParameters.Get))
+        foreach (var v in paramNames.Select(ydbParameters.Get))
         {
             first ??= v;
             if (!first.Type.Equals(v.Type))

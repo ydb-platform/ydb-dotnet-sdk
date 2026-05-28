@@ -35,11 +35,13 @@ public class YdbConnectionStringBuilderTests
         Assert.Null(ydbConnectionStringBuilder.ServiceAccountKeyFilePath);
         Assert.False(ydbConnectionStringBuilder.EnableMetadataCredentials);
         Assert.Null(ydbConnectionStringBuilder.PoolName);
+        Assert.False(ydbConnectionStringBuilder.EnablePreferNearestDcBalancing);
 
         Assert.Equal("UseTls=False;Host=localhost;Port=2136;Database=/local;User=;Password=;ConnectTimeout=5;" +
                      "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
                      $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False;" +
-                     "ServiceAccountKeyFilePath=;EnableMetadataCredentials=False",
+                     "ServiceAccountKeyFilePath=;EnableMetadataCredentials=False;" +
+                     "EnablePreferNearestDcBalancing=False",
             ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
     }
 
@@ -61,7 +63,7 @@ public class YdbConnectionStringBuilderTests
             "CreateSessionTimeout=30;SessionIdleTimeout=600;ConnectTimeout=30;KeepAlivePingDelay=30;" +
             "KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=true;MaxSendMessageSize=1000000;" +
             "MaxReceiveMessageSize=1000000;DisableDiscovery=true;DisableServerBalancer=true;EnableImplicitSession=true;" +
-            "PoolName=my-pool"
+            "PoolName=my-pool;EnablePreferNearestDcBalancing=true"
         );
 
         Assert.Equal(2135, ydbConnectionStringBuilder.Port);
@@ -87,15 +89,17 @@ public class YdbConnectionStringBuilderTests
                      "EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;" +
                      "DisableDiscovery=True;DisableServerBalancer=True;EnableImplicitSession=True;" +
-                     "PoolName=my-pool",
+                     "PoolName=my-pool;EnablePreferNearestDcBalancing=True",
             ydbConnectionStringBuilder.ConnectionString);
         Assert.True(ydbConnectionStringBuilder.DisableDiscovery);
         Assert.True(ydbConnectionStringBuilder.DisableServerBalancer);
         Assert.True(ydbConnectionStringBuilder.EnableImplicitSession);
+        Assert.True(ydbConnectionStringBuilder.EnablePreferNearestDcBalancing);
         Assert.Equal("UseTls=True;Host=server;Port=2135;Database=/my/path;User=Kirill;Password=;ConnectTimeout=30;" +
                      "KeepAlivePingDelay=30;KeepAlivePingTimeout=60;EnableMultipleHttp2Connections=True;" +
                      "MaxSendMessageSize=1000000;MaxReceiveMessageSize=1000000;DisableDiscovery=True;" +
-                     "ServiceAccountKeyFilePath=;EnableMetadataCredentials=False",
+                     "ServiceAccountKeyFilePath=;EnableMetadataCredentials=False;" +
+                     "EnablePreferNearestDcBalancing=True",
             ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
     }
 
@@ -107,7 +111,8 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal("UseTls=False;Host=server;Port=2135;Database=/my/path;User=;Password=;ConnectTimeout=5;" +
                      "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
                      $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False;" +
-                     "ServiceAccountKeyFilePath=./k.json;EnableMetadataCredentials=False",
+                     "ServiceAccountKeyFilePath=./k.json;EnableMetadataCredentials=False;" +
+                     "EnablePreferNearestDcBalancing=False",
             ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
         Assert.Equal("server", ydbConnectionStringBuilder.Host);
         ydbConnectionStringBuilder.Host = "new_server";
@@ -115,7 +120,8 @@ public class YdbConnectionStringBuilderTests
         Assert.Equal("UseTls=False;Host=new_server;Port=2135;Database=/my/path;User=;Password=;ConnectTimeout=5;" +
                      "KeepAlivePingDelay=10;KeepAlivePingTimeout=10;EnableMultipleHttp2Connections=False;" +
                      $"MaxSendMessageSize={MessageSize};MaxReceiveMessageSize={MessageSize};DisableDiscovery=False;" +
-                     "ServiceAccountKeyFilePath=./k.json;EnableMetadataCredentials=False",
+                     "ServiceAccountKeyFilePath=./k.json;EnableMetadataCredentials=False;" +
+                     "EnablePreferNearestDcBalancing=False",
             ((IDriverFactory)ydbConnectionStringBuilder).GrpcConnectionString);
         Assert.Equal("Host=new_server;Port=2135;Database=/my/path;ServiceAccountKeyFilePath=./k.json",
             ydbConnectionStringBuilder.ConnectionString);

@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
-using Ydb.Sdk.Services.Auth;
 
 namespace Ydb.Sdk;
 

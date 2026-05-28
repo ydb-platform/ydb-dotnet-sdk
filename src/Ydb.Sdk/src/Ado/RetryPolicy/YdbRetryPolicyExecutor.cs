@@ -3,8 +3,12 @@ using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.RetryPolicy;
 
-internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
+internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy, string? operationName = null)
 {
+    private const string DefaultActivityName = "ydb.RunWithRetry";
+
+    private readonly string _activityName = operationName ?? DefaultActivityName;
+
     /// <summary>
     /// Executes the specified asynchronous operation and returns the result.
     /// </summary>
@@ -40,9 +44,11 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
         CancellationToken cancellationToken
     )
     {
-        using var dbActivity = YdbActivitySource.StartActivity("ydb.RunWithRetry", ActivityKind.Internal);
+        using var dbActivity = YdbActivitySource.StartActivity(_activityName, ActivityKind.Internal);
+        var startTimestamp = YdbMetricsReporter.ReportRetryStart();
 
         var attempt = 0;
+        var totalAttempts = 0;
         var dbTryActivity = YdbActivitySource.StartActivity("ydb.Try", ActivityKind.Internal);
         try
         {
@@ -52,6 +58,7 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
 
                 try
                 {
+                    totalAttempts++;
                     return await operation(cancellationToken).ConfigureAwait(false);
                 }
                 catch (YdbException e)
@@ -81,6 +88,7 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy)
         finally
         {
             dbTryActivity?.Dispose();
+            YdbMetricsReporter.ReportRetryStop(startTimestamp, totalAttempts, operationName);
         }
     }
 }

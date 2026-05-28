@@ -159,5 +159,5 @@ internal class TestSession : SessionBase<TestSession>
     {
     }
 
-    internal override Task<Status> DeleteSession() => Task.FromResult(Status.Success);
+    internal override Task DeleteSession() => Task.CompletedTask;
 }

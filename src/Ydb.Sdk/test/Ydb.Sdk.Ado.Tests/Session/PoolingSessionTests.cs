@@ -66,7 +66,7 @@ public class PoolingSessionTests
                 It.IsAny<CreateSessionRequest>(),
                 It.Is<GrpcRequestSettings>(settings => settings.ClientCapabilities.Contains("session-balancer")))
             )
-            .Throws(() => new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
+            .Throws(() => new YdbException(new RpcException(Status.DefaultCancelled)));
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.True(session.IsBroken);
@@ -98,7 +98,7 @@ public class PoolingSessionTests
     {
         SetupSuccessCreateSession();
         _mockAttachStream.Setup(attachStream => attachStream.MoveNextAsync(CancellationToken.None))
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)));
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Transport RPC call error", ydbException.Message);
@@ -164,7 +164,7 @@ public class PoolingSessionTests
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
         tcsSecondMoveAttachStream.SetException(
-            new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled))); // attach stream is closed
+            new YdbException(new RpcException(Status.DefaultCancelled))); // attach stream is closed
         await Task.Delay(500);
         Assert.True(session.IsBroken);
         await CheckIsBrokenAndDeleteSessionOneTime(session);

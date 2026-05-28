@@ -7,12 +7,13 @@ public record CreateConfig(
 
 public record RunConfig(
     string ConnectionString,
-    string OtlpEndpoint,
+    string? OtlpEndpoint,
     int ReportPeriod,
     int ReadRps,
     int ReadTimeout,
     int WriteRps,
     int WriteTimeout,
-    int Time) : Config(ConnectionString, WriteTimeout);
+    int Time,
+    int InitialDataCount) : Config(ConnectionString, WriteTimeout);
 
 public record Config(string ConnectionString, int WriteTimeout);

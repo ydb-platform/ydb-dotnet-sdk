@@ -1,5 +1,6 @@
 using Google.Protobuf.WellKnownTypes;
 using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 using static Ydb.Sdk.Ado.PoolManager;
@@ -93,7 +94,10 @@ public sealed class TopicClient : IAsyncDisposable
 
         var response = await _driver.UnaryCall(TopicService.CreateTopicMethod, protoSettings, settings);
 
-        Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+        if (response.Operation.Status.IsNotSuccess())
+        {
+            throw YdbException.FromServer(response.Operation.Status, response.Operation.Issues);
+        }
     }
 
     public async Task DropTopic(string topicName, GrpcRequestSettings? settings = null)
@@ -106,7 +110,10 @@ public sealed class TopicClient : IAsyncDisposable
         var response = await _driver.UnaryCall(TopicService.DropTopicMethod, protoSettings,
             settings ?? new GrpcRequestSettings());
 
-        Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+        if (response.Operation.Status.IsNotSuccess())
+        {
+            throw YdbException.FromServer(response.Operation.Status, response.Operation.Issues);
+        }
     }
 
     public ValueTask DisposeAsync() =>

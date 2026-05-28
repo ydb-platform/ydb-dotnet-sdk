@@ -1,15 +1,10 @@
 namespace Ydb.Sdk.Topic.Writer;
 
-public class Message<TValue>
+public class Message<TValue>(TValue data)
 {
-    public Message(TValue data)
-    {
-        Data = data;
-    }
-
     public DateTime Timestamp { get; set; } = DateTime.Now;
 
-    public TValue Data { get; }
+    public TValue Data { get; } = data;
 
-    public List<Metadata> Metadata { get; } = new();
+    public List<Metadata> Metadata { get; } = [];
 }

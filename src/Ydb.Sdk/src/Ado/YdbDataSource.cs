@@ -29,7 +29,7 @@ public class YdbDataSource : DbDataSource
 
     private static YdbRetryPolicyExecutor GetExecutor(YdbRetryPolicyConfig config) =>
         CacheYdbRetryPolicyExecutors.GetOrAdd(config.ToString(),
-            new YdbRetryPolicyExecutor(new YdbRetryPolicy(config)));
+            static (_, c) => new YdbRetryPolicyExecutor(new YdbRetryPolicy(c), c.OperationName), config);
 
     private readonly YdbConnectionStringBuilder _ydbConnectionStringBuilder;
     private readonly YdbRetryPolicyExecutor _retryPolicyExecutor;

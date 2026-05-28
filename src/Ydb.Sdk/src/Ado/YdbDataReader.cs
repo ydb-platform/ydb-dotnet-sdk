@@ -21,10 +21,11 @@ namespace Ydb.Sdk.Ado;
 // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
 public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord>
 {
-    private const string operationName = "ExecuteQuery";
+    private const string OperationName = "ExecuteQuery";
 
     private readonly IServerStream<ExecuteQueryResponsePart> _stream;
     private readonly YdbConnection _connection;
+    private readonly YdbMetricsReporter _metricsReporter;
     private readonly YdbTransaction? _ydbTransaction;
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Activity? _dbActivity;
@@ -77,6 +78,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     {
         _stream = resultSetStream;
         _connection = connection;
+        _metricsReporter = connection.MetricsReporter;
         _ydbTransaction = connection.CurrentTransaction;
         _dbActivity = dbActivity;
         _startTimestamp = startTimestamp;
@@ -879,7 +881,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        _connection.MetricsReporter.ReportOperationFailed(StatusCode.SessionBusy, operationName);
+        _metricsReporter.ReportOperationFailed(StatusCode.SessionBusy, OperationName);
         _connection.OnNotSuccessStatusCode(StatusCode.SessionBusy);
         _stream.Dispose();
 
@@ -892,7 +894,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     }
 
     private void CompleteCommandMetrics() =>
-        _connection.MetricsReporter.ReportCommandStop(_startTimestamp, operationName);
+        _metricsReporter.ReportCommandStop(_startTimestamp, OperationName);
 
     /// <summary>
     /// Closes the <see cref="YdbDataReader"/> object.
@@ -983,7 +985,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             CompleteCommandMetrics();
 
-            _connection.MetricsReporter.ReportOperationFailed(e.Code, operationName);
+            _metricsReporter.ReportOperationFailed(e.Code, OperationName);
             _connection.OnNotSuccessStatusCode(e.Code);
             _dbActivity?.SetException(e);
             _dbActivity?.Dispose();

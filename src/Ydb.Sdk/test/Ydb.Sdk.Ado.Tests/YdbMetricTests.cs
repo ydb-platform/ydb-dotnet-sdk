@@ -6,8 +6,10 @@ using OpenTelemetry.Metrics;
 using Xunit;
 using Ydb.Query;
 using Ydb.Query.V1;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
+using Ydb.Sdk.OpenTelemetry;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -18,6 +20,8 @@ public class YdbMetricTests : TestBase
     {
         PoolName = "ado-metrics-tests"
     };
+
+    private static string EndpointFor(YdbConnectionStringBuilder settings) => $"{settings.Host}:{settings.Port}";
 
     [Fact]
     public async Task OperationDuration()
@@ -42,22 +46,20 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.operation.duration");
+        var metric = GetMetric(exportedItems, "ydb.client.operation.duration");
         Assert.NotNull(metric);
 
         var points = GetFilteredPoints(metric.GetMetricPoints())
-            .ToDictionary(p => (string)ToDictionary(p.Tags)["db.operation.name"]!);
+            .ToDictionary(p => (string)ToDictionary(p.Tags)["operation.name"]!);
 
         Assert.True(points["ExecuteQuery"].GetHistogramSum() > 0);
         Assert.True(points["Commit"].GetHistogramSum() > 0);
         Assert.True(points["Rollback"].GetHistogramSum() > 0);
 
         var tags = ToDictionary(points["ExecuteQuery"].Tags);
-        Assert.Equal("ydb", tags["db.system.name"]);
-        Assert.Equal(settings.Database, tags["db.namespace"]);
-        Assert.Equal(settings.Host, tags["server.address"]);
-        Assert.Equal(settings.Port.ToString(), tags["server.port"]?.ToString());
-        Assert.Equal("ExecuteQuery", tags["db.operation.name"]);
+        Assert.Equal(settings.Database, tags["database"]);
+        Assert.Equal(EndpointFor(settings), tags["endpoint"]);
+        Assert.Equal("ExecuteQuery", tags["operation.name"]);
     }
 
     [Fact]
@@ -73,14 +75,14 @@ public class YdbMetricTests : TestBase
         {
             meterProvider.ForceFlush();
 
-            var metric = GetMetric(exportedItems, "db.client.connection.count");
+            var metric = GetMetric(exportedItems, "ydb.query.session.count");
             var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
-            Assert.Equal(1, usedPoint.GetSumLong());
+            Assert.Equal(1, usedPoint.GetGaugeLastValueLong());
 
             var idlePoint = GetPoint(points, "idle");
-            Assert.Equal(0, idlePoint.GetSumLong());
+            Assert.Equal(0, idlePoint.GetGaugeLastValueLong());
 
             exportedItems.Clear();
         }
@@ -88,14 +90,14 @@ public class YdbMetricTests : TestBase
         meterProvider.ForceFlush();
 
         {
-            var metric = GetMetric(exportedItems, "db.client.connection.count");
+            var metric = GetMetric(exportedItems, "ydb.query.session.count");
             var points = GetConnectionCountPoints(metric.GetMetricPoints(), settings.PoolName!).ToList();
 
             var usedPoint = GetPoint(points, "used");
-            Assert.Equal(0, usedPoint.GetSumLong());
+            Assert.Equal(0, usedPoint.GetGaugeLastValueLong());
 
             var idlePoint = GetPoint(points, "idle");
-            Assert.Equal(1, idlePoint.GetSumLong());
+            Assert.Equal(1, idlePoint.GetGaugeLastValueLong());
         }
     }
 
@@ -114,15 +116,16 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var failed = GetMetric(exportedItems, "db.client.operation.failed");
+        var failed = GetMetric(exportedItems, "ydb.client.operation.failed");
         Assert.NotNull(failed);
         var point = GetFilteredPoints(failed.GetMetricPoints()).Single();
         Assert.Equal(1, point.GetSumLong());
 
         var tags = ToDictionary(point.Tags);
-        Assert.Equal("ydb", tags["db.system.name"]);
-        Assert.Equal(settings.Database, tags["db.namespace"]);
-        Assert.Equal("ExecuteQuery", tags["db.operation.name"]);
+        Assert.Equal(settings.Database, tags["database"]);
+        Assert.Equal(EndpointFor(settings), tags["endpoint"]);
+        Assert.Equal("ExecuteQuery", tags["operation.name"]);
+        Assert.NotNull(tags["status_code"]);
     }
 
     [Fact]
@@ -138,7 +141,7 @@ public class YdbMetricTests : TestBase
                 It.IsAny<CreateSessionRequest>(),
                 It.Is<GrpcRequestSettings>(s => s.ClientCapabilities.Contains("session-balancer"))))
             .ThrowsAsync(new YdbException(
-                new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
+                new RpcException(new Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
 
         var factory = new PoolingSessionFactory(driver.Object, settings);
         await using var source = new PoolingSessionSource<PoolingSession>(factory, settings);
@@ -149,7 +152,7 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.operation.failed");
+        var metric = GetMetric(exportedItems, "ydb.client.operation.failed");
         var point = GetOperationFailedPoint(
             metric.GetMetricPoints(),
             settings,
@@ -188,7 +191,7 @@ public class YdbMetricTests : TestBase
 
         attachStream.Setup(s => s.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new YdbException(
-                new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
+                new RpcException(new Status(Grpc.Core.StatusCode.ResourceExhausted, "Mock exhausted"))));
         attachStream.Setup(s => s.Dispose());
 
         var factory = new PoolingSessionFactory(driver.Object, settings);
@@ -200,7 +203,7 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.operation.failed");
+        var metric = GetMetric(exportedItems, "ydb.client.operation.failed");
         var point = GetOperationFailedPoint(
             metric.GetMetricPoints(),
             settings,
@@ -222,11 +225,11 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.connection.create_time");
+        var metric = GetMetric(exportedItems, "ydb.query.session.create_time");
         var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
 
         Assert.True(point.GetHistogramSum() > 0);
-        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["db.client.connection.pool.name"]);
+        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["ydb.query.session.pool.name"]);
     }
 
     [Fact]
@@ -249,18 +252,48 @@ public class YdbMetricTests : TestBase
         await Task.Yield(); // let secondConnectionTask reach ReportPendingConnectionRequestStart
         meterProvider.ForceFlush();
 
-        var pendingMetric = GetMetric(exportedItems, "db.client.connection.pending_requests");
+        var pendingMetric = GetMetric(exportedItems, "ydb.query.session.pending_requests");
         var pendingPoint = GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single();
         Assert.Equal(1, pendingPoint.GetSumLong());
-        Assert.Equal(settings.PoolName, ToDictionary(pendingPoint.Tags)["db.client.connection.pool.name"]);
+        Assert.Equal(settings.PoolName, ToDictionary(pendingPoint.Tags)["ydb.query.session.pool.name"]);
 
         await firstConn.DisposeAsync();
         await using var secondConn = await secondConnectionTask;
 
         exportedItems.Clear();
         meterProvider.ForceFlush();
-        pendingMetric = GetMetric(exportedItems, "db.client.connection.pending_requests");
-        Assert.Equal(0, GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single().GetSumLong());
+        pendingMetric = GetMetric(exportedItems, "ydb.query.session.pending_requests");
+        // Counter only increases; cumulative sum does not return to zero when wait ends.
+        Assert.True(GetPoolPoints(pendingMetric.GetMetricPoints(), settings.PoolName!).Single().GetSumLong() >= 1);
+    }
+
+    [Fact]
+    public async Task PoolSizeMaxMin()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MinPoolSize = 2;
+            builder.MaxPoolSize = 7;
+            builder.PoolName = "ado-metrics-max-min";
+        });
+
+        await using var dataSource = new YdbDataSource(settings);
+        await using var _ = await dataSource.OpenConnectionAsync();
+
+        meterProvider.ForceFlush();
+
+        var max = GetMetric(exportedItems, "ydb.query.session.max");
+        var maxPoint = GetPoolPoints(max.GetMetricPoints(), settings.PoolName!).Single();
+        Assert.Equal(7, maxPoint.GetGaugeLastValueLong());
+        Assert.Equal(settings.PoolName, ToDictionary(maxPoint.Tags)["ydb.query.session.pool.name"]);
+
+        var min = GetMetric(exportedItems, "ydb.query.session.min");
+        var minPoint = GetPoolPoints(min.GetMetricPoints(), settings.PoolName!).Single();
+        Assert.Equal(2, minPoint.GetGaugeLastValueLong());
+        Assert.Equal(settings.PoolName, ToDictionary(minPoint.Tags)["ydb.query.session.pool.name"]);
     }
 
     [Fact]
@@ -284,17 +317,218 @@ public class YdbMetricTests : TestBase
 
         meterProvider.ForceFlush();
 
-        var metric = GetMetric(exportedItems, "db.client.connection.timeouts");
+        var metric = GetMetric(exportedItems, "ydb.query.session.timeouts");
         Assert.NotNull(metric);
 
         var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
         Assert.Equal(1, point.GetSumLong());
-        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["db.client.connection.pool.name"]);
+        Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["ydb.query.session.pool.name"]);
+    }
+
+    [Fact]
+    public async Task ImplicitSessionSource_DoesNotPublishPoolMetrics()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder => { builder.EnableImplicitSession = true; });
+
+        await using var dataSource = new YdbDataSource(settings);
+        await using var _ = await dataSource.OpenConnectionAsync();
+
+        meterProvider.ForceFlush();
+
+        AssertNoPoolMetricsForPool(exportedItems, settings.PoolName!);
+    }
+
+    private const string RetryDurationMetric = "ydb.client.retry.duration";
+    private const string RetryAttemptsMetric = "ydb.client.retry.attempts";
+
+    [Fact]
+    public async Task RetryMetrics_FirstTrySuccess_RecordsOneAttempt()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default, operationName);
+        await executor.ExecuteAsync(_ => Task.CompletedTask);
+
+        meterProvider.ForceFlush();
+
+        var attemptsPoint = SinglePointForOperation(exportedItems, RetryAttemptsMetric, operationName);
+        Assert.Equal(1, attemptsPoint.GetHistogramCount());
+        Assert.Equal(1, attemptsPoint.GetHistogramSum());
+
+        var durationPoint = SinglePointForOperation(exportedItems, RetryDurationMetric, operationName);
+        Assert.Equal(1, durationPoint.GetHistogramCount());
+        Assert.True(durationPoint.GetHistogramSum() >= 0);
+    }
+
+    [Fact]
+    public async Task RetryMetrics_WithRetries_RecordsTotalAttempts()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        // MaxAttempts=5 → up to 4 retries; we'll succeed on the 3rd call (after 2 retries).
+        var policy = new YdbRetryPolicy(new YdbRetryPolicyConfig
+        {
+            MaxAttempts = 5,
+            FastBackoffBaseMs = 1,
+            FastCapBackoffMs = 1
+        });
+        var executor = new YdbRetryPolicyExecutor(policy, operationName);
+
+        var calls = 0;
+        await executor.ExecuteAsync(_ =>
+        {
+            calls++;
+            if (calls < 3)
+                throw new YdbException(StatusCode.Aborted, "retry me");
+            return Task.CompletedTask;
+        });
+
+        Assert.Equal(3, calls);
+
+        meterProvider.ForceFlush();
+
+        var attemptsPoint = SinglePointForOperation(exportedItems, RetryAttemptsMetric, operationName);
+        Assert.Equal(1, attemptsPoint.GetHistogramCount());
+        Assert.Equal(3, attemptsPoint.GetHistogramSum());
+    }
+
+    [Fact]
+    public async Task RetryMetrics_NonRetryableError_StillRecorded()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default, operationName);
+        await Assert.ThrowsAsync<YdbException>(() =>
+            executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Unauthorized, "no")));
+
+        meterProvider.ForceFlush();
+
+        var attemptsPoint = SinglePointForOperation(exportedItems, RetryAttemptsMetric, operationName);
+        Assert.Equal(1, attemptsPoint.GetHistogramSum());
+
+        var durationPoint = SinglePointForOperation(exportedItems, RetryDurationMetric, operationName);
+        Assert.Equal(1, durationPoint.GetHistogramCount());
+    }
+
+    [Fact]
+    public async Task RetryMetrics_RetriesExhausted_RecordsAllAttempts()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var policy = new YdbRetryPolicy(new YdbRetryPolicyConfig
+        {
+            MaxAttempts = 3,
+            FastBackoffBaseMs = 1,
+            FastCapBackoffMs = 1
+        });
+        var executor = new YdbRetryPolicyExecutor(policy, operationName);
+
+        await Assert.ThrowsAsync<YdbException>(() =>
+            executor.ExecuteAsync(_ => throw new YdbException(StatusCode.Aborted, "always fails")));
+
+        meterProvider.ForceFlush();
+
+        var attemptsPoint = SinglePointForOperation(exportedItems, RetryAttemptsMetric, operationName);
+        // MaxAttempts=3 ⇒ initial + 2 retries ⇒ 3 calls total
+        Assert.Equal(3, attemptsPoint.GetHistogramSum());
+    }
+
+    [Fact]
+    public async Task RetryMetrics_NoOperationName_OmitsOperationNameTag()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default);
+        await executor.ExecuteAsync(_ => Task.CompletedTask);
+
+        meterProvider.ForceFlush();
+
+        foreach (var name in new[] { RetryAttemptsMetric, RetryDurationMetric })
+        {
+            var metric = GetMetric(exportedItems, name);
+            // At least one point with no operation.name tag must be present (the call we just made).
+            Assert.Contains(EnumeratePoints(metric),
+                point => !ToDictionary(point.Tags).ContainsKey("operation.name"));
+        }
+    }
+
+    [Fact]
+    public async Task RetryMetrics_WithOperationName_TagsBothMetrics()
+    {
+        var operationName = NewOperationName();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var executor = new YdbRetryPolicyExecutor(YdbRetryPolicy.Default, operationName);
+        await executor.ExecuteAsync(_ => Task.CompletedTask);
+
+        meterProvider.ForceFlush();
+
+        foreach (var name in new[] { RetryAttemptsMetric, RetryDurationMetric })
+        {
+            var point = SinglePointForOperation(exportedItems, name, operationName);
+            Assert.Equal(operationName, ToDictionary(point.Tags)["operation.name"]);
+        }
+    }
+
+    private static MetricPoint SinglePointForOperation(
+        List<Metric> exportedItems,
+        string metricName,
+        string operationName)
+    {
+        var metric = GetMetric(exportedItems, metricName);
+        return EnumeratePoints(metric)
+            .Single(p => ToDictionary(p.Tags).GetValueOrDefault("operation.name") as string == operationName);
+    }
+
+    private static IEnumerable<MetricPoint> EnumeratePoints(Metric metric)
+    {
+        foreach (var point in metric.GetMetricPoints())
+            yield return point;
+    }
+
+    private static string NewOperationName() => "TestOp." + Guid.NewGuid().ToString("N");
+
+    private static readonly string[] PoolScopedMetricNames =
+    [
+        "ydb.query.session.count",
+        "ydb.query.session.max",
+        "ydb.query.session.min",
+        "ydb.query.session.timeouts",
+        "ydb.query.session.pending_requests",
+        "ydb.query.session.create_time"
+    ];
+
+    private static void AssertNoPoolMetricsForPool(List<Metric> exportedItems, string poolName)
+    {
+        foreach (var metric in exportedItems.Where(m => PoolScopedMetricNames.Contains(m.Name)))
+        {
+            foreach (var point in metric.GetMetricPoints())
+            {
+                if (ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string == poolName)
+                {
+                    Assert.Fail(
+                        $"Implicit session must not publish pool metric '{metric.Name}' for pool '{poolName}'.");
+                }
+            }
+        }
     }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
-        OpenTelemetry.Sdk.CreateMeterProviderBuilder()
-            .AddMeter("Ydb.Sdk")
+        global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+            .AddYdb()
             .AddInMemoryExporter(exportedItems)
             .Build();
 
@@ -324,7 +558,8 @@ public class YdbMetricTests : TestBase
     {
         foreach (var point in points)
         {
-            if (ToDictionary(point.Tags).GetValueOrDefault("db.client.connection.pool.name") as string == poolName)
+            var tagPoolName = ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string;
+            if (string.Equals(tagPoolName, poolName, StringComparison.Ordinal))
             {
                 yield return point;
             }
@@ -337,7 +572,7 @@ public class YdbMetricTests : TestBase
         {
             foreach (var tag in point.Tags)
             {
-                if (tag.Key == "db.client.connection.state" && (string?)tag.Value == state)
+                if (tag.Key == "ydb.query.session.state" && (string?)tag.Value == state)
                 {
                     return point;
                 }
@@ -357,10 +592,13 @@ public class YdbMetricTests : TestBase
         foreach (var point in points)
         {
             var tags = ToDictionary(point.Tags);
-            if (tags.GetValueOrDefault("db.namespace") as string == settings.Database &&
-                tags.GetValueOrDefault("server.address") as string == settings.Host &&
-                tags.GetValueOrDefault("db.operation.name") as string == operationName &&
-                tags.GetValueOrDefault("db.response.status_code") as string == statusCode)
+            if (string.Equals(tags.GetValueOrDefault("database") as string, settings.Database,
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(settings),
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("operation.name") as string, operationName,
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("status_code") as string, statusCode, StringComparison.Ordinal))
             {
                 return point;
             }
@@ -385,7 +623,8 @@ public class YdbMetricTests : TestBase
     {
         foreach (var point in points)
         {
-            if (ToDictionary(point.Tags).GetValueOrDefault("db.client.connection.pool.name") as string == poolName)
+            var tagPoolName = ToDictionary(point.Tags).GetValueOrDefault("ydb.query.session.pool.name") as string;
+            if (string.Equals(tagPoolName, poolName, StringComparison.Ordinal))
                 yield return point;
         }
     }
@@ -395,8 +634,10 @@ public class YdbMetricTests : TestBase
         foreach (var point in points)
         {
             var tags = ToDictionary(point.Tags);
-            if (tags.GetValueOrDefault("db.namespace") as string == BaseConnectionSettings.Database &&
-                tags.GetValueOrDefault("server.address") as string == BaseConnectionSettings.Host)
+            if (string.Equals(tags.GetValueOrDefault("database") as string, BaseConnectionSettings.Database,
+                    StringComparison.Ordinal) &&
+                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(BaseConnectionSettings),
+                    StringComparison.Ordinal))
             {
                 yield return point;
             }

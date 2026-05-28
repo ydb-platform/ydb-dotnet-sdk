@@ -7,6 +7,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
     private const int DisposeTimeoutSeconds = 10;
 
     private readonly ILogger _logger;
+    private readonly string? _frameworkClientInfo;
     private readonly TaskCompletionSource _drainedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private int _isDisposed;
@@ -14,13 +15,13 @@ internal sealed class ImplicitSessionSource : ISessionSource
 
     public IDriver Driver { get; }
     public YdbMetricsReporter MetricsReporter { get; }
-    public (int Idle, int Busy) Statistics => (0, Volatile.Read(ref _activeLeaseCount));
 
     internal ImplicitSessionSource(IDriver driver, YdbConnectionStringBuilder settings)
     {
         Driver = driver;
         _logger = settings.LoggerFactory.CreateLogger<ImplicitSessionSource>();
-        MetricsReporter = new YdbMetricsReporter(this, settings);
+        MetricsReporter = new YdbMetricsReporter(settings);
+        _frameworkClientInfo = settings.ClientInfo;
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
@@ -82,6 +83,12 @@ internal sealed class ImplicitSessionSource : ISessionSource
             catch (Exception e)
             {
                 _logger.LogError(e, "Failed to dispose the transport driver");
+            }
+
+            SdkClientInfoRegistry.Unregister($"ado-net/{YdbSdkVersion.Value}");
+            if (_frameworkClientInfo is not null)
+            {
+                SdkClientInfoRegistry.Unregister(_frameworkClientInfo);
             }
         }
     }

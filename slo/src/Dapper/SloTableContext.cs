@@ -17,14 +17,14 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     {
         await using var connection = await client.OpenConnectionAsync();
         await connection.ExecuteAsync($"""
-                                       CREATE TABLE `{SloTable.Name}` (
+                                       CREATE TABLE IF NOT EXISTS `{SloTable.Name}` (
                                            Guid             Uuid,
                                            Id               Int32,
                                            PayloadStr       Text,
                                            PayloadDouble    Double,
                                            PayloadTimestamp Timestamp,
                                            PRIMARY KEY (Guid, Id)
-                                       ); 
+                                       );
                                        {SloTable.Options}
                                        """);
     }

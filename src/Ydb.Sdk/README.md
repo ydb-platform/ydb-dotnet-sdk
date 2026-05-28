@@ -1,6 +1,7 @@
 # Ydb.Sdk
 
 [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk)](https://www.nuget.org/packages/Ydb.Sdk)
+[![Coverage](https://codecov.io/gh/ydb-platform/ydb-dotnet-sdk/graph/badge.svg?flag=ydb-sdk)](https://app.codecov.io/gh/ydb-platform/ydb-dotnet-sdk/flags/ydb-sdk)
 
 Core .NET SDK for [YDB](https://ydb.tech) — a distributed SQL database by Yandex.
 Includes a full ADO.NET provider and a Topic (Pub/Sub) client.
@@ -124,7 +125,7 @@ services.AddOpenTelemetry().WithMetrics(b => b.AddYdb());
 ```
 
 Emitted spans: `ydb.RunWithRetry`, `ydb.Try`, `ydb.ExecuteQuery`, `ydb.Commit`, `ydb.Rollback`, `ydb.CreateSession`.  
-Emitted metrics: `db.client.operation.duration`, `db.client.connection.count`, and more — see [AGENTS.md](../../AGENTS.md).
+ADO metrics (meter `Ydb.Sdk`): operation histogram/counter use `database`, `endpoint`, `operation.name` (and `status_code` on failures); pool metrics use `ydb.query.session.pool.name`. See [README.md](../Ydb.Sdk.OpenTelemetry/README.md).
 
 ## More Examples
 

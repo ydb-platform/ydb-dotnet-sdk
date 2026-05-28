@@ -5,7 +5,9 @@
     <AssemblyName>Ydb.Sdk</AssemblyName>
     <RootNamespace>Ydb.Sdk</RootNamespace>
     <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
+    <!-- Keep AssemblyInformationalVersion clean; we ship it in the x-ydb-sdk-build-info gRPC
+         header and don't want the SDK to auto-append "+<git-sha>" build metadata. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <PropertyGroup>

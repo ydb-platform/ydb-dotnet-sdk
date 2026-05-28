@@ -64,6 +64,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
         _disableDiscovery = GrpcDefaultSettings.DisableDiscovery;
         _disableServerBalancer = false;
         _enableImplicitSession = false;
+        _enablePreferNearestDcBalancing = false;
     }
 
     /// <summary>
@@ -533,6 +534,25 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     private bool _enableImplicitSession;
 
     /// <summary>
+    /// Gets or sets a value indicating whether nearest-datacenter balancing should be enabled.
+    /// </summary>
+    /// <remarks>
+    /// When enabled, the driver performs a TCP race across discovered endpoints and prefers
+    /// endpoints from the fastest datacenter. Default value: false.
+    /// </remarks>
+    public bool EnablePreferNearestDcBalancing
+    {
+        get => _enablePreferNearestDcBalancing;
+        set
+        {
+            _enablePreferNearestDcBalancing = value;
+            SaveValue(nameof(EnablePreferNearestDcBalancing), value);
+        }
+    }
+
+    private bool _enablePreferNearestDcBalancing;
+
+    /// <summary>
     /// Path to a Yandex.Cloud service account key file (JSON).
     /// </summary>
     /// <remarks>
@@ -613,7 +633,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     /// Gets or sets an optional name for this connection pool, used as a metric tag.
     /// </summary>
     /// <remarks>
-    /// When set, this value is reported as the <c>db.client.connection.pool.name</c> attribute on
+    /// When set, this value is reported as the <c>ydb.query.session.pool.name</c> attribute on
     /// connection-pool metrics. Useful when multiple pools connect to the same database and you need
     /// to distinguish them in dashboards.
     /// <para>Default value: null (the connection string is used instead).</para>
@@ -690,6 +710,19 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     /// </remarks>
     public X509Certificate2Collection? ServerCertificates { get; init; }
 
+    /// <summary>
+    /// Optional client component identifier appended to the active client chain reported
+    /// in the <c>x-ydb-sdk-build-info</c> header on Driver Discovery calls. Intended for
+    /// frameworks layered on top of the ADO.NET provider (e.g. EntityFrameworkCore.Ydb).
+    /// </summary>
+    /// <remarks>
+    /// Expected format: <c>component-name/SemVer</c>, where <c>component-name</c> is a
+    /// stable lowercase identifier (e.g. <c>entity-framework-core-ydb</c>) and
+    /// <c>SemVer</c> is the framework's own version (e.g. <c>1.2.3</c>).
+    /// Example: <c>ef-core/1.2.3</c>.
+    /// </remarks>
+    internal string? ClientInfo { get; init; }
+
     private void SaveValue(string propertyName, object? value)
     {
         if (value == null)
@@ -731,7 +764,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
         $"ConnectTimeout={ConnectTimeout};KeepAlivePingDelay={KeepAlivePingDelay};KeepAlivePingTimeout={KeepAlivePingTimeout};" +
         $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
         $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery};" +
-        $"ServiceAccountKeyFilePath={ServiceAccountKeyFilePath};EnableMetadataCredentials={EnableMetadataCredentials}";
+        $"ServiceAccountKeyFilePath={ServiceAccountKeyFilePath};EnableMetadataCredentials={EnableMetadataCredentials};" +
+        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing}";
 
     async Task<IDriver> IDriverFactory.CreateAsync()
     {
@@ -763,7 +797,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
             Password = Password,
             EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
             MaxSendMessageSize = MaxSendMessageSize,
-            MaxReceiveMessageSize = MaxReceiveMessageSize
+            MaxReceiveMessageSize = MaxReceiveMessageSize,
+            EnablePreferNearestDcBalancing = EnablePreferNearestDcBalancing
         };
 
         return DisableDiscovery
@@ -879,6 +914,10 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
             AddOption(new YdbConnectionOption<bool>(BoolExtractor, (builder, enableMetadataCredentials) =>
                     builder.EnableMetadataCredentials = enableMetadataCredentials),
                 "EnableMetadataCredentials", "Enable Metadata Credentials");
+            AddOption(new YdbConnectionOption<bool>(BoolExtractor,
+                    (builder, enablePreferNearestDcBalancing) =>
+                        builder.EnablePreferNearestDcBalancing = enablePreferNearestDcBalancing),
+                "EnablePreferNearestDcBalancing", "Enable Prefer Nearest Dc Balancing");
             AddOption(new YdbConnectionOption<string>(StringExtractor,
                     (builder, poolName) => builder.PoolName = poolName),
                 "PoolName", "Pool Name");
