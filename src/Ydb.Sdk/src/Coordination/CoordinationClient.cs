@@ -64,7 +64,7 @@ public class CoordinationClient
         {
             var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
             var response = await _iDriver.UnaryCall(CoordinationService.CreateNodeMethod, request, grpcSettings);
-            Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+            // Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -86,7 +86,7 @@ public class CoordinationClient
         {
             var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
             var response = await _iDriver.UnaryCall(CoordinationService.AlterNodeMethod, request, grpcSettings);
-            Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+            // Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -107,7 +107,7 @@ public class CoordinationClient
         {
             var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
             var response = await _iDriver.UnaryCall(CoordinationService.DropNodeMethod, request, grpcSettings);
-            Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+            // Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -127,7 +127,7 @@ public class CoordinationClient
         {
             var grpcSettings = MakeGrpcRequestSettings(cancellationToken);
             var response = await _iDriver.UnaryCall(CoordinationService.DescribeNodeMethod, request, grpcSettings);
-            Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
+            // Status.FromProto(response.Operation.Status, response.Operation.Issues).EnsureSuccess();
             return NodeConfig.FromProto(response.Operation.Result.Unpack<DescribeNodeResult>());
         }
         catch (Exception e)

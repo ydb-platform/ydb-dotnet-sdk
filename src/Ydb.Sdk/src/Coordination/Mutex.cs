@@ -2,16 +2,18 @@
 
 public class Mutex
 {
-    private readonly Semaphore _semaphore;
+    public string Name { get; }
+    private readonly SessionTransport _sessionTransport;
 
-    public Mutex(Semaphore semaphore)
+    public Mutex(string name, SessionTransport sessionTransport)
     {
-        _semaphore = semaphore;
+        Name = name;
+        _sessionTransport = sessionTransport;
     }
 
     public async Task<Lease> Lock(CancellationToken cancellationToken)
-        => await _semaphore.Acquire(ulong.MaxValue, true, null, null, cancellationToken);
+        => await _sessionTransport.AcquireSemaphore(Name, ulong.MaxValue, true, null, null, cancellationToken);
 
     public async Task<Lease?> TryLock(CancellationToken cancellationToken)
-        => await _semaphore.TryAcquire(ulong.MaxValue, true, null, cancellationToken);
+        => await _sessionTransport.TryAcquireSemaphore(Name, ulong.MaxValue, true, null, cancellationToken);
 }

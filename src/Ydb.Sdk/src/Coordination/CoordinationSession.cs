@@ -24,9 +24,9 @@ public class CoordinationSession : IAsyncDisposable
 
     public Semaphore Semaphore(string name) => new(name, _sessionTransport);
 
-    public Mutex Mutex(string name) => new(Semaphore(name));
+    public Mutex Mutex(string name) => new(name, _sessionTransport);
 
-    public Election Election(string name) => new(Semaphore(name), _loggerFactory);
+    public Election Election(string name) => new(name, _sessionTransport, _loggerFactory);
 
     public async Task Close() => await _sessionTransport.DisposeAsync();
 

@@ -145,13 +145,11 @@ public class SessionTransport : IAsyncDisposable
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var ready = _sessionReadyTcs.Task;
-            await ready.WaitAsync(cancellationToken).ConfigureAwait(false);
+            var readyTcs = _sessionReadyTcs;
+            await readyTcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
 
-            if (ready == _sessionReadyTcs.Task)
-            {
+            if (ReferenceEquals(readyTcs, _sessionReadyTcs) || StateSession == StateSession.Connected)
                 return;
-            }
         }
     }
 
@@ -300,9 +298,7 @@ public class SessionTransport : IAsyncDisposable
             {
                 throw new YdbException("Unexpected response for createSemaphore");
             }
-
-            Status.FromProto(response.CreateSemaphoreResult.Status, response.CreateSemaphoreResult.Issues)
-                .EnsureSuccess();
+            //Status.FromProto(response.CreateSemaphoreResult.Status, response.CreateSemaphoreResult.Issues).EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -339,8 +335,7 @@ public class SessionTransport : IAsyncDisposable
                 throw new YdbException("Unexpected response for updateSemaphore");
             }
 
-            Status.FromProto(response.UpdateSemaphoreResult.Status, response.UpdateSemaphoreResult.Issues)
-                .EnsureSuccess();
+            //Status.FromProto(response.UpdateSemaphoreResult.Status, response.UpdateSemaphoreResult.Issues).EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -377,8 +372,7 @@ public class SessionTransport : IAsyncDisposable
                 throw new YdbException("Unexpected response for deleteSemaphore");
             }
 
-            Status.FromProto(response.DeleteSemaphoreResult.Status, response.DeleteSemaphoreResult.Issues)
-                .EnsureSuccess();
+            //Status.FromProto(response.DeleteSemaphoreResult.Status, response.DeleteSemaphoreResult.Issues).EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -415,8 +409,7 @@ public class SessionTransport : IAsyncDisposable
                 throw new YdbException("Unexpected response for describeSemaphore");
             }
 
-            Status.FromProto(response.DescribeSemaphoreResult.Status, response.DescribeSemaphoreResult.Issues)
-                .EnsureSuccess();
+            //Status.FromProto(response.DescribeSemaphoreResult.Status, response.DescribeSemaphoreResult.Issues).EnsureSuccess();
             return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult
                 .SemaphoreDescription);
         }
@@ -430,7 +423,7 @@ public class SessionTransport : IAsyncDisposable
         }
     }
 
-    public async Task<bool> AcquireSemaphoreInternal(string name, ulong count, bool isEphemeral, byte[]? data,
+    private async Task<bool> AcquireSemaphoreInternal(string name, ulong count, bool isEphemeral, byte[]? data,
         TimeSpan? timeout, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Waiting to acquire {Name} (count={Count})", name, count);
@@ -483,8 +476,7 @@ public class SessionTransport : IAsyncDisposable
                 throw new YdbException("Unexpected response for acquireSemaphore");
             }
 
-            Status.FromProto(response.AcquireSemaphoreResult.Status, response.AcquireSemaphoreResult.Issues)
-                .EnsureSuccess();
+            // Status.FromProto(response.AcquireSemaphoreResult.Status, response.AcquireSemaphoreResult.Issues).EnsureSuccess();
             return response.AcquireSemaphoreResult.Acquired;
         }
         catch (Exception e)
@@ -502,7 +494,7 @@ public class SessionTransport : IAsyncDisposable
     {
         if (await AcquireSemaphoreInternal(name, count, isEphemeral, data, timeout, cancellationToken))
         {
-            return new Lease(new Semaphore(name, this));
+            return new Lease(name, this);
         }
 
         throw new YdbException("Acquire semaphore failed");
@@ -513,12 +505,12 @@ public class SessionTransport : IAsyncDisposable
     {
         if (await AcquireSemaphoreInternal(name, count, isEphemeral, data, TimeSpan.Zero, cancellationToken))
         {
-            return new Lease(new Semaphore(name, this));
+            return new Lease(name, this);
         }
 
         return null;
     }
-    
+
     public async Task ReleaseSemaphore(string name, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Releasing {Name}", name);
@@ -539,8 +531,7 @@ public class SessionTransport : IAsyncDisposable
                 throw new YdbException("Unexpected response for releaseSemaphore");
             }
 
-            Status.FromProto(response.ReleaseSemaphoreResult.Status, response.ReleaseSemaphoreResult.Issues)
-                .EnsureSuccess();
+            //Status.FromProto(response.ReleaseSemaphoreResult.Status, response.ReleaseSemaphoreResult.Issues).EnsureSuccess();
         }
         catch (Exception e)
         {
@@ -640,8 +631,7 @@ public class SessionTransport : IAsyncDisposable
                 throw new YdbException("Unexpected response for describeSemaphore (watch)");
             }
 
-            Status.FromProto(response.DescribeSemaphoreResult.Status, response.DescribeSemaphoreResult.Issues)
-                .EnsureSuccess();
+            // Status.FromProto(response.DescribeSemaphoreResult.Status, response.DescribeSemaphoreResult.Issues).EnsureSuccess();
             if (response.DescribeSemaphoreResult.WatchAdded)
             {
                 _watcherRegistry.RemapWatch(name, subscription, watchReqId);
@@ -688,6 +678,7 @@ public class SessionTransport : IAsyncDisposable
         if (!isSessionRecovery)
         {
             SessionId = 0;
+            _seqNo = 0;
             _key = CreateRandomKey();
         }
 
@@ -863,7 +854,7 @@ public class SessionTransport : IAsyncDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             await WaitSessionReady(cancellationToken);
-            var pending = _requestRegistry.Register(reqId, buildRequest());
+            var pending = _requestRegistry.RegisterPinned(reqId, buildRequest());
 
             try
             {

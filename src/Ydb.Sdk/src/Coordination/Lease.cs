@@ -2,18 +2,19 @@
 
 public class Lease : IAsyncDisposable
 {
-    private readonly Semaphore _semaphore;
+    public string Name { get; }
+    private readonly SessionTransport _sessionTransport;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private int _released;
     private int _disposed;
 
-    public Lease(Semaphore semaphore)
+    internal Lease(string name, SessionTransport sessionTransport)
     {
-        _semaphore = semaphore;
+        Name = name;
+        _sessionTransport = sessionTransport;
+        //_cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(semaphore);
     }
 
-    public string GetSemaphoreName()
-        => _semaphore.Name;
 
     public CancellationToken Token => _cancellationTokenSource.Token;
 
@@ -24,7 +25,7 @@ public class Lease : IAsyncDisposable
 
         try
         {
-            await _semaphore.Release(cancellationToken).ConfigureAwait(false);
+            await _sessionTransport.ReleaseSemaphore(Name, cancellationToken).ConfigureAwait(false);
         }
         finally
         {

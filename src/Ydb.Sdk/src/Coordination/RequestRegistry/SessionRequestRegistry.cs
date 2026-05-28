@@ -18,22 +18,7 @@ internal class SessionRequestRegistry
 
         return (ulong)Interlocked.Increment(ref _reqIdCounter);
     }
-
-    public PendingRequest Register(ulong reqId, SessionRequest request)
-    {
-        if (_closed)
-            throw new InvalidOperationException("Session request registry is closed");
-
-        var tcs = new TaskCompletionSource<SessionResponse>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        var pending = new PendingRequest(tcs, request);
-
-        if (!_pending.TryAdd(reqId, pending))
-            throw new InvalidOperationException($"Duplicate reqId: {reqId}");
-
-        return pending;
-    }
+    
 
     public bool Resolve(ulong reqId, SessionResponse response)
     {
@@ -51,6 +36,12 @@ internal class SessionRequestRegistry
         return true;
     }
 
+    public PendingRequest Register(ulong reqId, SessionRequest request)
+        => Register(reqId, request, isPinned: false);
+
+    public PendingRequest RegisterPinned(ulong reqId, SessionRequest request)
+        => Register(reqId, request, isPinned: true);
+
     public void Reconnect()
     {
         if (_closed)
@@ -58,7 +49,7 @@ internal class SessionRequestRegistry
 
         foreach (var (_, pending) in _pending)
         {
-            pending.Tcs.TrySetException(new YdbException("Reconnect session"));
+            pending.Tcs.TrySetException(new SessionReconnectException(pending.IsPinned));
         }
 
         _pending.Clear();
@@ -81,4 +72,20 @@ internal class SessionRequestRegistry
 
 
     public void Dispose() => Close();
+    
+    private PendingRequest Register(ulong reqId, SessionRequest request, bool isPinned)
+    {
+        if (_closed)
+            throw new InvalidOperationException("Session request registry is closed");
+
+        var tcs = new TaskCompletionSource<SessionResponse>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var pending = new PendingRequest(tcs, request, isPinned);
+
+        if (!_pending.TryAdd(reqId, pending))
+            throw new InvalidOperationException($"Duplicate reqId: {reqId}");
+
+        return pending;
+    }
 }

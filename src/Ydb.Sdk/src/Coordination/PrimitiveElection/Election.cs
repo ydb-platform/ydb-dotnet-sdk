@@ -7,29 +7,30 @@ namespace Ydb.Sdk.Coordination.PrimitiveElection;
 
 public class Election
 {
-    private readonly Semaphore _semaphore;
+    public string Name { get; }
+    private SessionTransport _sessionTransport;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<Election> _logger;
 
-    internal Election(Semaphore semaphore, ILoggerFactory loggerFactory)
+    internal Election(string name, SessionTransport sessionTransport, ILoggerFactory loggerFactory)
     {
-        _semaphore = semaphore;
+        Name = name;
+        _sessionTransport = sessionTransport;
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<Election>();
     }
 
-    public string Name
-        => _semaphore.Name;
 
     public async Task<Leadership> Campaign(byte[] data, CancellationToken cancellationToken = default)
     {
-        var lease = await _semaphore.Acquire(1, false, data, null, cancellationToken);
-        return new Leadership(_semaphore, lease, _loggerFactory);
+        var lease = await _sessionTransport.AcquireSemaphore(Name, 1, false, data, null, cancellationToken);
+        return new Leadership(Name, _sessionTransport, lease, _loggerFactory);
     }
 
     public async Task<LeaderInfo?> Leader(CancellationToken cancellationToken = default)
     {
-        var description = await _semaphore.Describe(DescribeSemaphoreMode.WithOwners, cancellationToken);
+        var description =
+            await _sessionTransport.DescribeSemaphore(Name, DescribeSemaphoreMode.WithOwners, cancellationToken);
         var owner = description.OwnersList.FirstOrDefault();
         return owner != null ? new LeaderInfo(owner.Data) : null;
     }
@@ -45,7 +46,7 @@ public class Election
 
         try
         {
-            var watch = await _semaphore.WatchSemaphore(DescribeSemaphoreMode.WithOwners,
+            var watch = await _sessionTransport.WatchSemaphore(Name, DescribeSemaphoreMode.WithOwners,
                 WatchSemaphoreMode.WatchOwners, cancellationToken);
             var stateInitial = HandleState(watch.Initial, ref previousLeader, ref currentCts);
             if (stateInitial != null)
@@ -111,7 +112,7 @@ public class Election
             );
         }
 
-        var sessionId = _semaphore.SessionId;
+        var sessionId = _sessionTransport.SessionId;
         var isMe = owner.Id == sessionId;
 
         return new LeaderState(
