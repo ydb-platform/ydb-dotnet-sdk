@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
 
@@ -7,10 +8,14 @@ namespace Ydb.Sdk.Coordination.PrimitiveElection;
 public class Election
 {
     private readonly Semaphore _semaphore;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<Election> _logger;
 
-    public Election(Semaphore semaphore)
+    internal Election(Semaphore semaphore, ILoggerFactory loggerFactory)
     {
         _semaphore = semaphore;
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<Election>();
     }
 
     public string Name
@@ -19,7 +24,7 @@ public class Election
     public async Task<Leadership> Campaign(byte[] data, CancellationToken cancellationToken = default)
     {
         var lease = await _semaphore.Acquire(1, false, data, null, cancellationToken);
-        return new Leadership(_semaphore, lease);
+        return new Leadership(_semaphore, lease, _loggerFactory);
     }
 
     public async Task<LeaderInfo?> Leader(CancellationToken cancellationToken = default)
@@ -33,7 +38,7 @@ public class Election
     public async IAsyncEnumerable<LeaderState> Observe(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        Console.WriteLine($"observing leadership changes on {Name}");
+        _logger.LogInformation("Observing leadership changes on {Name}", Name);
 
         LeaderIdentity? previousLeader = null;
         CancellationTokenSource? currentCts = null;
@@ -65,7 +70,7 @@ public class Election
                 currentCts.Dispose();
             }
 
-            Console.WriteLine($"stopped observing {Name}");
+            _logger.LogInformation("Stopped observing leadership changes on {Name}", Name);
         }
     }
 
@@ -97,7 +102,7 @@ public class Election
 
         if (owner == null)
         {
-            Console.WriteLine($"no leader on {Name}");
+            _logger.LogInformation("No leader on {Name}", Name);
 
             return new LeaderState(
                 Array.Empty<byte>(),

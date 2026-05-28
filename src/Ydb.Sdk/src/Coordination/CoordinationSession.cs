@@ -1,4 +1,5 @@
-﻿using Ydb.Sdk.Coordination.Description;
+﻿using Microsoft.Extensions.Logging;
+using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.PrimitiveElection;
 using Ydb.Sdk.Coordination.Settings;
 
@@ -7,10 +8,12 @@ namespace Ydb.Sdk.Coordination;
 public class CoordinationSession : IAsyncDisposable
 {
     private readonly SessionTransport _sessionTransport;
+    private readonly ILoggerFactory _loggerFactory;
 
     public CoordinationSession(IDriver driver, string pathNode, SessionOptions sessionOptions,
         CancellationTokenSource? cancelTokenSource)
     {
+        _loggerFactory = driver.LoggerFactory;
         _sessionTransport = new SessionTransport(driver, pathNode, sessionOptions, cancelTokenSource);
     }
 
@@ -23,7 +26,7 @@ public class CoordinationSession : IAsyncDisposable
 
     public Mutex Mutex(string name) => new(Semaphore(name));
 
-    public Election Election(string name) => new(Semaphore(name));
+    public Election Election(string name) => new(Semaphore(name), _loggerFactory);
 
     public async Task Close() => await _sessionTransport.DisposeAsync();
 

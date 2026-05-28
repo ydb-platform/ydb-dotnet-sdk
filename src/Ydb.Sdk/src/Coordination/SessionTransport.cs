@@ -38,7 +38,6 @@ public class SessionTransport : IAsyncDisposable
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private readonly SemaphoreSlim _writeLock = new(1, 1);
-    private readonly Task _initTask;
 
     private volatile TaskCompletionSource _sessionReadyTcs = NewSessionReadyTcs();
     private volatile TaskCompletionSource _sessionFailureTcs = NewSessionFailureTcs();
@@ -70,7 +69,7 @@ public class SessionTransport : IAsyncDisposable
         _driver = driver;
         _pathNode = pathNode;
         _cancelTokenSource = cancelTokenSource ?? new CancellationTokenSource();
-        _initTask = RecoverSession();
+        _ = RecoverSession();
     }
 
     private async Task RecoverSession()
@@ -282,7 +281,6 @@ public class SessionTransport : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Creating {Name} (limit={Limit})", name, limit);
-        await _initTask;
         var (combineToken, linkedCts) = LinkToken(cancellationToken);
 
         try
@@ -324,7 +322,6 @@ public class SessionTransport : IAsyncDisposable
             name,
             data?.Length ?? 0
         );
-        await _initTask;
         var (combineToken, linkedCts) = LinkToken(cancellationToken);
         try
         {
@@ -363,7 +360,6 @@ public class SessionTransport : IAsyncDisposable
             name,
             force
         );
-        await _initTask;
         var (combineToken, linkedCts) = LinkToken(cancellationToken);
         try
         {
@@ -398,7 +394,6 @@ public class SessionTransport : IAsyncDisposable
     public async Task<SemaphoreDescription> DescribeSemaphore(string name,
         DescribeSemaphoreMode mode, CancellationToken cancellationToken = default)
     {
-        await _initTask;
         var (combineToken, linkedCts) = LinkToken(cancellationToken);
 
         try
@@ -505,7 +500,6 @@ public class SessionTransport : IAsyncDisposable
     public async Task ReleaseSemaphore(string name, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Releasing {Name}", name);
-        await _initTask;
         var (combineToken, linkedCts) = LinkToken(cancellationToken);
 
         try
@@ -542,7 +536,6 @@ public class SessionTransport : IAsyncDisposable
         WatchSemaphoreMode watchMode,
         CancellationToken cancellationToken = default)
     {
-        await _initTask;
         var subscription = _watcherRegistry.Watch(name);
 
         var (initialToken, initialLinkedCts) = LinkToken(cancellationToken);

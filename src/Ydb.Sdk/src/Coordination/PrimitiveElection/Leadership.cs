@@ -1,22 +1,31 @@
-﻿namespace Ydb.Sdk.Coordination.PrimitiveElection;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace Ydb.Sdk.Coordination.PrimitiveElection;
 
 public class Leadership : IAsyncDisposable
 {
     private readonly Semaphore _semaphore;
     private readonly Lease _lease;
+    private readonly ILogger<Leadership> _logger;
     private bool _isResigned;
 
-    public Leadership(Semaphore semaphore, Lease lease)
+    
+    internal Leadership(Semaphore semaphore, Lease lease, ILoggerFactory loggerFactory)
     {
         _semaphore = semaphore;
         _lease = lease;
+        _logger = loggerFactory.CreateLogger<Leadership>();
     }
 
-    public async Task Proclaim(byte[]? data)
+    public async Task Proclaim(byte[]? data, CancellationToken cancellationToken = default)
     {
-        Console.WriteLine($"proclaiming leadership on {_semaphore.Name} ({data?.Length ?? 0} bytes)");
+        _logger.LogInformation(
+            "Proclaiming leadership on {Name} ({Bytes} bytes)",
+            _semaphore.Name,
+            data?.Length ?? 0);
 
-        await _semaphore.Update(data);
+        await _semaphore.Update(data, cancellationToken);
     }
 
     public async Task Resign(CancellationToken cancellationToken = default)
@@ -26,7 +35,7 @@ public class Leadership : IAsyncDisposable
 
         _isResigned = true;
 
-        Console.WriteLine($"resigning from leadership on {_semaphore.Name}");
+        _logger.LogInformation("Resigning from leadership on {Name}", _semaphore.Name);
 
         await _lease.Release(cancellationToken);
     }
