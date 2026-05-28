@@ -22,7 +22,7 @@ public class ServiceDiscoveryIntegrationTests
     [Fact]
     public async Task ServiceDiscovery()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var config = new NodeConfig
         {
             SelfCheckPeriod = TimeSpan.FromSeconds(1),
@@ -37,14 +37,13 @@ public class ServiceDiscoveryIntegrationTests
         var coordinationSession3 = _coordinationClient.CreateSession(_nodePath);
         var coordinationSession4 = _coordinationClient.CreateSession(_nodePath);
         using var bCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        using var watchCts = new CancellationTokenSource(TimeSpan.FromSeconds(7));
         try
         {
             await Task.WhenAll(
                 RunWorker("worker-a:8080", coordinationSession1, cts.Token),
                 RunWorker("worker-b:8081", coordinationSession2, bCts.Token),
                 RunWorker("worker-c:8082", coordinationSession3, cts.Token),
-                WatchEndpoints(coordinationSession4, watchCts.Token)
+                WatchEndpoints(coordinationSession4, cts.Token)
             );
         }
         finally
@@ -67,10 +66,11 @@ public class ServiceDiscoveryIntegrationTests
         _output.WriteLine($"[worker] {endpoint} starting");
 
         var semaphore = coordinationSession.Semaphore(_semaphoreName);
-        await using var lease = await semaphore.Acquire(1, true, Utf8.GetBytes(endpoint), null, CancellationToken.None);
+        await using var lease = await semaphore.Acquire(1, true, Utf8.GetBytes(endpoint), null, token);
         _output.WriteLine($"[worker] {endpoint} registered");
 
-        await WaitForCancellation(token);
+        using var lifetimeCts = CancellationTokenSource.CreateLinkedTokenSource(token, lease.Token);
+        await WaitForCancellation(lifetimeCts.Token);
 
         _output.WriteLine($"[worker] {endpoint} unregistered");
     }
@@ -115,15 +115,17 @@ public class ServiceDiscoveryIntegrationTests
                               : "(none)"));
     }
 
-    private Task WaitForCancellation(CancellationToken token)
+    private static async Task WaitForCancellation(CancellationToken token)
     {
         if (token.IsCancellationRequested)
-            return Task.CompletedTask;
+            return;
 
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        token.Register(() => tcs.TrySetResult());
+        await using var registration = token.Register(
+            static state => ((TaskCompletionSource)state!).TrySetResult(),
+            tcs);
 
-        return tcs.Task;
+        await tcs.Task;
     }
 }
