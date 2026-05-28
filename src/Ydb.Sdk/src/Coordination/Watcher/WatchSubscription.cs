@@ -3,7 +3,7 @@ using Ydb.Sdk.Coordination.Description;
 
 namespace Ydb.Sdk.Coordination.Watcher;
 
-public class WatchSubscription : IDisposable
+internal class WatchSubscription : IDisposable
 {
     public ulong ReqId { get; set; }
 

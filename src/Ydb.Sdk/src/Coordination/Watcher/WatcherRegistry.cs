@@ -4,7 +4,7 @@ using Ydb.Sdk.Coordination.Description;
 
 namespace Ydb.Sdk.Coordination.Watcher;
 
-public class WatcherRegistry : IDisposable
+internal class WatcherRegistry : IDisposable
 {
     private readonly ConcurrentDictionary<string, WatchSubscription> _watchesByName = new();
     private readonly ConcurrentDictionary<ulong, WatchSubscription> _watchesByReqId = new();

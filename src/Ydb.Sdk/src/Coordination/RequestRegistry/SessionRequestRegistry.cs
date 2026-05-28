@@ -4,7 +4,7 @@ using Ydb.Sdk.Ado;
 
 namespace Ydb.Sdk.Coordination.RequestRegistry;
 
-public class SessionRequestRegistry
+internal class SessionRequestRegistry
 {
     private long _reqIdCounter;
     private volatile bool _closed;

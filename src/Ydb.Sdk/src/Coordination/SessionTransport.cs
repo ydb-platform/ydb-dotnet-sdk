@@ -430,7 +430,7 @@ public class SessionTransport : IAsyncDisposable
         }
     }
 
-    public async Task<bool> AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
+    public async Task<bool> AcquireSemaphoreInternal(string name, ulong count, bool isEphemeral, byte[]? data,
         TimeSpan? timeout, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Waiting to acquire {Name} (count={Count})", name, count);
@@ -497,6 +497,28 @@ public class SessionTransport : IAsyncDisposable
         }
     }
 
+    public async Task<Lease> AcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
+        TimeSpan? timeout, CancellationToken cancellationToken = default)
+    {
+        if (await AcquireSemaphoreInternal(name, count, isEphemeral, data, timeout, cancellationToken))
+        {
+            return new Lease(new Semaphore(name, this));
+        }
+
+        throw new YdbException("Acquire semaphore failed");
+    }
+
+    public async Task<Lease?> TryAcquireSemaphore(string name, ulong count, bool isEphemeral, byte[]? data,
+        CancellationToken cancellationToken = default)
+    {
+        if (await AcquireSemaphoreInternal(name, count, isEphemeral, data, TimeSpan.Zero, cancellationToken))
+        {
+            return new Lease(new Semaphore(name, this));
+        }
+
+        return null;
+    }
+    
     public async Task ReleaseSemaphore(string name, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Releasing {Name}", name);

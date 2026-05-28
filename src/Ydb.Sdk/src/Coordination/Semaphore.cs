@@ -1,5 +1,4 @@
-﻿using Ydb.Sdk.Ado;
-using Ydb.Sdk.Coordination.Description;
+﻿using Ydb.Sdk.Coordination.Description;
 using Ydb.Sdk.Coordination.Settings;
 using Ydb.Sdk.Coordination.Watcher;
 
@@ -33,25 +32,12 @@ public class Semaphore
 
     public async Task<Lease> Acquire(ulong count, bool isEphemeral, byte[]? data,
         TimeSpan? timeout, CancellationToken cancellationToken = default)
-    {
-        if (await _sessionTransport.AcquireSemaphore(Name, count, isEphemeral, data, timeout, cancellationToken))
-        {
-            return new Lease(this);
-        }
-
-        throw new YdbException("Acquire semaphore failed");
-    }
+        => await _sessionTransport.AcquireSemaphore(Name, count, isEphemeral, data, timeout, cancellationToken);
 
     public async Task<Lease?> TryAcquire(ulong count, bool isEphemeral, byte[]? data,
         CancellationToken cancellationToken = default)
-    {
-        if (await _sessionTransport.AcquireSemaphore(Name, count, isEphemeral, data, TimeSpan.Zero, cancellationToken))
-        {
-            return new Lease(this);
-        }
+        => await _sessionTransport.TryAcquireSemaphore(Name, count, isEphemeral, data, cancellationToken);
 
-        return null;
-    }
 
     public async Task Release(CancellationToken cancellationToken = default)
         => await _sessionTransport.ReleaseSemaphore(Name, cancellationToken);

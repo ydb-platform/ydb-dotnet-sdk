@@ -2,7 +2,7 @@
 
 namespace Ydb.Sdk.Coordination.RequestRegistry;
 
-public class PendingRequest
+internal class PendingRequest
 {
     public TaskCompletionSource<SessionResponse> Tcs { get; }
     public SessionRequest Request { get; }
