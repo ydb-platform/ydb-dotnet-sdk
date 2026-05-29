@@ -85,56 +85,6 @@ internal abstract class SessionPool<TSession> where TSession : SessionBase<TSess
 
     protected abstract Task<TSession> CreateSession(CancellationToken cancellationToken = default);
 
-    // TODO Retry policy and may be move to SessionPool method
-    internal async Task<T> ExecOnSession<T>(Func<TSession, Task<T>> onSession, RetrySettings? retrySettings = null)
-    {
-        retrySettings ??= RetrySettings.DefaultInstance;
-        TSession? session = null;
-
-        for (uint attempt = 0; attempt < retrySettings.MaxAttempts; attempt++)
-        {
-            try
-            {
-                session = await GetSession();
-
-                return await onSession(session);
-            }
-            catch (YdbException e)
-            {
-                if (attempt == retrySettings.MaxAttempts - 1)
-                {
-                    session?.OnNotSuccessStatusCode(e.Code);
-
-                    throw;
-                }
-
-                session?.OnNotSuccessStatusCode(e.Code);
-                var retryRule = retrySettings.GetRetryRule(e.Code);
-
-                if (retryRule.Policy == RetryPolicy.None ||
-                    (retryRule.Policy == RetryPolicy.IdempotentOnly && !retrySettings.IsIdempotent))
-                {
-                    throw;
-                }
-
-                Logger.LogTrace(e, "Retry: attempt {attempt}, Session ${session.SessionId}, idempotent error retrying",
-                    attempt, session?.SessionId);
-
-
-                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
-            }
-            finally
-            {
-                if (session != null)
-                {
-                    await session.Release();
-                }
-            }
-        }
-
-        throw new InvalidOperationException("MaxAttempts less then 1, actual value: " + retrySettings.MaxAttempts);
-    }
-
     internal async ValueTask ReleaseSession(TSession session)
     {
         try

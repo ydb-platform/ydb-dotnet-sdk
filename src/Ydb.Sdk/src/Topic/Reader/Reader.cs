@@ -4,6 +4,7 @@ using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 using static Ydb.Topic.StreamReadMessage.Types.FromServer;
@@ -19,6 +20,11 @@ using ReaderStream = IBidirectionalStream<
 
 internal class Reader<TValue> : IReader<TValue>
 {
+    // Reader Initialize() is idempotent (it just opens a fresh server stream),
+    // so the broader idempotent retry set is safe.
+    private static readonly IRetryPolicy InitRetryPolicy =
+        new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
+
     private readonly IDriverFactory _driverFactory;
     private readonly ReaderConfig _config;
     private readonly IDeserializer<TValue> _deserializer;
@@ -164,10 +170,10 @@ internal class Reader<TValue> : IReader<TValue>
 
             if (receivedInitMessage.Status.IsNotSuccess())
             {
-                var statusCode = receivedInitMessage.Status.Code();
-                var statusMessage = statusCode.ToMessage(receivedInitMessage.Issues);
+                var initException = YdbException.FromServer(receivedInitMessage.Status, receivedInitMessage.Issues);
+                var statusMessage = initException.Message;
 
-                if (RetrySettings.DefaultInstance.GetRetryRule(statusCode).Policy != RetryPolicy.None)
+                if (InitRetryPolicy.GetNextDelay(initException, attempt: 0) is not null)
                 {
                     _logger.LogError("Reader initialization failed to start. {StatusMessage}", statusMessage);
 

@@ -4,6 +4,7 @@ using Ydb.Auth;
 using Ydb.Auth.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Auth;
@@ -14,7 +15,12 @@ internal class StaticCredentialsAuthClient : IAuthClient
     private readonly GrpcChannelFactory _grpcChannelFactory;
     private readonly ILogger<StaticCredentialsAuthClient> _logger;
 
-    private readonly RetrySettings _retrySettings = new(5);
+    // Login is idempotent, so the broader idempotent retry set is safe here.
+    private readonly IRetryPolicy _retryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig
+    {
+        MaxAttempts = 5,
+        EnableRetryIdempotence = true
+    });
 
     internal StaticCredentialsAuthClient(
         DriverConfig config,
@@ -29,7 +35,7 @@ internal class StaticCredentialsAuthClient : IAuthClient
 
     public async Task<TokenResponse> FetchToken()
     {
-        uint attempt = 0;
+        var attempt = 0;
         while (true)
         {
             try
@@ -42,14 +48,12 @@ internal class StaticCredentialsAuthClient : IAuthClient
             {
                 _logger.LogError(e, "Login request get wrong status");
 
-                var retryRule = _retrySettings.GetRetryRule(e.Code);
-
-                if (retryRule.Policy == RetryPolicy.None || ++attempt >= _retrySettings.MaxAttempts)
+                if (_retryPolicy.GetNextDelay(e, attempt++) is not { } delay)
                 {
                     throw;
                 }
 
-                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
+                await Task.Delay(delay);
             }
         }
     }
