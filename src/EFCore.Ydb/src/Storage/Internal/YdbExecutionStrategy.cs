@@ -1,8 +1,13 @@
 using System;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Ydb.Sdk;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.RetryPolicy;
+using Ydb.Sdk.Tracing;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal;
 
@@ -14,7 +19,11 @@ namespace EntityFrameworkCore.Ydb.Storage.Internal;
 /// The base ExecutionStrategy parameters (maxRetryCount, maxRetryDelay) are not used.
 /// <br/>- This strategy must be invoked in the correct EF Core context/connection (YDB),
 /// so that exception types and ShouldRetryOn semantics match the provider.
-/// <br/>- The base <see cref="ExecutionStrategy"/> is a good place to emit metrics/logs (attempt number, delay, exception type, etc.).
+/// <br/>- Each call to <see cref="Execute{TState, TResult}"/>/<see cref="ExecuteAsync{TState, TResult}"/>
+/// is wrapped in a <c>ydb.RunWithRetry</c> activity (or <see cref="YdbRetryPolicyConfig.OperationName"/>
+/// when set) and reports the SDK retry histograms (<c>ydb.client.retry.duration</c>,
+/// <c>ydb.client.retry.attempts</c>); each attempt is wrapped in its own <c>ydb.Try</c> child span,
+/// with <c>ydb.retry.backoff_ms</c> set on retry attempts.
 /// </summary>
 public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, YdbRetryPolicyConfig retryPolicyConfig)
 // We pass "placeholders" to the base class:
@@ -22,7 +31,13 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
 // - Actual limits/delays are driven by YdbRetryPolicy.
     : ExecutionStrategy(dependencies, retryPolicyConfig.MaxAttempts, TimeSpan.Zero /* unused! */)
 {
+    private const string DefaultActivityName = "ydb.RunWithRetry";
+
     private readonly YdbRetryPolicy _retryPolicy = new(retryPolicyConfig);
+    private readonly string _activityName = retryPolicyConfig.OperationName ?? DefaultActivityName;
+
+    private Activity? _currentTryActivity;
+    private int _retryCount;
 
     public override bool RetriesOnFailure => true;
 
@@ -33,6 +48,92 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
             StatusCode.ClientTransportUnavailable or
             StatusCode.Undetermined));
 
-    protected override TimeSpan? GetNextDelay(Exception lastException) =>
-        _retryPolicy.GetNextDelay((YdbException)lastException, ExceptionsEncountered.Count - 1);
+    protected override TimeSpan? GetNextDelay(Exception lastException)
+    {
+        var delay = _retryPolicy.GetNextDelay((YdbException)lastException, ExceptionsEncountered.Count - 1);
+        if (delay is null)
+        {
+            return null;
+        }
+
+        // Close the previous attempt's span and open a new one so the next operation
+        // (and the Task.Delay before it) is parented under the fresh `ydb.Try`.
+        _currentTryActivity?.SetException(lastException);
+        _currentTryActivity?.Dispose();
+        _currentTryActivity = YdbActivitySource.StartActivity("ydb.Try", ActivityKind.Internal);
+        _currentTryActivity?.SetRetryAttributes(delay.Value);
+
+        return delay;
+    }
+
+    protected override void OnRetry()
+    {
+        base.OnRetry();
+        _retryCount++;
+    }
+
+    public override TResult Execute<TState, TResult>(
+        TState state,
+        Func<DbContext, TState, TResult> operation,
+        Func<DbContext, TState, ExecutionResult<TResult>>? verifySucceeded
+    )
+    {
+        using var dbActivity = YdbActivitySource.StartActivity(_activityName, ActivityKind.Internal);
+        var startTimestamp = YdbMetricsReporter.ReportRetryStart();
+        BeginRetryLoop();
+        try
+        {
+            return base.Execute(state, operation, verifySucceeded);
+        }
+        catch (Exception e)
+        {
+            _currentTryActivity?.SetException(e);
+            dbActivity?.SetException(e);
+            throw;
+        }
+        finally
+        {
+            EndRetryLoop(startTimestamp);
+        }
+    }
+
+    public override async Task<TResult> ExecuteAsync<TState, TResult>(
+        TState state,
+        Func<DbContext, TState, CancellationToken, Task<TResult>> operation,
+        Func<DbContext, TState, CancellationToken, Task<ExecutionResult<TResult>>>? verifySucceeded,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var dbActivity = YdbActivitySource.StartActivity(_activityName, ActivityKind.Internal);
+        var startTimestamp = YdbMetricsReporter.ReportRetryStart();
+        BeginRetryLoop();
+        try
+        {
+            return await base.ExecuteAsync(state, operation, verifySucceeded, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            _currentTryActivity?.SetException(e);
+            dbActivity?.SetException(e);
+            throw;
+        }
+        finally
+        {
+            EndRetryLoop(startTimestamp);
+        }
+    }
+
+    private void BeginRetryLoop()
+    {
+        _retryCount = 0;
+        _currentTryActivity = YdbActivitySource.StartActivity("ydb.Try", ActivityKind.Internal);
+    }
+
+    private void EndRetryLoop(long startTimestamp)
+    {
+        _currentTryActivity?.Dispose();
+        _currentTryActivity = null;
+        YdbMetricsReporter.ReportRetryStop(startTimestamp, _retryCount + 1, retryPolicyConfig.OperationName);
+    }
 }
