@@ -15,7 +15,7 @@ namespace Ydb.Sdk.Ado;
 /// <remarks>
 /// YdbConnectionStringBuilder provides strongly-typed properties for building YDB connection strings.
 /// It supports all standard ADO.NET connection string parameters plus YDB-specific options.
-/// 
+///
 /// <para>
 /// For more information about YDB, see:
 /// <see href="https://ydb.tech/docs">YDB Documentation</see>.
