@@ -69,14 +69,7 @@ public class YdbDataSourceTests : TestBase
     {
         var attempt = 0;
         await _dataSource.ExecuteAsync(_ =>
-        {
-            if (attempt++ < 3)
-            {
-                throw new YdbException(StatusCode.BadSession, "Bad Session");
-            }
-
-            return Task.CompletedTask;
-        });
+            attempt++ < 3 ? throw new YdbException(StatusCode.BadSession, "Bad Session") : Task.CompletedTask);
     }
 
     [Theory]
@@ -94,7 +87,7 @@ public class YdbDataSourceTests : TestBase
             }
 
             return Task.CompletedTask;
-        }, new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
+        }, YdbRetryPolicy.IdempotenceDefault);
     }
 
     [Theory]

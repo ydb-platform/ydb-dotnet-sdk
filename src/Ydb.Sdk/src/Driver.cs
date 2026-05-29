@@ -23,9 +23,8 @@ namespace Ydb.Sdk;
 /// </remarks>
 public sealed class Driver : BaseDriver
 {
-    private static readonly YdbRetryPolicyExecutor DiscoveryRetryPolicy = new(
-        new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true })
-    );
+    private static readonly YdbRetryPolicyExecutor DiscoveryRetryPolicy =
+        new(YdbRetryPolicy.IdempotenceDefault, "ydb.Driver.Initialize");
 
     private readonly EndpointPool _endpointPool;
     private readonly EndpointLocalDcDetector _endpointLocalDcDetector;
@@ -71,25 +70,16 @@ public sealed class Driver : BaseDriver
     {
         Logger.LogInformation("Started initial endpoint discovery");
 
-        using var dbActivity = YdbActivitySource.StartActivity("ydb.Driver.Initialize", ActivityKind.Internal);
-        try
+        await DiscoveryRetryPolicy.ExecuteAsync(async _ =>
         {
-            await DiscoveryRetryPolicy.ExecuteAsync(async _ =>
-            {
-                await DiscoverEndpoints();
-                _discoveryTimer = new Timer(
-                    OnDiscoveryTimer,
-                    null,
-                    Config.EndpointDiscoveryInterval,
-                    Config.EndpointDiscoveryInterval
-                );
-            });
-        }
-        catch (YdbException e)
-        {
-            dbActivity?.SetException(e);
-            throw;
-        }
+            await DiscoverEndpoints();
+            _discoveryTimer = new Timer(
+                OnDiscoveryTimer,
+                null,
+                Config.EndpointDiscoveryInterval,
+                Config.EndpointDiscoveryInterval
+            );
+        });
     }
 
     private async void OnDiscoveryTimer(object? state)

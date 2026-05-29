@@ -11,7 +11,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
 
     protected override YdbDataSource CreateClient(Config config) => new YdbDataSourceBuilder(
         new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
-    ) { RetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true }) }.Build();
+    ) { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
     {
@@ -86,7 +86,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
             };
 
             await ydbCommand.ExecuteNonQueryAsync();
-        }, new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
+        }, YdbRetryPolicy.IdempotenceDefault);
 
 
         return attempts;
@@ -98,8 +98,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         int readTimeout
     )
     {
-        await using var ydbConnection = await client.OpenRetryableConnectionAsync(
-            new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
+        await using var ydbConnection = await client.OpenRetryableConnectionAsync(YdbRetryPolicy.IdempotenceDefault);
 
         var ydbCommand = new YdbCommand(ydbConnection)
         {

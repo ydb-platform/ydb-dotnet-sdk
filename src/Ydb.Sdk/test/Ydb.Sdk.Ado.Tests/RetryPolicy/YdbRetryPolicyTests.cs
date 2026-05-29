@@ -146,6 +146,5 @@ public class YdbRetryPolicyTests
     [InlineData(StatusCode.ClientTransportTimeout)]
     [InlineData(StatusCode.ClientTransportUnimplemented)]
     public void GetNextDelay_WhenStatusCodeIsNotRetriable_ReturnNull(StatusCode statusCode) =>
-        Assert.Null(new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true })
-            .GetNextDelay(new YdbException(statusCode, "Mock message"), 0));
+        Assert.Null(YdbRetryPolicy.IdempotenceDefault.GetNextDelay(new YdbException(statusCode, "Mock message"), 0));
 }
