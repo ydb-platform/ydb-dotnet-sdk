@@ -16,11 +16,10 @@ internal class StaticCredentialsAuthClient : IAuthClient
     private readonly ILogger<StaticCredentialsAuthClient> _logger;
 
     // Login is idempotent, so the broader idempotent retry set is safe here.
-    private readonly IRetryPolicy _retryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig
-    {
-        MaxAttempts = 5,
-        EnableRetryIdempotence = true
-    });
+    private readonly YdbRetryPolicyExecutor _retryPolicyExecutor = new(
+        new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 5, EnableRetryIdempotence = true }),
+        operationName: "ydb.Login"
+    );
 
     internal StaticCredentialsAuthClient(
         DriverConfig config,
@@ -33,30 +32,21 @@ internal class StaticCredentialsAuthClient : IAuthClient
         _logger = loggerFactory.CreateLogger<StaticCredentialsAuthClient>();
     }
 
-    public async Task<TokenResponse> FetchToken()
+    public Task<TokenResponse> FetchToken() => _retryPolicyExecutor.ExecuteAsync(async _ =>
     {
-        var attempt = 0;
-        while (true)
+        try
         {
-            try
-            {
-                var token = await Login();
+            var token = await Login();
 
-                return new TokenResponse(token, new JwtSecurityToken(token).ValidTo);
-            }
-            catch (YdbException e)
-            {
-                _logger.LogError(e, "Login request get wrong status");
-
-                if (_retryPolicy.GetNextDelay(e, attempt++) is not { } delay)
-                {
-                    throw;
-                }
-
-                await Task.Delay(delay);
-            }
+            return new TokenResponse(token, new JwtSecurityToken(token).ValidTo);
         }
-    }
+        catch (YdbException e)
+        {
+            _logger.LogError(e, "Login request get wrong status");
+
+            throw;
+        }
+    });
 
     private async Task<string> Login()
     {
