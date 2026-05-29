@@ -1,3 +1,6 @@
+- Bumped `Ydb.Sdk` to `0.32.0`.
+- Started reporting `ef-core/{V}` as client info.
+
 ## v0.4.2
 
 - Fixed bug: json columns to string property mapping.
