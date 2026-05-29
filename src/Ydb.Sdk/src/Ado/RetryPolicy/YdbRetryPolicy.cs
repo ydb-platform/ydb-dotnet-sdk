@@ -30,9 +30,7 @@ public class YdbRetryPolicy : IRetryPolicy
     /// This instance is built on <see cref="YdbRetryPolicyConfig.Default"/> with
     /// <see cref="YdbRetryPolicyConfig.EnableRetryIdempotence"/> set to <c>true</c>, so it also retries
     /// statuses that are non-transient by default (e.g. <see cref="StatusCode.Undetermined"/>,
-    /// transport errors). Use it for operations the caller can safely re-execute, such as the bootstrap
-    /// <c>Login</c> RPC, Driver <c>ListEndpoints</c> discovery, Topic Reader/Writer stream initialization,
-    /// or read-only ADO.NET commands.
+    /// transport errors).
     /// </remarks>
     public static readonly YdbRetryPolicy IdempotenceDefault = new(new YdbRetryPolicyConfig
         { EnableRetryIdempotence = true });

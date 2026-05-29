@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Diagnostics;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -9,7 +8,6 @@ using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Pool;
-using Ydb.Sdk.Tracing;
 using EndpointInfo = Ydb.Sdk.Pool.EndpointInfo;
 
 namespace Ydb.Sdk;
