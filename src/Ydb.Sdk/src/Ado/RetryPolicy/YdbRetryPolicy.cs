@@ -22,6 +22,9 @@ public class YdbRetryPolicy : IRetryPolicy
     /// </remarks>
     public static readonly YdbRetryPolicy Default = new(YdbRetryPolicyConfig.Default);
 
+    public static readonly YdbRetryPolicy IdempotenceDefault = new(new YdbRetryPolicyConfig
+        { EnableRetryIdempotence = true });
+
     private readonly int _maxAttempt;
     private readonly int _fastBackoffBaseMs;
     private readonly int _slowBackoffBaseMs;

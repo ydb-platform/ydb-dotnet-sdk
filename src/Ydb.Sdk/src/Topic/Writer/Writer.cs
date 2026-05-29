@@ -20,11 +20,6 @@ using WriterStream = IBidirectionalStream<
 
 internal class Writer<TValue> : IWriter<TValue>
 {
-    // Writer Initialize() is idempotent (it just opens a fresh server stream),
-    // so the broader idempotent retry set is safe.
-    private static readonly IRetryPolicy InitRetryPolicy =
-        new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
-
     private readonly IDriverFactory _driverFactory;
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
@@ -264,7 +259,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 var initException = YdbException.FromServer(receivedInitMessage.Status, receivedInitMessage.Issues);
                 var statusMessage = initException.Message;
 
-                if (InitRetryPolicy.GetNextDelay(initException, attempt: 0) is not null)
+                if (YdbRetryPolicy.IdempotenceDefault.GetNextDelay(initException, attempt: 0) is not null)
                 {
                     _logger.LogError("Writer initialization failed to start. {StatusMessage}", statusMessage);
 

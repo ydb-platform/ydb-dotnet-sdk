@@ -1,5 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using Microsoft.Extensions.Logging;
 using Ydb.Auth;
 using Ydb.Auth.V1;
 using Ydb.Sdk.Ado;
@@ -11,41 +10,23 @@ namespace Ydb.Sdk.Auth;
 
 internal class StaticCredentialsAuthClient : IAuthClient
 {
+    private static readonly YdbRetryPolicyExecutor RetryPolicyExecutor =
+        new(YdbRetryPolicy.IdempotenceDefault, "ydb.Login");
+
     private readonly DriverConfig _config;
     private readonly GrpcChannelFactory _grpcChannelFactory;
-    private readonly ILogger<StaticCredentialsAuthClient> _logger;
 
-    // Login is idempotent, so the broader idempotent retry set is safe here.
-    private readonly YdbRetryPolicyExecutor _retryPolicyExecutor = new(
-        new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 5, EnableRetryIdempotence = true }),
-        operationName: "ydb.Login"
-    );
-
-    internal StaticCredentialsAuthClient(
-        DriverConfig config,
-        GrpcChannelFactory grpcChannelFactory,
-        ILoggerFactory loggerFactory
-    )
+    internal StaticCredentialsAuthClient(DriverConfig config, GrpcChannelFactory grpcChannelFactory)
     {
         _config = config;
         _grpcChannelFactory = grpcChannelFactory;
-        _logger = loggerFactory.CreateLogger<StaticCredentialsAuthClient>();
     }
 
-    public Task<TokenResponse> FetchToken() => _retryPolicyExecutor.ExecuteAsync(async _ =>
+    public Task<TokenResponse> FetchToken() => RetryPolicyExecutor.ExecuteAsync(async _ =>
     {
-        try
-        {
-            var token = await Login();
+        var token = await Login();
 
-            return new TokenResponse(token, new JwtSecurityToken(token).ValidTo);
-        }
-        catch (YdbException e)
-        {
-            _logger.LogError(e, "Login request get wrong status");
-
-            throw;
-        }
+        return new TokenResponse(token, new JwtSecurityToken(token).ValidTo);
     });
 
     private async Task<string> Login()

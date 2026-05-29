@@ -18,8 +18,8 @@ internal static class CredentialsProviderUtils
         {
             return (ICredentialsProvider)Assembly.Load(AssemblyYcName)
                 .GetType(ServiceAccountProviderTypeName, throwOnError: true)!
-                .GetConstructor(new[] { typeof(string), typeof(ILoggerFactory) })!
-                .Invoke(new object[] { serviceAccountKeyFilePath, loggerFactory });
+                .GetConstructor([typeof(string), typeof(ILoggerFactory)])!
+                .Invoke([serviceAccountKeyFilePath, loggerFactory]);
         }
         catch (Exception e)
         {

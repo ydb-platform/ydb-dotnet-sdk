@@ -190,7 +190,7 @@ public abstract class BaseDriver : IDriver
 
         _credentialsProvider = Config.User != null
             ? new CachedCredentialsProvider(
-                new StaticCredentialsAuthClient(Config, GrpcChannelFactory, LoggerFactory),
+                new StaticCredentialsAuthClient(Config, GrpcChannelFactory),
                 LoggerFactory
             )
             : Config.Credentials;
