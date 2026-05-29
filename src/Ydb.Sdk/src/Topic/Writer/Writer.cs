@@ -4,6 +4,7 @@ using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 
@@ -255,10 +256,10 @@ internal class Writer<TValue> : IWriter<TValue>
 
             if (receivedInitMessage.Status.IsNotSuccess())
             {
-                var statusCode = receivedInitMessage.Status.Code();
-                var statusMessage = statusCode.ToMessage(receivedInitMessage.Issues);
+                var initException = YdbException.FromServer(receivedInitMessage.Status, receivedInitMessage.Issues);
+                var statusMessage = initException.Message;
 
-                if (RetrySettings.DefaultInstance.GetRetryRule(statusCode).Policy != RetryPolicy.None)
+                if (YdbRetryPolicy.IdempotenceDefault.GetNextDelay(initException, attempt: 0) is not null)
                 {
                     _logger.LogError("Writer initialization failed to start. {StatusMessage}", statusMessage);
 

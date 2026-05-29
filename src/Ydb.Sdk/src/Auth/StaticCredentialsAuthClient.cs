@@ -1,58 +1,33 @@
 using System.IdentityModel.Tokens.Jwt;
-using Microsoft.Extensions.Logging;
 using Ydb.Auth;
 using Ydb.Auth.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk.Auth;
 
 internal class StaticCredentialsAuthClient : IAuthClient
 {
+    private static readonly YdbRetryPolicyExecutor RetryPolicyExecutor =
+        new(YdbRetryPolicy.IdempotenceDefault, "ydb.Login");
+
     private readonly DriverConfig _config;
     private readonly GrpcChannelFactory _grpcChannelFactory;
-    private readonly ILogger<StaticCredentialsAuthClient> _logger;
 
-    private readonly RetrySettings _retrySettings = new(5);
-
-    internal StaticCredentialsAuthClient(
-        DriverConfig config,
-        GrpcChannelFactory grpcChannelFactory,
-        ILoggerFactory loggerFactory
-    )
+    internal StaticCredentialsAuthClient(DriverConfig config, GrpcChannelFactory grpcChannelFactory)
     {
         _config = config;
         _grpcChannelFactory = grpcChannelFactory;
-        _logger = loggerFactory.CreateLogger<StaticCredentialsAuthClient>();
     }
 
-    public async Task<TokenResponse> FetchToken()
+    public Task<TokenResponse> FetchToken() => RetryPolicyExecutor.ExecuteAsync(async _ =>
     {
-        uint attempt = 0;
-        while (true)
-        {
-            try
-            {
-                var token = await Login();
+        var token = await Login();
 
-                return new TokenResponse(token, new JwtSecurityToken(token).ValidTo);
-            }
-            catch (YdbException e)
-            {
-                _logger.LogError(e, "Login request get wrong status");
-
-                var retryRule = _retrySettings.GetRetryRule(e.Code);
-
-                if (retryRule.Policy == RetryPolicy.None || ++attempt >= _retrySettings.MaxAttempts)
-                {
-                    throw;
-                }
-
-                await Task.Delay(retryRule.BackoffSettings.CalcBackoff(attempt));
-            }
-        }
-    }
+        return new TokenResponse(token, new JwtSecurityToken(token).ValidTo);
+    });
 
     private async Task<string> Login()
     {

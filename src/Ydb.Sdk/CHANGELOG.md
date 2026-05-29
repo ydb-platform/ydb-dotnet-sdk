@@ -1,3 +1,7 @@
+- Feat tracing: added `ydb.Login` span emitted by the static-credentials auth client.
+- **Breaking Change**: Removed legacy `Retry.cs` (`BackoffSettings`, `RetryPolicy` enum, `RetryRule`, `RetrySettings`).
+- **Breaking Change**: Removed legacy `Pool/SessionPool.cs` (`SessionPool<T>`, `SessionBase<T>`, `SessionPoolConfig`, `SessionPoolDefaultSettings`); the ADO.NET `PoolingSessionSource<T>` is now the only session pool implementation.
+
 ## v0.32.0
 
 - **Breaking Change**: Removed legacy TableClient.
