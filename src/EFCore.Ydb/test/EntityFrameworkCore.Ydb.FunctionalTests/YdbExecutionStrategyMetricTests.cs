@@ -20,11 +20,7 @@ public class YdbExecutionStrategyMetricTests
     [Fact]
     public async Task RetryMetrics_FirstTrySuccess_RecordsOneAttempt()
     {
-        var operationName = NewOperationName();
-        await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
-        {
-            OperationName = operationName
-        }));
+        await using var db = CreateContext();
         using var meterListener = StartMeterListener(out var measurements);
 
         var strategy = db.Database.CreateExecutionStrategy();
@@ -33,23 +29,20 @@ public class YdbExecutionStrategyMetricTests
             operation: (_, _, _) => Task.FromResult(0),
             verifySucceeded: null);
 
-        var attempts = SingleAttemptForOperation(measurements, operationName);
-        Assert.Equal(1, attempts);
+        Assert.Equal(1, SingleAttempts(measurements));
+        Assert.True(SingleDuration(measurements) >= 0);
 
-        var duration = SingleDurationForOperation(measurements, operationName);
-        Assert.True(duration >= 0);
+        AssertNoOperationNameTag(measurements);
     }
 
     [Fact]
     public async Task RetryMetrics_WithRetries_RecordsTotalAttempts()
     {
-        var operationName = NewOperationName();
         await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
         {
             MaxAttempts = 5,
             FastBackoffBaseMs = 1,
-            FastCapBackoffMs = 1,
-            OperationName = operationName
+            FastCapBackoffMs = 1
         }));
         using var meterListener = StartMeterListener(out var measurements);
 
@@ -68,17 +61,13 @@ public class YdbExecutionStrategyMetricTests
             verifySucceeded: null);
 
         Assert.Equal(3, calls);
-        Assert.Equal(3, SingleAttemptForOperation(measurements, operationName));
+        Assert.Equal(3, SingleAttempts(measurements));
     }
 
     [Fact]
     public async Task RetryMetrics_NonRetryableError_StillRecordsOneAttempt()
     {
-        var operationName = NewOperationName();
-        await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
-        {
-            OperationName = operationName
-        }));
+        await using var db = CreateContext();
         using var meterListener = StartMeterListener(out var measurements);
 
         var strategy = db.Database.CreateExecutionStrategy();
@@ -89,20 +78,18 @@ public class YdbExecutionStrategyMetricTests
                     new YdbException(StatusCode.Unauthorized, "no")),
                 verifySucceeded: null));
 
-        Assert.Equal(1, SingleAttemptForOperation(measurements, operationName));
-        Assert.True(SingleDurationForOperation(measurements, operationName) >= 0);
+        Assert.Equal(1, SingleAttempts(measurements));
+        Assert.True(SingleDuration(measurements) >= 0);
     }
 
     [Fact]
     public async Task RetryMetrics_RetriesExhausted_RecordsAllAttempts()
     {
-        var operationName = NewOperationName();
         await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
         {
             MaxAttempts = 3,
             FastBackoffBaseMs = 1,
-            FastCapBackoffMs = 1,
-            OperationName = operationName
+            FastCapBackoffMs = 1
         }));
         using var meterListener = StartMeterListener(out var measurements);
 
@@ -115,53 +102,7 @@ public class YdbExecutionStrategyMetricTests
                 verifySucceeded: null));
 
         // MaxAttempts=3 -> initial + 2 retries -> 3 total attempts.
-        Assert.Equal(3, SingleAttemptForOperation(measurements, operationName));
-    }
-
-    [Fact]
-    public async Task RetryMetrics_NoOperationName_OmitsOperationNameTag()
-    {
-        await using var db = CreateContext();
-        using var meterListener = StartMeterListener(out var measurements);
-
-        var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(
-            state: 0,
-            operation: (_, _, _) => Task.FromResult(0),
-            verifySucceeded: null);
-
-        // Both metrics must contain at least one record without an operation.name tag.
-        Assert.Contains(measurements,
-            m => m.InstrumentName == RetryAttemptsMetric && !m.Tags.ContainsKey("operation.name"));
-        Assert.Contains(measurements,
-            m => m.InstrumentName == RetryDurationMetric && !m.Tags.ContainsKey("operation.name"));
-    }
-
-    [Fact]
-    public async Task RetryMetrics_WithOperationName_TagsBothMetrics()
-    {
-        var operationName = NewOperationName();
-        await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
-        {
-            OperationName = operationName
-        }));
-        using var meterListener = StartMeterListener(out var measurements);
-
-        var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(
-            state: 0,
-            operation: (_, _, _) => Task.FromResult(0),
-            verifySucceeded: null);
-
-        var attempts = measurements.Single(m =>
-            m.InstrumentName == RetryAttemptsMetric &&
-            (string?)m.Tags.GetValueOrDefault("operation.name") == operationName);
-        Assert.Equal(operationName, attempts.Tags["operation.name"]);
-
-        var duration = measurements.Single(m =>
-            m.InstrumentName == RetryDurationMetric &&
-            (string?)m.Tags.GetValueOrDefault("operation.name") == operationName);
-        Assert.Equal(operationName, duration.Tags["operation.name"]);
+        Assert.Equal(3, SingleAttempts(measurements));
     }
 
     private static TestDbContext CreateContext(Action<YdbDbContextOptionsBuilder>? configure = null) =>
@@ -200,17 +141,14 @@ public class YdbExecutionStrategyMetricTests
         return listener;
     }
 
-    private static double SingleAttemptForOperation(List<Measurement> measurements, string operationName) =>
-        measurements.Single(m =>
-                m.InstrumentName == RetryAttemptsMetric &&
-                (string?)m.Tags.GetValueOrDefault("operation.name") == operationName)
-            .Value;
+    private static double SingleAttempts(List<Measurement> measurements) =>
+        measurements.Single(m => m.InstrumentName == RetryAttemptsMetric).Value;
 
-    private static double SingleDurationForOperation(List<Measurement> measurements, string operationName) =>
-        measurements.Single(m =>
-                m.InstrumentName == RetryDurationMetric &&
-                (string?)m.Tags.GetValueOrDefault("operation.name") == operationName)
-            .Value;
+    private static double SingleDuration(List<Measurement> measurements) =>
+        measurements.Single(m => m.InstrumentName == RetryDurationMetric).Value;
+
+    private static void AssertNoOperationNameTag(List<Measurement> measurements) =>
+        Assert.All(measurements, m => Assert.False(m.Tags.ContainsKey("operation.name")));
 
     private static Dictionary<string, object?> ToDictionary(ReadOnlySpan<KeyValuePair<string, object?>> tags)
     {
@@ -219,6 +157,4 @@ public class YdbExecutionStrategyMetricTests
             dict[tag.Key] = tag.Value;
         return dict;
     }
-
-    private static string NewOperationName() => "EFCore.Test." + Guid.NewGuid().ToString("N");
 }

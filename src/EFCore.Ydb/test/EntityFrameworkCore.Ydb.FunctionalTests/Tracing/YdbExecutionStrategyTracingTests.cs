@@ -163,26 +163,6 @@ public class YdbExecutionStrategyTracingTests
         Assert.NotNull(retryTry.GetTagItem("ydb.retry.backoff_ms"));
     }
 
-    [Fact]
-    public async Task ExecuteAsync_OperationName_OverridesRunWithRetrySpanName()
-    {
-        await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
-        {
-            OperationName = "EFCore.MyOp"
-        }));
-        using var listener = StartListener(out var activities);
-
-        var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(
-            state: 0,
-            operation: (_, _, _) => Task.FromResult(0),
-            verifySucceeded: null);
-
-        var renamed = GetSingleActivity(activities, "EFCore.MyOp");
-        Assert.Equal(ActivityKind.Internal, renamed.Kind);
-        Assert.DoesNotContain(activities, a => a.DisplayName == "ydb.RunWithRetry");
-    }
-
     private static YdbRetryPolicyConfig FastRetryConfig => new()
     {
         MaxAttempts = 5,

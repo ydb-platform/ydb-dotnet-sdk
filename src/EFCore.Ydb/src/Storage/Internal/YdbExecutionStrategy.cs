@@ -15,26 +15,20 @@ namespace EntityFrameworkCore.Ydb.Storage.Internal;
 /// Retry strategy for YDB.<br/>
 ///
 /// <br/>IMPORTANT:
-/// <br/>- The maximum number of attempts and backoff logic are encapsulated in <see cref="YdbRetryPolicy"/>.
-/// The base ExecutionStrategy parameters (maxRetryCount, maxRetryDelay) are not used.
+/// <br/>- Whether/how long to retry is fully delegated to the supplied <see cref="IRetryPolicy"/>.
+/// The base ExecutionStrategy parameters (maxRetryCount, maxRetryDelay) are not used; we pass
+/// <see cref="int.MaxValue"/> / <see cref="TimeSpan.Zero"/> as placeholders.
 /// <br/>- This strategy must be invoked in the correct EF Core context/connection (YDB),
 /// so that exception types and ShouldRetryOn semantics match the provider.
-/// <br/>- Each call to <see cref="Execute{TState, TResult}"/>/<see cref="ExecuteAsync{TState, TResult}"/>
-/// is wrapped in a <c>ydb.RunWithRetry</c> activity (or <see cref="YdbRetryPolicyConfig.OperationName"/>
-/// when set) and reports the SDK retry histograms (<c>ydb.client.retry.duration</c>,
-/// <c>ydb.client.retry.attempts</c>); each attempt is wrapped in its own <c>ydb.Try</c> child span,
-/// with <c>ydb.retry.backoff_ms</c> set on retry attempts.
+/// <br/>- Each call is wrapped in a <c>ydb.RunWithRetry</c> activity and reports the SDK retry
+/// histograms (<c>ydb.client.retry.duration</c>, <c>ydb.client.retry.attempts</c>); each attempt
+/// is wrapped in its own <c>ydb.Try</c> child span, with <c>ydb.retry.backoff_ms</c> set on retry
+/// attempts.
 /// </summary>
-public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, YdbRetryPolicyConfig retryPolicyConfig)
-// We pass "placeholders" to the base class:
-// - MaxAttempts and TimeSpan.Zero are not used in the real retry logic.
-// - Actual limits/delays are driven by YdbRetryPolicy.
-    : ExecutionStrategy(dependencies, retryPolicyConfig.MaxAttempts, TimeSpan.Zero /* unused! */)
+public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, IRetryPolicy retryPolicy)
+    : ExecutionStrategy(dependencies, int.MaxValue /* unused */, TimeSpan.Zero /* unused */)
 {
-    private const string DefaultActivityName = "ydb.RunWithRetry";
-
-    private readonly YdbRetryPolicy _retryPolicy = new(retryPolicyConfig);
-    private readonly string _activityName = retryPolicyConfig.OperationName ?? DefaultActivityName;
+    private const string ActivityName = "ydb.RunWithRetry";
 
     private Activity? _currentTryActivity;
     private int _retryCount;
@@ -42,15 +36,11 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
     public override bool RetriesOnFailure => true;
 
     protected override bool ShouldRetryOn(Exception exception) =>
-        exception is YdbException ydbException &&
-        (ydbException.IsTransient || (retryPolicyConfig.EnableRetryIdempotence && ydbException.Code is
-            StatusCode.ClientTransportUnknown or
-            StatusCode.ClientTransportUnavailable or
-            StatusCode.Undetermined));
+        exception is YdbException ydbException && retryPolicy.GetNextDelay(ydbException, attempt: 0) is not null;
 
     protected override TimeSpan? GetNextDelay(Exception lastException)
     {
-        var delay = _retryPolicy.GetNextDelay((YdbException)lastException, ExceptionsEncountered.Count - 1);
+        var delay = retryPolicy.GetNextDelay((YdbException)lastException, ExceptionsEncountered.Count - 1);
         if (delay is null)
         {
             return null;
@@ -78,7 +68,7 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
         Func<DbContext, TState, ExecutionResult<TResult>>? verifySucceeded
     )
     {
-        using var dbActivity = YdbActivitySource.StartActivity(_activityName, ActivityKind.Internal);
+        using var dbActivity = YdbActivitySource.StartActivity(ActivityName, ActivityKind.Internal);
         var startTimestamp = YdbMetricsReporter.ReportRetryStart();
         BeginRetryLoop();
         try
@@ -104,7 +94,7 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
         CancellationToken cancellationToken = default
     )
     {
-        using var dbActivity = YdbActivitySource.StartActivity(_activityName, ActivityKind.Internal);
+        using var dbActivity = YdbActivitySource.StartActivity(ActivityName, ActivityKind.Internal);
         var startTimestamp = YdbMetricsReporter.ReportRetryStart();
         BeginRetryLoop();
         try
@@ -134,6 +124,6 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
     {
         _currentTryActivity?.Dispose();
         _currentTryActivity = null;
-        YdbMetricsReporter.ReportRetryStop(startTimestamp, _retryCount + 1, retryPolicyConfig.OperationName);
+        YdbMetricsReporter.ReportRetryStop(startTimestamp, _retryCount + 1, operationName: null);
     }
 }

@@ -29,7 +29,7 @@ public abstract class QueryExpressionInterceptionYdbTestBase(
         {
             new YdbDbContextOptionsBuilder(base.AddOptions(builder))
 #pragma warning disable EF1001
-                .ExecutionStrategy(d => new YdbExecutionStrategy(d, YdbRetryPolicyConfig.Default));
+                .ExecutionStrategy(d => new YdbExecutionStrategy(d, new YdbRetryPolicy(YdbRetryPolicyConfig.Default)));
 #pragma warning restore EF1001
             return builder;
         }
