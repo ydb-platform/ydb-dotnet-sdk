@@ -28,7 +28,7 @@ public class YdbExecutionStrategyMetricTests
         using var meterListener = StartMeterListener(out var measurements);
 
         var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync<int, int>(
+        await strategy.ExecuteAsync(
             state: 0,
             operation: (_, _, _) => Task.FromResult(0),
             verifySucceeded: null);
@@ -56,7 +56,7 @@ public class YdbExecutionStrategyMetricTests
         var strategy = db.Database.CreateExecutionStrategy();
 
         var calls = 0;
-        await strategy.ExecuteAsync<int, int>(
+        await strategy.ExecuteAsync(
             state: 0,
             operation: (_, _, _) =>
             {
@@ -83,9 +83,10 @@ public class YdbExecutionStrategyMetricTests
 
         var strategy = db.Database.CreateExecutionStrategy();
         await Assert.ThrowsAsync<YdbException>(() =>
-            strategy.ExecuteAsync<int, int>(
+            strategy.ExecuteAsync(
                 state: 0,
-                operation: (_, _, _) => throw new YdbException(StatusCode.Unauthorized, "no"),
+                operation: (_, _, _) => Task.FromException<int>(
+                    new YdbException(StatusCode.Unauthorized, "no")),
                 verifySucceeded: null));
 
         Assert.Equal(1, SingleAttemptForOperation(measurements, operationName));
@@ -107,9 +108,10 @@ public class YdbExecutionStrategyMetricTests
 
         var strategy = db.Database.CreateExecutionStrategy();
         await Assert.ThrowsAsync<RetryLimitExceededException>(() =>
-            strategy.ExecuteAsync<int, int>(
+            strategy.ExecuteAsync(
                 state: 0,
-                operation: (_, _, _) => throw new YdbException(StatusCode.Aborted, "always fails"),
+                operation: (_, _, _) => Task.FromException<int>(
+                    new YdbException(StatusCode.Aborted, "always fails")),
                 verifySucceeded: null));
 
         // MaxAttempts=3 -> initial + 2 retries -> 3 total attempts.
@@ -123,7 +125,7 @@ public class YdbExecutionStrategyMetricTests
         using var meterListener = StartMeterListener(out var measurements);
 
         var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync<int, int>(
+        await strategy.ExecuteAsync(
             state: 0,
             operation: (_, _, _) => Task.FromResult(0),
             verifySucceeded: null);
@@ -146,7 +148,7 @@ public class YdbExecutionStrategyMetricTests
         using var meterListener = StartMeterListener(out var measurements);
 
         var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync<int, int>(
+        await strategy.ExecuteAsync(
             state: 0,
             operation: (_, _, _) => Task.FromResult(0),
             verifySucceeded: null);

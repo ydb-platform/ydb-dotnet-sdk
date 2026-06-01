@@ -22,7 +22,7 @@ public class YdbExecutionStrategyTracingTests
         using var listener = StartListener(out var activities);
 
         var strategy = db.Database.CreateExecutionStrategy();
-        var result = await strategy.ExecuteAsync<int, int>(
+        var result = await strategy.ExecuteAsync(
             state: 0,
             operation: (_, _, _) => Task.FromResult(42),
             verifySucceeded: null);
@@ -46,7 +46,7 @@ public class YdbExecutionStrategyTracingTests
         using var listener = StartListener(out var activities);
 
         var strategy = db.Database.CreateExecutionStrategy();
-        var result = strategy.Execute<int, int>(
+        var result = strategy.Execute(
             state: 0,
             operation: (_, _) => 7,
             verifySucceeded: null);
@@ -69,7 +69,7 @@ public class YdbExecutionStrategyTracingTests
 
         var strategy = db.Database.CreateExecutionStrategy();
         var firstAttempt = true;
-        await strategy.ExecuteAsync<int, int>(
+        await strategy.ExecuteAsync(
             state: 0,
             operation: (_, _, _) =>
             {
@@ -108,9 +108,10 @@ public class YdbExecutionStrategyTracingTests
         var strategy = db.Database.CreateExecutionStrategy();
 
         await Assert.ThrowsAsync<YdbException>(() =>
-            strategy.ExecuteAsync<int, int>(
+            strategy.ExecuteAsync(
                 state: 0,
-                operation: (_, _, _) => throw new YdbException(StatusCode.Unauthorized, "no access"),
+                operation: (_, _, _) => Task.FromException<int>(
+                    new YdbException(StatusCode.Unauthorized, "no access")),
                 verifySucceeded: null));
 
         var run = GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
@@ -138,9 +139,10 @@ public class YdbExecutionStrategyTracingTests
 
         // RetryLimitExceededException wraps the last YdbException.
         await Assert.ThrowsAsync<RetryLimitExceededException>(() =>
-            strategy.ExecuteAsync<int, int>(
+            strategy.ExecuteAsync(
                 state: 0,
-                operation: (_, _, _) => throw new YdbException(StatusCode.Aborted, "always fails"),
+                operation: (_, _, _) => Task.FromException<int>(
+                    new YdbException(StatusCode.Aborted, "always fails")),
                 verifySucceeded: null));
 
         // Outer span gets the wrapper exception type.
@@ -171,7 +173,7 @@ public class YdbExecutionStrategyTracingTests
         using var listener = StartListener(out var activities);
 
         var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync<int, int>(
+        await strategy.ExecuteAsync(
             state: 0,
             operation: (_, _, _) => Task.FromResult(0),
             verifySucceeded: null);
