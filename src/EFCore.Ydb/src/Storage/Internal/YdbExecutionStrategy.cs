@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
-using Ydb.Sdk;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Tracing;
