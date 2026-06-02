@@ -69,13 +69,14 @@ public class YdbExecutionStrategyMetricTests
         using var meterListener = StartMeterListener(out var measurements);
 
         var strategy = db.Database.CreateExecutionStrategy();
-        await Assert.ThrowsAsync<YdbException>(() =>
+        await Assert.ThrowsAsync<RetryLimitExceededException>(() =>
             strategy.ExecuteAsync(
                 state: 0,
                 operation: (_, _, _) => Task.FromException<int>(
                     new YdbException(StatusCode.Unauthorized, "no")),
                 verifySucceeded: null));
 
+        // Non-transient YdbException: zero retries -> total attempts == 1.
         Assert.Equal(1, SingleAttempts(measurements));
         Assert.True(SingleDuration(measurements) >= 0);
     }
@@ -99,10 +100,8 @@ public class YdbExecutionStrategyMetricTests
                     new YdbException(StatusCode.Aborted, "always fails")),
                 verifySucceeded: null));
 
-        // MaxAttempts=3 -> 3 actual attempts. EF also appends the last failure to
-        // ExceptionsEncountered before wrapping it in RetryLimitExceededException,
-        // so ExceptionsEncountered.Count == 3 on the throw and reported attempts == 4.
-        Assert.Equal(4, SingleAttempts(measurements));
+        // MaxAttempts=3 -> 3 actual attempts (initial + 2 retries).
+        Assert.Equal(3, SingleAttempts(measurements));
     }
 
     private static TestDbContext CreateContext(Action<YdbDbContextOptionsBuilder>? configure = null) =>

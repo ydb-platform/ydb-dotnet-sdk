@@ -36,10 +36,17 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
     private readonly string _activityName = retryPolicyConfig.OperationName ?? DefaultActivityName;
 
     private Activity? _currentTryActivity;
+    private int _retryCount;
 
     public override bool RetriesOnFailure => true;
 
     protected override bool ShouldRetryOn(Exception exception) => exception is YdbException;
+
+    protected override void OnRetry()
+    {
+        base.OnRetry();
+        _retryCount++;
+    }
 
     protected override TimeSpan? GetNextDelay(Exception lastException)
     {
@@ -67,7 +74,7 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
     {
         using var dbActivity = YdbActivitySource.StartActivity(_activityName, ActivityKind.Internal);
         var startTimestamp = YdbMetricsReporter.ReportRetryStart();
-        _currentTryActivity = StartTryActivity();
+        BeginRetryLoop();
         try
         {
             var result = base.Execute(state, operation, verifySucceeded);
@@ -90,7 +97,7 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
     {
         using var dbActivity = YdbActivitySource.StartActivity(_activityName, ActivityKind.Internal);
         var startTimestamp = YdbMetricsReporter.ReportRetryStart();
-        _currentTryActivity = StartTryActivity();
+        BeginRetryLoop();
         try
         {
             var result = await base.ExecuteAsync(state, operation, verifySucceeded, cancellationToken)
@@ -108,6 +115,12 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
     private static Activity? StartTryActivity() =>
         YdbActivitySource.StartActivity(TryActivityName, ActivityKind.Internal);
 
+    private void BeginRetryLoop()
+    {
+        _retryCount = 0;
+        _currentTryActivity = StartTryActivity();
+    }
+
     private void EndRetryLoop(long startTimestamp, Activity? dbActivity = null, Exception? exception = null)
     {
         if (exception is not null)
@@ -117,7 +130,6 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
         }
 
         _currentTryActivity?.Dispose();
-        YdbMetricsReporter.ReportRetryStop(startTimestamp, ExceptionsEncountered.Count + 1,
-            retryPolicyConfig.OperationName);
+        YdbMetricsReporter.ReportRetryStop(startTimestamp, _retryCount + 1, retryPolicyConfig.OperationName);
     }
 }
