@@ -259,7 +259,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 var initException = YdbException.FromServer(receivedInitMessage.Status, receivedInitMessage.Issues);
                 var statusMessage = initException.Message;
 
-                if (YdbRetryPolicy.IdempotenceDefault.GetNextDelay(initException, attempt: 0) is not null)
+                if (YdbRetryPolicy.IdempotenceDefault.GetNextDelay(initException, attempt: 1) is not null)
                 {
                     _logger.LogError("Writer initialization failed to start. {StatusMessage}", statusMessage);
 

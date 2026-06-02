@@ -1,5 +1,6 @@
 - Bumped `Ydb.Sdk` to `0.32.0`.
 - Started reporting `ef-core/{V}` as client info.
+- `YdbExecutionStrategy` now emits the SDK retry telemetry on every `Execute`/`ExecuteAsync`: `ydb.RunWithRetry` outer span, `ydb.Try` per attempt (with `ydb.retry.backoff_ms`), and the `ydb.client.retry.duration` / `ydb.client.retry.attempts` histograms.
 
 ## v0.4.2
 
