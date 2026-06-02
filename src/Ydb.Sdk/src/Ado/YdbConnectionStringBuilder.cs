@@ -803,7 +803,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
 
         return DisableDiscovery
             ? new DirectGrpcChannelDriver(driverConfig, LoggerFactory)
-            : await Driver.CreateInitialized(driverConfig, LoggerFactory);
+            : await Driver.CreateInitialized(driverConfig, LoggerFactory).ConfigureAwait(false);
     }
 
     public override void Clear()

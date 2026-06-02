@@ -229,11 +229,11 @@ public sealed class YdbTransaction : DbTransaction
 
             if (isCommit)
             {
-                await DbConnection.Session.CommitTransaction(TxId, dbActivity, cancellationToken);
+                await DbConnection.Session.CommitTransaction(TxId, dbActivity, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                await DbConnection.Session.RollbackTransaction(TxId, dbActivity, cancellationToken);
+                await DbConnection.Session.RollbackTransaction(TxId, dbActivity, cancellationToken).ConfigureAwait(false);
             }
         }
         catch (YdbException e)
@@ -286,7 +286,7 @@ public sealed class YdbTransaction : DbTransaction
 
         if (!Completed)
         {
-            await RollbackAsync();
+            await RollbackAsync().ConfigureAwait(false);
         }
 
         _isDisposed = true;

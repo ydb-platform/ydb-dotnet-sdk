@@ -20,7 +20,7 @@ internal static class PoolManager
             return sessionPool;
         }
 
-        await SemaphoreSlim.WaitAsync(cancellationToken);
+        await SemaphoreSlim.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -39,7 +39,7 @@ internal static class PoolManager
                 SdkClientInfoRegistry.Register(settings.ClientInfo);
             }
 
-            var driver = await GetDriver(settings, withLock: false);
+            var driver = await GetDriver(settings, withLock: false).ConfigureAwait(false);
 
             return Pools[settings.ConnectionString] = settings.EnableImplicitSession
                 ? new ImplicitSessionSource(driver, settings)
@@ -56,17 +56,17 @@ internal static class PoolManager
         try
         {
             if (withLock)
-                await SemaphoreSlim.WaitAsync();
+                await SemaphoreSlim.WaitAsync().ConfigureAwait(false);
 
             var driver = Drivers.TryGetValue(driverFactory.GrpcConnectionString, out var cacheDriver) &&
                          !cacheDriver.IsDisposed
                 ? cacheDriver
-                : Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync();
+                : Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync().ConfigureAwait(false);
 
             if (driver.RegisterOwner())
                 return driver;
 
-            driver = Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync();
+            driver = Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync().ConfigureAwait(false);
             driver.RegisterOwner();
 
             return driver;
@@ -82,10 +82,10 @@ internal static class PoolManager
     {
         if (Pools.TryRemove(connectionString, out var sessionPool))
         {
-            await SemaphoreSlim.WaitAsync();
+            await SemaphoreSlim.WaitAsync().ConfigureAwait(false);
             try
             {
-                await sessionPool.DisposeAsync();
+                await sessionPool.DisposeAsync().ConfigureAwait(false);
             }
             finally
             {
@@ -100,6 +100,6 @@ internal static class PoolManager
 
         var tasks = keys.Select(ClearPool).ToList();
 
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 }

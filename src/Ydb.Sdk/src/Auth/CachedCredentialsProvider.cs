@@ -32,7 +32,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
     }
 
     public async ValueTask<string> GetAuthInfoAsync() =>
-        (await _tokenState.Validate(_clock.UtcNow)).TokenResponse.Token;
+        (await _tokenState.Validate(_clock.UtcNow).ConfigureAwait(false)).TokenResponse.Token;
 
     private Task<TokenResponse> FetchToken() => _authClient.FetchToken();
 
@@ -89,7 +89,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
 
             return await _cachedCredentialsProvider
                 .UpdateState(this, new SyncState(_cachedCredentialsProvider))
-                .Validate(now);
+                .Validate(now).ConfigureAwait(false);
         }
     }
 
@@ -111,7 +111,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
         {
             try
             {
-                var tokenResponse = await _fetchTokenResponseTcs.Task;
+                var tokenResponse = await _fetchTokenResponseTcs.Task.ConfigureAwait(false);
 
                 _cachedCredentialsProvider.Logger.LogDebug(
                     "Successfully fetched token. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
@@ -133,7 +133,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
         {
             try
             {
-                var tokenResponse = await _cachedCredentialsProvider.FetchToken();
+                var tokenResponse = await _cachedCredentialsProvider.FetchToken().ConfigureAwait(false);
 
                 _fetchTokenResponseTcs.SetResult(tokenResponse);
             }
@@ -173,7 +173,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
                 return now >= TokenResponse.ExpiredAt
                     ? await _cachedCredentialsProvider
                         .UpdateState(this, new SyncState(_cachedCredentialsProvider))
-                        .Validate(now)
+                        .Validate(now).ConfigureAwait(false)
                     : _cachedCredentialsProvider
                         .UpdateState(this, new BackgroundState(TokenResponse, _cachedCredentialsProvider));
             }
@@ -181,7 +181,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
             if (fetchTokenTask.IsCompleted)
             {
                 return _cachedCredentialsProvider
-                    .UpdateState(this, new ActiveState(await fetchTokenTask, _cachedCredentialsProvider));
+                    .UpdateState(this, new ActiveState(await fetchTokenTask.ConfigureAwait(false), _cachedCredentialsProvider));
             }
 
             if (now < TokenResponse.ExpiredAt)
@@ -191,7 +191,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
 
             try
             {
-                var tokenResponse = await fetchTokenTask;
+                var tokenResponse = await fetchTokenTask.ConfigureAwait(false);
 
                 _cachedCredentialsProvider.Logger.LogDebug(
                     "Successfully fetched token. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
@@ -213,7 +213,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
         {
             try
             {
-                var tokenResponse = await _cachedCredentialsProvider.FetchToken();
+                var tokenResponse = await _cachedCredentialsProvider.FetchToken().ConfigureAwait(false);
 
                 _fetchTokenResponseTcs.SetResult(tokenResponse);
             }

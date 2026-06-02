@@ -129,12 +129,12 @@ public class YdbDataSource : DbDataSource
 
         try
         {
-            await ydbConnection.OpenAsync(cancellationToken);
+            await ydbConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
             return ydbConnection;
         }
         catch
         {
-            await ydbConnection.CloseAsync();
+            await ydbConnection.CloseAsync().ConfigureAwait(false);
             throw;
         }
     }
@@ -142,7 +142,7 @@ public class YdbDataSource : DbDataSource
     public override string ConnectionString => _ydbConnectionStringBuilder.ConnectionString;
 
     protected override async ValueTask DisposeAsyncCore() =>
-        await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString);
+        await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString).ConfigureAwait(false);
 
     protected override void Dispose(bool disposing)
     {
@@ -164,8 +164,9 @@ public class YdbDataSource : DbDataSource
     public Task ExecuteAsync(Func<YdbConnection, Task> func) => _retryPolicyExecutor
         .ExecuteAsync(async cancellationToken =>
         {
-            await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
-            await func(ydbConnection);
+            var ydbConnection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            await using var _ = ydbConnection.ConfigureAwait(false);
+            await func(ydbConnection).ConfigureAwait(false);
         });
 
     /// <summary>
@@ -181,8 +182,9 @@ public class YdbDataSource : DbDataSource
     public Task<TResult> ExecuteAsync<TResult>(Func<YdbConnection, Task<TResult>> func) => _retryPolicyExecutor
         .ExecuteAsync<TResult>(async cancellationToken =>
         {
-            await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
-            return await func(ydbConnection);
+            var ydbConnection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            await using var _ = ydbConnection.ConfigureAwait(false);
+            return await func(ydbConnection).ConfigureAwait(false);
         });
 
     /// <summary>
@@ -200,8 +202,9 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => _retryPolicyExecutor.ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await func(ydbConnection, ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        await func(ydbConnection, ct).ConfigureAwait(false);
     }, cancellationToken);
 
     /// <summary>
@@ -220,8 +223,9 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => _retryPolicyExecutor.ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        return await func(ydbConnection, ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        return await func(ydbConnection, ct).ConfigureAwait(false);
     }, cancellationToken);
 
     /// <summary>
@@ -239,8 +243,9 @@ public class YdbDataSource : DbDataSource
         YdbRetryPolicyConfig retryPolicyConfig
     ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await func(ydbConnection);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        await func(ydbConnection).ConfigureAwait(false);
     });
 
     /// <summary>
@@ -258,8 +263,9 @@ public class YdbDataSource : DbDataSource
         IRetryPolicy retryPolicy
     ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await func(ydbConnection);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        await func(ydbConnection).ConfigureAwait(false);
     });
 
     /// <summary>
@@ -278,8 +284,9 @@ public class YdbDataSource : DbDataSource
         YdbRetryPolicyConfig retryPolicyConfig
     ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        return await func(ydbConnection);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        return await func(ydbConnection).ConfigureAwait(false);
     });
 
     /// <summary>
@@ -298,8 +305,9 @@ public class YdbDataSource : DbDataSource
         IRetryPolicy retryPolicy
     ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        return await func(ydbConnection);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        return await func(ydbConnection).ConfigureAwait(false);
     });
 
     /// <summary>
@@ -319,8 +327,9 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await func(ydbConnection, ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        await func(ydbConnection, ct).ConfigureAwait(false);
     }, cancellationToken);
 
     /// <summary>
@@ -340,8 +349,9 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await func(ydbConnection, ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        await func(ydbConnection, ct).ConfigureAwait(false);
     }, cancellationToken);
 
     /// <summary>
@@ -362,8 +372,9 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        return await func(ydbConnection, ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        return await func(ydbConnection, ct).ConfigureAwait(false);
     }, cancellationToken);
 
     /// <summary>
@@ -384,8 +395,9 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        return await func(ydbConnection, ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        return await func(ydbConnection, ct).ConfigureAwait(false);
     }, cancellationToken);
 
     /// <summary>
@@ -404,10 +416,12 @@ public class YdbDataSource : DbDataSource
         TransactionMode transactionMode = TransactionMode.SerializableRw
     ) => _retryPolicyExecutor.ExecuteAsync(async cancellationToken =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        await func(ydbConnection);
-        await transaction.CommitAsync(cancellationToken);
+        var ydbConnection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        await func(ydbConnection).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     });
 
     /// <summary>
@@ -427,10 +441,12 @@ public class YdbDataSource : DbDataSource
         TransactionMode transactionMode = TransactionMode.SerializableRw
     ) => _retryPolicyExecutor.ExecuteAsync<TResult>(async cancellationToken =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
+        var ydbConnection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
         var result = await func(ydbConnection).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return result;
     });
 
@@ -452,10 +468,12 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => _retryPolicyExecutor.ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        await func(ydbConnection, ct);
-        await transaction.CommitAsync(ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        await func(ydbConnection, ct).ConfigureAwait(false);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
     }, cancellationToken);
 
     /// <summary>
@@ -477,10 +495,12 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => _retryPolicyExecutor.ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        var result = await func(ydbConnection, ct);
-        await transaction.CommitAsync(ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        var result = await func(ydbConnection, ct).ConfigureAwait(false);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
         return result;
     }, cancellationToken);
 
@@ -502,10 +522,12 @@ public class YdbDataSource : DbDataSource
         TransactionMode transactionMode = TransactionMode.SerializableRw
     ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async cancellationToken =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        await func(ydbConnection);
-        await transaction.CommitAsync(cancellationToken);
+        var ydbConnection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        await func(ydbConnection).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     });
 
     /// <summary>
@@ -527,10 +549,12 @@ public class YdbDataSource : DbDataSource
         TransactionMode transactionMode = TransactionMode.SerializableRw
     ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async cancellationToken =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        var result = await func(ydbConnection);
-        await transaction.CommitAsync(cancellationToken);
+        var ydbConnection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        var result = await func(ydbConnection).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return result;
     });
 
@@ -554,10 +578,12 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        await func(ydbConnection, ct);
-        await transaction.CommitAsync(ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        await func(ydbConnection, ct).ConfigureAwait(false);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
     }, cancellationToken);
 
     /// <summary>
@@ -581,10 +607,12 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => GetExecutor(retryPolicyConfig).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        var result = await func(ydbConnection, ct);
-        await transaction.CommitAsync(ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        var result = await func(ydbConnection, ct).ConfigureAwait(false);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
         return result;
     }, cancellationToken);
 
@@ -606,10 +634,12 @@ public class YdbDataSource : DbDataSource
         TransactionMode transactionMode = TransactionMode.SerializableRw
     ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        await func(ydbConnection);
-        await transaction.CommitAsync(ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        await func(ydbConnection).ConfigureAwait(false);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
     });
 
     /// <summary>
@@ -631,10 +661,12 @@ public class YdbDataSource : DbDataSource
         TransactionMode transactionMode = TransactionMode.SerializableRw
     ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async cancellationToken =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        var result = await func(ydbConnection);
-        await transaction.CommitAsync(cancellationToken);
+        var ydbConnection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        var result = await func(ydbConnection).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return result;
     });
 
@@ -658,10 +690,12 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        await func(ydbConnection, ct);
-        await transaction.CommitAsync(ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        await func(ydbConnection, ct).ConfigureAwait(false);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
     }, cancellationToken);
 
     /// <summary>
@@ -685,10 +719,12 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     ) => new YdbRetryPolicyExecutor(retryPolicy).ExecuteAsync(async ct =>
     {
-        await using var ydbConnection = await OpenConnectionAsync(ct);
-        await using var transaction = ydbConnection.BeginTransaction(transactionMode);
-        var result = await func(ydbConnection, ct);
-        await transaction.CommitAsync(ct);
+        var ydbConnection = await OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var _ = ydbConnection.ConfigureAwait(false);
+        var transaction = ydbConnection.BeginTransaction(transactionMode);
+        await using var transactionScope = transaction.ConfigureAwait(false);
+        var result = await func(ydbConnection, ct).ConfigureAwait(false);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
         return result;
     }, cancellationToken);
 
@@ -715,13 +751,13 @@ public class YdbDataSource : DbDataSource
         var ydbConnection = CreateDbConnection();
         try
         {
-            await ydbConnection.OpenAsync(_retryPolicyExecutor, cancellationToken);
+            await ydbConnection.OpenAsync(_retryPolicyExecutor, cancellationToken).ConfigureAwait(false);
 
             return ydbConnection;
         }
         catch
         {
-            await ydbConnection.CloseAsync();
+            await ydbConnection.CloseAsync().ConfigureAwait(false);
             throw;
         }
     }
@@ -753,13 +789,13 @@ public class YdbDataSource : DbDataSource
         var ydbConnection = CreateDbConnection();
         try
         {
-            await ydbConnection.OpenAsync(GetExecutor(ydbRetryPolicyConfig), cancellationToken);
+            await ydbConnection.OpenAsync(GetExecutor(ydbRetryPolicyConfig), cancellationToken).ConfigureAwait(false);
 
             return ydbConnection;
         }
         catch
         {
-            await ydbConnection.CloseAsync();
+            await ydbConnection.CloseAsync().ConfigureAwait(false);
             throw;
         }
     }
@@ -792,13 +828,13 @@ public class YdbDataSource : DbDataSource
         var ydbConnection = CreateDbConnection();
         try
         {
-            await ydbConnection.OpenAsync(new YdbRetryPolicyExecutor(retryPolicy), cancellationToken);
+            await ydbConnection.OpenAsync(new YdbRetryPolicyExecutor(retryPolicy), cancellationToken).ConfigureAwait(false);
 
             return ydbConnection;
         }
         catch
         {
-            await ydbConnection.CloseAsync();
+            await ydbConnection.CloseAsync().ConfigureAwait(false);
             throw;
         }
     }
@@ -815,7 +851,7 @@ public class YdbDataSource : DbDataSource
         string tableName,
         DescribeTableSettings settings = default,
         CancellationToken cancellationToken = default
-    ) => await YdbSchema.DescribeTable(await Driver(cancellationToken), tableName, settings, cancellationToken);
+    ) => await YdbSchema.DescribeTable(await Driver(cancellationToken).ConfigureAwait(false), tableName, settings, cancellationToken).ConfigureAwait(false);
 
     /// <summary>
     /// Creates a copy of the specified table.
@@ -831,13 +867,13 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     )
     {
-        var driver = await Driver(cancellationToken);
+        var driver = await Driver(cancellationToken).ConfigureAwait(false);
 
         var copyTableResponse = await driver.UnaryCall(TableService.CopyTableMethod, new CopyTableRequest
         {
             SourcePath = FullPath(sourceTable),
             DestinationPath = FullPath(destinationTable)
-        }, new GrpcRequestSettings { CancellationToken = cancellationToken });
+        }, new GrpcRequestSettings { CancellationToken = cancellationToken }).ConfigureAwait(false);
 
         if (copyTableResponse.Operation.Status.IsNotSuccess())
             throw YdbException.FromServer(copyTableResponse.Operation);
@@ -855,7 +891,7 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     )
     {
-        var driver = await Driver(cancellationToken);
+        var driver = await Driver(cancellationToken).ConfigureAwait(false);
         var copyTablesRequest = new CopyTablesRequest();
         foreach (var copyTable in copyTableSettingsList)
             copyTablesRequest.Tables.Add(new CopyTableItem
@@ -866,7 +902,7 @@ public class YdbDataSource : DbDataSource
             });
 
         var copyTablesResponse = await driver.UnaryCall(TableService.CopyTablesMethod, copyTablesRequest,
-            new GrpcRequestSettings { CancellationToken = cancellationToken });
+            new GrpcRequestSettings { CancellationToken = cancellationToken }).ConfigureAwait(false);
 
         if (copyTablesResponse.Operation.Status.IsNotSuccess())
             throw YdbException.FromServer(copyTablesResponse.Operation);
@@ -884,7 +920,7 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     )
     {
-        var driver = await Driver(cancellationToken);
+        var driver = await Driver(cancellationToken).ConfigureAwait(false);
         var renameTablesRequest = new RenameTablesRequest();
         foreach (var renameTable in renameTableSettingsList)
             renameTablesRequest.Tables.Add(new RenameTableItem
@@ -895,7 +931,7 @@ public class YdbDataSource : DbDataSource
             });
 
         var renameTablesResponse = await driver.UnaryCall(TableService.RenameTablesMethod, renameTablesRequest,
-            new GrpcRequestSettings { CancellationToken = cancellationToken });
+            new GrpcRequestSettings { CancellationToken = cancellationToken }).ConfigureAwait(false);
 
         if (renameTablesResponse.Operation.Status.IsNotSuccess())
             throw YdbException.FromServer(renameTablesResponse.Operation);
@@ -910,13 +946,13 @@ public class YdbDataSource : DbDataSource
     /// <exception cref="YdbException">Thrown when the table does not exist or the operation fails.</exception>
     public async Task DropTable(string tableName, CancellationToken cancellationToken = default)
     {
-        var driver = await Driver(cancellationToken);
+        var driver = await Driver(cancellationToken).ConfigureAwait(false);
 
         var dropTableResponse = await driver.UnaryCall(
             TableService.DropTableMethod,
             new DropTableRequest { Path = FullPath(tableName) },
             new GrpcRequestSettings { CancellationToken = cancellationToken }
-        );
+        ).ConfigureAwait(false);
 
         if (dropTableResponse.Operation.Status.IsNotSuccess())
             throw YdbException.FromServer(dropTableResponse.Operation);
@@ -935,7 +971,7 @@ public class YdbDataSource : DbDataSource
         CancellationToken cancellationToken = default
     )
     {
-        var driver = await Driver(cancellationToken);
+        var driver = await Driver(cancellationToken).ConfigureAwait(false);
         var createTableRequest = new CreateTableRequest
         {
             Path = FullPath(tableDescription.Name),
@@ -959,7 +995,7 @@ public class YdbDataSource : DbDataSource
             createTableRequest.PrimaryKey.Add(pkColumn);
 
         var createTableResponse = await driver.UnaryCall(TableService.CreateTableMethod, createTableRequest,
-            new GrpcRequestSettings { CancellationToken = cancellationToken });
+            new GrpcRequestSettings { CancellationToken = cancellationToken }).ConfigureAwait(false);
 
         if (createTableResponse.Operation.Status.IsNotSuccess())
             throw YdbException.FromServer(createTableResponse.Operation);
@@ -968,5 +1004,5 @@ public class YdbDataSource : DbDataSource
     private string FullPath(string tableName) => tableName.FullPath(_ydbConnectionStringBuilder.Database);
 
     private async ValueTask<IDriver> Driver(CancellationToken cancellationToken) =>
-        (_sessionSource ??= await PoolManager.Get(_ydbConnectionStringBuilder, cancellationToken)).Driver;
+        (_sessionSource ??= await PoolManager.Get(_ydbConnectionStringBuilder, cancellationToken).ConfigureAwait(false)).Driver;
 }

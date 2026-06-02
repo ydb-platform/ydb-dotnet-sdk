@@ -36,7 +36,7 @@ internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposa
             }
         }
 
-        await ShutdownChannels(shutdownGrpcChannels);
+        await ShutdownChannels(shutdownGrpcChannels).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()
@@ -47,7 +47,7 @@ internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposa
             .Where(lazyChannel => lazyChannel.IsValueCreated)
             .Select(lazyChannel => lazyChannel.Value)
             .ToImmutableArray()
-        );
+        ).ConfigureAwait(false);
     }
 
     private async ValueTask ShutdownChannels(ICollection<T> channels)
@@ -56,7 +56,7 @@ internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposa
         {
             try
             {
-                await channel.ShutdownAsync();
+                await channel.ShutdownAsync().ConfigureAwait(false);
             }
             catch (Exception e)
             {

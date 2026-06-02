@@ -45,7 +45,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
 
     protected async Task SendMessage(TFromClient fromClient)
     {
-        var curAuthToken = await Stream.AuthToken();
+        var curAuthToken = await Stream.AuthToken().ConfigureAwait(false);
 
         if (!string.Equals(_lastToken, curAuthToken) && curAuthToken != null)
         {
@@ -53,10 +53,10 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
 
             _lastToken = curAuthToken;
 
-            await Stream.Write(updateTokenRequest);
+            await Stream.Write(updateTokenRequest).ConfigureAwait(false);
         }
 
-        await Stream.Write(fromClient);
+        await Stream.Write(fromClient).ConfigureAwait(false);
     }
 
     protected abstract TFromClient GetSendUpdateTokenRequest(string token);
