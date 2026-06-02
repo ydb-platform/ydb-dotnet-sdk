@@ -52,9 +52,7 @@ public class YdbExecutionStrategyMetricTests
             operation: (_, _, _) =>
             {
                 calls++;
-                if (calls < 3)
-                    throw new YdbException(StatusCode.Aborted, "retry me");
-                return Task.FromResult(0);
+                return calls < 3 ? throw new YdbException(StatusCode.Aborted, "retry me") : Task.FromResult(0);
             },
             verifySucceeded: null);
 
