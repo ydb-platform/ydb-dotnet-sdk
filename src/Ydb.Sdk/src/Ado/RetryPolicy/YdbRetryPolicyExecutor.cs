@@ -58,7 +58,7 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy, string? o
 
                 try
                 {
-                    ++totalAttempts;
+                    totalAttempts++;
                     return await operation(cancellationToken).ConfigureAwait(false);
                 }
                 catch (YdbException e)
