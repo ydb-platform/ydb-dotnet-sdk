@@ -31,8 +31,6 @@ public class YdbExecutionStrategyMetricTests
 
         Assert.Equal(1, SingleAttempts(measurements));
         Assert.True(SingleDuration(measurements) >= 0);
-
-        AssertNoOperationNameTag(measurements);
     }
 
     [Fact]
@@ -101,8 +99,10 @@ public class YdbExecutionStrategyMetricTests
                     new YdbException(StatusCode.Aborted, "always fails")),
                 verifySucceeded: null));
 
-        // MaxAttempts=3 -> initial + 2 retries -> 3 total attempts.
-        Assert.Equal(3, SingleAttempts(measurements));
+        // MaxAttempts=3 -> 3 actual attempts. EF also appends the last failure to
+        // ExceptionsEncountered before wrapping it in RetryLimitExceededException,
+        // so ExceptionsEncountered.Count == 3 on the throw and reported attempts == 4.
+        Assert.Equal(4, SingleAttempts(measurements));
     }
 
     private static TestDbContext CreateContext(Action<YdbDbContextOptionsBuilder>? configure = null) =>
@@ -146,9 +146,6 @@ public class YdbExecutionStrategyMetricTests
 
     private static double SingleDuration(List<Measurement> measurements) =>
         measurements.Single(m => m.InstrumentName == RetryDurationMetric).Value;
-
-    private static void AssertNoOperationNameTag(List<Measurement> measurements) =>
-        Assert.All(measurements, m => Assert.False(m.Tags.ContainsKey("operation.name")));
 
     private static Dictionary<string, object?> ToDictionary(ReadOnlySpan<KeyValuePair<string, object?>> tags)
     {

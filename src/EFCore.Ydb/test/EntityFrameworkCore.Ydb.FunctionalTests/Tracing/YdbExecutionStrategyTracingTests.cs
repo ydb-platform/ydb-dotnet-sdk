@@ -86,6 +86,7 @@ public class YdbExecutionStrategyTracingTests
 
         var tryActivities = activities.Where(a => a.DisplayName == "ydb.Try").ToList();
         Assert.Equal(2, tryActivities.Count);
+        AssertTryActivitiesAreChildrenOf(run, tryActivities);
 
         // First ydb.Try: failed attempt, no backoff attribute, error tags from YdbException.
         var firstTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") == null);
@@ -125,6 +126,37 @@ public class YdbExecutionStrategyTracingTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_NonYdbException_DoesNotRetryAndRethrowsOriginal()
+    {
+        await using var db = CreateContext(b => b.UseRetryPolicy(FastRetryConfig));
+        using var listener = StartListener(out var activities);
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        var calls = 0;
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            strategy.ExecuteAsync(
+                state: 0,
+                operation: (_, _, _) =>
+                {
+                    calls++;
+                    return Task.FromException<int>(new InvalidOperationException("boom"));
+                },
+                verifySucceeded: null));
+
+        Assert.Equal("boom", exception.Message);
+        Assert.Equal(1, calls);
+
+        var run = GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Equal(typeof(InvalidOperationException).FullName, run.GetTagItem("error.type"));
+
+        var tryActivity = GetSingleActivity(activities, "ydb.Try", expectedStatusCode: ActivityStatusCode.Error);
+        Assert.Null(tryActivity.GetTagItem("ydb.retry.backoff_ms"));
+        Assert.Null(tryActivity.GetTagItem("db.response.status_code"));
+        Assert.Equal(typeof(InvalidOperationException).FullName, tryActivity.GetTagItem("error.type"));
+    }
+
+    [Fact]
     public async Task ExecuteAsync_RetriesExhausted_EmitsErrorOnAllSpans()
     {
         await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
@@ -152,15 +184,19 @@ public class YdbExecutionStrategyTracingTests
         var tryActivities = activities.Where(a => a.DisplayName == "ydb.Try").ToList();
         Assert.Equal(2, tryActivities.Count);
         Assert.All(tryActivities, a => Assert.Equal(ActivityStatusCode.Error, a.Status));
+        AssertTryActivitiesAreChildrenOf(run, tryActivities);
 
         // First ydb.Try: no backoff attribute, has YdbException error tags.
         var firstTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") == null);
         Assert.Equal(StatusCode.Aborted, firstTry.GetTagItem("db.response.status_code"));
         Assert.Equal("ydb_error", firstTry.GetTagItem("error.type"));
 
-        // Retry ydb.Try: has the wrapper exception (set by GetNextDelay short-circuit + final base throw).
+        // Retry ydb.Try: GetNextDelay returns null on retry-exhausted, so it's never closed
+        // by the strategy and ends up tagged with the wrapper RetryLimitExceededException
+        // set in the outer catch.
         var retryTry = tryActivities.First(a => a.GetTagItem("ydb.retry.backoff_ms") != null);
         Assert.NotNull(retryTry.GetTagItem("ydb.retry.backoff_ms"));
+        Assert.Equal(typeof(RetryLimitExceededException).FullName, retryTry.GetTagItem("error.type"));
     }
 
     private static YdbRetryPolicyConfig FastRetryConfig => new()
@@ -206,5 +242,11 @@ public class YdbExecutionStrategyTracingTests
         var activity = filtered[0];
         Assert.Equal(expectedStatusCode ?? ActivityStatusCode.Unset, activity.Status);
         return activity;
+    }
+
+    private static void AssertTryActivitiesAreChildrenOf(Activity runActivity, IEnumerable<Activity> tryActivities)
+    {
+        foreach (var tryActivity in tryActivities)
+            Assert.Equal(runActivity.Id, tryActivity.ParentId);
     }
 }

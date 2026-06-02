@@ -34,7 +34,7 @@ public sealed class YdbDbContextOptionsBuilder(DbContextOptionsBuilder optionsBu
     /// </summary>
     /// <param name="retryPolicyConfig">Tuning knobs for <see cref="YdbRetryPolicy"/>.</param>
     public YdbDbContextOptionsBuilder UseRetryPolicy(YdbRetryPolicyConfig retryPolicyConfig) =>
-        ExecutionStrategy(d => new YdbExecutionStrategy(d, new YdbRetryPolicy(retryPolicyConfig)));
+        ExecutionStrategy(d => new YdbExecutionStrategy(d, retryPolicyConfig));
 
     /// <summary>
     /// Disables retries entirely: the strategy will surface the first failure to the caller.

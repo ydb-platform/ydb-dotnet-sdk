@@ -93,7 +93,7 @@ public class YdbRetryPolicy : IRetryPolicy
     /// </remarks>
     public TimeSpan? GetNextDelay(YdbException ydbException, int attempt)
     {
-        if (attempt >= _maxAttempt - 1 || (!_enableRetryIdempotence && !ydbException.IsTransient))
+        if (attempt >= _maxAttempt || (!_enableRetryIdempotence && !ydbException.IsTransient))
             return null;
 
         return ydbException.Code switch
@@ -121,5 +121,5 @@ public class YdbRetryPolicy : IRetryPolicy
     }
 
     private static int CalculateBackoff(int backoffBaseMs, int capMs, int ceiling, int attempt) =>
-        Math.Min(backoffBaseMs * (1 << Math.Min(ceiling, attempt)), capMs);
+        Math.Min(backoffBaseMs * (1 << Math.Min(ceiling, attempt - 1)), capMs);
 }
