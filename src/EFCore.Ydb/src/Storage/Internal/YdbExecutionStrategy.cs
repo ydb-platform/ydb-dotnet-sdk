@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Tracing;
@@ -40,7 +41,12 @@ public class YdbExecutionStrategy(ExecutionStrategyDependencies dependencies, Yd
 
     public override bool RetriesOnFailure => true;
 
-    protected override bool ShouldRetryOn(Exception exception) => exception is YdbException;
+    protected override bool ShouldRetryOn(Exception exception) =>
+        exception is YdbException ydbException &&
+        (ydbException.IsTransient || (retryPolicyConfig.EnableRetryIdempotence && ydbException.Code is
+            StatusCode.ClientTransportUnknown or
+            StatusCode.ClientTransportUnavailable or
+            StatusCode.Undetermined));
 
     protected override void OnRetry()
     {

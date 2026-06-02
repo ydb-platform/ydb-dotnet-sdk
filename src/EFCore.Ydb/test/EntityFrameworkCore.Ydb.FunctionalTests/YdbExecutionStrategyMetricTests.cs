@@ -67,14 +67,14 @@ public class YdbExecutionStrategyMetricTests
         using var meterListener = StartMeterListener(out var measurements);
 
         var strategy = db.Database.CreateExecutionStrategy();
-        await Assert.ThrowsAsync<RetryLimitExceededException>(() =>
+        await Assert.ThrowsAsync<YdbException>(() =>
             strategy.ExecuteAsync(
                 state: 0,
                 operation: (_, _, _) => Task.FromException<int>(
                     new YdbException(StatusCode.Unauthorized, "no")),
                 verifySucceeded: null));
 
-        // Non-transient YdbException: zero retries -> total attempts == 1.
+        // Non-retryable YdbException: original exception rethrown -> total attempts == 1.
         Assert.Equal(1, SingleAttempts(measurements));
         Assert.True(SingleDuration(measurements) >= 0);
     }

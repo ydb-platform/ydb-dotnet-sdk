@@ -108,9 +108,8 @@ public class YdbExecutionStrategyTracingTests
 
         var strategy = db.Database.CreateExecutionStrategy();
 
-        // ShouldRetryOn passes any YdbException through; YdbRetryPolicy.GetNextDelay returns null
-        // for non-transient codes, so EF wraps the original exception in RetryLimitExceededException.
-        await Assert.ThrowsAsync<RetryLimitExceededException>(() =>
+        // ShouldRetryOn returns false for non-retryable YdbException codes, so EF rethrows the original exception.
+        await Assert.ThrowsAsync<YdbException>(() =>
             strategy.ExecuteAsync(
                 state: 0,
                 operation: (_, _, _) => Task.FromException<int>(
@@ -118,11 +117,13 @@ public class YdbExecutionStrategyTracingTests
                 verifySucceeded: null));
 
         var run = GetSingleActivity(activities, "ydb.RunWithRetry", expectedStatusCode: ActivityStatusCode.Error);
-        Assert.Equal(typeof(RetryLimitExceededException).FullName, run.GetTagItem("error.type"));
+        Assert.Equal(StatusCode.Unauthorized, run.GetTagItem("db.response.status_code"));
+        Assert.Equal("ydb_error", run.GetTagItem("error.type"));
 
         var tryActivity = GetSingleActivity(activities, "ydb.Try", expectedStatusCode: ActivityStatusCode.Error);
         Assert.Null(tryActivity.GetTagItem("ydb.retry.backoff_ms"));
-        Assert.Equal(typeof(RetryLimitExceededException).FullName, tryActivity.GetTagItem("error.type"));
+        Assert.Equal(StatusCode.Unauthorized, tryActivity.GetTagItem("db.response.status_code"));
+        Assert.Equal("ydb_error", tryActivity.GetTagItem("error.type"));
     }
 
     [Fact]
