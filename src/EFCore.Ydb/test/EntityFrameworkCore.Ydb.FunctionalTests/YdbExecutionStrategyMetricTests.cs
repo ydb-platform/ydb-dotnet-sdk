@@ -113,8 +113,7 @@ public class YdbExecutionStrategyMetricTests
 
     private sealed record Measurement(
         string InstrumentName,
-        double Value,
-        IReadOnlyDictionary<string, object?> Tags);
+        double Value);
 
     private static MeterListener StartMeterListener(out List<Measurement> measurements)
     {
@@ -128,10 +127,10 @@ public class YdbExecutionStrategyMetricTests
                     ml.EnableMeasurementEvents(instrument);
             }
         };
-        listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) =>
-            captured.Add(new Measurement(instrument.Name, value, ToDictionary(tags))));
-        listener.SetMeasurementEventCallback<int>((instrument, value, tags, _) =>
-            captured.Add(new Measurement(instrument.Name, value, ToDictionary(tags))));
+        listener.SetMeasurementEventCallback<double>((instrument, value, _, _) =>
+            captured.Add(new Measurement(instrument.Name, value)));
+        listener.SetMeasurementEventCallback<int>((instrument, value, _, _) =>
+            captured.Add(new Measurement(instrument.Name, value)));
         listener.Start();
 
         measurements = captured;
@@ -144,11 +143,4 @@ public class YdbExecutionStrategyMetricTests
     private static double SingleDuration(List<Measurement> measurements) =>
         measurements.Single(m => m.InstrumentName == RetryDurationMetric).Value;
 
-    private static Dictionary<string, object?> ToDictionary(ReadOnlySpan<KeyValuePair<string, object?>> tags)
-    {
-        var dict = new Dictionary<string, object?>();
-        foreach (var tag in tags)
-            dict[tag.Key] = tag.Value;
-        return dict;
-    }
 }
