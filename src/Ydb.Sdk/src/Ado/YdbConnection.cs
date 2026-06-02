@@ -151,8 +151,11 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        Session = await (_sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false))
-            .OpenSession(cancellationToken).ConfigureAwait(false);
+        Session = await (
+            _sessionSource ??= await PoolManager
+                .Get(ConnectionStringBuilder, cancellationToken)
+                .ConfigureAwait(false)
+        ).OpenSession(cancellationToken).ConfigureAwait(false);
 
         OnStateChange(ClosedToOpenEventArgs);
 
@@ -167,7 +170,8 @@ public sealed class YdbConnection : DbConnection
         ThrowIfConnectionOpen();
 
         Session = new RetryableSession(
-            _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false), retryPolicyExecutor);
+            _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false),
+            retryPolicyExecutor);
 
         ConnectionState = ConnectionState.Open;
     }

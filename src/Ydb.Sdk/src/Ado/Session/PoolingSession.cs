@@ -134,8 +134,9 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 requestSettings.ClientCapabilities.Add(SessionBalancer);
             }
 
-            var response =
-                await Driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest, requestSettings).ConfigureAwait(false);
+            var response = await Driver
+                .UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest, requestSettings)
+                .ConfigureAwait(false);
 
             if (response.Status.IsNotSuccess())
             {

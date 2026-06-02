@@ -94,7 +94,8 @@ internal static class YdbSchema
 
         if (tableName == null) // tableName isn't set
         {
-            foreach (var tupleTable in await ListTables(ydbConnection, tableType, cancellationToken).ConfigureAwait(false))
+            foreach (var tupleTable in await ListTables(ydbConnection, tableType, cancellationToken)
+                         .ConfigureAwait(false))
             {
                 table.Rows.Add(tupleTable.TableName, tupleTable.TableType);
             }
@@ -136,7 +137,8 @@ internal static class YdbSchema
 
         if (tableName == null) // tableName isn't set
         {
-            foreach (var tupleTable in await ListTables(ydbConnection, tableType, cancellationToken).ConfigureAwait(false))
+            foreach (var tupleTable in await ListTables(ydbConnection, tableType, cancellationToken)
+                         .ConfigureAwait(false))
             {
                 await AppendDescribeTable(
                     ydbConnection: ydbConnection,
@@ -204,7 +206,8 @@ internal static class YdbSchema
         var tableNameRestriction = restrictions[0];
         var columnName = restrictions[1];
 
-        var tableNames = await ListTableNames(ydbConnection, tableNameRestriction, cancellationToken).ConfigureAwait(false);
+        var tableNames = await ListTableNames(ydbConnection, tableNameRestriction, cancellationToken)
+            .ConfigureAwait(false);
         foreach (var tableName in tableNames)
         {
             await AppendDescribeTable(
@@ -245,7 +248,8 @@ internal static class YdbSchema
         DescribeTableSettings settings = default,
         CancellationToken cancellationToken = default)
     {
-        var ydbTable = await DescribeTable(ydbConnection.Session.Driver, tableName, settings, cancellationToken).ConfigureAwait(false);
+        var ydbTable = await DescribeTable(ydbConnection.Session.Driver, tableName, settings, cancellationToken)
+            .ConfigureAwait(false);
         var type = ydbTable.IsSystem
             ? "SYSTEM_TABLE"
             : ydbTable.Type switch
@@ -268,14 +272,14 @@ internal static class YdbSchema
     ) => tableName != null
         ? new List<string> { tableName }
         : from table in await ListTables(ydbConnection, cancellationToken: cancellationToken).ConfigureAwait(false)
-          select table.TableName;
+        select table.TableName;
 
     private static async Task<IEnumerable<(string TableName, string TableType)>> ListTables(
         YdbConnection ydbConnection,
         string? tableType = null,
         CancellationToken cancellationToken = default
     ) => from ydbObject in await SchemaObjects(ydbConnection, cancellationToken).ConfigureAwait(false)
-         let type = ydbObject.IsSystem
+        let type = ydbObject.IsSystem
             ? "SYSTEM_TABLE"
             : ydbObject.Type switch
             {
@@ -289,8 +293,9 @@ internal static class YdbSchema
 
     private static async Task<DataTable> GetDataSourceInformation(YdbConnection ydbConnection)
     {
-        var ydbVersion =
-            (await new YdbCommand(ydbConnection) { CommandText = "SELECT Version();" }.ExecuteScalarAsync().ConfigureAwait(false))!
+        var ydbVersion = (await new YdbCommand(ydbConnection) { CommandText = "SELECT Version();" }
+            .ExecuteScalarAsync()
+            .ConfigureAwait(false))!
             .ToString();
 
         var table = new DataTable("DataSourceInformation");

@@ -233,7 +233,8 @@ public sealed class YdbTransaction : DbTransaction
             }
             else
             {
-                await DbConnection.Session.RollbackTransaction(TxId, dbActivity, cancellationToken).ConfigureAwait(false);
+                await DbConnection.Session.RollbackTransaction(TxId, dbActivity, cancellationToken)
+                    .ConfigureAwait(false);
             }
         }
         catch (YdbException e)

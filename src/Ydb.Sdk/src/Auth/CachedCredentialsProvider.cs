@@ -57,52 +57,38 @@ public class CachedCredentialsProvider : ICredentialsProvider
         }
     }
 
-    private class ActiveState : ITokenState
+    private class ActiveState(TokenResponse tokenResponse, CachedCredentialsProvider cachedCredentialsProvider)
+        : ITokenState
     {
-        private readonly CachedCredentialsProvider _cachedCredentialsProvider;
-
-        public ActiveState(TokenResponse tokenResponse, CachedCredentialsProvider cachedCredentialsProvider)
-        {
-            TokenResponse = tokenResponse;
-            _cachedCredentialsProvider = cachedCredentialsProvider;
-        }
-
-        public TokenResponse TokenResponse { get; }
+        public TokenResponse TokenResponse { get; } = tokenResponse;
 
         public async ValueTask<ITokenState> Validate(DateTime now)
         {
             if (now < TokenResponse.ExpiredAt)
             {
                 return now >= TokenResponse.RefreshAt
-                    ? _cachedCredentialsProvider.UpdateState(
+                    ? cachedCredentialsProvider.UpdateState(
                         this,
-                        new BackgroundState(TokenResponse, _cachedCredentialsProvider)
+                        new BackgroundState(TokenResponse, cachedCredentialsProvider)
                     )
                     : this;
             }
 
-            _cachedCredentialsProvider.Logger.LogWarning(
+            cachedCredentialsProvider.Logger.LogWarning(
                 "Token has expired. ExpiredAt: {ExpiredAt}, CurrentTime: {CurrentTime}. " +
                 "Switching to synchronous state to fetch a new token",
                 TokenResponse.ExpiredAt, now
             );
 
-            return await _cachedCredentialsProvider
-                .UpdateState(this, new SyncState(_cachedCredentialsProvider))
+            return await cachedCredentialsProvider
+                .UpdateState(this, new SyncState(cachedCredentialsProvider))
                 .Validate(now).ConfigureAwait(false);
         }
     }
 
-    private class SyncState : ITokenState
+    private class SyncState(CachedCredentialsProvider cachedCredentialsProvider) : ITokenState
     {
         private readonly TaskCompletionSource<TokenResponse> _fetchTokenResponseTcs = new();
-
-        private readonly CachedCredentialsProvider _cachedCredentialsProvider;
-
-        public SyncState(CachedCredentialsProvider cachedCredentialsProvider)
-        {
-            _cachedCredentialsProvider = cachedCredentialsProvider;
-        }
 
         public TokenResponse TokenResponse =>
             throw new InvalidOperationException("Get token for unfinished sync state");
@@ -113,19 +99,19 @@ public class CachedCredentialsProvider : ICredentialsProvider
             {
                 var tokenResponse = await _fetchTokenResponseTcs.Task.ConfigureAwait(false);
 
-                _cachedCredentialsProvider.Logger.LogDebug(
+                cachedCredentialsProvider.Logger.LogDebug(
                     "Successfully fetched token. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
                     tokenResponse.ExpiredAt, tokenResponse.RefreshAt
                 );
 
-                return _cachedCredentialsProvider.UpdateState(this,
-                    new ActiveState(tokenResponse, _cachedCredentialsProvider));
+                return cachedCredentialsProvider.UpdateState(this,
+                    new ActiveState(tokenResponse, cachedCredentialsProvider));
             }
             catch (Exception e)
             {
-                _cachedCredentialsProvider.Logger.LogCritical(e, "Error on authentication token update");
+                cachedCredentialsProvider.Logger.LogCritical(e, "Error on authentication token update");
 
-                return _cachedCredentialsProvider.UpdateState(this, new ErrorState(e, _cachedCredentialsProvider));
+                return cachedCredentialsProvider.UpdateState(this, new ErrorState(e, cachedCredentialsProvider));
             }
         }
 
@@ -133,7 +119,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
         {
             try
             {
-                var tokenResponse = await _cachedCredentialsProvider.FetchToken().ConfigureAwait(false);
+                var tokenResponse = await cachedCredentialsProvider.FetchToken().ConfigureAwait(false);
 
                 _fetchTokenResponseTcs.SetResult(tokenResponse);
             }
@@ -144,20 +130,12 @@ public class CachedCredentialsProvider : ICredentialsProvider
         }
     }
 
-    private class BackgroundState : ITokenState
+    private class BackgroundState(TokenResponse tokenResponse, CachedCredentialsProvider cachedCredentialsProvider)
+        : ITokenState
     {
         private readonly TaskCompletionSource<TokenResponse> _fetchTokenResponseTcs = new();
 
-        private readonly CachedCredentialsProvider _cachedCredentialsProvider;
-
-        public BackgroundState(TokenResponse tokenResponse,
-            CachedCredentialsProvider cachedCredentialsProvider)
-        {
-            TokenResponse = tokenResponse;
-            _cachedCredentialsProvider = cachedCredentialsProvider;
-        }
-
-        public TokenResponse TokenResponse { get; }
+        public TokenResponse TokenResponse { get; } = tokenResponse;
 
         public async ValueTask<ITokenState> Validate(DateTime now)
         {
@@ -165,23 +143,24 @@ public class CachedCredentialsProvider : ICredentialsProvider
 
             if (fetchTokenTask.IsCanceled || fetchTokenTask.IsFaulted)
             {
-                _cachedCredentialsProvider.Logger.LogWarning(
+                cachedCredentialsProvider.Logger.LogWarning(
                     "Fetching token task failed. Status: {Status}, Retrying login...",
                     fetchTokenTask.IsCanceled ? "Canceled" : "Faulted"
                 );
 
                 return now >= TokenResponse.ExpiredAt
-                    ? await _cachedCredentialsProvider
-                        .UpdateState(this, new SyncState(_cachedCredentialsProvider))
+                    ? await cachedCredentialsProvider
+                        .UpdateState(this, new SyncState(cachedCredentialsProvider))
                         .Validate(now).ConfigureAwait(false)
-                    : _cachedCredentialsProvider
-                        .UpdateState(this, new BackgroundState(TokenResponse, _cachedCredentialsProvider));
+                    : cachedCredentialsProvider
+                        .UpdateState(this, new BackgroundState(TokenResponse, cachedCredentialsProvider));
             }
 
             if (fetchTokenTask.IsCompleted)
             {
-                return _cachedCredentialsProvider
-                    .UpdateState(this, new ActiveState(await fetchTokenTask.ConfigureAwait(false), _cachedCredentialsProvider));
+                return cachedCredentialsProvider
+                    .UpdateState(this,
+                        new ActiveState(await fetchTokenTask.ConfigureAwait(false), cachedCredentialsProvider));
             }
 
             if (now < TokenResponse.ExpiredAt)
@@ -193,19 +172,19 @@ public class CachedCredentialsProvider : ICredentialsProvider
             {
                 var tokenResponse = await fetchTokenTask.ConfigureAwait(false);
 
-                _cachedCredentialsProvider.Logger.LogDebug(
+                cachedCredentialsProvider.Logger.LogDebug(
                     "Successfully fetched token. ExpiredAt: {ExpiredAt}, RefreshAt: {RefreshAt}",
                     tokenResponse.ExpiredAt, tokenResponse.RefreshAt
                 );
 
-                return _cachedCredentialsProvider.UpdateState(this,
-                    new ActiveState(tokenResponse, _cachedCredentialsProvider));
+                return cachedCredentialsProvider.UpdateState(this,
+                    new ActiveState(tokenResponse, cachedCredentialsProvider));
             }
             catch (Exception e)
             {
-                _cachedCredentialsProvider.Logger.LogCritical(e, "Error on authentication token update");
+                cachedCredentialsProvider.Logger.LogCritical(e, "Error on authentication token update");
 
-                return _cachedCredentialsProvider.UpdateState(this, new ErrorState(e, _cachedCredentialsProvider));
+                return cachedCredentialsProvider.UpdateState(this, new ErrorState(e, cachedCredentialsProvider));
             }
         }
 
@@ -213,7 +192,7 @@ public class CachedCredentialsProvider : ICredentialsProvider
         {
             try
             {
-                var tokenResponse = await _cachedCredentialsProvider.FetchToken().ConfigureAwait(false);
+                var tokenResponse = await cachedCredentialsProvider.FetchToken().ConfigureAwait(false);
 
                 _fetchTokenResponseTcs.SetResult(tokenResponse);
             }
@@ -224,21 +203,13 @@ public class CachedCredentialsProvider : ICredentialsProvider
         }
     }
 
-    private class ErrorState : ITokenState
+    private class ErrorState(Exception exception, CachedCredentialsProvider managerCredentialsProvider)
+        : ITokenState
     {
-        private readonly Exception _exception;
-        private readonly CachedCredentialsProvider _managerCredentialsProvider;
+        public TokenResponse TokenResponse => throw exception;
 
-        public ErrorState(Exception exception, CachedCredentialsProvider managerCredentialsProvider)
-        {
-            _exception = exception;
-            _managerCredentialsProvider = managerCredentialsProvider;
-        }
-
-        public TokenResponse TokenResponse => throw _exception;
-
-        public ValueTask<ITokenState> Validate(DateTime now) => _managerCredentialsProvider
-            .UpdateState(this, new SyncState(_managerCredentialsProvider))
+        public ValueTask<ITokenState> Validate(DateTime now) => managerCredentialsProvider
+            .UpdateState(this, new SyncState(managerCredentialsProvider))
             .Validate(now);
     }
 }

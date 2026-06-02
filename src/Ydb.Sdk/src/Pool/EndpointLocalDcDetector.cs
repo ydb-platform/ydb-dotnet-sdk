@@ -57,7 +57,8 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
             );
         }
 
-        var fastestEndpoint = await DetectFastestEndpoint(endpointsToTest, timeout, cancellationToken).ConfigureAwait(false);
+        var fastestEndpoint = await DetectFastestEndpoint(endpointsToTest, timeout, cancellationToken)
+            .ConfigureAwait(false);
         if (fastestEndpoint is null)
         {
             _logger.LogDebug("Failed to detect nearest DC via TCP race: no endpoint connected in time");
@@ -102,7 +103,8 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
     {
         try
         {
-            await _tcpConnector.ConnectAsync(endpoint.Host, checked((int)endpoint.Port), cts.Token).ConfigureAwait(false);
+            await _tcpConnector.ConnectAsync(endpoint.Host, checked((int)endpoint.Port), cts.Token)
+                .ConfigureAwait(false);
 
             if (winner.TrySetResult(endpoint))
             {

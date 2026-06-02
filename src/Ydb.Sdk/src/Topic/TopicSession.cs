@@ -2,30 +2,20 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Topic;
 
-internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposable
+internal abstract class TopicSession<TFromClient, TFromServer>(
+    IBidirectionalStream<TFromClient, TFromServer> stream,
+    ILogger logger,
+    string sessionId,
+    Func<Task> initialize,
+    string? lastToken
+) : IAsyncDisposable
 {
-    private readonly Func<Task> _initialize;
-
-    protected readonly IBidirectionalStream<TFromClient, TFromServer> Stream;
-    protected readonly ILogger Logger;
-    protected readonly string SessionId;
+    protected readonly IBidirectionalStream<TFromClient, TFromServer> Stream = stream;
+    protected readonly ILogger Logger = logger;
+    protected readonly string SessionId = sessionId;
 
     private int _isActive = 1;
-    private string? _lastToken;
-
-    protected TopicSession(
-        IBidirectionalStream<TFromClient, TFromServer> stream,
-        ILogger logger,
-        string sessionId,
-        Func<Task> initialize,
-        string? lastToken)
-    {
-        Stream = stream;
-        Logger = logger;
-        SessionId = sessionId;
-        _initialize = initialize;
-        _lastToken = lastToken;
-    }
+    private string? _lastToken = lastToken;
 
     public bool IsActive => Volatile.Read(ref _isActive) == 1;
 
@@ -40,7 +30,7 @@ internal abstract class TopicSession<TFromClient, TFromServer> : IAsyncDisposabl
 
         Logger.LogDebug("TopicSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
 
-        _ = Task.Run(() => _initialize());
+        _ = Task.Run(initialize);
     }
 
     protected async Task SendMessage(TFromClient fromClient)

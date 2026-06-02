@@ -828,7 +828,8 @@ public class YdbDataSource : DbDataSource
         var ydbConnection = CreateDbConnection();
         try
         {
-            await ydbConnection.OpenAsync(new YdbRetryPolicyExecutor(retryPolicy), cancellationToken).ConfigureAwait(false);
+            await ydbConnection.OpenAsync(new YdbRetryPolicyExecutor(retryPolicy), cancellationToken)
+                .ConfigureAwait(false);
 
             return ydbConnection;
         }
@@ -851,7 +852,9 @@ public class YdbDataSource : DbDataSource
         string tableName,
         DescribeTableSettings settings = default,
         CancellationToken cancellationToken = default
-    ) => await YdbSchema.DescribeTable(await Driver(cancellationToken).ConfigureAwait(false), tableName, settings, cancellationToken).ConfigureAwait(false);
+    ) => await YdbSchema
+        .DescribeTable(await Driver(cancellationToken).ConfigureAwait(false), tableName, settings, cancellationToken)
+        .ConfigureAwait(false);
 
     /// <summary>
     /// Creates a copy of the specified table.
@@ -963,6 +966,7 @@ public class YdbDataSource : DbDataSource
     /// </summary>
     /// <param name="tableDescription">The table description containing columns, primary key, indexes, and other table properties.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <exception cref="YdbException">Thrown when the table already exists or the operation fails.</exception>
     /// <exception cref="NotSupportedException">Thrown when attempting to create an External table type (not supported via Control Plane RPC).</exception>
@@ -1004,5 +1008,6 @@ public class YdbDataSource : DbDataSource
     private string FullPath(string tableName) => tableName.FullPath(_ydbConnectionStringBuilder.Database);
 
     private async ValueTask<IDriver> Driver(CancellationToken cancellationToken) =>
-        (_sessionSource ??= await PoolManager.Get(_ydbConnectionStringBuilder, cancellationToken).ConfigureAwait(false)).Driver;
+        (_sessionSource ??= await PoolManager.Get(_ydbConnectionStringBuilder, cancellationToken).ConfigureAwait(false))
+        .Driver;
 }

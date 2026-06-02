@@ -22,18 +22,15 @@ public class ConfigureAwaitDeadlockTests : TestBase
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
     [Fact]
-    public void Open_OnSingleThreadedSynchronizationContext_DoesNotDeadlock()
-    {
+    public void Open_OnSingleThreadedSynchronizationContext_DoesNotDeadlock() =>
         AssertNoDeadlock(() =>
         {
             using var connection = CreateConnection();
             connection.Open();
         });
-    }
 
     [Fact]
-    public void ExecuteScalar_OnSingleThreadedSynchronizationContext_DoesNotDeadlock()
-    {
+    public void ExecuteScalar_OnSingleThreadedSynchronizationContext_DoesNotDeadlock() =>
         AssertNoDeadlock(() =>
         {
             using var connection = CreateConnection();
@@ -44,7 +41,6 @@ public class ConfigureAwaitDeadlockTests : TestBase
 
             Assert.Equal(1, command.ExecuteScalar());
         });
-    }
 
     private static void AssertNoDeadlock(Action blockingCall)
     {
@@ -69,12 +65,12 @@ public class ConfigureAwaitDeadlockTests : TestBase
     private sealed class SingleThreadSynchronizationContext : SynchronizationContext, IDisposable
     {
         private readonly BlockingCollection<(SendOrPostCallback Callback, object? State)> _queue = new();
-        private readonly Thread _thread;
 
         public SingleThreadSynchronizationContext()
         {
-            _thread = new Thread(PumpMessages) { IsBackground = true, Name = nameof(SingleThreadSynchronizationContext) };
-            _thread.Start();
+            var thread = new Thread(PumpMessages)
+                { IsBackground = true, Name = nameof(SingleThreadSynchronizationContext) };
+            thread.Start();
         }
 
         public override void Post(SendOrPostCallback d, object? state) => _queue.Add((d, state));
@@ -105,6 +101,7 @@ public class ConfigureAwaitDeadlockTests : TestBase
                 }
                 finally
                 {
+                    // ReSharper disable once AccessToDisposedClosure
                     finished.Set();
                 }
             }, null);

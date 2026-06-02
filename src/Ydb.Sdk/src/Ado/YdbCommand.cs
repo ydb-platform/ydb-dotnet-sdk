@@ -252,9 +252,9 @@ public sealed class YdbCommand : DbCommand
             throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
         }
 
-        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(
-            await YdbConnection.Session.ExecuteQuery(
-                preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl).ConfigureAwait(false),
+        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session
+                .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl)
+                .ConfigureAwait(false),
             YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
@@ -264,7 +264,8 @@ public sealed class YdbCommand : DbCommand
     }
 
     public new async Task<YdbDataReader> ExecuteReaderAsync() =>
-        (YdbDataReader)await ExecuteDbDataReaderAsync(CommandBehavior.Default, CancellationToken.None).ConfigureAwait(false);
+        (YdbDataReader)await ExecuteDbDataReaderAsync(CommandBehavior.Default, CancellationToken.None)
+            .ConfigureAwait(false);
 
     public new Task<YdbDataReader> ExecuteReaderAsync(CancellationToken cancellationToken) =>
         ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);

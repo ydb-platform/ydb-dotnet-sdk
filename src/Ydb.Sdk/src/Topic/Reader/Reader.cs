@@ -110,7 +110,8 @@ internal class Reader<TValue> : IReader<TValue>
             _logger.LogInformation("Reader session initialization started. ReaderConfig: {ReaderConfig}", _config);
 
             var stream = await (_driver ??= await PoolManager.GetDriver(_driverFactory).ConfigureAwait(false))
-                .BidirectionalStreamCall(TopicService.StreamReadMethod, _readerGrpcRequestSettings).ConfigureAwait(false);
+                .BidirectionalStreamCall(TopicService.StreamReadMethod, _readerGrpcRequestSettings)
+                .ConfigureAwait(false);
 
             var initRequest = new StreamReadMessage.Types.InitRequest();
             if (_config.ConsumerName != null)
@@ -328,13 +329,15 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                         await HandleReadResponse(messageFromServer.ReadResponse).ConfigureAwait(false);
                         break;
                     case ServerMessageOneofCase.StartPartitionSessionRequest:
-                        await HandleStartPartitionSessionRequest(messageFromServer.StartPartitionSessionRequest).ConfigureAwait(false);
+                        await HandleStartPartitionSessionRequest(messageFromServer.StartPartitionSessionRequest)
+                            .ConfigureAwait(false);
                         break;
                     case ServerMessageOneofCase.CommitOffsetResponse:
                         HandleCommitOffsetResponse(messageFromServer.CommitOffsetResponse);
                         break;
                     case ServerMessageOneofCase.StopPartitionSessionRequest:
-                        await StopPartitionSessionRequest(messageFromServer.StopPartitionSessionRequest).ConfigureAwait(false);
+                        await StopPartitionSessionRequest(messageFromServer.StopPartitionSessionRequest)
+                            .ConfigureAwait(false);
                         break;
                     case ServerMessageOneofCase.PartitionSessionStatusResponse:
                     case ServerMessageOneofCase.UpdateTokenResponse:
@@ -366,7 +369,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     {
         try
         {
-            await foreach (var messageFromClient in _channelFromClientMessageSending.Reader.ReadAllAsync().ConfigureAwait(false))
+            await foreach (var messageFromClient in _channelFromClientMessageSending.Reader.ReadAllAsync()
+                               .ConfigureAwait(false))
             {
                 await SendMessage(messageFromClient).ConfigureAwait(false);
             }
@@ -394,8 +398,10 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
         if (Interlocked.CompareExchange(ref _readRequestBytes, 0, readRequestBytes) == readRequestBytes)
         {
-            await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
-                { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } }).ConfigureAwait(false);
+            await _channelFromClientMessageSending.Writer
+                .WriteAsync(new MessageFromClient
+                    { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
+                .ConfigureAwait(false);
         }
     }
 

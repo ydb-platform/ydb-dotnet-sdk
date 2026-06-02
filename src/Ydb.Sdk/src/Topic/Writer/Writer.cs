@@ -227,7 +227,8 @@ internal class Writer<TValue> : IWriter<TValue>
             _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
 
             var stream =
-                await _driver!.BidirectionalStreamCall(TopicService.StreamWriteMethod, _writerGrpcRequestSettings).ConfigureAwait(false);
+                await _driver!.BidirectionalStreamCall(TopicService.StreamWriteMethod, _writerGrpcRequestSettings)
+                    .ConfigureAwait(false);
 
             var initRequest = new StreamWriteMessage.Types.InitRequest { Path = _config.TopicPath };
             if (_config.ProducerId != null)
@@ -333,7 +334,8 @@ internal class Writer<TValue> : IWriter<TValue>
 
                 if (!copyInFlightMessages.IsEmpty)
                 {
-                    await newSession.Write(copyInFlightMessages).ConfigureAwait(false); // retry prev in flight messages    
+                    await newSession.Write(copyInFlightMessages)
+                        .ConfigureAwait(false); // retry prev in flight messages    
                 }
 
                 _session = newSession;

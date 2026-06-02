@@ -92,7 +92,9 @@ public sealed class TopicClient : IAsyncDisposable
             protoSettings.Consumers.Add(protoConsumer);
         }
 
-        var response = await _driver.UnaryCall(TopicService.CreateTopicMethod, protoSettings, settings).ConfigureAwait(false);
+        var response = await _driver
+            .UnaryCall(TopicService.CreateTopicMethod, protoSettings, settings)
+            .ConfigureAwait(false);
 
         if (response.Operation.Status.IsNotSuccess())
         {

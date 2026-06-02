@@ -805,7 +805,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return true;
         }
 
-        while ((ReaderState = await NextExecPart(cancellationToken).ConfigureAwait(false)) == State.ReadResultSet) // reset _currentRowIndex
+        while ((ReaderState = await NextExecPart(cancellationToken).ConfigureAwait(false)) ==
+               State.ReadResultSet) // reset _currentRowIndex
         {
             if (++_currentRowIndex < RowsCount)
             {
@@ -870,7 +871,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        var isConsumed = ReaderState == State.IsConsumed || (!await ReadAsync().ConfigureAwait(false) && ReaderState == State.IsConsumed);
+        var isConsumed = ReaderState == State.IsConsumed ||
+                         (!await ReadAsync().ConfigureAwait(false) && ReaderState == State.IsConsumed);
         ReaderMetadata = CloseMetadata.Instance;
         ReaderState = State.Close;
         _dbActivity?.Dispose();

@@ -66,7 +66,8 @@ internal static class PoolManager
             if (driver.RegisterOwner())
                 return driver;
 
-            driver = Drivers[driverFactory.GrpcConnectionString] = await driverFactory.CreateAsync().ConfigureAwait(false);
+            driver = Drivers[driverFactory.GrpcConnectionString] =
+                await driverFactory.CreateAsync().ConfigureAwait(false);
             driver.RegisterOwner();
 
             return driver;
