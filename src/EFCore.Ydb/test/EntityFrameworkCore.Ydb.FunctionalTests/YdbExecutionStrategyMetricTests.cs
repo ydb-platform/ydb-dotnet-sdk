@@ -142,5 +142,4 @@ public class YdbExecutionStrategyMetricTests
 
     private static double SingleDuration(List<Measurement> measurements) =>
         measurements.Single(m => m.InstrumentName == RetryDurationMetric).Value;
-
 }
