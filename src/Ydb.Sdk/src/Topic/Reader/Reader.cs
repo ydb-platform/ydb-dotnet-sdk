@@ -225,7 +225,7 @@ internal class Reader<TValue> : IReader<TValue>
         _receivedMessagesChannel.Writer.TryComplete();
         _disposeCts.Cancel();
 
-        await ((_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false));
+        await (_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
         if (_driver != null)
         {
             await _driver.DisposeAsync().ConfigureAwait(false);

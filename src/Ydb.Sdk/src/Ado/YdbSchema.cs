@@ -294,9 +294,7 @@ internal static class YdbSchema
     private static async Task<DataTable> GetDataSourceInformation(YdbConnection ydbConnection)
     {
         var ydbVersion = (await new YdbCommand(ydbConnection) { CommandText = "SELECT Version();" }
-            .ExecuteScalarAsync()
-            .ConfigureAwait(false))!
-            .ToString();
+            .ExecuteScalarAsync().ConfigureAwait(false))!.ToString();
 
         var table = new DataTable("DataSourceInformation");
         var row = table.Rows.Add();
