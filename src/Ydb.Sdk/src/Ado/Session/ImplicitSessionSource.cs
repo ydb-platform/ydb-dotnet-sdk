@@ -85,7 +85,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
                 _logger.LogError(e, "Failed to dispose the transport driver");
             }
 
-            SdkClientInfoRegistry.Unregister($"ado-net/{YdbSdkVersion.Value}");
+            SdkClientInfoRegistry.Unregister(Metadata.AdoNetClientInfo);
             if (_frameworkClientInfo is not null)
             {
                 SdkClientInfoRegistry.Unregister(_frameworkClientInfo);

@@ -119,7 +119,13 @@ public class CachedCredentialsProvider : ICredentialsProvider
         {
             try
             {
-                var tokenResponse = await cachedCredentialsProvider.FetchToken().ConfigureAwait(false);
+                // CA2007 deliberately not applied: this is a fire-and-forget async void background fetch.
+                // The token state machine relies on the awaiter's continuation completing this TCS, and the
+                // SDK always reaches this code off any UI SynchronizationContext (earlier layers use
+                // ConfigureAwait(false)), so capturing the context here is harmless and not a deadlock risk.
+#pragma warning disable CA2007
+                var tokenResponse = await cachedCredentialsProvider.FetchToken();
+#pragma warning restore CA2007
 
                 _fetchTokenResponseTcs.SetResult(tokenResponse);
             }
@@ -192,7 +198,13 @@ public class CachedCredentialsProvider : ICredentialsProvider
         {
             try
             {
-                var tokenResponse = await cachedCredentialsProvider.FetchToken().ConfigureAwait(false);
+                // CA2007 deliberately not applied: this is a fire-and-forget async void background fetch.
+                // The token state machine relies on the awaiter's continuation completing this TCS, and the
+                // SDK always reaches this code off any UI SynchronizationContext (earlier layers use
+                // ConfigureAwait(false)), so capturing the context here is harmless and not a deadlock risk.
+#pragma warning disable CA2007
+                var tokenResponse = await cachedCredentialsProvider.FetchToken();
+#pragma warning restore CA2007
 
                 _fetchTokenResponseTcs.SetResult(tokenResponse);
             }

@@ -20,6 +20,7 @@ internal static class Metadata
     //Incoming hints
     public const string GracefulShutdownHint = "session-close";
 
+    internal static readonly string AdoNetClientInfo = $"ado-net/{YdbSdkVersion.Value}";
     internal static readonly string TopicWriterClientInfo = $"topic-writer/{YdbSdkVersion.Value}";
     internal static readonly string TopicReaderClientInfo = $"topic-reader/{YdbSdkVersion.Value}";
 }
