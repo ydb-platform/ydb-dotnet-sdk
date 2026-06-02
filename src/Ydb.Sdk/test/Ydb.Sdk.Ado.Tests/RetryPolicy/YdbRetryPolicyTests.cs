@@ -16,8 +16,8 @@ public class YdbRetryPolicyTests
         var ydbRetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 2 });
         var ydbException = new YdbException(statusCode, "Mock message");
 
-        Assert.Equal(TimeSpan.Zero, ydbRetryPolicy.GetNextDelay(ydbException, 0));
-        Assert.Null(ydbRetryPolicy.GetNextDelay(ydbException, 1));
+        Assert.Equal(TimeSpan.Zero, ydbRetryPolicy.GetNextDelay(ydbException, 1));
+        Assert.Null(ydbRetryPolicy.GetNextDelay(ydbException, 2));
     }
 
     [Theory]
@@ -28,8 +28,8 @@ public class YdbRetryPolicyTests
         var ydbRetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 2 });
         var ydbException = new YdbException(statusCode, "Mock message");
 
-        Assert.Null(ydbRetryPolicy.GetNextDelay(ydbException, 0));
         Assert.Null(ydbRetryPolicy.GetNextDelay(ydbException, 1));
+        Assert.Null(ydbRetryPolicy.GetNextDelay(ydbException, 2));
     }
 
     [Theory]
@@ -48,22 +48,22 @@ public class YdbRetryPolicyTests
         var ydbException = new YdbException(statusCode, "Mock message");
 
         mockRandom.Setup(random => random.Next(6)).Returns(2);
-        Assert.Equal(TimeSpan.FromMilliseconds(2), ydbRetryPolicy.GetNextDelay(ydbException, 0));
+        Assert.Equal(TimeSpan.FromMilliseconds(2), ydbRetryPolicy.GetNextDelay(ydbException, 1));
 
         mockRandom.Setup(random => random.Next(11)).Returns(7);
-        Assert.Equal(TimeSpan.FromMilliseconds(7), ydbRetryPolicy.GetNextDelay(ydbException, 1));
+        Assert.Equal(TimeSpan.FromMilliseconds(7), ydbRetryPolicy.GetNextDelay(ydbException, 2));
 
         mockRandom.Setup(random => random.Next(21)).Returns(14);
-        Assert.Equal(TimeSpan.FromMilliseconds(14), ydbRetryPolicy.GetNextDelay(ydbException, 2));
+        Assert.Equal(TimeSpan.FromMilliseconds(14), ydbRetryPolicy.GetNextDelay(ydbException, 3));
 
         mockRandom.Setup(random => random.Next(41)).Returns(23);
-        Assert.Equal(TimeSpan.FromMilliseconds(23), ydbRetryPolicy.GetNextDelay(ydbException, 3));
+        Assert.Equal(TimeSpan.FromMilliseconds(23), ydbRetryPolicy.GetNextDelay(ydbException, 4));
 
         mockRandom.Setup(random => random.Next(81)).Returns(53);
-        Assert.Equal(TimeSpan.FromMilliseconds(53), ydbRetryPolicy.GetNextDelay(ydbException, 4));
+        Assert.Equal(TimeSpan.FromMilliseconds(53), ydbRetryPolicy.GetNextDelay(ydbException, 5));
 
         mockRandom.Setup(random => random.Next(101)).Returns(89);
-        Assert.Equal(TimeSpan.FromMilliseconds(89), ydbRetryPolicy.GetNextDelay(ydbException, 5));
+        Assert.Equal(TimeSpan.FromMilliseconds(89), ydbRetryPolicy.GetNextDelay(ydbException, 6));
     }
 
     [Theory]
@@ -83,19 +83,19 @@ public class YdbRetryPolicyTests
         var ydbException = new YdbException(statusCode, "Mock message");
 
         mockRandom.Setup(random => random.Next(3)).Returns(1);
-        Assert.Equal(TimeSpan.FromMilliseconds(4), ydbRetryPolicy.GetNextDelay(ydbException, 0));
+        Assert.Equal(TimeSpan.FromMilliseconds(4), ydbRetryPolicy.GetNextDelay(ydbException, 1));
 
         mockRandom.Setup(random => random.Next(6)).Returns(5);
-        Assert.Equal(TimeSpan.FromMilliseconds(10), ydbRetryPolicy.GetNextDelay(ydbException, 1));
+        Assert.Equal(TimeSpan.FromMilliseconds(10), ydbRetryPolicy.GetNextDelay(ydbException, 2));
 
         mockRandom.Setup(random => random.Next(11)).Returns(8);
-        Assert.Equal(TimeSpan.FromMilliseconds(18), ydbRetryPolicy.GetNextDelay(ydbException, 2));
+        Assert.Equal(TimeSpan.FromMilliseconds(18), ydbRetryPolicy.GetNextDelay(ydbException, 3));
 
         mockRandom.Setup(random => random.Next(21)).Returns(15);
-        Assert.Equal(TimeSpan.FromMilliseconds(35), ydbRetryPolicy.GetNextDelay(ydbException, 3));
+        Assert.Equal(TimeSpan.FromMilliseconds(35), ydbRetryPolicy.GetNextDelay(ydbException, 4));
 
         mockRandom.Setup(random => random.Next(26)).Returns(11);
-        Assert.Equal(TimeSpan.FromMilliseconds(36), ydbRetryPolicy.GetNextDelay(ydbException, 4));
+        Assert.Equal(TimeSpan.FromMilliseconds(36), ydbRetryPolicy.GetNextDelay(ydbException, 5));
     }
 
     [Theory]
@@ -114,19 +114,19 @@ public class YdbRetryPolicyTests
         var ydbException = new YdbException(statusCode, "Mock message");
 
         mockRandom.Setup(random => random.Next(51)).Returns(27);
-        Assert.Equal(TimeSpan.FromMilliseconds(77), ydbRetryPolicy.GetNextDelay(ydbException, 0));
+        Assert.Equal(TimeSpan.FromMilliseconds(77), ydbRetryPolicy.GetNextDelay(ydbException, 1));
 
         mockRandom.Setup(random => random.Next(101)).Returns(5);
-        Assert.Equal(TimeSpan.FromMilliseconds(105), ydbRetryPolicy.GetNextDelay(ydbException, 1));
+        Assert.Equal(TimeSpan.FromMilliseconds(105), ydbRetryPolicy.GetNextDelay(ydbException, 2));
 
         mockRandom.Setup(random => random.Next(201)).Returns(123);
-        Assert.Equal(TimeSpan.FromMilliseconds(323), ydbRetryPolicy.GetNextDelay(ydbException, 2));
+        Assert.Equal(TimeSpan.FromMilliseconds(323), ydbRetryPolicy.GetNextDelay(ydbException, 3));
 
         mockRandom.Setup(random => random.Next(401)).Returns(301);
-        Assert.Equal(TimeSpan.FromMilliseconds(701), ydbRetryPolicy.GetNextDelay(ydbException, 3));
+        Assert.Equal(TimeSpan.FromMilliseconds(701), ydbRetryPolicy.GetNextDelay(ydbException, 4));
 
         mockRandom.Setup(random => random.Next(501)).Returns(257);
-        Assert.Equal(TimeSpan.FromMilliseconds(757), ydbRetryPolicy.GetNextDelay(ydbException, 4));
+        Assert.Equal(TimeSpan.FromMilliseconds(757), ydbRetryPolicy.GetNextDelay(ydbException, 5));
     }
 
     [Theory]
@@ -146,5 +146,5 @@ public class YdbRetryPolicyTests
     [InlineData(StatusCode.ClientTransportTimeout)]
     [InlineData(StatusCode.ClientTransportUnimplemented)]
     public void GetNextDelay_WhenStatusCodeIsNotRetriable_ReturnNull(StatusCode statusCode) =>
-        Assert.Null(YdbRetryPolicy.IdempotenceDefault.GetNextDelay(new YdbException(statusCode, "Mock message"), 0));
+        Assert.Null(YdbRetryPolicy.IdempotenceDefault.GetNextDelay(new YdbException(statusCode, "Mock message"), 1));
 }
