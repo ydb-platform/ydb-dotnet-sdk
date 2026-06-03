@@ -1,3 +1,5 @@
+## v0.33.0
+
 - Fix: add ConfigureAwait(false) to avoid sync-over-async deadlocks ([#647](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/647)).
 - Feat tracing: added `ydb.Login` span emitted by the static-credentials auth client.
 - **Breaking Change**: Removed legacy `Retry.cs` (`BackoffSettings`, `RetryPolicy` enum, `RetryRule`, `RetrySettings`).
