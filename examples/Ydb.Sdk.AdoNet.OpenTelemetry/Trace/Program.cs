@@ -34,25 +34,25 @@ using (var activity = activitySource.StartActivity(appStartup))
     activity?.SetTag("app.message", "hello");
 
     await using var connInit = await dataSource.OpenConnectionAsync();
-    await new YdbCommand("CREATE TABLE bank(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
+    await new YdbCommand("CREATE TABLE IF NOT EXISTS bank_trace(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
         .ExecuteNonQueryAsync();
 }
 
 Console.WriteLine("Insert row...");
 
 await using var connInsertRow = await dataSource.OpenConnectionAsync();
-await new YdbCommand("INSERT INTO bank(id, amount) VALUES (1, 0)", connInsertRow).ExecuteNonQueryAsync();
+await new YdbCommand("UPSERT INTO bank_trace(id, amount) VALUES (1, 0)", connInsertRow).ExecuteNonQueryAsync();
 
 
 Console.WriteLine("Preparing queries...");
 await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
 {
     var count = (int)(await new YdbCommand(ydbConnection)
-        { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
+        { CommandText = "SELECT amount FROM bank_trace WHERE id = 1" }.ExecuteScalarAsync())!;
 
     await new YdbCommand(ydbConnection)
     {
-        CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
+        CommandText = "UPDATE bank_trace SET amount = @amount + 1 WHERE id = 1",
         Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
     }.ExecuteNonQueryAsync();
 });
@@ -74,11 +74,11 @@ for (var i = 0; i < 10; i++)
         await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
         {
             var count = (int)(await new YdbCommand(ydbConnection)
-                { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
+                { CommandText = "SELECT amount FROM bank_trace WHERE id = 1" }.ExecuteScalarAsync())!;
 
             await new YdbCommand(ydbConnection)
             {
-                CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
+                CommandText = "UPDATE bank_trace SET amount = @amount + 1 WHERE id = 1",
                 Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
             }.ExecuteNonQueryAsync();
         });
@@ -92,7 +92,7 @@ Console.WriteLine("Retry connection example...");
 await using var ydbConnection = await dataSource.OpenRetryableConnectionAsync();
 
 await new YdbCommand(ydbConnection)
-    { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteNonQueryAsync();
+    { CommandText = "SELECT amount FROM bank_trace WHERE id = 1" }.ExecuteNonQueryAsync();
 
 Console.WriteLine("App finished.");
 

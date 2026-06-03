@@ -16,13 +16,9 @@ var resourceBuilder = ResourceBuilder.CreateDefault()
 // to the collector via OTLP. From there the collector forwards them to Loki.
 using var loggerFactory = LoggerFactory.Create(builder =>
 {
-    builder.SetMinimumLevel(LogLevel.Debug);
     builder.AddOpenTelemetry(options =>
     {
         options.SetResourceBuilder(resourceBuilder);
-        options.IncludeScopes = true;
-        options.IncludeFormattedMessage = true;
-        options.ParseStateValues = true;
         options.AddOtlpExporter(o => o.Endpoint = otlpEndpoint);
     });
 });
@@ -44,9 +40,9 @@ logger.LogInformation("Initializing schema...");
 
 await using (var connInit = await dataSource.OpenConnectionAsync())
 {
-    await new YdbCommand("CREATE TABLE IF NOT EXISTS bank(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
+    await new YdbCommand("CREATE TABLE IF NOT EXISTS bank_logs(id Int32, amount Int32, PRIMARY KEY (id))", connInit)
         .ExecuteNonQueryAsync();
-    await new YdbCommand("UPSERT INTO bank(id, amount) VALUES (1, 0)", connInit).ExecuteNonQueryAsync();
+    await new YdbCommand("UPSERT INTO bank_logs(id, amount) VALUES (1, 0)", connInit).ExecuteNonQueryAsync();
 }
 
 logger.LogInformation("Running a few transactions...");
@@ -56,11 +52,11 @@ for (var i = 0; i < 5; i++)
     await dataSource.ExecuteInTransactionAsync(async ydbConnection =>
     {
         var count = (int)(await new YdbCommand(ydbConnection)
-            { CommandText = "SELECT amount FROM bank WHERE id = 1" }.ExecuteScalarAsync())!;
+            { CommandText = "SELECT amount FROM bank_logs WHERE id = 1" }.ExecuteScalarAsync())!;
 
         await new YdbCommand(ydbConnection)
         {
-            CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 1",
+            CommandText = "UPDATE bank_logs SET amount = @amount + 1 WHERE id = 1",
             Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
         }.ExecuteNonQueryAsync();
     });

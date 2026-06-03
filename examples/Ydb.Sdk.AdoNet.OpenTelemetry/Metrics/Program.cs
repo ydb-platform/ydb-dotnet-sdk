@@ -141,9 +141,9 @@ await ds.ExecuteAsync(async conn =>
     await new YdbCommand("DROP TABLE IF EXISTS demo_inserts", conn).ExecuteNonQueryAsync();
     await new YdbCommand("CREATE TABLE IF NOT EXISTS demo_inserts(id Uuid, val Int32, PRIMARY KEY (id))", conn)
         .ExecuteNonQueryAsync();
-    await new YdbCommand("CREATE TABLE IF NOT EXISTS bank(id Int32, amount Int32, PRIMARY KEY (id))", conn)
+    await new YdbCommand("CREATE TABLE IF NOT EXISTS bank_metrics(id Int32, amount Int32, PRIMARY KEY (id))", conn)
         .ExecuteNonQueryAsync();
-    await new YdbCommand("INSERT INTO bank(id, amount) VALUES (2, 0)", conn).ExecuteNonQueryAsync();
+    await new YdbCommand("UPSERT INTO bank_metrics(id, amount) VALUES (2, 0)", conn).ExecuteNonQueryAsync();
 });
 
 Console.WriteLine("Phase 1: inserting rows (Ctrl+C to stop)...");
@@ -204,11 +204,11 @@ for (var i = 0; i < 10; i++)
         await ds.ExecuteInTransactionAsync(async ydbConnection =>
         {
             var count = (int)(await new YdbCommand(ydbConnection)
-                { CommandText = "SELECT amount FROM bank WHERE id = 2" }.ExecuteScalarAsync())!;
+                { CommandText = "SELECT amount FROM bank_metrics WHERE id = 2" }.ExecuteScalarAsync())!;
 
             await new YdbCommand(ydbConnection)
             {
-                CommandText = "UPDATE bank SET amount = @amount + 1 WHERE id = 2",
+                CommandText = "UPDATE bank_metrics SET amount = @amount + 1 WHERE id = 2",
                 Parameters = { new YdbParameter { Value = count, ParameterName = "amount" } }
             }.ExecuteNonQueryAsync();
         });
