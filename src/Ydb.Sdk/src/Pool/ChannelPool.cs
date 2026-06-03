@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Collections.Immutable;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using Grpc.Core;
@@ -8,21 +7,15 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Pool;
 
-internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposable
+internal class ChannelPool<T>(ILoggerFactory loggerFactory, IChannelFactory<T> channelFactory) : IAsyncDisposable
+    where T : ChannelBase, IDisposable
 {
     private readonly ConcurrentDictionary<string, Lazy<T>> _channels = new();
 
-    private readonly ILogger<ChannelPool<T>> _logger;
-    private readonly IChannelFactory<T> _channelFactory;
-
-    public ChannelPool(ILoggerFactory loggerFactory, IChannelFactory<T> channelFactory)
-    {
-        _logger = loggerFactory.CreateLogger<ChannelPool<T>>();
-        _channelFactory = channelFactory;
-    }
+    private readonly ILogger<ChannelPool<T>> _logger = loggerFactory.CreateLogger<ChannelPool<T>>();
 
     public T GetChannel(EndpointInfo endpointInfo) => _channels.GetOrAdd(endpointInfo.Endpoint,
-        new Lazy<T>(() => _channelFactory.CreateChannel(endpointInfo.Endpoint))).Value;
+        new Lazy<T>(() => channelFactory.CreateChannel(endpointInfo.Endpoint))).Value;
 
     public async ValueTask RemoveChannels(IReadOnlyList<EndpointInfo> removedEndpoints)
     {
@@ -36,18 +29,19 @@ internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposa
             }
         }
 
-        await ShutdownChannels(shutdownGrpcChannels);
+        await ShutdownChannels(shutdownGrpcChannels).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
 
-        await ShutdownChannels(_channels.Values
-            .Where(lazyChannel => lazyChannel.IsValueCreated)
-            .Select(lazyChannel => lazyChannel.Value)
-            .ToImmutableArray()
-        );
+        await ShutdownChannels([
+                .._channels.Values
+                    .Where(lazyChannel => lazyChannel.IsValueCreated)
+                    .Select(lazyChannel => lazyChannel.Value)
+            ]
+        ).ConfigureAwait(false);
     }
 
     private async ValueTask ShutdownChannels(ICollection<T> channels)
@@ -56,7 +50,7 @@ internal class ChannelPool<T> : IAsyncDisposable where T : ChannelBase, IDisposa
         {
             try
             {
-                await channel.ShutdownAsync();
+                await channel.ShutdownAsync().ConfigureAwait(false);
             }
             catch (Exception e)
             {

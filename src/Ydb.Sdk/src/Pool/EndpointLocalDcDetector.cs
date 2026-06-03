@@ -57,7 +57,8 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
             );
         }
 
-        var fastestEndpoint = await DetectFastestEndpoint(endpointsToTest, timeout, cancellationToken);
+        var fastestEndpoint = await DetectFastestEndpoint(endpointsToTest, timeout, cancellationToken)
+            .ConfigureAwait(false);
         if (fastestEndpoint is null)
         {
             _logger.LogDebug("Failed to detect nearest DC via TCP race: no endpoint connected in time");
@@ -81,7 +82,7 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
 
         try
         {
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
@@ -89,7 +90,7 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
 
         if (winner.Task.IsCompletedSuccessfully)
         {
-            return await winner.Task;
+            return await winner.Task.ConfigureAwait(false);
         }
 
         return null;
@@ -102,7 +103,8 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
     {
         try
         {
-            await _tcpConnector.ConnectAsync(endpoint.Host, checked((int)endpoint.Port), cts.Token);
+            await _tcpConnector.ConnectAsync(endpoint.Host, checked((int)endpoint.Port), cts.Token)
+                .ConfigureAwait(false);
 
             if (winner.TrySetResult(endpoint))
             {
@@ -160,7 +162,7 @@ internal sealed class SocketTcpConnector : ITcpConnector
 {
     public async Task ConnectAsync(string host, int port, CancellationToken cancellationToken)
     {
-        var addresses = await Dns.GetHostAddressesAsync(host, cancellationToken);
+        var addresses = await Dns.GetHostAddressesAsync(host, cancellationToken).ConfigureAwait(false);
         if (addresses.Length == 0)
         {
             throw new SocketException((int)SocketError.HostNotFound);
@@ -174,7 +176,7 @@ internal sealed class SocketTcpConnector : ITcpConnector
             try
             {
                 using var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                await socket.ConnectAsync(new IPEndPoint(address, port), cancellationToken);
+                await socket.ConnectAsync(new IPEndPoint(address, port), cancellationToken).ConfigureAwait(false);
                 return;
             }
             catch (SocketException e)

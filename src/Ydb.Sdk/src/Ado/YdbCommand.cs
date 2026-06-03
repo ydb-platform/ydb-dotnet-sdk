@@ -59,9 +59,10 @@ public sealed class YdbCommand : DbCommand
 
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {
-        await using var dataReader = await ExecuteReaderAsync(cancellationToken);
+        var dataReader = await ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        await using var _ = ((IAsyncDisposable)dataReader).ConfigureAwait(false);
 
-        while (await dataReader.NextResultAsync(cancellationToken))
+        while (await dataReader.NextResultAsync(cancellationToken).ConfigureAwait(false))
         {
         }
 
@@ -72,11 +73,12 @@ public sealed class YdbCommand : DbCommand
 
     public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
     {
-        await using var dataReader = await ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);
+        var dataReader = await ExecuteReaderAsync(CommandBehavior.Default, cancellationToken).ConfigureAwait(false);
+        await using var _ = ((IAsyncDisposable)dataReader).ConfigureAwait(false);
 
-        var data = await dataReader.ReadAsync(cancellationToken) ? dataReader.GetValue(0) : null;
+        var data = await dataReader.ReadAsync(cancellationToken).ConfigureAwait(false) ? dataReader.GetValue(0) : null;
 
-        while (await dataReader.NextResultAsync(cancellationToken))
+        while (await dataReader.NextResultAsync(cancellationToken).ConfigureAwait(false))
         {
         }
 
@@ -250,10 +252,10 @@ public sealed class YdbCommand : DbCommand
             throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
         }
 
-        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(
-            await YdbConnection.Session.ExecuteQuery(
-                preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl),
-            YdbConnection, dbActivity, startTimestamp, cancellationToken);
+        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session
+                .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl)
+                .ConfigureAwait(false),
+            YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;
@@ -262,7 +264,8 @@ public sealed class YdbCommand : DbCommand
     }
 
     public new async Task<YdbDataReader> ExecuteReaderAsync() =>
-        (YdbDataReader)await ExecuteDbDataReaderAsync(CommandBehavior.Default, CancellationToken.None);
+        (YdbDataReader)await ExecuteDbDataReaderAsync(CommandBehavior.Default, CancellationToken.None)
+            .ConfigureAwait(false);
 
     public new Task<YdbDataReader> ExecuteReaderAsync(CancellationToken cancellationToken) =>
         ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);
@@ -274,5 +277,5 @@ public sealed class YdbCommand : DbCommand
     // ReSharper disable once MemberCanBePrivate.Global
     public new async Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken) =>
-        (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken);
+        (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken).ConfigureAwait(false);
 }

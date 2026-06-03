@@ -24,7 +24,7 @@ internal class StaticCredentialsAuthClient : IAuthClient
 
     public Task<TokenResponse> FetchToken() => RetryPolicyExecutor.ExecuteAsync(async _ =>
     {
-        var token = await Login();
+        var token = await Login().ConfigureAwait(false);
 
         return new TokenResponse(token, new JwtSecurityToken(token).ValidTo);
     });
@@ -41,7 +41,7 @@ internal class StaticCredentialsAuthClient : IAuthClient
         using var channel = _grpcChannelFactory.CreateChannel(_config.Endpoint);
 
         var response = await new AuthService.AuthServiceClient(channel)
-            .LoginAsync(request, _config.GetCallMetadata);
+            .LoginAsync(request, _config.GetCallMetadata).ResponseAsync.ConfigureAwait(false);
 
         var operation = response.Operation;
 

@@ -220,11 +220,11 @@ public abstract class BaseDriver : IDriver
             using var call = callInvoker.AsyncUnaryCall(
                 method: method,
                 host: null,
-                options: await GetCallOptions(settings, endpointInfo),
+                options: await GetCallOptions(settings, endpointInfo).ConfigureAwait(false),
                 request: request
             );
 
-            return await call.ResponseAsync;
+            return await call.ResponseAsync.ConfigureAwait(false);
         }
         catch (RpcException e)
         {
@@ -253,7 +253,7 @@ public abstract class BaseDriver : IDriver
         var call = callInvoker.AsyncServerStreamingCall(
             method: method,
             host: null,
-            options: await GetCallOptions(settings, endpointInfo),
+            options: await GetCallOptions(settings, endpointInfo).ConfigureAwait(false),
             request: request);
 
         return new ServerStream<TResponse>(call, e => { OnRpcError(endpointInfo, e); });
@@ -273,7 +273,7 @@ public abstract class BaseDriver : IDriver
         var call = callInvoker.AsyncDuplexStreamingCall(
             method: method,
             host: null,
-            options: await GetCallOptions(settings, endpointInfo));
+            options: await GetCallOptions(settings, endpointInfo).ConfigureAwait(false));
 
         return new BidirectionalStream<TRequest, TResponse>(
             call,
@@ -292,7 +292,7 @@ public abstract class BaseDriver : IDriver
 
         if (_credentialsProvider != null)
         {
-            meta.Add(Metadata.RpcAuthHeader, await _credentialsProvider.GetAuthInfoAsync());
+            meta.Add(Metadata.RpcAuthHeader, await _credentialsProvider.GetAuthInfoAsync().ConfigureAwait(false));
         }
 
         if (settings.TraceId.Length > 0)
@@ -385,8 +385,8 @@ public abstract class BaseDriver : IDriver
             }
         }
 
-        await DisposeAsyncCore();
-        await ChannelPool.DisposeAsync();
+        await DisposeAsyncCore().ConfigureAwait(false);
+        await ChannelPool.DisposeAsync().ConfigureAwait(false);
 
         GC.SuppressFinalize(this);
     }
@@ -409,7 +409,7 @@ public sealed class ServerStream<TResponse> : IServerStream<TResponse>
     {
         try
         {
-            return await _stream.ResponseStream.MoveNext(cancellationToken);
+            return await _stream.ResponseStream.MoveNext(cancellationToken).ConfigureAwait(false);
         }
         catch (RpcException e)
         {
@@ -448,7 +448,7 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
     {
         try
         {
-            await _stream.RequestStream.WriteAsync(request);
+            await _stream.RequestStream.WriteAsync(request).ConfigureAwait(false);
         }
         catch (RpcException e)
         {
@@ -466,7 +466,7 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
     {
         try
         {
-            return await _stream.ResponseStream.MoveNext(CancellationToken.None);
+            return await _stream.ResponseStream.MoveNext(CancellationToken.None).ConfigureAwait(false);
         }
         catch (RpcException e)
         {
@@ -483,14 +483,14 @@ internal class BidirectionalStream<TRequest, TResponse> : IBidirectionalStream<T
     public TResponse Current => _stream.ResponseStream.Current;
 
     public async ValueTask<string?> AuthToken() => _credentialsProvider != null
-        ? await _credentialsProvider.GetAuthInfoAsync()
+        ? await _credentialsProvider.GetAuthInfoAsync().ConfigureAwait(false)
         : null;
 
     public async Task RequestStreamComplete()
     {
         try
         {
-            await _stream.RequestStream.CompleteAsync();
+            await _stream.RequestStream.CompleteAsync().ConfigureAwait(false);
         }
         catch (RpcException e)
         {

@@ -151,8 +151,11 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        Session = await (_sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken))
-            .OpenSession(cancellationToken);
+        Session = await (
+            _sessionSource ??= await PoolManager
+                .Get(ConnectionStringBuilder, cancellationToken)
+                .ConfigureAwait(false)
+        ).OpenSession(cancellationToken).ConfigureAwait(false);
 
         OnStateChange(ClosedToOpenEventArgs);
 
@@ -167,7 +170,8 @@ public sealed class YdbConnection : DbConnection
         ThrowIfConnectionOpen();
 
         Session = new RetryableSession(
-            _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken), retryPolicyExecutor);
+            _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false),
+            retryPolicyExecutor);
 
         ConnectionState = ConnectionState.Open;
     }
@@ -188,12 +192,12 @@ public sealed class YdbConnection : DbConnection
                 {
                     if (LastReader is { IsClosed: false })
                     {
-                        await LastReader.CloseAsync();
+                        await LastReader.CloseAsync().ConfigureAwait(false);
                     }
 
                     if (CurrentTransaction is { Completed: false })
                     {
-                        await CurrentTransaction.RollbackAsync();
+                        await CurrentTransaction.RollbackAsync().ConfigureAwait(false);
                     }
 
                     OnStateChange(OpenToClosedEventArgs);
@@ -314,7 +318,7 @@ public sealed class YdbConnection : DbConnection
         if (_disposed)
             return;
 
-        await CloseAsync();
+        await CloseAsync().ConfigureAwait(false);
         _disposed = true;
     }
 

@@ -73,9 +73,9 @@ internal sealed class InMemoryServerStream(
 
     public async Task<bool> MoveNextAsync(CancellationToken cancellationToken = default)
     {
-        _responses ??= await retryPolicyExecutor.ExecuteAsync<List<ExecuteQueryResponsePart>>(async ct =>
+        _responses ??= await retryPolicyExecutor.ExecuteAsync(async ct =>
         {
-            using var session = await sessionSource.OpenSession(ct);
+            using var session = await sessionSource.OpenSession(ct).ConfigureAwait(false);
 
             using var dbActivity = YdbActivitySource.StartActivity("ydb.ExecuteQuery");
 
@@ -86,9 +86,9 @@ internal sealed class InMemoryServerStream(
             try
             {
                 var responses = new List<ExecuteQueryResponsePart>();
-                var serverStream = await session.ExecuteQuery(query, parameters, settings, null);
+                var serverStream = await session.ExecuteQuery(query, parameters, settings, null).ConfigureAwait(false);
 
-                while (await serverStream.MoveNextAsync(ct))
+                while (await serverStream.MoveNextAsync(ct).ConfigureAwait(false))
                 {
                     var current = serverStream.Current;
 
@@ -108,7 +108,7 @@ internal sealed class InMemoryServerStream(
                 dbActivity?.SetException(e);
                 throw;
             }
-        }, cancellationToken);
+        }, cancellationToken).ConfigureAwait(false);
 
         return ++_index < _responses.Count;
     }

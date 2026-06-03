@@ -52,7 +52,7 @@ public sealed class Driver : BaseDriver
     public static async Task<Driver> CreateInitialized(DriverConfig config, ILoggerFactory? loggerFactory = null)
     {
         var driver = new Driver(config, loggerFactory);
-        await driver.Initialize();
+        await driver.Initialize().ConfigureAwait(false);
         return driver;
     }
 
@@ -70,21 +70,21 @@ public sealed class Driver : BaseDriver
 
         await DiscoveryRetryPolicy.ExecuteAsync(async _ =>
         {
-            await DiscoverEndpoints();
+            await DiscoverEndpoints().ConfigureAwait(false);
             _discoveryTimer = new Timer(
                 OnDiscoveryTimer,
                 null,
                 Config.EndpointDiscoveryInterval,
                 Config.EndpointDiscoveryInterval
             );
-        });
+        }).ConfigureAwait(false);
     }
 
     private async void OnDiscoveryTimer(object? state)
     {
         try
         {
-            await DiscoverEndpoints();
+            await DiscoverEndpoints().ConfigureAwait(false);
         }
         catch (YdbException e)
         {
@@ -145,7 +145,7 @@ public sealed class Driver : BaseDriver
     {
         if (_discoveryTimer != null)
         {
-            await _discoveryTimer.DisposeAsync();
+            await _discoveryTimer.DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -162,12 +162,13 @@ public sealed class Driver : BaseDriver
 
             // Discovery is the only call site without a natural per-call ClientInfo; merge the
             // active component chain (registered before driver creation) directly into metadata.
-            var options = await GetCallOptions(grpcSettings, Config.EndpointInfo);
+            var options = await GetCallOptions(grpcSettings, Config.EndpointInfo).ConfigureAwait(false);
             options.Headers?.Add(Metadata.RpcSdkInfoHeader, SdkClientInfoRegistry.Chain is null
                 ? Config.SdkVersion
                 : $"{Config.SdkVersion};{SdkClientInfoRegistry.Chain}");
 
-            var response = await client.ListEndpointsAsync(request: request, options: options);
+            var response = await client.ListEndpointsAsync(request: request, options: options)
+                .ResponseAsync.ConfigureAwait(false);
 
             var operation = response.Operation;
             if (operation.Status.IsNotSuccess())
@@ -188,7 +189,7 @@ public sealed class Driver : BaseDriver
                     var detectedLocation = await _endpointLocalDcDetector.DetectNearestLocationDc(
                         discoveredEndpoints,
                         Config.ConnectTimeout
-                    );
+                    ).ConfigureAwait(false);
 
                     if (!string.IsNullOrEmpty(detectedLocation))
                     {
@@ -226,7 +227,7 @@ public sealed class Driver : BaseDriver
             await ChannelPool.RemoveChannels(_endpointPool.Reset(
                 discoveredEndpoints,
                 preferredLocation
-            ));
+            )).ConfigureAwait(false);
         }
         catch (RpcException e)
         {

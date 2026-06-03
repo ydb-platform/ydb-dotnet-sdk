@@ -1,0 +1,7 @@
+[*.cs]
+
+# CA2007: Do not directly await a Task without calling ConfigureAwait.
+# This is a library: capturing the caller's SynchronizationContext can deadlock
+# consumers that block on our async APIs (e.g. WPF/WinForms calling Open()).
+# See https://github.com/ydb-platform/ydb-dotnet-sdk/issues/647
+dotnet_diagnostic.CA2007.severity = warning

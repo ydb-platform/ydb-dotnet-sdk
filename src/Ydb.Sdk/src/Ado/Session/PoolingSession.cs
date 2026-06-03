@@ -74,7 +74,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             QueryService.CommitTransactionMethod,
             new CommitTransactionRequest { SessionId = SessionId, TxId = txId },
             new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
-        );
+        ).ConfigureAwait(false);
 
         if (response.Status.IsNotSuccess())
         {
@@ -92,7 +92,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             QueryService.RollbackTransactionMethod,
             new RollbackTransactionRequest { SessionId = SessionId, TxId = txId },
             new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
-        );
+        ).ConfigureAwait(false);
 
         if (response.Status.IsNotSuccess())
         {
@@ -134,8 +134,9 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 requestSettings.ClientCapabilities.Add(SessionBalancer);
             }
 
-            var response =
-                await Driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest, requestSettings);
+            var response = await Driver
+                .UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest, requestSettings)
+                .ConfigureAwait(false);
 
             if (response.Status.IsNotSuccess())
             {
@@ -156,9 +157,9 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                         QueryService.AttachSessionMethod,
                         new AttachSessionRequest { SessionId = SessionId },
                         new GrpcRequestSettings { NodeId = NodeId }
-                    );
+                    ).ConfigureAwait(false);
 
-                    if (!await stream.MoveNextAsync(cancellationToken))
+                    if (!await stream.MoveNextAsync(cancellationToken).ConfigureAwait(false))
                     {
                         // Session wasn't started!
                         completeTask.SetException(new YdbException(StatusCode.Cancelled,
@@ -181,7 +182,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                     try
                     {
                         // ReSharper disable once MethodSupportsCancellation
-                        while (await stream.MoveNextAsync(lifecycleAttachToken))
+                        while (await stream.MoveNextAsync(lifecycleAttachToken).ConfigureAwait(false))
                         {
                             var sessionState = stream.Current;
 
@@ -238,7 +239,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 }
             }, cancellationToken);
 
-            await completeTask.Task;
+            await completeTask.Task.ConfigureAwait(false);
         }
         catch (YdbException e)
         {
@@ -269,7 +270,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 QueryService.DeleteSessionMethod,
                 new DeleteSessionRequest { SessionId = SessionId },
                 new GrpcRequestSettings { TransportTimeout = DeleteSessionTimeout, NodeId = NodeId }
-            );
+            ).ConfigureAwait(false);
 
             if (deleteSessionResponse.Status.IsNotSuccess())
             {
