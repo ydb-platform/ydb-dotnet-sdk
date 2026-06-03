@@ -20,6 +20,12 @@ exporters:
     tls:
       insecure: true
 
+  # Loki natively ingests OTLP logs on its /otlp endpoint (Loki 3.x).
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+
   debug:
     verbosity: detailed
 
@@ -42,3 +48,8 @@ service:
       receivers: [ otlp ]
       processors: [ batch ]
       exporters: [ otlp/tempo, debug ]
+
+    logs:
+      receivers: [ otlp ]
+      processors: [ batch ]
+      exporters: [ otlphttp/loki, debug ]

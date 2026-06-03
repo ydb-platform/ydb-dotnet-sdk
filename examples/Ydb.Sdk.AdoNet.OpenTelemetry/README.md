@@ -33,6 +33,7 @@ docker-compose -f compose-e2e.yaml up -d --force-recreate ydb
 - **YDB local UI**: `http://localhost:8765`
 - **Grafana**: `http://localhost:3000` (anonymous access enabled)
 - **Tempo API**: `http://localhost:3200`
+- **Loki API**: `http://localhost:3100`
 - **Prometheus**: `http://localhost:9090`
 - **OTel Collector**
   - OTLP gRPC: `localhost:4317`
@@ -60,6 +61,9 @@ dotnet run -c Release --project "Trace/Ydb.Sdk.AdoNet.OpenTelemetry.Trace.csproj
 # Metrics + traces (+ optional load generator)
 dotnet run -c Release --project "Metrics/Ydb.Sdk.AdoNet.OpenTelemetry.Metrics.csproj"
 dotnet run -c Release --project "Metrics/Ydb.Sdk.AdoNet.OpenTelemetry.Metrics.csproj" -- --load
+
+# Logs (SDK logs exported via OTLP → Collector → Loki)
+dotnet run -c Release --project "Logs/Ydb.Sdk.AdoNet.OpenTelemetry.Logs.csproj"
 ```
 
 1) Open Grafana → **Explore** → select datasource **Tempo**
@@ -67,3 +71,18 @@ dotnet run -c Release --project "Metrics/Ydb.Sdk.AdoNet.OpenTelemetry.Metrics.cs
 2) Find service **`ydb-sdk-otel-trace-sample`** / **`ydb-sdk-otel-metrics-sample`** and inspect spans such as `app.startup`.
 
 Tip: spans are also printed in `otel-collector` logs (the `debug` exporter is enabled).
+
+## SDK logs → OTel Collector → Loki
+
+The `Logs/` example wires an OpenTelemetry-backed `ILoggerFactory` into the SDK via
+`YdbConnectionStringBuilder.LoggerFactory`. Every internal SDK log (driver init, session
+pool, query execution, retries, ...) is then exported to the collector as an OTLP log
+record, which the collector forwards to **Loki**.
+
+To inspect the logs:
+
+1) Open Grafana → **Explore** → select datasource **Loki**
+
+2) Query by service, e.g. `{service_name="ydb-sdk-otel-logs-sample"}`
+
+Tip: logs are also printed in `otel-collector` logs (the `debug` exporter is enabled).
