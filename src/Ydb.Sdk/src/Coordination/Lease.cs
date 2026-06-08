@@ -1,83 +1,91 @@
-﻿namespace Ydb.Sdk.Coordination;
+using Ydb.Sdk.Ado;
 
-public class Lease : IAsyncDisposable
+namespace Ydb.Sdk.Coordination;
+
+/// <summary>
+/// Handle returned by <see cref="CoordinationSession.AcquireSemaphoreAsync"/>.
+/// Releasing the lease (explicitly or via <see cref="IAsyncDisposable.DisposeAsync"/>) frees the semaphore slot.
+/// </summary>
+public sealed class Lease : IAsyncDisposable
 {
-    public string Name { get; }
+    private readonly CoordinationSession _session;
+    private readonly CancellationTokenSource _lostCts;
+    private readonly CancellationTokenRegistration _sessionLostRegistration;
 
-    private readonly SessionTransport _sessionTransport;
-    private readonly CancellationTokenSource _cancellationTokenSource;
-    private readonly SemaphoreSlim _releaseLock = new(1, 1);
+    private int _released;
 
-    private bool _released;
-    private int _disposed;
-
-    internal Lease(string name, SessionTransport sessionTransport)
+    internal Lease(CoordinationSession session, string name)
     {
+        _session = session;
         Name = name;
-        _sessionTransport = sessionTransport;
-        _cancellationTokenSource =
-            CancellationTokenSource.CreateLinkedTokenSource(sessionTransport.Token);
+        _lostCts = new CancellationTokenSource();
+        _sessionLostRegistration = session.SessionLostToken.Register(static state =>
+        {
+            var l = (Lease)state!;
+            try { l._lostCts.Cancel(); }
+            catch (ObjectDisposedException) { }
+        }, this);
     }
 
-    public CancellationToken Token => _cancellationTokenSource.Token;
+    /// <summary>Name of the acquired semaphore.</summary>
+    public string Name { get; }
 
-    public async Task Release(CancellationToken cancellationToken = default)
+    /// <summary>The session that owns this lease.</summary>
+    public CoordinationSession Session => _session;
+
+    /// <summary>
+    /// Cancelled when the lease is released (explicitly or via dispose) or when the owning session
+    /// is permanently lost.
+    /// </summary>
+    public CancellationToken LeaseLostToken => _lostCts.Token;
+
+    /// <summary>
+    /// Explicitly releases the lease. Idempotent.
+    /// </summary>
+    public async Task ReleaseAsync(CancellationToken cancellationToken = default)
     {
-        if (Volatile.Read(ref _disposed) != 0)
+        if (Interlocked.Exchange(ref _released, 1) != 0)
             return;
 
-        await _releaseLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (_released || Volatile.Read(ref _disposed) != 0)
-                return;
-
-            _released = true;
-
-            try
-            {
-                await _sessionTransport.ReleaseSemaphore(Name, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            finally
-            {
-                await _cancellationTokenSource.CancelAsync().ConfigureAwait(false);
-            }
+            await _session.ReleaseSemaphoreAsync(Name, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            _releaseLock.Release();
+            try { _lostCts.Cancel(); }
+            catch (ObjectDisposedException) { }
         }
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            return;
-
-        await _releaseLock.WaitAsync(CancellationToken.None).ConfigureAwait(false);
         try
         {
-            if (!_released)
-            {
-                _released = true;
-
-                try
-                {
-                    await _sessionTransport.ReleaseSemaphore(Name, CancellationToken.None)
-                        .ConfigureAwait(false);
-                }
-                finally
-                {
-                    await _cancellationTokenSource.CancelAsync().ConfigureAwait(false);
-                }
-            }
+            // Best-effort release. If the session is already dead the worker will surface a
+            // YdbException; that's fine — the server has either already cleaned up (ephemeral)
+            // or will clean up after the session grace period (non-ephemeral). Capped to a
+            // few seconds so a stuck channel doesn't pin the caller forever.
+            await ReleaseAsync(CancellationToken.None)
+                .WaitAsync(TimeSpan.FromSeconds(2))
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+        }
+        catch (YdbException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
         }
         finally
         {
-            _releaseLock.Release();
-            _cancellationTokenSource.Dispose();
-            _releaseLock.Dispose();
+            try { _lostCts.Cancel(); }
+            catch (ObjectDisposedException) { }
+
+            _sessionLostRegistration.Dispose();
+            _lostCts.Dispose();
             GC.SuppressFinalize(this);
         }
     }

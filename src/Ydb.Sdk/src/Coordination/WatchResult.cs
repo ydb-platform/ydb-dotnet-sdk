@@ -1,6 +1,9 @@
-﻿namespace Ydb.Sdk.Coordination.Watcher;
+namespace Ydb.Sdk.Coordination;
 
-public class WatchResult<T>
+/// <summary>
+/// Initial snapshot + stream of subsequent updates returned by a watch subscription.
+/// </summary>
+public sealed class WatchResult<T>
 {
     public T Initial { get; }
     public IAsyncEnumerable<T> Updates { get; }

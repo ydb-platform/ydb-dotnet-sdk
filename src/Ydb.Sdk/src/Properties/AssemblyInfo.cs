@@ -4,3 +4,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Ydb.Sdk.Ado.Benchmarks")]
 [assembly: InternalsVisibleTo("Ydb.Sdk.Ado.Tests")]
 [assembly: InternalsVisibleTo("Ydb.Sdk.Topic.Tests")]
+[assembly: InternalsVisibleTo("Ydb.Sdk.Coordination.Tests")]
