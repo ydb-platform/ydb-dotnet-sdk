@@ -19,6 +19,10 @@ public sealed class Lease : IAsyncDisposable
         _session = session;
         Name = name;
         _lostCts = new CancellationTokenSource();
+        // Cache the token at construction time. After DisposeAsync() the CTS is disposed, but
+        // the CancellationToken struct still refers to the (already-cancelled) source state —
+        // reading IsCancellationRequested on it does NOT throw ObjectDisposedException.
+        LeaseLostToken = _lostCts.Token;
         _sessionLostRegistration = session.SessionLostToken.Register(static state =>
         {
             var l = (Lease)state!;
@@ -35,9 +39,9 @@ public sealed class Lease : IAsyncDisposable
 
     /// <summary>
     /// Cancelled when the lease is released (explicitly or via dispose) or when the owning session
-    /// is permanently lost.
+    /// is permanently lost. Safe to read after <see cref="DisposeAsync"/>.
     /// </summary>
-    public CancellationToken LeaseLostToken => _lostCts.Token;
+    public CancellationToken LeaseLostToken { get; }
 
     /// <summary>
     /// Explicitly releases the lease. Idempotent.

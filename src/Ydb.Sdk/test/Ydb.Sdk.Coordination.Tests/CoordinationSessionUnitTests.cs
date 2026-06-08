@@ -389,7 +389,7 @@ public class CoordinationSessionUnitTests
         await session.WaitReadyAsync().WaitAsync(TestTimeout);
 
         using var cts = new CancellationTokenSource();
-        var t = session.CreateSemaphoreAsync("never-ack", 1, cancellationToken: cts.Token);
+        var t = session.UpdateSemaphoreAsync("never-ack", data: null, cancellationToken: cts.Token);
         cts.Cancel();
 
         await Assert.ThrowsAsync<TaskCanceledException>(() => t.WaitAsync(TestTimeout));

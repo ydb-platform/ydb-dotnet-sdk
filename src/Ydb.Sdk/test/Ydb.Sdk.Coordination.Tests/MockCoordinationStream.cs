@@ -50,13 +50,11 @@ internal sealed class MockCoordinationStream
             {
                 state.Written.Enqueue(request);
 
-                var infra = HandleInfrastructure(request);
-                if (infra is not null)
-                    state.Responses.Writer.TryWrite(infra);
-
-                var userResponse = HandleRequest?.Invoke(request);
-                if (userResponse is not null)
-                    state.Responses.Writer.TryWrite(userResponse);
+                // User-provided handler wins. Infrastructure (SessionStart/Stop, CreateSemaphore)
+                // is a default fallback so individual tests don't need to repeat it.
+                var response = HandleRequest?.Invoke(request) ?? HandleInfrastructure(request);
+                if (response is not null)
+                    state.Responses.Writer.TryWrite(response);
 
                 return Task.CompletedTask;
             });
@@ -136,6 +134,10 @@ internal sealed class MockCoordinationStream
         {
             SessionRequest.RequestOneofCase.SessionStart => SessionStarted(SessionId),
             SessionRequest.RequestOneofCase.SessionStop => SessionStopped(SessionId),
+            // High-level recipes invoke CreateSemaphore idempotently during open; auto-reply so
+            // recipe tests don't need to special-case it. Tests that care can still inspect Written().
+            SessionRequest.RequestOneofCase.CreateSemaphore =>
+                CreateSemaphoreResult(request.CreateSemaphore.ReqId),
             _ => null
         };
 

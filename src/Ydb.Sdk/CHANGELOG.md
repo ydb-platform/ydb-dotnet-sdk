@@ -1,3 +1,18 @@
+## Unreleased
+
+- Feat: Coordination Service client (`Ydb.Sdk.Coordination`). Provides node management
+  (`CreateNodeAsync` / `AlterNodeAsync` / `DropNodeAsync` / `DescribeNodeAsync`), a low-level
+  `CoordinationSession` (single-threaded bidirectional stream with transparent reconnect,
+  pinned-request replay, watcher re-arming, and `SessionLostToken`), and high-level recipes
+  layered on top — each opening its own session for the lifetime of the primitive:
+  - `DistributedLock` — `AcquireLockAsync` / `TryAcquireLockAsync`, `LockLostToken`.
+  - `Leadership` / `LeaderObserver` — `CampaignAsync`, `ProclaimAsync`, `ResignAsync`,
+    `LeadershipLostToken`; `ObserveLeaderAsync` streams `LeaderInfo` changes.
+  - `ServiceRegistration` / `ServiceDiscovery` — endpoint registration with `RegisterServiceAsync`,
+    membership stream via `DiscoverServiceAsync`.
+  - `ConfigPublisher` / `ConfigSubscription` — `PublishConfigAsync` + `UpdateAsync`,
+    `SubscribeConfigAsync` streams new values.
+
 ## v0.32.0
 
 - **Breaking Change**: Removed legacy TableClient.

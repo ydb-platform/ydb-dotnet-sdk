@@ -64,6 +64,10 @@ public sealed class ConfigPublisher : IAsyncDisposable
             .ConfigureAwait(false);
         try
         {
+            // Persistent semaphore with limit=1 — only one publisher at a time. Create idempotently.
+            await EnsureConfigSemaphoreAsync(session, configName, initialValue, cancellationToken)
+                .ConfigureAwait(false);
+
             var lease = await session.AcquireSemaphoreAsync(
                     configName,
                     count: 1,
@@ -83,6 +87,23 @@ public sealed class ConfigPublisher : IAsyncDisposable
         {
             await session.DisposeAsync().ConfigureAwait(false);
             throw;
+        }
+    }
+
+    internal static async Task EnsureConfigSemaphoreAsync(
+        CoordinationSession session,
+        string configName,
+        byte[]? initialValue,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await session.CreateSemaphoreAsync(configName, limit: 1, data: initialValue,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (YdbException)
+        {
+            // AlreadyExists / similar — fine.
         }
     }
 }

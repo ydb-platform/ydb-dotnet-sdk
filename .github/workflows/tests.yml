@@ -103,6 +103,19 @@ jobs:
             dotnet test --logger "console;verbosity=normal"
           fi
 
+      - name: Run Coordination Tests
+        working-directory: ./src/Ydb.Sdk/test/Ydb.Sdk.Coordination.Tests
+        run: |
+          if [ "$COVERAGE_ENABLED" = "true" ]; then
+            dotnet test \
+              --logger "console;verbosity=normal" \
+              --settings "$COVERAGE_SETTINGS" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory "$COVERAGE_DIR/coordination"
+          else
+            dotnet test --logger "console;verbosity=normal"
+          fi
+
       - name: Upload Ydb.Sdk coverage to Codecov
         if: env.COVERAGE_ENABLED == 'true'
         uses: codecov/codecov-action@v6

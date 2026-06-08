@@ -68,6 +68,11 @@ public sealed class LeaderObserver : IAsyncDisposable
             .ConfigureAwait(false);
         try
         {
+            // Observer doesn't participate, but it needs the semaphore to exist for the watch to
+            // attach. Create idempotently — campaigns do the same.
+            await Leadership.EnsureElectionSemaphoreAsync(session, electionName, cancellationToken)
+                .ConfigureAwait(false);
+
             var watch = await session.WatchSemaphoreAsync(
                     electionName,
                     DescribeSemaphoreMode.WithOwners,

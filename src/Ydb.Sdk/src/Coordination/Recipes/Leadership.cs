@@ -88,6 +88,11 @@ public sealed class Leadership : IAsyncDisposable
             .ConfigureAwait(false);
         try
         {
+            // Leader election needs a persistent semaphore with limit=1. Create it idempotently —
+            // the server replies with AlreadyExists when another candidate has already initialised
+            // it, which is fine.
+            await EnsureElectionSemaphoreAsync(session, electionName, cancellationToken).ConfigureAwait(false);
+
             var lease = await session.AcquireSemaphoreAsync(
                     electionName,
                     count: 1,
@@ -107,6 +112,22 @@ public sealed class Leadership : IAsyncDisposable
         {
             await session.DisposeAsync().ConfigureAwait(false);
             throw;
+        }
+    }
+
+    internal static async Task EnsureElectionSemaphoreAsync(
+        CoordinationSession session,
+        string electionName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await session.CreateSemaphoreAsync(electionName, limit: 1, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (YdbException)
+        {
+            // AlreadyExists / similar — fine, the semaphore is already there.
         }
     }
 }

@@ -178,7 +178,7 @@ public sealed class CoordinationSession : IAsyncDisposable
         }, isPinned: false, cancellationToken).ConfigureAwait(false);
 
         EnsureResponseCase(response, SessionResponse.ResponseOneofCase.DescribeSemaphoreResult, name);
-        return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult.SemaphoreDescription);
+        return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult.SemaphoreDescription, name);
     }
 
     /// <summary>
@@ -405,7 +405,7 @@ public sealed class CoordinationSession : IAsyncDisposable
         if (response.DescribeSemaphoreResult.WatchAdded)
             _watchers.Bind(subscription, reqId);
 
-        return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult.SemaphoreDescription);
+        return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult.SemaphoreDescription, name);
     }
 
     // ------------------------------------------------------------------------------------------

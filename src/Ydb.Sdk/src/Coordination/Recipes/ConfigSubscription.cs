@@ -55,6 +55,11 @@ public sealed class ConfigSubscription : IAsyncDisposable
             .ConfigureAwait(false);
         try
         {
+            // The watch needs an existing semaphore — create idempotently with empty data so the
+            // subscriber can attach before the publisher has set anything.
+            await ConfigPublisher.EnsureConfigSemaphoreAsync(session, configName, initialValue: null,
+                cancellationToken).ConfigureAwait(false);
+
             var watch = await session.WatchSemaphoreAsync(
                     configName,
                     DescribeSemaphoreMode.DataOnly,
