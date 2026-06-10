@@ -28,10 +28,9 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly SemaphoreSlim _sendInFlightMessagesSemaphoreSlim = new(1);
-
     private volatile TaskCompletionSource _tcsWakeUp = new();
     private volatile TaskCompletionSource _tcsBufferAvailableEvent = new();
-    private volatile IWriteSession _session = null!;
+    private volatile IWriteSession _session = DummyWriterSession.Instance;
     private volatile int _limitBufferMaxSize;
     private volatile bool _isStopped;
 
@@ -44,6 +43,8 @@ internal class Writer<TValue> : IWriter<TValue>
         _serializer = serializer;
         _limitBufferMaxSize = config.BufferMaxSize;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Writer<TValue>>();
+
+        SdkClientInfoRegistry.Register(Sdk.Metadata.TopicWriterClientInfo);
 
         StartWriteWorker();
     }
@@ -395,6 +396,8 @@ internal class Writer<TValue> : IWriter<TValue>
             await _driver.DisposeAsync();
         }
 
+        SdkClientInfoRegistry.Unregister(Sdk.Metadata.TopicWriterClientInfo);
+
         _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);
     }
 }
@@ -551,44 +554,67 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                     return;
                 }
 
-                foreach (var ack in messageFromServer.WriteResponse.Acks)
+                switch (messageFromServer.ServerMessageCase)
                 {
-                    if (!_inFlightMessages.TryPeek(out var messageFromClient))
-                    {
-                        Logger.LogCritical("No client message was found upon receipt of an acknowledgement: {WriteAck}",
-                            ack);
+                    case MessageFromServer.ServerMessageOneofCase.UpdateTokenResponse:
+                        Logger.LogDebug("Successfully processed update token response");
+                        break;
+                    case MessageFromServer.ServerMessageOneofCase.WriteResponse:
+                        foreach (var ack in messageFromServer.WriteResponse.Acks)
+                        {
+                            if (!_inFlightMessages.TryPeek(out var messageFromClient))
+                            {
+                                Logger.LogCritical(
+                                    "No client message was found upon receipt of an acknowledgement: {WriteAck}",
+                                    ack);
+
+                                break;
+                            }
+
+                            if (messageFromClient.MessageData.SeqNo > ack.SeqNo)
+                            {
+                                Logger.LogCritical(
+                                    """
+                                    The sequence number of the client's message in the queue is greater than the server's write acknowledgment number. 
+                                    Skipping the WriteAck... 
+                                    Client SeqNo: {SeqNo}, WriteAck: {WriteAck}
+                                    """,
+                                    messageFromClient.MessageData.SeqNo, ack);
+
+                                continue;
+                            }
+
+                            if (messageFromClient.MessageData.SeqNo < ack.SeqNo)
+                            {
+                                Logger.LogCritical(
+                                    """
+                                    The sequence number of the client's message in the queue is less than the server's write acknowledgment number. 
+                                    Completing task on exception...
+                                    Client SeqNo: {SeqNo}, WriteAck: {WriteAck}
+                                    """,
+                                    messageFromClient.MessageData.SeqNo, ack);
+
+                                messageFromClient.Tcs.TrySetException(new WriterException(
+                                    $"Client SeqNo[{messageFromClient.MessageData.SeqNo}] is less then server's WriteAck[{ack}]"));
+                            }
+                            else
+                            {
+                                messageFromClient.Tcs.TrySetResult(new WriteResult(ack));
+                            }
+
+                            _inFlightMessages.TryDequeue(out _); // Dequeue 
+                        }
 
                         break;
-                    }
-
-                    if (messageFromClient.MessageData.SeqNo > ack.SeqNo)
-                    {
-                        Logger.LogCritical(
-                            @"The sequence number of the client's message in the queue is greater than the server's write acknowledgment number. 
-Skipping the WriteAck... 
-Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
-                            messageFromClient.MessageData.SeqNo, ack);
-
-                        continue;
-                    }
-
-                    if (messageFromClient.MessageData.SeqNo < ack.SeqNo)
-                    {
-                        Logger.LogCritical(
-                            @"The sequence number of the client's message in the queue is less than the server's write acknowledgment number. 
-Completing task on exception...
-Client SeqNo: {SeqNo}, WriteAck: {WriteAck}",
-                            messageFromClient.MessageData.SeqNo, ack);
-
-                        messageFromClient.Tcs.TrySetException(new WriterException(
-                            $"Client SeqNo[{messageFromClient.MessageData.SeqNo}] is less then server's WriteAck[{ack}]"));
-                    }
-                    else
-                    {
-                        messageFromClient.Tcs.TrySetResult(new WriteResult(ack));
-                    }
-
-                    _inFlightMessages.TryDequeue(out _); // Dequeue 
+                    case MessageFromServer.ServerMessageOneofCase.None:
+                        Logger.LogWarning("WriterSession[{SessionId}] received response without payload", SessionId);
+                        break;
+                    case MessageFromServer.ServerMessageOneofCase.InitResponse:
+                    default:
+                        Logger.LogWarning(
+                            "WriterSession[{SessionId}] received unexpected message type while processing writeAck: {ServerMessageCase}",
+                            SessionId, messageFromServer.ServerMessageCase);
+                        break;
                 }
             }
 

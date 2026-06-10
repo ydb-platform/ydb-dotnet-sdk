@@ -42,8 +42,6 @@ internal class BulkUpsertMockDriver : IDriver
 {
     public ValueTask DisposeAsync() => throw new NotImplementedException();
 
-    public void Dispose() => throw new NotImplementedException();
-
     public Task<TResponse>
         UnaryCall<TRequest, TResponse>(Method<TRequest, TResponse> method, TRequest request,
             GrpcRequestSettings settings) where TRequest : class where TResponse : class =>
@@ -68,4 +66,5 @@ internal class BulkUpsertMockDriver : IDriver
 
     public bool IsDisposed => false;
     public string Database => throw new NotImplementedException();
+    public void PessimizeNode(long nodeId) => throw new NotImplementedException();
 }

@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.Session;
 
@@ -16,6 +18,7 @@ internal class RetryableSession : ISession
     }
 
     public IDriver Driver => throw new NotImplementedException();
+
     public bool IsBroken => false;
 
     public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
@@ -34,11 +37,17 @@ internal class RetryableSession : ISession
             new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings));
     }
 
-    public Task CommitTransaction(string txId, CancellationToken cancellationToken = default) =>
-        throw NotSupportedTransaction;
+    public Task CommitTransaction(
+        string txId,
+        Activity? dbActivity = null,
+        CancellationToken cancellationToken = default
+    ) => throw NotSupportedTransaction;
 
-    public Task RollbackTransaction(string txId, CancellationToken cancellationToken = default) =>
-        throw NotSupportedTransaction;
+    public Task RollbackTransaction(
+        string txId,
+        Activity? dbActivity = null,
+        CancellationToken cancellationToken = default
+    ) => throw NotSupportedTransaction;
 
     public void OnNotSuccessStatusCode(StatusCode code)
     {
@@ -51,41 +60,33 @@ internal class RetryableSession : ISession
     private static YdbException NotSupportedTransaction => new("Transactions are not supported in retryable session");
 }
 
-internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponsePart>
+internal sealed class InMemoryServerStream(
+    ISessionSource sessionSource,
+    YdbRetryPolicyExecutor retryPolicyExecutor,
+    string query,
+    Dictionary<string, TypedValue> parameters,
+    GrpcRequestSettings settings
+) : IServerStream<ExecuteQueryResponsePart>
 {
-    private readonly ISessionSource _sessionSource;
-    private readonly YdbRetryPolicyExecutor _ydbRetryPolicyExecutor;
-    private readonly string _query;
-    private readonly Dictionary<string, TypedValue> _parameters;
-    private readonly GrpcRequestSettings _settings;
-
     private List<ExecuteQueryResponsePart>? _responses;
     private int _index = -1;
 
-    public InMemoryServerStream(
-        ISessionSource sessionSource,
-        YdbRetryPolicyExecutor retryPolicyExecutor,
-        string query,
-        Dictionary<string, TypedValue> parameters,
-        GrpcRequestSettings settings)
-    {
-        _sessionSource = sessionSource;
-        _ydbRetryPolicyExecutor = retryPolicyExecutor;
-        _query = query;
-        _parameters = parameters;
-        _settings = settings;
-    }
-
     public async Task<bool> MoveNextAsync(CancellationToken cancellationToken = default)
     {
-        _responses ??= await _ydbRetryPolicyExecutor.ExecuteAsync<List<ExecuteQueryResponsePart>>(async ct =>
+        _responses ??= await retryPolicyExecutor.ExecuteAsync<List<ExecuteQueryResponsePart>>(async ct =>
         {
-            using var session = await _sessionSource.OpenSession(ct);
+            using var session = await sessionSource.OpenSession(ct);
+
+            using var dbActivity = YdbActivitySource.StartActivity("ydb.ExecuteQuery");
+
+            settings.DbActivity = dbActivity is { IsAllDataRequested: true }
+                ? dbActivity.SetTag("ydb.execute.in_memory", true)
+                : dbActivity;
 
             try
             {
                 var responses = new List<ExecuteQueryResponsePart>();
-                var serverStream = await session.ExecuteQuery(_query, _parameters, _settings, null);
+                var serverStream = await session.ExecuteQuery(query, parameters, settings, null);
 
                 while (await serverStream.MoveNextAsync(ct))
                 {
@@ -104,6 +105,7 @@ internal sealed class InMemoryServerStream : IServerStream<ExecuteQueryResponseP
             catch (YdbException e)
             {
                 session.OnNotSuccessStatusCode(e.Code);
+                dbActivity?.SetException(e);
                 throw;
             }
         }, cancellationToken);

@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Tracing;
 using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 using TransactionControl = Ydb.Query.TransactionControl;
 
@@ -62,12 +64,16 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public override async Task CommitTransaction(string txId, CancellationToken cancellationToken = default)
+    public override async Task CommitTransaction(
+        string txId,
+        Activity? dbActivity,
+        CancellationToken cancellationToken
+    )
     {
         var response = await Driver.UnaryCall(
             QueryService.CommitTransactionMethod,
             new CommitTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId }
+            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
         );
 
         if (response.Status.IsNotSuccess())
@@ -76,12 +82,16 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         }
     }
 
-    public override async Task RollbackTransaction(string txId, CancellationToken cancellationToken = default)
+    public override async Task RollbackTransaction(
+        string txId,
+        Activity? dbActivity,
+        CancellationToken cancellationToken
+    )
     {
         var response = await Driver.UnaryCall(
             QueryService.RollbackTransactionMethod,
             new RollbackTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId }
+            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
         );
 
         if (response.Status.IsNotSuccess())
@@ -111,103 +121,135 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
     internal override async Task Open(CancellationToken cancellationToken)
     {
-        var requestSettings = new GrpcRequestSettings { CancellationToken = cancellationToken };
+        var startTimestamp = YdbMetricsReporter.ReportConnectionCreateTimeStart();
+        using var dbActivity = YdbActivitySource.StartActivity("ydb.CreateSession");
 
-        if (!_disableServerBalancer)
+        try
         {
-            requestSettings.ClientCapabilities.Add(SessionBalancer);
-        }
+            var requestSettings = new GrpcRequestSettings
+                { CancellationToken = cancellationToken, DbActivity = dbActivity };
 
-        var response = await Driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest, requestSettings);
-
-        if (response.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(response.Status, response.Issues);
-        }
-
-        TaskCompletionSource completeTask = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        SessionId = response.SessionId;
-        NodeId = response.NodeId;
-        _isBroken = false;
-
-        _ = Task.Run(async () =>
-        {
-            try
+            if (!_disableServerBalancer)
             {
-                using var stream = await Driver.ServerStreamCall(
-                    QueryService.AttachSessionMethod,
-                    new AttachSessionRequest { SessionId = SessionId },
-                    new GrpcRequestSettings { NodeId = NodeId }
-                );
+                requestSettings.ClientCapabilities.Add(SessionBalancer);
+            }
 
-                if (!await stream.MoveNextAsync(cancellationToken))
-                {
-                    // Session wasn't started!
-                    completeTask.SetException(new YdbException(StatusCode.Cancelled, "Attach stream is not started!"));
+            var response =
+                await Driver.UnaryCall(QueryService.CreateSessionMethod, CreateSessionRequest, requestSettings);
 
-                    return;
-                }
+            if (response.Status.IsNotSuccess())
+            {
+                throw YdbException.FromServer(response.Status, response.Issues);
+            }
 
-                var initSessionState = stream.Current;
+            TaskCompletionSource completeTask = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-                if (initSessionState.Status.IsNotSuccess())
-                {
-                    throw YdbException.FromServer(initSessionState.Status, initSessionState.Issues);
-                }
+            SessionId = response.SessionId;
+            NodeId = response.NodeId;
+            _isBroken = false;
 
-                completeTask.SetResult();
-
-                var lifecycleAttachToken = _attachStreamLifecycleCts.Token;
-
+            _ = Task.Run(async () =>
+            {
                 try
                 {
-                    // ReSharper disable once MethodSupportsCancellation
-                    while (await stream.MoveNextAsync(lifecycleAttachToken))
+                    using var stream = await Driver.ServerStreamCall(
+                        QueryService.AttachSessionMethod,
+                        new AttachSessionRequest { SessionId = SessionId },
+                        new GrpcRequestSettings { NodeId = NodeId }
+                    );
+
+                    if (!await stream.MoveNextAsync(cancellationToken))
                     {
-                        var sessionState = stream.Current;
-
-                        var statusCode = sessionState.Status.Code();
-
-                        _logger.LogDebug(
-                            "Session[{SessionId}] was received the status from the attach stream: {StatusMessage}",
-                            SessionId, statusCode.ToMessage(sessionState.Issues));
-
-                        OnNotSuccessStatusCode(statusCode);
-
-                        if (IsBroken)
-                        {
-                            return;
-                        }
-                    }
-
-                    _logger.LogDebug("Session[{SessionId}]: Attached stream is closed", SessionId);
-
-                    // attach stream is closed
-                }
-                catch (YdbException e)
-                {
-                    if (e.Code == StatusCode.ClientTransportTimeout)
-                    {
-                        _logger.LogDebug("AttachStream is cancelled (possible grpcChannel is closing)");
+                        // Session wasn't started!
+                        completeTask.SetException(new YdbException(StatusCode.Cancelled,
+                            "Attach stream is not started!"));
 
                         return;
                     }
 
-                    _logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", SessionId);
-                }
-            }
-            catch (Exception e)
-            {
-                completeTask.SetException(e);
-            }
-            finally
-            {
-                _isBroken = true;
-            }
-        }, cancellationToken);
+                    var initSessionState = stream.Current;
 
-        await completeTask.Task;
+                    if (initSessionState.Status.IsNotSuccess())
+                    {
+                        throw YdbException.FromServer(initSessionState.Status, initSessionState.Issues);
+                    }
+
+                    completeTask.SetResult();
+
+                    var lifecycleAttachToken = _attachStreamLifecycleCts.Token;
+
+                    try
+                    {
+                        // ReSharper disable once MethodSupportsCancellation
+                        while (await stream.MoveNextAsync(lifecycleAttachToken))
+                        {
+                            var sessionState = stream.Current;
+
+                            var statusCode = sessionState.Status.Code();
+
+                            OnNotSuccessStatusCode(statusCode);
+                            switch (sessionState.SessionHintCase)
+                            {
+                                case SessionState.SessionHintOneofCase.NodeShutdown:
+                                    Driver.PessimizeNode(NodeId);
+                                    _isBadSession = true;
+                                    _isBroken = true;
+                                    break;
+                                case SessionState.SessionHintOneofCase.SessionShutdown:
+                                    _isBadSession = true;
+                                    _isBroken = true;
+                                    break;
+                            }
+
+                            _logger.LogDebug(
+                                "Session[{SessionId}] was received the status from the attach stream: {StatusMessage}",
+                                SessionId, statusCode.ToMessage(sessionState.Issues));
+
+                            if (IsBroken)
+                            {
+                                return;
+                            }
+                        }
+
+                        _logger.LogDebug("Session[{SessionId}]: Attached stream is closed", SessionId);
+
+                        // attach stream is closed
+                    }
+                    catch (YdbException e)
+                    {
+                        if (e.Code == StatusCode.ClientTransportTimeout)
+                        {
+                            _logger.LogDebug("AttachStream is cancelled (possible grpcChannel is closing)");
+
+                            return;
+                        }
+
+                        _logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", SessionId);
+                    }
+                }
+                catch (Exception e)
+                {
+                    completeTask.SetException(e);
+                }
+                finally
+                {
+                    // Do not set _isBadSession here: attach stream end (EOF) is not BadSession; DeleteSession must still run.
+                    _isBroken = true;
+                }
+            }, cancellationToken);
+
+            await completeTask.Task;
+        }
+        catch (YdbException e)
+        {
+            dbActivity?.SetException(e);
+            MetricsReporter.ReportOperationFailed(e.Code, "CreateSession");
+            throw;
+        }
+        finally
+        {
+            MetricsReporter.ReportConnectionCreateTime(startTimestamp);
+        }
     }
 
     internal override async Task DeleteSession()

@@ -1,42 +1,28 @@
 using System;
-using System.Data;
-using System.Data.Common;
 using System.IO;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore.Storage;
-using Ydb.Sdk.Ado;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 
-public class YdbJsonTypeMapping : JsonTypeMapping, IYdbTypeMapping
+public class YdbJsonTypeMapping : YdbTypeMapping
 {
-    public YdbJsonTypeMapping(string storeType, Type clrType, DbType? dbType) : base(storeType, clrType, dbType)
+    public YdbJsonTypeMapping(Type clrType, YdbDbType ydbDbType) :
+        base(clrType, ydbDbType, JsonStringReaderWriter.Instance)
     {
     }
 
-    protected YdbJsonTypeMapping(RelationalTypeMappingParameters parameters) : base(parameters)
+    protected YdbJsonTypeMapping(RelationalTypeMappingParameters parameters, YdbDbType ydbDbType) :
+        base(parameters, ydbDbType)
     {
     }
 
-    private static readonly MethodInfo GetStringMethod
-        = typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetString), [typeof(int)]) ?? throw new Exception();
-
-    private static readonly PropertyInfo? Utf8Property
-        = typeof(Encoding).GetProperty(nameof(Encoding.UTF8));
-
-    private static readonly MethodInfo? EncodingGetBytesMethod
-        = typeof(Encoding).GetMethod(nameof(Encoding.GetBytes), [typeof(string)]);
-
-    private static readonly ConstructorInfo? MemoryStreamConstructor
-        = typeof(MemoryStream).GetConstructor([typeof(byte[])]);
-
-    protected override YdbJsonTypeMapping Clone(RelationalTypeMappingParameters parameters) => new(parameters);
-
-    public override MethodInfo GetDataReaderMethod() => GetStringMethod;
+    protected override YdbJsonTypeMapping Clone(RelationalTypeMappingParameters parameters) =>
+        new(parameters, YdbDbType);
 
     protected override string GenerateNonNullSqlLiteral(object value)
     {
@@ -57,25 +43,29 @@ public class YdbJsonTypeMapping : JsonTypeMapping, IYdbTypeMapping
                 }
 
                 writer.Flush();
-                return $"'{Encoding.UTF8.GetString(stream.ToArray())}'";
+                return $"{YdbDbType}('{Encoding.UTF8.GetString(stream.ToArray())}')";
             }
             case string s:
-                return $"'{s}'";
+                return $"{YdbDbType}('{s}')";
             default:
-                return $"'{JsonSerializer.Serialize(value)}'";
+                return $"{YdbDbType}('{JsonSerializer.Serialize(value)}')";
         }
     }
 
-    public override Expression CustomizeDataReaderExpression(Expression expression) => Expression.New(
-        MemoryStreamConstructor ?? throw new Exception(),
-        Expression.Call(
-            Expression.Property(null, Utf8Property ?? throw new Exception()),
-            EncodingGetBytesMethod ?? throw new Exception(),
-            expression)
-    );
+    public override Expression GenerateCodeLiteral(object value)
+        => value switch
+        {
+            JsonDocument document => Expression.Call(
+                ParseMethod, Expression.Constant(document.RootElement.ToString()), DefaultJsonDocumentOptions),
+            JsonElement element => Expression.Property(
+                Expression.Call(ParseMethod, Expression.Constant(element.ToString()), DefaultJsonDocumentOptions),
+                nameof(JsonDocument.RootElement)),
+            string s => Expression.Constant(s),
+            _ => throw new NotSupportedException("Cannot generate code literals for JSON POCOs")
+        };
 
-    public YdbDbType YdbDbType => YdbDbType.Json;
+    private static readonly Expression DefaultJsonDocumentOptions = Expression.New(typeof(JsonDocumentOptions));
 
-    protected override void ConfigureParameter(DbParameter parameter) =>
-        ((YdbParameter)parameter).YdbDbType = YdbDbType;
+    private static readonly MethodInfo ParseMethod =
+        typeof(JsonDocument).GetMethod(nameof(JsonDocument.Parse), [typeof(string), typeof(JsonDocumentOptions)])!;
 }

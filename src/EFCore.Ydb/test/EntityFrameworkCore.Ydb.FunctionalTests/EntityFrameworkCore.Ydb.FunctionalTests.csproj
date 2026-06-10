@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.1" PrivateAssets="none"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.1" PrivateAssets="none" />
     </ItemGroup>
 
     <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
@@ -16,15 +16,19 @@
     </PropertyGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' != 'net8.0' AND '$(TargetFramework)' != 'net9.0'">
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="10.0.0" PrivateAssets="none"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="10.0.0" PrivateAssets="none" />
     </ItemGroup>
-    
+
     <ItemGroup>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
         <PackageReference Include="xunit" Version="2.9.3" />
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.3">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="coverlet.collector" Version="10.0.1">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
         </PackageReference>
     </ItemGroup>
 
@@ -36,14 +40,10 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\EntityFrameworkCore.Ydb.csproj" />
-        <ProjectReference Include="..\..\..\Ydb.Sdk\src\Ydb.Sdk.csproj"/>
+        <ProjectReference Include="..\..\..\Ydb.Sdk\src\Ydb.Sdk.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Update="Northwind.sql" CopyToOutputDirectory="PreserveNewest"/>
-    </ItemGroup>
-
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+        <None Update="Northwind.sql" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 </Project>

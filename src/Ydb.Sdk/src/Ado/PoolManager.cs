@@ -29,10 +29,20 @@ internal static class PoolManager
                 return pool;
             }
 
+            // Register the components BEFORE driver creation so the very first Discovery RPC
+            // already carries the full chain in `x-ydb-sdk-build-info` (DiscoverEndpoints reads
+            // SdkClientInfoRegistry.Chain directly). Unregistration happens symmetrically in
+            // the session source's DisposeAsync.
+            SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
+            if (settings.ClientInfo is not null)
+            {
+                SdkClientInfoRegistry.Register(settings.ClientInfo);
+            }
+
             var driver = await GetDriver(settings, withLock: false);
 
             return Pools[settings.ConnectionString] = settings.EnableImplicitSession
-                ? new ImplicitSessionSource(driver, settings.LoggerFactory)
+                ? new ImplicitSessionSource(driver, settings)
                 : new PoolingSessionSource<PoolingSession>(new PoolingSessionFactory(driver, settings), settings);
         }
         finally

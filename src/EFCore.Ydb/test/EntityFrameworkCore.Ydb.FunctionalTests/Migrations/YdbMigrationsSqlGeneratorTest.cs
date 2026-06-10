@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Ydb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -353,6 +354,63 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
     public override void Sequence_restart_operation(long? startsAt)
     {
         // YDB does not support sequence
+    }
+
+    [Fact]
+    public void CreateTable_with_serial_types_generates_expected_column_types()
+    {
+        Generate(
+            CreateTableWithSerial("BigSerialEntities", "Int64"),
+            CreateTableWithSerial("SerialEntities", "Int32"),
+            CreateTableWithSerial("SmallSerialEntities", "Int16")
+        );
+
+        AssertSql(
+            """
+            CREATE TABLE `BigSerialEntities` (
+                `Id` Bigserial NOT NULL,
+                PRIMARY KEY (`Id`)
+            );GO
+
+            CREATE TABLE `SerialEntities` (
+                `Id` Serial NOT NULL,
+                PRIMARY KEY (`Id`)
+            );GO
+
+            CREATE TABLE `SmallSerialEntities` (
+                `Id` SmallSerial NOT NULL,
+                PRIMARY KEY (`Id`)
+            );
+            """);
+    }
+
+    private static CreateTableOperation CreateTableWithSerial(string tableName, string columnType)
+    {
+        var createTable = new CreateTableOperation
+        {
+            Name = tableName
+        };
+
+        var idColumn = new AddColumnOperation
+        {
+            Table = tableName,
+            Name = "Id",
+            ColumnType = columnType,
+            IsNullable = false,
+#pragma warning disable EF1001
+            [YdbAnnotationNames.Serial] = true
+#pragma warning restore EF1001
+        };
+
+        createTable.Columns.Add(idColumn);
+        createTable.PrimaryKey = new AddPrimaryKeyOperation
+        {
+            Name = $"PK_{tableName}",
+            Table = tableName,
+            Columns = ["Id"]
+        };
+
+        return createTable;
     }
 
     protected override string GetGeometryCollectionStoreType() => throw new NotSupportedException();

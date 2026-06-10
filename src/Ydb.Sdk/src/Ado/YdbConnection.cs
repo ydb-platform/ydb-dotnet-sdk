@@ -25,6 +25,7 @@ public sealed class YdbConnection : DbConnection
 
     private bool _disposed;
     private YdbConnectionStringBuilder? _connectionStringBuilder;
+    private ISessionSource? _sessionSource;
 
     private YdbConnectionStringBuilder ConnectionStringBuilder
     {
@@ -137,13 +138,21 @@ public sealed class YdbConnection : DbConnection
 
     public override void Open() => OpenAsync().GetAwaiter().GetResult();
 
+    internal YdbMetricsReporter MetricsReporter
+    {
+        get
+        {
+            ThrowIfConnectionClosed();
+            return _sessionSource!.MetricsReporter;
+        }
+    }
+
     public override async Task OpenAsync(CancellationToken cancellationToken)
     {
         ThrowIfConnectionOpen();
 
-        var sessionSource = await PoolManager.Get(ConnectionStringBuilder, cancellationToken);
-
-        Session = await sessionSource.OpenSession(cancellationToken);
+        Session = await (_sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken))
+            .OpenSession(cancellationToken);
 
         OnStateChange(ClosedToOpenEventArgs);
 
@@ -157,9 +166,8 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        var sessionSource = await PoolManager.Get(ConnectionStringBuilder, cancellationToken);
-
-        Session = new RetryableSession(sessionSource, retryPolicyExecutor);
+        Session = new RetryableSession(
+            _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken), retryPolicyExecutor);
 
         ConnectionState = ConnectionState.Open;
     }

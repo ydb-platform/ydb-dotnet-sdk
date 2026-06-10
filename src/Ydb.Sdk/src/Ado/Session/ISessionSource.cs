@@ -5,4 +5,6 @@ internal interface ISessionSource : IAsyncDisposable
     ValueTask<ISession> OpenSession(CancellationToken cancellationToken);
 
     IDriver Driver { get; }
+
+    YdbMetricsReporter MetricsReporter { get; }
 }

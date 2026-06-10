@@ -129,7 +129,7 @@ public class WriterUnitTests
     {
         var taskNextComplete = new TaskCompletionSource<bool>();
         _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)))
             .Returns(Task.CompletedTask)
             .Returns(() =>
             {
@@ -184,7 +184,7 @@ public class WriterUnitTests
             });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ThrowsAsync(new YdbException(
-                new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))))
+                new RpcException(new Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))))
             .ReturnsAsync(true)
             .Returns(taskNextComplete.Task)
             .Returns(_lastMoveNext);
@@ -365,7 +365,7 @@ public class WriterUnitTests
             .Throws(() =>
             {
                 moveTcs.SetResult(false);
-                return new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled));
+                return new YdbException(new RpcException(Status.DefaultCancelled));
             })
             .Returns(Task.CompletedTask)
             .Returns(() =>
@@ -450,7 +450,7 @@ public class WriterUnitTests
             });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)))
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)))
             .ReturnsAsync(true)
             .Returns(moveTcs.Task) // retry init writer session
             .Returns(_lastMoveNext);
@@ -866,6 +866,65 @@ public class WriterUnitTests
     }
 
     [Fact]
+    public async Task WriteAsync_WhenUpdateTokenResponseReceived_DoNotFailAndReturnWriteResult()
+    {
+        var writeTcs = new TaskCompletionSource<bool>();
+
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                writeTcs.SetResult(true);
+                return Task.CompletedTask;
+            });
+
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(writeTcs.Task)
+            .ReturnsAsync(true)
+            .Returns(_lastMoveNext);
+
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "SessionId" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                UpdateTokenResponse = new UpdateTokenResponse(),
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    PartitionId = 1,
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 1,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written
+                                { Offset = 0 }
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+
+        await using var writer = new WriterBuilder<long>(_driverFactoryMock, "/topic-17")
+            { ProducerId = "producerId" }.Build();
+
+        Assert.Equal(PersistenceStatus.Written, (await writer.WriteAsync(100L)).Status);
+
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(2));
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Between(3, 4, Range.Inclusive));
+        _mockStream.Verify(stream => stream.Current, Times.Exactly(3));
+    }
+
+    [Fact]
     public async Task DisposeAsync_WhenInFlightMessages_WaitingInFlightMessages()
     {
         var tcsDetectedWrite = new TaskCompletionSource();
@@ -934,7 +993,7 @@ public class WriterUnitTests
         Assert.False(writeTask1.IsCompleted);
         Assert.False(disposedTask.IsCompleted);
         writeTcs1.TrySetException(new YdbException(
-            new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))));
+            new RpcException(new Status(Grpc.Core.StatusCode.DeadlineExceeded, "Some message"))));
         Assert.Equal("Writer[TopicPath: /topic-16, ProducerId: producerId, Codec: Raw] is disposed",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(12))).Message);
 

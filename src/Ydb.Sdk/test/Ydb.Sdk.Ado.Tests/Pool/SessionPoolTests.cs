@@ -21,14 +21,14 @@ public class SessionPoolTests
     [Fact]
     public async Task GetSession_WhenCreateSessionReturnUnavailable_ExpectedStatusAndReleaseSessionInPool()
     {
-        _testSessionPool.CreatedStatus = Status
-            .FromProto(StatusIds.Types.StatusCode.Unavailable, new RepeatedField<IssueMessage>());
+        _testSessionPool.ThrowException =
+            YdbException.FromServer(StatusIds.Types.StatusCode.Unavailable, new RepeatedField<IssueMessage>());
 
         var e = await Assert.ThrowsAsync<YdbException>(async () => await _testSessionPool.GetSession());
 
-        Assert.Equal(StatusCode.Unavailable, e.Code);
+        _testSessionPool.ThrowException = null;
 
-        _testSessionPool.CreatedStatus = Status.Success;
+        Assert.Equal(StatusCode.Unavailable, e.Code);
 
         StressTestSessionPoolAndCheckCreatedSessions(100, TestSessionPoolSize + 1);
     }
@@ -38,8 +38,7 @@ public class SessionPoolTests
     [InlineData(StatusCode.BadSession)]
     [InlineData(StatusCode.SessionBusy)]
     [InlineData(StatusCode.InternalError)]
-    public void GetSession_WhenCreatedSessionIsInvalidated_ExpectedRecreatedSession(
-        StatusCode statusCode)
+    public void GetSession_WhenCreatedSessionIsInvalidated_ExpectedRecreatedSession(StatusCode statusCode)
     {
         StressTestSessionPoolAndCheckCreatedSessions(100, TestSessionPoolSize);
         StressTestSessionPoolAndCheckCreatedSessions(70, 70, session => session.OnNotSuccessStatusCode(statusCode));
@@ -78,17 +77,14 @@ internal class TestSessionPool() : SessionPool<TestSession>(NullLogger<TestSessi
 {
     public volatile int InvokedCreateSession;
 
-    public Status CreatedStatus { get; set; } = Status.Success;
+    public Exception? ThrowException { get; set; }
 
     protected override Task<TestSession> CreateSession(CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref InvokedCreateSession);
 
         return Task.FromResult(((Func<TestSession>)(() =>
-        {
-            CreatedStatus.EnsureSuccess();
-            return new TestSession(this);
-        }))());
+            ThrowException != null ? throw ThrowException : new TestSession(this)))());
     }
 }
 
@@ -99,5 +95,5 @@ public class TestSession : SessionBase<TestSession>
     {
     }
 
-    internal override Task<Status> DeleteSession() => Task.FromResult(new Status(StatusCode.Success));
+    internal override Task DeleteSession() => Task.CompletedTask;
 }

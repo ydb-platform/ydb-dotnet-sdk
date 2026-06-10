@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using Moq;
 using Xunit;
 using Ydb.Sdk.Ado.Internal;
@@ -9,164 +8,284 @@ namespace Ydb.Sdk.Ado.Tests.Pool;
 
 public class EndpointPoolTests
 {
-    private static readonly ImmutableArray<EndpointSettings> EndpointSettingsList =
+    private static List<EndpointInfo> CreateEndpointSettingsList() =>
     [
-        new(1, "n1.ydb.tech", "MAN"),
-        new(2, "n2.ydb.tech", "VLA"),
-        new(3, "n3.ydb.tech", "SAS"),
-        new(4, "n4.ydb.tech", "SAS"),
-        new(5, "n5.ydb.tech", "VLA")
+        new(1, false, "n1.ydb.tech", 2136, "MAN"),
+        new(2, true, "n2.ydb.tech", 2135, "VLA"),
+        new(3, false, "n3.ydb.tech", 2136, "SAS"),
+        new(4, true, "n4.ydb.tech", 2135, "SAS"),
+        new(5, false, "n5.ydb.tech", 2136, "VLA")
     ];
+
+    public static IEnumerable<object[]> EndpointSettingsListData =>
+        CreateEndpointSettingsList().Select(endpointInfo => new object[] { endpointInfo });
 
     public class MockRandomUnitTests
     {
         private readonly Mock<IRandom> _mockRandom = new();
         private readonly EndpointPool _endpointPool;
+        private readonly List<EndpointInfo> _endpointSettingsList = CreateEndpointSettingsList();
 
         public MockRandomUnitTests()
         {
             _endpointPool = new EndpointPool(TestUtils.LoggerFactory, _mockRandom.Object);
-            _endpointPool.Reset(EndpointSettingsList);
+            _endpointPool.Reset(_endpointSettingsList);
         }
 
         [Theory]
-        [InlineData(1, "n1.ydb.tech")]
-        [InlineData(2, "n2.ydb.tech")]
-        [InlineData(3, "n3.ydb.tech")]
-        [InlineData(4, "n4.ydb.tech")]
-        [InlineData(5, "n5.ydb.tech")]
-        public void GetEndpoint_WhenResetNewState_ReturnEndpointByNodeId(int nodeId, string endpoint) =>
-            Assert.Equal(endpoint, _endpointPool.GetEndpoint(nodeId));
+        [MemberData(nameof(EndpointSettingsListData), MemberType = typeof(EndpointPoolTests))]
+        public void GetEndpoint_WhenResetNewState_ReturnEndpointByNodeId(EndpointInfo endpointInfo) =>
+            Assert.Equal(endpointInfo, _endpointPool.GetEndpoint(endpointInfo.NodeId));
 
         [Theory]
-        [InlineData(1, "n1.ydb.tech")]
-        [InlineData(2, "n2.ydb.tech")]
-        [InlineData(3, "n3.ydb.tech")]
-        [InlineData(4, "n4.ydb.tech")]
-        [InlineData(5, "n5.ydb.tech")]
+        [InlineData(1, "http://n1.ydb.tech:2136")]
+        [InlineData(2, "https://n2.ydb.tech:2135")]
+        [InlineData(3, "http://n3.ydb.tech:2136")]
+        [InlineData(4, "https://n4.ydb.tech:2135")]
+        [InlineData(5, "http://n5.ydb.tech:2136")]
         public void GetEndpoint_WhenPessimizedEndpoint_ReturnEndpointByNodeId(int nodeId, string endpoint)
         {
-            _endpointPool.PessimizeEndpoint(endpoint);
-            Assert.Equal(endpoint, _endpointPool.GetEndpoint(nodeId));
+            _endpointPool.PessimizeEndpoint(_endpointSettingsList.Single(e => e.NodeId == nodeId));
+            Assert.Equal(endpoint, _endpointPool.GetEndpoint(nodeId).Endpoint);
         }
 
         [Fact]
         public void GetEndpoint_WhenResetNewState_ReturnRandomEndpoint()
         {
-            const string expectedEndpoint = "n3.ydb.tech";
+            const string expectedEndpoint = "http://n3.ydb.tech:2136";
 
-            _mockRandom.Setup(random => random.Next(EndpointSettingsList.Length)).Returns(2);
+            _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count)).Returns(2);
 
-            Assert.Equal(expectedEndpoint, _endpointPool.GetEndpoint());
-            Assert.Equal(expectedEndpoint, _endpointPool.GetEndpoint(6));
-            Assert.Equal(expectedEndpoint, _endpointPool.GetEndpoint(-1));
+            Assert.Equal(expectedEndpoint, _endpointPool.GetEndpoint().Endpoint);
+            Assert.Equal(expectedEndpoint, _endpointPool.GetEndpoint(6).Endpoint);
+            Assert.Equal(expectedEndpoint, _endpointPool.GetEndpoint(-1).Endpoint);
         }
 
         [Theory]
-        [InlineData("n1.ydb.tech")]
-        [InlineData("n2.ydb.tech")]
-        [InlineData("n3.ydb.tech")]
-        [InlineData("n4.ydb.tech")]
-        [InlineData("n5.ydb.tech")]
-        public void GetEndpoint_WhenResetNewStateThenPessimizedNode_ReturnRandomEndpoint(string endpoint)
+        [InlineData("http://n1.ydb.tech:2136")]
+        [InlineData("https://n2.ydb.tech:2135")]
+        [InlineData("http://n3.ydb.tech:2136")]
+        [InlineData("https://n4.ydb.tech:2135")]
+        [InlineData("http://n5.ydb.tech:2136")]
+        public void GetEndpoint_WhenPessimizedEndpoint_ReturnRandomEndpoint(string endpoint)
         {
-            _mockRandom.Setup(random => random.Next(EndpointSettingsList.Length - 1)).Returns(0);
+            Assert.False(_endpointPool.PessimizeEndpoint(
+                _endpointSettingsList.Single(e => e.Endpoint.Equals(endpoint))));
 
-            Assert.False(_endpointPool.PessimizeEndpoint(endpoint));
-
-            for (var i = 0; i < EndpointSettingsList.Length - 1; i++)
+            for (var i = 0; i < _endpointSettingsList.Count - 1; i++)
             {
-                Assert.NotEqual(endpoint, _endpointPool.GetEndpoint());
+                _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count - 1)).Returns(i);
+
+                Assert.NotEqual(endpoint, _endpointPool.GetEndpoint().Endpoint);
             }
         }
 
         [Fact]
         public void GetEndpoint_And_PessimizeEndpoint_WhenResetNewStateThenPessimizedMajorityNodes_ReturnNeedDiscovery()
         {
-            _mockRandom.Setup(random => random.Next(EndpointSettingsList.Length - 2)).Returns(2);
+            _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count - 2)).Returns(2);
 
-            Assert.False(_endpointPool.PessimizeEndpoint("n1.ydb.tech"));
-            Assert.False(_endpointPool.PessimizeEndpoint("n5.ydb.tech"));
+            Assert.False(_endpointPool.PessimizeEndpoint(_endpointSettingsList[0]));
+            Assert.False(_endpointPool.PessimizeEndpoint(_endpointSettingsList[4]));
 
-            Assert.Equal("n4.ydb.tech", _endpointPool.GetEndpoint());
+            Assert.Equal("https://n4.ydb.tech:2135", _endpointPool.GetEndpoint().Endpoint);
 
             // More than half of the nodes are pessimized.
-            Assert.True(_endpointPool.PessimizeEndpoint("n2.ydb.tech"));
+            Assert.True(_endpointPool.PessimizeEndpoint(_endpointSettingsList[1]));
         }
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [InlineData(5)]
+        public void GetEndpoint_WhePessimizedNode_ReturnRandomEndpoint(long nodeId)
+        {
+            var endpointInfo = _endpointPool.GetEndpoint(nodeId);
+
+            Assert.False(_endpointPool.PessimizeEndpoint(endpointInfo));
+
+            for (var i = 0; i < _endpointSettingsList.Count - 1; i++)
+            {
+                _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count - 1)).Returns(i);
+
+                Assert.NotEqual(endpointInfo.Endpoint, _endpointPool.GetEndpoint().Endpoint);
+            }
+        }
+
+        [Fact]
+        public void PessimizeByNodeId_WhenUnknownNode_ReturnsFalse() =>
+            Assert.False(_endpointPool.PessimizeByNodeId(999));
 
         [Fact]
         public void PessimizeEndpoint_Reset_WhenPessimizedMajorityNodesThenResetAndAddNewNodes_ReturnRandomEndpoint()
         {
-            _mockRandom.Setup(random => random.Next(EndpointSettingsList.Length - 4)).Returns(0);
+            _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count - 4)).Returns(0);
 
-            Assert.False(_endpointPool.PessimizeEndpoint("n1.ydb.tech"));
-            Assert.False(_endpointPool.PessimizeEndpoint("n5.ydb.tech"));
-            Assert.True(_endpointPool.PessimizeEndpoint("n2.ydb.tech"));
-            Assert.True(_endpointPool.PessimizeEndpoint("n4.ydb.tech"));
+            Assert.False(_endpointPool.PessimizeEndpoint(_endpointSettingsList[0]));
+            Assert.False(_endpointPool.PessimizeEndpoint(_endpointSettingsList[4]));
+            Assert.True(_endpointPool.PessimizeEndpoint(_endpointSettingsList[1]));
+            Assert.True(_endpointPool.PessimizeEndpoint(_endpointSettingsList[3]));
 
-            Assert.Equal("n3.ydb.tech", _endpointPool.GetEndpoint());
+            Assert.Equal("http://n3.ydb.tech:2136", _endpointPool.GetEndpoint().Endpoint);
             // return endpoint by nodeId
-            Assert.Equal("n1.ydb.tech", _endpointPool.GetEndpoint(1));
+            Assert.Equal("http://n1.ydb.tech:2136", _endpointPool.GetEndpoint(1).Endpoint);
 
-            var listNewEndpointSettings = EndpointSettingsList.ToList();
+            var listNewEndpointSettings = CreateEndpointSettingsList().ToList();
 
-            listNewEndpointSettings.Add(new EndpointSettings(6, "n6.ydb.tech", "VLA"));
-            listNewEndpointSettings.Add(new EndpointSettings(7, "n7.ydb.tech", "MAN"));
+            listNewEndpointSettings.Add(new EndpointInfo(6, true, "n6.ydb.tech", 2135, "VLA"));
+            listNewEndpointSettings.Add(new EndpointInfo(7, true, "n7.ydb.tech", 2135, "MAN"));
 
             _endpointPool.Reset([..listNewEndpointSettings]);
 
             for (var it = 0; it < listNewEndpointSettings.Count; it++)
             {
                 _mockRandom.Setup(random => random.Next(listNewEndpointSettings.Count)).Returns(it);
-                Assert.Equal(listNewEndpointSettings[it].Endpoint, _endpointPool.GetEndpoint());
+                Assert.Equal(listNewEndpointSettings[it].Endpoint, _endpointPool.GetEndpoint().Endpoint);
             }
 
-            Assert.False(_endpointPool.PessimizeEndpoint("n6.ydb.tech"));
-            Assert.False(_endpointPool.PessimizeEndpoint("n7.ydb.tech"));
+            var endpoint6 = listNewEndpointSettings.Single(e => e.NodeId == 6);
+            var endpoint7 = listNewEndpointSettings.Single(e => e.NodeId == 7);
 
-            for (var i = 0; i < EndpointSettingsList.Length; i++)
+            Assert.Equal("https://n6.ydb.tech:2135", endpoint6.Endpoint);
+            Assert.Equal("https://n7.ydb.tech:2135", endpoint7.Endpoint);
+            Assert.False(_endpointPool.PessimizeEndpoint(endpoint6));
+            Assert.False(_endpointPool.PessimizeEndpoint(endpoint7));
+
+            var expectedResetEndpoints = CreateEndpointSettingsList()
+                .Select(x => x.Endpoint)
+                .ToHashSet();
+            for (var i = 0; i < expectedResetEndpoints.Count; i++)
             {
-                _mockRandom.Setup(random => random.Next(EndpointSettingsList.Length)).Returns(i);
-                Assert.Equal(EndpointSettingsList[i].Endpoint, _endpointPool.GetEndpoint());
+                _mockRandom.Setup(random => random.Next(expectedResetEndpoints.Count)).Returns(i);
+                Assert.Contains(_endpointPool.GetEndpoint().Endpoint, expectedResetEndpoints);
             }
         }
 
         [Fact]
         public void PessimizeEndpoint_Reset_WhenResetNewNodes_ReturnRemovedNodes()
         {
-            var listNewEndpointSettings = EndpointSettingsList.ToList();
+            var listNewEndpointSettings = _endpointSettingsList.ToList();
 
             listNewEndpointSettings.RemoveAt(0);
             listNewEndpointSettings.RemoveAt(0);
 
-            listNewEndpointSettings.Add(new EndpointSettings(6, "n6.ydb.tech", "VLA"));
-            listNewEndpointSettings.Add(new EndpointSettings(7, "n7.ydb.tech", "MAN"));
+            listNewEndpointSettings.Add(new EndpointInfo(6, true, "n6.ydb.tech", 2135, "VLA"));
+            listNewEndpointSettings.Add(new EndpointInfo(7, true, "n7.ydb.tech", 2135, "MAN"));
 
             var removed = _endpointPool.Reset([..listNewEndpointSettings]);
 
             Assert.Equal(2, removed.Length);
-            Assert.Equal("n1.ydb.tech", removed[0]);
-            Assert.Equal("n2.ydb.tech", removed[1]);
+            Assert.Equal("http://n1.ydb.tech:2136", removed[0].Endpoint);
+            Assert.Equal("https://n2.ydb.tech:2135", removed[1].Endpoint);
 
             for (var i = 0; i < listNewEndpointSettings.Count; i++)
             {
                 _mockRandom.Setup(random => random.Next(listNewEndpointSettings.Count)).Returns(i);
-                Assert.Equal(listNewEndpointSettings[i].Endpoint, _endpointPool.GetEndpoint());
+                Assert.Equal(listNewEndpointSettings[i].Endpoint, _endpointPool.GetEndpoint().Endpoint);
+            }
+        }
+
+        [Fact]
+        public void Reset_WhenEmptyList_DoesNotThrow()
+        {
+            var exception = Record.Exception(() => _endpointPool.Reset([]));
+
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void Reset_WhenPreferredLocationSpecified_ReturnEndpointByNodeId()
+        {
+            _endpointPool.Reset(_endpointSettingsList, "SAS");
+
+            Assert.Equal(_endpointSettingsList.Single(endpoint => endpoint.NodeId == 1).Endpoint,
+                _endpointPool.GetEndpoint(1).Endpoint);
+            Assert.Equal(_endpointSettingsList.Single(endpoint => endpoint.NodeId == 3).Endpoint,
+                _endpointPool.GetEndpoint(3).Endpoint);
+            Assert.Equal(_endpointSettingsList.Single(endpoint => endpoint.NodeId == 4).Endpoint,
+                _endpointPool.GetEndpoint(4).Endpoint);
+        }
+
+        [Fact]
+        public void
+            Reset_WhenPreferredLocationSpecifiedAndFirstEndpointIsNonPreferred_GetEndpointUsesOnlyPreferredEndpoints()
+        {
+            var endpoints = new List<EndpointInfo>
+            {
+                new(1, false, "n1.ydb.tech", 2136, "MAN"),
+                new(2, true, "n2.ydb.tech", 2135, "SAS"),
+                new(3, false, "n3.ydb.tech", 2136, "SAS")
+            };
+
+            _endpointPool.Reset(endpoints, "SAS");
+
+            _mockRandom.Setup(random => random.Next(2)).Returns(0);
+            Assert.Contains(_endpointPool.GetEndpoint().Endpoint, new[]
+            {
+                "https://n2.ydb.tech:2135",
+                "http://n3.ydb.tech:2136"
+            });
+
+            _mockRandom.Setup(random => random.Next(2)).Returns(1);
+            Assert.Contains(_endpointPool.GetEndpoint().Endpoint, new[]
+            {
+                "https://n2.ydb.tech:2135",
+                "http://n3.ydb.tech:2136"
+            });
+        }
+
+        [Fact]
+        public void Reset_WhenPreferredLocationNotSpecified_KeepsAllEndpointsPreferred()
+        {
+            for (var i = 0; i < _endpointSettingsList.Count; i++)
+            {
+                _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count)).Returns(i);
+                Assert.Equal(_endpointSettingsList[i].Endpoint, _endpointPool.GetEndpoint().Endpoint);
             }
         }
 
         [Fact]
         public void PessimizeEndpoint_WhenPessimizedAllNodes_ReturnRandomEndpoint()
         {
-            foreach (var endpointSettings in EndpointSettingsList)
+            foreach (var endpointSettings in _endpointSettingsList)
             {
-                _endpointPool.PessimizeEndpoint(endpointSettings.Endpoint);
+                _endpointPool.PessimizeEndpoint(endpointSettings);
             }
 
-            for (var i = 0; i < EndpointSettingsList.Length; i++)
+            var expectedEndpoints = _endpointSettingsList.Select(x => x.Endpoint).ToHashSet();
+            for (var i = 0; i < _endpointSettingsList.Count; i++)
             {
-                _mockRandom.Setup(random => random.Next(EndpointSettingsList.Length)).Returns(i);
-                Assert.Equal(EndpointSettingsList[i].Endpoint, _endpointPool.GetEndpoint());
+                _mockRandom.Setup(random => random.Next(_endpointSettingsList.Count)).Returns(i);
+                Assert.Contains(_endpointPool.GetEndpoint().Endpoint, expectedEndpoints);
+            }
+        }
+
+        [Fact]
+        public void GetEndpoint_WhenThreeServerlessEndpoints_PessimizeByEndpoint_ExcludesFromRandomSelection()
+        {
+            var serverlessEndpoints = new List<EndpointInfo>
+            {
+                new(0, false, "serverless-a.example.com", 2136, "MAN"),
+                new(0, false, "serverless-b.example.com", 2136, "VLA"),
+                new(0, true, "serverless-c.example.com", 2135, "SAS")
+            };
+
+            var pool = new EndpointPool(TestUtils.LoggerFactory, _mockRandom.Object);
+            pool.Reset(serverlessEndpoints);
+
+            Assert.False(pool.PessimizeByNodeId(0)); // ignoring
+            _mockRandom.Setup(random => random.Next(2)).Returns(0);
+            Assert.Equal("http://serverless-a.example.com:2136", pool.GetEndpoint().Endpoint);
+
+            var pessimized = serverlessEndpoints[0];
+            Assert.False(pool.PessimizeEndpoint(pessimized));
+
+            for (var i = 0; i < 2; i++)
+            {
+                _mockRandom.Setup(random => random.Next(2)).Returns(i);
+                Assert.Equal(serverlessEndpoints[i + 1], pool.GetEndpoint());
             }
         }
     }
@@ -174,36 +293,38 @@ public class EndpointPoolTests
     public class ThreadLocalRandomTests
     {
         private readonly EndpointPool _endpointPool = new(TestUtils.LoggerFactory);
+        private readonly IReadOnlyList<EndpointInfo> _endpointSettingsList = CreateEndpointSettingsList();
 
         public ThreadLocalRandomTests()
         {
-            _endpointPool.Reset(EndpointSettingsList);
+            _endpointPool.Reset(_endpointSettingsList);
         }
 
         [Theory]
-        [InlineData("n1.ydb.tech")]
-        [InlineData("n2.ydb.tech")]
-        [InlineData("n3.ydb.tech")]
-        [InlineData("n4.ydb.tech")]
-        [InlineData("n5.ydb.tech")]
+        [InlineData("http://n1.ydb.tech:2136")]
+        [InlineData("https://n2.ydb.tech:2135")]
+        [InlineData("http://n3.ydb.tech:2136")]
+        [InlineData("https://n4.ydb.tech:2135")]
+        [InlineData("http://n5.ydb.tech:2136")]
         public void EndpointPool_AllMethodsWorkAsExpected(string endpoint)
         {
             var expectedEndpoints = new HashSet<string>
             {
-                "n1.ydb.tech", "n2.ydb.tech", "n3.ydb.tech", "n4.ydb.tech", "n5.ydb.tech"
+                "http://n1.ydb.tech:2136", "https://n2.ydb.tech:2135", "http://n3.ydb.tech:2136",
+                "https://n4.ydb.tech:2135", "http://n5.ydb.tech:2136"
             };
 
             for (var it = 0; it < 10; it++)
             {
-                Assert.Contains(_endpointPool.GetEndpoint(), expectedEndpoints);
+                Assert.Contains(_endpointPool.GetEndpoint().Endpoint, expectedEndpoints);
             }
 
-            _endpointPool.PessimizeEndpoint(endpoint);
+            _endpointPool.PessimizeEndpoint(_endpointSettingsList.Single(e => e.Endpoint == endpoint));
 
             expectedEndpoints.Remove(endpoint);
             for (var it = 0; it < 100; it++)
             {
-                Assert.Contains(_endpointPool.GetEndpoint(), expectedEndpoints);
+                Assert.Contains(_endpointPool.GetEndpoint().Endpoint, expectedEndpoints);
             }
         }
     }

@@ -10,10 +10,16 @@ internal static class Metadata
     public const string RpcSdkInfoHeader = "x-ydb-sdk-build-info";
     public const string RpcClientPid = "x-ydb-client-pid";
 
+    // W3C trace-context propagation header (YDB supports "traceparent" on gRPC requests)
+    public const string TraceParentHeader = "traceparent";
+
     // Incoming headers
     public const string RpcServerHintsHeader = "x-ydb-server-hints";
     public const string RpcClientCapabilitiesHeader = "x-ydb-client-capabilities";
 
     //Incoming hints
     public const string GracefulShutdownHint = "session-close";
+
+    internal static readonly string TopicWriterClientInfo = $"topic-writer/{YdbSdkVersion.Value}";
+    internal static readonly string TopicReaderClientInfo = $"topic-reader/{YdbSdkVersion.Value}";
 }

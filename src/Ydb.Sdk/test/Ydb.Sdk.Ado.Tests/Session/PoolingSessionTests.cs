@@ -66,7 +66,7 @@ public class PoolingSessionTests
                 It.IsAny<CreateSessionRequest>(),
                 It.Is<GrpcRequestSettings>(settings => settings.ClientCapabilities.Contains("session-balancer")))
             )
-            .Throws(() => new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
+            .Throws(() => new YdbException(new RpcException(Status.DefaultCancelled)));
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.True(session.IsBroken);
@@ -98,7 +98,7 @@ public class PoolingSessionTests
     {
         SetupSuccessCreateSession();
         _mockAttachStream.Setup(attachStream => attachStream.MoveNextAsync(CancellationToken.None))
-            .ThrowsAsync(new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled)));
+            .ThrowsAsync(new YdbException(new RpcException(Status.DefaultCancelled)));
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Transport RPC call error", ydbException.Message);
@@ -164,7 +164,7 @@ public class PoolingSessionTests
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
         tcsSecondMoveAttachStream.SetException(
-            new YdbException(new RpcException(Grpc.Core.Status.DefaultCancelled))); // attach stream is closed
+            new YdbException(new RpcException(Status.DefaultCancelled))); // attach stream is closed
         await Task.Delay(500);
         Assert.True(session.IsBroken);
         await CheckIsBrokenAndDeleteSessionOneTime(session);
@@ -224,10 +224,63 @@ public class PoolingSessionTests
             It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
         ).ThrowsAsync(YdbException.FromServer(StatusIds.Types.StatusCode.Aborted, []));
         Assert.False(session.IsBroken);
-        var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.CommitTransaction(txId));
+        var ydbException = await Assert
+            .ThrowsAsync<YdbException>(() => session.CommitTransaction(txId, null, CancellationToken.None));
         Assert.Equal(StatusCode.Aborted, ydbException.Code);
         Assert.Equal("Status: Aborted", ydbException.Message);
         tcsSecondMoveAttachStream.TrySetResult(false);
+    }
+
+    [Fact]
+    public async Task Open_WhenAttachStreamSendsNodeShutdownHint_CallsPessimizeNodeAndBreaksSession()
+    {
+        SetupSuccessCreateSession();
+        _mockIDriver.Setup(driver => driver.PessimizeNode(NodeId));
+
+        _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(true);
+        _mockAttachStream.SetupSequence(attachStream => attachStream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success })
+            .Returns(new SessionState
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                NodeShutdown = new NodeShutdownHint()
+            });
+
+        var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
+        await session.Open(CancellationToken.None);
+
+        await WaitUntilSessionBrokenAfterAttachAsync(session);
+
+        Assert.True(session.IsBroken);
+        _mockIDriver.Verify(driver => driver.PessimizeNode(NodeId), Times.Once());
+    }
+
+    [Fact]
+    public async Task Open_WhenAttachStreamSendsSessionShutdownHint_DoesNotCallPessimizeNode_BreaksSession()
+    {
+        SetupSuccessCreateSession();
+
+        _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(true);
+        _mockAttachStream.SetupSequence(attachStream => attachStream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success })
+            .Returns(new SessionState
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                SessionShutdown = new SessionShutdownHint()
+            });
+
+        var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
+        await session.Open(CancellationToken.None);
+
+        await WaitUntilSessionBrokenAfterAttachAsync(session);
+
+        Assert.True(session.IsBroken);
+        _mockIDriver.Verify(driver => driver.PessimizeNode(It.IsAny<long>()), Times.Never());
+        await CheckIsBrokenAndDeleteSessionNeverTimes(session);
     }
 
     [Fact]
@@ -245,10 +298,22 @@ public class PoolingSessionTests
             It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
         ).ThrowsAsync(YdbException.FromServer(StatusIds.Types.StatusCode.NotFound, []));
         Assert.False(session.IsBroken);
-        var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.RollbackTransaction(txId));
+        var ydbException = await Assert
+            .ThrowsAsync<YdbException>(() => session.RollbackTransaction(txId, null, CancellationToken.None));
         Assert.Equal(StatusCode.NotFound, ydbException.Code);
         Assert.Equal("Status: NotFound", ydbException.Message);
         tcsSecondMoveAttachStream.TrySetResult(false);
+    }
+
+    /// <summary>
+    /// <see cref="PoolingSession.Open"/> awaits only the first attach frame; hint handling runs on a background task after that.
+    /// </summary>
+    private static async Task WaitUntilSessionBrokenAfterAttachAsync(PoolingSession session)
+    {
+        for (var i = 0; i < 50 && !session.IsBroken; i++)
+        {
+            await Task.Delay(20);
+        }
     }
 
     private async Task CheckIsBrokenAndDeleteSessionNeverTimes(PoolingSession session)

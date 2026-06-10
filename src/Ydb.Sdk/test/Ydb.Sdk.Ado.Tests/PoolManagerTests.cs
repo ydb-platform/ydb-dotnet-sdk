@@ -54,6 +54,10 @@ public class PoolManagerTests
         Assert.Equal(expectedPools, PoolManager.Pools.Count);
 
         await ClearAllConnections(connections);
+        connections =
+        [
+            ..connectionStrings.Select(connectionString => new YdbConnection(connectionString))
+        ]; // A new session pool will be set.
         await Task.WhenAll(connections.Select(connection => connection.OpenAsync()));
 
         foreach (var (_, driver) in PoolManager.Drivers)
@@ -152,6 +156,7 @@ public class PoolManagerTests
         public bool IsDisposed { get; private set; } = isDisposed;
 
         public string Database => "db";
+        public void PessimizeNode(long nodeId) => throw new NotImplementedException();
 
         public ValueTask DisposeAsync()
         {
