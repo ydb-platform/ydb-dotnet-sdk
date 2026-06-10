@@ -88,14 +88,10 @@ public sealed class DistributedLock : IAsyncDisposable
                     timeout: timeout, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 
-            if (lease is null)
-            {
-                await session.DisposeAsync().ConfigureAwait(false);
-                throw new YdbException(StatusCode.Timeout,
-                    $"AcquireLockAsync({lockName}) timed out after {timeout}");
-            }
+            if (lease is not null) return new DistributedLock(session, lease, data ?? []);
 
-            return new DistributedLock(session, lease, data ?? []);
+            await session.DisposeAsync().ConfigureAwait(false);
+            throw new YdbException(StatusCode.Timeout, $"AcquireLockAsync({lockName}) timed out after {timeout}");
         }
         catch
         {

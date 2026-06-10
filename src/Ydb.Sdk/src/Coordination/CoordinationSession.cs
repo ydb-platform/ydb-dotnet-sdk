@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Coordination.Description;
+
 using Ydb.Sdk.Coordination.Internal;
 using Ydb.Sdk.Coordination.Settings;
 using SemaphoreDescription = Ydb.Sdk.Coordination.Description.SemaphoreDescription;
@@ -26,9 +26,8 @@ namespace Ydb.Sdk.Coordination;
 /// </para>
 /// <para>
 /// On a transport drop the worker transparently reconnects, replays pinned requests (waiters for
-/// <c>AcquireSemaphore</c>) and re-arms watchers. Non-pinned in-flight requests are completed with
-/// <see cref="Internal.SessionReconnectException"/> so the public helpers re-issue them with a fresh
-/// <c>reqId</c>.
+/// <c>AcquireSemaphore</c>) and re-arms watchers. Non-pinned in-flight requests are retried
+/// internally with a fresh <c>reqId</c>.
 /// </para>
 /// <para>
 /// When the server reports a non-recoverable failure (<c>BadSession</c>, <c>SessionExpired</c>) the
@@ -57,8 +56,7 @@ public sealed class CoordinationSession : IAsyncDisposable
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly CancellationTokenSource _sessionLostCts = new();
 
-    private readonly TaskCompletionSource _firstAttached =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _firstAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private readonly Task _workerTask;
 
@@ -68,12 +66,9 @@ public sealed class CoordinationSession : IAsyncDisposable
     private volatile bool _disposed;
     private volatile bool _sessionLost;
 
-    // Mutable session attachment state — touched only on the worker thread.
     private ulong _sessionId;
     private byte[] _protectionKey = [];
 
-    // Signals "stream is currently attached and ready to accept writes".
-    // Replaced (CAS) by the worker on every reconnect.
     private volatile TaskCompletionSource _streamReady =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -107,10 +102,6 @@ public sealed class CoordinationSession : IAsyncDisposable
     /// </summary>
     public Task WaitReadyAsync(CancellationToken cancellationToken = default)
         => _firstAttached.Task.WaitAsync(cancellationToken);
-
-    // ------------------------------------------------------------------------------------------
-    // Public API — semaphore management
-    // ------------------------------------------------------------------------------------------
 
     public async Task CreateSemaphoreAsync(string name, ulong limit, byte[]? data = null,
         CancellationToken cancellationToken = default)
@@ -178,7 +169,7 @@ public sealed class CoordinationSession : IAsyncDisposable
         }, isPinned: false, cancellationToken).ConfigureAwait(false);
 
         EnsureResponseCase(response, SessionResponse.ResponseOneofCase.DescribeSemaphoreResult, name);
-        return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult.SemaphoreDescription, name);
+        return new SemaphoreDescription(response.DescribeSemaphoreResult.SemaphoreDescription);
     }
 
     /// <summary>
@@ -284,16 +275,6 @@ public sealed class CoordinationSession : IAsyncDisposable
         }
     }
 
-    // ------------------------------------------------------------------------------------------
-    // Internal: dispatch
-    // ------------------------------------------------------------------------------------------
-
-    /// <summary>
-    /// Send-and-await helper. Allocates a fresh reqId, registers a pending TCS, enqueues the request
-    /// onto the writer channel and waits for the matching response. Retries automatically on a
-    /// transparent reconnect (signaled by <see cref="SessionReconnectException"/>) unless the request
-    /// is pinned (in which case the worker resends it with the same reqId).
-    /// </summary>
     internal async Task<SessionResponse> SendAsync(
         Func<ulong, SessionRequest> factory,
         bool isPinned,
@@ -330,15 +311,8 @@ public sealed class CoordinationSession : IAsyncDisposable
 
                 return await pending.Tcs.Task.ConfigureAwait(false);
             }
-            catch (SessionReconnectException)
+            catch (YdbException ex) when (ex.Code == StatusCode.SessionBusy)
             {
-                if (isPinned)
-                {
-                    // The worker has already re-sent us with the same reqId — we should be re-queued.
-                    // Fall through and retry transparently.
-                    continue;
-                }
-
                 continue;
             }
             catch
@@ -405,12 +379,8 @@ public sealed class CoordinationSession : IAsyncDisposable
         if (response.DescribeSemaphoreResult.WatchAdded)
             _watchers.Bind(subscription, reqId);
 
-        return SemaphoreDescription.FromProto(response.DescribeSemaphoreResult.SemaphoreDescription, name);
+        return new SemaphoreDescription(response.DescribeSemaphoreResult.SemaphoreDescription);
     }
-
-    // ------------------------------------------------------------------------------------------
-    // Worker loop
-    // ------------------------------------------------------------------------------------------
 
     private async Task WorkerLoopAsync()
     {
@@ -463,8 +433,6 @@ public sealed class CoordinationSession : IAsyncDisposable
         ShutdownCore();
     }
 
-    /// <returns><c>true</c> if the session was gracefully stopped (no more reconnects),
-    /// <c>false</c> if the stream failed and the worker should reconnect.</returns>
     private async Task<bool> RunOneStreamAsync()
     {
         using var streamCts = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
@@ -497,8 +465,6 @@ public sealed class CoordinationSession : IAsyncDisposable
             }
             catch (OperationCanceledException) when (!_disposeCts.IsCancellationRequested)
             {
-                // The stream was broken by the reader. Fall through and let the post-loop logic
-                // decide whether this was a graceful stop or a transport drop.
             }
 
             if (_disposeCts.IsCancellationRequested)
@@ -590,10 +556,10 @@ public sealed class CoordinationSession : IAsyncDisposable
 
     private bool IsRequestStillRelevant(SessionRequest request)
     {
+        // Infrastructure messages (SessionStart/Stop, Pong) have no reqId and are always sent.
         if (TryExtractReqId(request, out var reqId))
             return _pending.ContainsKey(reqId);
 
-        // Infrastructure messages (SessionStart/Stop, Pong) have no reqId — always send.
         return true;
     }
 
@@ -635,8 +601,8 @@ public sealed class CoordinationSession : IAsyncDisposable
                         continue;
 
                     case SessionResponse.ResponseOneofCase.AcquireSemaphorePending:
-                        // Interim notification — the waiter is queued on the server. Keep the
-                        // pending entry so the eventual AcquireSemaphoreResult resolves it.
+                        // Interim notification — keep the pending entry so the eventual
+                        // AcquireSemaphoreResult resolves it.
                         continue;
                 }
 
@@ -675,7 +641,8 @@ public sealed class CoordinationSession : IAsyncDisposable
             if (pending.IsPinned)
                 continue;
             if (_pending.TryRemove(reqId, out _))
-                pending.Tcs.TrySetException(new SessionReconnectException());
+                pending.Tcs.TrySetException(new YdbException(StatusCode.SessionBusy,
+                    "Coordination request aborted by stream reconnect; will retry with fresh reqId"));
         }
     }
 
@@ -706,10 +673,6 @@ public sealed class CoordinationSession : IAsyncDisposable
         _watchers.Dispose();
     }
 
-    // ------------------------------------------------------------------------------------------
-    // Dispose
-    // ------------------------------------------------------------------------------------------
-
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -732,13 +695,11 @@ public sealed class CoordinationSession : IAsyncDisposable
                 }
                 catch
                 {
-                    // ignored — worker logs its own errors
                 }
             }
         }
         catch
         {
-            // ignore — we're tearing down anyway
         }
         finally
         {
@@ -746,7 +707,7 @@ public sealed class CoordinationSession : IAsyncDisposable
             await _disposeCts.CancelAsync().ConfigureAwait(false);
 
             try { await _workerTask.ConfigureAwait(false); }
-            catch { /* worker logged */ }
+            catch { }
 
             _disposeCts.Dispose();
             _sessionLostCts.Dispose();
@@ -754,10 +715,6 @@ public sealed class CoordinationSession : IAsyncDisposable
             GC.SuppressFinalize(this);
         }
     }
-
-    // ------------------------------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------------------------------
 
     private static ByteString ToByteString(byte[]? data) =>
         data is null ? ByteString.Empty : ByteString.CopyFrom(data);

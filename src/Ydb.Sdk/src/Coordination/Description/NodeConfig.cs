@@ -1,4 +1,4 @@
-﻿using Ydb.Coordination;
+using Ydb.Coordination;
 
 namespace Ydb.Sdk.Coordination.Description;
 
@@ -19,89 +19,50 @@ public readonly struct NodeConfig
     /// </summary>
     public ConsistencyMode ReadConsistencyMode { get; init; } = ConsistencyMode.Unset;
 
-    /// <summary>
-    /// Consistency mode for attach operations.
-    /// </summary>
+    /// <summary>Consistency mode for attach operations.</summary>
     public ConsistencyMode AttachConsistencyMode { get; init; } = ConsistencyMode.Unset;
 
-    /// <summary>
-    /// Rate limiter counters mode.
-    /// </summary>
+    /// <summary>Rate limiter counters mode.</summary>
     public RateLimiterCountersMode RateLimiterCountersModeValue { get; init; } = RateLimiterCountersMode.Unset;
 
-    private NodeConfig(DescribeNodeResult result)
+    internal NodeConfig(DescribeNodeResult result)
     {
         SelfCheckPeriod = TimeSpan.FromMilliseconds(result.Config.SelfCheckPeriodMillis);
         SessionGracePeriod = TimeSpan.FromMilliseconds(result.Config.SessionGracePeriodMillis);
-        ReadConsistencyMode = FromProto(result.Config.ReadConsistencyMode);
-        AttachConsistencyMode = FromProto(result.Config.AttachConsistencyMode);
-        RateLimiterCountersModeValue = FromProto(result.Config.RateLimiterCountersMode);
+        ReadConsistencyMode = result.Config.ReadConsistencyMode.ToSdk();
+        AttachConsistencyMode = result.Config.AttachConsistencyMode.ToSdk();
+        RateLimiterCountersModeValue = result.Config.RateLimiterCountersMode.ToSdk();
     }
 
-    public Config ToProto() => new()
+    internal Config ToProto() => new()
     {
         SelfCheckPeriodMillis = (uint)SelfCheckPeriod.TotalMilliseconds,
         SessionGracePeriodMillis = (uint)SessionGracePeriod.TotalMilliseconds,
-        ReadConsistencyMode = ToProto(ReadConsistencyMode), AttachConsistencyMode = ToProto(AttachConsistencyMode),
-        RateLimiterCountersMode = ToProto(RateLimiterCountersModeValue)
+        ReadConsistencyMode = ReadConsistencyMode.ToProto(),
+        AttachConsistencyMode = AttachConsistencyMode.ToProto(),
+        RateLimiterCountersMode = RateLimiterCountersModeValue.ToProto()
     };
+}
 
+internal static class NodeConfigEnumMapping
+{
+    internal static Ydb.Coordination.ConsistencyMode ToProto(this ConsistencyMode mode) =>
+        Enum.IsDefined(typeof(Ydb.Coordination.ConsistencyMode), (int)mode)
+            ? (Ydb.Coordination.ConsistencyMode)(int)mode
+            : Ydb.Coordination.ConsistencyMode.Unset;
 
-    internal static NodeConfig FromProto(DescribeNodeResult result) => new(result);
+    internal static ConsistencyMode ToSdk(this Ydb.Coordination.ConsistencyMode mode) =>
+        Enum.IsDefined(typeof(ConsistencyMode), (int)mode)
+            ? (ConsistencyMode)(int)mode
+            : ConsistencyMode.Unset;
 
-    private static Ydb.Coordination.ConsistencyMode ToProto(ConsistencyMode mode)
-    {
-        switch (mode)
-        {
-            case ConsistencyMode.Strict:
-                return Ydb.Coordination.ConsistencyMode.Strict;
-            case ConsistencyMode.Relaxed:
-                return Ydb.Coordination.ConsistencyMode.Relaxed;
-            case ConsistencyMode.Unset:
-            default:
-                return Ydb.Coordination.ConsistencyMode.Unset;
-        }
-    }
+    internal static Ydb.Coordination.RateLimiterCountersMode ToProto(this RateLimiterCountersMode mode) =>
+        Enum.IsDefined(typeof(Ydb.Coordination.RateLimiterCountersMode), (int)mode)
+            ? (Ydb.Coordination.RateLimiterCountersMode)(int)mode
+            : Ydb.Coordination.RateLimiterCountersMode.Unset;
 
-    private static Ydb.Coordination.RateLimiterCountersMode ToProto(RateLimiterCountersMode mode)
-    {
-        switch (mode)
-        {
-            case RateLimiterCountersMode.Detailed:
-                return Ydb.Coordination.RateLimiterCountersMode.Detailed;
-            case RateLimiterCountersMode.Aggregated:
-                return Ydb.Coordination.RateLimiterCountersMode.Aggregated;
-            case RateLimiterCountersMode.Unset:
-            default:
-                return Ydb.Coordination.RateLimiterCountersMode.Unset;
-        }
-    }
-
-    private static ConsistencyMode FromProto(Ydb.Coordination.ConsistencyMode mode)
-    {
-        switch (mode)
-        {
-            case Ydb.Coordination.ConsistencyMode.Relaxed:
-                return ConsistencyMode.Relaxed;
-            case Ydb.Coordination.ConsistencyMode.Strict:
-                return ConsistencyMode.Strict;
-            case Ydb.Coordination.ConsistencyMode.Unset:
-            default:
-                return ConsistencyMode.Unset;
-        }
-    }
-
-    private static RateLimiterCountersMode FromProto(Ydb.Coordination.RateLimiterCountersMode mode)
-    {
-        switch (mode)
-        {
-            case Ydb.Coordination.RateLimiterCountersMode.Aggregated:
-                return RateLimiterCountersMode.Aggregated;
-            case Ydb.Coordination.RateLimiterCountersMode.Detailed:
-                return RateLimiterCountersMode.Detailed;
-            case Ydb.Coordination.RateLimiterCountersMode.Unset:
-            default:
-                return RateLimiterCountersMode.Unset;
-        }
-    }
+    internal static RateLimiterCountersMode ToSdk(this Ydb.Coordination.RateLimiterCountersMode mode) =>
+        Enum.IsDefined(typeof(RateLimiterCountersMode), (int)mode)
+            ? (RateLimiterCountersMode)(int)mode
+            : RateLimiterCountersMode.Unset;
 }

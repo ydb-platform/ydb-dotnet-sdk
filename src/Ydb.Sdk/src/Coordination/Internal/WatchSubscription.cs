@@ -3,15 +3,10 @@ using Ydb.Sdk.Coordination.Description;
 
 namespace Ydb.Sdk.Coordination.Internal;
 
-/// <summary>
-/// Push channel used by <see cref="WatcherRegistry"/> to deliver <see cref="SemaphoreChangedEvent"/>
-/// notifications from the session reader loop to the watcher consumer.
-/// </summary>
-internal sealed class WatchSubscription : IDisposable
+internal sealed class WatchSubscription(string name) : IDisposable
 {
-    public string Name { get; }
+    public string Name { get; } = name;
 
-    /// <summary>The reqId of the most recent <c>DescribeSemaphore</c> with <c>WatchAdded=true</c>.</summary>
     public ulong ReqId { get; set; }
 
     private readonly Channel<SemaphoreChangedEvent> _events =
@@ -22,11 +17,6 @@ internal sealed class WatchSubscription : IDisposable
         });
 
     private volatile bool _closed;
-
-    public WatchSubscription(string name)
-    {
-        Name = name;
-    }
 
     public void Push(SemaphoreChangedEvent evt)
     {

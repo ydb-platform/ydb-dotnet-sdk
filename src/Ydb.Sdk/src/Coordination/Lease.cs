@@ -19,15 +19,19 @@ public sealed class Lease : IAsyncDisposable
         _session = session;
         Name = name;
         _lostCts = new CancellationTokenSource();
-        // Cache the token at construction time. After DisposeAsync() the CTS is disposed, but
-        // the CancellationToken struct still refers to the (already-cancelled) source state —
-        // reading IsCancellationRequested on it does NOT throw ObjectDisposedException.
+        // Cache the token at construction time so that reading it after DisposeAsync()
+        // does not throw ObjectDisposedException.
         LeaseLostToken = _lostCts.Token;
         _sessionLostRegistration = session.SessionLostToken.Register(static state =>
         {
             var l = (Lease)state!;
-            try { l._lostCts.Cancel(); }
-            catch (ObjectDisposedException) { }
+            try
+            {
+                l._lostCts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }, this);
     }
 
@@ -57,8 +61,13 @@ public sealed class Lease : IAsyncDisposable
         }
         finally
         {
-            try { _lostCts.Cancel(); }
-            catch (ObjectDisposedException) { }
+            try
+            {
+                await _lostCts.CancelAsync();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
     }
 
@@ -66,10 +75,9 @@ public sealed class Lease : IAsyncDisposable
     {
         try
         {
-            // Best-effort release. If the session is already dead the worker will surface a
-            // YdbException; that's fine — the server has either already cleaned up (ephemeral)
-            // or will clean up after the session grace period (non-ephemeral). Capped to a
-            // few seconds so a stuck channel doesn't pin the caller forever.
+            // Best-effort release capped to a few seconds so a stuck channel doesn't pin the caller.
+            // If the session is already dead the server cleans up (immediately for ephemeral,
+            // after the grace period otherwise).
             await ReleaseAsync(CancellationToken.None)
                 .WaitAsync(TimeSpan.FromSeconds(2))
                 .ConfigureAwait(false);
@@ -85,10 +93,15 @@ public sealed class Lease : IAsyncDisposable
         }
         finally
         {
-            try { _lostCts.Cancel(); }
-            catch (ObjectDisposedException) { }
+            try
+            {
+                await _lostCts.CancelAsync();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
 
-            _sessionLostRegistration.Dispose();
+            await _sessionLostRegistration.DisposeAsync();
             _lostCts.Dispose();
             GC.SuppressFinalize(this);
         }

@@ -48,11 +48,9 @@ public sealed class LeaderObserver : IAsyncDisposable
             var leader = ExtractLeader(description);
             _currentLeader = leader;
 
-            if (!Equals(previous, leader))
-            {
-                previous = leader;
-                yield return leader;
-            }
+            if (Equals(previous, leader)) continue;
+            previous = leader;
+            yield return leader;
         }
     }
 

@@ -5,15 +5,15 @@ public enum RateLimiterCountersMode
     /// <summary>
     /// The default or current value.
     /// </summary>
-    Unset,
+    Unset = Ydb.Coordination.RateLimiterCountersMode.Unset,
 
     /// <summary>
     /// Aggregated counters for resource tree
     /// </summary>
-    Aggregated,
+    Aggregated = Ydb.Coordination.RateLimiterCountersMode.Aggregated,
 
     /// <summary>
     /// Counters on every resource
     /// </summary>
-    Detailed
+    Detailed = Ydb.Coordination.RateLimiterCountersMode.Detailed
 }

@@ -12,15 +12,7 @@ public class SemaphoreDescription
     public IReadOnlyList<Session> OwnersList { get; }
     public IReadOnlyList<Session> WaitersList { get; }
 
-    private SemaphoreDescription(string name)
-    {
-        Name = name;
-        Data = [];
-        OwnersList = [];
-        WaitersList = [];
-    }
-
-    private SemaphoreDescription(Ydb.Coordination.SemaphoreDescription description)
+    internal SemaphoreDescription(Ydb.Coordination.SemaphoreDescription description)
     {
         Name = description.Name;
         Data = description.Data.ToByteArray();
@@ -36,31 +28,12 @@ public class SemaphoreDescription
             .ToList() ?? [];
     }
 
-    /// <summary>
-    /// Converts a proto description; if <paramref name="description"/> is <c>null</c>
-    /// (semaphore does not exist yet), returns an empty placeholder description so observers can
-    /// expose "no owner / no value" without crashing.
-    /// </summary>
-    internal static SemaphoreDescription FromProto(Ydb.Coordination.SemaphoreDescription? description,
-        string fallbackName = "") =>
-        description is null ? new SemaphoreDescription(fallbackName) : new SemaphoreDescription(description);
-
-
-    public class Session
+    public class Session(SemaphoreSession semaphoreSession)
     {
-        public ulong Id { get; }
-        public ulong TimeoutMillis { get; }
-        public ulong Count { get; }
-        public byte[] Data { get; }
-        public ulong OrderId { get; }
-
-        public Session(SemaphoreSession semaphoreSession)
-        {
-            Id = semaphoreSession.SessionId;
-            TimeoutMillis = semaphoreSession.TimeoutMillis;
-            Count = semaphoreSession.Count;
-            Data = semaphoreSession.Data.ToByteArray();
-            OrderId = semaphoreSession.OrderId;
-        }
+        public ulong Id { get; } = semaphoreSession.SessionId;
+        public ulong TimeoutMillis { get; } = semaphoreSession.TimeoutMillis;
+        public ulong Count { get; } = semaphoreSession.Count;
+        public byte[] Data { get; } = semaphoreSession.Data.ToByteArray();
+        public ulong OrderId { get; } = semaphoreSession.OrderId;
     }
 }

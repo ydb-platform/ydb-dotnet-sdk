@@ -1,19 +1,19 @@
-﻿namespace Ydb.Sdk.Coordination.Description;
+namespace Ydb.Sdk.Coordination.Description;
 
 public enum ConsistencyMode
 {
     /// <summary>
     /// The default or current value.
     /// </summary>
-    Unset,
+    Unset = Ydb.Coordination.ConsistencyMode.Unset,
 
     /// <summary>
     /// Strict mode makes sure operations may only complete on current leader.
     /// </summary>
-    Strict,
+    Strict = Ydb.Coordination.ConsistencyMode.Strict,
 
     /// <summary>
     /// Relaxed mode allows operations to complete on stale masters.
     /// </summary>
-    Relaxed
+    Relaxed = Ydb.Coordination.ConsistencyMode.Relaxed
 }

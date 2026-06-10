@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
 using Ydb.Sdk.Ado;
@@ -65,10 +65,6 @@ public sealed class CoordinationClient : IAsyncDisposable
 
     internal IDriver Driver => _driver;
 
-    // ------------------------------------------------------------------------------------------
-    // Node management
-    // ------------------------------------------------------------------------------------------
-
     public async Task CreateNodeAsync(string path, NodeConfig config, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Creating coordination node at {Path}", path);
@@ -89,7 +85,6 @@ public sealed class CoordinationClient : IAsyncDisposable
 
     public async Task DropNodeAsync(string path, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Dropping coordination node at {Path}", path);
         await _driver.UnaryCall(
             CoordinationService.DropNodeMethod,
             new DropNodeRequest { Path = ResolvePath(path) },
@@ -98,17 +93,16 @@ public sealed class CoordinationClient : IAsyncDisposable
 
     public async Task<NodeConfig> DescribeNodeAsync(string path, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Describing coordination node at {Path}", path);
+        _logger.LogDebug("Describing coordination node at {Path}", path);
+
         var response = await _driver.UnaryCall(
             CoordinationService.DescribeNodeMethod,
             new DescribeNodeRequest { Path = ResolvePath(path) },
-            new GrpcRequestSettings { CancellationToken = cancellationToken }).ConfigureAwait(false);
-        return NodeConfig.FromProto(response.Operation.Result.Unpack<DescribeNodeResult>());
-    }
+            new GrpcRequestSettings { CancellationToken = cancellationToken }
+        ).ConfigureAwait(false);
 
-    // ------------------------------------------------------------------------------------------
-    // Low-level session
-    // ------------------------------------------------------------------------------------------
+        return new NodeConfig(response.Operation.Result.Unpack<DescribeNodeResult>());
+    }
 
     /// <summary>
     /// Opens a new <see cref="CoordinationSession"/> attached to <paramref name="nodePath"/>.
@@ -131,10 +125,6 @@ public sealed class CoordinationClient : IAsyncDisposable
             throw;
         }
     }
-
-    // ------------------------------------------------------------------------------------------
-    // Recipes
-    // ------------------------------------------------------------------------------------------
 
     /// <summary>
     /// Acquires a named distributed lock. Blocks until the lock is granted, the wait
@@ -215,10 +205,6 @@ public sealed class CoordinationClient : IAsyncDisposable
         string configName,
         CancellationToken cancellationToken = default)
         => ConfigSubscription.OpenAsync(this, nodePath, configName, cancellationToken);
-
-    // ------------------------------------------------------------------------------------------
-    // Internals
-    // ------------------------------------------------------------------------------------------
 
     internal string ResolvePath(string path)
     {
