@@ -1,9 +1,14 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
+using HdrHistogram;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
-using Prometheus;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using Ydb.Sdk;
 
 namespace Internal;
@@ -31,6 +36,9 @@ public abstract class SloTableContext<T> : ISloContext
 
     public async Task Create(CreateConfig createConfig)
     {
+        // Retries cover SCHEME_ERROR: schema cache on query nodes propagates async from
+        // SchemeBoard after CREATE TABLE returns — a follow-up ALTER/INSERT can hit a node
+        // whose cache still misses the table (ydb-platform/ydb#23386, #36335).
         const int maxCreateAttempts = 10;
         var client = CreateClient(createConfig);
 
@@ -82,12 +90,85 @@ public abstract class SloTableContext<T> : ISloContext
 
     public async Task Run(RunConfig runConfig)
     {
-        // Trace.Listeners.Add(new ConsoleTraceListener()); debug meterPusher
+        var refLabel = Environment.GetEnvironmentVariable("WORKLOAD_REF") ?? "unknown";
+        var workloadLabel = Environment.GetEnvironmentVariable("WORKLOAD_NAME") ?? Job;
 
-        var promPgwEndpoint = $"{runConfig.PromPgw}/metrics";
-        using var prometheus = new MetricPusher(promPgwEndpoint, "workload-" + Job,
-            intervalMilliseconds: runConfig.ReportPeriod);
-        prometheus.Start();
+        await Create(new CreateConfig(
+            runConfig.ConnectionString,
+            runConfig.InitialDataCount,
+            runConfig.WriteTimeout));
+
+        using var meter = new Meter("YDB.SLO");
+
+        var operationsTotal = meter.CreateCounter<long>(
+            "sdk.operations.total",
+            description: "Total number of operations, by type and status."
+        );
+
+        // Latency is measured only for successful operations (matches go-sdk / js-sdk SLO contract);
+        // failed operations are reflected via sdk.operations.total{operation_status="error"} only.
+        var latencyAggregators = new Dictionary<string, LatencyAggregator>
+        {
+            ["read"] = new(),
+            ["write"] = new()
+        };
+
+        // Snapshots refreshed on each push tick. ObservableGauge callbacks read from here.
+        var snapshots = latencyAggregators.Keys
+            .ToDictionary(k => k, _ => (P50: 0.0, P95: 0.0, P99: 0.0));
+        var snapshotLock = new object();
+
+        meter.CreateObservableGauge(
+            "sdk.operation.latency.p50.seconds",
+            () => SnapshotMeasurements(snapshots, snapshotLock, refLabel, s => s.P50),
+            unit: "s",
+            description: "P50 latency of operations, recomputed each push period.");
+        meter.CreateObservableGauge(
+            "sdk.operation.latency.p95.seconds",
+            () => SnapshotMeasurements(snapshots, snapshotLock, refLabel, s => s.P95),
+            unit: "s",
+            description: "P95 latency of operations, recomputed each push period.");
+        meter.CreateObservableGauge(
+            "sdk.operation.latency.p99.seconds",
+            () => SnapshotMeasurements(snapshots, snapshotLock, refLabel, s => s.P99),
+            unit: "s",
+            description: "P99 latency of operations, recomputed each push period.");
+
+        var meterProvider = Sdk.CreateMeterProviderBuilder()
+            .ConfigureResource(resource => resource
+                .AddService(serviceName: $"workload-{workloadLabel}")
+                .AddAttributes([
+                    new KeyValuePair<string, object>("sdk", "dotnet"),
+                    new KeyValuePair<string, object>("sdk_version", Environment.Version.ToString())
+                ]))
+            .AddMeter("YDB.SLO")
+            .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
+            {
+                var endpointUri = ResolveOtlpEndpoint(runConfig.OtlpEndpoint);
+                if (endpointUri != null)
+                {
+                    exporterOptions.Endpoint = endpointUri;
+                }
+
+                exporterOptions.Protocol = OtlpExportProtocol.HttpProtobuf;
+                metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
+                    runConfig.ReportPeriod;
+            })
+            .Build();
+
+        // Refresh percentile snapshots and reset histograms one push period before export so
+        // the gauge callbacks observe fresh values when the SDK harvests them.
+        using var snapshotTimer = new Timer(_ =>
+        {
+            foreach (var kv in latencyAggregators)
+            {
+                var snapshot = kv.Value.SnapshotAndReset();
+                lock (snapshotLock)
+                {
+                    snapshots[kv.Key] = snapshot;
+                }
+            }
+        }, null, runConfig.ReportPeriod, runConfig.ReportPeriod);
 
         var client = CreateClient(runConfig);
 
@@ -123,62 +204,25 @@ public abstract class SloTableContext<T> : ISloContext
             Logger.LogInformation(e, "Cancel shooting");
         }
 
-        await prometheus.StopAsync();
+        meterProvider.Dispose();
 
         Logger.LogInformation("Run task is finished");
         return;
 
         async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, RunConfig, Task> action)
         {
-            var metricFactory = Metrics.WithLabels(new Dictionary<string, string>
-                {
-                    { "operation_type", operationType },
-                    { "sdk", "dotnet" },
-                    { "sdk_version", Environment.Version.ToString() },
-                    { "workload", Job },
-                    { "workload_version", "0.0.0" }
-                }
-            );
-
-            var operationsTotal = metricFactory.CreateCounter(
-                "sdk_operations_total",
-                "Total number of operations performed by the SDK, categorized by type."
-            );
-
-            var operationsSuccessTotal = metricFactory.CreateCounter(
-                "sdk_operations_success_total",
-                "Total number of successful operations, categorized by type."
-            );
-
-            var operationLatencySeconds = metricFactory.CreateHistogram(
-                "sdk_operation_latency_seconds",
-                "Latency of operations performed by the SDK in seconds, categorized by type and status.",
-                ["operation_status"],
-                new HistogramConfiguration
-                {
-                    Buckets =
-                    [
-                        0.001, // 1 ms
-                        0.002, // 2 ms
-                        0.003, // 3 ms
-                        0.004, // 4 ms
-                        0.005, // 5 ms
-                        0.0075, // 7.5 ms
-                        0.010, // 10 ms
-                        0.020, // 20 ms
-                        0.050, // 50 ms
-                        0.100, // 100 ms
-                        0.200, // 200 ms
-                        0.500, // 500 ms
-                        1.000 // 1 s
-                    ]
-                }
-            );
-
-            var pendingOperations = metricFactory.CreateGauge(
-                "sdk_pending_operations",
-                "Current number of pending operations, categorized by type."
-            );
+            var successTags = new TagList
+            {
+                { "operation_type", operationType },
+                { "operation_status", "success" },
+                { "ref", refLabel }
+            };
+            var errorTags = new TagList
+            {
+                { "operation_type", operationType },
+                { "operation_status", "error" },
+                { "ref", refLabel }
+            };
 
             var workJobs = new List<Task>();
 
@@ -196,26 +240,110 @@ public abstract class SloTableContext<T> : ISloContext
                             await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
                         }
 
-                        pendingOperations.Inc();
                         var sw = Stopwatch.StartNew();
-                        await action(client, runConfig);
-                        sw.Stop();
-                        operationsTotal.Inc();
-                        pendingOperations.Dec();
-                        operationsSuccessTotal.Inc();
-                        operationLatencySeconds.WithLabels("success").Observe(sw.Elapsed.TotalSeconds);
+
+                        try
+                        {
+                            await action(client, runConfig);
+                            sw.Stop();
+                            operationsTotal.Add(1, successTags);
+                            latencyAggregators[operationType].Record(sw.Elapsed.TotalSeconds);
+                        }
+                        catch (Exception ex)
+                        {
+                            operationsTotal.Add(1, errorTags);
+                            Logger.LogWarning(ex, "Operation {OperationType} failed", operationType);
+                        }
                     }
                 }, cancellationTokenSource.Token));
             }
 
-            // ReSharper disable once MethodSupportsCancellation
             await Task.WhenAll(workJobs);
 
             Logger.LogInformation("{ShootingName} shooting is stopped", operationType);
         }
     }
 
-    // return attempt count & StatusCode operation
+    private static IEnumerable<Measurement<double>> SnapshotMeasurements(
+        Dictionary<string, (double P50, double P95, double P99)> snapshots,
+        object snapshotLock,
+        string refLabel,
+        Func<(double P50, double P95, double P99), double> selector)
+    {
+        lock (snapshotLock)
+        {
+            return snapshots
+                .Select(kv => new Measurement<double>(
+                    selector(kv.Value),
+                    new KeyValuePair<string, object?>("operation_type", kv.Key),
+                    new KeyValuePair<string, object?>("operation_status", "success"),
+                    new KeyValuePair<string, object?>("ref", refLabel)))
+                .ToArray();
+        }
+    }
+
+    private static Uri? ResolveOtlpEndpoint(string? cliEndpoint)
+    {
+        // Priority: CLI flag > OTEL_EXPORTER_OTLP_METRICS_ENDPOINT > OTEL_EXPORTER_OTLP_ENDPOINT.
+        // When falling back to the generic OTEL_EXPORTER_OTLP_ENDPOINT, append the Prometheus
+        // OTLP metrics path so the exporter targets the metrics receiver directly.
+        var raw = !string.IsNullOrWhiteSpace(cliEndpoint)
+            ? cliEndpoint
+            : Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT");
+
+        if (!string.IsNullOrWhiteSpace(raw))
+        {
+            return new Uri(raw);
+        }
+
+        var generic = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+        if (string.IsNullOrWhiteSpace(generic))
+        {
+            return null;
+        }
+
+        var trimmed = generic.TrimEnd('/');
+        return new Uri($"{trimmed}/v1/metrics");
+    }
+
+    private sealed class LatencyAggregator
+    {
+        private const long HighestTrackableMicros = 60L * 60L * 1_000_000L; // 1 hour
+        private const int SignificantDigits = 3;
+
+        private readonly LongHistogram _histogram = new(HighestTrackableMicros, SignificantDigits);
+        private readonly object _lock = new();
+
+        public void Record(double seconds)
+        {
+            var micros = (long)(seconds * 1_000_000d);
+            if (micros < 1) micros = 1;
+            if (micros > HighestTrackableMicros) micros = HighestTrackableMicros;
+
+            lock (_lock)
+            {
+                _histogram.RecordValue(micros);
+            }
+        }
+
+        public (double P50, double P95, double P99) SnapshotAndReset()
+        {
+            lock (_lock)
+            {
+                if (_histogram.TotalCount == 0)
+                {
+                    return (0d, 0d, 0d);
+                }
+
+                var p50 = _histogram.GetValueAtPercentile(50) / 1_000_000d;
+                var p95 = _histogram.GetValueAtPercentile(95) / 1_000_000d;
+                var p99 = _histogram.GetValueAtPercentile(99) / 1_000_000d;
+                _histogram.Reset();
+                return (p50, p95, p99);
+            }
+        }
+    }
+
     protected abstract Task<int> Save(T client, SloTable sloTable, int writeTimeout);
 
     protected abstract Task<object?> Select(T client, (Guid Guid, int Id) select, int readTimeout);

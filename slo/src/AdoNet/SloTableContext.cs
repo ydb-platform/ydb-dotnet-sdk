@@ -19,7 +19,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         await new YdbCommand(ydbConnection)
         {
             CommandText = $"""
-                           CREATE TABLE `{SloTable.Name}` (
+                           CREATE TABLE IF NOT EXISTS `{SloTable.Name}` (
                                Guid             Uuid,
                                Id               Int32,
                                PayloadStr       Text,
@@ -86,7 +86,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
             };
 
             await ydbCommand.ExecuteNonQueryAsync();
-        });
+        }, new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
 
 
         return attempts;
@@ -98,7 +98,8 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         int readTimeout
     )
     {
-        await using var ydbConnection = await client.OpenRetryableConnectionAsync();
+        await using var ydbConnection = await client.OpenRetryableConnectionAsync(
+            new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
 
         var ydbCommand = new YdbCommand(ydbConnection)
         {

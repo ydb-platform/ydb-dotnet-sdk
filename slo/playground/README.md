@@ -1,40 +1,36 @@
-# SLO playground
+# SLO Playground
 
-Playground may be used for testing SLO workloads locally
+Local Docker Compose stack for running SLO workloads against a real YDB instance with
+full metrics visibility in Grafana.
 
-It has several services:
+## Services
 
-- `prometheus` - storage for metrics
-- `prometheus-pushgateway` - push acceptor for prometheus
-- `grafana` - provides chats for metrics
-- `ydb` - local instance of ydb-database to run workload with
+| Service | URL | Description |
+|---|---|---|
+| Grafana | http://localhost:3000 | Metrics dashboards |
+| Prometheus Pushgateway | http://localhost:9091 | Push endpoint for workload metrics |
+| Prometheus | http://localhost:9090 | Metrics storage |
+| YDB monitoring | http://localhost:8765 | YDB cluster UI |
+| YDB gRPC | grpc://localhost:2136 | YDB endpoint (plain) |
+| YDB gRPC TLS | grpcs://localhost:2135 | YDB endpoint (TLS) |
 
-## Network addresses
+## Usage
 
-- Grafana dashboard: http://localhost:3000
-- Prometheus pushgateway: http://localhost:9091
-- YDB monitoring: http://localhost:8765
-- YDB GRPC: grpc://localhost:2136
-- YDB GRPC TLS: grpcs://localhost:2135
+```bash
+# Start all services
+docker compose up -d
 
-## Start
-
-```shell
-docker-compose up -d
+# Stop all services
+docker compose down
 ```
 
-## Stop
+## Configuration
 
-```shell
-docker-compose down
-```
+- Grafana dashboards: `configs/grafana/provisioning/dashboards/`
+- YDB is started in **non-persistent** mode — data is lost on container restart.
+- Prometheus and Grafana data is stored in `data/` (persisted between restarts).
 
-## Configs
+## Next Steps
 
-Grafana's dashboards stored in `configs/grafana/provisioning/dashboards`
-
-## Data
-
-YDB databases are not persistent
-
-All other data like metrics and certs stored in `data/`
+After the playground is running, use the [SLO workload tool](../src/README.md) to create a
+test table and drive load against YDB.

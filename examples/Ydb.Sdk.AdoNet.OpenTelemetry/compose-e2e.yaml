@@ -1,9 +1,33 @@
-﻿services:
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Trace/Dockerfile
+    depends_on:
+      ydb:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: on-failure
+
+  load-generator:
+    build:
+      context: ../..
+      dockerfile: examples/Ydb.Sdk.AdoNet.OpenTelemetry/Metrics/Dockerfile
+    depends_on:
+      ydb:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: on-failure
+
   ydb:
-    image: ydbplatform/local-ydb:latest
+    image: ydbplatform/local-ydb:trunk
     platform: linux/amd64
     container_name: ydb-local
-    hostname: localhost
+    # Official-style config override: the image ENTRYPOINT is `/initialize_local_ydb`,
+    # and we pass `--config-path` as arguments to it.
+    command: [ "--config-path", "/ydb_config/ydb-config.yaml" ]
     environment:
       YDB_DEFAULT_LOG_LEVEL: NOTICE
       GRPC_TLS_PORT: "2135"
@@ -14,6 +38,8 @@
       - "2135:2135"
       - "2136:2136"
       - "8765:8765"
+    volumes:
+      - ./ydb_config:/ydb_config:ro
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
@@ -29,12 +55,13 @@
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: prometheus
     volumes:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "9090:9090"
     depends_on: [ otel-collector ]
-  
+
   tempo:
     image: grafana/tempo:2.4.1
     command: [ "-config.file=/etc/tempo.yaml" ]
@@ -43,7 +70,7 @@
     ports:
       - "3200:3200"
     depends_on: [ otel-collector ]
-    
+
   grafana:
     image: grafana/grafana:10.4.2
     environment:
@@ -55,15 +82,3 @@
     ports:
       - "3000:3000"
     depends_on: [ prometheus, tempo ]
-
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_SERVICE_NAME: "ydb-sdk-adonet-sample"
-      YDB_ENDPOINT: "ydb:2136"
-      YDB_DATABASE: "/local"
-    depends_on: [ ydb, otel-collector ]

@@ -17,21 +17,22 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     {
         await using var connection = await client.OpenConnectionAsync();
         await connection.ExecuteAsync($"""
-                                       CREATE TABLE `{SloTable.Name}` (
+                                       CREATE TABLE IF NOT EXISTS `{SloTable.Name}` (
                                            Guid             Uuid,
                                            Id               Int32,
                                            PayloadStr       Text,
                                            PayloadDouble    Double,
                                            PayloadTimestamp Timestamp,
                                            PRIMARY KEY (Guid, Id)
-                                       ); 
+                                       );
                                        {SloTable.Options}
                                        """);
     }
 
     protected override async Task<int> Save(YdbDataSource client, SloTable sloTable, int writeTimeout)
     {
-        await using var ydbConnection = await client.OpenRetryableConnectionAsync();
+        await using var ydbConnection =
+            await client.OpenRetryableConnectionAsync(new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
         await ydbConnection.ExecuteAsync(
             $"""
              UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
@@ -44,7 +45,8 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     protected override async Task<object?> Select(YdbDataSource client, (Guid Guid, int Id) select,
         int readTimeout)
     {
-        await using var ydbConnection = await client.OpenRetryableConnectionAsync();
+        await using var ydbConnection =
+            await client.OpenRetryableConnectionAsync(new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
         return await ydbConnection.QueryFirstOrDefaultAsync<SloTable>(
             $"""
              SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp
