@@ -165,35 +165,54 @@ internal sealed class MockCoordinationStream
         Failure = new SessionResponse.Types.Failure { Status = code }
     };
 
-    public static SessionResponse CreateSemaphoreResult(ulong reqId) => new()
+    public static SessionResponse CreateSemaphoreResult(ulong reqId,
+        StatusIds.Types.StatusCode status = StatusIds.Types.StatusCode.Success) => new()
     {
-        CreateSemaphoreResult = new SessionResponse.Types.CreateSemaphoreResult { ReqId = reqId }
+        CreateSemaphoreResult = new SessionResponse.Types.CreateSemaphoreResult
+        {
+            ReqId = reqId,
+            Status = status
+        }
     };
 
-    public static SessionResponse UpdateSemaphoreResult(ulong reqId) => new()
+    public static SessionResponse UpdateSemaphoreResult(ulong reqId,
+        StatusIds.Types.StatusCode status = StatusIds.Types.StatusCode.Success) => new()
     {
-        UpdateSemaphoreResult = new SessionResponse.Types.UpdateSemaphoreResult { ReqId = reqId }
+        UpdateSemaphoreResult = new SessionResponse.Types.UpdateSemaphoreResult
+        {
+            ReqId = reqId,
+            Status = status
+        }
     };
 
-    public static SessionResponse DeleteSemaphoreResult(ulong reqId) => new()
+    public static SessionResponse DeleteSemaphoreResult(ulong reqId,
+        StatusIds.Types.StatusCode status = StatusIds.Types.StatusCode.Success) => new()
     {
-        DeleteSemaphoreResult = new SessionResponse.Types.DeleteSemaphoreResult { ReqId = reqId }
+        DeleteSemaphoreResult = new SessionResponse.Types.DeleteSemaphoreResult
+        {
+            ReqId = reqId,
+            Status = status
+        }
     };
 
-    public static SessionResponse ReleaseSemaphoreResult(ulong reqId, bool released = true) => new()
+    public static SessionResponse ReleaseSemaphoreResult(ulong reqId, bool released = true,
+        StatusIds.Types.StatusCode status = StatusIds.Types.StatusCode.Success) => new()
     {
         ReleaseSemaphoreResult = new SessionResponse.Types.ReleaseSemaphoreResult
         {
             ReqId = reqId,
+            Status = status,
             Released = released
         }
     };
 
-    public static SessionResponse AcquireSemaphoreResult(ulong reqId, bool acquired) => new()
+    public static SessionResponse AcquireSemaphoreResult(ulong reqId, bool acquired,
+        StatusIds.Types.StatusCode status = StatusIds.Types.StatusCode.Success) => new()
     {
         AcquireSemaphoreResult = new SessionResponse.Types.AcquireSemaphoreResult
         {
             ReqId = reqId,
+            Status = status,
             Acquired = acquired
         }
     };
@@ -211,7 +230,8 @@ internal sealed class MockCoordinationStream
         ulong limit = 10,
         bool ephemeral = false,
         IEnumerable<SemaphoreSession>? owners = null,
-        IEnumerable<SemaphoreSession>? waiters = null)
+        IEnumerable<SemaphoreSession>? waiters = null,
+        StatusIds.Types.StatusCode status = StatusIds.Types.StatusCode.Success)
     {
         var description = new Ydb.Coordination.SemaphoreDescription
         {
@@ -230,6 +250,7 @@ internal sealed class MockCoordinationStream
             DescribeSemaphoreResult = new SessionResponse.Types.DescribeSemaphoreResult
             {
                 ReqId = reqId,
+                Status = status,
                 WatchAdded = watchAdded,
                 SemaphoreDescription = description
             }

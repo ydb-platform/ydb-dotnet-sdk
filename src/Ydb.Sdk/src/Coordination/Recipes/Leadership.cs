@@ -125,9 +125,8 @@ public sealed class Leadership : IAsyncDisposable
             await session.CreateSemaphoreAsync(electionName, limit: 1, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (YdbException)
+        catch (YdbException ex) when (ex.Code == StatusCode.AlreadyExists)
         {
-            // AlreadyExists / similar — fine, the semaphore is already there.
         }
     }
 }

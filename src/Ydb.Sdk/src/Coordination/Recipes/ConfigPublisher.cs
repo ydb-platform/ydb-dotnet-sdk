@@ -101,9 +101,8 @@ public sealed class ConfigPublisher : IAsyncDisposable
             await session.CreateSemaphoreAsync(configName, limit: 1, data: initialValue,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
         }
-        catch (YdbException)
+        catch (YdbException ex) when (ex.Code == StatusCode.AlreadyExists)
         {
-            // AlreadyExists / similar — fine.
         }
     }
 }

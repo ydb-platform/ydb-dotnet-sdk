@@ -25,21 +25,27 @@ public sealed class Lease : IAsyncDisposable
         _sessionLostRegistration = session.SessionLostToken.Register(static state =>
         {
             var l = (Lease)state!;
-            try
-            {
-                l._lostCts.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-            }
+            // Fire-and-forget CancelAsync so we don't run user callbacks (registered on
+            // LeaseLostToken) on the session reader thread that triggered SessionLostToken.
+            _ = l.CancelLostAsync();
         }, this);
     }
 
     /// <summary>Name of the acquired semaphore.</summary>
     public string Name { get; }
 
-    /// <summary>The session that owns this lease.</summary>
-    public CoordinationSession Session => _session;
+    internal CoordinationSession Session => _session;
+
+    private async Task CancelLostAsync()
+    {
+        try
+        {
+            await _lostCts.CancelAsync().ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
 
     /// <summary>
     /// Cancelled when the lease is released (explicitly or via dispose) or when the owning session

@@ -3,11 +3,13 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Threading.Channels;
 using Google.Protobuf;
+using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Ydb.Coordination;
 using Ydb.Coordination.V1;
+using Ydb.Issue;
 using Ydb.Sdk.Ado;
-
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Coordination.Internal;
 using Ydb.Sdk.Coordination.Settings;
 using SemaphoreDescription = Ydb.Sdk.Coordination.Description.SemaphoreDescription;
@@ -118,6 +120,8 @@ public sealed class CoordinationSession : IAsyncDisposable
         }, isPinned: false, cancellationToken).ConfigureAwait(false);
 
         EnsureResponseCase(response, SessionResponse.ResponseOneofCase.CreateSemaphoreResult, name);
+        var result = response.CreateSemaphoreResult;
+        EnsureSuccess(result.Status, result.Issues, name);
     }
 
     public async Task UpdateSemaphoreAsync(string name, byte[]? data,
@@ -134,6 +138,8 @@ public sealed class CoordinationSession : IAsyncDisposable
         }, isPinned: false, cancellationToken).ConfigureAwait(false);
 
         EnsureResponseCase(response, SessionResponse.ResponseOneofCase.UpdateSemaphoreResult, name);
+        var result = response.UpdateSemaphoreResult;
+        EnsureSuccess(result.Status, result.Issues, name);
     }
 
     public async Task DeleteSemaphoreAsync(string name, bool force = false,
@@ -150,6 +156,8 @@ public sealed class CoordinationSession : IAsyncDisposable
         }, isPinned: false, cancellationToken).ConfigureAwait(false);
 
         EnsureResponseCase(response, SessionResponse.ResponseOneofCase.DeleteSemaphoreResult, name);
+        var result = response.DeleteSemaphoreResult;
+        EnsureSuccess(result.Status, result.Issues, name);
     }
 
     public async Task<SemaphoreDescription> DescribeSemaphoreAsync(
@@ -169,7 +177,9 @@ public sealed class CoordinationSession : IAsyncDisposable
         }, isPinned: false, cancellationToken).ConfigureAwait(false);
 
         EnsureResponseCase(response, SessionResponse.ResponseOneofCase.DescribeSemaphoreResult, name);
-        return new SemaphoreDescription(response.DescribeSemaphoreResult.SemaphoreDescription);
+        var result = response.DescribeSemaphoreResult;
+        EnsureSuccess(result.Status, result.Issues, name);
+        return new SemaphoreDescription(result.SemaphoreDescription);
     }
 
     /// <summary>
@@ -205,11 +215,14 @@ public sealed class CoordinationSession : IAsyncDisposable
             }
         };
 
-        var response = await SendAsync(BuildRequest, isPinned: true, cancellationToken).ConfigureAwait(false);
+        var response = await SendAsync(BuildRequest, isPinned: true,
+            pinnedReleaseName: name, cancellationToken).ConfigureAwait(false);
 
         EnsureResponseCase(response, SessionResponse.ResponseOneofCase.AcquireSemaphoreResult, name);
+        var result = response.AcquireSemaphoreResult;
+        EnsureSuccess(result.Status, result.Issues, name);
 
-        if (!response.AcquireSemaphoreResult.Acquired)
+        if (!result.Acquired)
             return null;
 
         return new Lease(this, name);
@@ -227,6 +240,8 @@ public sealed class CoordinationSession : IAsyncDisposable
         }, isPinned: false, cancellationToken).ConfigureAwait(false);
 
         EnsureResponseCase(response, SessionResponse.ResponseOneofCase.ReleaseSemaphoreResult, name);
+        var result = response.ReleaseSemaphoreResult;
+        EnsureSuccess(result.Status, result.Issues, name);
     }
 
     /// <summary>
@@ -234,6 +249,7 @@ public sealed class CoordinationSession : IAsyncDisposable
     /// snapshot and an <see cref="IAsyncEnumerable{T}"/> of subsequent descriptions, re-fetched whenever
     /// the server reports a change.
     /// </summary>
+    /// <remarks>Only one watcher per semaphore name is supported per session.</remarks>
     public async Task<WatchResult<SemaphoreDescription>> WatchSemaphoreAsync(
         string name,
         DescribeSemaphoreMode describeMode,
@@ -275,9 +291,16 @@ public sealed class CoordinationSession : IAsyncDisposable
         }
     }
 
-    internal async Task<SessionResponse> SendAsync(
+    internal Task<SessionResponse> SendAsync(
         Func<ulong, SessionRequest> factory,
         bool isPinned,
+        CancellationToken cancellationToken)
+        => SendAsync(factory, isPinned, pinnedReleaseName: null, cancellationToken);
+
+    private async Task<SessionResponse> SendAsync(
+        Func<ulong, SessionRequest> factory,
+        bool isPinned,
+        string? pinnedReleaseName,
         CancellationToken cancellationToken)
     {
         while (true)
@@ -305,8 +328,25 @@ public sealed class CoordinationSession : IAsyncDisposable
 
                 await using var ctsRegistration = cancellationToken.Register(() =>
                 {
-                    if (_pending.TryRemove(reqId, out var p))
-                        p.Tcs.TrySetCanceled(cancellationToken);
+                    if (!_pending.TryRemove(reqId, out var p))
+                        return;
+
+                    // A pinned request (AcquireSemaphore) leaves a waiter slot on the server.
+                    // Sending a Release tears down our queue position so we don't silently
+                    // hold the semaphore after the caller has cancelled.
+                    if (isPinned && pinnedReleaseName is not null && !_sessionLost && !_disposed)
+                    {
+                        _outgoing.Writer.TryWrite(new SessionRequest
+                        {
+                            ReleaseSemaphore = new SessionRequest.Types.ReleaseSemaphore
+                            {
+                                Name = pinnedReleaseName,
+                                ReqId = NextReqId()
+                            }
+                        });
+                    }
+
+                    p.Tcs.TrySetCanceled(cancellationToken);
                 }).ConfigureAwait(false);
 
                 return await pending.Tcs.Task.ConfigureAwait(false);
@@ -375,11 +415,13 @@ public sealed class CoordinationSession : IAsyncDisposable
         }, isPinned: false, cancellationToken).ConfigureAwait(false);
 
         EnsureResponseCase(response, SessionResponse.ResponseOneofCase.DescribeSemaphoreResult, name);
+        var result = response.DescribeSemaphoreResult;
+        EnsureSuccess(result.Status, result.Issues, name);
 
-        if (response.DescribeSemaphoreResult.WatchAdded)
+        if (result.WatchAdded)
             _watchers.Bind(subscription, reqId);
 
-        return new SemaphoreDescription(response.DescribeSemaphoreResult.SemaphoreDescription);
+        return new SemaphoreDescription(result.SemaphoreDescription);
     }
 
     private async Task WorkerLoopAsync()
@@ -398,16 +440,18 @@ public sealed class CoordinationSession : IAsyncDisposable
             {
                 break;
             }
-            catch (YdbException ex)
+            catch (Exception ex) when (TryAsYdbException(ex, out var ydbEx))
             {
-                var delay = _options.RetryPolicy.GetNextDelay(ex, attempt++);
+                var delay = _options.RetryPolicy.GetNextDelay(ydbEx, attempt);
                 if (delay is null)
                 {
-                    _logger.LogError(ex, "Coordination session worker giving up — non-retryable error");
+                    _logger.LogError(ydbEx, "Coordination session worker giving up — non-retryable error");
                     break;
                 }
 
-                _logger.LogWarning(ex,
+                attempt++;
+
+                _logger.LogWarning(ydbEx,
                     "Coordination session stream broken; reconnect attempt {Attempt} in {Delay}",
                     attempt, delay.Value);
 
@@ -445,7 +489,8 @@ public sealed class CoordinationSession : IAsyncDisposable
         try
         {
             stream = await _driver
-                .BidirectionalStreamCall(CoordinationService.SessionMethod, new GrpcRequestSettings())
+                .BidirectionalStreamCall(CoordinationService.SessionMethod,
+                    new GrpcRequestSettings { CancellationToken = _disposeCts.Token })
                 .ConfigureAwait(false);
 
             reader = ReaderLoopAsync(stream, sessionStartedTcs, sessionStoppedTcs, streamCts);
@@ -515,7 +560,7 @@ public sealed class CoordinationSession : IAsyncDisposable
                 SessionId = _sessionId,
                 Path = _nodePath,
                 Description = _options.Description,
-                TimeoutMillis = (ulong)_options.ConnectTimeout.TotalMilliseconds,
+                TimeoutMillis = (ulong)_options.SessionTimeout.TotalMilliseconds,
                 ProtectionKey = ByteString.CopyFrom(_protectionKey),
                 SeqNo = seqNo
             }
@@ -556,9 +601,10 @@ public sealed class CoordinationSession : IAsyncDisposable
 
     private bool IsRequestStillRelevant(SessionRequest request)
     {
-        // Infrastructure messages (SessionStart/Stop, Pong) have no reqId and are always sent.
+        // Infrastructure messages (SessionStart/Stop, Pong) and fire-and-forget Release have no
+        // matching pending entry and are always sent.
         if (TryExtractReqId(request, out var reqId))
-            return _pending.ContainsKey(reqId);
+            return reqId == 0 || _pending.ContainsKey(reqId);
 
         return true;
     }
@@ -649,7 +695,13 @@ public sealed class CoordinationSession : IAsyncDisposable
     private void ResetStreamReady()
     {
         var fresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        Interlocked.Exchange(ref _streamReady, fresh);
+        var old = Interlocked.Exchange(ref _streamReady, fresh);
+
+        // Wake any caller currently awaiting the stale TCS in WaitStreamReadyAsync so it can
+        // re-read _streamReady on the next loop iteration. SessionBusy is the same signal we
+        // use for in-flight non-pinned requests, so SendAsync's outer catch transparently retries.
+        old.TrySetException(new YdbException(StatusCode.SessionBusy,
+            "Coordination stream resetting; will retry"));
     }
 
     private void ShutdownCore()
@@ -681,7 +733,11 @@ public sealed class CoordinationSession : IAsyncDisposable
 
         try
         {
-            if (!_sessionLost && _outgoing.Writer.TryWrite(new SessionRequest
+            // Only attempt a graceful SessionStop if we ever attached. Otherwise the worker is
+            // either retrying connection (no stream to deliver SessionStop) or already shutting
+            // down; waiting 10s for nothing just delays the caller.
+            var everAttached = _firstAttached.Task.IsCompletedSuccessfully;
+            if (everAttached && !_sessionLost && _outgoing.Writer.TryWrite(new SessionRequest
             {
                 SessionStop = new SessionRequest.Types.SessionStop()
             }))
@@ -724,6 +780,26 @@ public sealed class CoordinationSession : IAsyncDisposable
         var key = new byte[16];
         RandomNumberGenerator.Fill(key);
         return key;
+    }
+
+    private static bool TryAsYdbException(Exception ex, out YdbException ydbException)
+    {
+        switch (ex)
+        {
+            case YdbException y:
+                ydbException = y;
+                return true;
+            case RpcException r:
+                ydbException = new YdbException(r);
+                return true;
+            case TimeoutException t:
+                ydbException = new YdbException(StatusCode.ClientTransportTimeout,
+                    "Coordination session stream operation timed out", t);
+                return true;
+            default:
+                ydbException = null!;
+                return false;
+        }
     }
 
     private static bool TryExtractReqId(SessionRequest request, out ulong reqId)
@@ -794,4 +870,17 @@ public sealed class CoordinationSession : IAsyncDisposable
             throw new YdbException(StatusCode.InternalError,
                 $"Unexpected response case {response.ResponseCase} (expected {expected}) for '{context}'");
     }
+
+    private static void EnsureSuccess(
+        StatusIds.Types.StatusCode status,
+        IReadOnlyList<IssueMessage> issues,
+        string context)
+    {
+        if (status.IsNotSuccess())
+            throw new YdbException(status.Code(),
+                $"Coordination operation failed for '{context}': {status}{IssuesSuffix(issues)}");
+    }
+
+    private static string IssuesSuffix(IReadOnlyList<IssueMessage> issues) =>
+        issues.Count == 0 ? "" : $", issues: {string.Join("; ", issues.Select(i => i.Message))}";
 }
