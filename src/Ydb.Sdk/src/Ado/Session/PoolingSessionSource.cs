@@ -164,11 +164,11 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                                          $"(currently {_maxPoolSize}) or 'CreateSessionTimeout' " +
                                          $"(currently {_createSessionTimeout} seconds) in your connection string."));
                 }, useSynchronizationContext: false
-            );
+            ).ConfigureAwait(false);
             await using var disposeRegistration = _disposeCts.Token.Register(
                 () => waiterTcs.TrySetException(ObjectDisposedException),
                 useSynchronizationContext: false
-            );
+            ).ConfigureAwait(false);
             session = await waiterTcs.Task.ConfigureAwait(false);
 
             if (CheckIdleSession(session) || TryGetIdleSession(out session))
@@ -193,7 +193,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
                     throw ObjectDisposedException;
 
                 var session = _sessionFactory.NewSession(this);
-                await session.Open(cancellationToken);
+                await session.Open(cancellationToken).ConfigureAwait(false);
 
                 for (var i = 0; i < _maxPoolSize; i++)
                 {
@@ -296,8 +296,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
             return;
         }
 
-        await _cleanerTimer.DisposeAsync();
-        await _disposeCts.CancelAsync();
+        await _cleanerTimer.DisposeAsync().ConfigureAwait(false);
+        await _disposeCts.CancelAsync().ConfigureAwait(false);
         MetricsReporter.Dispose();
 
         var sw = Stopwatch.StartNew();
@@ -319,14 +319,14 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
         try
         {
-            await _sessionFactory.DisposeAsync();
+            await _sessionFactory.DisposeAsync().ConfigureAwait(false);
         }
         catch (Exception e)
         {
             _logger.LogError(e, "Failed to dispose the transport driver");
         }
 
-        SdkClientInfoRegistry.Unregister($"ado-net/{YdbSdkVersion.Value}");
+        SdkClientInfoRegistry.Unregister(Metadata.AdoNetClientInfo);
         if (_frameworkClientInfo is not null)
         {
             SdkClientInfoRegistry.Unregister(_frameworkClientInfo);

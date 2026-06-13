@@ -596,8 +596,14 @@ public class WriterUnitTests
     {
         var cancellationTokenSource = new CancellationTokenSource();
         var nextCompleted = new TaskCompletionSource<bool>();
-        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
-            .Returns(Task.CompletedTask);
+        var writeRequestSent = new TaskCompletionSource();
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask) // init request
+            .Returns(() =>
+            {
+                writeRequestSent.TrySetResult(); // the message has been enqueued to in-flight and sent
+                return Task.CompletedTask;
+            });
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .Returns(nextCompleted.Task)
@@ -608,6 +614,7 @@ public class WriterUnitTests
             { ProducerId = "producerId" }.Build();
 
         var task = writer.WriteAsync(123L, cancellationTokenSource.Token);
+        await writeRequestSent.Task; // ensure the write request is sent before delivering its ack
         nextCompleted.SetResult(true);
         Assert.Equal(PersistenceStatus.Written, (await task).Status);
         await cancellationTokenSource.CancelAsync();

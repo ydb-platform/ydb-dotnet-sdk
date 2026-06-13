@@ -22,6 +22,19 @@ public class YdbRetryPolicy : IRetryPolicy
     /// </remarks>
     public static readonly YdbRetryPolicy Default = new(YdbRetryPolicyConfig.Default);
 
+    /// <summary>
+    /// Gets the default retry policy instance for operations that are safe to retry regardless of
+    /// whether the previous attempt may have already partially executed (i.e. idempotent operations).
+    /// </summary>
+    /// <remarks>
+    /// This instance is built on <see cref="YdbRetryPolicyConfig.Default"/> with
+    /// <see cref="YdbRetryPolicyConfig.EnableRetryIdempotence"/> set to <c>true</c>, so it also retries
+    /// statuses that are non-transient by default (e.g. <see cref="StatusCode.Undetermined"/>,
+    /// transport errors).
+    /// </remarks>
+    public static readonly YdbRetryPolicy IdempotenceDefault = new(new YdbRetryPolicyConfig
+        { EnableRetryIdempotence = true });
+
     private readonly int _maxAttempt;
     private readonly int _fastBackoffBaseMs;
     private readonly int _slowBackoffBaseMs;
@@ -80,7 +93,7 @@ public class YdbRetryPolicy : IRetryPolicy
     /// </remarks>
     public TimeSpan? GetNextDelay(YdbException ydbException, int attempt)
     {
-        if (attempt >= _maxAttempt - 1 || (!_enableRetryIdempotence && !ydbException.IsTransient))
+        if (attempt >= _maxAttempt || (!_enableRetryIdempotence && !ydbException.IsTransient))
             return null;
 
         return ydbException.Code switch
@@ -108,5 +121,5 @@ public class YdbRetryPolicy : IRetryPolicy
     }
 
     private static int CalculateBackoff(int backoffBaseMs, int capMs, int ceiling, int attempt) =>
-        Math.Min(backoffBaseMs * (1 << Math.Min(ceiling, attempt)), capMs);
+        Math.Min(backoffBaseMs * (1 << Math.Min(ceiling, attempt - 1)), capMs);
 }

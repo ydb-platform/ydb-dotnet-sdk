@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.OpenTelemetr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.OpenTelemetry.Metrics", "Ydb.Sdk.AdoNet.OpenTelemetry\Metrics\Ydb.Sdk.AdoNet.OpenTelemetry.Metrics.csproj", "{404DDBBE-9B34-48B4-8496-2C3163D141BC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ydb.Sdk.AdoNet.OpenTelemetry.Logs", "Ydb.Sdk.AdoNet.OpenTelemetry\Logs\Ydb.Sdk.AdoNet.OpenTelemetry.Logs.csproj", "{405DDBBE-9B34-48B4-8496-2C3163D141BD}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7932124D-B320-4DBA-9934-9B1397DF1F4C}"
 	ProjectSection(SolutionItems) = preProject
 		compose.yaml = compose.yaml
@@ -104,6 +106,10 @@ Global
 		{404DDBBE-9B34-48B4-8496-2C3163D141BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{404DDBBE-9B34-48B4-8496-2C3163D141BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{404DDBBE-9B34-48B4-8496-2C3163D141BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{405DDBBE-9B34-48B4-8496-2C3163D141BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{405DDBBE-9B34-48B4-8496-2C3163D141BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{405DDBBE-9B34-48B4-8496-2C3163D141BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{405DDBBE-9B34-48B4-8496-2C3163D141BD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

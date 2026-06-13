@@ -6,6 +6,7 @@ namespace Ydb.Sdk.Ado.RetryPolicy;
 internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy, string? operationName = null)
 {
     private const string DefaultActivityName = "ydb.RunWithRetry";
+    private const string TryActivityName = "ydb.Try";
 
     private readonly string _activityName = operationName ?? DefaultActivityName;
 
@@ -47,9 +48,8 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy, string? o
         using var dbActivity = YdbActivitySource.StartActivity(_activityName, ActivityKind.Internal);
         var startTimestamp = YdbMetricsReporter.ReportRetryStart();
 
-        var attempt = 0;
         var totalAttempts = 0;
-        var dbTryActivity = YdbActivitySource.StartActivity("ydb.Try", ActivityKind.Internal);
+        var dbTryActivity = YdbActivitySource.StartActivity(TryActivityName, ActivityKind.Internal);
         try
         {
             while (true)
@@ -63,7 +63,7 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy, string? o
                 }
                 catch (YdbException e)
                 {
-                    var delay = retryPolicy.GetNextDelay(e, attempt++);
+                    var delay = retryPolicy.GetNextDelay(e, totalAttempts);
                     if (delay == null)
                     {
                         throw;
@@ -72,7 +72,7 @@ internal sealed class YdbRetryPolicyExecutor(IRetryPolicy retryPolicy, string? o
                     // Close the previous retry span before starting a new one
                     dbTryActivity?.SetException(e);
                     dbTryActivity?.Dispose();
-                    dbTryActivity = YdbActivitySource.StartActivity("ydb.Try", ActivityKind.Internal);
+                    dbTryActivity = YdbActivitySource.StartActivity(TryActivityName, ActivityKind.Internal);
                     dbTryActivity?.SetRetryAttributes(delay.Value);
                     await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
                     // dbTryActivity stays open so the next operation() call is a child of it

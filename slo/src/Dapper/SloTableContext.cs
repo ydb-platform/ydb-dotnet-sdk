@@ -11,7 +11,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
 
     protected override YdbDataSource CreateClient(Config config) => new YdbDataSourceBuilder(
         new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
-    ) { RetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { EnableRetryIdempotence = true }) }.Build();
+    ) { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
     {
@@ -32,7 +32,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     protected override async Task<int> Save(YdbDataSource client, SloTable sloTable, int writeTimeout)
     {
         await using var ydbConnection =
-            await client.OpenRetryableConnectionAsync(new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
+            await client.OpenRetryableConnectionAsync(YdbRetryPolicy.IdempotenceDefault);
         await ydbConnection.ExecuteAsync(
             $"""
              UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
@@ -46,7 +46,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         int readTimeout)
     {
         await using var ydbConnection =
-            await client.OpenRetryableConnectionAsync(new YdbRetryPolicyConfig { EnableRetryIdempotence = true });
+            await client.OpenRetryableConnectionAsync(YdbRetryPolicy.IdempotenceDefault);
         return await ydbConnection.QueryFirstOrDefaultAsync<SloTable>(
             $"""
              SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp

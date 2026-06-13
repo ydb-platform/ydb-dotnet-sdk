@@ -1,3 +1,10 @@
+## v0.33.0
+
+- Fix: add ConfigureAwait(false) to avoid sync-over-async deadlocks ([#647](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/647)).
+- Feat tracing: added `ydb.Login` span emitted by the static-credentials auth client.
+- **Breaking Change**: Removed legacy `Retry.cs` (`BackoffSettings`, `RetryPolicy` enum, `RetryRule`, `RetrySettings`).
+- **Breaking Change**: Removed legacy `Pool/SessionPool.cs` (`SessionPool<T>`, `SessionBase<T>`, `SessionPoolConfig`, `SessionPoolDefaultSettings`); the ADO.NET `PoolingSessionSource<T>` is now the only session pool implementation.
+
 ## v0.32.0
 
 - **Breaking Change**: Removed legacy TableClient.

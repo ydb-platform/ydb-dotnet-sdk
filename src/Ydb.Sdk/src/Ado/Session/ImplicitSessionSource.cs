@@ -64,7 +64,7 @@ internal sealed class ImplicitSessionSource : ISessionSource
         {
             if (Volatile.Read(ref _activeLeaseCount) != 0)
             {
-                await _drainedTcs.Task.WaitAsync(TimeSpan.FromSeconds(DisposeTimeoutSeconds));
+                await _drainedTcs.Task.WaitAsync(TimeSpan.FromSeconds(DisposeTimeoutSeconds)).ConfigureAwait(false);
             }
         }
         catch (TimeoutException)
@@ -78,14 +78,14 @@ internal sealed class ImplicitSessionSource : ISessionSource
         {
             try
             {
-                await Driver.DisposeAsync();
+                await Driver.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "Failed to dispose the transport driver");
             }
 
-            SdkClientInfoRegistry.Unregister($"ado-net/{YdbSdkVersion.Value}");
+            SdkClientInfoRegistry.Unregister(Metadata.AdoNetClientInfo);
             if (_frameworkClientInfo is not null)
             {
                 SdkClientInfoRegistry.Unregister(_frameworkClientInfo);

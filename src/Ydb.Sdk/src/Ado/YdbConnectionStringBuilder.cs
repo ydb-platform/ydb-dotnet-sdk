@@ -15,7 +15,7 @@ namespace Ydb.Sdk.Ado;
 /// <remarks>
 /// YdbConnectionStringBuilder provides strongly-typed properties for building YDB connection strings.
 /// It supports all standard ADO.NET connection string parameters plus YDB-specific options.
-/// 
+///
 /// <para>
 /// For more information about YDB, see:
 /// <see href="https://ydb.tech/docs">YDB Documentation</see>.
@@ -803,7 +803,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
 
         return DisableDiscovery
             ? new DirectGrpcChannelDriver(driverConfig, LoggerFactory)
-            : await Driver.CreateInitialized(driverConfig, LoggerFactory);
+            : await Driver.CreateInitialized(driverConfig, LoggerFactory).ConfigureAwait(false);
     }
 
     public override void Clear()

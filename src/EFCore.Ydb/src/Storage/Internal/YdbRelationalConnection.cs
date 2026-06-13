@@ -11,6 +11,9 @@ namespace EntityFrameworkCore.Ydb.Storage.Internal;
 
 public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConnection
 {
+    // Reported in the x-ydb-sdk-build-info gRPC header on Driver Discovery; format `component/SemVer`.
+    private static readonly string ClientInfo = $"ef-core/{EfCoreYdbVersion.Value}";
+
     private readonly ICredentialsProvider? _credentialsProvider;
     private readonly X509Certificate2Collection? _serverCertificates;
 
@@ -28,7 +31,8 @@ public class YdbRelationalConnection : RelationalConnection, IYdbRelationalConne
         var ydbConnectionStringBuilder = new YdbConnectionStringBuilder(GetValidatedConnectionString())
         {
             CredentialsProvider = _credentialsProvider,
-            ServerCertificates = _serverCertificates
+            ServerCertificates = _serverCertificates,
+            ClientInfo = ClientInfo
         };
 
         return new YdbConnection(ydbConnectionStringBuilder);

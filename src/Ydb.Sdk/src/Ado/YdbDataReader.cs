@@ -102,14 +102,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     )
     {
         var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp);
-        await ydbDataReader.Init(cancellationToken);
+        await ydbDataReader.Init(cancellationToken).ConfigureAwait(false);
 
         return ydbDataReader;
     }
 
     private async Task Init(CancellationToken cancellationToken)
     {
-        if (State.IsConsumed == await NextExecPart(cancellationToken))
+        if (State.IsConsumed == await NextExecPart(cancellationToken).ConfigureAwait(false))
         {
             throw new YdbException("YDB server closed the stream");
         }
@@ -773,12 +773,12 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             State.ReadResultSet => await new Func<Task<State>>(async () =>
             {
                 State state;
-                while ((state = await NextExecPart(cancellationToken)) == State.ReadResultSet)
+                while ((state = await NextExecPart(cancellationToken).ConfigureAwait(false)) == State.ReadResultSet)
                 {
                 }
 
                 return state == State.NewResultSet ? State.ReadResultSet : state;
-            })(),
+            })().ConfigureAwait(false),
             State.Close => State.Close, // not invoke
             _ => throw new ArgumentOutOfRangeException(ReaderState.ToString())
         };
@@ -805,7 +805,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return true;
         }
 
-        while ((ReaderState = await NextExecPart(cancellationToken)) == State.ReadResultSet) // reset _currentRowIndex
+        while ((ReaderState = await NextExecPart(cancellationToken).ConfigureAwait(false)) ==
+               State.ReadResultSet) // reset _currentRowIndex
         {
             if (++_currentRowIndex < RowsCount)
             {
@@ -870,7 +871,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        var isConsumed = ReaderState == State.IsConsumed || (!await ReadAsync() && ReaderState == State.IsConsumed);
+        var isConsumed = ReaderState == State.IsConsumed ||
+                         (!await ReadAsync().ConfigureAwait(false) && ReaderState == State.IsConsumed);
         ReaderMetadata = CloseMetadata.Instance;
         ReaderState = State.Close;
         _dbActivity?.Dispose();
@@ -938,7 +940,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         {
             _currentRowIndex = -1;
 
-            if (!await _stream.MoveNextAsync(cancellationToken))
+            if (!await _stream.MoveNextAsync(cancellationToken).ConfigureAwait(false))
             {
                 return State.IsConsumed;
             }
@@ -949,7 +951,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             if (part.Status.IsNotSuccess())
             {
-                while (await _stream.MoveNextAsync(cancellationToken))
+                while (await _stream.MoveNextAsync(cancellationToken).ConfigureAwait(false))
                 {
                     _issueMessagesInStream.AddRange(_stream.Current.Issues);
                 }
@@ -1008,7 +1010,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// and immediately reused for a new request while the previous one is still not completed.
     /// </para>
     /// </remarks>
-    public override async ValueTask DisposeAsync() => await CloseAsync();
+    public override async ValueTask DisposeAsync() => await CloseAsync().ConfigureAwait(false);
 
     /// <summary>
     /// Returns an async enumerator that iterates through the YdbDataReader asynchronously.
@@ -1021,7 +1023,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </remarks>
     public async IAsyncEnumerator<YdbDataRecord> GetAsyncEnumerator(CancellationToken cancellationToken = new())
     {
-        while (await ReadAsync(cancellationToken))
+        while (await ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             yield return new YdbDataRecord(this);
         }

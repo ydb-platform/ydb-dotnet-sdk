@@ -5,6 +5,10 @@
         <RootNamespace>EntityFrameworkCore.Ydb</RootNamespace>
         <Nullable>enable</Nullable>
         <PackageId>EntityFrameworkCore.Ydb</PackageId>
+        <!-- Keep AssemblyInformationalVersion clean; we ship it in the x-ydb-sdk-build-info gRPC
+             header (as the ef-core component) and don't want EFCore.Ydb to auto-append
+             "+<git-sha>" build metadata. -->
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     </PropertyGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
@@ -22,6 +26,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Ydb.Sdk" Version="0.27.0"/>
+        <PackageReference Include="Ydb.Sdk" Version="0.33.0"/>
     </ItemGroup>
 </Project>

@@ -4,6 +4,7 @@ using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Topic;
 using Ydb.Topic.V1;
 using static Ydb.Topic.StreamReadMessage.Types.FromServer;
@@ -54,7 +55,7 @@ internal class Reader<TValue> : IReader<TValue>
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
-        while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken))
+        while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
         {
             if (_receivedMessagesChannel.Reader.TryPeek(out var batchInternalMessage))
             {
@@ -79,7 +80,7 @@ internal class Reader<TValue> : IReader<TValue>
 
     public async ValueTask<BatchMessages<TValue>> ReadBatchAsync(CancellationToken cancellationToken = default)
     {
-        while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken))
+        while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
         {
             if (!_receivedMessagesChannel.Reader.TryRead(out var batchInternalMessage))
             {
@@ -108,8 +109,9 @@ internal class Reader<TValue> : IReader<TValue>
 
             _logger.LogInformation("Reader session initialization started. ReaderConfig: {ReaderConfig}", _config);
 
-            var stream = await (_driver ??= await PoolManager.GetDriver(_driverFactory))
-                .BidirectionalStreamCall(TopicService.StreamReadMethod, _readerGrpcRequestSettings);
+            var stream = await (_driver ??= await PoolManager.GetDriver(_driverFactory).ConfigureAwait(false))
+                .BidirectionalStreamCall(TopicService.StreamReadMethod, _readerGrpcRequestSettings)
+                .ConfigureAwait(false);
 
             var initRequest = new StreamReadMessage.Types.InitRequest();
             if (_config.ConsumerName != null)
@@ -149,8 +151,8 @@ internal class Reader<TValue> : IReader<TValue>
 
             _logger.LogDebug("Sending initialization request for the read stream: {InitRequest}", initRequest);
 
-            await stream.Write(new MessageFromClient { InitRequest = initRequest });
-            if (!await stream.MoveNextAsync())
+            await stream.Write(new MessageFromClient { InitRequest = initRequest }).ConfigureAwait(false);
+            if (!await stream.MoveNextAsync().ConfigureAwait(false))
             {
                 _logger.LogError("Stream unexpectedly closed by YDB server. Current InitRequest: {InitRequest}",
                     initRequest);
@@ -164,10 +166,10 @@ internal class Reader<TValue> : IReader<TValue>
 
             if (receivedInitMessage.Status.IsNotSuccess())
             {
-                var statusCode = receivedInitMessage.Status.Code();
-                var statusMessage = statusCode.ToMessage(receivedInitMessage.Issues);
+                var initException = YdbException.FromServer(receivedInitMessage.Status, receivedInitMessage.Issues);
+                var statusMessage = initException.Message;
 
-                if (RetrySettings.DefaultInstance.GetRetryRule(statusCode).Policy != RetryPolicy.None)
+                if (YdbRetryPolicy.IdempotenceDefault.GetNextDelay(initException, attempt: 1) is not null)
                 {
                     _logger.LogError("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
@@ -192,14 +194,14 @@ internal class Reader<TValue> : IReader<TValue>
             await stream.Write(new MessageFromClient
             {
                 ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = _config.MemoryUsageMaxBytes }
-            });
+            }).ConfigureAwait(false);
 
             _currentReaderSession = new ReaderSession<TValue>(
                 _config,
                 stream,
                 initResponse.SessionId,
                 Initialize,
-                await stream.AuthToken(),
+                await stream.AuthToken().ConfigureAwait(false),
                 _logger,
                 _receivedMessagesChannel.Writer,
                 _deserializer
@@ -223,10 +225,10 @@ internal class Reader<TValue> : IReader<TValue>
         _receivedMessagesChannel.Writer.TryComplete();
         _disposeCts.Cancel();
 
-        await (_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask);
+        await (_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
         if (_driver != null)
         {
-            await _driver.DisposeAsync();
+            await _driver.DisposeAsync().ConfigureAwait(false);
         }
 
         SdkClientInfoRegistry.Unregister(Sdk.Metadata.TopicReaderClientInfo);
@@ -309,7 +311,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     {
         try
         {
-            while (await Stream.MoveNextAsync())
+            while (await Stream.MoveNextAsync().ConfigureAwait(false))
             {
                 var messageFromServer = Stream.Current;
 
@@ -324,16 +326,18 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 switch (messageFromServer.ServerMessageCase)
                 {
                     case ServerMessageOneofCase.ReadResponse:
-                        await HandleReadResponse(messageFromServer.ReadResponse);
+                        await HandleReadResponse(messageFromServer.ReadResponse).ConfigureAwait(false);
                         break;
                     case ServerMessageOneofCase.StartPartitionSessionRequest:
-                        await HandleStartPartitionSessionRequest(messageFromServer.StartPartitionSessionRequest);
+                        await HandleStartPartitionSessionRequest(messageFromServer.StartPartitionSessionRequest)
+                            .ConfigureAwait(false);
                         break;
                     case ServerMessageOneofCase.CommitOffsetResponse:
                         HandleCommitOffsetResponse(messageFromServer.CommitOffsetResponse);
                         break;
                     case ServerMessageOneofCase.StopPartitionSessionRequest:
-                        await StopPartitionSessionRequest(messageFromServer.StopPartitionSessionRequest);
+                        await StopPartitionSessionRequest(messageFromServer.StopPartitionSessionRequest)
+                            .ConfigureAwait(false);
                         break;
                     case ServerMessageOneofCase.PartitionSessionStatusResponse:
                     case ServerMessageOneofCase.UpdateTokenResponse:
@@ -365,9 +369,10 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     {
         try
         {
-            await foreach (var messageFromClient in _channelFromClientMessageSending.Reader.ReadAllAsync())
+            await foreach (var messageFromClient in _channelFromClientMessageSending.Reader.ReadAllAsync()
+                               .ConfigureAwait(false))
             {
-                await SendMessage(messageFromClient);
+                await SendMessage(messageFromClient).ConfigureAwait(false);
             }
         }
         catch (Exception e)
@@ -393,8 +398,10 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
         if (Interlocked.CompareExchange(ref _readRequestBytes, 0, readRequestBytes) == readRequestBytes)
         {
-            await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
-                { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } });
+            await _channelFromClientMessageSending.Writer
+                .WriteAsync(new MessageFromClient
+                    { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
+                .ConfigureAwait(false);
         }
     }
 
@@ -423,7 +430,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 PartitionSessionId = partitionSession.PartitionSessionId
                 /* Simple client doesn't have read_offset or commit_offset settings */
             }
-        });
+        }).ConfigureAwait(false);
     }
 
     private void HandleCommitOffsetResponse(StreamReadMessage.Types.CommitOffsetResponse commitOffsetResponse)
@@ -465,7 +472,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 {
                     StopPartitionSessionResponse = new StreamReadMessage.Types.StopPartitionSessionResponse
                         { PartitionSessionId = partitionSession.PartitionSessionId }
-                });
+                }).ConfigureAwait(false);
             }
         }
         else
@@ -482,7 +489,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
         await using var register = _lifecycleReaderSessionCts.Token.Register(() =>
             tcsCommit.TrySetException(new ReaderException($"ReaderSession[{SessionId}] was deactivated"))
-        );
+        ).ConfigureAwait(false);
 
         var commitSending = new CommitSending(offsetsRange, tcsCommit);
 
@@ -506,7 +513,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                             }
                         }
                     }
-                );
+                ).ConfigureAwait(false);
             }
             catch (ChannelClosedException)
             {
@@ -522,7 +529,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             Utils.SetPartitionClosedException(commitSending, partitionSessionId);
         }
 
-        await tcsCommit.Task;
+        await tcsCommit.Task.ConfigureAwait(false);
     }
 
     private async Task HandleReadResponse(StreamReadMessage.Types.ReadResponse readResponse)
@@ -559,7 +566,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                             ),
                             _deserializer
                         )
-                    );
+                    ).ConfigureAwait(false);
                 }
             }
             else
@@ -589,11 +596,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
         try
         {
-            await _runProcessingStreamRequest;
-            await Stream.RequestStreamComplete();
+            await _runProcessingStreamRequest.ConfigureAwait(false);
+            await Stream.RequestStreamComplete().ConfigureAwait(false);
             Logger.LogInformation("ReaderSession[{SessionId}]: RequestStream is closed", SessionId);
 
-            await _runProcessingStreamResponse; // waiting all ack's commits
+            await _runProcessingStreamResponse.ConfigureAwait(false); // waiting all ack's commits
         }
         catch (Exception e)
         {
