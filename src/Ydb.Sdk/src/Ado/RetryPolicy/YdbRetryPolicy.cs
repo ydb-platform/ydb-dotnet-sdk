@@ -35,7 +35,7 @@ public class YdbRetryPolicy : IRetryPolicy
     public static readonly YdbRetryPolicy IdempotenceDefault = new(new YdbRetryPolicyConfig
         { EnableRetryIdempotence = true });
 
-    private readonly int _maxAttempt;
+    private readonly int _maxAttempts;
     private readonly int _fastBackoffBaseMs;
     private readonly int _slowBackoffBaseMs;
     private readonly int _fastCeiling;
@@ -55,7 +55,7 @@ public class YdbRetryPolicy : IRetryPolicy
     /// </remarks>
     public YdbRetryPolicy(YdbRetryPolicyConfig config)
     {
-        _maxAttempt = config.MaxAttempts;
+        _maxAttempts = config.MaxAttempts;
         _fastBackoffBaseMs = config.FastBackoffBaseMs;
         _slowBackoffBaseMs = config.SlowBackoffBaseMs;
         _fastCeiling = (int)Math.Ceiling(Math.Log(config.FastCapBackoffMs + 1, 2));
@@ -93,7 +93,7 @@ public class YdbRetryPolicy : IRetryPolicy
     /// </remarks>
     public TimeSpan? GetNextDelay(YdbException ydbException, int attempt)
     {
-        if (attempt >= _maxAttempt || (!_enableRetryIdempotence && !ydbException.IsTransient))
+        if (attempt >= _maxAttempts || (!_enableRetryIdempotence && !ydbException.IsTransient))
             return null;
 
         return ydbException.Code switch

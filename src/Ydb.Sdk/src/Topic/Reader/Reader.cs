@@ -48,8 +48,6 @@ internal class Reader<TValue> : IReader<TValue>
         _deserializer = deserializer;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Reader<TValue>>();
 
-        SdkClientInfoRegistry.Register(Sdk.Metadata.TopicReaderClientInfo);
-
         _ = Initialize();
     }
 
@@ -230,8 +228,6 @@ internal class Reader<TValue> : IReader<TValue>
         {
             await _driver.DisposeAsync().ConfigureAwait(false);
         }
-
-        SdkClientInfoRegistry.Unregister(Sdk.Metadata.TopicReaderClientInfo);
 
         _logger.LogInformation("Reader[{ReaderConfig}] is disposed", _config);
     }

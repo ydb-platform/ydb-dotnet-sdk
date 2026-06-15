@@ -45,8 +45,6 @@ internal class Writer<TValue> : IWriter<TValue>
         _limitBufferMaxSize = config.BufferMaxSize;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Writer<TValue>>();
 
-        SdkClientInfoRegistry.Register(Sdk.Metadata.TopicWriterClientInfo);
-
         StartWriteWorker();
     }
 
@@ -399,8 +397,6 @@ internal class Writer<TValue> : IWriter<TValue>
         {
             await _driver.DisposeAsync().ConfigureAwait(false);
         }
-
-        SdkClientInfoRegistry.Unregister(Sdk.Metadata.TopicWriterClientInfo);
 
         _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);
     }
