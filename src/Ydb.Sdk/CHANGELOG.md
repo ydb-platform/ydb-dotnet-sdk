@@ -1,3 +1,5 @@
+- Dev: Topic Reader/Writer no longer register their own `topic-{reader,writer}/{V}` component in the `x-ydb-sdk-build-info` chain.
+
 ## v0.33.0
 
 - Fix: add ConfigureAwait(false) to avoid sync-over-async deadlocks ([#647](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/647)).

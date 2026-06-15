@@ -24,7 +24,7 @@ public class SdkBuildInfoHeaderTests : IDisposable
         // x-ydb-sdk-build-info is intentionally NOT added by the common path:
         // only Driver Discovery (ListEndpoints) emits the header, with the registry chain merged.
         SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
-        SdkClientInfoRegistry.Register(Metadata.TopicWriterClientInfo);
+        SdkClientInfoRegistry.Register($"client-a/{YdbSdkVersion.Value}");
 
         var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings());
 
@@ -36,34 +36,33 @@ public class SdkBuildInfoHeaderTests : IDisposable
     {
         SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
         SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
-        SdkClientInfoRegistry.Register(Metadata.TopicWriterClientInfo);
+        SdkClientInfoRegistry.Register($"client-a/{YdbSdkVersion.Value}");
 
         Assert.Equal(
-            $"ado-net/{YdbSdkVersion.Value};topic-writer/{YdbSdkVersion.Value}",
+            $"ado-net/{YdbSdkVersion.Value};client-a/{YdbSdkVersion.Value}",
             SdkClientInfoRegistry.Chain);
     }
 
     [Fact]
     public void SdkClientInfoRegistry_UnregisterDecrementsRefCount_RemovesOnlyAfterLastOwner()
     {
-        SdkClientInfoRegistry.Register(Metadata.TopicWriterClientInfo);
-        SdkClientInfoRegistry.Register(Metadata.TopicWriterClientInfo);
-        SdkClientInfoRegistry.Register(Metadata.TopicReaderClientInfo);
+        var clientA = $"client-a/{YdbSdkVersion.Value}";
+        var clientB = $"client-b/{YdbSdkVersion.Value}";
 
-        Assert.Equal(
-            $"topic-reader/{YdbSdkVersion.Value};topic-writer/{YdbSdkVersion.Value}",
-            SdkClientInfoRegistry.Chain);
+        SdkClientInfoRegistry.Register(clientA);
+        SdkClientInfoRegistry.Register(clientA);
+        SdkClientInfoRegistry.Register(clientB);
 
-        SdkClientInfoRegistry.Unregister(Metadata.TopicWriterClientInfo);
+        Assert.Equal($"{clientA};{clientB}", SdkClientInfoRegistry.Chain);
 
-        Assert.Equal(
-            $"topic-reader/{YdbSdkVersion.Value};topic-writer/{YdbSdkVersion.Value}",
-            SdkClientInfoRegistry.Chain);
+        SdkClientInfoRegistry.Unregister(clientA);
 
-        SdkClientInfoRegistry.Unregister(Metadata.TopicWriterClientInfo);
-        Assert.Equal($"topic-reader/{YdbSdkVersion.Value}", SdkClientInfoRegistry.Chain);
+        Assert.Equal($"{clientA};{clientB}", SdkClientInfoRegistry.Chain);
 
-        SdkClientInfoRegistry.Unregister(Metadata.TopicReaderClientInfo);
+        SdkClientInfoRegistry.Unregister(clientA);
+        Assert.Equal(clientB, SdkClientInfoRegistry.Chain);
+
+        SdkClientInfoRegistry.Unregister(clientB);
         Assert.Null(SdkClientInfoRegistry.Chain);
     }
 
