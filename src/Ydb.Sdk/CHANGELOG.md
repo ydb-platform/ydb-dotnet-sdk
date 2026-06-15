@@ -1,3 +1,5 @@
+## v0.33.1
+
 - Dev: Topic Reader/Writer no longer register their own `topic-{reader,writer}/{V}` component in the `x-ydb-sdk-build-info` chain.
 
 ## v0.33.0
