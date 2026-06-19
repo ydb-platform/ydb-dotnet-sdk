@@ -71,4 +71,5 @@ jobs:
           workload_current_ref: ${{ github.head_ref || github.ref_name }}
           workload_current_image: ydb-app-current
           workload_current_command: run "Host=ydb;Port=2136;Database=/Root/testdb"
-          disable_compose_profiles: workload-baseline,chaos,telemetry
+          fail_on_workload_error: true
+          disable_compose_profiles: workload-baseline,telemetry
