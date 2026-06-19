@@ -11,7 +11,7 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
 {
     protected override string Job => "EF";
 
-    protected override PooledDbContextFactory<TableDbContext> CreateClient(Config config) =>
+    protected override PooledDbContextFactory<TableDbContext> CreateClient(SloConfig config) =>
         new(new DbContextOptionsBuilder<TableDbContext>().UseYdb(config.ConnectionString,
             builder => builder.EnableRetryIdempotence()).Options);
 

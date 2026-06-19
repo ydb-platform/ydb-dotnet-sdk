@@ -3,20 +3,6 @@ using System.CommandLine.Binding;
 
 namespace Internal;
 
-public class CreateConfigBinder(
-    Argument<string> connectionString,
-    Option<int> initialDataCountOption,
-    Option<int> writeTimeoutOption
-) : BinderBase<CreateConfig>
-{
-    protected override CreateConfig GetBoundValue(BindingContext bindingContext) =>
-        new(
-            bindingContext.ParseResult.GetValueForArgument(connectionString),
-            bindingContext.ParseResult.GetValueForOption(initialDataCountOption),
-            bindingContext.ParseResult.GetValueForOption(writeTimeoutOption)
-        );
-}
-
 internal class RunConfigBinder(
     Argument<string> connectionString,
     Option<string?> otlpEndpointOption,
@@ -27,9 +13,9 @@ internal class RunConfigBinder(
     Option<int> writeTimeoutOption,
     Option<int> timeOption,
     Option<int> initialDataCountOption
-) : BinderBase<RunConfig>
+) : BinderBase<SloConfig>
 {
-    protected override RunConfig GetBoundValue(BindingContext bindingContext) =>
+    protected override SloConfig GetBoundValue(BindingContext bindingContext) =>
         new(
             bindingContext.ParseResult.GetValueForArgument(connectionString),
             bindingContext.ParseResult.GetValueForOption(otlpEndpointOption),

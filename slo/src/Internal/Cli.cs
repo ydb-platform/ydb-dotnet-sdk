@@ -43,18 +43,9 @@ public static class Cli
         "run time in seconds. Falls back to WORKLOAD_DURATION env var.");
 
     private static readonly Option<int> InitialDataCountOption = new(
-        new[] { "-c", "--initial-data-count" },
+        ["-c", "--initial-data-count"],
         () => 1000,
         "amount of initially created rows");
-
-    private static readonly Command CreateCommand = new(
-        "create",
-        "creates table in database")
-    {
-        ConnectionStringArgument,
-        InitialDataCountOption,
-        WriteTimeoutOption
-    };
 
     private static readonly Command RunCommand = new(
         "run",
@@ -73,20 +64,11 @@ public static class Cli
 
     private static readonly RootCommand RootCommand = new("SLO app")
     {
-        CreateCommand, RunCommand
+        RunCommand
     };
 
     public static async Task<int> Run(ISloContext sloContext, string[] args)
     {
-        CreateCommand.SetHandler(
-            async createConfig => { await sloContext.Create(createConfig); },
-            new CreateConfigBinder(
-                ConnectionStringArgument,
-                InitialDataCountOption,
-                WriteTimeoutOption
-            )
-        );
-
         RunCommand.SetHandler(
             async runConfig => { await sloContext.Run(runConfig); },
             new RunConfigBinder(
