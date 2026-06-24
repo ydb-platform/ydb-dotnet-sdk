@@ -60,19 +60,22 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    [ConditionalTheory(Skip = "Concatenation of strings is not implemented yet")]
-    [MemberData(nameof(IsAsyncData))]
     public override async Task Update_multiple_properties_inside_multiple_complex_types_and_on_entity_type(bool async)
         => await SharedTestMethods.TestIgnoringBase(
             base.Update_multiple_properties_inside_multiple_complex_types_and_on_entity_type,
             Fixture.TestSqlLoggerFactory,
             async,
             """
+            SELECT `c`.`Id`, `c`.`Name`, `c`.`BillingAddress_AddressLine1`, `c`.`BillingAddress_AddressLine2`, `c`.`BillingAddress_Tags`, `c`.`BillingAddress_ZipCode`, `c`.`BillingAddress_Country_Code`, `c`.`BillingAddress_Country_FullName`, `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
+            FROM `Customer` AS `c`
+            WHERE `c`.`ShippingAddress_ZipCode` = 7728
+            """,
+            """
             UPDATE `Customer`
-            SET "BillingAddress_ZipCode" = 54321,
-                "ShippingAddress_ZipCode" = c."BillingAddress_ZipCode",
-                "Name" = c."Name" || 'Modified'
-            WHERE c."ShippingAddress_ZipCode" = 7728
+            SET `BillingAddress_ZipCode` = 54321,
+                `ShippingAddress_ZipCode` = `BillingAddress_ZipCode`,
+                `Name` = `Name` || 'Modified'u
+            WHERE `ShippingAddress_ZipCode` = 7728
             """
         );
 
