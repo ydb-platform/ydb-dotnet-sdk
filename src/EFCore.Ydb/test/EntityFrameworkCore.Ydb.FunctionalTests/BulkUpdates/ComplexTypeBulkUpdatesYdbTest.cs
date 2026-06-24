@@ -7,9 +7,7 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
-#pragma warning disable xUnit1000
-internal class ComplexTypeBulkUpdatesYdbTest(
-#pragma warning restore xUnit1000
+public class ComplexTypeBulkUpdatesYdbTest(
     ComplexTypeBulkUpdatesYdbTest.ComplexTypeBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
 ) : ComplexTypeBulkUpdatesRelationalTestBase<ComplexTypeBulkUpdatesYdbTest.ComplexTypeBulkUpdatesYdbFixture>(
@@ -24,7 +22,7 @@ internal class ComplexTypeBulkUpdatesYdbTest(
             async,
             """
             DELETE FROM `Customer`
-            WHERE `Name` = 'Monty Elias'
+            WHERE `Name` = 'Monty Elias'u
             """
         );
 
@@ -53,12 +51,12 @@ internal class ComplexTypeBulkUpdatesYdbTest(
             """
             SELECT `c`.`Id`, `c`.`Name`, `c`.`BillingAddress_AddressLine1`, `c`.`BillingAddress_AddressLine2`, `c`.`BillingAddress_Tags`, `c`.`BillingAddress_ZipCode`, `c`.`BillingAddress_Country_Code`, `c`.`BillingAddress_Country_FullName`, `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
             FROM `Customer` AS `c`
-            WHERE `c`.`ShippingAddress_Country_Code` = 'US'
+            WHERE `c`.`ShippingAddress_Country_Code` = 'US'u
             """,
             """
             UPDATE `Customer`
-            SET `ShippingAddress_Country_FullName` = 'United States Modified'
-            WHERE `ShippingAddress_Country_Code` = 'US'
+            SET `ShippingAddress_Country_FullName` = 'United States Modified'u
+            WHERE `ShippingAddress_Country_Code` = 'US'u
             """
         );
 
@@ -186,12 +184,12 @@ internal class ComplexTypeBulkUpdatesYdbTest(
             """,
             """
             UPDATE `Customer`
-            SET `ShippingAddress_AddressLine1` = 'New AddressLine1',
-                `ShippingAddress_AddressLine2` = 'New AddressLine2',
-                `ShippingAddress_Tags` = '["new_tag1","new_tag2"]',
+            SET `ShippingAddress_AddressLine1` = 'New AddressLine1'u,
+                `ShippingAddress_AddressLine2` = 'New AddressLine2'u,
+                `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'u,
                 `ShippingAddress_ZipCode` = 99999,
-                `ShippingAddress_Country_Code` = 'FR',
-                `ShippingAddress_Country_FullName` = 'France'
+                `ShippingAddress_Country_Code` = 'FR'u,
+                `ShippingAddress_Country_FullName` = 'France'u
             """
         );
 
@@ -206,12 +204,12 @@ internal class ComplexTypeBulkUpdatesYdbTest(
             """,
             """
             UPDATE `Customer`
-            SET `ShippingAddress_AddressLine1` = 'New AddressLine1',
-                `ShippingAddress_AddressLine2` = 'New AddressLine2',
-                `ShippingAddress_Tags` = '["new_tag1","new_tag2"]',
+            SET `ShippingAddress_AddressLine1` = 'New AddressLine1'u,
+                `ShippingAddress_AddressLine2` = 'New AddressLine2'u,
+                `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'u,
                 `ShippingAddress_ZipCode` = 99999,
-                `ShippingAddress_Country_Code` = 'FR',
-                `ShippingAddress_Country_FullName` = 'France'
+                `ShippingAddress_Country_Code` = 'FR'u,
+                `ShippingAddress_Country_FullName` = 'France'u
             """
         );
 
@@ -242,8 +240,7 @@ internal class ComplexTypeBulkUpdatesYdbTest(
             """);
 
     public override async Task Update_collection_inside_complex_type(bool async)
-    {
-        await SharedTestMethods.TestIgnoringBase(
+        => await SharedTestMethods.TestIgnoringBase(
             base.Update_collection_inside_complex_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -253,28 +250,18 @@ internal class ComplexTypeBulkUpdatesYdbTest(
             """,
             """
             UPDATE `Customer`
-            SET `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'
+            SET `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'u
             """);
 
-        AssertSql("""
-                  SELECT `c`.`Id`, `c`.`Name`, `c`.`BillingAddress_AddressLine1`, `c`.`BillingAddress_AddressLine2`, `c`.`BillingAddress_Tags`, `c`.`BillingAddress_ZipCode`, `c`.`BillingAddress_Country_Code`, `c`.`BillingAddress_Country_FullName`, `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
-                  FROM `Customer` AS `c`
-                  """);
-        AssertExecuteUpdateSql("""
-                               UPDATE `Customer`
-                               SET `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'
-                               """);
-    }
+    [ConditionalTheory(Skip = "Inner query contains OFFSET without LIMIT. Impossible statement in YDB")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Update_projected_complex_type_via_OrderBy_Skip(bool async)
+        => base.Update_projected_complex_type_via_OrderBy_Skip(async);
 
     public class ComplexTypeBulkUpdatesYdbFixture : ComplexTypeBulkUpdatesRelationalFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
     }
-
-    private void AssertSql(params string[] expected) => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
-
-    private void AssertExecuteUpdateSql(params string[] expected)
-        => Fixture.TestSqlLoggerFactory.AssertBaseline(expected, forUpdate: true);
 }
 
 #endif
