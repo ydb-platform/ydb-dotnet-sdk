@@ -95,8 +95,8 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         => binaryExpression.OperatorType switch
         {
             ExpressionType.Add when binaryExpression.Type == typeof(string)
-                || binaryExpression.Left.TypeMapping?.ClrType == typeof(string)
-                || binaryExpression.Right.TypeMapping?.ClrType == typeof(string)
+                                    || binaryExpression.Left.TypeMapping?.ClrType == typeof(string)
+                                    || binaryExpression.Right.TypeMapping?.ClrType == typeof(string)
                 => " || ",
             _ => base.GetOperator(binaryExpression)
         };
