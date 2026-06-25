@@ -1,3 +1,5 @@
+- Added string concatenation support in LINQ (`||` in YQL).
+
 ## v0.5.0
 
 - Bumped `Ydb.Sdk` to `0.33.0`.

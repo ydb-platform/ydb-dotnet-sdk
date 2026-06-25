@@ -92,10 +92,14 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
     }
 
     protected override string GetOperator(SqlBinaryExpression binaryExpression)
-        => binaryExpression.OperatorType == ExpressionType.Add
-           && binaryExpression.Type == typeof(string)
-            ? " || "
-            : base.GetOperator(binaryExpression);
+        => binaryExpression.OperatorType switch
+        {
+            ExpressionType.Add when binaryExpression.Type == typeof(string)
+                                    || binaryExpression.Left.TypeMapping?.ClrType == typeof(string)
+                                    || binaryExpression.Right.TypeMapping?.ClrType == typeof(string)
+                => " || ",
+            _ => base.GetOperator(binaryExpression)
+        };
 
     protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
     {
