@@ -6,7 +6,7 @@ using static EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities.SharedTestMet
 namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
 #pragma warning disable xUnit1000
-internal class TpcInheritanceBulkUpdatesYdbTest(
+public class TpcInheritanceBulkUpdatesYdbTest(
 #pragma warning restore xUnit1000
     TpcInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
@@ -47,8 +47,6 @@ internal class TpcInheritanceBulkUpdatesYdbTest(
             async
         );
 
-    [ConditionalTheory(Skip = "TODO: need fix")]
-    [MemberData(nameof(IsAsyncData))]
     public override Task Update_base_type(bool async)
         => AssertYdb(
             base.Update_base_type,
@@ -70,7 +68,7 @@ internal class TpcInheritanceBulkUpdatesYdbTest(
             async,
             """
             DELETE FROM `Kiwi`
-            WHERE `Name` = 'Great spotted kiwi'
+            WHERE `Name` = 'Great spotted kiwi'u
             """
         );
 
@@ -124,7 +122,7 @@ internal class TpcInheritanceBulkUpdatesYdbTest(
             """,
             """
             UPDATE `Kiwi`
-            SET `Name` = 'SomeOtherKiwi'
+            SET `Name` = 'SomeOtherKiwi'u
             """
         );
 
@@ -155,7 +153,7 @@ internal class TpcInheritanceBulkUpdatesYdbTest(
             """
             UPDATE `Kiwi`
             SET `FoundOn` = 0,
-                `Name` = 'Kiwi'
+                `Name` = 'Kiwi'u
             """
         );
 
