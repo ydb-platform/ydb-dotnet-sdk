@@ -80,7 +80,7 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         else
         {
             // We must specify number here because offset without limit leads to exception
-            Sql.Append(((ulong)int.MaxValue).ToString()).Append("ul");
+            Sql.Append(int.MaxValue.ToString());
         }
 
         // ReSharper disable once InvertIf
