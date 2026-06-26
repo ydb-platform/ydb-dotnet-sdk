@@ -31,7 +31,7 @@ public sealed class YdbTypeMappingSource(
     private static readonly ByteTypeMapping Uint8 = new("Uint8", DbType.Byte);
     private static readonly UShortTypeMapping Uint16 = new("Uint16", DbType.UInt16);
     private static readonly UIntTypeMapping Uint32 = new("Uint32", DbType.UInt32);
-    private static readonly YdbULongTypeMapping Uint64 = new("Uint64", DbType.UInt64);
+    private static readonly ULongTypeMapping Uint64 = new("Uint64", DbType.UInt64);
 
     private static readonly FloatTypeMapping Float = new("Float", DbType.Single);
     private static readonly DoubleTypeMapping Double = new("Double", DbType.Double);
