@@ -256,11 +256,6 @@ public class ComplexTypeBulkUpdatesYdbTest(
             SET `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'u
             """);
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Update_projected_complex_type_via_OrderBy_Skip(bool async)
-        => base.Update_projected_complex_type_via_OrderBy_Skip(async);
-
     public class ComplexTypeBulkUpdatesYdbFixture : ComplexTypeBulkUpdatesRelationalFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
