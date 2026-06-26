@@ -34,13 +34,20 @@ public class SkipTakeYdbTest
 
         Assert.Equal(["b"], result);
 
-        var sql = Assert.Single(((TestSqlLoggerFactory)sqlLoggerFactory).SqlStatements);
-        Assert.Contains("LIMIT", sql);
-        Assert.Contains("OFFSET", sql);
+        ((TestSqlLoggerFactory)sqlLoggerFactory).AssertBaseline([
+            """
+            $__p_0='?' (DbType = Int32)
+
+            SELECT `t`.`Name`
+            FROM `TestEntities` AS `t`
+            ORDER BY `t`.`Id`
+            LIMIT @__p_0 OFFSET @__p_0
+            """
+        ], false);
     }
 
     [Fact]
-    public async Task Skip_with_large_Take_returns_remaining_rows()
+    public async Task Skip_without_Take_uses_default_limit()
     {
         await using var testStore = YdbTestStoreFactory.Instance.Create(nameof(SkipTakeYdbTest) + "_offset_only");
         using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
@@ -59,15 +66,21 @@ public class SkipTakeYdbTest
         var result = await context.Entities
             .OrderBy(e => e.Id)
             .Skip(1)
-            .Take(int.MaxValue)
             .Select(e => e.Name)
             .ToListAsync();
 
         Assert.Equal(["b", "c"], result);
 
-        var sql = Assert.Single(((TestSqlLoggerFactory)sqlLoggerFactory).SqlStatements);
-        Assert.Contains("LIMIT", sql);
-        Assert.Contains("OFFSET", sql);
+        ((TestSqlLoggerFactory)sqlLoggerFactory).AssertBaseline([
+            """
+            $__p_0='?' (DbType = Int32)
+
+            SELECT `t`.`Name`
+            FROM `TestEntities` AS `t`
+            ORDER BY `t`.`Id`
+            LIMIT 2147483647 OFFSET @__p_0
+            """
+        ], false);
     }
 
     public class TestEntity
