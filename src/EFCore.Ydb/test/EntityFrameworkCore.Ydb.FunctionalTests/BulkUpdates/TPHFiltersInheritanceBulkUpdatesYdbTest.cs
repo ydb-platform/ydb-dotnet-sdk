@@ -1,14 +1,12 @@
 using Microsoft.EntityFrameworkCore.BulkUpdates;
+using Xunit;
 using Xunit.Abstractions;
 using static EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities.SharedTestMethods;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
-// TODO: following error
-// Error: Primary key is required for ydb tables.
-// Probably use Name+CountryId, but...
 // ReSharper disable once InconsistentNaming
-internal class TPHFiltersInheritanceBulkUpdatesYdbTest(
+public class TPHFiltersInheritanceBulkUpdatesYdbTest(
     TphFiltersInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper
 ) : FiltersInheritanceBulkUpdatesRelationalTestBase<
@@ -49,6 +47,8 @@ internal class TPHFiltersInheritanceBulkUpdatesYdbTest(
             async
         );
 
+    [ConditionalTheory(Skip = "https://github.com/ydb-platform/ydb/issues/15177")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Delete_where_using_hierarchy(bool async)
         => AssertYdb(
             base.Delete_where_using_hierarchy,
@@ -56,12 +56,14 @@ internal class TPHFiltersInheritanceBulkUpdatesYdbTest(
             async
         );
 
-    // public override Task Delete_where_using_hierarchy_derived(bool async)
-    //     => AssertYdb(
-    //         base.Delete_where_using_hierarchy_derived,
-    //         Fixture.TestSqlLoggerFactory,
-    //         async
-    //     );
+    [ConditionalTheory(Skip = "https://github.com/ydb-platform/ydb/issues/15177")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Delete_where_using_hierarchy_derived(bool async)
+        => AssertYdb(
+            base.Delete_where_using_hierarchy_derived,
+            Fixture.TestSqlLoggerFactory,
+            async
+        );
 
     public override Task Delete_GroupBy_Where_Select_First(bool async)
         => AssertYdb(
@@ -77,6 +79,8 @@ internal class TPHFiltersInheritanceBulkUpdatesYdbTest(
             async
         );
 
+    [ConditionalTheory(Skip = "https://github.com/ydb-platform/ydb/issues/15177")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Delete_GroupBy_Where_Select_First_3(bool async)
         => AssertYdb(
             base.Delete_GroupBy_Where_Select_First_3,
@@ -126,6 +130,8 @@ internal class TPHFiltersInheritanceBulkUpdatesYdbTest(
             async
         );
 
+    [ConditionalTheory(Skip = "https://github.com/ydb-platform/ydb/issues/15177")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Update_where_using_hierarchy(bool async)
         => AssertYdb(
             base.Update_where_using_hierarchy,
@@ -133,6 +139,8 @@ internal class TPHFiltersInheritanceBulkUpdatesYdbTest(
             async
         );
 
+    [ConditionalTheory(Skip = "https://github.com/ydb-platform/ydb/issues/15177")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Update_where_using_hierarchy_derived(bool async)
         => AssertYdb(
             base.Update_where_using_hierarchy_derived,
