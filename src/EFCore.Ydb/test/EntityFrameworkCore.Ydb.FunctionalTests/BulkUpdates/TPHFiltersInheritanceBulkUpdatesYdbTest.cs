@@ -1,4 +1,3 @@
-using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Xunit.Abstractions;
 using static EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities.SharedTestMethods;
