@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
 // TODO: Refactor later
 #pragma warning disable xUnit1000
-internal class TPTFiltersInheritanceBulkUpdatesSqlServerTest(
+internal class TPTFiltersInheritanceBulkUpdatesYdbTest(
 #pragma warning restore xUnit1000
     TPTFiltersInheritanceBulkUpdatesYdbFixture fixture,
     ITestOutputHelper testOutputHelper

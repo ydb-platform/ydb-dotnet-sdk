@@ -8,4 +8,6 @@ internal class TPHInheritanceBulkUpdatesYdbFixture : TPHInheritanceBulkUpdatesFi
 {
     protected override ITestStoreFactory TestStoreFactory
         => YdbTestStoreFactory.Instance;
+
+    public override bool UseGeneratedKeys => false;
 }

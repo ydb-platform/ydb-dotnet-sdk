@@ -7,4 +7,6 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 internal class TPTInheritanceBulkUpdatesYdbFixture : TPTInheritanceBulkUpdatesFixture
 {
     protected override ITestStoreFactory TestStoreFactory => YdbTestStoreFactory.Instance;
+
+    public override bool UseGeneratedKeys => false;
 }
