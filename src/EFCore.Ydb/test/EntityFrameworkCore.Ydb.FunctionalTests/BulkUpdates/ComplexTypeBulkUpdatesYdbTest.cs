@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
+using static EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities.SharedTestMethods;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
@@ -15,8 +16,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
     testOutputHelper
 )
 {
-    public override async Task Delete_entity_type_with_complex_type(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Delete_entity_type_with_complex_type(bool async)
+        => AssertYdb(
             base.Delete_entity_type_with_complex_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -26,8 +27,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_property_inside_complex_type(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_property_inside_complex_type(bool async)
+        => AssertYdb(
             base.Update_property_inside_complex_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -43,8 +44,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_property_inside_nested_complex_type(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_property_inside_nested_complex_type(bool async)
+        => AssertYdb(
             base.Update_property_inside_nested_complex_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -60,8 +61,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_multiple_properties_inside_multiple_complex_types_and_on_entity_type(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_multiple_properties_inside_multiple_complex_types_and_on_entity_type(bool async)
+        => AssertYdb(
             base.Update_multiple_properties_inside_multiple_complex_types_and_on_entity_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -79,8 +80,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_projected_complex_type(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_projected_complex_type(bool async)
+        => AssertYdb(
             base.Update_projected_complex_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -94,8 +95,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_multiple_projected_complex_types_via_anonymous_type(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_multiple_projected_complex_types_via_anonymous_type(bool async)
+        => AssertYdb(
             base.Update_multiple_projected_complex_types_via_anonymous_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -110,8 +111,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_complex_type_to_parameter(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_complex_type_to_parameter(bool async)
+        => AssertYdb(
             base.Update_complex_type_to_parameter,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -137,8 +138,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_nested_complex_type_to_parameter(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_nested_complex_type_to_parameter(bool async)
+        => AssertYdb(
             base.Update_nested_complex_type_to_parameter,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -156,8 +157,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_complex_type_to_another_database_complex_type(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_complex_type_to_another_database_complex_type(bool async)
+        => AssertYdb(
             base.Update_complex_type_to_another_database_complex_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -176,8 +177,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_complex_type_to_inline_without_lambda(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_complex_type_to_inline_without_lambda(bool async)
+        => AssertYdb(
             base.Update_complex_type_to_inline_without_lambda,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -196,8 +197,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    public override async Task Update_complex_type_to_inline_with_lambda(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_complex_type_to_inline_with_lambda(bool async)
+        => AssertYdb(
             base.Update_complex_type_to_inline_with_lambda,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -218,8 +219,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
 
     [ConditionalTheory(Skip = "YDB does not support UPDATE ... FROM (subquery) syntax yet")]
     [MemberData(nameof(IsAsyncData))]
-    public override async Task Update_complex_type_to_another_database_complex_type_with_subquery(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_complex_type_to_another_database_complex_type_with_subquery(bool async)
+        => AssertYdb(
             base.Update_complex_type_to_another_database_complex_type_with_subquery,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -240,10 +241,11 @@ public class ComplexTypeBulkUpdatesYdbTest(
                 OFFSET @p
             ) AS c1
             WHERE c0."Id" = c1."Id"
-            """);
+            """
+        );
 
-    public override async Task Update_collection_inside_complex_type(bool async)
-        => await SharedTestMethods.TestIgnoringBase(
+    public override Task Update_collection_inside_complex_type(bool async)
+        => AssertYdb(
             base.Update_collection_inside_complex_type,
             Fixture.TestSqlLoggerFactory,
             async,
@@ -254,7 +256,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
             UPDATE `Customer`
             SET `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'u
-            """);
+            """
+        );
 
     public class ComplexTypeBulkUpdatesYdbFixture : ComplexTypeBulkUpdatesRelationalFixtureBase
     {
