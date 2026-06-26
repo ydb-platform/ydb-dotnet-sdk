@@ -57,11 +57,12 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
               --logger "console;verbosity=normal" \
+              --logger "GitHubActions;report-warnings=false" \
               --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
               --results-directory "$COVERAGE_DIR/ado"
           else
-            dotnet test --logger "console;verbosity=normal"
+            dotnet test --logger "console;verbosity=normal" --logger "GitHubActions;report-warnings=false"
           fi
 
       - name: Run ADO.NET Specification Tests
@@ -70,11 +71,12 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
               --logger "console;verbosity=normal" \
+              --logger "GitHubActions;report-warnings=false" \
               --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
               --results-directory "$COVERAGE_DIR/specification"
           else
-            dotnet test --logger "console;verbosity=normal"
+            dotnet test --logger "console;verbosity=normal" --logger "GitHubActions;report-warnings=false"
           fi
 
       - name: Run ADO.NET Dapper Tests
@@ -83,11 +85,12 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
               --logger "console;verbosity=normal" \
+              --logger "GitHubActions;report-warnings=false" \
               --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
               --results-directory "$COVERAGE_DIR/dapper"
           else
-            dotnet test --logger "console;verbosity=normal"
+            dotnet test --logger "console;verbosity=normal" --logger "GitHubActions;report-warnings=false"
           fi
 
       - name: Run Topic Tests
@@ -96,11 +99,12 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
               --logger "console;verbosity=normal" \
+              --logger "GitHubActions;report-warnings=false" \
               --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
               --results-directory "$COVERAGE_DIR/topic"
           else
-            dotnet test --logger "console;verbosity=normal"
+            dotnet test --logger "console;verbosity=normal" --logger "GitHubActions;report-warnings=false"
           fi
 
       - name: Upload Ydb.Sdk coverage to Codecov
@@ -155,11 +159,12 @@ jobs:
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test -f net9.0 \
               --logger "console;verbosity=normal" \
+              --logger "GitHubActions;report-warnings=false" \
               --settings "$COVERAGE_SETTINGS" \
               --collect:"XPlat Code Coverage" \
               --results-directory "$COVERAGE_DIR/functional"
           else
-            dotnet test -f net9.0 --logger "console;verbosity=normal"
+            dotnet test -f net9.0 --logger "console;verbosity=normal" --logger "GitHubActions;report-warnings=false"
           fi
 
       - name: Upload EFCore.Ydb coverage to Codecov
