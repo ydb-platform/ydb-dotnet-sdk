@@ -216,7 +216,7 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
-    [ConditionalTheory(Skip = "Inner query contains OFFSET without LIMIT. Impossible statement in YDB")]
+    [ConditionalTheory(Skip = "YDB does not support UPDATE ... FROM (subquery) syntax yet")]
     [MemberData(nameof(IsAsyncData))]
     public override async Task Update_complex_type_to_another_database_complex_type_with_subquery(bool async)
         => await SharedTestMethods.TestIgnoringBase(
@@ -256,7 +256,7 @@ public class ComplexTypeBulkUpdatesYdbTest(
             SET `ShippingAddress_Tags` = '["new_tag1","new_tag2"]'u
             """);
 
-    [ConditionalTheory(Skip = "Inner query contains OFFSET without LIMIT. Impossible statement in YDB")]
+    [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_projected_complex_type_via_OrderBy_Skip(bool async)
         => base.Update_projected_complex_type_via_OrderBy_Skip(async);
