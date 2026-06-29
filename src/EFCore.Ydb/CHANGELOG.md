@@ -1,5 +1,6 @@
 - Added string concatenation support in LINQ (`||` in YQL).
 - Fixed LINQ `Skip`/`Take` pagination: default `LIMIT` for offset-only queries uses `int.MaxValue` instead of `ulong.MaxValue`.
+- Fixed bulk `ExecuteUpdate`/`ExecuteDelete` with joins: generate YDB `UPDATE ON` / `DELETE ON` using primary key columns from table metadata instead of EF pushdown subqueries.
 
 ## v0.5.0
 
