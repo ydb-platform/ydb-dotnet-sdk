@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 /// <summary>
 /// Verifies YDB-specific UPDATE/DELETE SQL generation (simple WHERE vs UPDATE ON / DELETE ON for joins).
 /// </summary>
-public class BulkUpdateDeleteSqlYdbTest
+public class ExecuteUpdateDeleteSqlYdbTest
 {
     [Fact]
     public async Task ExecuteUpdate_single_table_generates_simple_update()
@@ -136,7 +136,7 @@ public class BulkUpdateDeleteSqlYdbTest
     }
 
     private static TestStore CreateStore(string testName) =>
-        YdbTestStoreFactory.Instance.Create($"{nameof(BulkUpdateDeleteSqlYdbTest)}_{testName}");
+        YdbTestStoreFactory.Instance.Create($"{nameof(ExecuteUpdateDeleteSqlYdbTest)}_{testName}");
 
     public class Item
     {
