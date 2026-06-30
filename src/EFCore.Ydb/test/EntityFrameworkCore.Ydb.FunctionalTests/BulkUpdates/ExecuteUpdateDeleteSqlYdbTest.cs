@@ -32,18 +32,18 @@ public class ExecuteUpdateDeleteSqlYdbTest
 
 #if EFCORE9
         AssertSql(logger, """
-            UPDATE `Items`
-            SET `Title` = 'new'u
-            WHERE `Id` = 1
-            """);
+                          UPDATE `Items`
+                          SET `Title` = 'new'u
+                          WHERE `Id` = 1
+                          """);
 #else
         AssertSql(logger, """
-            $p='?'
+                          $p='?'
 
-            UPDATE `Items`
-            SET `Title` = @p
-            WHERE `Id` = 1
-            """);
+                          UPDATE `Items`
+                          SET `Title` = @p
+                          WHERE `Id` = 1
+                          """);
 #endif
         Assert.DoesNotContain(" FROM ", logger.SqlStatements[0]);
     }
@@ -68,9 +68,9 @@ public class ExecuteUpdateDeleteSqlYdbTest
             .ExecuteDeleteAsync();
 
         AssertSql(logger, """
-            DELETE FROM `Items`
-            WHERE `Id` = 1
-            """);
+                          DELETE FROM `Items`
+                          WHERE `Id` = 1
+                          """);
     }
 
     [Fact]
@@ -96,9 +96,9 @@ public class ExecuteUpdateDeleteSqlYdbTest
             .ExecuteDeleteAsync();
 
         AssertSql(logger, """
-            DELETE FROM `Items`
-            WHERE `Id` IN (1, 2)
-            """);
+                          DELETE FROM `Items`
+                          WHERE `Id` IN (1, 2)
+                          """);
         Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
     }
 
@@ -126,18 +126,18 @@ public class ExecuteUpdateDeleteSqlYdbTest
 
 #if EFCORE9
         AssertSql(logger, """
-            UPDATE `Items`
-            SET `Title` = 'updated'u
-            WHERE `Id` IN (1, 2)
-            """);
+                          UPDATE `Items`
+                          SET `Title` = 'updated'u
+                          WHERE `Id` IN (1, 2)
+                          """);
 #else
         AssertSql(logger, """
-            $p='?'
+                          $p='?'
 
-            UPDATE `Items`
-            SET `Title` = @p
-            WHERE `Id` IN (1, 2)
-            """);
+                          UPDATE `Items`
+                          SET `Title` = @p
+                          WHERE `Id` IN (1, 2)
+                          """);
 #endif
         Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
     }
@@ -165,13 +165,13 @@ public class ExecuteUpdateDeleteSqlYdbTest
             .ExecuteDeleteAsync();
 
         AssertSql(logger, """
-            DELETE FROM `Items`
-            WHERE `Id` IN (
-                SELECT `Id` AS `Id`
-                FROM `Items`
-                WHERE `Title` = 'old'u
-            )
-            """);
+                          DELETE FROM `Items`
+                          WHERE `Id` IN (
+                              SELECT `Id` AS `Id`
+                              FROM `Items`
+                              WHERE `Title` = 'old'u
+                          )
+                          """);
         Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
     }
 
@@ -199,26 +199,26 @@ public class ExecuteUpdateDeleteSqlYdbTest
 
 #if EFCORE9
         AssertSql(logger, """
-            UPDATE `Items`
-            SET `Title` = 'updated'u
-            WHERE `Id` IN (
-                SELECT `Id` AS `Id`
-                FROM `Items`
-                WHERE `Title` = 'old'u
-            )
-            """);
+                          UPDATE `Items`
+                          SET `Title` = 'updated'u
+                          WHERE `Id` IN (
+                              SELECT `Id` AS `Id`
+                              FROM `Items`
+                              WHERE `Title` = 'old'u
+                          )
+                          """);
 #else
         AssertSql(logger, """
-            $p='?'
+                          $p='?'
 
-            UPDATE `Items`
-            SET `Title` = @p
-            WHERE `Id` IN (
-                SELECT `Id` AS `Id`
-                FROM `Items`
-                WHERE `Title` = 'old'u
-            )
-            """);
+                          UPDATE `Items`
+                          SET `Title` = @p
+                          WHERE `Id` IN (
+                              SELECT `Id` AS `Id`
+                              FROM `Items`
+                              WHERE `Title` = 'old'u
+                          )
+                          """);
 #endif
         Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
     }
@@ -245,22 +245,22 @@ public class ExecuteUpdateDeleteSqlYdbTest
 
 #if EFCORE9
         AssertSql(logger, """
-            UPDATE `Orders` ON 
-            SELECT `o`.`Id` AS `Id`, 'Shipped'u AS `Status`
-            FROM `Orders` AS `o`
-            INNER JOIN `Customers` AS `c` ON `o`.`CustomerId` = `c`.`Id`
-            WHERE `c`.`Name` = 'Acme'u
-            """);
+                          UPDATE `Orders` ON 
+                          SELECT `o`.`Id` AS `Id`, 'Shipped'u AS `Status`
+                          FROM `Orders` AS `o`
+                          INNER JOIN `Customers` AS `c` ON `o`.`CustomerId` = `c`.`Id`
+                          WHERE `c`.`Name` = 'Acme'u
+                          """);
 #else
         AssertSql(logger, """
-            $p='?'
+                          $p='?'
 
-            UPDATE `Orders` ON 
-            SELECT `o`.`Id` AS `Id`, @p AS `Status`
-            FROM `Orders` AS `o`
-            INNER JOIN `Customers` AS `c` ON `o`.`CustomerId` = `c`.`Id`
-            WHERE `c`.`Name` = 'Acme'u
-            """);
+                          UPDATE `Orders` ON 
+                          SELECT `o`.`Id` AS `Id`, @p AS `Status`
+                          FROM `Orders` AS `o`
+                          INNER JOIN `Customers` AS `c` ON `o`.`CustomerId` = `c`.`Id`
+                          WHERE `c`.`Name` = 'Acme'u
+                          """);
 #endif
         Assert.DoesNotContain(" SET ", logger.SqlStatements[0]);
     }
@@ -286,11 +286,11 @@ public class ExecuteUpdateDeleteSqlYdbTest
             .ExecuteDeleteAsync();
 
         AssertSql(logger, """
-            DELETE FROM `Orders` ON SELECT `o0`.`Id` AS `Id`
-            FROM `Orders` AS `o0`
-            INNER JOIN `Customers` AS `c` ON `o0`.`CustomerId` = `c`.`Id`
-            WHERE `c`.`Name` = 'Acme'u
-            """);
+                          DELETE FROM `Orders` ON SELECT `o0`.`Id` AS `Id`
+                          FROM `Orders` AS `o0`
+                          INNER JOIN `Customers` AS `c` ON `o0`.`CustomerId` = `c`.`Id`
+                          WHERE `c`.`Name` = 'Acme'u
+                          """);
     }
 
     private static void AssertSql(TestSqlLoggerFactory logger, string expected)

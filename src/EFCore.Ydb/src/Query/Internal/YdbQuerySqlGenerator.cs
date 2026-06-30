@@ -90,8 +90,8 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
 
     private static bool IsDeleteOnSelect(SelectExpression select, TableExpression table) =>
         IsComplexSelect(select, table)
-        || select.Predicate is InExpression { Subquery: not null } inExpression
-            && IsComplexInSubquery(inExpression.Subquery);
+        || (select.Predicate is InExpression { Subquery: not null } inExpression
+            && IsComplexInSubquery(inExpression.Subquery));
 
     private static bool IsComplexInSubquery(SelectExpression select) =>
         select.Offset != null
@@ -246,8 +246,8 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
             .Select(property =>
             {
                 var columnName = property.GetColumnName(storeObject)
-                    ?? throw new InvalidOperationException(
-                        $"Could not determine key column name for `{property.Name}` on `{updateTable.Name}`.");
+                                 ?? throw new InvalidOperationException(
+                                     $"Could not determine key column name for `{property.Name}` on `{updateTable.Name}`.");
 
                 return new ColumnExpression(
                     columnName,
