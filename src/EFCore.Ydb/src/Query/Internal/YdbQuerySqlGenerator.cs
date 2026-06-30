@@ -1,14 +1,18 @@
+using System;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using EntityFrameworkCore.Ydb.Query.Expressions.Internal;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;
 
-public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : QuerySqlGenerator(dependencies)
+public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : QuerySqlGenerator(dependencies)
 {
     private bool SkipAliases { get; set; }
     private ISqlGenerationHelper SqlGenerationHelper => Dependencies.SqlGenerationHelper;
@@ -49,12 +53,149 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
 
     protected override Expression VisitDelete(DeleteExpression deleteExpression)
     {
+        Sql.Append("DELETE FROM ");
+
         SkipAliases = true;
-        base.VisitDelete(deleteExpression);
+        Visit(deleteExpression.Table);
         SkipAliases = false;
+
+        var select = deleteExpression.SelectExpression;
+
+        if (IsDeleteOnSelect(select, deleteExpression.Table))
+        {
+            GenerateDeleteOn(deleteExpression);
+        }
+        else
+        {
+            GenerateSimpleWhere(select, skipAliases: true);
+        }
 
         return deleteExpression;
     }
+
+    private void GenerateDeleteOn(DeleteExpression deleteExpression)
+    {
+        var select = deleteExpression.SelectExpression;
+
+        if (select.Predicate is InExpression { Subquery: not null } inExpression)
+        {
+            Sql.Append(" ON ");
+            Visit(inExpression.Subquery);
+            return;
+        }
+
+        GenerateDeleteOnSubquery(deleteExpression.Table, select);
+    }
+
+    private static bool IsDeleteOnSelect(SelectExpression select, TableExpression table) =>
+        IsComplexSelect(select, table)
+        || (select.Predicate is InExpression { Subquery: not null } inExpression
+            && IsComplexInSubquery(inExpression.Subquery));
+
+    private static bool IsComplexInSubquery(SelectExpression select) =>
+        select.Offset != null
+        || select.Limit != null
+        || select.Having != null
+        || select.Orderings.Count > 0
+        || select.GroupBy.Count > 0
+        || select.Tables.Count > 1;
+
+    private void GenerateSimpleWhere(SelectExpression select, bool skipAliases)
+    {
+        var predicate = select.Predicate;
+        if (predicate == null) return;
+
+        Sql.AppendLine().Append("WHERE ");
+        if (skipAliases) SkipAliases = true;
+        Visit(predicate);
+        if (skipAliases) SkipAliases = false;
+    }
+
+    private void GenerateDeleteOnSubquery(TableExpression table, SelectExpression select)
+    {
+        Sql.Append(" ON ").AppendLine().Append("SELECT ");
+
+        var first = true;
+        foreach (var keyColumn in FindKeyColumnsForDeleteOn(table))
+        {
+            if (!first)
+            {
+                Sql.Append(", ");
+            }
+
+            Visit(keyColumn);
+            AppendSelectAlias(keyColumn.Name);
+            first = false;
+        }
+
+        if (!TryGenerateWithoutWrappingSelect(select))
+        {
+            GenerateFrom(select);
+            if (select.Predicate != null)
+            {
+                Sql.AppendLine().Append("WHERE ");
+                Visit(select.Predicate);
+            }
+
+            GenerateOrderings(select);
+            GenerateLimitOffset(select);
+        }
+
+        if (select.Alias != null)
+        {
+            Sql.AppendLine()
+                .Append(")")
+                .Append(AliasSeparator)
+                .Append(SqlGenerationHelper.DelimitIdentifier(select.Alias));
+        }
+    }
+
+    private void AppendSelectAlias(string alias)
+        => Sql.Append(AliasSeparator).Append(SqlGenerationHelper.DelimitIdentifier(alias));
+
+    private static ImmutableList<ColumnExpression> FindKeyColumnsForDeleteOn(TableExpression table)
+    {
+        var tableAlias = table.Alias;
+
+        var entityType = table.Table.EntityTypeMappings
+            .Select(m => m.TypeBase)
+            .OfType<IEntityType>()
+            .FirstOrDefault();
+
+        if (entityType?.FindPrimaryKey() is not { } primaryKey)
+        {
+            throw new InvalidOperationException(
+                $"Could not determine key columns for DELETE ON over `{table.Name}`.");
+        }
+
+        var storeObject = StoreObjectIdentifier.Table(table.Name, table.Schema);
+
+        return primaryKey.Properties
+            .Select(property =>
+            {
+                var columnName = property.GetColumnName(storeObject)
+                                 ?? throw new InvalidOperationException(
+                                     $"Could not determine key column name for `{property.Name}` on `{table.Name}`.");
+
+                return new ColumnExpression(
+                    columnName,
+                    tableAlias,
+                    property.ClrType,
+                    property.GetRelationalTypeMapping(),
+                    property.IsNullable);
+            })
+            .ToImmutableList();
+    }
+
+    private static bool IsComplexSelect(SelectExpression select, TableExpressionBase fromTable) =>
+        select.Offset != null
+        || select.Limit != null
+        || select.Having != null
+        || select.Orderings.Count > 0
+        || select.GroupBy.Count > 0
+        || select.Projection.Count > 0
+        || select.Tables.Count > 1
+        || !(select.Tables.Count == 1 && select.Tables[0].Equals(fromTable));
 
     protected override Expression VisitUpdate(UpdateExpression updateExpression)
     {
@@ -153,7 +294,7 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         return projectionExpression;
     }
 
-    protected virtual Expression VisitILike(YdbILikeExpression likeExpression, bool negated = false)
+    private Expression VisitILike(YdbILikeExpression likeExpression, bool negated = false)
     {
         Visit(likeExpression.Match);
 
