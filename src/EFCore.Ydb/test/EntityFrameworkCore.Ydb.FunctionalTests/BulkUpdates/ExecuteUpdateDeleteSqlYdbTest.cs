@@ -30,6 +30,13 @@ public class ExecuteUpdateDeleteSqlYdbTest
             .Where(i => i.Id == 1)
             .ExecuteUpdateAsync(s => s.SetProperty(i => i.Title, "new"));
 
+#if EFCORE9
+        AssertSql(logger, """
+            UPDATE `Items`
+            SET `Title` = 'new'u
+            WHERE `Id` = 1
+            """);
+#else
         AssertSql(logger, """
             $p='?'
 
@@ -37,6 +44,7 @@ public class ExecuteUpdateDeleteSqlYdbTest
             SET `Title` = @p
             WHERE `Id` = 1
             """);
+#endif
         Assert.DoesNotContain(" FROM ", logger.SqlStatements[0]);
     }
 
@@ -116,6 +124,13 @@ public class ExecuteUpdateDeleteSqlYdbTest
             .Where(i => new[] { 1, 2 }.Contains(i.Id))
             .ExecuteUpdateAsync(s => s.SetProperty(i => i.Title, "updated"));
 
+#if EFCORE9
+        AssertSql(logger, """
+            UPDATE `Items`
+            SET `Title` = 'updated'u
+            WHERE `Id` IN (1, 2)
+            """);
+#else
         AssertSql(logger, """
             $p='?'
 
@@ -123,6 +138,7 @@ public class ExecuteUpdateDeleteSqlYdbTest
             SET `Title` = @p
             WHERE `Id` IN (1, 2)
             """);
+#endif
         Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
     }
 
@@ -181,6 +197,17 @@ public class ExecuteUpdateDeleteSqlYdbTest
             .Where(i => context.Items.Where(x => x.Title == "old").Select(x => x.Id).Contains(i.Id))
             .ExecuteUpdateAsync(s => s.SetProperty(i => i.Title, "updated"));
 
+#if EFCORE9
+        AssertSql(logger, """
+            UPDATE `Items`
+            SET `Title` = 'updated'u
+            WHERE `Id` IN (
+                SELECT `Id` AS `Id`
+                FROM `Items`
+                WHERE `Title` = 'old'u
+            )
+            """);
+#else
         AssertSql(logger, """
             $p='?'
 
@@ -192,6 +219,7 @@ public class ExecuteUpdateDeleteSqlYdbTest
                 WHERE `Title` = 'old'u
             )
             """);
+#endif
         Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
     }
 
@@ -215,6 +243,15 @@ public class ExecuteUpdateDeleteSqlYdbTest
             .Where(o => o.Customer!.Name == "Acme")
             .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, "Shipped"));
 
+#if EFCORE9
+        AssertSql(logger, """
+            UPDATE `Orders` ON 
+            SELECT `o`.`Id` AS `Id`, 'Shipped'u AS `Status`
+            FROM `Orders` AS `o`
+            INNER JOIN `Customers` AS `c` ON `o`.`CustomerId` = `c`.`Id`
+            WHERE `c`.`Name` = 'Acme'u
+            """);
+#else
         AssertSql(logger, """
             $p='?'
 
@@ -224,6 +261,7 @@ public class ExecuteUpdateDeleteSqlYdbTest
             INNER JOIN `Customers` AS `c` ON `o`.`CustomerId` = `c`.`Id`
             WHERE `c`.`Name` = 'Acme'u
             """);
+#endif
         Assert.DoesNotContain(" SET ", logger.SqlStatements[0]);
     }
 
