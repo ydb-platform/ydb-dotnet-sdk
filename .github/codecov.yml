@@ -1,0 +1,20 @@
+# Cross-repo uniform metric: every YDB SDK repo defines this same component_id,
+# so native-SDK coverage is queryable identically via the Codecov API
+# (?component_id=native-sdk), regardless of how each repo tags its uploads.
+#
+# This repo is a monorepo. The native-sdk component covers the SDK itself plus its
+# first-party OpenTelemetry integration (mirrors the Python SDK, where the otel
+# plugin lives inside the ydb package and counts as native). The EF Core provider
+# is a separate framework adapter and gets its own component, so it does not dilute
+# the SDK number.
+component_management:
+  individual_components:
+    - component_id: native-sdk
+      name: Native SDK
+      paths:
+        - "src/Ydb.Sdk/src/**"
+        - "src/Ydb.Sdk.OpenTelemetry/src/**"
+    - component_id: efcore
+      name: EF Core provider
+      paths:
+        - "src/EFCore.Ydb/src/**"
