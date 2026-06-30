@@ -160,8 +160,9 @@ public class ExecuteUpdateDeleteSqlYdbTest
         var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
         logger.Clear();
 
-        await context.Items
-            .Where(i => context.Items.Where(x => x.Title == "old").Select(x => x.Id).Contains(i.Id))
+        var items = context.Items;
+        await items
+            .Where(i => items.Where(x => x.Title == "old").Select(x => x.Id).Contains(i.Id))
             .ExecuteDeleteAsync();
 
         AssertSql(logger, """
@@ -193,8 +194,9 @@ public class ExecuteUpdateDeleteSqlYdbTest
         var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
         logger.Clear();
 
-        await context.Items
-            .Where(i => context.Items.Where(x => x.Title == "old").Select(x => x.Id).Contains(i.Id))
+        var items = context.Items;
+        await items
+            .Where(i => items.Where(x => x.Title == "old").Select(x => x.Id).Contains(i.Id))
             .ExecuteUpdateAsync(s => s.SetProperty(i => i.Title, "updated"));
 
 #if EFCORE9
