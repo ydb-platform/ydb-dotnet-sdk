@@ -62,24 +62,44 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
 
         var select = deleteExpression.SelectExpression;
 
-        var complexSelect = IsComplexSelect(deleteExpression.SelectExpression, deleteExpression.Table);
-
-        if (select.Predicate is InExpression predicate)
+        if (IsDeleteOnSelect(select, deleteExpression.Table))
         {
-            Sql.Append(" ON ");
-            Visit(predicate.Subquery);
-        }
-        else if (!complexSelect)
-        {
-            GenerateSimpleWhere(select, skipAliases: true);
+            GenerateDeleteOn(deleteExpression);
         }
         else
         {
-            GenerateOnSubquery(deleteExpression.Table, null, select);
+            GenerateSimpleWhere(select, skipAliases: true);
         }
 
         return deleteExpression;
     }
+
+    private void GenerateDeleteOn(DeleteExpression deleteExpression)
+    {
+        var select = deleteExpression.SelectExpression;
+
+        if (select.Predicate is InExpression { Subquery: not null } inExpression)
+        {
+            Sql.Append(" ON ");
+            Visit(inExpression.Subquery);
+            return;
+        }
+
+        GenerateOnSubquery(deleteExpression.Table, null, select);
+    }
+
+    private static bool IsDeleteOnSelect(SelectExpression select, TableExpression table) =>
+        IsComplexSelect(select, table)
+        || select.Predicate is InExpression { Subquery: not null } inExpression
+            && IsComplexInSubquery(inExpression.Subquery);
+
+    private static bool IsComplexInSubquery(SelectExpression select) =>
+        select.Offset != null
+        || select.Limit != null
+        || select.Having != null
+        || select.Orderings.Count > 0
+        || select.GroupBy.Count > 0
+        || select.Tables.Count > 1;
 
     protected override Expression VisitUpdate(UpdateExpression updateExpression)
     {
@@ -247,7 +267,6 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
         || select.GroupBy.Count > 0
         || select.Projection.Count > 0
         || select.Tables.Count > 1
-        || select.Predicate is InExpression
         || !(select.Tables.Count == 1 && select.Tables[0].Equals(fromTable));
 
     protected override void GenerateLimitOffset(SelectExpression selectExpression)

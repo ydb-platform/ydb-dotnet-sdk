@@ -66,6 +66,136 @@ public class ExecuteUpdateDeleteSqlYdbTest
     }
 
     [Fact]
+    public async Task ExecuteDelete_with_id_list_generates_where_in()
+    {
+        await using var testStore = CreateStore(nameof(ExecuteDelete_with_id_list_generates_where_in));
+        using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
+        await using var context = new SimpleContext(sqlLoggerFactory);
+        await testStore.CleanAsync(context);
+        await context.Database.EnsureCreatedAsync();
+
+        context.Items.AddRange(
+            new Item { Id = 1, Title = "a" },
+            new Item { Id = 2, Title = "b" },
+            new Item { Id = 3, Title = "c" });
+        await context.SaveChangesAsync();
+
+        var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
+        logger.Clear();
+
+        await context.Items
+            .Where(i => new[] { 1, 2 }.Contains(i.Id))
+            .ExecuteDeleteAsync();
+
+        AssertSql(logger, """
+            DELETE FROM `Items`
+            WHERE `Id` IN (1, 2)
+            """);
+        Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
+    }
+
+    [Fact]
+    public async Task ExecuteUpdate_with_id_list_generates_where_in()
+    {
+        await using var testStore = CreateStore(nameof(ExecuteUpdate_with_id_list_generates_where_in));
+        using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
+        await using var context = new SimpleContext(sqlLoggerFactory);
+        await testStore.CleanAsync(context);
+        await context.Database.EnsureCreatedAsync();
+
+        context.Items.AddRange(
+            new Item { Id = 1, Title = "a" },
+            new Item { Id = 2, Title = "b" },
+            new Item { Id = 3, Title = "c" });
+        await context.SaveChangesAsync();
+
+        var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
+        logger.Clear();
+
+        await context.Items
+            .Where(i => new[] { 1, 2 }.Contains(i.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(i => i.Title, "updated"));
+
+        AssertSql(logger, """
+            $p='?'
+
+            UPDATE `Items`
+            SET `Title` = @p
+            WHERE `Id` IN (1, 2)
+            """);
+        Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
+    }
+
+    [Fact]
+    public async Task ExecuteDelete_with_subquery_generates_where_in_select()
+    {
+        await using var testStore = CreateStore(nameof(ExecuteDelete_with_subquery_generates_where_in_select));
+        using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
+        await using var context = new SimpleContext(sqlLoggerFactory);
+        await testStore.CleanAsync(context);
+        await context.Database.EnsureCreatedAsync();
+
+        context.Items.AddRange(
+            new Item { Id = 1, Title = "old" },
+            new Item { Id = 2, Title = "old" },
+            new Item { Id = 3, Title = "keep" });
+        await context.SaveChangesAsync();
+
+        var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
+        logger.Clear();
+
+        await context.Items
+            .Where(i => context.Items.Where(x => x.Title == "old").Select(x => x.Id).Contains(i.Id))
+            .ExecuteDeleteAsync();
+
+        AssertSql(logger, """
+            DELETE FROM `Items`
+            WHERE `Id` IN (
+                SELECT `Id` AS `Id`
+                FROM `Items`
+                WHERE `Title` = 'old'u
+            )
+            """);
+        Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
+    }
+
+    [Fact]
+    public async Task ExecuteUpdate_with_subquery_generates_where_in_select()
+    {
+        await using var testStore = CreateStore(nameof(ExecuteUpdate_with_subquery_generates_where_in_select));
+        using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
+        await using var context = new SimpleContext(sqlLoggerFactory);
+        await testStore.CleanAsync(context);
+        await context.Database.EnsureCreatedAsync();
+
+        context.Items.AddRange(
+            new Item { Id = 1, Title = "old" },
+            new Item { Id = 2, Title = "old" },
+            new Item { Id = 3, Title = "keep" });
+        await context.SaveChangesAsync();
+
+        var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
+        logger.Clear();
+
+        await context.Items
+            .Where(i => context.Items.Where(x => x.Title == "old").Select(x => x.Id).Contains(i.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(i => i.Title, "updated"));
+
+        AssertSql(logger, """
+            $p='?'
+
+            UPDATE `Items`
+            SET `Title` = @p
+            WHERE `Id` IN (
+                SELECT `Id` AS `Id`
+                FROM `Items`
+                WHERE `Title` = 'old'u
+            )
+            """);
+        Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
+    }
+
+    [Fact]
     public async Task ExecuteUpdate_with_join_generates_update_on()
     {
         await using var testStore = CreateStore(nameof(ExecuteUpdate_with_join_generates_update_on));
