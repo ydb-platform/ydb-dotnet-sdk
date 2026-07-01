@@ -3,8 +3,7 @@
 # (?component_id=native-sdk), regardless of how each repo tags its uploads.
 #
 # This repo is a monorepo. The native-sdk component covers the SDK itself plus its
-# first-party OpenTelemetry integration (mirrors the Python SDK, where the otel
-# plugin lives inside the ydb package and counts as native). The EF Core provider
+# first-party OpenTelemetry integration. The EF Core provider
 # is a separate framework adapter and gets its own component, so it does not dilute
 # the SDK number.
 component_management:
