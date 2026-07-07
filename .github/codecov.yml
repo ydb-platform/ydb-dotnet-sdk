@@ -27,3 +27,13 @@ component_management:
       name: EF Core provider
       paths:
         - "src/EFCore.Ydb/src/**"
+
+# ydb-sdk and efcore-ydb coverage come from separate jobs, each uploaded from a
+# single matrix leg. Carry the last known value forward so a flaky or fail-fast
+# cancelled leg that skips its upload does not collapse the total and false-fail
+# the project status above.
+flags:
+  ydb-sdk:
+    carryforward: true
+  efcore-ydb:
+    carryforward: true
