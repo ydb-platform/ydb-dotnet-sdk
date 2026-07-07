@@ -16,7 +16,6 @@ permissions:
 jobs:
   ydb-sdk-tests:
     strategy:
-      fail-fast: false
       matrix:
         ydb-version: [ 'latest', 'trunk' ]
         dotnet-version: [ 8.0.x, 9.0.x ]
