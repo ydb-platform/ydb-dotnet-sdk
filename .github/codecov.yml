@@ -1,3 +1,13 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto       # do not drop below the current level...
+        threshold: 1%      # ...by more than 1%
+    patch:
+      default:
+        target: 80%        # new/changed code in the PR diff must be >= 80% covered
+
 # Cross-repo uniform metric: every YDB SDK repo defines this same component_id,
 # so native-SDK coverage is queryable identically via the Codecov API
 # (?component_id=native-sdk), regardless of how each repo tags its uploads.
