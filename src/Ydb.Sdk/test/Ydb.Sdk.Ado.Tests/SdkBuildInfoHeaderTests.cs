@@ -2,9 +2,15 @@ using System.Reflection;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using Xunit;
+using Ydb.Sdk.OpenTelemetry;
 using Ydb.Sdk.Ado.Session;
+using Ydb.Sdk.Internal;
 using Ydb.Sdk.Pool;
+using OpenTelemetrySdk = OpenTelemetry.Sdk;
+using Metadata = Grpc.Core.Metadata;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -28,7 +34,7 @@ public class SdkBuildInfoHeaderTests : IDisposable
 
         var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings());
 
-        Assert.Null(options.Headers!.Get(Metadata.RpcSdkInfoHeader));
+        Assert.Null(options.Headers!.Get("x-ydb-sdk-build-info"));
     }
 
     [Fact]
@@ -96,8 +102,73 @@ public class SdkBuildInfoHeaderTests : IDisposable
     }
 
     [Fact]
-    public void YdbSdkVersion_HasNumericDottedFormat() =>
-        Assert.Matches(@"^\d+\.\d+\.\d+$", YdbSdkVersion.Value);
+    public void YdbSdkVersion_HasNumericDottedFormat() => Assert.Matches(@"^\d+\.\d+\.\d+$", YdbSdkVersion.Value);
+
+    [Fact]
+    public void AddSdkBuildInfo_AddsBaseHeader_WhenObservabilityIsDisabled()
+    {
+        var headers = new Metadata();
+        headers.AddSdkBuildInfo();
+
+        Assert.Equal(YdbSdkVersion.Value, headers.Get("x-ydb-sdk-build-info")?.Value);
+    }
+
+    [Fact]
+    public void AddSdkBuildInfo_AddsTracingChain_WhenTracingIsEnabled()
+    {
+        using var provider = OpenTelemetrySdk.CreateTracerProviderBuilder()
+            .AddYdb()
+            .Build();
+
+        var headers = new Metadata();
+        headers.AddSdkBuildInfo();
+
+        Assert.Equal(
+            $"{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
+            headers.Get("x-ydb-sdk-build-info")?.Value);
+    }
+
+    [Fact]
+    public void AddSdkBuildInfo_AddsMetricsChain_WhenMetricsAreEnabled()
+    {
+        var exportedItems = new List<Metric>();
+
+        using var provider = OpenTelemetrySdk.CreateMeterProviderBuilder()
+            .AddYdb()
+            .AddInMemoryExporter(exportedItems)
+            .Build();
+
+        var headers = new Metadata();
+        headers.AddSdkBuildInfo();
+
+        Assert.Equal(
+            $"{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
+            headers.Get("x-ydb-sdk-build-info")?.Value);
+    }
+
+    [Fact]
+    public void AddSdkBuildInfo_AddsObservabilityChains_AndClientChain()
+    {
+        var exportedItems = new List<Metric>();
+
+        using var tracerProvider = OpenTelemetrySdk.CreateTracerProviderBuilder()
+            .AddYdb()
+            .Build();
+        using var meterProvider = OpenTelemetrySdk.CreateMeterProviderBuilder()
+            .AddYdb()
+            .AddInMemoryExporter(exportedItems)
+            .Build();
+
+        const string clientChain = "ado-net/1.0.0";
+        SdkClientInfoRegistry.Register(clientChain);
+
+        var headers = new Metadata();
+        headers.AddSdkBuildInfo();
+
+        Assert.Equal(
+            $"{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion};{clientChain}",
+            headers.Get("x-ydb-sdk-build-info")?.Value);
+    }
 
     private sealed class TestDriver() : BaseDriver(new DriverConfig(false, "localhost", 2136, "/local"),
         NullLoggerFactory.Instance,

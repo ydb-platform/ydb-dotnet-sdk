@@ -7,6 +7,7 @@ using Ydb.Discovery.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
+using Ydb.Sdk.Internal;
 using Ydb.Sdk.Pool;
 using EndpointInfo = Ydb.Sdk.Pool.EndpointInfo;
 
@@ -163,9 +164,7 @@ public sealed class Driver : BaseDriver
             // Discovery is the only call site without a natural per-call ClientInfo; merge the
             // active component chain (registered before driver creation) directly into metadata.
             var options = await GetCallOptions(grpcSettings, Config.EndpointInfo).ConfigureAwait(false);
-            options.Headers?.Add(Metadata.RpcSdkInfoHeader, SdkClientInfoRegistry.Chain is null
-                ? Config.SdkVersion
-                : $"{Config.SdkVersion};{SdkClientInfoRegistry.Chain}");
+            options.Headers?.AddSdkBuildInfo();
 
             var response = await client.ListEndpointsAsync(request: request, options: options)
                 .ResponseAsync.ConfigureAwait(false);

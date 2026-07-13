@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
+using YdbMetadata = Ydb.Sdk.Internal.Metadata;
 
 namespace Ydb.Sdk;
 
@@ -292,12 +293,12 @@ public abstract class BaseDriver : IDriver
 
         if (_credentialsProvider != null)
         {
-            meta.Add(Metadata.RpcAuthHeader, await _credentialsProvider.GetAuthInfoAsync().ConfigureAwait(false));
+            meta.Add(YdbMetadata.RpcAuthHeader, await _credentialsProvider.GetAuthInfoAsync().ConfigureAwait(false));
         }
 
         if (settings.TraceId.Length > 0)
         {
-            meta.Add(Metadata.RpcTraceIdHeader, settings.TraceId);
+            meta.Add(YdbMetadata.RpcTraceIdHeader, settings.TraceId);
         }
 
         // Propagate W3C trace context to YDB server to build an end-to-end trace.
@@ -319,12 +320,12 @@ public abstract class BaseDriver : IDriver
                 dbActivity.SetTag("ydb.node.dc", endpointInfo.LocationDc);
             }
 
-            meta.Add(Metadata.TraceParentHeader, dbActivity.Id!); // W3C: after Start(), Id is guaranteed to be non-null
+            meta.Add(YdbMetadata.TraceParentHeader, dbActivity.Id!); // W3C: after Start(), Id is guaranteed to be non-null
         }
 
         foreach (var clientCapabilitiesHeader in settings.ClientCapabilities)
         {
-            meta.Add(Metadata.RpcClientCapabilitiesHeader, clientCapabilitiesHeader);
+            meta.Add(YdbMetadata.RpcClientCapabilitiesHeader, clientCapabilitiesHeader);
         }
 
         var options = new CallOptions(headers: meta, cancellationToken: settings.CancellationToken);

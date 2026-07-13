@@ -1,6 +1,6 @@
-using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Internal;
 using Ydb.Sdk.Pool;
 
 namespace Ydb.Sdk;
@@ -119,9 +119,7 @@ public class DriverConfig
             CustomServerCertificates.AddRange(customServerCertificates);
         }
 
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        var versionStr = version is null ? "unknown" : version.ToString(3);
-        SdkVersion = $"ydb-dotnet-sdk/{versionStr}";
+        SdkVersion = $"ydb-dotnet-sdk/{YdbSdkVersion.Value}";
     }
 
     internal Grpc.Core.Metadata GetCallMetadata => new()

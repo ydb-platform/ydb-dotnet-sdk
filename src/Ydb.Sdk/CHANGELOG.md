@@ -1,6 +1,7 @@
 - Feat ADO.NET schema/defaults: `GetSchema("Columns")` now includes `column_default`.
 - Feat ADO.NET schema API: `YdbColumnDescription` now supports column default values through the `DefaultValue` property (for example `YdbDataSource.CreateTable`).
 - Feat ADO.NET schema API: `YdbColumnDescription` now supports sequence-based column definitions via `SequenceDescription` (for example `YdbDataSource.CreateTable`).
+- Dev: `x-ydb-sdk-build-info` now reports observability adoption via optional chain tokens `ydb-sdk-tracing/0.1.0` and `ydb-sdk-metrics/0.1.0`.
 
 ## v0.33.1
 
