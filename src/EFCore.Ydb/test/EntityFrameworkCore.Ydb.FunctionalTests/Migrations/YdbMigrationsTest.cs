@@ -122,8 +122,12 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     public override Task Add_column_with_defaultValue_datetime() =>
         Assert.ThrowsAsync<YdbException>(() => base.Add_column_with_defaultValue_datetime());
 
-    public override Task Add_column_with_defaultValueSql() =>
-        Assert.ThrowsAsync<YdbException>(() => base.Add_column_with_defaultValueSql());
+    public override async Task Add_column_with_defaultValueSql()
+    {
+        await base.Add_column_with_defaultValueSql();
+
+        AssertSql("ALTER TABLE `People` ADD `Sum` Int32 NOT NULL DEFAULT (1);");
+    }
 
     public override Task Add_column_with_computedSql(bool? stored) =>
         Assert.ThrowsAsync<NotSupportedException>(() => base.Add_column_with_computedSql(stored));
