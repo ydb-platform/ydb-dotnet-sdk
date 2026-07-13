@@ -1,6 +1,5 @@
 - Added string concatenation support in LINQ (`||` in YQL).
 - Fixed LINQ `Skip`/`Take` pagination: default `LIMIT` for offset-only queries uses `int.MaxValue` instead of `ulong.MaxValue`.
-- Updated EF migrations tests for YDB 26.1+: dropped legacy `Assert.Throws` expectations for `ALTER TABLE ... ADD COLUMN` default/required scenarios and added SQL generator coverage for `DEFAULT (1)`.
 
 ## v0.5.0
 
