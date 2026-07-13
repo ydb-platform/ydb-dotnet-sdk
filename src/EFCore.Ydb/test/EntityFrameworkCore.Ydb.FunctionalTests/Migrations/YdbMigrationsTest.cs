@@ -108,18 +108,9 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     public override Task Add_column_with_check_constraint() =>
         Assert.ThrowsAsync<YdbException>(() => base.Add_column_with_check_constraint());
 
-    public override Task Add_json_columns_to_existing_table() =>
-        base.Add_json_columns_to_existing_table();
-
     protected override bool AssertCollations => false;
 
     protected override bool AssertIndexFilters => false;
-
-    public override Task Add_column_with_defaultValue_string() =>
-        base.Add_column_with_defaultValue_string();
-
-    public override Task Add_column_with_defaultValue_datetime() =>
-        base.Add_column_with_defaultValue_datetime();
 
     public override async Task Add_column_with_defaultValueSql()
     {
@@ -150,9 +141,6 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
 
     public override Task Add_column_with_computedSql(bool? stored) =>
         Assert.ThrowsAsync<NotSupportedException>(() => base.Add_column_with_computedSql(stored));
-
-    public override Task Add_column_with_required() =>
-        base.Add_column_with_required();
 
     public override async Task Add_column_with_ansi()
     {
@@ -243,9 +231,6 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     public override Task Add_required_primitve_collection_with_custom_default_value_sql_to_existing_table() =>
         Task.CompletedTask;
 
-    public override Task Add_required_primitive_collection_with_custom_default_value_to_existing_table() =>
-        base.Add_required_primitive_collection_with_custom_default_value_to_existing_table();
-
     public override async Task Create_index()
     {
         await base.Create_index();
@@ -285,23 +270,6 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
         Assert.ThrowsAsync<NotSupportedException>(() => base.Drop_primary_key_int());
 
     public override Task Drop_primary_key_string() => Task.CompletedTask;
-
-    public override Task Add_required_primitive_collection_to_existing_table() =>
-        base.Add_required_primitive_collection_to_existing_table();
-
-    public override Task
-        Add_required_primitive_collection_with_custom_converter_and_custom_default_value_to_existing_table() =>
-        base.Add_required_primitive_collection_with_custom_converter_and_custom_default_value_to_existing_table();
-
-    public override Task Add_required_primitve_collection_to_existing_table() =>
-        base.Add_required_primitve_collection_to_existing_table();
-
-    public override Task
-        Add_required_primitve_collection_with_custom_converter_and_custom_default_value_to_existing_table() =>
-        base.Add_required_primitve_collection_with_custom_converter_and_custom_default_value_to_existing_table();
-
-    public override Task Add_required_primitve_collection_with_custom_default_value_to_existing_table() =>
-        base.Add_required_primitve_collection_with_custom_default_value_to_existing_table();
 
     public override Task Alter_check_constraint() =>
         Assert.ThrowsAsync<YdbException>(() => base.Alter_check_constraint());
