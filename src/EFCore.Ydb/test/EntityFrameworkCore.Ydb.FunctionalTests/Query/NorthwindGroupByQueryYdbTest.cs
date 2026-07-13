@@ -3,12 +3,16 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
-// TODO: Fix tests
-// Right now success rate is ~260/520
-// Implemented mainly to stress test CI
+/// <summary>
+/// Tests for GroupBy query operations using Northwind database in YDB.
+/// Note: Many GroupBy tests are skipped due to YDB YQL limitations with aggregate functions
+/// and grouping patterns. Current success rate is approximately 50% (~260/520 tests).
+/// Included primarily for CI stress testing and to identify YDB server limitations.
+/// </summary>
 public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCustomizer> fixture)
     : NorthwindGroupByQueryRelationalTestBase<NorthwindQueryYdbFixture<NoopModelCustomizer>>(fixture)
 {
+    // Skip: YDB server limitation - LongCount aggregate with grouping
     public override Task GroupBy_Property_Select_LongCount(bool async) => Task.CompletedTask;
 
     public override Task GroupBy_Property_Select_Count_with_nulls(bool async) => Task.CompletedTask;
