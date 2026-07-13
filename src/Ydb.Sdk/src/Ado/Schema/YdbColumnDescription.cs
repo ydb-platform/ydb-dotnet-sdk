@@ -1,4 +1,6 @@
+using System.Globalization;
 using Ydb.Sdk.Ado.YdbType;
+using Ydb.Sdk.Value;
 using Ydb.Table;
 using static Ydb.Sdk.Ado.Internal.YdbTypeExtensions;
 
@@ -27,6 +29,12 @@ public sealed class YdbColumnDescription
     {
         IsNullable = columnMeta.Type.TypeCase == Type.TypeOneofCase.OptionalType;
         Family = columnMeta.Family;
+        DefaultValueExpression = columnMeta.DefaultValueCase switch
+        {
+            ColumnMeta.DefaultValueOneofCase.FromLiteral => FormatLiteralValue(columnMeta.FromLiteral),
+            ColumnMeta.DefaultValueOneofCase.FromSequence => columnMeta.FromSequence?.ToString(),
+            _ => null
+        };
     }
 
     /// <summary>
@@ -63,6 +71,44 @@ public sealed class YdbColumnDescription
     /// Column families allow grouping columns for storage optimization.
     /// </remarks>
     public string? Family { get; init; }
+
+    /// <summary>
+    /// Gets or sets the column default expression as reported by YDB schema metadata.
+    /// </summary>
+    public string? DefaultValueExpression { get; init; }
+
+    private static string? FormatLiteralValue(TypedValue? literal)
+    {
+        if (literal is null)
+        {
+            return null;
+        }
+
+        var ydbValue = new YdbValue(literal.Type, literal.Value);
+        return FormatYdbValue(ydbValue) ?? literal.ToString();
+    }
+
+    private static string? FormatYdbValue(YdbValue value) =>
+        value.TypeId switch
+        {
+            YdbTypeId.Bool => value.GetBool().ToString(),
+            YdbTypeId.Int8 => value.GetInt8().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.Uint8 => value.GetUint8().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.Int16 => value.GetInt16().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.Uint16 => value.GetUint16().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.Int32 => value.GetInt32().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.Uint32 => value.GetUint32().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.Int64 => value.GetInt64().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.Uint64 => value.GetUint64().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.Float => value.GetFloat().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.Double => value.GetDouble().ToString(CultureInfo.InvariantCulture),
+            YdbTypeId.String => Convert.ToBase64String(value.GetString()),
+            YdbTypeId.Utf8 => value.GetUtf8(),
+            YdbTypeId.Json => value.GetJson(),
+            YdbTypeId.JsonDocument => value.GetJsonDocument(),
+            YdbTypeId.OptionalType => value.GetOptional() is { } optionalValue ? FormatYdbValue(optionalValue) : null,
+            _ => value.ToString()
+        };
 
     internal ColumnMeta ToProto()
     {

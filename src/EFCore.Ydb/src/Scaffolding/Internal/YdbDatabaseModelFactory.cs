@@ -66,7 +66,8 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                         Name = column.Name,
                         Table = databaseTable,
                         StoreType = column.StorageType.ToString(),
-                        IsNullable = column.IsNullable
+                        IsNullable = column.IsNullable,
+                        DefaultValueSql = column.DefaultValueExpression
                     };
 
                     databaseTable.Columns.Add(databaseColumn);

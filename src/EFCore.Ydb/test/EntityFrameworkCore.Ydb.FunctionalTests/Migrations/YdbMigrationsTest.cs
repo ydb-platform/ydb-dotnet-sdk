@@ -118,33 +118,6 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     }
 
     protected override bool AssertCollations => false;
-    public override async Task Add_column_with_defaultValue_string()
-    {
-        await Test(
-            source =>
-            {
-                source.Entity("People", e =>
-                {
-                    e.Property<int>("Id");
-                    e.HasKey("Id");
-                    e.ToTable("People");
-                });
-            },
-            target =>
-            {
-                target.Entity("People", e =>
-                {
-                    e.Property<int>("Id");
-                    e.HasKey("Id");
-                    e.Property<string>("Name").HasDefaultValue("John Doe");
-                    e.ToTable("People");
-                });
-            },
-            _ => { });
-
-        AssertSql("ALTER TABLE `People` ADD `Name` Text DEFAULT 'John Doe'u;");
-    }
-
 
     protected override bool AssertIndexFilters => false;
 
@@ -166,13 +139,13 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
                 {
                     e.Property<int>("Id");
                     e.HasKey("Id");
-                    e.Property<int>("Sum").HasDefaultValueSql("(1)");
+                    e.Property<int>("Sum").HasDefaultValueSql("1 + 2");
                     e.ToTable("People");
                 });
             },
             _ => { });
 
-        AssertSql("ALTER TABLE `People` ADD `Sum` Int32 NOT NULL DEFAULT ((1));");
+        AssertSql("ALTER TABLE `People` ADD `Sum` Int32 NOT NULL DEFAULT (1 + 2);");
     }
 
     public override Task Add_column_with_computedSql(bool? stored) =>
