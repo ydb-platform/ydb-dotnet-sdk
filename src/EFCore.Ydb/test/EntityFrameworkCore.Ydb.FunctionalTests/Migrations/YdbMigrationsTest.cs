@@ -108,7 +108,43 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
     public override Task Add_column_with_check_constraint() =>
         Assert.ThrowsAsync<YdbException>(() => base.Add_column_with_check_constraint());
 
+    public override Task Add_json_columns_to_existing_table()
+    {
+#if NET10_0_OR_GREATER
+        return Assert.ThrowsAsync<InvalidOperationException>(() => base.Add_json_columns_to_existing_table());
+#else
+        return base.Add_json_columns_to_existing_table();
+#endif
+    }
+
     protected override bool AssertCollations => false;
+    public override async Task Add_column_with_defaultValue_string()
+    {
+        await Test(
+            source =>
+            {
+                source.Entity("People", e =>
+                {
+                    e.Property<int>("Id");
+                    e.HasKey("Id");
+                    e.ToTable("People");
+                });
+            },
+            target =>
+            {
+                target.Entity("People", e =>
+                {
+                    e.Property<int>("Id");
+                    e.HasKey("Id");
+                    e.Property<string>("Name").HasDefaultValue("John Doe");
+                    e.ToTable("People");
+                });
+            },
+            _ => { });
+
+        AssertSql("ALTER TABLE `People` ADD `Name` Text DEFAULT 'John Doe'u;");
+    }
+
 
     protected override bool AssertIndexFilters => false;
 
