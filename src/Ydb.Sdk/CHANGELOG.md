@@ -1,8 +1,10 @@
+- Feat ADO.NET schema/defaults: `GetSchema("Columns")` now includes `column_default`.
+- Feat ADO.NET schema API: `YdbColumnDescription` now supports column default values through the `DefaultValue` property (for example `YdbDataSource.CreateTable`).
+- Feat ADO.NET schema API: `YdbColumnDescription` now supports sequence-based column definitions via `SequenceDescription` (for example `YdbDataSource.CreateTable`).
+
 ## v0.33.1
 
 - Dev: Topic Reader/Writer no longer register their own `topic-{reader,writer}/{V}` component in the `x-ydb-sdk-build-info` chain.
-- Feat ADO.NET schema/defaults: `GetSchema("Columns")` now includes `column_default`.
-- Feat ADO.NET schema API: `YdbColumnDescription` now supports defaults via `DefaultValue` (literal) and `SequenceDescription` (sequence-backed default).
 
 ## v0.33.0
 

@@ -23,7 +23,8 @@ public class YdbSchemaTests : TestBase
         _allTypesTable = $"allTypesTable_{Random.Shared.Next()}";
         _allTypesTableNullable = $"allTypesTableNullable_{Random.Shared.Next()}";
         _allTypesTableWithDefaults = $"allTypesTableWithDefaults_{Random.Shared.Next()}";
-        _allTableNames = [_table1, _table2, _table3, _allTypesTable, _allTypesTableNullable, _allTypesTableWithDefaults];
+        _allTableNames =
+            [_table1, _table2, _table3, _allTypesTable, _allTypesTableNullable, _allTypesTableWithDefaults];
         _simpleTableNames = [_table1, _table2, _table3];
     }
 
@@ -180,7 +181,7 @@ public class YdbSchemaTests : TestBase
         var dataTable = await ydbConnection.GetSchemaAsync("Columns", [_allTypesTable, null]);
         var dataTableNullable = await ydbConnection.GetSchemaAsync("Columns", [_allTypesTableNullable, null]);
 
-        Assert.Equal(17, dataTable.Rows.Count);
+        Assert.Equal(18, dataTable.Rows.Count);
         Assert.Equal(18, dataTableNullable.Rows.Count);
 
         CheckAllColumns(dataTable, false);
