@@ -121,6 +121,8 @@ public class YdbMigrationsTest : MigrationsTestBase<YdbMigrationsTest.YdbMigrati
 
     protected override bool AssertIndexFilters => false;
 
+    // Provider-specific override: YDB stores/evaluates DEFAULT SQL as a literal in metadata,
+    // so the base assertion on the original SQL expression text is not stable here.
     public override async Task Add_column_with_defaultValueSql()
     {
         await Test(
