@@ -649,39 +649,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             type = type.OptionalType.Item;
         }
 
-        if (type.TypeCase == Type.TypeOneofCase.DecimalType)
-        {
-            return ydbValue.UnpackDecimal(type.DecimalType.Scale);
-        }
-
-        return type.TypeId switch
-        {
-            Type.Types.PrimitiveTypeId.Date => ydbValue.UnpackDate(),
-            Type.Types.PrimitiveTypeId.Date32 => ydbValue.UnpackDate32(),
-            Type.Types.PrimitiveTypeId.Datetime => ydbValue.UnpackDatetime(),
-            Type.Types.PrimitiveTypeId.Datetime64 => ydbValue.UnpackDatetime64(),
-            Type.Types.PrimitiveTypeId.Timestamp => ydbValue.UnpackTimestamp(),
-            Type.Types.PrimitiveTypeId.Timestamp64 => ydbValue.UnpackTimestamp64(),
-            Type.Types.PrimitiveTypeId.Bool => ydbValue.UnpackBool(),
-            Type.Types.PrimitiveTypeId.Int8 => ydbValue.UnpackInt8(),
-            Type.Types.PrimitiveTypeId.Uint8 => ydbValue.UnpackUint8(),
-            Type.Types.PrimitiveTypeId.Int16 => ydbValue.UnpackInt16(),
-            Type.Types.PrimitiveTypeId.Uint16 => ydbValue.UnpackUint16(),
-            Type.Types.PrimitiveTypeId.Int32 => ydbValue.UnpackInt32(),
-            Type.Types.PrimitiveTypeId.Uint32 => ydbValue.UnpackUint32(),
-            Type.Types.PrimitiveTypeId.Int64 => ydbValue.UnpackInt64(),
-            Type.Types.PrimitiveTypeId.Uint64 => ydbValue.UnpackUint64(),
-            Type.Types.PrimitiveTypeId.Float => ydbValue.UnpackFloat(),
-            Type.Types.PrimitiveTypeId.Double => ydbValue.UnpackDouble(),
-            Type.Types.PrimitiveTypeId.Interval => ydbValue.UnpackInterval(),
-            Type.Types.PrimitiveTypeId.Interval64 => ydbValue.UnpackInterval64(),
-            Type.Types.PrimitiveTypeId.Utf8
-                or Type.Types.PrimitiveTypeId.Json
-                or Type.Types.PrimitiveTypeId.JsonDocument => ydbValue.UnpackText(),
-            Type.Types.PrimitiveTypeId.Yson or Type.Types.PrimitiveTypeId.String => ydbValue.UnpackBytes(),
-            Type.Types.PrimitiveTypeId.Uuid => ydbValue.UnpackUuid(),
-            _ => throw new YdbException($"Unsupported ydb type {GetColumnType(ordinal)}")
-        };
+        return ydbValue.UnpackObject(type);
     }
 
     /// <summary>

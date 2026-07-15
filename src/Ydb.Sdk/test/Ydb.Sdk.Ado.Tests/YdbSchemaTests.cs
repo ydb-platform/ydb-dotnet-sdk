@@ -11,6 +11,7 @@ public class YdbSchemaTests : TestBase
     private readonly string _table3;
     private readonly string _allTypesTable;
     private readonly string _allTypesTableNullable;
+    private readonly string _allTypesTableWithDefaults;
     private readonly HashSet<string> _allTableNames;
     private readonly HashSet<string> _simpleTableNames;
 
@@ -21,7 +22,9 @@ public class YdbSchemaTests : TestBase
         _table3 = $"table_{Random.Shared.Next()}";
         _allTypesTable = $"allTypesTable_{Random.Shared.Next()}";
         _allTypesTableNullable = $"allTypesTableNullable_{Random.Shared.Next()}";
-        _allTableNames = [_table1, _table2, _table3, _allTypesTable, _allTypesTableNullable];
+        _allTypesTableWithDefaults = $"allTypesTableWithDefaults_{Random.Shared.Next()}";
+        _allTableNames =
+            [_table1, _table2, _table3, _allTypesTable, _allTypesTableNullable, _allTypesTableWithDefaults];
         _simpleTableNames = [_table1, _table2, _table3];
     }
 
@@ -157,6 +160,7 @@ public class YdbSchemaTests : TestBase
             Assert.Equal("NO", columnA["is_nullable"]);
             Assert.Equal("Int32", columnA["data_type"]);
             Assert.Empty((string)columnA["family_name"]);
+            Assert.Equal(DBNull.Value, columnA["column_default"]);
         }
 
         void CheckColumnB(DataRow columnB)
@@ -166,6 +170,7 @@ public class YdbSchemaTests : TestBase
             Assert.Equal("YES", columnB["is_nullable"]);
             Assert.Equal("Int32", columnB["data_type"]);
             Assert.Empty((string)columnB["family_name"]);
+            Assert.Equal(DBNull.Value, columnB["column_default"]);
         }
     }
 
@@ -212,13 +217,30 @@ public class YdbSchemaTests : TestBase
             Assert.Equal(isNullable ? "YES" : "NO", column["is_nullable"]);
             Assert.Equal(dataType ?? columnName[..^"Column".Length], column["data_type"]);
             Assert.Empty((string)column["family_name"]);
+            Assert.Equal(DBNull.Value, column["column_default"]);
         }
+    }
+
+    [Fact]
+    public async Task GetSchema_WhenAllTypesDefaultsTable_ReturnAllDefaultValues()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        var dataTable = await ydbConnection.GetSchemaAsync("Columns", [_allTypesTableWithDefaults, null]);
+
+        Assert.Equal(17, dataTable.Rows.Count);
+        foreach (DataRow row in dataTable.Rows)
+        {
+            Assert.NotEqual(DBNull.Value, row["column_default"]);
+        }
+
+        Assert.Equal("1", dataTable.Rows[0]["column_default"]);
+        Assert.Equal("True", dataTable.Rows[1]["column_default"]);
+        Assert.Equal("text", dataTable.Rows[12]["column_default"]);
     }
 
     protected override async Task OnInitializeAsync()
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
-
         await new YdbCommand(ydbConnection)
         {
             CommandText = $"""
@@ -269,6 +291,27 @@ public class YdbSchemaTests : TestBase
                                YsonColumn Yson,
                                PRIMARY KEY (Int32Column)
                            );
+
+                           CREATE TABLE {_allTypesTableWithDefaults} (
+                               d1 Int32 NOT NULL DEFAULT 1,
+                               d2 Bool NOT NULL DEFAULT (true),
+                               d3 Int64 NOT NULL DEFAULT 1,
+                               d4 Int16 NOT NULL DEFAULT CAST(1 as Int16),
+                               d5 Int8 NOT NULL DEFAULT CAST(1 as Int8),
+                               d6 Float NOT NULL DEFAULT CAST(1 as Float),
+                               d7 Double NOT NULL DEFAULT CAST(1 as Double),
+                               d8 Decimal(22,9) NOT NULL DEFAULT CAST(1 as Decimal(22,9)),
+                               d9 Uint8 NOT NULL DEFAULT CAST(1 as Uint8),
+                               d10 Uint16 NOT NULL DEFAULT CAST(1 as Uint16),
+                               d11 Uint32 NOT NULL DEFAULT CAST(1 as Uint32),
+                               d12 Uint64 NOT NULL DEFAULT CAST(1 as Uint64),
+                               d13 Text NOT NULL DEFAULT 'text'u,
+                               d14 Bytes NOT NULL DEFAULT CAST('' as Bytes),
+                               d15 Date NOT NULL DEFAULT CAST('1971-12-01' as Date),
+                               d16 Datetime NOT NULL DEFAULT CAST('1971-12-01T00:00:00Z' as Datetime),
+                               d17 Timestamp NOT NULL DEFAULT CAST('1971-12-01T00:00:00Z' as Timestamp),
+                               PRIMARY KEY (d1)
+                           );
                            """
         }.ExecuteNonQueryAsync();
     }
@@ -285,6 +328,7 @@ public class YdbSchemaTests : TestBase
                            DROP TABLE `{_table3}`;
                            DROP TABLE `{_allTypesTable}`;
                            DROP TABLE `{_allTypesTableNullable}`;
+                           DROP TABLE `{_allTypesTableWithDefaults}`;
                            """
         }.ExecuteNonQueryAsync();
     }
