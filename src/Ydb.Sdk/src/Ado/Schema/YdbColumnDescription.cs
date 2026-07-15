@@ -1,4 +1,3 @@
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
 using Ydb.Table;

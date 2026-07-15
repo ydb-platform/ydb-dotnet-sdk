@@ -1,6 +1,4 @@
 using System.Data;
-using Ydb.Sdk.Ado.Schema;
-using Ydb.Sdk.Ado.YdbType;
 using Xunit;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -182,7 +180,7 @@ public class YdbSchemaTests : TestBase
         var dataTable = await ydbConnection.GetSchemaAsync("Columns", [_allTypesTable, null]);
         var dataTableNullable = await ydbConnection.GetSchemaAsync("Columns", [_allTypesTableNullable, null]);
 
-        Assert.Equal(18, dataTable.Rows.Count);
+        Assert.Equal(17, dataTable.Rows.Count);
         Assert.Equal(18, dataTableNullable.Rows.Count);
 
         CheckAllColumns(dataTable, false);
@@ -228,7 +226,7 @@ public class YdbSchemaTests : TestBase
         await using var ydbConnection = await CreateOpenConnectionAsync();
         var dataTable = await ydbConnection.GetSchemaAsync("Columns", [_allTypesTableWithDefaults, null]);
 
-        Assert.Equal(18, dataTable.Rows.Count);
+        Assert.Equal(17, dataTable.Rows.Count);
         foreach (DataRow row in dataTable.Rows)
         {
             Assert.NotEqual(DBNull.Value, row["column_default"]);
@@ -241,92 +239,80 @@ public class YdbSchemaTests : TestBase
 
     protected override async Task OnInitializeAsync()
     {
-        await using (var ydbConnection = await CreateOpenConnectionAsync())
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        await new YdbCommand(ydbConnection)
         {
-            await new YdbCommand(ydbConnection)
-            {
-                CommandText = $"""
-                               CREATE TABLE `{_table1}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
-                               CREATE TABLE `{_table2}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
-                               CREATE TABLE `{_table3}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
+            CommandText = $"""
+                           CREATE TABLE `{_table1}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
+                           CREATE TABLE `{_table2}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
+                           CREATE TABLE `{_table3}` (a Int32 NOT NULL, b Int32, PRIMARY KEY(a));
 
-                               CREATE TABLE {_allTypesTable} (
-                                   Int32Column Int32 NOT NULL,
-                                   BoolColumn Bool NOT NULL,
-                                   Int64Column Int64 NOT NULL,
-                                   Int16Column Int16 NOT NULL,
-                                   Int8Column Int8 NOT NULL,
-                                   FloatColumn Float NOT NULL,
-                                   DoubleColumn Double NOT NULL,
-                                   DefaultDecimalColumn Decimal(22,9) NOT NULL,
-                                   Uint8Column Uint8 NOT NULL,
-                                   Uint16Column Uint16 NOT NULL,
-                                   Uint32Column Uint32 NOT NULL,
-                                   Uint64Column Uint64 NOT NULL,
-                                   TextColumn Text NOT NULL,
-                                   BytesColumn Bytes NOT NULL,
-                                   DateColumn Date NOT NULL,
-                                   DatetimeColumn Datetime NOT NULL,
-                                   TimestampColumn Timestamp NOT NULL,
-                                   YsonColumn Yson NOT NULL,
-                                   PRIMARY KEY (Int32Column)
-                               );
+                           CREATE TABLE {_allTypesTable} (
+                               Int32Column Int32 NOT NULL,
+                               BoolColumn Bool NOT NULL,
+                               Int64Column Int64 NOT NULL,
+                               Int16Column Int16 NOT NULL,
+                               Int8Column Int8 NOT NULL,
+                               FloatColumn Float NOT NULL,
+                               DoubleColumn Double NOT NULL,
+                               DefaultDecimalColumn Decimal(22,9) NOT NULL,
+                               Uint8Column Uint8 NOT NULL,
+                               Uint16Column Uint16 NOT NULL,
+                               Uint32Column Uint32 NOT NULL,
+                               Uint64Column Uint64 NOT NULL,
+                               TextColumn Text NOT NULL,
+                               BytesColumn Bytes NOT NULL,
+                               DateColumn Date NOT NULL,
+                               DatetimeColumn Datetime NOT NULL,
+                               TimestampColumn Timestamp NOT NULL,
+                               YsonColumn Yson NOT NULL,
+                               PRIMARY KEY (Int32Column)
+                           );
 
-                               CREATE TABLE {_allTypesTableNullable} (
-                                   Int32Column Int32,
-                                   BoolColumn Bool,
-                                   Int64Column Int64,
-                                   Int16Column Int16,
-                                   Int8Column Int8,
-                                   FloatColumn Float,
-                                   DoubleColumn Double,
-                                   DefaultDecimalColumn Decimal(22,9),
-                                   Uint8Column Uint8,
-                                   Uint16Column Uint16,
-                                   Uint32Column Uint32,
-                                   Uint64Column Uint64,
-                                   TextColumn Text,
-                                   BytesColumn Bytes,
-                                   DateColumn Date,
-                                   DatetimeColumn Datetime,
-                                   TimestampColumn Timestamp,
-                                   YsonColumn Yson,
-                                   PRIMARY KEY (Int32Column)
-                               );
-                               """
-            }.ExecuteNonQueryAsync();
-        }
+                           CREATE TABLE {_allTypesTableNullable} (
+                               Int32Column Int32,
+                               BoolColumn Bool,
+                               Int64Column Int64,
+                               Int16Column Int16,
+                               Int8Column Int8,
+                               FloatColumn Float,
+                               DoubleColumn Double,
+                               DefaultDecimalColumn Decimal(22,9),
+                               Uint8Column Uint8,
+                               Uint16Column Uint16,
+                               Uint32Column Uint32,
+                               Uint64Column Uint64,
+                               TextColumn Text,
+                               BytesColumn Bytes,
+                               DateColumn Date,
+                               DatetimeColumn Datetime,
+                               TimestampColumn Timestamp,
+                               YsonColumn Yson,
+                               PRIMARY KEY (Int32Column)
+                           );
 
-        await using var dataSource = new YdbDataSource(ConnectionString);
-        await dataSource.CreateTable(
-            new YdbTableDescription(
-                _allTypesTableWithDefaults,
-                new List<YdbColumnDescription>
-                {
-                    new("d1", YdbDbType.Int32) { IsNullable = false, DefaultValue = 1 },
-                    new("d2", YdbDbType.Bool) { IsNullable = false, DefaultValue = true },
-                    new("d3", YdbDbType.Int64) { IsNullable = false, DefaultValue = 1L },
-                    new("d4", YdbDbType.Int16) { IsNullable = false, DefaultValue = (short)1 },
-                    new("d5", YdbDbType.Int8) { IsNullable = false, DefaultValue = (sbyte)1 },
-                    new("d6", YdbDbType.Float) { IsNullable = false, DefaultValue = 1f },
-                    new("d7", YdbDbType.Double) { IsNullable = false, DefaultValue = 1d },
-                    new("d8", new YdbColumnType(YdbDbType.Decimal, 22, 9))
-                        { IsNullable = false, DefaultValue = 1m },
-                    new("d9", YdbDbType.Uint8) { IsNullable = false, DefaultValue = (byte)1 },
-                    new("d10", YdbDbType.Uint16) { IsNullable = false, DefaultValue = (ushort)1 },
-                    new("d11", YdbDbType.Uint32) { IsNullable = false, DefaultValue = (uint)1 },
-                    new("d12", YdbDbType.Uint64) { IsNullable = false, DefaultValue = (ulong)1 },
-                    new("d13", YdbDbType.Text) { IsNullable = false, DefaultValue = "text" },
-                    new("d14", YdbDbType.Bytes) { IsNullable = false, DefaultValue = Array.Empty<byte>() },
-                    new("d15", YdbDbType.Date)
-                        { IsNullable = false, DefaultValue = new DateTime(1971, 12, 1, 0, 0, 0, DateTimeKind.Utc) },
-                    new("d16", YdbDbType.Datetime)
-                        { IsNullable = false, DefaultValue = new DateTime(1971, 12, 1, 0, 0, 0, DateTimeKind.Utc) },
-                    new("d17", YdbDbType.Timestamp)
-                        { IsNullable = false, DefaultValue = new DateTime(1971, 12, 1, 0, 0, 0, DateTimeKind.Utc) },
-                    new("d18", YdbDbType.Yson) { IsNullable = false, DefaultValue = "{a=1u}"u8.ToArray() }
-                },
-                ["d1"]));
+                           CREATE TABLE {_allTypesTableWithDefaults} (
+                               d1 Int32 NOT NULL DEFAULT 1,
+                               d2 Bool NOT NULL DEFAULT (true),
+                               d3 Int64 NOT NULL DEFAULT 1,
+                               d4 Int16 NOT NULL DEFAULT CAST(1 as Int16),
+                               d5 Int8 NOT NULL DEFAULT CAST(1 as Int8),
+                               d6 Float NOT NULL DEFAULT CAST(1 as Float),
+                               d7 Double NOT NULL DEFAULT CAST(1 as Double),
+                               d8 Decimal(22,9) NOT NULL DEFAULT CAST(1 as Decimal(22,9)),
+                               d9 Uint8 NOT NULL DEFAULT CAST(1 as Uint8),
+                               d10 Uint16 NOT NULL DEFAULT CAST(1 as Uint16),
+                               d11 Uint32 NOT NULL DEFAULT CAST(1 as Uint32),
+                               d12 Uint64 NOT NULL DEFAULT CAST(1 as Uint64),
+                               d13 Text NOT NULL DEFAULT 'text'u,
+                               d14 Bytes NOT NULL DEFAULT CAST('' as Bytes),
+                               d15 Date NOT NULL DEFAULT CAST('1971-12-01' as Date),
+                               d16 Datetime NOT NULL DEFAULT CAST('1971-12-01T00:00:00Z' as Datetime),
+                               d17 Timestamp NOT NULL DEFAULT CAST('1971-12-01T00:00:00Z' as Timestamp),
+                               PRIMARY KEY (d1)
+                           );
+                           """
+        }.ExecuteNonQueryAsync();
     }
 
     protected override async Task OnDisposeAsync()
