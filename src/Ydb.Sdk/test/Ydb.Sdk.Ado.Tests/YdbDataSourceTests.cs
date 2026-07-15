@@ -436,7 +436,8 @@ public class YdbDataSourceTests : TestBase
             new("field_2", YdbDbType.Int32),
             new("field_3", YdbDbType.Int64) { IsNullable = false },
             new("field_4", YdbDbType.Text) { IsNullable = false },
-            new("field_5", new YdbColumnType(YdbDbType.Decimal, 10, 3))
+            new("field_5", new YdbColumnType(YdbDbType.Decimal, 10, 3)),
+            new("field_6", YdbDbType.Int32) { IsNullable = false, DefaultValue = 3 }
         }, new RepeatedField<string> { "field_1" })
         {
             Indexes = new List<YdbIndexDescription>
@@ -458,7 +459,7 @@ public class YdbDataSourceTests : TestBase
         Assert.Equal(["field_2", "field_3"], describeTable.Indexes[0].Columns);
         Assert.Equal("idx_1", describeTable.Indexes[0].Name);
         Assert.Empty(describeTable.Indexes[0].CoverColumns);
-        Assert.Equal(5, describeTable.Columns.Count);
+        Assert.Equal(6, describeTable.Columns.Count);
         Assert.Equal("field_1", describeTable.Columns[0].Name);
         Assert.Equal(YdbDbType.Datetime64, describeTable.Columns[0].StorageType.YdbDbType);
         Assert.True(describeTable.Columns[0].IsNullable);
@@ -472,6 +473,11 @@ public class YdbDataSourceTests : TestBase
         Assert.Equal(10, describeTable.Columns[4].StorageType.Precision);
         Assert.Equal(3, describeTable.Columns[4].StorageType.Scale);
         Assert.True(describeTable.Columns[4].IsNullable);
+
+        Assert.Equal("field_6", describeTable.Columns[5].Name);
+        Assert.Equal(YdbDbType.Int32, describeTable.Columns[5].StorageType.YdbDbType);
+        Assert.False(describeTable.Columns[5].IsNullable);
+        Assert.Equal(3, Assert.IsType<int>(describeTable.Columns[5].DefaultValue));
 
         await _dataSource.DropTable(tableName);
     }

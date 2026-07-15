@@ -1,4 +1,4 @@
-using System.Globalization;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
 using Ydb.Table;
@@ -29,12 +29,10 @@ public sealed class YdbColumnDescription
     {
         IsNullable = columnMeta.Type.TypeCase == Type.TypeOneofCase.OptionalType;
         Family = columnMeta.Family;
-        DefaultValueExpression = columnMeta.DefaultValueCase switch
-        {
-            ColumnMeta.DefaultValueOneofCase.FromLiteral => FormatLiteralValue(columnMeta.FromLiteral),
-            ColumnMeta.DefaultValueOneofCase.FromSequence => columnMeta.FromSequence?.ToString(),
-            _ => null
-        };
+        if (columnMeta.DefaultValueCase == ColumnMeta.DefaultValueOneofCase.FromLiteral)
+            DefaultValue = columnMeta.FromLiteral.ToColumnDefaultValue();
+        if (columnMeta.DefaultValueCase == ColumnMeta.DefaultValueOneofCase.FromSequence)
+            SequenceDescription = new YdbSequenceDescription(columnMeta.FromSequence);
     }
 
     /// <summary>
@@ -73,42 +71,16 @@ public sealed class YdbColumnDescription
     public string? Family { get; init; }
 
     /// <summary>
-    /// Gets or sets the column default expression as reported by YDB schema metadata.
+    /// Gets or sets the literal column default value.
+    /// May contain a primitive CLR value, <see cref="YdbParameter"/>, <see cref="YdbValue"/>,
+    /// or <see cref="TypedValue"/>.
     /// </summary>
-    public string? DefaultValueExpression { get; init; }
+    public object? DefaultValue { get; init; }
 
-    private static string? FormatLiteralValue(TypedValue? literal)
-    {
-        if (literal is null)
-        {
-            return null;
-        }
-
-        var ydbValue = new YdbValue(literal.Type, literal.Value);
-        return FormatYdbValue(ydbValue) ?? literal.ToString();
-    }
-
-    private static string? FormatYdbValue(YdbValue value) =>
-        value.TypeId switch
-        {
-            YdbTypeId.Bool => value.GetBool().ToString(),
-            YdbTypeId.Int8 => value.GetInt8().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.Uint8 => value.GetUint8().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.Int16 => value.GetInt16().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.Uint16 => value.GetUint16().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.Int32 => value.GetInt32().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.Uint32 => value.GetUint32().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.Int64 => value.GetInt64().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.Uint64 => value.GetUint64().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.Float => value.GetFloat().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.Double => value.GetDouble().ToString(CultureInfo.InvariantCulture),
-            YdbTypeId.String => Convert.ToBase64String(value.GetString()),
-            YdbTypeId.Utf8 => value.GetUtf8(),
-            YdbTypeId.Json => value.GetJson(),
-            YdbTypeId.JsonDocument => value.GetJsonDocument(),
-            YdbTypeId.OptionalType => value.GetOptional() is { } optionalValue ? FormatYdbValue(optionalValue) : null,
-            _ => value.ToString()
-        };
+    /// <summary>
+    /// Gets or sets the sequence-backed default value metadata.
+    /// </summary>
+    public YdbSequenceDescription? SequenceDescription { get; init; }
 
     internal ColumnMeta ToProto()
     {
@@ -127,6 +99,35 @@ public sealed class YdbColumnDescription
         if (Family != null)
         {
             columnMeta.Family = Family;
+        }
+
+        if (DefaultValue != null && SequenceDescription != null)
+        {
+            throw new InvalidOperationException("Column default cannot contain both literal and sequence values.");
+        }
+
+        if (SequenceDescription != null)
+        {
+            columnMeta.FromSequence = SequenceDescription.ToProto();
+            return columnMeta;
+        }
+
+        switch (DefaultValue)
+        {
+            case null:
+                break;
+            case YdbParameter parameter:
+                columnMeta.FromLiteral = parameter.TypedValue;
+                break;
+            case YdbValue ydbValue:
+                columnMeta.FromLiteral = ydbValue.GetProto();
+                break;
+            case TypedValue typedValue:
+                columnMeta.FromLiteral = typedValue;
+                break;
+            default:
+                columnMeta.FromLiteral = new YdbParameter("$defaultValue", DefaultValue).TypedValue;
+                break;
         }
 
         return columnMeta;

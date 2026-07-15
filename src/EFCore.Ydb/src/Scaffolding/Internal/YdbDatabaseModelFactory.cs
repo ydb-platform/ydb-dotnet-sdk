@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -67,7 +68,7 @@ public class YdbDatabaseModelFactory : DatabaseModelFactory
                         Table = databaseTable,
                         StoreType = column.StorageType.ToString(),
                         IsNullable = column.IsNullable,
-                        DefaultValueSql = column.DefaultValueExpression
+                        DefaultValueSql = column.DefaultValue?.ToString()
                     };
 
                     databaseTable.Columns.Add(databaseColumn);
