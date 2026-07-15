@@ -482,6 +482,58 @@ public class YdbDataSourceTests : TestBase
         await _dataSource.DropTable(tableName);
     }
 
+    [Fact]
+    public async Task CreateTable_WithSequenceDefault_DescribeReturnsSequenceDescription()
+    {
+        var tableName = $"create_table_with_seq_{Random.Shared.Next()}";
+        var sequenceName = $"{tableName}_seq";
+        const long expectedMin = 123L;
+        const long expectedMax = 9_999L;
+        const long expectedStart = 200L;
+        const ulong expectedCache = 10UL;
+        const long expectedIncrement = 2L;
+        const bool expectedCycle = true;
+
+        var tableDescription = new YdbTableDescription(tableName, new List<YdbColumnDescription>
+        {
+            new("id", YdbDbType.Int64)
+            {
+                IsNullable = false,
+                SequenceDescription = new YdbSequenceDescription(sequenceName)
+                {
+                    MinValue = expectedMin,
+                    MaxValue = expectedMax,
+                    StartValue = expectedStart,
+                    Cache = expectedCache,
+                    Increment = expectedIncrement,
+                    Cycle = expectedCycle
+                }
+            }
+        }, ["id"]);
+
+        await _dataSource.CreateTable(tableDescription);
+        try
+        {
+            var describeTable = await _dataSource.DescribeTable(tableName);
+            var idColumn = Assert.Single(describeTable.Columns);
+
+            Assert.Equal("id", idColumn.Name);
+            Assert.Null(idColumn.DefaultValue);
+            Assert.NotNull(idColumn.SequenceDescription);
+            Assert.Equal(sequenceName, idColumn.SequenceDescription!.Name);
+            Assert.Equal(expectedMin, idColumn.SequenceDescription.MinValue);
+            Assert.Equal(expectedMax, idColumn.SequenceDescription.MaxValue);
+            Assert.Equal(expectedStart, idColumn.SequenceDescription.StartValue);
+            Assert.Equal(expectedCache, idColumn.SequenceDescription.Cache);
+            Assert.Equal(expectedIncrement, idColumn.SequenceDescription.Increment);
+            Assert.Equal(expectedCycle, idColumn.SequenceDescription.Cycle);
+        }
+        finally
+        {
+            await _dataSource.DropTable(tableName);
+        }
+    }
+
     // [Fact] https://github.com/ydb-platform/ydb/issues/31123
     // public Task RenameTablesWithReplace_SuccessRenamed() => RunTestWithTemporaryTable(
     //     """
