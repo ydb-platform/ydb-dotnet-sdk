@@ -3,9 +3,9 @@ using Ydb.Sdk.Ado.Schema;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Table;
 
-namespace Ydb.Sdk.Ado.Tests;
+namespace Ydb.Sdk.Ado.Tests.Internal;
 
-public class YdbColumnDefaultsCoverageTests
+public class YdbColumnDefaultsTests
 {
     [Fact]
     public void Ctor_FromLiteralDefault_ParsesValue()
