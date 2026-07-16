@@ -86,7 +86,6 @@ public class DriverConfig
     internal X509Certificate2Collection CustomServerCertificates { get; } = [];
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
-    internal string SdkVersion { get; }
     internal EndpointInfo EndpointInfo { get; }
 
     /// <summary>
@@ -118,8 +117,6 @@ public class DriverConfig
         {
             CustomServerCertificates.AddRange(customServerCertificates);
         }
-
-        SdkVersion = $"ydb-dotnet-sdk/{YdbSdkVersion.Value}";
     }
 
     internal Grpc.Core.Metadata GetCallMetadata => new()

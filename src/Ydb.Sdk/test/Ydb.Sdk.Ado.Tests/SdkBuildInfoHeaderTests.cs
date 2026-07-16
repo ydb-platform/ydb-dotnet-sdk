@@ -11,6 +11,7 @@ using Ydb.Sdk.OpenTelemetry;
 using Ydb.Sdk.Pool;
 using OpenTelemetrySdk = OpenTelemetry.Sdk;
 using Metadata = Grpc.Core.Metadata;
+using YdbMetadata = Ydb.Sdk.Internal.Metadata;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -34,7 +35,7 @@ public class SdkBuildInfoHeaderTests : IDisposable
 
         var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings());
 
-        Assert.Null(options.Headers!.Get("x-ydb-sdk-build-info"));
+        Assert.Null(options.Headers!.Get(YdbMetadata.RpcSdkInfoHeader));
     }
 
     [Fact]
@@ -44,9 +45,7 @@ public class SdkBuildInfoHeaderTests : IDisposable
         SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
         SdkClientInfoRegistry.Register($"client-a/{YdbSdkVersion.Value}");
 
-        Assert.Equal(
-            $"ado-net/{YdbSdkVersion.Value};client-a/{YdbSdkVersion.Value}",
-            SdkClientInfoRegistry.Chain);
+        Assert.Equal($"ado-net/{YdbSdkVersion.Value};client-a/{YdbSdkVersion.Value}", SdkClientInfoRegistry.Chain);
     }
 
     [Fact]
@@ -90,13 +89,10 @@ public class SdkBuildInfoHeaderTests : IDisposable
         var driver = new TestDriver();
         driver.RegisterOwner();
 
-        var source = new ImplicitSessionSource(driver, builder);
-
-        Assert.Equal(
-            $"EntityFrameworkCore.Ydb/1.0.0;ado-net/{YdbSdkVersion.Value}",
-            SdkClientInfoRegistry.Chain);
-
-        await source.DisposeAsync();
+        await using (var _ = new ImplicitSessionSource(driver, builder))
+        {
+            Assert.Equal($"EntityFrameworkCore.Ydb/1.0.0;ado-net/{YdbSdkVersion.Value}", SdkClientInfoRegistry.Chain);
+        }
 
         Assert.Null(SdkClientInfoRegistry.Chain);
     }
@@ -110,7 +106,7 @@ public class SdkBuildInfoHeaderTests : IDisposable
         var headers = new Metadata();
         headers.AddSdkBuildInfo();
 
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value}", headers.Get("x-ydb-sdk-build-info")?.Value);
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value}", headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
@@ -123,9 +119,8 @@ public class SdkBuildInfoHeaderTests : IDisposable
         var headers = new Metadata();
         headers.AddSdkBuildInfo();
 
-        Assert.Equal(
-            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
-            headers.Get("x-ydb-sdk-build-info")?.Value);
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
+            headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
@@ -141,9 +136,8 @@ public class SdkBuildInfoHeaderTests : IDisposable
         var headers = new Metadata();
         headers.AddSdkBuildInfo();
 
-        Assert.Equal(
-            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
-            headers.Get("x-ydb-sdk-build-info")?.Value);
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
+            headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
@@ -165,9 +159,9 @@ public class SdkBuildInfoHeaderTests : IDisposable
         var headers = new Metadata();
         headers.AddSdkBuildInfo();
 
-        Assert.Equal(
-            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion};{clientChain}",
-            headers.Get("x-ydb-sdk-build-info")?.Value);
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion};" +
+                     $"ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion};{clientChain}",
+            headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
@@ -180,9 +174,8 @@ public class SdkBuildInfoHeaderTests : IDisposable
         var headers = new Metadata();
         headers.AddSdkBuildInfo();
 
-        Assert.Equal(
-            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
-            headers.Get("x-ydb-sdk-build-info")?.Value);
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
+            headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
@@ -198,9 +191,8 @@ public class SdkBuildInfoHeaderTests : IDisposable
         var headers = new Metadata();
         headers.AddSdkBuildInfo();
 
-        Assert.Equal(
-            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
-            headers.Get("x-ydb-sdk-build-info")?.Value);
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
+            headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     private sealed class TestDriver() : BaseDriver(new DriverConfig(false, "localhost", 2136, "/local"),

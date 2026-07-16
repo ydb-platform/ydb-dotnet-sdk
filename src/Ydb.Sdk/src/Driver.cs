@@ -216,11 +216,11 @@ public sealed class Driver : BaseDriver
             }
 
             Logger.LogDebug(
-                "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, preferred location: {PreferredLocation}, sdk info: {SdkInfo}",
+                "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, preferred location: {PreferredLocation}, sdk version: {YdbSdkVersion}",
                 resultProto.Endpoints.Count,
                 resultProto.SelfLocation,
                 preferredLocation ?? "<disabled>",
-                Config.SdkVersion
+                YdbSdkVersion.Value
             );
 
             await ChannelPool.RemoveChannels(_endpointPool.Reset(
