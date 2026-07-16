@@ -1,5 +1,6 @@
 - Added string concatenation support in LINQ (`||` in YQL).
 - Fixed LINQ `Skip`/`Take` pagination: default `LIMIT` for offset-only queries uses `int.MaxValue` instead of `ulong.MaxValue`.
+- Bumped `Ydb.Sdk` to `0.33.2`.
 
 ## v0.5.0
 
