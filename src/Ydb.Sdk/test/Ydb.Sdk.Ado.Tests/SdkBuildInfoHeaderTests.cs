@@ -110,7 +110,7 @@ public class SdkBuildInfoHeaderTests : IDisposable
         var headers = new Metadata();
         headers.AddSdkBuildInfo();
 
-        Assert.Equal(YdbSdkVersion.Value, headers.Get("x-ydb-sdk-build-info")?.Value);
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value}", headers.Get("x-ydb-sdk-build-info")?.Value);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class SdkBuildInfoHeaderTests : IDisposable
         headers.AddSdkBuildInfo();
 
         Assert.Equal(
-            $"{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
             headers.Get("x-ydb-sdk-build-info")?.Value);
     }
 
@@ -142,7 +142,7 @@ public class SdkBuildInfoHeaderTests : IDisposable
         headers.AddSdkBuildInfo();
 
         Assert.Equal(
-            $"{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
             headers.Get("x-ydb-sdk-build-info")?.Value);
     }
 
@@ -166,7 +166,40 @@ public class SdkBuildInfoHeaderTests : IDisposable
         headers.AddSdkBuildInfo();
 
         Assert.Equal(
-            $"{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion};{clientChain}",
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion};{clientChain}",
+            headers.Get("x-ydb-sdk-build-info")?.Value);
+    }
+
+    [Fact]
+    public void AddSdkBuildInfo_AddsTracingChain_ForManualYdbSourceSubscription()
+    {
+        using var provider = OpenTelemetrySdk.CreateTracerProviderBuilder()
+            .AddSource("Ydb.Sdk")
+            .Build();
+
+        var headers = new Metadata();
+        headers.AddSdkBuildInfo();
+
+        Assert.Equal(
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
+            headers.Get("x-ydb-sdk-build-info")?.Value);
+    }
+
+    [Fact]
+    public void AddSdkBuildInfo_AddsMetricsChain_ForManualYdbMeterSubscription()
+    {
+        var exportedItems = new List<Metric>();
+
+        using var provider = OpenTelemetrySdk.CreateMeterProviderBuilder()
+            .AddMeter("Ydb.Sdk")
+            .AddInMemoryExporter(exportedItems)
+            .Build();
+
+        var headers = new Metadata();
+        headers.AddSdkBuildInfo();
+
+        Assert.Equal(
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
             headers.Get("x-ydb-sdk-build-info")?.Value);
     }
 

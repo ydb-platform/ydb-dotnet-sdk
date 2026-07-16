@@ -3,6 +3,7 @@
 internal static class Metadata
 {
     private const string RpcSdkInfoHeader = "x-ydb-sdk-build-info";
+    private const string SdkBuildInfoToken = "ydb-dotnet-sdk";
     
     // Outgoing headers
     internal const string RpcDatabaseHeader = "x-ydb-database";
@@ -22,7 +23,7 @@ internal static class Metadata
 
     internal static void AddSdkBuildInfo(this Grpc.Core.Metadata metadata)
     {
-        var sdkVersion = YdbSdkVersion.Value;
+        var sdkVersion = $"{SdkBuildInfoToken}/{YdbSdkVersion.Value}";
         var clientInfoChain = SdkClientInfoRegistry.Chain;
         var observabilityChain = ObservabilityInfo.BuildChain();
         
