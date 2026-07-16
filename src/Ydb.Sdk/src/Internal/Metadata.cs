@@ -2,33 +2,23 @@
 
 internal static class Metadata
 {
-    private const string RpcSdkInfoHeader = "x-ydb-sdk-build-info";
-    private const string SdkBuildInfoToken = "ydb-dotnet-sdk";
-
     // Outgoing headers
-    internal const string RpcDatabaseHeader = "x-ydb-database";
-    internal const string RpcAuthHeader = "x-ydb-auth-ticket";
-    internal const string RpcRequestTypeHeader = "x-ydb-request-type";
-    internal const string RpcTraceIdHeader = "x-ydb-trace-id";
-    internal const string RpcClientPid = "x-ydb-client-pid";
+    public const string RpcDatabaseHeader = "x-ydb-database";
+    public const string RpcAuthHeader = "x-ydb-auth-ticket";
+    public const string RpcRequestTypeHeader = "x-ydb-request-type";
+    public const string RpcTraceIdHeader = "x-ydb-trace-id";
+    public const string RpcSdkInfoHeader = "x-ydb-sdk-build-info";
+    public const string RpcClientPid = "x-ydb-client-pid";
 
     // W3C trace-context propagation header (YDB supports "traceparent" on gRPC requests)
-    internal const string TraceParentHeader = "traceparent";
+    public const string TraceParentHeader = "traceparent";
 
     // Incoming headers
-    internal const string RpcServerHintsHeader = "x-ydb-server-hints";
-    internal const string RpcClientCapabilitiesHeader = "x-ydb-client-capabilities";
+    public const string RpcServerHintsHeader = "x-ydb-server-hints";
+    public const string RpcClientCapabilitiesHeader = "x-ydb-client-capabilities";
+
+    //Incoming hints
+    public const string GracefulShutdownHint = "session-close";
 
     internal static readonly string AdoNetClientInfo = $"ado-net/{YdbSdkVersion.Value}";
-
-    internal static void AddSdkBuildInfo(this Grpc.Core.Metadata metadata)
-    {
-        var sdkVersion = $"{SdkBuildInfoToken}/{YdbSdkVersion.Value}";
-        var clientInfoChain = SdkClientInfoRegistry.Chain;
-        var observabilityChain = ObservabilityInfo.BuildChain();
-
-        var sdkBuildInfo = observabilityChain is null ? sdkVersion : $"{sdkVersion};{observabilityChain}";
-
-        metadata.Add(RpcSdkInfoHeader, clientInfoChain is null ? sdkBuildInfo : $"{sdkBuildInfo};{clientInfoChain}");
-    }
 }
