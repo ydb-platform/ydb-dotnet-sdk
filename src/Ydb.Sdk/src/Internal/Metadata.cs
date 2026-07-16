@@ -4,7 +4,7 @@ internal static class Metadata
 {
     private const string RpcSdkInfoHeader = "x-ydb-sdk-build-info";
     private const string SdkBuildInfoToken = "ydb-dotnet-sdk";
-    
+
     // Outgoing headers
     internal const string RpcDatabaseHeader = "x-ydb-database";
     internal const string RpcAuthHeader = "x-ydb-auth-ticket";
@@ -26,7 +26,7 @@ internal static class Metadata
         var sdkVersion = $"{SdkBuildInfoToken}/{YdbSdkVersion.Value}";
         var clientInfoChain = SdkClientInfoRegistry.Chain;
         var observabilityChain = ObservabilityInfo.BuildChain();
-        
+
         var sdkBuildInfo = observabilityChain is null ? sdkVersion : $"{sdkVersion};{observabilityChain}";
 
         metadata.Add(RpcSdkInfoHeader, clientInfoChain is null ? sdkBuildInfo : $"{sdkBuildInfo};{clientInfoChain}");
