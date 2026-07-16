@@ -1,7 +1,8 @@
 using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
-using Ydb.Sdk.Internal;
 using Ydb.Sdk.Pool;
+using Metadata = Grpc.Core.Metadata;
+using YdbMetadata = Ydb.Sdk.Internal.Metadata;
 
 namespace Ydb.Sdk;
 
@@ -119,9 +120,9 @@ public class DriverConfig
         }
     }
 
-    internal Grpc.Core.Metadata GetCallMetadata => new()
+    internal Metadata GetCallMetadata => new()
     {
-        { Metadata.RpcDatabaseHeader, Database },
-        { Metadata.RpcClientPid, _pid }
+        { YdbMetadata.RpcDatabaseHeader, Database },
+        { YdbMetadata.RpcClientPid, _pid }
     };
 }

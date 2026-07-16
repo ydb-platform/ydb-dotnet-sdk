@@ -320,7 +320,8 @@ public abstract class BaseDriver : IDriver
                 dbActivity.SetTag("ydb.node.dc", endpointInfo.LocationDc);
             }
 
-            meta.Add(YdbMetadata.TraceParentHeader, dbActivity.Id!); // W3C: after Start(), Id is guaranteed to be non-null
+            // W3C: after Start(), Id is guaranteed to be non-null
+            meta.Add(YdbMetadata.TraceParentHeader, dbActivity.Id!);
         }
 
         foreach (var clientCapabilitiesHeader in settings.ClientCapabilities)
