@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
+using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Ado.Session;
 

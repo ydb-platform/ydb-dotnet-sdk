@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Ado;
 
@@ -156,6 +157,15 @@ internal sealed class YdbMetricsReporter : IDisposable
     }
 
     internal static long ReportCommandStart() => OperationDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
+
+    internal static bool HasEnabledInstruments =>
+        OperationDuration.Enabled ||
+        OperationsFailed.Enabled ||
+        RetryDuration.Enabled ||
+        RetryAttempts.Enabled ||
+        ConnectionTimeouts.Enabled ||
+        PendingConnectionRequests.Enabled ||
+        ConnectionCreateTime.Enabled;
 
     internal void ReportCommandStop(long startTimestamp, string operationName)
     {

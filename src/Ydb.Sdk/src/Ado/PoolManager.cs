@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Ydb.Sdk.Ado.Session;
+using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Ado;
 

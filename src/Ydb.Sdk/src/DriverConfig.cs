@@ -1,7 +1,8 @@
-using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Pool;
+using Metadata = Grpc.Core.Metadata;
+using YdbMetadata = Ydb.Sdk.Internal.Metadata;
 
 namespace Ydb.Sdk;
 
@@ -86,7 +87,6 @@ public class DriverConfig
     internal X509Certificate2Collection CustomServerCertificates { get; } = [];
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
-    internal string SdkVersion { get; }
     internal EndpointInfo EndpointInfo { get; }
 
     /// <summary>
@@ -118,15 +118,11 @@ public class DriverConfig
         {
             CustomServerCertificates.AddRange(customServerCertificates);
         }
-
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        var versionStr = version is null ? "unknown" : version.ToString(3);
-        SdkVersion = $"ydb-dotnet-sdk/{versionStr}";
     }
 
-    internal Grpc.Core.Metadata GetCallMetadata => new()
+    internal Metadata GetCallMetadata => new()
     {
-        { Metadata.RpcDatabaseHeader, Database },
-        { Metadata.RpcClientPid, _pid }
+        { YdbMetadata.RpcDatabaseHeader, Database },
+        { YdbMetadata.RpcClientPid, _pid }
     };
 }

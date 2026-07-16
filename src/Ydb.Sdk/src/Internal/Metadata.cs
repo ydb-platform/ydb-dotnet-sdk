@@ -1,4 +1,4 @@
-﻿namespace Ydb.Sdk;
+﻿namespace Ydb.Sdk.Internal;
 
 internal static class Metadata
 {
