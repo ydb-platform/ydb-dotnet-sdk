@@ -12,6 +12,8 @@ Built on top of the `Ydb.Sdk` ADO.NET provider.
 dotnet add package EntityFrameworkCore.Ydb
 ```
 
+Dependency bump: local EFCore build now consumes `Ydb.Sdk` from NuGet (`0.33.2`).
+
 ## Supported versions
 
 | Package | Supported EF Core version | Target framework |
