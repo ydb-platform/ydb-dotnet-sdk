@@ -13,9 +13,9 @@ coverage:
 # (?component_id=native-sdk), regardless of how each repo tags its uploads.
 #
 # This repo is a monorepo. The native-sdk component covers the SDK itself plus its
-# first-party OpenTelemetry integration (including Ydb.Sdk hits from EF FunctionalTests).
-# The EF Core provider is a separate framework adapter and gets its own component,
-# so it does not dilute the SDK number.
+# first-party OpenTelemetry integration. The EF Core provider
+# is a separate framework adapter and gets its own component, so it does not dilute
+# the SDK number.
 component_management:
   individual_components:
     - component_id: native-sdk
@@ -28,19 +28,12 @@ component_management:
       paths:
         - "src/EFCore.Ydb/src/**"
 
-# Coverage is uploaded from two jobs and merged by Codecov per source path:
-#   - ydb-sdk-tests  → flag ydb-sdk
-#   - efcore-tests   → flag efcore-ydb, plus a second upload with flag ydb-sdk
-#     (EF FunctionalTests hit local Ydb.Sdk via ProjectReference)
-# Carryforward keeps the last known value if a fail-fast cancel skips an upload.
-# Path filters keep each flag scoped to its component when a report contains both.
+# ydb-sdk and efcore-ydb coverage come from separate jobs, each uploaded from a
+# single matrix leg. Carry the last known value forward so a flaky or fail-fast
+# cancelled leg that skips its upload does not collapse the total and false-fail
+# the project status above.
 flags:
   ydb-sdk:
     carryforward: true
-    paths:
-      - src/Ydb.Sdk/src/**
-      - src/Ydb.Sdk.OpenTelemetry/src/**
   efcore-ydb:
     carryforward: true
-    paths:
-      - src/EFCore.Ydb/src/**

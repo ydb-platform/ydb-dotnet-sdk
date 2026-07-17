@@ -177,19 +177,6 @@ jobs:
           name: efcore-ydb
           fail_ci_if_error: true
 
-      # FunctionalTests ProjectReference local Ydb.Sdk — upload the same report under
-      # ydb-sdk so Codecov merges those hits with ADO/Topic coverage for Ydb.Sdk paths.
-      # Flag path filters in codecov.yml keep only src/Ydb.Sdk/** for this flag.
-      - name: Upload Ydb.Sdk coverage from EF FunctionalTests to Codecov
-        if: env.COVERAGE_ENABLED == 'true'
-        uses: codecov/codecov-action@v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          directory: artifacts/coverage/efcore-ydb
-          flags: ydb-sdk
-          name: ydb-sdk-from-efcore
-          fail_ci_if_error: true
-
   run-examples:
     runs-on: ubuntu-22.04
 
