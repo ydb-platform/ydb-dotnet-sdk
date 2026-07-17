@@ -163,7 +163,7 @@ public sealed class Driver : BaseDriver
 
             var options = await GetCallOptions(grpcSettings, Config.EndpointInfo).ConfigureAwait(false);
             // Observability adoption is reported only on Discovery; regular RPCs keep the base header.
-            options.Headers?.AppendObservabilityChain();
+            options.Headers!.AppendObservabilityChain();
 
             var response = await client.ListEndpointsAsync(request: request, options: options)
                 .ResponseAsync.ConfigureAwait(false);

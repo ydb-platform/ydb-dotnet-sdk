@@ -142,4 +142,3 @@ public class DriverConfig
         { YdbMetadata.RpcSdkInfoHeader, SdkBuildInfo }
     };
 }
-

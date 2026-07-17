@@ -50,6 +50,22 @@ public class SdkBuildInfoHeaderTests
     }
 
     [Fact]
+    public async Task GetCallOptions_ThenAppendObservabilityChain_MatchesDiscoveryPath()
+    {
+        // Mirrors Driver.DiscoverEndpoints: GetCallOptions (base header) then AppendObservabilityChain.
+        using var tracerProvider = OpenTelemetrySdk.CreateTracerProviderBuilder().AddYdb().Build();
+
+        var options = await new TestDriver($"ado-net/{YdbSdkVersion.Value}")
+            .InvokeGetCallOptions(new GrpcRequestSettings());
+        options.Headers!.AppendObservabilityChain();
+
+        Assert.Equal(
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ado-net/{YdbSdkVersion.Value};" +
+            $"ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
+            options.Headers!.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
+    }
+
+    [Fact]
     public void YdbSdkVersion_HasNumericDottedFormat() => Assert.Matches(@"^\d+\.\d+\.\d+$", YdbSdkVersion.Value);
 
     [Fact]

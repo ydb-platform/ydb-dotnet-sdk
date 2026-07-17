@@ -4,8 +4,8 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Auth;
-using Ydb.Sdk.Transport;
 using Ydb.Sdk.Internal;
+using Ydb.Sdk.Transport;
 
 namespace Ydb.Sdk.Ado;
 

@@ -24,6 +24,7 @@ public class AdoNetQuerySessionTests : TestBase
     [Fact]
     public async Task QuerySession_ReportsSdkBuildInfoWithAdoNetClientInfo()
     {
+        var expectedPid = Environment.ProcessId.ToString();
         var expected = $"ydb-dotnet-sdk/{YdbSdkVersion.Value};{Metadata.AdoNetClientInfo}";
 
         await using var connection = await CreateOpenConnectionAsync();
@@ -32,6 +33,7 @@ public class AdoNetQuerySessionTests : TestBase
         // must carry both the base SDK token and the ado-net component reported on every call.
         dbCommand.CommandText =
             "SELECT ClientSdkBuildInfo FROM `.sys/query_sessions` WHERE ClientPID = @pid AND ClientSdkBuildInfo = @info;";
+        dbCommand.Parameters.Add(new YdbParameter("pid", expectedPid));
         dbCommand.Parameters.Add(new YdbParameter("info", expected));
 
         var actual = await dbCommand.ExecuteScalarAsync();

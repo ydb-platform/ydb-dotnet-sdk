@@ -14,12 +14,8 @@ internal static class MetadataSdkBuildInfoExtensions
             return;
         }
 
-        var entry = metadata.Get(Metadata.RpcSdkInfoHeader);
-        if (entry is null)
-        {
-            return;
-        }
-
+        // GetCallMetadata always sets x-ydb-sdk-build-info before discovery appends observability.
+        var entry = metadata.Get(Metadata.RpcSdkInfoHeader)!;
         metadata.Remove(entry);
         metadata.Add(Metadata.RpcSdkInfoHeader, $"{entry.Value};{observabilityChain}");
     }
