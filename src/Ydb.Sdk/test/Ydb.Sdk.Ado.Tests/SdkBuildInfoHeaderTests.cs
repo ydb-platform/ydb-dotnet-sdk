@@ -56,15 +56,20 @@ public class SdkBuildInfoHeaderTests
     public void SdkBuildInfo_IsBaseToken_WhenNoClientInfo()
     {
         var config = new DriverConfig(false, "localhost", 2136, "/local");
+        _ = new TestDriver(config);
 
         Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value}", config.SdkBuildInfo);
     }
 
     [Fact]
-    public void SdkBuildInfo_IncludesClientInfo_WhenProvided()
+    public void SdkBuildInfo_IncludesClientInfo_WhenDriverIsCreated()
     {
         var clientInfo = $"ado-net/{YdbSdkVersion.Value}";
         var config = new DriverConfig(false, "localhost", 2136, "/local") { ClientInfo = clientInfo };
+
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value}", config.SdkBuildInfo);
+
+        _ = new TestDriver(config);
 
         Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientInfo}", config.SdkBuildInfo);
     }
@@ -137,14 +142,24 @@ public class SdkBuildInfoHeaderTests
     private static Metadata CreateHeadersWithSdkBuildInfo(string? clientInfo)
     {
         var config = new DriverConfig(false, "localhost", 2136, "/local") { ClientInfo = clientInfo };
+        _ = new TestDriver(config);
         return config.GetCallMetadata;
     }
 
-    private sealed class TestDriver(string? clientInfo) : BaseDriver(
-        new DriverConfig(false, "localhost", 2136, "/local") { ClientInfo = clientInfo },
-        NullLoggerFactory.Instance,
-        NullLoggerFactory.Instance.CreateLogger<TestDriver>())
+    private sealed class TestDriver : BaseDriver
     {
+        public TestDriver(string? clientInfo) : this(
+            new DriverConfig(false, "localhost", 2136, "/local") { ClientInfo = clientInfo })
+        {
+        }
+
+        public TestDriver(DriverConfig config) : base(
+            config,
+            NullLoggerFactory.Instance,
+            NullLoggerFactory.Instance.CreateLogger<TestDriver>())
+        {
+        }
+
         public async ValueTask<CallOptions> InvokeGetCallOptions(GrpcRequestSettings settings)
         {
             var method = typeof(BaseDriver).GetMethod("GetCallOptions",

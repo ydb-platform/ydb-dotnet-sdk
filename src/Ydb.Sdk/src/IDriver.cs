@@ -186,6 +186,11 @@ public abstract class BaseDriver : IDriver
         Logger = logger;
         LoggerFactory = loggerFactory;
 
+        if (Config.ClientInfo is not null)
+        {
+            Config.SdkBuildInfo = $"{Config.SdkBuildInfo};{Config.ClientInfo}";
+        }
+
         GrpcChannelFactory = new GrpcChannelFactory(LoggerFactory, Config);
         ChannelPool = new ChannelPool<GrpcChannel>(LoggerFactory, GrpcChannelFactory);
 

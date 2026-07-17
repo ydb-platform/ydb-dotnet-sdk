@@ -92,25 +92,17 @@ public class DriverConfig
 
     /// <summary>
     /// Optional client component chain reported in the <c>x-ydb-sdk-build-info</c> header on every call
-    /// (e.g. <c>ado-net/1.2.3</c> or <c>ado-net/1.2.3;ef-core/1.2.3</c>). When set, it is baked into
-    /// <see cref="SdkBuildInfo"/> at construction time.
+    /// (e.g. <c>ado-net/1.2.3</c> or <c>ado-net/1.2.3;ef-core/1.2.3</c>). Baked into
+    /// <see cref="SdkBuildInfo"/> when the driver is constructed.
     /// </summary>
-    internal string? ClientInfo
-    {
-        init
-        {
-            if (value is not null)
-            {
-                SdkBuildInfo = $"{SdkBuildInfo};{value}";
-            }
-        }
-    }
+    internal string? ClientInfo { get; init; }
 
     /// <summary>
-    /// Precomputed <c>x-ydb-sdk-build-info</c> value for every call (base SDK token plus optional client chain).
-    /// Observability adoption tokens are appended only on Discovery via <c>AppendObservabilityChain</c>.
+    /// <c>x-ydb-sdk-build-info</c> value for every call (base SDK token plus optional <see cref="ClientInfo"/>).
+    /// Finalized in <c>BaseDriver</c>; observability adoption tokens are appended only on Discovery
+    /// via <c>AppendObservabilityChain</c>.
     /// </summary>
-    internal string SdkBuildInfo { get; private set; }
+    internal string SdkBuildInfo { get; set; }
 
     /// <summary>
     /// Initializes a new instance of the DriverConfig class.
