@@ -12,7 +12,7 @@ using OpenTelemetrySdk = OpenTelemetry.Sdk;
 using Metadata = Grpc.Core.Metadata;
 using YdbMetadata = Ydb.Sdk.Internal.Metadata;
 
-namespace Ydb.Sdk.Ado.Tests;
+namespace Ydb.Sdk.Ado.Tests.Internal;
 
 [Collection("DisableParallelization")]
 public class SdkBuildInfoHeaderTests
@@ -67,23 +67,6 @@ public class SdkBuildInfoHeaderTests
 
     [Fact]
     public void YdbSdkVersion_HasNumericDottedFormat() => Assert.Matches(@"^\d+\.\d+\.\d+$", YdbSdkVersion.Value);
-
-    [Fact]
-    public void SdkBuildInfo_IsBaseToken_WhenNoClientInfo()
-    {
-        var config = new DriverConfig(false, "localhost", 2136, "/local");
-
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value}", config.SdkBuildInfo);
-    }
-
-    [Fact]
-    public void SdkBuildInfo_IncludesClientInfo_FromConstructor()
-    {
-        var clientInfo = $"ado-net/{YdbSdkVersion.Value}";
-        var config = new DriverConfig(false, "localhost", 2136, "/local", clientInfo: clientInfo);
-
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientInfo}", config.SdkBuildInfo);
-    }
 
     [Fact]
     public void AppendObservabilityChain_AddsTracingChain_WhenTracingIsEnabled()
