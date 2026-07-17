@@ -1,5 +1,6 @@
 using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Internal;
 using Ydb.Sdk.Pool;
 using Metadata = Grpc.Core.Metadata;
 using YdbMetadata = Ydb.Sdk.Internal.Metadata;
@@ -90,6 +91,28 @@ public class DriverConfig
     internal EndpointInfo EndpointInfo { get; }
 
     /// <summary>
+    /// Optional client component chain reported in the <c>x-ydb-sdk-build-info</c> header on every call
+    /// (e.g. <c>ado-net/1.2.3</c> or <c>ado-net/1.2.3;ef-core/1.2.3</c>). When set, it is baked into
+    /// <see cref="SdkBuildInfo"/> at construction time.
+    /// </summary>
+    internal string? ClientInfo
+    {
+        init
+        {
+            if (value is not null)
+            {
+                SdkBuildInfo = $"{SdkBuildInfo};{value}";
+            }
+        }
+    }
+
+    /// <summary>
+    /// Precomputed <c>x-ydb-sdk-build-info</c> value for every call (base SDK token plus optional client chain).
+    /// Observability adoption tokens are appended only on Discovery via <c>AppendObservabilityChain</c>.
+    /// </summary>
+    internal string SdkBuildInfo { get; private set; }
+
+    /// <summary>
     /// Initializes a new instance of the DriverConfig class.
     /// </summary>
     /// <param name="useTls">
@@ -108,6 +131,7 @@ public class DriverConfig
         EndpointInfo = new EndpointInfo(0, useTls, host, port, "Unknown");
         Database = database;
         Credentials = credentials;
+        SdkBuildInfo = $"ydb-dotnet-sdk/{YdbSdkVersion.Value}";
 
         if (customServerCertificate != null)
         {
@@ -123,6 +147,8 @@ public class DriverConfig
     internal Metadata GetCallMetadata => new()
     {
         { YdbMetadata.RpcDatabaseHeader, Database },
-        { YdbMetadata.RpcClientPid, _pid }
+        { YdbMetadata.RpcClientPid, _pid },
+        { YdbMetadata.RpcSdkInfoHeader, SdkBuildInfo }
     };
 }
+

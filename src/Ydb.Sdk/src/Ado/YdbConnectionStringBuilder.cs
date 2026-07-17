@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Transport;
+using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Ado;
 
@@ -765,7 +766,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
         $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
         $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery};" +
         $"ServiceAccountKeyFilePath={ServiceAccountKeyFilePath};EnableMetadataCredentials={EnableMetadataCredentials};" +
-        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing}";
+        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing};ClientInfo={ClientInfo}";
 
     async Task<IDriver> IDriverFactory.CreateAsync()
     {
@@ -798,7 +799,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
             EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
             MaxSendMessageSize = MaxSendMessageSize,
             MaxReceiveMessageSize = MaxReceiveMessageSize,
-            EnablePreferNearestDcBalancing = EnablePreferNearestDcBalancing
+            EnablePreferNearestDcBalancing = EnablePreferNearestDcBalancing,
+            ClientInfo = ClientInfo is null ? Metadata.AdoNetClientInfo : $"{Metadata.AdoNetClientInfo};{ClientInfo}"
         };
 
         return DisableDiscovery

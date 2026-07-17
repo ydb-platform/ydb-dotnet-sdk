@@ -2,15 +2,25 @@ namespace Ydb.Sdk.Internal;
 
 internal static class MetadataSdkBuildInfoExtensions
 {
-    internal static void AddSdkBuildInfo(this Grpc.Core.Metadata metadata)
+    /// <summary>
+    /// Appends the observability adoption chain (<c>ydb-sdk-tracing</c>/<c>ydb-sdk-metrics</c>)
+    /// to the existing <c>x-ydb-sdk-build-info</c> header. Used only by Driver Discovery.
+    /// </summary>
+    internal static void AppendObservabilityChain(this Grpc.Core.Metadata metadata)
     {
-        var sdkVersion = $"ydb-dotnet-sdk/{YdbSdkVersion.Value}";
-        var clientInfoChain = SdkClientInfoRegistry.Chain;
         var observabilityChain = ObservabilityInfo.BuildChain();
+        if (observabilityChain is null)
+        {
+            return;
+        }
 
-        var sdkBuildInfo = observabilityChain is null ? sdkVersion : $"{sdkVersion};{observabilityChain}";
+        var entry = metadata.Get(Metadata.RpcSdkInfoHeader);
+        if (entry is null)
+        {
+            return;
+        }
 
-        metadata.Add(Metadata.RpcSdkInfoHeader,
-            clientInfoChain is null ? sdkBuildInfo : $"{sdkBuildInfo};{clientInfoChain}");
+        metadata.Remove(entry);
+        metadata.Add(Metadata.RpcSdkInfoHeader, $"{entry.Value};{observabilityChain}");
     }
 }

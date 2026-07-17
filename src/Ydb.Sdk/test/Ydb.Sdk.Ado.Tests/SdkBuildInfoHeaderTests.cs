@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Xunit;
-using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Internal;
 using Ydb.Sdk.OpenTelemetry;
 using Ydb.Sdk.Pool;
@@ -16,115 +15,76 @@ using YdbMetadata = Ydb.Sdk.Internal.Metadata;
 namespace Ydb.Sdk.Ado.Tests;
 
 [Collection("DisableParallelization")]
-public class SdkBuildInfoHeaderTests : IDisposable
+public class SdkBuildInfoHeaderTests
 {
-    public SdkBuildInfoHeaderTests()
-    {
-        SdkClientInfoRegistry.Reset();
-    }
-
-    public void Dispose() => SdkClientInfoRegistry.Reset();
-
     [Fact]
-    public async Task GetCallOptions_DoesNotAddSdkInfoHeader()
+    public async Task GetCallOptions_AddsBaseHeader_OnEveryCall()
     {
-        // x-ydb-sdk-build-info is intentionally NOT added by the common path:
-        // only Driver Discovery (ListEndpoints) emits the header, with the registry chain merged.
-        SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
-        SdkClientInfoRegistry.Register($"client-a/{YdbSdkVersion.Value}");
+        var options = await new TestDriver(clientInfo: null).InvokeGetCallOptions(new GrpcRequestSettings());
 
-        var options = await new TestDriver().InvokeGetCallOptions(new GrpcRequestSettings());
-
-        Assert.Null(options.Headers!.Get(YdbMetadata.RpcSdkInfoHeader));
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value}",
+            options.Headers!.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
-    public void SdkClientInfoRegistry_DeduplicatesRegistrations()
+    public async Task GetCallOptions_AddsClientInfoChain_OnEveryCall()
     {
-        SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
-        SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
-        SdkClientInfoRegistry.Register($"client-a/{YdbSdkVersion.Value}");
+        var clientInfo = $"ado-net/{YdbSdkVersion.Value};ef-core/{YdbSdkVersion.Value}";
 
-        Assert.Equal($"ado-net/{YdbSdkVersion.Value};client-a/{YdbSdkVersion.Value}", SdkClientInfoRegistry.Chain);
+        var options = await new TestDriver(clientInfo).InvokeGetCallOptions(new GrpcRequestSettings());
+
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientInfo}",
+            options.Headers!.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
-    public void SdkClientInfoRegistry_UnregisterDecrementsRefCount_RemovesOnlyAfterLastOwner()
+    public async Task GetCallOptions_DoesNotAddObservabilityChain_OnRegularCall()
     {
-        var clientA = $"client-a/{YdbSdkVersion.Value}";
-        var clientB = $"client-b/{YdbSdkVersion.Value}";
+        using var tracerProvider = OpenTelemetrySdk.CreateTracerProviderBuilder().AddYdb().Build();
 
-        SdkClientInfoRegistry.Register(clientA);
-        SdkClientInfoRegistry.Register(clientA);
-        SdkClientInfoRegistry.Register(clientB);
+        var options = await new TestDriver($"ado-net/{YdbSdkVersion.Value}")
+            .InvokeGetCallOptions(new GrpcRequestSettings());
 
-        Assert.Equal($"{clientA};{clientB}", SdkClientInfoRegistry.Chain);
-
-        SdkClientInfoRegistry.Unregister(clientA);
-
-        Assert.Equal($"{clientA};{clientB}", SdkClientInfoRegistry.Chain);
-
-        SdkClientInfoRegistry.Unregister(clientA);
-        Assert.Equal(clientB, SdkClientInfoRegistry.Chain);
-
-        SdkClientInfoRegistry.Unregister(clientB);
-        Assert.Null(SdkClientInfoRegistry.Chain);
-    }
-
-    [Fact]
-    public async Task SessionSource_DisposeAsync_RemovesFromRegistry()
-    {
-        // Registration happens in PoolManager.Get before driver creation; here we simulate that.
-        const string frameworkClientInfo = "EntityFrameworkCore.Ydb/1.0.0";
-
-        SdkClientInfoRegistry.Register($"ado-net/{YdbSdkVersion.Value}");
-        SdkClientInfoRegistry.Register(frameworkClientInfo);
-
-        var builder = new YdbConnectionStringBuilder("Host=localhost;Port=2136;Database=/local")
-        {
-            EnableImplicitSession = true,
-            ClientInfo = frameworkClientInfo
-        };
-
-        var driver = new TestDriver();
-        driver.RegisterOwner();
-
-        await using (var _ = new ImplicitSessionSource(driver, builder))
-        {
-            Assert.Equal($"EntityFrameworkCore.Ydb/1.0.0;ado-net/{YdbSdkVersion.Value}", SdkClientInfoRegistry.Chain);
-        }
-
-        Assert.Null(SdkClientInfoRegistry.Chain);
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ado-net/{YdbSdkVersion.Value}",
+            options.Headers!.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
     public void YdbSdkVersion_HasNumericDottedFormat() => Assert.Matches(@"^\d+\.\d+\.\d+$", YdbSdkVersion.Value);
 
     [Fact]
-    public void AddSdkBuildInfo_AddsBaseHeader_WhenObservabilityIsDisabled()
+    public void SdkBuildInfo_IsBaseToken_WhenNoClientInfo()
     {
-        var headers = new Metadata();
-        headers.AddSdkBuildInfo();
+        var config = new DriverConfig(false, "localhost", 2136, "/local");
 
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value}", headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value}", config.SdkBuildInfo);
     }
 
     [Fact]
-    public void AddSdkBuildInfo_AddsTracingChain_WhenTracingIsEnabled()
+    public void SdkBuildInfo_IncludesClientInfo_WhenProvided()
+    {
+        var clientInfo = $"ado-net/{YdbSdkVersion.Value}";
+        var config = new DriverConfig(false, "localhost", 2136, "/local") { ClientInfo = clientInfo };
+
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientInfo}", config.SdkBuildInfo);
+    }
+
+    [Fact]
+    public void AppendObservabilityChain_AddsTracingChain_WhenTracingIsEnabled()
     {
         using var provider = OpenTelemetrySdk.CreateTracerProviderBuilder()
             .AddYdb()
             .Build();
 
-        var headers = new Metadata();
-        headers.AddSdkBuildInfo();
+        var headers = CreateHeadersWithSdkBuildInfo(clientInfo: null);
+        headers.AppendObservabilityChain();
 
         Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
-    public void AddSdkBuildInfo_AddsMetricsChain_WhenMetricsAreEnabled()
+    public void AppendObservabilityChain_AddsMetricsChain_WhenMetricsAreEnabled()
     {
         var exportedItems = new List<Metric>();
 
@@ -133,15 +93,15 @@ public class SdkBuildInfoHeaderTests : IDisposable
             .AddInMemoryExporter(exportedItems)
             .Build();
 
-        var headers = new Metadata();
-        headers.AddSdkBuildInfo();
+        var headers = CreateHeadersWithSdkBuildInfo(clientInfo: null);
+        headers.AppendObservabilityChain();
 
         Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
-    public void AddSdkBuildInfo_AddsObservabilityChains_AndClientChain()
+    public void AppendObservabilityChain_AddsClientChain_AndObservabilityChains()
     {
         var exportedItems = new List<Metric>();
 
@@ -153,49 +113,35 @@ public class SdkBuildInfoHeaderTests : IDisposable
             .AddInMemoryExporter(exportedItems)
             .Build();
 
-        const string clientChain = "ado-net/1.0.0";
-        SdkClientInfoRegistry.Register(clientChain);
+        var clientChain = $"ado-net/{YdbSdkVersion.Value}";
+        var headers = CreateHeadersWithSdkBuildInfo(clientChain);
+        headers.AppendObservabilityChain();
 
-        var headers = new Metadata();
-        headers.AddSdkBuildInfo();
-
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion};" +
-                     $"ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion};{clientChain}",
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientChain};" +
+                     $"ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion};" +
+                     $"ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
     [Fact]
-    public void AddSdkBuildInfo_AddsTracingChain_ForManualYdbSourceSubscription()
+    public void AppendObservabilityChain_IsNoOp_WhenObservabilityIsDisabled()
     {
-        using var provider = OpenTelemetrySdk.CreateTracerProviderBuilder()
-            .AddSource("Ydb.Sdk")
-            .Build();
+        var clientInfo = $"ado-net/{YdbSdkVersion.Value}";
+        var headers = CreateHeadersWithSdkBuildInfo(clientInfo);
+        headers.AppendObservabilityChain();
 
-        var headers = new Metadata();
-        headers.AddSdkBuildInfo();
-
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientInfo}",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
-    [Fact]
-    public void AddSdkBuildInfo_AddsMetricsChain_ForManualYdbMeterSubscription()
+    private static Metadata CreateHeadersWithSdkBuildInfo(string? clientInfo)
     {
-        var exportedItems = new List<Metric>();
-
-        using var provider = OpenTelemetrySdk.CreateMeterProviderBuilder()
-            .AddMeter("Ydb.Sdk")
-            .AddInMemoryExporter(exportedItems)
-            .Build();
-
-        var headers = new Metadata();
-        headers.AddSdkBuildInfo();
-
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
-            headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
+        var config = new DriverConfig(false, "localhost", 2136, "/local") { ClientInfo = clientInfo };
+        return config.GetCallMetadata;
     }
 
-    private sealed class TestDriver() : BaseDriver(new DriverConfig(false, "localhost", 2136, "/local"),
+    private sealed class TestDriver(string? clientInfo) : BaseDriver(
+        new DriverConfig(false, "localhost", 2136, "/local") { ClientInfo = clientInfo },
         NullLoggerFactory.Instance,
         NullLoggerFactory.Instance.CreateLogger<TestDriver>())
     {

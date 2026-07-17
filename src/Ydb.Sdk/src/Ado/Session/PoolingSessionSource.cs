@@ -4,7 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
-using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Ado.Session;
 
@@ -24,7 +23,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
     private readonly TimeSpan _sessionIdleTimeout;
     private readonly Timer _cleanerTimer;
     private readonly ILogger _logger;
-    private readonly string? _frameworkClientInfo;
 
     private volatile int _numSessions;
     private volatile int _disposed;
@@ -48,7 +46,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         _sessionIdleTimeout = TimeSpan.FromSeconds(settings.SessionIdleTimeout);
         _cleanerTimer = new Timer(CleanIdleSessions, this, _sessionIdleTimeout, _sessionIdleTimeout);
         _logger = settings.LoggerFactory.CreateLogger<PoolingSessionSource<T>>();
-        _frameworkClientInfo = settings.ClientInfo;
 
         MetricsReporter = new YdbMetricsReporter(_maxPoolSize, _minPoolSize, Statistics, settings);
     }
@@ -325,12 +322,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         catch (Exception e)
         {
             _logger.LogError(e, "Failed to dispose the transport driver");
-        }
-
-        SdkClientInfoRegistry.Unregister(Metadata.AdoNetClientInfo);
-        if (_frameworkClientInfo is not null)
-        {
-            SdkClientInfoRegistry.Unregister(_frameworkClientInfo);
         }
 
         for (var i = 0; i < _maxPoolSize; i++)

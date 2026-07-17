@@ -1,3 +1,5 @@
+- Fix: `x-ydb-sdk-build-info` is now reported on every call (not only on Discovery). The observability adoption chain (`ydb-sdk-tracing`/`ydb-sdk-metrics`) is still merged only on the Discovery call.
+
 ## v0.33.2
 
 - Feat ADO.NET schema/defaults: `GetSchema("Columns")` now includes `column_default`.
