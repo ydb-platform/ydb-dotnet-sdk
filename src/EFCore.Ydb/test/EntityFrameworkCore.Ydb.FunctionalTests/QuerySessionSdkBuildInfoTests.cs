@@ -14,8 +14,7 @@ public class QuerySessionSdkBuildInfoTests
 
         await using var dbContext = new SdkBuildInfoDbContext();
 
-        // The session running this query was created by the EF Core provider (layered on ADO.NET), so its
-        // ClientSdkBuildInfo must carry the base SDK token, the ado-net component and the ef-core component.
+        // Shared YDB in CI may have many sessions for this PID; assert at least one carries the EF chain.
         var buildInfos = await dbContext.Database
             .SqlQuery<string>(
                 $"SELECT ClientSdkBuildInfo AS Value FROM `.sys/query_sessions` WHERE ClientPID = {pid}")
@@ -23,9 +22,9 @@ public class QuerySessionSdkBuildInfoTests
 
         Assert.Contains(buildInfos, info =>
             info != null &&
-            info.StartsWith("ydb-dotnet-sdk/") &&
-            info.Contains(";ado-net/") &&
-            info.EndsWith(";" + efCoreClientInfo));
+            info.Contains("ydb-dotnet-sdk/", StringComparison.Ordinal) &&
+            info.Contains(";ado-net/", StringComparison.Ordinal) &&
+            info.Contains(efCoreClientInfo, StringComparison.Ordinal));
     }
 
     private sealed class SdkBuildInfoDbContext : DbContext

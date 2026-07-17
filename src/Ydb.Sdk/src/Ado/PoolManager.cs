@@ -15,7 +15,9 @@ internal static class PoolManager
         CancellationToken cancellationToken
     )
     {
-        if (Pools.TryGetValue(settings.ConnectionString, out var sessionPool))
+        var poolKey = settings.PoolKey;
+
+        if (Pools.TryGetValue(poolKey, out var sessionPool))
         {
             return sessionPool;
         }
@@ -24,14 +26,14 @@ internal static class PoolManager
 
         try
         {
-            if (Pools.TryGetValue(settings.ConnectionString, out var pool))
+            if (Pools.TryGetValue(poolKey, out var pool))
             {
                 return pool;
             }
 
             var driver = await GetDriver(settings, withLock: false).ConfigureAwait(false);
 
-            return Pools[settings.ConnectionString] = settings.EnableImplicitSession
+            return Pools[poolKey] = settings.EnableImplicitSession
                 ? new ImplicitSessionSource(driver, settings)
                 : new PoolingSessionSource<PoolingSession>(new PoolingSessionFactory(driver, settings), settings);
         }
