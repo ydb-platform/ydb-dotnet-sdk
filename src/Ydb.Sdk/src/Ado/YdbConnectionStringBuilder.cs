@@ -770,7 +770,6 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
 
     async Task<IDriver> IDriverFactory.CreateAsync()
     {
-        var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
         var driverConfig = new DriverConfig(
             useTls: UseTls,
             host: Host,
@@ -781,8 +780,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
                 : ServiceAccountKeyFilePath != null
                     ? CredentialsProviderUtils.LoadServiceAccountProvider(ServiceAccountKeyFilePath, LoggerFactory)
                     : null),
-            customServerCertificate: cert,
-            customServerCertificates: ServerCertificates
+            customServerCertificate: RootCertificate != null
+                ? X509Certificate.CreateFromCertFile(RootCertificate)
+                : null,
+            customServerCertificates: ServerCertificates,
+            clientInfo: ClientInfo is null ? Metadata.AdoNetClientInfo : $"{Metadata.AdoNetClientInfo};{ClientInfo}"
         )
         {
             ConnectTimeout = ConnectTimeout == 0
@@ -799,8 +801,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
             EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
             MaxSendMessageSize = MaxSendMessageSize,
             MaxReceiveMessageSize = MaxReceiveMessageSize,
-            EnablePreferNearestDcBalancing = EnablePreferNearestDcBalancing,
-            ClientInfo = ClientInfo is null ? Metadata.AdoNetClientInfo : $"{Metadata.AdoNetClientInfo};{ClientInfo}"
+            EnablePreferNearestDcBalancing = EnablePreferNearestDcBalancing
         };
 
         return DisableDiscovery

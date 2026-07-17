@@ -91,18 +91,10 @@ public class DriverConfig
     internal EndpointInfo EndpointInfo { get; }
 
     /// <summary>
-    /// Optional client component chain reported in the <c>x-ydb-sdk-build-info</c> header on every call
-    /// (e.g. <c>ado-net/1.2.3</c> or <c>ado-net/1.2.3;ef-core/1.2.3</c>). Baked into
-    /// <see cref="SdkBuildInfo"/> when the driver is constructed.
+    /// <c>x-ydb-sdk-build-info</c> value for every call (base SDK token plus optional client chain).
+    /// Observability adoption tokens are appended only on Discovery via <c>AppendObservabilityChain</c>.
     /// </summary>
-    internal string? ClientInfo { get; init; }
-
-    /// <summary>
-    /// <c>x-ydb-sdk-build-info</c> value for every call (base SDK token plus optional <see cref="ClientInfo"/>).
-    /// Finalized in <c>BaseDriver</c>; observability adoption tokens are appended only on Discovery
-    /// via <c>AppendObservabilityChain</c>.
-    /// </summary>
-    internal string SdkBuildInfo { get; set; }
+    internal string SdkBuildInfo { get; }
 
     /// <summary>
     /// Initializes a new instance of the DriverConfig class.
@@ -117,13 +109,20 @@ public class DriverConfig
     /// <param name="credentials">Optional credentials provider for authentication.</param>
     /// <param name="customServerCertificate">Optional custom server certificate for TLS validation.</param>
     /// <param name="customServerCertificates">Optional collection of custom server certificates for TLS validation.</param>
+    /// <param name="clientInfo">
+    /// Optional client component chain (e.g. <c>ado-net/1.2.3</c> or <c>ado-net/1.2.3;ef-core/1.2.3</c>)
+    /// appended to the base <c>ydb-dotnet-sdk/{version}</c> token in <see cref="SdkBuildInfo"/>.
+    /// </param>
     public DriverConfig(bool useTls, string host, uint port, string database, ICredentialsProvider? credentials = null,
-        X509Certificate? customServerCertificate = null, X509Certificate2Collection? customServerCertificates = null)
+        X509Certificate? customServerCertificate = null, X509Certificate2Collection? customServerCertificates = null,
+        string? clientInfo = null)
     {
         EndpointInfo = new EndpointInfo(0, useTls, host, port, "Unknown");
         Database = database;
         Credentials = credentials;
-        SdkBuildInfo = $"ydb-dotnet-sdk/{YdbSdkVersion.Value}";
+        SdkBuildInfo = clientInfo is null
+            ? $"ydb-dotnet-sdk/{YdbSdkVersion.Value}"
+            : $"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientInfo}";
 
         if (customServerCertificate != null)
         {
