@@ -1,4 +1,3 @@
-using System.Reflection;
 using EntityFrameworkCore.Ydb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -7,15 +6,11 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
 public class QuerySessionSdkBuildInfoTests
 {
-    // Reproduces EfCoreYdbVersion.Value (internal) from the same assembly the provider reports from.
-    private static readonly string EfCoreClientInfo =
-        "ef-core/" + (typeof(YdbContextOptionsBuilderExtensions).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "UNKNOWN");
-
     [Fact]
     public async Task QuerySession_ReportsSdkBuildInfoWithEfCoreClientInfo()
     {
         var pid = Environment.ProcessId.ToString();
+        var efCoreClientInfo = $"ef-core/{EfCoreYdbVersion.Value}";
 
         await using var dbContext = new SdkBuildInfoDbContext();
 
@@ -30,7 +25,7 @@ public class QuerySessionSdkBuildInfoTests
             info != null &&
             info.StartsWith("ydb-dotnet-sdk/") &&
             info.Contains(";ado-net/") &&
-            info.EndsWith(";" + EfCoreClientInfo));
+            info.EndsWith(";" + efCoreClientInfo));
     }
 
     private sealed class SdkBuildInfoDbContext : DbContext
