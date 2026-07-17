@@ -142,7 +142,7 @@ public class YdbDataSource : DbDataSource
     public override string ConnectionString => _ydbConnectionStringBuilder.ConnectionString;
 
     protected override async ValueTask DisposeAsyncCore() =>
-        await PoolManager.ClearPool(_ydbConnectionStringBuilder.ConnectionString).ConfigureAwait(false);
+        await PoolManager.ClearPool(_ydbConnectionStringBuilder.PoolKey).ConfigureAwait(false);
 
     protected override void Dispose(bool disposing)
     {

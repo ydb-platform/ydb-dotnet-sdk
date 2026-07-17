@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Ado;
 
@@ -16,7 +15,9 @@ internal static class PoolManager
         CancellationToken cancellationToken
     )
     {
-        if (Pools.TryGetValue(settings.ConnectionString, out var sessionPool))
+        var poolKey = settings.PoolKey;
+
+        if (Pools.TryGetValue(poolKey, out var sessionPool))
         {
             return sessionPool;
         }
@@ -25,24 +26,14 @@ internal static class PoolManager
 
         try
         {
-            if (Pools.TryGetValue(settings.ConnectionString, out var pool))
+            if (Pools.TryGetValue(poolKey, out var pool))
             {
                 return pool;
             }
 
-            // Register the components BEFORE driver creation so the very first Discovery RPC
-            // already carries the full chain in `x-ydb-sdk-build-info` (DiscoverEndpoints reads
-            // SdkClientInfoRegistry.Chain directly). Unregistration happens symmetrically in
-            // the session source's DisposeAsync.
-            SdkClientInfoRegistry.Register(Metadata.AdoNetClientInfo);
-            if (settings.ClientInfo is not null)
-            {
-                SdkClientInfoRegistry.Register(settings.ClientInfo);
-            }
-
             var driver = await GetDriver(settings, withLock: false).ConfigureAwait(false);
 
-            return Pools[settings.ConnectionString] = settings.EnableImplicitSession
+            return Pools[poolKey] = settings.EnableImplicitSession
                 ? new ImplicitSessionSource(driver, settings)
                 : new PoolingSessionSource<PoolingSession>(new PoolingSessionFactory(driver, settings), settings);
         }

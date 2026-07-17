@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Ado.Session;
 
@@ -8,7 +7,6 @@ internal sealed class ImplicitSessionSource : ISessionSource
     private const int DisposeTimeoutSeconds = 10;
 
     private readonly ILogger _logger;
-    private readonly string? _frameworkClientInfo;
     private readonly TaskCompletionSource _drainedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private int _isDisposed;
@@ -22,7 +20,6 @@ internal sealed class ImplicitSessionSource : ISessionSource
         Driver = driver;
         _logger = settings.LoggerFactory.CreateLogger<ImplicitSessionSource>();
         MetricsReporter = new YdbMetricsReporter(settings);
-        _frameworkClientInfo = settings.ClientInfo;
     }
 
     public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
@@ -84,12 +81,6 @@ internal sealed class ImplicitSessionSource : ISessionSource
             catch (Exception e)
             {
                 _logger.LogError(e, "Failed to dispose the transport driver");
-            }
-
-            SdkClientInfoRegistry.Unregister(Metadata.AdoNetClientInfo);
-            if (_frameworkClientInfo is not null)
-            {
-                SdkClientInfoRegistry.Unregister(_frameworkClientInfo);
             }
         }
     }

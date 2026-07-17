@@ -161,10 +161,9 @@ public sealed class Driver : BaseDriver
             var request = new ListEndpointsRequest { Database = Config.Database };
             var grpcSettings = new GrpcRequestSettings { TransportTimeout = Config.EndpointDiscoveryTimeout };
 
-            // Discovery is the only call site without a natural per-call ClientInfo; merge the
-            // active component chain (registered before driver creation) directly into metadata.
             var options = await GetCallOptions(grpcSettings, Config.EndpointInfo).ConfigureAwait(false);
-            options.Headers?.AddSdkBuildInfo();
+            // Observability adoption is reported only on Discovery; regular RPCs keep the base header.
+            options.Headers!.AppendObservabilityChain();
 
             var response = await client.ListEndpointsAsync(request: request, options: options)
                 .ResponseAsync.ConfigureAwait(false);

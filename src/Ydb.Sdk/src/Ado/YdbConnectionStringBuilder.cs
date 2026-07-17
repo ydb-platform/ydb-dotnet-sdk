@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Internal;
 using Ydb.Sdk.Transport;
 
 namespace Ydb.Sdk.Ado;
@@ -711,9 +712,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     public X509Certificate2Collection? ServerCertificates { get; init; }
 
     /// <summary>
-    /// Optional client component identifier appended to the active client chain reported
-    /// in the <c>x-ydb-sdk-build-info</c> header on Driver Discovery calls. Intended for
-    /// frameworks layered on top of the ADO.NET provider (e.g. EntityFrameworkCore.Ydb).
+    /// Optional client component identifier appended to the <c>x-ydb-sdk-build-info</c> chain
+    /// on every call. Intended for frameworks layered on top of the ADO.NET provider
+    /// (e.g. EntityFrameworkCore.Ydb). When set, it is part of the driver/session pool key.
     /// </summary>
     /// <remarks>
     /// Expected format: <c>component-name/SemVer</c>, where <c>component-name</c> is a
@@ -759,17 +760,25 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
         }
     }
 
+    /// <summary>
+    /// Session-pool key. Includes <see cref="ClientInfo"/> when set so EF/ADO drivers with different
+    /// build-info chains do not share a pool (ClientInfo is not part of the public connection string).
+    /// </summary>
+    internal string PoolKey => ClientInfo is null
+        ? ConnectionString
+        : $"{ConnectionString};ClientInfo={ClientInfo}";
+
     string IDriverFactory.GrpcConnectionString =>
         $"UseTls={UseTls};Host={Host};Port={Port};Database={Database};User={User};Password={Password};" +
         $"ConnectTimeout={ConnectTimeout};KeepAlivePingDelay={KeepAlivePingDelay};KeepAlivePingTimeout={KeepAlivePingTimeout};" +
         $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
         $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery};" +
         $"ServiceAccountKeyFilePath={ServiceAccountKeyFilePath};EnableMetadataCredentials={EnableMetadataCredentials};" +
-        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing}";
+        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing}" +
+        (ClientInfo is null ? string.Empty : $";ClientInfo={ClientInfo}");
 
     async Task<IDriver> IDriverFactory.CreateAsync()
     {
-        var cert = RootCertificate != null ? X509Certificate.CreateFromCertFile(RootCertificate) : null;
         var driverConfig = new DriverConfig(
             useTls: UseTls,
             host: Host,
@@ -780,8 +789,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
                 : ServiceAccountKeyFilePath != null
                     ? CredentialsProviderUtils.LoadServiceAccountProvider(ServiceAccountKeyFilePath, LoggerFactory)
                     : null),
-            customServerCertificate: cert,
-            customServerCertificates: ServerCertificates
+            customServerCertificate: RootCertificate != null
+                ? X509Certificate.CreateFromCertFile(RootCertificate)
+                : null,
+            customServerCertificates: ServerCertificates,
+            clientInfo: ClientInfo is null ? Metadata.AdoNetClientInfo : $"{Metadata.AdoNetClientInfo};{ClientInfo}"
         )
         {
             ConnectTimeout = ConnectTimeout == 0
