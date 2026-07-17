@@ -167,13 +167,16 @@ jobs:
             dotnet test -f net9.0 --logger "console;verbosity=normal" --logger "GitHubActions;report-warnings=false"
           fi
 
+      # FunctionalTests reference local Ydb.Sdk (ProjectReference), so their hits on
+      # Ydb.Sdk must also feed the ydb-sdk flag. Flag path filters in codecov.yml keep
+      # each flag scoped to its own component paths.
       - name: Upload EFCore.Ydb coverage to Codecov
         if: env.COVERAGE_ENABLED == 'true'
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: artifacts/coverage/efcore-ydb
-          flags: efcore-ydb
+          flags: ydb-sdk,efcore-ydb
           name: efcore-ydb
           fail_ci_if_error: true
 
