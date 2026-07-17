@@ -766,7 +766,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
         $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
         $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery};" +
         $"ServiceAccountKeyFilePath={ServiceAccountKeyFilePath};EnableMetadataCredentials={EnableMetadataCredentials};" +
-        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing};ClientInfo={ClientInfo}";
+        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing}";
 
     async Task<IDriver> IDriverFactory.CreateAsync()
     {
