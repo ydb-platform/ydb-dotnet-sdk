@@ -1,6 +1,7 @@
 using EntityFrameworkCore.Ydb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using Ydb.Sdk.Internal;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests;
 
@@ -21,10 +22,7 @@ public class QuerySessionSdkBuildInfoTests
             .ToListAsync();
 
         Assert.Contains(buildInfos, info =>
-            info != null &&
-            info.Contains("ydb-dotnet-sdk/", StringComparison.Ordinal) &&
-            info.Contains(";ado-net/", StringComparison.Ordinal) &&
-            info.Contains(efCoreClientInfo, StringComparison.Ordinal));
+            info.Equals($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ado-net/{YdbSdkVersion.Value};{efCoreClientInfo}"));
     }
 
     private sealed class SdkBuildInfoDbContext : DbContext
