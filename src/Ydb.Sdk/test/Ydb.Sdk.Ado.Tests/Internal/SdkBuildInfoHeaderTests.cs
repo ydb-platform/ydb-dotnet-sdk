@@ -17,9 +17,6 @@ namespace Ydb.Sdk.Ado.Tests.Internal;
 [Collection("DisableParallelization")]
 public class SdkBuildInfoHeaderTests
 {
-    private const string TracingChainToken = "ydb-sdk-tracing/0.1.0";
-    private const string MetricsChainToken = "ydb-sdk-metrics/0.1.0";
-
     [Fact]
     public async Task GetCallOptions_AddsBaseHeader_OnEveryCall()
     {
@@ -63,7 +60,7 @@ public class SdkBuildInfoHeaderTests
         options.Headers!.AppendObservabilityChain();
 
         Assert.Equal(
-            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ado-net/{YdbSdkVersion.Value};{TracingChainToken}",
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ado-net/{YdbSdkVersion.Value};ydb-sdk-tracing/0.1.0",
             options.Headers!.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
@@ -80,7 +77,7 @@ public class SdkBuildInfoHeaderTests
         var headers = CreateHeadersWithSdkBuildInfo(clientInfo: null);
         headers.AppendObservabilityChain();
 
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{TracingChainToken}",
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/0.1.0",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
@@ -97,7 +94,7 @@ public class SdkBuildInfoHeaderTests
         var headers = CreateHeadersWithSdkBuildInfo(clientInfo: null);
         headers.AppendObservabilityChain();
 
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{MetricsChainToken}",
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/0.1.0",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
@@ -118,7 +115,8 @@ public class SdkBuildInfoHeaderTests
         var headers = CreateHeadersWithSdkBuildInfo(clientChain);
         headers.AppendObservabilityChain();
 
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientChain};{TracingChainToken};{MetricsChainToken}",
+        Assert.Equal(
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientChain};ydb-sdk-tracing/0.1.0;ydb-sdk-metrics/0.1.0",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
