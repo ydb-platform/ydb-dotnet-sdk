@@ -18,8 +18,6 @@ internal static class MetadataSdkBuildInfoExtensions
         var entry = metadata.Get(Metadata.RpcSdkInfoHeader)!;
         metadata.Remove(entry);
         metadata.Add(Metadata.RpcSdkInfoHeader,
-            entry.Value + (YdbActivitySource.HasListeners ? TracingChain : string.Empty) +
-            (YdbMetricsReporter.HasEnabledInstruments ? MetricsChain : string.Empty)
-        );
+            $"{entry.Value}{(YdbActivitySource.HasListeners ? TracingChain : string.Empty)}{(YdbMetricsReporter.HasEnabledInstruments ? MetricsChain : string.Empty)}");
     }
 }
