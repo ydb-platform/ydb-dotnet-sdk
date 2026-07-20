@@ -60,8 +60,7 @@ public class SdkBuildInfoHeaderTests
         options.Headers!.AppendObservabilityChain();
 
         Assert.Equal(
-            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ado-net/{YdbSdkVersion.Value};" +
-            $"ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};ado-net/{YdbSdkVersion.Value};ydb-sdk-tracing/0.1.0",
             options.Headers!.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
@@ -78,7 +77,7 @@ public class SdkBuildInfoHeaderTests
         var headers = CreateHeadersWithSdkBuildInfo(clientInfo: null);
         headers.AppendObservabilityChain();
 
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion}",
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/0.1.0",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
@@ -95,7 +94,7 @@ public class SdkBuildInfoHeaderTests
         var headers = CreateHeadersWithSdkBuildInfo(clientInfo: null);
         headers.AppendObservabilityChain();
 
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/0.1.0",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
@@ -116,9 +115,8 @@ public class SdkBuildInfoHeaderTests
         var headers = CreateHeadersWithSdkBuildInfo(clientChain);
         headers.AppendObservabilityChain();
 
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientChain};" +
-                     $"ydb-sdk-tracing/{ObservabilityInfo.TracingChainVersion};" +
-                     $"ydb-sdk-metrics/{ObservabilityInfo.MetricsChainVersion}",
+        Assert.Equal(
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientChain};ydb-sdk-tracing/0.1.0;ydb-sdk-metrics/0.1.0",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
