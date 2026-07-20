@@ -14,28 +14,12 @@ internal static class MetadataSdkBuildInfoExtensions
     /// </summary>
     internal static void AppendObservabilityChain(this Grpc.Core.Metadata metadata)
     {
-        var hasTracing = YdbActivitySource.HasListeners;
-        var hasMetrics = YdbMetricsReporter.HasEnabledInstruments;
-        if (!hasTracing && !hasMetrics)
-        {
-            return;
-        }
-
         // GetCallMetadata always sets x-ydb-sdk-build-info before discovery appends observability.
         var entry = metadata.Get(Metadata.RpcSdkInfoHeader)!;
         metadata.Remove(entry);
-
-        var value = entry.Value;
-        if (hasTracing)
-        {
-            value += TracingChain;
-        }
-
-        if (hasMetrics)
-        {
-            value += MetricsChain;
-        }
-
-        metadata.Add(Metadata.RpcSdkInfoHeader, value);
+        metadata.Add(Metadata.RpcSdkInfoHeader,
+            entry.Value + (YdbActivitySource.HasListeners ? TracingChain : string.Empty) +
+            (YdbMetricsReporter.HasEnabledInstruments ? MetricsChain : string.Empty)
+        );
     }
 }
