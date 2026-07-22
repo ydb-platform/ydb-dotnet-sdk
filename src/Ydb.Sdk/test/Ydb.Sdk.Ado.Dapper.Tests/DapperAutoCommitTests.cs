@@ -10,7 +10,10 @@ public class DapperAutoCommitTests : TestBase
 {
     private static readonly TemporaryTables<DapperAutoCommitTests> Tables = new();
 
-    static DapperAutoCommitTests() => SqlMapper.AddTypeMap(typeof(DateOnly), DbType.Date);
+    static DapperAutoCommitTests()
+    {
+        SqlMapper.AddTypeMap(typeof(DateOnly), DbType.Date);
+    }
 
     [Fact]
     public async Task EnableAutoCommit_InTransaction_CommitsOnExecute()
