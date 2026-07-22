@@ -52,7 +52,7 @@ public class DapperAutoCommitTests : TestBase
     [Fact]
     public async Task ExecuteInTransaction_WithEnableAutoCommit_Works()
     {
-        await using var dataSource = new YdbDataSource(ConnectionString);
+        await using var dataSource = new YdbDataSource(ConnectionString + ";PoolName=DapperAutoCommitTests");
 
         await dataSource.ExecuteInTransactionAsync(async connection =>
         {
@@ -83,7 +83,7 @@ public class DapperAutoCommitTests : TestBase
     [Fact]
     public async Task ExecuteInTransaction_MultiStatement_WithoutAutoCommit_Works()
     {
-        await using var dataSource = new YdbDataSource(ConnectionString);
+        await using var dataSource = new YdbDataSource(ConnectionString + ";PoolName=DapperAutoCommitTests");
 
         await dataSource.ExecuteInTransactionAsync(async connection =>
         {

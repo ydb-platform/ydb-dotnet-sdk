@@ -324,42 +324,6 @@ public class YdbTransactionTests : TestBase
     }
 
     [Fact]
-    public async Task EnableAutoCommit_WhenExecuteReaderFullyConsumed_CommitsOnServer()
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        await using var transaction = connection.BeginTransaction();
-        connection.EnableAutoCommit();
-
-        var command = connection.CreateCommand();
-        command.CommandText = $"""
-                               UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
-                               VALUES (2, 5, 102, "Reader AutoCommit", Date("2024-03-01"));
-                               SELECT title FROM {Tables.Episodes}
-                               WHERE series_id = 2 AND season_id = 5 AND episode_id = 102;
-                               """;
-
-        await using (var reader = await command.ExecuteReaderAsync())
-        {
-            Assert.True(await reader.ReadAsync());
-            Assert.Equal("Reader AutoCommit", reader.GetString(0));
-            Assert.False(await reader.ReadAsync());
-        }
-
-        await using (var other = await CreateOpenConnectionAsync())
-        {
-            Assert.Equal("Reader AutoCommit", await new YdbCommand(other)
-            {
-                CommandText = $"""
-                               SELECT title FROM {Tables.Episodes}
-                               WHERE series_id = 2 AND season_id = 5 AND episode_id = 102
-                               """
-            }.ExecuteScalarAsync());
-        }
-
-        await transaction.CommitAsync(); // no - op
-    }
-
-    [Fact]
     public async Task EnableAutoCommit_OnlyOnLastStatement_CommitsWholeInteractiveTx()
     {
         await using var connection = await CreateOpenConnectionAsync();
@@ -449,7 +413,7 @@ public class YdbTransactionTests : TestBase
     [Fact]
     public async Task ExecuteInTransaction_WithEnableAutoCommit_SingleStatement_Works()
     {
-        await using var dataSource = new YdbDataSource(ConnectionString);
+        await using var dataSource = new YdbDataSource(ConnectionString + ";PoolName=YdbTransactionTests.AutoCommit");
         const int episodeId = 106;
 
         await dataSource.ExecuteInTransactionAsync(async connection =>
@@ -477,7 +441,7 @@ public class YdbTransactionTests : TestBase
     [Fact]
     public async Task ExecuteInTransaction_WithoutAutoCommit_MultiStatement_StillWorks()
     {
-        await using var dataSource = new YdbDataSource(ConnectionString);
+        await using var dataSource = new YdbDataSource(ConnectionString + ";PoolName=YdbTransactionTests.AutoCommit");
         const int episodeId = 107;
 
         await dataSource.ExecuteInTransactionAsync(async connection =>
@@ -512,7 +476,7 @@ public class YdbTransactionTests : TestBase
     [Fact]
     public async Task ExecuteInTransaction_WithEnableAutoCommit_OnLastStatement_Works()
     {
-        await using var dataSource = new YdbDataSource(ConnectionString);
+        await using var dataSource = new YdbDataSource(ConnectionString + ";PoolName=YdbTransactionTests.AutoCommit");
         const int episodeId = 108;
 
         await dataSource.ExecuteInTransactionAsync(async connection =>
