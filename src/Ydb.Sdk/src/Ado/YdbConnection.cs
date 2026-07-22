@@ -146,7 +146,7 @@ public sealed class YdbConnection : DbConnection
     {
         if (CurrentTransaction is not { Completed: false })
         {
-            throw new InvalidOperationException("EnableAutoCommit cannot be used inside an not active transaction.");
+            throw new InvalidOperationException("EnableAutoCommit must be used inside an active transaction.");
         }
 
         CurrentTransaction.EnableAutoCommit();

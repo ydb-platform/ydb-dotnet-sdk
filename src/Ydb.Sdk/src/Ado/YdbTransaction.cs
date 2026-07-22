@@ -22,9 +22,9 @@ namespace Ydb.Sdk.Ado;
 public sealed class YdbTransaction : DbTransaction
 {
     private readonly TransactionMode _transactionMode;
-    private readonly YdbConnection _ydbConnection;
 
     private bool _failed;
+    private YdbConnection? _ydbConnection;
     private bool _isDisposed;
 
     /// <summary>
@@ -38,7 +38,7 @@ public sealed class YdbTransaction : DbTransaction
 
     /// <summary>
     /// When true, <see cref="TransactionControl"/> sets <c>commit_tx</c>.
-    /// After that, <see cref="Commit"/> / <see cref="Rollback"/> are no-ops (same pattern as <see cref="Failed"/>).
+    /// After that, <see cref="Commit"/> is a no-op (same pattern as <see cref="Failed"/>).
     /// </summary>
     private bool CommitTx { get; set; }
 
@@ -130,6 +130,7 @@ public sealed class YdbTransaction : DbTransaction
 
         CommitTx = false;
         Completed = true;
+        _ydbConnection = null;
         return Task.CompletedTask;
     }
 
@@ -178,7 +179,7 @@ public sealed class YdbTransaction : DbTransaction
     /// <exception cref="ObjectDisposedException">
     /// Thrown when the transaction has been disposed.
     /// </exception>
-    protected override YdbConnection DbConnection
+    protected override YdbConnection? DbConnection
     {
         get
         {
@@ -227,12 +228,12 @@ public sealed class YdbTransaction : DbTransaction
     {
         using var dbActivity = YdbActivitySource.StartActivity(spanName);
 
-        if (Completed || DbConnection.State is ConnectionState.Closed or ConnectionState.Broken)
+        if (DbConnection?.State is ConnectionState.Closed or ConnectionState.Broken || Completed)
         {
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
         }
 
-        if (DbConnection.IsBusy)
+        if (DbConnection!.IsBusy)
         {
             throw new YdbOperationInProgressException(DbConnection);
         }
@@ -270,6 +271,7 @@ public sealed class YdbTransaction : DbTransaction
         finally
         {
             DbConnection.MetricsReporter.ReportCommandStop(startTimestamp, operationName);
+            _ydbConnection = null;
         }
     }
 
