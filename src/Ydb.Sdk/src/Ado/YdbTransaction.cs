@@ -40,12 +40,12 @@ public sealed class YdbTransaction : DbTransaction
     /// When true, <see cref="TransactionControl"/> sets <c>commit_tx</c>.
     /// After that, <see cref="Commit"/> is a no-op (same pattern as <see cref="Failed"/>).
     /// </summary>
-    private bool CommitTx { get; set; }
+    internal bool AutoCommit { get; private set; }
 
     /// <summary>
     /// Enables <c>commit_tx</c> for the next command execution within this transaction.
     /// </summary>
-    internal void EnableAutoCommit() => CommitTx = true;
+    internal void EnableAutoCommit() => AutoCommit = true;
 
     /// <summary>
     /// Gets a value indicating whether the transaction has been completed.
@@ -54,7 +54,7 @@ public sealed class YdbTransaction : DbTransaction
     /// A transaction is considered completed when it has been committed, rolled back, or failed.
     /// Once completed, the transaction cannot be used for further operations.
     /// </remarks>
-    internal bool Completed { get; private set; }
+    internal bool Completed { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the transaction has failed.
@@ -71,7 +71,7 @@ public sealed class YdbTransaction : DbTransaction
         {
             _failed = value;
             Completed = true;
-            CommitTx = false;
+            AutoCommit = false;
         }
     }
 
@@ -86,8 +86,8 @@ public sealed class YdbTransaction : DbTransaction
     internal TransactionControl? TransactionControl => Completed
         ? null
         : TxId == null
-            ? new TransactionControl { BeginTx = _transactionMode.TransactionSettings(), CommitTx = CommitTx }
-            : new TransactionControl { TxId = TxId, CommitTx = CommitTx };
+            ? new TransactionControl { BeginTx = _transactionMode.TransactionSettings(), CommitTx = AutoCommit }
+            : new TransactionControl { TxId = TxId, CommitTx = AutoCommit };
 
     internal YdbTransaction(YdbConnection ydbConnection, TransactionMode transactionMode)
     {
@@ -125,11 +125,10 @@ public sealed class YdbTransaction : DbTransaction
     /// </exception>
     public override Task CommitAsync(CancellationToken cancellationToken = new())
     {
-        if (!CommitTx)
+        if (!AutoCommit || !Completed)
             return FinishTransaction(isCommit: true, "ydb.Commit", cancellationToken);
 
-        CommitTx = false;
-        Completed = true;
+        AutoCommit = false;
         _ydbConnection = null;
         return Task.CompletedTask;
     }
@@ -168,7 +167,7 @@ public sealed class YdbTransaction : DbTransaction
             return FinishTransaction(isCommit: false, "ydb.Rollback", cancellationToken);
 
         Failed = false;
-        CommitTx = false;
+        AutoCommit = false;
         return Task.CompletedTask;
     }
 
@@ -307,7 +306,7 @@ public sealed class YdbTransaction : DbTransaction
         if (_isDisposed)
             return;
 
-        if (!Completed)
+        if (!Completed && !AutoCommit)
         {
             await RollbackAsync().ConfigureAwait(false);
         }
