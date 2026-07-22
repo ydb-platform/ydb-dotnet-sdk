@@ -74,6 +74,25 @@ public sealed class YdbConnectionTests : TestBase
     }
 
     [Fact]
+    public async Task EnableAutoCommit_WhenTransactionIsNotStarted_ThrowException()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        Assert.Equal("EnableAutoCommit must be used inside an active transaction.",
+            Assert.Throws<InvalidOperationException>(() => connection.EnableAutoCommit()).Message);
+    }
+
+    [Fact]
+    public async Task EnableAutoCommit_WhenTransactionIsCompleted_ThrowException()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+        await transaction.CommitAsync();
+
+        Assert.Equal("EnableAutoCommit must be used inside an active transaction.",
+            Assert.Throws<InvalidOperationException>(() => connection.EnableAutoCommit()).Message);
+    }
+
+    [Fact]
     public async Task ExecuteScalar_WhenConnectionIsClosed_ThrowException()
     {
         var ydbConnection = await CreateOpenConnectionAsync();
