@@ -377,6 +377,63 @@ public class YdbTransactionTests : TestBase
     }
 
     [Fact]
+    public async Task ExecuteInTransaction_EnableAutoCommit_WithoutFollowingExecute_ThenCommit_Works()
+    {
+        await using var dataSource = new YdbDataSource(ConnectionString + ";PoolName=YdbTransactionTests.AutoCommit");
+        const int episodeId = 109;
+
+        await dataSource.ExecuteInTransactionAsync(async connection =>
+        {
+            await new YdbCommand(connection)
+            {
+                CommandText = $"""
+                               UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                               VALUES (2, 5, {episodeId}, "No Follow-Up Execute", Date("2024-09-01"));
+                               """
+            }.ExecuteNonQueryAsync();
+
+            connection.EnableAutoCommit();
+            // No further Execute* — Commit from ExecuteInTransaction must still commit the tx.
+        });
+
+        await using var verify = await CreateOpenConnectionAsync();
+        Assert.Equal("No Follow-Up Execute", await new YdbCommand(verify)
+        {
+            CommandText = $"""
+                           SELECT title FROM {Tables.Episodes}
+                           WHERE series_id = 2 AND season_id = 5 AND episode_id = {episodeId}
+                           """
+        }.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task EnableAutoCommit_AfterStatement_WithoutFollowingExecute_ThenRollback_DiscardsChanges()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+
+        await new YdbCommand(connection)
+        {
+            CommandText = $"""
+                           UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                           VALUES (2, 5, 110, "Rollback After Enable", Date("2024-09-02"));
+                           """
+        }.ExecuteNonQueryAsync();
+
+        connection.EnableAutoCommit();
+        await transaction.RollbackAsync();
+
+        await using var verify = await CreateOpenConnectionAsync();
+        Assert.Null(await new YdbCommand(verify)
+        {
+            CommandText = $"""
+                           SELECT title FROM {Tables.Episodes}
+                           WHERE series_id = 2 AND season_id = 5 AND episode_id = 110
+                           """
+        }.ExecuteScalarAsync());
+    }
+
+    [Fact]
     public async Task EnableAutoCommit_WithoutExecute_ThenRollback_Succeeds()
     {
         await using var connection = await CreateOpenConnectionAsync();
