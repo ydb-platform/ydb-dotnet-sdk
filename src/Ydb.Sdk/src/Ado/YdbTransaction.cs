@@ -22,9 +22,9 @@ namespace Ydb.Sdk.Ado;
 public sealed class YdbTransaction : DbTransaction
 {
     private readonly TransactionMode _transactionMode;
+    private readonly YdbConnection _ydbConnection;
 
     private bool _failed;
-    private YdbConnection? _ydbConnection;
     private bool _isDisposed;
 
     /// <summary>
@@ -35,6 +35,17 @@ public sealed class YdbTransaction : DbTransaction
     /// This property is used internally for transaction management.
     /// </remarks>
     internal string? TxId { get; set; }
+
+    /// <summary>
+    /// When true, <see cref="TransactionControl"/> sets <c>commit_tx</c>.
+    /// After that, <see cref="Commit"/> / <see cref="Rollback"/> are no-ops (same pattern as <see cref="Failed"/>).
+    /// </summary>
+    private bool CommitTx { get; set; }
+
+    /// <summary>
+    /// Enables <c>commit_tx</c> for the next command execution within this transaction.
+    /// </summary>
+    internal void EnableAutoCommit() => CommitTx = true;
 
     /// <summary>
     /// Gets a value indicating whether the transaction has been completed.
@@ -60,6 +71,7 @@ public sealed class YdbTransaction : DbTransaction
         {
             _failed = value;
             Completed = true;
+            CommitTx = false;
         }
     }
 
@@ -69,12 +81,13 @@ public sealed class YdbTransaction : DbTransaction
     /// <remarks>
     /// Returns null if the transaction is completed, otherwise returns the appropriate
     /// transaction control based on whether the transaction has been started.
+    /// When auto-commit is enabled, <c>CommitTx</c> is set on the control.
     /// </remarks>
     internal TransactionControl? TransactionControl => Completed
         ? null
         : TxId == null
-            ? new TransactionControl { BeginTx = _transactionMode.TransactionSettings() }
-            : new TransactionControl { TxId = TxId };
+            ? new TransactionControl { BeginTx = _transactionMode.TransactionSettings(), CommitTx = CommitTx }
+            : new TransactionControl { TxId = TxId, CommitTx = CommitTx };
 
     internal YdbTransaction(YdbConnection ydbConnection, TransactionMode transactionMode)
     {
@@ -110,8 +123,15 @@ public sealed class YdbTransaction : DbTransaction
     /// <exception cref="YdbException">
     /// Thrown when the commit operation fails.
     /// </exception>
-    public override Task CommitAsync(CancellationToken cancellationToken = new()) =>
-        FinishTransaction(isCommit: true, "ydb.Commit", cancellationToken);
+    public override Task CommitAsync(CancellationToken cancellationToken = new())
+    {
+        if (!CommitTx)
+            return FinishTransaction(isCommit: true, "ydb.Commit", cancellationToken);
+
+        CommitTx = false;
+        Completed = true;
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// Rolls back the database transaction.
@@ -147,6 +167,7 @@ public sealed class YdbTransaction : DbTransaction
             return FinishTransaction(isCommit: false, "ydb.Rollback", cancellationToken);
 
         Failed = false;
+        CommitTx = false;
         return Task.CompletedTask;
     }
 
@@ -157,7 +178,7 @@ public sealed class YdbTransaction : DbTransaction
     /// <exception cref="ObjectDisposedException">
     /// Thrown when the transaction has been disposed.
     /// </exception>
-    protected override YdbConnection? DbConnection
+    protected override YdbConnection DbConnection
     {
         get
         {
@@ -206,12 +227,12 @@ public sealed class YdbTransaction : DbTransaction
     {
         using var dbActivity = YdbActivitySource.StartActivity(spanName);
 
-        if (DbConnection?.State == ConnectionState.Closed || Completed)
+        if (Completed || DbConnection.State is ConnectionState.Closed or ConnectionState.Broken)
         {
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
         }
 
-        if (DbConnection!.IsBusy)
+        if (DbConnection.IsBusy)
         {
             throw new YdbOperationInProgressException(DbConnection);
         }
@@ -249,7 +270,6 @@ public sealed class YdbTransaction : DbTransaction
         finally
         {
             DbConnection.MetricsReporter.ReportCommandStop(startTimestamp, operationName);
-            _ydbConnection = null;
         }
     }
 

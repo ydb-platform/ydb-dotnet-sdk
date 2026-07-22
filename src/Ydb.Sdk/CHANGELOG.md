@@ -1,3 +1,5 @@
+- Feat ADO.NET: `YdbConnection.EnableAutoCommit()` enables `commit_tx` on the next command in the active interactive transaction, so YDB commits together with that execute. Call it before the last statement (including inside `ExecuteInTransaction` / Dapper). After a successful auto-commit execute, `Commit` is a no-op; `Rollback` still goes to the server and fails if the transaction is already committed.
+
 ## v0.33.3
 
 - Fix: `x-ydb-sdk-build-info` is now reported on every call (not only on Discovery). The observability adoption chain (`ydb-sdk-tracing`/`ydb-sdk-metrics`) is still merged only on the Discovery call.

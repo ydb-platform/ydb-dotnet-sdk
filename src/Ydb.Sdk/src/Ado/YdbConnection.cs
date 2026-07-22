@@ -132,6 +132,26 @@ public sealed class YdbConnection : DbConnection
         return CurrentTransaction;
     }
 
+    /// <summary>
+    /// Enables auto-commit for the active transaction.
+    /// </summary>
+    /// <remarks>
+    /// Use this before executing the statement that should commit the current transaction.
+    /// For multi-statement transactions, call it only before the last statement.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when there is no active transaction on this connection.
+    /// </exception>
+    public void EnableAutoCommit()
+    {
+        if (CurrentTransaction is not { Completed: false })
+        {
+            throw new InvalidOperationException("EnableAutoCommit cannot be used inside an not active transaction.");
+        }
+
+        CurrentTransaction.EnableAutoCommit();
+    }
+
     public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
 
     public override void Close() => CloseAsync().GetAwaiter().GetResult();
