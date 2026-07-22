@@ -355,7 +355,7 @@ public class YdbTransactionTests : TestBase
                                """
             }.ExecuteScalarAsync());
         }
-        
+
         await transaction.CommitAsync(); // no - op
     }
 
