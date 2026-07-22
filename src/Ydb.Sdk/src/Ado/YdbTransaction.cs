@@ -37,13 +37,24 @@ public sealed class YdbTransaction : DbTransaction
     internal string? TxId { get; set; }
 
     /// <summary>
+    /// When true, <see cref="TransactionControl"/> sets <c>commit_tx</c>.
+    /// After that, <see cref="Commit"/> is a no-op (same pattern as <see cref="Failed"/>).
+    /// </summary>
+    internal bool AutoCommit { get; private set; }
+
+    /// <summary>
+    /// Enables <c>commit_tx</c> for the next command execution within this transaction.
+    /// </summary>
+    internal void EnableAutoCommit() => AutoCommit = true;
+
+    /// <summary>
     /// Gets a value indicating whether the transaction has been completed.
     /// </summary>
     /// <remarks>
     /// A transaction is considered completed when it has been committed, rolled back, or failed.
     /// Once completed, the transaction cannot be used for further operations.
     /// </remarks>
-    internal bool Completed { get; private set; }
+    internal bool Completed { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the transaction has failed.
@@ -60,6 +71,7 @@ public sealed class YdbTransaction : DbTransaction
         {
             _failed = value;
             Completed = true;
+            AutoCommit = false;
         }
     }
 
@@ -69,12 +81,13 @@ public sealed class YdbTransaction : DbTransaction
     /// <remarks>
     /// Returns null if the transaction is completed, otherwise returns the appropriate
     /// transaction control based on whether the transaction has been started.
+    /// When auto-commit is enabled, <c>CommitTx</c> is set on the control.
     /// </remarks>
     internal TransactionControl? TransactionControl => Completed
         ? null
         : TxId == null
-            ? new TransactionControl { BeginTx = _transactionMode.TransactionSettings() }
-            : new TransactionControl { TxId = TxId };
+            ? new TransactionControl { BeginTx = _transactionMode.TransactionSettings(), CommitTx = AutoCommit }
+            : new TransactionControl { TxId = TxId, CommitTx = AutoCommit };
 
     internal YdbTransaction(YdbConnection ydbConnection, TransactionMode transactionMode)
     {
@@ -110,8 +123,15 @@ public sealed class YdbTransaction : DbTransaction
     /// <exception cref="YdbException">
     /// Thrown when the commit operation fails.
     /// </exception>
-    public override Task CommitAsync(CancellationToken cancellationToken = new()) =>
-        FinishTransaction(isCommit: true, "ydb.Commit", cancellationToken);
+    public override Task CommitAsync(CancellationToken cancellationToken = new())
+    {
+        if (!AutoCommit || !Completed)
+            return FinishTransaction(isCommit: true, "ydb.Commit", cancellationToken);
+
+        AutoCommit = false;
+        _ydbConnection = null;
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// Rolls back the database transaction.
@@ -147,6 +167,7 @@ public sealed class YdbTransaction : DbTransaction
             return FinishTransaction(isCommit: false, "ydb.Rollback", cancellationToken);
 
         Failed = false;
+        AutoCommit = false;
         return Task.CompletedTask;
     }
 
@@ -206,7 +227,7 @@ public sealed class YdbTransaction : DbTransaction
     {
         using var dbActivity = YdbActivitySource.StartActivity(spanName);
 
-        if (DbConnection?.State == ConnectionState.Closed || Completed)
+        if (DbConnection?.State is ConnectionState.Closed or ConnectionState.Broken || Completed)
         {
             throw new InvalidOperationException("This YdbTransaction has completed; it is no longer usable");
         }

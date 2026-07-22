@@ -262,6 +262,269 @@ public class YdbTransactionTests : TestBase
             Assert.Throws<InvalidOperationException>(() => ydbCommand.Transaction.Rollback()).Message);
     }
 
+    [Fact]
+    public async Task EnableAutoCommit_WhenExecuteNonQuery_CommitsOnServer_AndCommitIsNoOp()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+        connection.EnableAutoCommit();
+
+        var command = connection.CreateCommand();
+        command.CommandText = $"""
+                               UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                               VALUES (2, 5, 100, "AutoCommit Episode", Date("2024-01-15"));
+                               """;
+        await command.ExecuteNonQueryAsync();
+
+        await using (var other = await CreateOpenConnectionAsync())
+        {
+            Assert.Equal("AutoCommit Episode", await new YdbCommand(other)
+            {
+                CommandText = $"""
+                               SELECT title FROM {Tables.Episodes}
+                               WHERE series_id = 2 AND season_id = 5 AND episode_id = 100
+                               """
+            }.ExecuteScalarAsync());
+        }
+
+        await transaction.CommitAsync(); // no-op after commit_tx
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.CommitAsync())).Message);
+    }
+
+    [Fact]
+    public async Task EnableAutoCommit_WhenExecuteScalar_CommitsOnServer_AndRollbackThrows()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+        connection.EnableAutoCommit();
+
+        var command = connection.CreateCommand();
+        command.CommandText = $"""
+                               UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                               VALUES (2, 5, 101, "Scalar AutoCommit", Date("2024-02-01"));
+                               SELECT title FROM {Tables.Episodes}
+                               WHERE series_id = 2 AND season_id = 5 AND episode_id = 101;
+                               """;
+        Assert.Equal("Scalar AutoCommit", await command.ExecuteScalarAsync());
+
+        await using (var other = await CreateOpenConnectionAsync())
+        {
+            Assert.Equal("Scalar AutoCommit", await new YdbCommand(other)
+            {
+                CommandText = $"""
+                               SELECT title FROM {Tables.Episodes}
+                               WHERE series_id = 2 AND season_id = 5 AND episode_id = 101
+                               """
+            }.ExecuteScalarAsync());
+        }
+
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.RollbackAsync())).Message);
+    }
+
+    [Fact]
+    public async Task EnableAutoCommit_OnlyOnLastStatement_CommitsWholeInteractiveTx()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+
+        await using var transaction = connection.BeginTransaction();
+        var command = connection.CreateCommand();
+
+        command.CommandText = $"""
+                               UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                               VALUES (2, 5, 104, "First", Date("2024-05-01"));
+                               """;
+        await command.ExecuteNonQueryAsync();
+
+        await using (var other = await CreateOpenConnectionAsync())
+        {
+            Assert.Null(await new YdbCommand(other)
+            {
+                CommandText = $"""
+                               SELECT title FROM {Tables.Episodes}
+                               WHERE series_id = 2 AND season_id = 5 AND episode_id = 104
+                               """
+            }.ExecuteScalarAsync());
+        }
+
+        connection.EnableAutoCommit();
+        command.CommandText = $"""
+                               UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                               VALUES (2, 5, 105, "Last", Date("2024-05-02"));
+                               """;
+        await command.ExecuteNonQueryAsync();
+
+        await using (var other = await CreateOpenConnectionAsync())
+        {
+            Assert.Equal("First", await new YdbCommand(other)
+            {
+                CommandText = $"""
+                               SELECT title FROM {Tables.Episodes}
+                               WHERE series_id = 2 AND season_id = 5 AND episode_id = 104
+                               """
+            }.ExecuteScalarAsync());
+            Assert.Equal("Last", await new YdbCommand(other)
+            {
+                CommandText = $"""
+                               SELECT title FROM {Tables.Episodes}
+                               WHERE series_id = 2 AND season_id = 5 AND episode_id = 105
+                               """
+            }.ExecuteScalarAsync());
+        }
+
+        await transaction.CommitAsync(); // no-op
+    }
+
+    [Fact]
+    public async Task EnableAutoCommit_WithoutExecute_ThenRollback_Succeeds()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+        connection.EnableAutoCommit();
+
+        await transaction.RollbackAsync();
+
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.RollbackAsync())).Message);
+    }
+
+    [Fact]
+    public async Task EnableAutoCommit_WhenReaderClosedEarly_MarksTransactionFailed()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+        connection.EnableAutoCommit();
+
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1; SELECT 2; SELECT 3";
+
+        var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal("YdbDataReader was closed during transaction execution. Transaction is broken!",
+            (await Assert.ThrowsAsync<YdbException>(() => reader.CloseAsync())).Message);
+
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.CommitAsync())).Message);
+
+        await transaction.RollbackAsync(); // no-op for failed tx
+    }
+
+    [Fact]
+    public async Task ExecuteInTransaction_WithEnableAutoCommit_SingleStatement_Works()
+    {
+        await using var dataSource = new YdbDataSource(ConnectionString + ";PoolName=YdbTransactionTests.AutoCommit");
+        const int episodeId = 106;
+
+        await dataSource.ExecuteInTransactionAsync(async connection =>
+        {
+            connection.EnableAutoCommit();
+            await new YdbCommand(connection)
+            {
+                CommandText = $"""
+                               UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                               VALUES (2, 5, {episodeId}, "EIT AutoCommit", Date("2024-06-01"));
+                               """
+            }.ExecuteNonQueryAsync();
+        });
+
+        await using var verify = await CreateOpenConnectionAsync();
+        Assert.Equal("EIT AutoCommit", await new YdbCommand(verify)
+        {
+            CommandText = $"""
+                           SELECT title FROM {Tables.Episodes}
+                           WHERE series_id = 2 AND season_id = 5 AND episode_id = {episodeId}
+                           """
+        }.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task ExecuteInTransaction_WithoutAutoCommit_MultiStatement_StillWorks()
+    {
+        await using var dataSource = new YdbDataSource(ConnectionString + ";PoolName=YdbTransactionTests.AutoCommit");
+        const int episodeId = 107;
+
+        await dataSource.ExecuteInTransactionAsync(async connection =>
+        {
+            await new YdbCommand(connection)
+            {
+                CommandText = $"""
+                               UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                               VALUES (2, 5, {episodeId}, "Multi", Date("2024-07-01"));
+                               """
+            }.ExecuteNonQueryAsync();
+
+            await new YdbCommand(connection)
+            {
+                CommandText = $"""
+                               UPDATE {Tables.Episodes} SET title = "MultiUpdated"
+                               WHERE series_id = 2 AND season_id = 5 AND episode_id = {episodeId};
+                               """
+            }.ExecuteNonQueryAsync();
+        });
+
+        await using var verify = await CreateOpenConnectionAsync();
+        Assert.Equal("MultiUpdated", await new YdbCommand(verify)
+        {
+            CommandText = $"""
+                           SELECT title FROM {Tables.Episodes}
+                           WHERE series_id = 2 AND season_id = 5 AND episode_id = {episodeId}
+                           """
+        }.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task ExecuteInTransaction_WithEnableAutoCommit_OnLastStatement_Works()
+    {
+        await using var dataSource = new YdbDataSource(ConnectionString + ";PoolName=YdbTransactionTests.AutoCommit");
+        const int episodeId = 108;
+
+        await dataSource.ExecuteInTransactionAsync(async connection =>
+        {
+            await new YdbCommand(connection)
+            {
+                CommandText = $"""
+                               UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                               VALUES (2, 5, {episodeId}, "Step1", Date("2024-08-01"));
+                               """
+            }.ExecuteNonQueryAsync();
+
+            connection.EnableAutoCommit();
+            await new YdbCommand(connection)
+            {
+                CommandText = $"""
+                               UPDATE {Tables.Episodes} SET title = "Step2"
+                               WHERE series_id = 2 AND season_id = 5 AND episode_id = {episodeId};
+                               """
+            }.ExecuteNonQueryAsync();
+        });
+
+        await using var verify = await CreateOpenConnectionAsync();
+        Assert.Equal("Step2", await new YdbCommand(verify)
+        {
+            CommandText = $"""
+                           SELECT title FROM {Tables.Episodes}
+                           WHERE series_id = 2 AND season_id = 5 AND episode_id = {episodeId}
+                           """
+        }.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task EnableAutoCommit_WhenQueryFails_TransactionFailed_CommitThrows()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+        connection.EnableAutoCommit();
+
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT * FROM table_that_does_not_exist_autocommit";
+
+        await Assert.ThrowsAsync<YdbException>(() => command.ExecuteNonQueryAsync());
+        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.CommitAsync())).Message);
+        await transaction.RollbackAsync(); // no-op for failed tx
+    }
+
     protected override async Task OnInitializeAsync()
     {
         await using var connection = await CreateOpenConnectionAsync();

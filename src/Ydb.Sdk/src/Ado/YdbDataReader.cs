@@ -910,6 +910,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             if (!await _stream.MoveNextAsync(cancellationToken).ConfigureAwait(false))
             {
+                if (_ydbTransaction?.AutoCommit == true)
+                {
+                    _ydbTransaction.Completed = true;
+                }
+
                 return State.IsConsumed;
             }
 
