@@ -306,7 +306,7 @@ public sealed class YdbTransaction : DbTransaction
         if (_isDisposed)
             return;
 
-        if (!Completed && !AutoCommit)
+        if (!Completed)
         {
             await RollbackAsync().ConfigureAwait(false);
         }
