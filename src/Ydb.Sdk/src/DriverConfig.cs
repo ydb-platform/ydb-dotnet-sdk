@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Internal;
@@ -14,7 +15,7 @@ namespace Ydb.Sdk;
 /// DriverConfig contains all the necessary settings to configure a YDB driver instance,
 /// including connection parameters, timeouts, and authentication credentials.
 /// </remarks>
-public class DriverConfig
+internal class DriverConfig
 {
     private readonly string _pid = Environment.ProcessId.ToString();
 
@@ -84,6 +85,17 @@ public class DriverConfig
     /// endpoints from the fastest datacenter. Default value: false.
     /// </remarks>
     public bool EnablePreferNearestDcBalancing { get; init; }
+
+    /// <summary>
+    /// Gets or sets an HTTP proxy used for gRPC/HTTP/2 connections.
+    /// </summary>
+    /// <remarks>
+    /// When set, all channels created by the driver (discovery, data plane, and static-auth)
+    /// route through this proxy. Credentials for the proxy (if any) should be supplied via
+    /// <see cref="IWebProxy.Credentials"/> — there is no separate proxy-credentials property.
+    /// <para>Default value: <see langword="null"/> (handler default / system proxy settings).</para>
+    /// </remarks>
+    public IWebProxy? Proxy { get; init; }
 
     internal X509Certificate2Collection CustomServerCertificates { get; } = [];
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);

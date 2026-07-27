@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -712,6 +713,17 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     public X509Certificate2Collection? ServerCertificates { get; init; }
 
     /// <summary>
+    /// Gets or sets an HTTP proxy used for gRPC connections.
+    /// </summary>
+    /// <remarks>
+    /// When set, all gRPC channels (discovery, session, and auth) are created through this proxy.
+    /// Proxy credentials should be supplied via <see cref="IWebProxy.Credentials"/>
+    /// (for example on <see cref="WebProxy"/>); they are not part of the connection string.
+    /// <para>Default value: <see langword="null"/> (system proxy settings / direct connection).</para>
+    /// </remarks>
+    public IWebProxy? Proxy { get; init; }
+
+    /// <summary>
     /// Optional client component identifier appended to the <c>x-ydb-sdk-build-info</c> chain
     /// on every call. Intended for frameworks layered on top of the ADO.NET provider
     /// (e.g. EntityFrameworkCore.Ydb). When set, it is part of the driver/session pool key.
@@ -761,12 +773,10 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     }
 
     /// <summary>
-    /// Session-pool key. Includes <see cref="ClientInfo"/> when set so EF/ADO drivers with different
-    /// build-info chains do not share a pool (ClientInfo is not part of the public connection string).
+    /// Session-pool key. Includes <see cref="ClientInfo"/> and <see cref="Proxy"/> identity when set
+    /// so builders that differ only by code-only options do not share a pool.
     /// </summary>
-    internal string PoolKey => ClientInfo is null
-        ? ConnectionString
-        : $"{ConnectionString};ClientInfo={ClientInfo}";
+    internal string PoolKey => ConnectionString + ClientInfoKeyFragment + ProxyKeyFragment;
 
     string IDriverFactory.GrpcConnectionString =>
         $"UseTls={UseTls};Host={Host};Port={Port};Database={Database};User={User};Password={Password};" +
@@ -774,8 +784,36 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
         $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
         $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery};" +
         $"ServiceAccountKeyFilePath={ServiceAccountKeyFilePath};EnableMetadataCredentials={EnableMetadataCredentials};" +
-        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing}" +
-        (ClientInfo is null ? string.Empty : $";ClientInfo={ClientInfo}");
+        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing}" + ClientInfoKeyFragment + ProxyKeyFragment;
+
+    private string ClientInfoKeyFragment => ClientInfo is null ? string.Empty : $";ClientInfo={ClientInfo}";
+
+    /// <summary>
+    /// Stable cache-key fragment for <see cref="Proxy"/> (address + username, never password).
+    /// </summary>
+    private string ProxyKeyFragment
+    {
+        get
+        {
+            if (Proxy is null)
+            {
+                return string.Empty;
+            }
+
+            var address = Proxy is WebProxy webProxy
+                ? webProxy.Address
+                : Proxy.GetProxy(new Uri($"{(UseTls ? "https" : "http")}://{Host}:{Port}/"));
+
+            var fragment = $";Proxy={address}";
+            if (address is null || Proxy.Credentials is null)
+            {
+                return fragment;
+            }
+
+            var userName = Proxy.Credentials.GetCredential(address, string.Empty)?.UserName;
+            return string.IsNullOrEmpty(userName) ? fragment : $"{fragment};ProxyUser={userName}";
+        }
+    }
 
     async Task<IDriver> IDriverFactory.CreateAsync()
     {
@@ -810,7 +848,8 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
             EnableMultipleHttp2Connections = EnableMultipleHttp2Connections,
             MaxSendMessageSize = MaxSendMessageSize,
             MaxReceiveMessageSize = MaxReceiveMessageSize,
-            EnablePreferNearestDcBalancing = EnablePreferNearestDcBalancing
+            EnablePreferNearestDcBalancing = EnablePreferNearestDcBalancing,
+            Proxy = Proxy
         };
 
         return DisableDiscovery

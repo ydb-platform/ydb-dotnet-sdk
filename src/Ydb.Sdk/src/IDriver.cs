@@ -16,7 +16,7 @@ namespace Ydb.Sdk;
 /// The IDriver interface defines the contract for YDB client drivers.
 /// It provides methods for executing gRPC calls and managing driver lifecycle.
 /// </remarks>
-public interface IDriver : IAsyncDisposable
+internal interface IDriver : IAsyncDisposable
 {
     /// <summary>
     /// Executes a unary gRPC call.
@@ -102,7 +102,7 @@ public interface IDriver : IAsyncDisposable
 /// </summary>
 /// <typeparam name="TRequest">The type of request messages.</typeparam>
 /// <typeparam name="TResponse">The type of response messages.</typeparam>
-public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
+internal interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 {
     /// <summary>
     /// Writes a request message to the stream.
@@ -139,7 +139,7 @@ public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 /// Represents a server streaming gRPC stream for receiving response messages.
 /// </summary>
 /// <typeparam name="TResponse">The type of response messages.</typeparam>
-public interface IServerStream<out TResponse> : IDisposable
+internal interface IServerStream<out TResponse> : IDisposable
 {
     /// <summary>
     /// Advances the stream to the next response message.
@@ -161,7 +161,7 @@ public interface IServerStream<out TResponse> : IDisposable
 /// BaseDriver provides the core implementation for YDB drivers including gRPC channel management,
 /// authentication handling, request metadata management, and error handling.
 /// </remarks>
-public abstract class BaseDriver : IDriver
+internal abstract class BaseDriver : IDriver
 {
     private readonly ICredentialsProvider? _credentialsProvider;
 
@@ -396,7 +396,7 @@ public abstract class BaseDriver : IDriver
     protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
 }
 
-public sealed class ServerStream<TResponse> : IServerStream<TResponse>
+internal sealed class ServerStream<TResponse> : IServerStream<TResponse>
 {
     private readonly AsyncServerStreamingCall<TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;

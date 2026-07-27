@@ -1,3 +1,4 @@
+using System.Net;
 using Xunit;
 using Ydb.Sdk.Auth;
 
@@ -194,7 +195,7 @@ public class YdbConnectionStringBuilderTests
         ex = Assert.Throws<ArgumentException>(() =>
         {
             _ = new YdbConnectionStringBuilder("User=user")
-                { CredentialsProvider = new TokenProvider("TokenProvider") };
+            { CredentialsProvider = new TokenProvider("TokenProvider") };
         });
         Assert.Equal(nameof(YdbConnectionStringBuilder.CredentialsProvider), ex.ParamName);
     }
@@ -217,5 +218,62 @@ public class YdbConnectionStringBuilderTests
             };
         });
         Assert.Equal(nameof(YdbConnectionStringBuilder.CredentialsProvider), ex.ParamName);
+    }
+
+    [Fact]
+    public void Proxy_WhenSet_IsIncludedInGrpcConnectionStringAndPoolKey()
+    {
+        var proxy = new WebProxy("http://proxy.corp:8080")
+        {
+            Credentials = new NetworkCredential("proxy-user", "proxy-pass")
+        };
+        var builder = new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path")
+        {
+            Proxy = proxy
+        };
+
+        Assert.Same(proxy, builder.Proxy);
+        Assert.EndsWith(";Proxy=http://proxy.corp:8080/;ProxyUser=proxy-user",
+            ((IDriverFactory)builder).GrpcConnectionString);
+        Assert.Equal(
+            "Host=server;Port=2135;Database=/my/path;Proxy=http://proxy.corp:8080/;ProxyUser=proxy-user",
+            builder.PoolKey);
+        Assert.DoesNotContain("proxy-pass", ((IDriverFactory)builder).GrpcConnectionString);
+        Assert.DoesNotContain("proxy-pass", builder.PoolKey);
+        Assert.DoesNotContain("Proxy=", builder.ConnectionString);
+    }
+
+    [Fact]
+    public void Proxy_WhenNull_DoesNotChangeGrpcConnectionStringOrPoolKey()
+    {
+        var builder = new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path");
+
+        Assert.Null(builder.Proxy);
+        Assert.DoesNotContain("Proxy=", ((IDriverFactory)builder).GrpcConnectionString);
+        Assert.Equal("Host=server;Port=2135;Database=/my/path", builder.PoolKey);
+    }
+
+    [Fact]
+    public void Proxy_WhenDifferentProxies_ProduceDifferentKeys()
+    {
+        const string connectionString = "Host=server;Port=2135;";
+        var withoutProxy = new YdbConnectionStringBuilder(connectionString);
+        var withProxyA = new YdbConnectionStringBuilder(connectionString)
+        {
+            Proxy = new WebProxy("http://proxy-a:8080/")
+        };
+        var withProxyB = new YdbConnectionStringBuilder(connectionString)
+        {
+            Proxy = new WebProxy("http://proxy-b:8080/")
+        };
+
+        Assert.NotEqual(
+            ((IDriverFactory)withProxyA).GrpcConnectionString,
+            ((IDriverFactory)withProxyB).GrpcConnectionString);
+        Assert.NotEqual(withProxyA.PoolKey, withProxyB.PoolKey);
+        Assert.NotEqual(
+            ((IDriverFactory)withoutProxy).GrpcConnectionString,
+            ((IDriverFactory)withProxyA).GrpcConnectionString);
+        Assert.NotEqual(withoutProxy.PoolKey, withProxyA.PoolKey);
     }
 }

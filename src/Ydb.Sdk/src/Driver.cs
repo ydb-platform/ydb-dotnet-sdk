@@ -20,7 +20,7 @@ namespace Ydb.Sdk;
 /// The Driver class provides the primary interface for connecting to YDB clusters.
 /// It automatically discovers available endpoints and manages gRPC connections.
 /// </remarks>
-public sealed class Driver : BaseDriver
+internal sealed class Driver : BaseDriver
 {
     private static readonly YdbRetryPolicyExecutor DiscoveryRetryPolicy =
         new(YdbRetryPolicy.IdempotenceDefault, "ydb.Driver.Initialize");
@@ -35,9 +35,10 @@ public sealed class Driver : BaseDriver
     /// </summary>
     /// <param name="config">Driver configuration settings.</param>
     /// <param name="loggerFactory">Optional logger factory for logging. If null, NullLoggerFactory will be used.</param>
-    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null) :
-        base(config, loggerFactory ?? NullLoggerFactory.Instance,
-            (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>())
+    private Driver(DriverConfig config, ILoggerFactory? loggerFactory = null) : base(config,
+        loggerFactory ?? NullLoggerFactory.Instance,
+        (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>()
+    )
     {
         _endpointPool = new EndpointPool(LoggerFactory);
         _endpointLocalDcDetector = new EndpointLocalDcDetector(LoggerFactory);
@@ -65,7 +66,7 @@ public sealed class Driver : BaseDriver
     /// It will retry up to 10 times with exponential backoff if discovery fails.
     /// </remarks>
     /// <exception cref="YdbException">Thrown when endpoint discovery fails after all retry attempts.</exception>
-    public async Task Initialize()
+    private async Task Initialize()
     {
         Logger.LogInformation("Started initial endpoint discovery");
 
