@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net;
 using System.Net.Sockets;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
@@ -57,14 +56,15 @@ public class EndpointLocalDcDetectorTests
     [Fact]
     public async Task DetectNearestLocationDc_WhenOneEndpointConnectsFirst_ReturnsItsLocation()
     {
-        await using var fastListener = StartListener();
+        var connector = new FakeTcpConnector();
+        connector.SetupThrow("slow-host", new SocketException((int)SocketError.ConnectionRefused));
+        connector.SetupImmediate("fast-host");
 
-        var detector = new EndpointLocalDcDetector(TestUtils.LoggerFactory);
+        var detector = new EndpointLocalDcDetector(TestUtils.LoggerFactory, connector);
         var endpoints = new[]
         {
-            // port 65003 is not listening → ECONNREFUSED immediately
-            new EndpointInfo(1, false, "127.0.0.1", 65003, "slow-dc"),
-            new EndpointInfo(2, false, "127.0.0.1", fastListener.Port, "fast-dc")
+            new EndpointInfo(1, false, "slow-host", 2136, "slow-dc"),
+            new EndpointInfo(2, false, "fast-host", 2136, "fast-dc")
         };
 
         var location = await detector.DetectNearestLocationDc(endpoints, TimeSpan.FromSeconds(1));
@@ -100,47 +100,6 @@ public class EndpointLocalDcDetectorTests
         Assert.Equal("fast-dc", location);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2),
             $"Detection took {sw.Elapsed.TotalMilliseconds:F0} ms — cts.Cancel() after winner found may not be working");
-    }
-
-    private static TestTcpListener StartListener()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-
-        var acceptTask = Task.Run(async () =>
-        {
-            using var client = await listener.AcceptTcpClientAsync();
-            await Task.Delay(50);
-        });
-
-        return new TestTcpListener(listener, acceptTask);
-    }
-
-    private sealed class TestTcpListener(TcpListener listener, Task acceptTask) : IAsyncDisposable
-    {
-        public uint Port => (uint)((IPEndPoint)listener.LocalEndpoint).Port;
-
-        public async ValueTask DisposeAsync()
-        {
-            listener.Stop();
-            try
-            {
-                await acceptTask;
-            }
-            catch (SocketException)
-            {
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-            catch (InvalidOperationException)
-            {
-                // AcceptTcpClientAsync raced with listener.Stop(): the Task.Run in StartListener
-                // hadn't started yet when Stop() was called, so the accept call sees a non-listening
-                // listener. The connection itself is accepted by the OS backlog, so the test still
-                // observes the winner correctly — this only affects cleanup.
-            }
-        }
     }
 
     /// <summary>
