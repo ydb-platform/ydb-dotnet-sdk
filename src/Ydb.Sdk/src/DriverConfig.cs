@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
 using Ydb.Sdk.Internal;
@@ -84,6 +85,20 @@ public class DriverConfig
     /// endpoints from the fastest datacenter. Default value: false.
     /// </remarks>
     public bool EnablePreferNearestDcBalancing { get; init; }
+
+    /// <summary>
+    /// Gets or sets the proxy used for the gRPC connections established by the driver, including
+    /// proxy authentication credentials if required (see <see cref="WebProxy.Credentials"/>).
+    /// </summary>
+    /// <remarks>
+    /// When <see langword="null"/> (default), the standard .NET proxy resolution applies:
+    /// <see cref="System.Net.Http.SocketsHttpHandler.Proxy"/> is left unset, so
+    /// <see cref="System.Net.Http.HttpClient.DefaultProxy"/> (and, transitively, the
+    /// <c>HTTP_PROXY</c>/<c>HTTPS_PROXY</c> environment variables or OS proxy settings) is used if configured.
+    /// Set this property when the proxy for YDB traffic needs to differ from that process-wide default,
+    /// e.g. an authenticated corporate proxy that should apply only to the YDB channel.
+    /// </remarks>
+    public IWebProxy? Proxy { get; init; }
 
     internal X509Certificate2Collection CustomServerCertificates { get; } = [];
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);

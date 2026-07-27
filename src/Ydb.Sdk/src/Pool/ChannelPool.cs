@@ -104,6 +104,11 @@ internal class GrpcChannelFactory : IChannelFactory<GrpcChannel>
             EnableMultipleHttp2Connections = _config.EnableMultipleHttp2Connections
         };
 
+        if (_config.Proxy is not null)
+        {
+            httpHandler.Proxy = _config.Proxy;
+        }
+
         // https://github.com/grpc/grpc-dotnet/issues/2312#issuecomment-1790661801
         httpHandler.Properties["__GrpcLoadBalancingDisabled"] = true;
 
