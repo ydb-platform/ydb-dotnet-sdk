@@ -16,7 +16,7 @@ namespace Ydb.Sdk;
 /// The IDriver interface defines the contract for YDB client drivers.
 /// It provides methods for executing gRPC calls and managing driver lifecycle.
 /// </remarks>
-internal interface IDriver : IAsyncDisposable
+public interface IDriver : IAsyncDisposable
 {
     /// <summary>
     /// Executes a unary gRPC call.
@@ -102,7 +102,7 @@ internal interface IDriver : IAsyncDisposable
 /// </summary>
 /// <typeparam name="TRequest">The type of request messages.</typeparam>
 /// <typeparam name="TResponse">The type of response messages.</typeparam>
-internal interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
+public interface IBidirectionalStream<in TRequest, out TResponse> : IDisposable
 {
     /// <summary>
     /// Writes a request message to the stream.
@@ -139,7 +139,7 @@ internal interface IBidirectionalStream<in TRequest, out TResponse> : IDisposabl
 /// Represents a server streaming gRPC stream for receiving response messages.
 /// </summary>
 /// <typeparam name="TResponse">The type of response messages.</typeparam>
-internal interface IServerStream<out TResponse> : IDisposable
+public interface IServerStream<out TResponse> : IDisposable
 {
     /// <summary>
     /// Advances the stream to the next response message.
