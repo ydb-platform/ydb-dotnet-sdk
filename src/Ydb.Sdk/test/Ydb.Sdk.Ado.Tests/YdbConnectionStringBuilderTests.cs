@@ -195,7 +195,7 @@ public class YdbConnectionStringBuilderTests
         ex = Assert.Throws<ArgumentException>(() =>
         {
             _ = new YdbConnectionStringBuilder("User=user")
-            { CredentialsProvider = new TokenProvider("TokenProvider") };
+                { CredentialsProvider = new TokenProvider("TokenProvider") };
         });
         Assert.Equal(nameof(YdbConnectionStringBuilder.CredentialsProvider), ex.ParamName);
     }
