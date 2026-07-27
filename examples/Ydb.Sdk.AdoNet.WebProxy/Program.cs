@@ -45,8 +45,5 @@ if (!await reader.ReadAsync())
     throw new InvalidOperationException("Query returned no rows");
 }
 
-logger.LogInformation("message={Message}, ts={Timestamp}",
-    reader.GetString(0),
-    reader.GetValue(1));
-
+logger.LogInformation("message={Message}, ts={Timestamp}", reader.GetString(0), reader.GetValue(1));
 logger.LogInformation("Connection through proxy succeeded");
