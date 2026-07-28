@@ -161,7 +161,7 @@ public interface IServerStream<out TResponse> : IDisposable
 /// BaseDriver provides the core implementation for YDB drivers including gRPC channel management,
 /// authentication handling, request metadata management, and error handling.
 /// </remarks>
-public abstract class BaseDriver : IDriver
+internal abstract class BaseDriver : IDriver
 {
     private readonly ICredentialsProvider? _credentialsProvider;
 
@@ -396,7 +396,7 @@ public abstract class BaseDriver : IDriver
     protected virtual ValueTask DisposeAsyncCore() => ValueTask.CompletedTask;
 }
 
-public sealed class ServerStream<TResponse> : IServerStream<TResponse>
+internal sealed class ServerStream<TResponse> : IServerStream<TResponse>
 {
     private readonly AsyncServerStreamingCall<TResponse> _stream;
     private readonly Action<RpcException> _rpcErrorAction;

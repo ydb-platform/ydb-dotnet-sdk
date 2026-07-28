@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net;
 using System.Net.Sockets;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
@@ -14,8 +13,7 @@ public class EndpointLocalDcDetectorTests
     {
         var detector = new EndpointLocalDcDetector(TestUtils.LoggerFactory);
 
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            detector.DetectNearestLocationDc([], TimeSpan.FromMilliseconds(100)));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => detector.DetectNearestLocationDc([]));
 
         Assert.Contains("Empty endpoints list", exception.Message);
     }
@@ -30,7 +28,7 @@ public class EndpointLocalDcDetectorTests
             new EndpointInfo(2, false, "dc1-b.example.com", 2136, "dc1")
         };
 
-        var location = await detector.DetectNearestLocationDc(endpoints, TimeSpan.FromMilliseconds(100));
+        var location = await detector.DetectNearestLocationDc(endpoints);
 
         Assert.Equal("dc1", location);
     }
@@ -49,7 +47,8 @@ public class EndpointLocalDcDetectorTests
             new EndpointInfo(2, false, "host2", 2136, "dc2")
         };
 
-        var location = await detector.DetectNearestLocationDc(endpoints, TimeSpan.FromMilliseconds(100));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        var location = await detector.DetectNearestLocationDc(endpoints, cts.Token);
 
         Assert.Null(location);
     }
@@ -57,17 +56,21 @@ public class EndpointLocalDcDetectorTests
     [Fact]
     public async Task DetectNearestLocationDc_WhenOneEndpointConnectsFirst_ReturnsItsLocation()
     {
-        await using var fastListener = StartListener();
+        // Use a fake connector: real TCP + a hardcoded closed port (65003) is flaky under CI load
+        // (timeout can fire before the listening endpoint wins → null instead of "fast-dc").
+        var connector = new FakeTcpConnector();
+        connector.SetupThrow("slow-host", new SocketException((int)SocketError.ConnectionRefused));
+        connector.SetupImmediate("fast-host");
 
-        var detector = new EndpointLocalDcDetector(TestUtils.LoggerFactory);
+        var detector = new EndpointLocalDcDetector(TestUtils.LoggerFactory, connector);
         var endpoints = new[]
         {
-            // port 65003 is not listening → ECONNREFUSED immediately
-            new EndpointInfo(1, false, "127.0.0.1", 65003, "slow-dc"),
-            new EndpointInfo(2, false, "127.0.0.1", fastListener.Port, "fast-dc")
+            new EndpointInfo(1, false, "slow-host", 2136, "slow-dc"),
+            new EndpointInfo(2, false, "fast-host", 2136, "fast-dc")
         };
 
-        var location = await detector.DetectNearestLocationDc(endpoints, TimeSpan.FromSeconds(1));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        var location = await detector.DetectNearestLocationDc(endpoints, cts.Token);
 
         Assert.Equal("fast-dc", location);
     }
@@ -77,7 +80,7 @@ public class EndpointLocalDcDetectorTests
     {
         // fast-dc connects immediately; slow-dc blocks until its CancellationToken is
         // cancelled.  If cts.Cancel() is NOT called when the winner is found,
-        // Task.WhenAll waits for the full 5-second timeout.
+        // Task.WhenAll waits until the caller's token times out (5s below).
         // With cancellation the test should finish in well under 1 second.
         var connector = new FakeTcpConnector();
         connector.SetupImmediate("fast-host");
@@ -90,57 +93,16 @@ public class EndpointLocalDcDetectorTests
             new EndpointInfo(2, false, "fast-host", 2136, "fast-dc")
         };
 
-        var timeout = TimeSpan.FromSeconds(5);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var sw = Stopwatch.StartNew();
 
-        var location = await detector.DetectNearestLocationDc(endpoints, timeout);
+        var location = await detector.DetectNearestLocationDc(endpoints, cts.Token);
 
         sw.Stop();
 
         Assert.Equal("fast-dc", location);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2),
             $"Detection took {sw.Elapsed.TotalMilliseconds:F0} ms — cts.Cancel() after winner found may not be working");
-    }
-
-    private static TestTcpListener StartListener()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-
-        var acceptTask = Task.Run(async () =>
-        {
-            using var client = await listener.AcceptTcpClientAsync();
-            await Task.Delay(50);
-        });
-
-        return new TestTcpListener(listener, acceptTask);
-    }
-
-    private sealed class TestTcpListener(TcpListener listener, Task acceptTask) : IAsyncDisposable
-    {
-        public uint Port => (uint)((IPEndPoint)listener.LocalEndpoint).Port;
-
-        public async ValueTask DisposeAsync()
-        {
-            listener.Stop();
-            try
-            {
-                await acceptTask;
-            }
-            catch (SocketException)
-            {
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-            catch (InvalidOperationException)
-            {
-                // AcceptTcpClientAsync raced with listener.Stop(): the Task.Run in StartListener
-                // hadn't started yet when Stop() was called, so the accept call sees a non-listening
-                // listener. The connection itself is accepted by the OS backlog, so the test still
-                // observes the winner correctly — this only affects cleanup.
-            }
-        }
     }
 
     /// <summary>
