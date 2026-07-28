@@ -54,6 +54,16 @@ jobs:
         run: |
           docker cp ydb-local:/ydb_certs/ca.pem ~/
 
+          docker rm -f ydb-proxy 2>/dev/null || true
+          docker run -d --rm --name ydb-proxy --network host \
+            -v "$PWD/Proxy/squid.conf:/etc/squid/squid.conf:ro" \
+            -v "$PWD/Proxy/passwd:/etc/squid/passwd:ro" \
+            ubuntu/squid:latest
+          for i in $(seq 1 30); do
+            (echo > /dev/tcp/127.0.0.1/3128) >/dev/null 2>&1 && break
+            sleep 1
+          done
+
           if [ "$COVERAGE_ENABLED" = "true" ]; then
             dotnet test \
               --logger "console;verbosity=normal" \

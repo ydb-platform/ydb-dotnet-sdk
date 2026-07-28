@@ -1,4 +1,5 @@
 using System.Data;
+using System.Net;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
 
@@ -46,6 +47,41 @@ public sealed class YdbConnectionTests : TestBase
         await command.ExecuteNonQueryAsync();
         command.CommandText = Tables.DeleteTables;
         await command.ExecuteNonQueryAsync();
+    }
+
+    // Requires Squid from Proxy/ (see CI / README in examples/Ydb.Sdk.AdoNet.WebProxy).
+    // docker cp ydb-local:/ydb_certs/ca.pem ~/
+    [Fact]
+    public async Task Proxy_WhenHttpProxyWithTls_ReturnValidConnection()
+    {
+        // Linux CI: Squid with --network host → YDB is localhost.
+        // Docker Desktop: Squid is bridged → YDB via host.docker.internal.
+        var ydbHost = OperatingSystem.IsLinux() ? "localhost" : "host.docker.internal";
+        var caPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "ca.pem");
+
+        var proxy = new WebProxy(new Uri("http://127.0.0.1:3128"))
+        {
+            Credentials = new NetworkCredential("proxy-user", "proxy-pass")
+        };
+
+        await using var ydbConnection = new YdbConnection(new YdbConnectionStringBuilder
+        {
+            Host = ydbHost,
+            Port = 2135,
+            Database = "/local",
+            UseTls = true,
+            RootCertificate = caPath,
+            DisableDiscovery = true,
+            Proxy = proxy,
+            LoggerFactory = TestUtils.LoggerFactory
+        });
+        await ydbConnection.OpenAsync();
+
+        await using var command = ydbConnection.CreateCommand();
+        command.CommandText = "SELECT 1";
+        Assert.Equal(1, await command.ExecuteScalarAsync());
     }
 
     [Fact]
