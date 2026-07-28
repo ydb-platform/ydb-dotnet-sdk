@@ -275,5 +275,29 @@ public class YdbConnectionStringBuilderTests
             ((IDriverFactory)withoutProxy).GrpcConnectionString,
             ((IDriverFactory)withProxyA).GrpcConnectionString);
         Assert.NotEqual(withoutProxy.PoolKey, withProxyA.PoolKey);
+        
+        Assert.EndsWith(";Proxy=http://proxy-a:8080/", ((IDriverFactory)withProxyA).GrpcConnectionString);
+        Assert.DoesNotContain("ProxyUser=", withProxyA.PoolKey);
+    }
+
+    [Fact]
+    public void Proxy_WhenCustomIWebProxy_UsesGetProxyForKey()
+    {
+        var proxy = new FixedAddressProxy(new Uri("http://custom-proxy:3128/"));
+        var builderTls = new YdbConnectionStringBuilder("Host=server;Port=2135;Database=/my/path;UseTls=true")
+        {
+            Proxy = proxy
+        };
+
+        Assert.EndsWith(";Proxy=http://custom-proxy:3128/", ((IDriverFactory)builderTls).GrpcConnectionString);
+    }
+
+    private sealed class FixedAddressProxy(Uri? address) : IWebProxy
+    {
+        public ICredentials? Credentials { get; set; }
+
+        public Uri? GetProxy(Uri destination) => address;
+
+        public bool IsBypassed(Uri host) => false;
     }
 }

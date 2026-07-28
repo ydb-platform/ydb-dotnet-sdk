@@ -49,6 +49,22 @@ public sealed class YdbConnectionTests : TestBase
         await command.ExecuteNonQueryAsync();
     }
 
+    // Hits Driver nearest-DC path (CTS + DetectNearestLocationDc) during discovery.
+    [Fact]
+    public async Task PreferNearestDcBalancing_WhenEnabled_ReturnValidConnection()
+    {
+        var connectionString = ConnectionString +
+                               ";EnablePreferNearestDcBalancing=true;PoolName=prefer-nearest-dc-test";
+
+        await using var ydbConnection = new YdbConnection(new YdbConnectionStringBuilder(connectionString)
+            { LoggerFactory = TestUtils.LoggerFactory });
+        await ydbConnection.OpenAsync();
+
+        await using var command = ydbConnection.CreateCommand();
+        command.CommandText = "SELECT 1";
+        Assert.Equal(1, await command.ExecuteScalarAsync());
+    }
+
     // Requires Squid from Proxy/ (see CI / README in examples/Ydb.Sdk.AdoNet.WebProxy).
     // docker cp ydb-local:/ydb_certs/ca.pem ~/
     [Fact]
