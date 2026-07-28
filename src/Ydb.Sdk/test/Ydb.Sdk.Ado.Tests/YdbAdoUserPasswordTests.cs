@@ -4,13 +4,13 @@ namespace Ydb.Sdk.Ado.Tests;
 
 public class YdbAdoUserPasswordTests : TestBase
 {
-    private const string User = "kurdyukovkirya";
+    private readonly string _user = "user" + Random.Shared.Next();
 
     [Fact]
     public async Task Authentication_WhenUserAndPassword_ReturnValidConnection()
     {
         await using var userPasswordConnection =
-            new YdbConnection($"{ConnectionString};User={User};Password=password;");
+            new YdbConnection($"{ConnectionString};User={_user};Password=password;");
         await userPasswordConnection.OpenAsync();
         Assert.Equal(3, await new YdbCommand(userPasswordConnection)
             { CommandText = "SELECT 1 + 2" }.ExecuteScalarAsync());
@@ -32,7 +32,7 @@ public class YdbAdoUserPasswordTests : TestBase
     public async Task DisableDiscovery_WhenUserIsCreatedAndPropertyIsTrue_SimpleWorking()
     {
         await using var userPasswordConnection = new YdbConnection(
-            $"{ConnectionString};User={User};Password=password;DisableDiscovery=true");
+            $"{ConnectionString};User={_user};Password=password;DisableDiscovery=true");
         await userPasswordConnection.OpenAsync();
         var ydbCommand = userPasswordConnection.CreateCommand();
         ydbCommand.CommandText = "SELECT 1 + 2";
@@ -43,7 +43,7 @@ public class YdbAdoUserPasswordTests : TestBase
     {
         await using var connection = await CreateOpenConnectionAsync();
         var ydbCommand = connection.CreateCommand();
-        ydbCommand.CommandText = $"CREATE USER {User} PASSWORD 'password'";
+        ydbCommand.CommandText = $"CREATE USER {_user} PASSWORD 'password'";
         await ydbCommand.ExecuteNonQueryAsync();
     }
 
@@ -51,7 +51,7 @@ public class YdbAdoUserPasswordTests : TestBase
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
         var ydbCommand = ydbConnection.CreateCommand();
-        ydbCommand.CommandText = $"DROP USER {User};";
+        ydbCommand.CommandText = $"DROP USER {_user};";
         await ydbCommand.ExecuteNonQueryAsync();
     }
 }
