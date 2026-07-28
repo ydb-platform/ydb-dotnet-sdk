@@ -275,7 +275,7 @@ public class YdbConnectionStringBuilderTests
             ((IDriverFactory)withoutProxy).GrpcConnectionString,
             ((IDriverFactory)withProxyA).GrpcConnectionString);
         Assert.NotEqual(withoutProxy.PoolKey, withProxyA.PoolKey);
-        
+
         Assert.EndsWith(";Proxy=http://proxy-a:8080/", ((IDriverFactory)withProxyA).GrpcConnectionString);
         Assert.DoesNotContain("ProxyUser=", withProxyA.PoolKey);
     }
