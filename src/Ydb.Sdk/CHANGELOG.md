@@ -1,3 +1,5 @@
+## v0.35.0
+
 - Feat ADO.NET: HTTP proxy support via code-only `YdbConnectionStringBuilder.Proxy` (`IWebProxy` / `WebProxy`).
 - **Breaking Change**: `DriverConfig`, `BaseDriver`, `Driver`, `DirectGrpcChannelDriver`, and `ServerStream<>` are now `internal`.
 
