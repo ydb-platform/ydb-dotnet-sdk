@@ -18,11 +18,8 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
 
     public async Task<string?> DetectNearestLocationDc(
         IReadOnlyList<EndpointInfo> endpoints,
-        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-
         if (endpoints.Count == 0)
         {
             throw new ArgumentException("Empty endpoints list for local DC detection", nameof(endpoints));
@@ -57,7 +54,7 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
             );
         }
 
-        var fastestEndpoint = await DetectFastestEndpoint(endpointsToTest, timeout, cancellationToken)
+        var fastestEndpoint = await DetectFastestEndpoint(endpointsToTest, cancellationToken)
             .ConfigureAwait(false);
         if (fastestEndpoint is null)
         {
@@ -71,11 +68,10 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
 
     private async Task<EndpointInfo?> DetectFastestEndpoint(
         IReadOnlyList<EndpointInfo> endpoints,
-        TimeSpan timeout,
         CancellationToken cancellationToken)
     {
+        // Linked CTS so we can cancel losers when a winner is found, without touching the caller's token.
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(timeout);
 
         var winner = new TaskCompletionSource<EndpointInfo?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var tasks = endpoints.Select(endpoint => TryConnect(endpoint, winner, cts)).ToArray();
@@ -97,7 +93,7 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
     }
 
     private async Task TryConnect(
-        EndpointInfo endpoint,
+        EndpointInfo endpoint, 
         TaskCompletionSource<EndpointInfo?> winner,
         CancellationTokenSource cts)
     {
@@ -109,7 +105,7 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
             if (winner.TrySetResult(endpoint))
             {
                 _logger.LogDebug("TCP race winner endpoint: {Endpoint}", endpoint.Endpoint);
-                cts.Cancel();
+                await cts.CancelAsync().ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)

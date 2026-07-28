@@ -13,8 +13,7 @@ public class EndpointLocalDcDetectorTests
     {
         var detector = new EndpointLocalDcDetector(TestUtils.LoggerFactory);
 
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            detector.DetectNearestLocationDc([], TimeSpan.FromMilliseconds(100)));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => detector.DetectNearestLocationDc([]));
 
         Assert.Contains("Empty endpoints list", exception.Message);
     }
@@ -29,7 +28,7 @@ public class EndpointLocalDcDetectorTests
             new EndpointInfo(2, false, "dc1-b.example.com", 2136, "dc1")
         };
 
-        var location = await detector.DetectNearestLocationDc(endpoints, TimeSpan.FromMilliseconds(100));
+        var location = await detector.DetectNearestLocationDc(endpoints);
 
         Assert.Equal("dc1", location);
     }
@@ -48,7 +47,8 @@ public class EndpointLocalDcDetectorTests
             new EndpointInfo(2, false, "host2", 2136, "dc2")
         };
 
-        var location = await detector.DetectNearestLocationDc(endpoints, TimeSpan.FromMilliseconds(100));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        var location = await detector.DetectNearestLocationDc(endpoints, cts.Token);
 
         Assert.Null(location);
     }
@@ -56,6 +56,8 @@ public class EndpointLocalDcDetectorTests
     [Fact]
     public async Task DetectNearestLocationDc_WhenOneEndpointConnectsFirst_ReturnsItsLocation()
     {
+        // Use a fake connector: real TCP + a hardcoded closed port (65003) is flaky under CI load
+        // (timeout can fire before the listening endpoint wins → null instead of "fast-dc").
         var connector = new FakeTcpConnector();
         connector.SetupThrow("slow-host", new SocketException((int)SocketError.ConnectionRefused));
         connector.SetupImmediate("fast-host");
@@ -67,7 +69,8 @@ public class EndpointLocalDcDetectorTests
             new EndpointInfo(2, false, "fast-host", 2136, "fast-dc")
         };
 
-        var location = await detector.DetectNearestLocationDc(endpoints, TimeSpan.FromSeconds(1));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        var location = await detector.DetectNearestLocationDc(endpoints, cts.Token);
 
         Assert.Equal("fast-dc", location);
     }
@@ -77,7 +80,7 @@ public class EndpointLocalDcDetectorTests
     {
         // fast-dc connects immediately; slow-dc blocks until its CancellationToken is
         // cancelled.  If cts.Cancel() is NOT called when the winner is found,
-        // Task.WhenAll waits for the full 5-second timeout.
+        // Task.WhenAll waits until the caller's token times out (5s below).
         // With cancellation the test should finish in well under 1 second.
         var connector = new FakeTcpConnector();
         connector.SetupImmediate("fast-host");
@@ -90,10 +93,10 @@ public class EndpointLocalDcDetectorTests
             new EndpointInfo(2, false, "fast-host", 2136, "fast-dc")
         };
 
-        var timeout = TimeSpan.FromSeconds(5);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var sw = Stopwatch.StartNew();
 
-        var location = await detector.DetectNearestLocationDc(endpoints, timeout);
+        var location = await detector.DetectNearestLocationDc(endpoints, cts.Token);
 
         sw.Stop();
 

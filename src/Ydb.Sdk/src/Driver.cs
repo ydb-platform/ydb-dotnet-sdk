@@ -185,9 +185,10 @@ internal sealed class Driver : BaseDriver
             {
                 try
                 {
+                    using var nearestDcCts = new CancellationTokenSource(Config.ConnectTimeout);
                     var detectedLocation = await _endpointLocalDcDetector.DetectNearestLocationDc(
                         discoveredEndpoints,
-                        Config.ConnectTimeout
+                        nearestDcCts.Token
                     ).ConfigureAwait(false);
 
                     if (!string.IsNullOrEmpty(detectedLocation))
