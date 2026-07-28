@@ -93,7 +93,7 @@ internal sealed class EndpointLocalDcDetector(ILoggerFactory loggerFactory, ITcp
     }
 
     private async Task TryConnect(
-        EndpointInfo endpoint, 
+        EndpointInfo endpoint,
         TaskCompletionSource<EndpointInfo?> winner,
         CancellationTokenSource cts)
     {
