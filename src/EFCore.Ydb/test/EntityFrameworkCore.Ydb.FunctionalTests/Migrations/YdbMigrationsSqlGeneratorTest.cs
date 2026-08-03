@@ -72,6 +72,23 @@ public class YdbMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(Yd
         AssertSql("ALTER TABLE `Person` ADD `Pi` Decimal(20, 7) NOT NULL;");
     }
 
+    [Fact]
+    public void AddColumnOperation_with_default_value_sql()
+    {
+        Generate(
+            new AddColumnOperation
+            {
+                Table = "People",
+                Name = "Sum",
+                ClrType = typeof(int),
+                ColumnType = "Int32",
+                IsNullable = false,
+                DefaultValueSql = "(1)"
+            });
+
+        AssertSql("ALTER TABLE `People` ADD `Sum` Int32 NOT NULL DEFAULT ((1));");
+    }
+
 
     public override void AddForeignKeyOperation_without_principal_columns()
     {

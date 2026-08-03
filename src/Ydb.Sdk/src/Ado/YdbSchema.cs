@@ -200,7 +200,8 @@ internal static class YdbSchema
                 new DataColumn("ordinal_position", typeof(int)),
                 new DataColumn("is_nullable"),
                 new DataColumn("data_type"),
-                new DataColumn("family_name")
+                new DataColumn("family_name"),
+                new DataColumn("column_default")
             }
         };
         var tableNameRestriction = restrictions[0];
@@ -233,6 +234,7 @@ internal static class YdbSchema
                         row["is_nullable"] = column.IsNullable ? "YES" : "NO";
                         row["data_type"] = column.StorageType.ToString();
                         row["family_name"] = column.Family;
+                        row["column_default"] = (object?)column.DefaultValue?.ToString() ?? DBNull.Value;
                     }
                 }, cancellationToken: cancellationToken).ConfigureAwait(false);
         }

@@ -1,7 +1,10 @@
-using System.Reflection;
+using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Ydb.Sdk.Auth;
+using Ydb.Sdk.Internal;
 using Ydb.Sdk.Pool;
+using Metadata = Grpc.Core.Metadata;
+using YdbMetadata = Ydb.Sdk.Internal.Metadata;
 
 namespace Ydb.Sdk;
 
@@ -12,7 +15,7 @@ namespace Ydb.Sdk;
 /// DriverConfig contains all the necessary settings to configure a YDB driver instance,
 /// including connection parameters, timeouts, and authentication credentials.
 /// </remarks>
-public class DriverConfig
+internal class DriverConfig
 {
     private readonly string _pid = Environment.ProcessId.ToString();
 
@@ -83,11 +86,27 @@ public class DriverConfig
     /// </remarks>
     public bool EnablePreferNearestDcBalancing { get; init; }
 
+    /// <summary>
+    /// Gets or sets an HTTP proxy used for gRPC/HTTP/2 connections.
+    /// </summary>
+    /// <remarks>
+    /// When set, all channels created by the driver (discovery, data plane, and static-auth)
+    /// route through this proxy. Credentials for the proxy (if any) should be supplied via
+    /// <see cref="IWebProxy.Credentials"/> — there is no separate proxy-credentials property.
+    /// <para>Default value: <see langword="null"/> (handler default / system proxy settings).</para>
+    /// </remarks>
+    public IWebProxy? Proxy { get; init; }
+
     internal X509Certificate2Collection CustomServerCertificates { get; } = [];
     internal TimeSpan EndpointDiscoveryInterval = TimeSpan.FromMinutes(1);
     internal TimeSpan EndpointDiscoveryTimeout = TimeSpan.FromSeconds(10);
-    internal string SdkVersion { get; }
     internal EndpointInfo EndpointInfo { get; }
+
+    /// <summary>
+    /// <c>x-ydb-sdk-build-info</c> value for every call (base SDK token plus optional client chain).
+    /// Observability adoption tokens are appended only on Discovery via <c>AppendObservabilityChain</c>.
+    /// </summary>
+    internal string SdkBuildInfo { get; }
 
     /// <summary>
     /// Initializes a new instance of the DriverConfig class.
@@ -102,12 +121,20 @@ public class DriverConfig
     /// <param name="credentials">Optional credentials provider for authentication.</param>
     /// <param name="customServerCertificate">Optional custom server certificate for TLS validation.</param>
     /// <param name="customServerCertificates">Optional collection of custom server certificates for TLS validation.</param>
+    /// <param name="clientInfo">
+    /// Optional client component chain (e.g. <c>ado-net/1.2.3</c> or <c>ado-net/1.2.3;ef-core/1.2.3</c>)
+    /// appended to the base <c>ydb-dotnet-sdk/{version}</c> token in <see cref="SdkBuildInfo"/>.
+    /// </param>
     public DriverConfig(bool useTls, string host, uint port, string database, ICredentialsProvider? credentials = null,
-        X509Certificate? customServerCertificate = null, X509Certificate2Collection? customServerCertificates = null)
+        X509Certificate? customServerCertificate = null, X509Certificate2Collection? customServerCertificates = null,
+        string? clientInfo = null)
     {
         EndpointInfo = new EndpointInfo(0, useTls, host, port, "Unknown");
         Database = database;
         Credentials = credentials;
+        SdkBuildInfo = clientInfo is null
+            ? $"ydb-dotnet-sdk/{YdbSdkVersion.Value}"
+            : $"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientInfo}";
 
         if (customServerCertificate != null)
         {
@@ -118,15 +145,12 @@ public class DriverConfig
         {
             CustomServerCertificates.AddRange(customServerCertificates);
         }
-
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        var versionStr = version is null ? "unknown" : version.ToString(3);
-        SdkVersion = $"ydb-dotnet-sdk/{versionStr}";
     }
 
-    internal Grpc.Core.Metadata GetCallMetadata => new()
+    internal Metadata GetCallMetadata => new()
     {
-        { Metadata.RpcDatabaseHeader, Database },
-        { Metadata.RpcClientPid, _pid }
+        { YdbMetadata.RpcDatabaseHeader, Database },
+        { YdbMetadata.RpcClientPid, _pid },
+        { YdbMetadata.RpcSdkInfoHeader, SdkBuildInfo }
     };
 }

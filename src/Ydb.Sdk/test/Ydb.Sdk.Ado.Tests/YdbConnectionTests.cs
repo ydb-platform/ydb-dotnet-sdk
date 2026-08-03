@@ -1,4 +1,5 @@
 using System.Data;
+using System.Net;
 using Xunit;
 using Ydb.Sdk.Ado.Tests.Utils;
 
@@ -48,6 +49,57 @@ public sealed class YdbConnectionTests : TestBase
         await command.ExecuteNonQueryAsync();
     }
 
+    // Hits Driver nearest-DC path (CTS + DetectNearestLocationDc) during discovery.
+    [Fact]
+    public async Task PreferNearestDcBalancing_WhenEnabled_ReturnValidConnection()
+    {
+        var connectionString = ConnectionString +
+                               ";EnablePreferNearestDcBalancing=true;PoolName=prefer-nearest-dc-test";
+
+        await using var ydbConnection = new YdbConnection(new YdbConnectionStringBuilder(connectionString)
+            { LoggerFactory = TestUtils.LoggerFactory });
+        await ydbConnection.OpenAsync();
+
+        await using var command = ydbConnection.CreateCommand();
+        command.CommandText = "SELECT 1";
+        Assert.Equal(1, await command.ExecuteScalarAsync());
+    }
+
+    // Requires Squid from Proxy/ (see CI / README in examples/Ydb.Sdk.AdoNet.WebProxy).
+    // docker cp ydb-local:/ydb_certs/ca.pem ~/
+    [Fact]
+    public async Task Proxy_WhenHttpProxyWithTls_ReturnValidConnection()
+    {
+        // Linux CI: Squid with --network host → YDB is localhost.
+        // Docker Desktop: Squid is bridged → YDB via host.docker.internal.
+        var ydbHost = OperatingSystem.IsLinux() ? "localhost" : "host.docker.internal";
+        var caPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "ca.pem");
+
+        var proxy = new WebProxy(new Uri("http://127.0.0.1:3128"))
+        {
+            Credentials = new NetworkCredential("proxy-user", "proxy-pass")
+        };
+
+        await using var ydbConnection = new YdbConnection(new YdbConnectionStringBuilder
+        {
+            Host = ydbHost,
+            Port = 2135,
+            Database = "/local",
+            UseTls = true,
+            RootCertificate = caPath,
+            DisableDiscovery = true,
+            Proxy = proxy,
+            LoggerFactory = TestUtils.LoggerFactory
+        });
+        await ydbConnection.OpenAsync();
+
+        await using var command = ydbConnection.CreateCommand();
+        command.CommandText = "SELECT 1";
+        Assert.Equal(1, await command.ExecuteScalarAsync());
+    }
+
     [Fact]
     public async Task Open_WhenConnectionIsOpen_ThrowException()
     {
@@ -71,6 +123,25 @@ public sealed class YdbConnectionTests : TestBase
         await ydbConnection.CloseAsync();
         Assert.Equal("Connection is closed",
             Assert.Throws<InvalidOperationException>(() => ydbConnection.BeginTransaction()).Message);
+    }
+
+    [Fact]
+    public async Task EnableAutoCommit_WhenTransactionIsNotStarted_ThrowException()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        Assert.Equal("EnableAutoCommit must be used inside an active transaction.",
+            Assert.Throws<InvalidOperationException>(() => connection.EnableAutoCommit()).Message);
+    }
+
+    [Fact]
+    public async Task EnableAutoCommit_WhenTransactionIsCompleted_ThrowException()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+        await transaction.CommitAsync();
+
+        Assert.Equal("EnableAutoCommit must be used inside an active transaction.",
+            Assert.Throws<InvalidOperationException>(() => connection.EnableAutoCommit()).Message);
     }
 
     [Fact]

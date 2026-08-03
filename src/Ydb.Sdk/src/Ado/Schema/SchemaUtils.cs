@@ -1,3 +1,5 @@
+using Ydb.Sdk.Ado.Internal;
+
 namespace Ydb.Sdk.Ado.Schema;
 
 internal static class SchemaUtils
@@ -25,4 +27,7 @@ internal static class SchemaUtils
         : database.EndsWith('/')
             ? database + tableName
             : database + '/' + tableName;
+
+    internal static object ToColumnDefaultValue(this TypedValue defaultValue) =>
+        defaultValue.Value.UnpackObject(defaultValue.Type);
 }

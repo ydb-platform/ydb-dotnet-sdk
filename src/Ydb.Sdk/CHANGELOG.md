@@ -1,3 +1,23 @@
+## v0.35.0
+
+- Feat ADO.NET: HTTP proxy support via code-only `YdbConnectionStringBuilder.Proxy` (`IWebProxy` / `WebProxy`).
+- **Breaking Change**: `DriverConfig`, `BaseDriver`, `Driver`, `DirectGrpcChannelDriver`, and `ServerStream<>` are now `internal`.
+
+## v0.34.0
+
+- Feat ADO.NET: `YdbConnection.EnableAutoCommit()` enables `commit_tx` on the next command in the active interactive transaction, so YDB commits together with that execute. Call it before the last statement (including inside `ExecuteInTransaction` / Dapper). After a successful auto-commit execute, `Commit` is a no-op; `Rollback` still goes to the server and fails if the transaction is already committed.
+
+## v0.33.3
+
+- Fix: `x-ydb-sdk-build-info` is now reported on every call (not only on Discovery). The observability adoption chain (`ydb-sdk-tracing`/`ydb-sdk-metrics`) is still merged only on the Discovery call.
+
+## v0.33.2
+
+- Feat ADO.NET schema/defaults: `GetSchema("Columns")` now includes `column_default`.
+- Feat ADO.NET schema API: `YdbColumnDescription` now supports column default values through the `DefaultValue` property (for example `YdbDataSource.CreateTable`).
+- Feat ADO.NET schema API: `YdbColumnDescription` now supports sequence-based column definitions via `SequenceDescription` (for example `YdbDataSource.CreateTable`).
+- Dev: `x-ydb-sdk-build-info` now reports observability adoption via optional chain tokens `ydb-sdk-tracing/0.1.0` and `ydb-sdk-metrics/0.1.0`.
+
 ## v0.33.1
 
 - Dev: Topic Reader/Writer no longer register their own `topic-{reader,writer}/{V}` component in the `x-ydb-sdk-build-info` chain.

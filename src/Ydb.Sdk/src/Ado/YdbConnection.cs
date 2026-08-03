@@ -132,6 +132,26 @@ public sealed class YdbConnection : DbConnection
         return CurrentTransaction;
     }
 
+    /// <summary>
+    /// Enables auto-commit for the active transaction.
+    /// </summary>
+    /// <remarks>
+    /// Use this before executing the statement that should commit the current transaction.
+    /// For multi-statement transactions, call it only before the last statement.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when there is no active transaction on this connection.
+    /// </exception>
+    public void EnableAutoCommit()
+    {
+        if (CurrentTransaction is not { Completed: false })
+        {
+            throw new InvalidOperationException("EnableAutoCommit must be used inside an active transaction.");
+        }
+
+        CurrentTransaction.EnableAutoCommit();
+    }
+
     public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
 
     public override void Close() => CloseAsync().GetAwaiter().GetResult();
@@ -332,7 +352,8 @@ public sealed class YdbConnection : DbConnection
     /// immediately closed, and any busy connections which were opened before <see cref="ClearPool"/> was called
     /// will be closed when returned to the pool.
     /// </summary>
-    public static Task ClearPool(YdbConnection connection) => PoolManager.ClearPool(connection.ConnectionString);
+    public static Task ClearPool(YdbConnection connection) =>
+        PoolManager.ClearPool(connection.ConnectionStringBuilder.PoolKey);
 
     /// <summary>
     /// Clear all connection pools. All idle physical connections in all pools are immediately closed, and any busy

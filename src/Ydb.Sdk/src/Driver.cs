@@ -7,6 +7,7 @@ using Ydb.Discovery.V1;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
+using Ydb.Sdk.Internal;
 using Ydb.Sdk.Pool;
 using EndpointInfo = Ydb.Sdk.Pool.EndpointInfo;
 
@@ -19,7 +20,7 @@ namespace Ydb.Sdk;
 /// The Driver class provides the primary interface for connecting to YDB clusters.
 /// It automatically discovers available endpoints and manages gRPC connections.
 /// </remarks>
-public sealed class Driver : BaseDriver
+internal sealed class Driver : BaseDriver
 {
     private static readonly YdbRetryPolicyExecutor DiscoveryRetryPolicy =
         new(YdbRetryPolicy.IdempotenceDefault, "ydb.Driver.Initialize");
@@ -34,9 +35,10 @@ public sealed class Driver : BaseDriver
     /// </summary>
     /// <param name="config">Driver configuration settings.</param>
     /// <param name="loggerFactory">Optional logger factory for logging. If null, NullLoggerFactory will be used.</param>
-    public Driver(DriverConfig config, ILoggerFactory? loggerFactory = null) :
-        base(config, loggerFactory ?? NullLoggerFactory.Instance,
-            (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>())
+    private Driver(DriverConfig config, ILoggerFactory? loggerFactory = null) : base(config,
+        loggerFactory ?? NullLoggerFactory.Instance,
+        (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<Driver>()
+    )
     {
         _endpointPool = new EndpointPool(LoggerFactory);
         _endpointLocalDcDetector = new EndpointLocalDcDetector(LoggerFactory);
@@ -64,7 +66,7 @@ public sealed class Driver : BaseDriver
     /// It will retry up to 10 times with exponential backoff if discovery fails.
     /// </remarks>
     /// <exception cref="YdbException">Thrown when endpoint discovery fails after all retry attempts.</exception>
-    public async Task Initialize()
+    private async Task Initialize()
     {
         Logger.LogInformation("Started initial endpoint discovery");
 
@@ -160,12 +162,9 @@ public sealed class Driver : BaseDriver
             var request = new ListEndpointsRequest { Database = Config.Database };
             var grpcSettings = new GrpcRequestSettings { TransportTimeout = Config.EndpointDiscoveryTimeout };
 
-            // Discovery is the only call site without a natural per-call ClientInfo; merge the
-            // active component chain (registered before driver creation) directly into metadata.
             var options = await GetCallOptions(grpcSettings, Config.EndpointInfo).ConfigureAwait(false);
-            options.Headers?.Add(Metadata.RpcSdkInfoHeader, SdkClientInfoRegistry.Chain is null
-                ? Config.SdkVersion
-                : $"{Config.SdkVersion};{SdkClientInfoRegistry.Chain}");
+            // Observability adoption is reported only on Discovery; regular RPCs keep the base header.
+            options.Headers!.AppendObservabilityChain();
 
             var response = await client.ListEndpointsAsync(request: request, options: options)
                 .ResponseAsync.ConfigureAwait(false);
@@ -186,9 +185,10 @@ public sealed class Driver : BaseDriver
             {
                 try
                 {
+                    using var nearestDcCts = new CancellationTokenSource(Config.ConnectTimeout);
                     var detectedLocation = await _endpointLocalDcDetector.DetectNearestLocationDc(
                         discoveredEndpoints,
-                        Config.ConnectTimeout
+                        nearestDcCts.Token
                     ).ConfigureAwait(false);
 
                     if (!string.IsNullOrEmpty(detectedLocation))
@@ -217,11 +217,11 @@ public sealed class Driver : BaseDriver
             }
 
             Logger.LogDebug(
-                "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, preferred location: {PreferredLocation}, sdk info: {SdkInfo}",
+                "Successfully discovered endpoints: {EndpointsCount}, self location: {SelfLocation}, preferred location: {PreferredLocation}, sdk version: {YdbSdkVersion}",
                 resultProto.Endpoints.Count,
                 resultProto.SelfLocation,
                 preferredLocation ?? "<disabled>",
-                Config.SdkVersion
+                YdbSdkVersion.Value
             );
 
             await ChannelPool.RemoveChannels(_endpointPool.Reset(
