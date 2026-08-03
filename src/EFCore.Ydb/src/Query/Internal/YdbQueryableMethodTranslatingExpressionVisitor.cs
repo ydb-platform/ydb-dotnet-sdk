@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using EntityFrameworkCore.Ydb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Query;
@@ -38,4 +39,15 @@ public partial class YdbQueryableMethodTranslatingExpressionVisitor
         => selectExpression.Tables.Count > 0
            && selectExpression.Tables.All(table => table is
                TableExpression or InnerJoinExpression or LeftJoinExpression or CrossJoinExpression);
+
+    protected override bool IsValidSelectExpressionForExecuteUpdate(
+        SelectExpression selectExpression,
+        TableExpressionBase targetTable,
+        [NotNullWhen(true)] out TableExpression? tableExpression)
+    {
+        tableExpression = null;
+
+        return CanGenerateModificationOn(selectExpression)
+               && base.IsValidSelectExpressionForExecuteUpdate(selectExpression, targetTable, out tableExpression);
+    }
 }

@@ -73,57 +73,92 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
     }
 
     private static bool CanUseBaseDelete(DeleteExpression deleteExpression)
-    {
-        var selectExpression = deleteExpression.SelectExpression;
-
-        return selectExpression.Tables is [TableExpression table]
-               && table.Equals(deleteExpression.Table)
-               && selectExpression.Orderings.Count == 0
-               && selectExpression.Offset is null
-               && selectExpression.Limit is null
-               && selectExpression.GroupBy.Count == 0
-               && selectExpression.Having is null
-               && selectExpression.Projection.Count == 0;
-    }
+        => CanUseBaseModification(deleteExpression.SelectExpression, deleteExpression.Table);
 
     private static SelectExpression WithPrimaryKeyProjection(DeleteExpression deleteExpression)
+        => WithModificationProjection(
+            deleteExpression.SelectExpression,
+            PrimaryKeyProjection(deleteExpression.Table, "DELETE"));
+
+    protected override Expression VisitUpdate(UpdateExpression updateExpression)
     {
-        var table = deleteExpression.Table;
+        if (CanUseBaseUpdate(updateExpression))
+        {
+            SkipAliases = true;
+            base.VisitUpdate(updateExpression);
+            SkipAliases = false;
+
+            return updateExpression;
+        }
+
+        Sql.Append("UPDATE ");
+
+        SkipAliases = true;
+        Visit(updateExpression.Table);
+        SkipAliases = false;
+
+        Sql.Append(" ON ");
+        Visit(WithPrimaryKeyAndValueProjection(updateExpression));
+
+        return updateExpression;
+    }
+
+    private static bool CanUseBaseUpdate(UpdateExpression updateExpression)
+        => CanUseBaseModification(updateExpression.SelectExpression, updateExpression.Table);
+
+    private static SelectExpression WithPrimaryKeyAndValueProjection(UpdateExpression updateExpression)
+    {
+        var projections = PrimaryKeyProjection(updateExpression.Table, "UPDATE")
+            .Concat(updateExpression.ColumnValueSetters.Select(setter =>
+                new ProjectionExpression(setter.Value, setter.Column.Name)))
+            .ToArray();
+
+        return WithModificationProjection(updateExpression.SelectExpression, projections);
+    }
+
+    private static bool CanUseBaseModification(SelectExpression select, TableExpression table)
+        => select.Tables is [TableExpression sourceTable]
+           && sourceTable.Equals(table)
+           && !select.IsDistinct
+           && select.Orderings.Count == 0
+           && select.Offset is null
+           && select.Limit is null
+           && select.GroupBy.Count == 0
+           && select.Having is null
+           && select.Projection.Count == 0;
+
+    private static ProjectionExpression[] PrimaryKeyProjection(TableExpression table, string operation)
+    {
         if (table.Table is not ITable { PrimaryKey: { } primaryKey })
         {
             throw new InvalidOperationException(
-                $"Could not determine primary key columns for DELETE ON over `{table.Name}`.");
+                $"Could not determine primary key columns for {operation} ON over `{table.Name}`.");
         }
 
-        var select = deleteExpression.SelectExpression;
-        return select.Update(
+        return primaryKey.Columns
+            .Select(column => new ProjectionExpression(
+                new ColumnExpression(
+                    column.Name,
+                    table.Alias,
+                    column.ProviderClrType,
+                    column.StoreTypeMapping,
+                    column.IsNullable),
+                column.Name))
+            .ToArray();
+    }
+
+    private static SelectExpression WithModificationProjection(
+        SelectExpression select,
+        ProjectionExpression[] projections)
+        => select.Update(
             select.Tables,
             select.Predicate,
             select.GroupBy,
             select.Having,
-            primaryKey.Columns
-                .Select(column => new ProjectionExpression(
-                    new ColumnExpression(
-                        column.Name,
-                        table.Alias,
-                        column.ProviderClrType,
-                        column.StoreTypeMapping,
-                        column.IsNullable),
-                    column.Name))
-                .ToArray(),
+            projections,
             select.Orderings,
             select.Offset,
             select.Limit);
-    }
-
-    protected override Expression VisitUpdate(UpdateExpression updateExpression)
-    {
-        SkipAliases = true;
-        base.VisitUpdate(updateExpression);
-        SkipAliases = false;
-
-        return updateExpression;
-    }
 
     protected override void GenerateLimitOffset(SelectExpression selectExpression)
     {
