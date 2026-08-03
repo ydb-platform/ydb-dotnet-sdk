@@ -121,9 +121,9 @@ public class ExecuteDeleteSqlYdbTest
             .ExecuteDeleteAsync();
 
         AssertSql(logger, """
-                          DELETE FROM `Orders` ON SELECT `o0`.`Id` AS `Id`
-                          FROM `Orders` AS `o0`
-                          INNER JOIN `Customers` AS `c` ON `o0`.`CustomerId` = `c`.`Id`
+                          DELETE FROM `Orders` ON SELECT `o`.`Id` AS `Id`
+                          FROM `Orders` AS `o`
+                          INNER JOIN `Customers` AS `c` ON `o`.`CustomerId` = `c`.`Id`
                           WHERE `c`.`Name` = 'Acme'u
                           """);
     }
