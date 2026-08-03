@@ -14,6 +14,7 @@
     <ItemGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" PrivateAssets="none"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" PrivateAssets="none"/>
+        <Compile Remove="Query/Internal/YdbQueryableMethodTranslatingExpressionVisitor.ExecuteDelete.Ef10.cs"/>
     </ItemGroup>
 
     <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0' OR '$(TargetFramework)' == 'net9.0'">
@@ -23,6 +24,7 @@
     <ItemGroup Condition="'$(TargetFramework)' != 'net8.0' AND '$(TargetFramework)' != 'net9.0'">
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" PrivateAssets="none"/>
+        <Compile Remove="Query/Internal/YdbQueryableMethodTranslatingExpressionVisitor.ExecuteDelete.Ef9.cs"/>
     </ItemGroup>
 
     <ItemGroup>

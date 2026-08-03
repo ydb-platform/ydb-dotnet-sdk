@@ -1,7 +1,9 @@
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using EntityFrameworkCore.Ydb.Query.Expressions.Internal;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -49,11 +51,69 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
 
     protected override Expression VisitDelete(DeleteExpression deleteExpression)
     {
+        if (CanUseBaseDelete(deleteExpression))
+        {
+            SkipAliases = true;
+            base.VisitDelete(deleteExpression);
+            SkipAliases = false;
+
+            return deleteExpression;
+        }
+
+        Sql.Append("DELETE FROM ");
+
         SkipAliases = true;
-        base.VisitDelete(deleteExpression);
+        Visit(deleteExpression.Table);
         SkipAliases = false;
 
+        Sql.Append(" ON ");
+        Visit(WithPrimaryKeyProjection(deleteExpression));
+
         return deleteExpression;
+    }
+
+    private static bool CanUseBaseDelete(DeleteExpression deleteExpression)
+    {
+        var selectExpression = deleteExpression.SelectExpression;
+
+        return selectExpression.Tables is [TableExpression table]
+               && table.Alias == deleteExpression.Table.Alias
+               && selectExpression.Orderings.Count == 0
+               && selectExpression.Offset is null
+               && selectExpression.Limit is null
+               && selectExpression.GroupBy.Count == 0
+               && selectExpression.Having is null
+               && selectExpression.Projection.Count == 0;
+    }
+
+    private static SelectExpression WithPrimaryKeyProjection(DeleteExpression deleteExpression)
+    {
+        var table = deleteExpression.Table;
+        if (table.Table is not ITable { PrimaryKey: { } primaryKey })
+        {
+            throw new InvalidOperationException(
+                $"Could not determine primary key columns for DELETE ON over `{table.Name}`.");
+        }
+
+        var select = deleteExpression.SelectExpression;
+        return select.Update(
+            select.Tables,
+            select.Predicate,
+            select.GroupBy,
+            select.Having,
+            primaryKey.Columns
+                .Select(column => new ProjectionExpression(
+                    new ColumnExpression(
+                        column.Name,
+                        table.Alias,
+                        column.ProviderClrType,
+                        column.StoreTypeMapping,
+                        column.IsNullable),
+                    column.Name))
+                .ToArray(),
+            select.Orderings,
+            select.Offset,
+            select.Limit);
     }
 
     protected override Expression VisitUpdate(UpdateExpression updateExpression)
