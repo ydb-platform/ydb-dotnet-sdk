@@ -7,7 +7,7 @@ using Xunit;
 namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
 /// <summary>
-/// Verifies YDB-specific DELETE SQL generation (simple WHERE vs DELETE ON for joins).
+/// Verifies YDB-specific DELETE ON SQL generation.
 /// </summary>
 public class ExecuteDeleteSqlYdbTest
 {
@@ -31,8 +31,9 @@ public class ExecuteDeleteSqlYdbTest
             .ExecuteDeleteAsync();
 
         AssertSql(logger, """
-                          DELETE FROM `Items`
-                          WHERE `Id` = 1
+                          DELETE FROM `Items` ON SELECT `i`.`Id` AS `Id`
+                          FROM `Items` AS `i`
+                          WHERE `i`.`Id` = 1
                           """);
     }
 
@@ -59,10 +60,10 @@ public class ExecuteDeleteSqlYdbTest
             .ExecuteDeleteAsync();
 
         AssertSql(logger, """
-                          DELETE FROM `Items`
-                          WHERE `Id` IN (1, 2)
+                          DELETE FROM `Items` ON SELECT `i`.`Id` AS `Id`
+                          FROM `Items` AS `i`
+                          WHERE `i`.`Id` IN (1, 2)
                           """);
-        Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
     }
 
     [Fact]
@@ -89,14 +90,14 @@ public class ExecuteDeleteSqlYdbTest
             .ExecuteDeleteAsync();
 
         AssertSql(logger, """
-                          DELETE FROM `Items`
-                          WHERE `Id` IN (
-                              SELECT `Id` AS `Id`
-                              FROM `Items`
-                              WHERE `Title` = 'old'u
+                          DELETE FROM `Items` ON SELECT `i`.`Id` AS `Id`
+                          FROM `Items` AS `i`
+                          WHERE `i`.`Id` IN (
+                              SELECT `i0`.`Id` AS `Id`
+                              FROM `Items` AS `i0`
+                              WHERE `i0`.`Title` = 'old'u
                           )
                           """);
-        Assert.DoesNotContain(" ON ", logger.SqlStatements[0]);
     }
 
     [Fact]
@@ -127,6 +128,32 @@ public class ExecuteDeleteSqlYdbTest
                           """);
     }
 
+    [Fact]
+    public async Task ExecuteDelete_projects_all_renamed_composite_key_columns()
+    {
+        await using var testStore = CreateStore(nameof(ExecuteDelete_projects_all_renamed_composite_key_columns));
+        using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
+        await using var context = new SimpleContext(sqlLoggerFactory);
+        await testStore.CleanAsync(context);
+        await context.Database.EnsureCreatedAsync();
+
+        context.CompositeItems.Add(new CompositeItem { PartitionId = 1, ItemId = 2, Title = "delete" });
+        await context.SaveChangesAsync();
+
+        var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
+        logger.Clear();
+
+        await context.CompositeItems
+            .Where(i => i.Title == "delete")
+            .ExecuteDeleteAsync();
+
+        AssertSql(logger, """
+                          DELETE FROM `CompositeItems` ON SELECT `c`.`PartitionKey` AS `PartitionKey`, `c`.`ItemKey` AS `ItemKey`
+                          FROM `CompositeItems` AS `c`
+                          WHERE `c`.`Title` = 'delete'u
+                          """);
+    }
+
     private static void AssertSql(TestSqlLoggerFactory logger, string expected)
     {
         if (logger.SqlStatements.Count == 1 && logger.SqlStatements[0] == expected)
@@ -152,6 +179,13 @@ public class ExecuteDeleteSqlYdbTest
         public string Name { get; set; } = "";
     }
 
+    public class CompositeItem
+    {
+        public int PartitionId { get; set; }
+        public int ItemId { get; set; }
+        public string Title { get; set; } = "";
+    }
+
     public class Order
     {
         public int Id { get; set; }
@@ -163,13 +197,24 @@ public class ExecuteDeleteSqlYdbTest
     public class SimpleContext(ListLoggerFactory sqlLoggerFactory) : DbContext
     {
         public DbSet<Item> Items => Set<Item>();
+        public DbSet<CompositeItem> CompositeItems => Set<CompositeItem>();
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
             modelBuilder.Entity<Item>(b =>
             {
                 b.ToTable("Items");
                 b.HasKey(i => i.Id);
             });
+
+            modelBuilder.Entity<CompositeItem>(b =>
+            {
+                b.ToTable("CompositeItems");
+                b.HasKey(i => new { i.PartitionId, i.ItemId });
+                b.Property(i => i.PartitionId).HasColumnName("PartitionKey");
+                b.Property(i => i.ItemId).HasColumnName("ItemKey");
+            });
+        }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder
             .UseYdb("Host=localhost;Port=2136")
