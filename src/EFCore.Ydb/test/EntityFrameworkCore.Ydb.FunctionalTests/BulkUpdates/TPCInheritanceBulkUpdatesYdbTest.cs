@@ -67,8 +67,9 @@ public class TpcInheritanceBulkUpdatesYdbTest(
             Fixture.TestSqlLoggerFactory,
             async,
             """
-            DELETE FROM `Kiwi`
-            WHERE `Name` = 'Great spotted kiwi'u
+            DELETE FROM `Kiwi` ON SELECT `k`.`Id` AS `Id`
+            FROM `Kiwi` AS `k`
+            WHERE `k`.`Name` = 'Great spotted kiwi'u
             """
         );
 

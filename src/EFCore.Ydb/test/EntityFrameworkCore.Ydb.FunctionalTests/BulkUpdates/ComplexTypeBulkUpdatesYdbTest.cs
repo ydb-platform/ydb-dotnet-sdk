@@ -22,8 +22,9 @@ public class ComplexTypeBulkUpdatesYdbTest(
             Fixture.TestSqlLoggerFactory,
             async,
             """
-            DELETE FROM `Customer`
-            WHERE `Name` = 'Monty Elias'u
+            DELETE FROM `Customer` ON SELECT `c`.`Id` AS `Id`
+            FROM `Customer` AS `c`
+            WHERE `c`.`Name` = 'Monty Elias'u
             """
         );
 
