@@ -2,27 +2,19 @@ using System.Text;
 
 namespace Ydb.Sdk.Topic.Reader;
 
-internal class ReaderConfig
+internal class ReaderConfig(
+    List<SubscribeSettings> subscribeSettings,
+    string? consumerName,
+    string? readerName,
+    long memoryUsageMaxBytes)
 {
-    public ReaderConfig(
-        List<SubscribeSettings> subscribeSettings,
-        string? consumerName,
-        string? readerName,
-        long memoryUsageMaxBytes)
-    {
-        SubscribeSettings = subscribeSettings;
-        ConsumerName = consumerName;
-        ReaderName = readerName;
-        MemoryUsageMaxBytes = memoryUsageMaxBytes;
-    }
+    public List<SubscribeSettings> SubscribeSettings { get; } = subscribeSettings;
 
-    public List<SubscribeSettings> SubscribeSettings { get; }
+    public string? ConsumerName { get; } = consumerName;
 
-    public string? ConsumerName { get; }
+    public string? ReaderName { get; } = readerName;
 
-    public string? ReaderName { get; }
-
-    public long MemoryUsageMaxBytes { get; }
+    public long MemoryUsageMaxBytes { get; } = memoryUsageMaxBytes;
 
     public override string ToString()
     {
