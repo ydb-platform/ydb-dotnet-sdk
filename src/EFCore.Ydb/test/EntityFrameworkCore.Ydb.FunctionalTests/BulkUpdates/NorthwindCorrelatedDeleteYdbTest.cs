@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 using static EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities.SharedTestMethods;
@@ -5,13 +6,13 @@ using static EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities.SharedTestMet
 namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
 public sealed class NorthwindCorrelatedDeleteYdbTest :
-    IClassFixture<NorthwindBulkUpdatesYdbFixture<YdbNorthwindModelCustomizer>>
+    IClassFixture<NorthwindBulkUpdatesYdbFixture<NoopModelCustomizer>>
 {
-    private readonly NorthwindBulkUpdatesYdbFixture<YdbNorthwindModelCustomizer> _fixture;
+    private readonly NorthwindBulkUpdatesYdbFixture<NoopModelCustomizer> _fixture;
     private readonly NorthwindBulkUpdatesYdbTest _microsoftTests;
 
     public NorthwindCorrelatedDeleteYdbTest(
-        NorthwindBulkUpdatesYdbFixture<YdbNorthwindModelCustomizer> fixture,
+        NorthwindBulkUpdatesYdbFixture<NoopModelCustomizer> fixture,
         ITestOutputHelper testOutputHelper)
     {
         _fixture = fixture;

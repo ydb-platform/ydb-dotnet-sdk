@@ -12,13 +12,10 @@ public class NorthwindBulkUpdatesYdbFixture<TModelCustomizer> :
     where TModelCustomizer : ITestModelCustomizer, new()
 {
     protected override ITestStoreFactory TestStoreFactory => YdbNorthwindTestStoreFactory.Instance;
-}
 
-public sealed class YdbNorthwindModelCustomizer : NoopModelCustomizer
-{
-    public override void Customize(ModelBuilder modelBuilder, DbContext context)
+    protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
     {
-        base.Customize(modelBuilder, context);
+        base.OnModelCreating(modelBuilder, context);
         modelBuilder.Entity<OrderDetail>().ToTable("Order_Details");
     }
 }
