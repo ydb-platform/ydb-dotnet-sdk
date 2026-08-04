@@ -1,14 +1,13 @@
 using Microsoft.EntityFrameworkCore.BulkUpdates;
-using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
-// TODO: Await Norhhwind
+// Internal harness; public provider tests expose only the supported Microsoft scenarios.
 internal class NorthwindBulkUpdatesYdbTest(
-    NorthwindBulkUpdatesYdbFixture<NoopModelCustomizer> fixture,
+    NorthwindBulkUpdatesYdbFixture<YdbNorthwindModelCustomizer> fixture,
     ITestOutputHelper testOutputHelper
-) : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesYdbFixture<NoopModelCustomizer>>(
+) : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesYdbFixture<YdbNorthwindModelCustomizer>>(
     fixture,
     testOutputHelper
 );

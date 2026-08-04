@@ -38,7 +38,8 @@ public class CorrelatedExecuteDeleteYdbTest
     [Fact]
     public async Task Delete_with_navigation_uses_delete_on_instead_of_correlated_subquery()
     {
-        await using var testStore = CreateStore(nameof(Delete_with_navigation_uses_delete_on_instead_of_correlated_subquery));
+        await using var testStore =
+            CreateStore(nameof(Delete_with_navigation_uses_delete_on_instead_of_correlated_subquery));
         using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
         await using var context = new CorrelatedDeleteContext(sqlLoggerFactory);
         await InitializeAsync(testStore, context);

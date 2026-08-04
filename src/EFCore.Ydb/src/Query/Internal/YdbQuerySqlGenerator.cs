@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;
 
-public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : QuerySqlGenerator(dependencies)
+public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : QuerySqlGenerator(dependencies)
 {
     private bool SkipAliases { get; set; }
     private ISqlGenerationHelper SqlGenerationHelper => Dependencies.SqlGenerationHelper;
@@ -77,7 +77,7 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         var selectExpression = deleteExpression.SelectExpression;
 
         return selectExpression.Tables is [TableExpression table]
-               && table.Alias == deleteExpression.Table.Alias
+               && table.Equals(deleteExpression.Table)
                && selectExpression.Orderings.Count == 0
                && selectExpression.Offset is null
                && selectExpression.Limit is null
@@ -213,7 +213,7 @@ public class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependencies) : 
         return projectionExpression;
     }
 
-    protected virtual Expression VisitILike(YdbILikeExpression likeExpression, bool negated = false)
+    private Expression VisitILike(YdbILikeExpression likeExpression, bool negated = false)
     {
         Visit(likeExpression.Match);
 
