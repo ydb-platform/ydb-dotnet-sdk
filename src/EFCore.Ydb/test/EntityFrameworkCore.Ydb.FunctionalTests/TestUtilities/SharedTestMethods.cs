@@ -34,11 +34,9 @@ internal static class SharedTestMethods
         {
             await test(async);
         }
-        catch (Exception exception) when (exception is
-            EqualException or ThrowsException { InnerException: EqualException })
+        catch (EqualException)
         {
-            // Row-count assertion failed, either directly or inside a test expecting translation failure.
-            // This is expected on YDB; fall back to SQL baseline when provided.
+            // Row-count assertion failed — expected on YDB; fall back to SQL baseline when provided.
             if (expectedSql.Length == 0)
             {
                 return;
