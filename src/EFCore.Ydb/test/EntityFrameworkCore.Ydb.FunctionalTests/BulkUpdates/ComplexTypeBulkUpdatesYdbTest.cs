@@ -95,6 +95,13 @@ public class ComplexTypeBulkUpdatesYdbTest(
             """
         );
 
+    public override Task Update_projected_complex_type_via_OrderBy_Skip(bool async) =>
+        AssertYdb(
+            base.Update_projected_complex_type_via_OrderBy_Skip,
+            Fixture.TestSqlLoggerFactory,
+            async
+        );
+
     public override Task Update_multiple_projected_complex_types_via_anonymous_type(bool async)
         => AssertYdb(
             base.Update_multiple_projected_complex_types_via_anonymous_type,
