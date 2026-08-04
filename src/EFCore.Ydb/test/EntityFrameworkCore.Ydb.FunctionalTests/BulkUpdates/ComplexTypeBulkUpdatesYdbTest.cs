@@ -1,6 +1,7 @@
 #if EFCORE9
 using EntityFrameworkCore.Ydb.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
+using Microsoft.EntityFrameworkCore.TestModels.ComplexTypeModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
@@ -93,6 +94,17 @@ public class ComplexTypeBulkUpdatesYdbTest(
             UPDATE `Customer`
             SET `ShippingAddress_ZipCode` = 12345
             """
+        );
+
+    public override Task Update_projected_complex_type_via_OrderBy_Skip(bool async) =>
+        AssertYdb(
+            () => AssertUpdate(
+                async,
+                ss => ss.Set<Customer>().Select(c => c.ShippingAddress).OrderBy(a => a.ZipCode).Skip(1),
+                a => a,
+                s => s.SetProperty(c => c.ZipCode, 12345),
+                rowsAffectedCount: 3),
+            Fixture.TestSqlLoggerFactory
         );
 
     public override Task Update_multiple_projected_complex_types_via_anonymous_type(bool async)

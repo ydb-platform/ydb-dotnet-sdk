@@ -6,70 +6,92 @@ using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.BulkUpdates;
 
-public class CorrelatedExecuteDeleteYdbTest
+public class CorrelatedExecuteUpdateYdbTest
 {
     [Fact]
-    public async Task Delete_without_correlation_uses_base_sql()
+    public async Task Update_without_correlation_uses_base_sql()
     {
-        await using var testStore = CreateStore(nameof(Delete_without_correlation_uses_base_sql));
+        await using var testStore = CreateStore(nameof(Update_without_correlation_uses_base_sql));
         using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
-        await using var context = new CorrelatedDeleteContext(sqlLoggerFactory);
+        await using var context = new CorrelatedUpdateContext(sqlLoggerFactory);
         await InitializeAsync(testStore, context);
 
-        context.Orders.Add(new Order { Id = 1, CustomerId = 1, Status = "Cancelled" });
         context.Customers.Add(new Customer { Id = 1, Name = "Acme" });
+        context.Orders.Add(new Order { Id = 1, CustomerId = 1, Status = "Pending" });
         await context.SaveChangesAsync();
 
         var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
         logger.Clear();
 
         await context.Orders
-            .Where(order => order.Status == "Cancelled")
-            .ExecuteDeleteAsync();
+            .Where(order => order.Id == 1)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(order => order.Status, "Shipped"));
 
+#if EFCORE9
         AssertSql(logger, """
-                          DELETE FROM `Orders`
-                          WHERE `Status` = 'Cancelled'u
+                          UPDATE `Orders`
+                          SET `Status` = 'Shipped'u
+                          WHERE `Id` = 1
                           """);
+#else
+        AssertSql(logger, """
+                          $p='?'
+
+                          UPDATE `Orders`
+                          SET `Status` = @p
+                          WHERE `Id` = 1
+                          """);
+#endif
         logger.Clear();
-        Assert.Empty(await context.Orders.AsNoTracking().ToListAsync());
+        Assert.Equal("Shipped", await context.Orders.AsNoTracking().Select(order => order.Status).SingleAsync());
     }
 
     [Fact]
-    public async Task Delete_with_distinct_without_correlation_uses_base_sql()
+    public async Task Update_with_distinct_without_correlation_uses_base_sql()
     {
-        await using var testStore = CreateStore(nameof(Delete_with_distinct_without_correlation_uses_base_sql));
+        await using var testStore = CreateStore(nameof(Update_with_distinct_without_correlation_uses_base_sql));
         using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
-        await using var context = new CorrelatedDeleteContext(sqlLoggerFactory);
+        await using var context = new CorrelatedUpdateContext(sqlLoggerFactory);
         await InitializeAsync(testStore, context);
 
-        context.Orders.Add(new Order { Id = 1, CustomerId = 1, Status = "Cancelled" });
         context.Customers.Add(new Customer { Id = 1, Name = "Acme" });
+        context.Orders.Add(new Order { Id = 1, CustomerId = 1, Status = "Pending" });
         await context.SaveChangesAsync();
 
         var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
         logger.Clear();
 
         await context.Orders
-            .Where(order => order.Status == "Cancelled")
+            .Where(order => order.Id == 1)
             .Distinct()
-            .ExecuteDeleteAsync();
+            .ExecuteUpdateAsync(setters => setters.SetProperty(order => order.Status, "Shipped"));
 
+#if EFCORE9
         AssertSql(logger, """
-                          DELETE FROM `Orders`
-                          WHERE `Status` = 'Cancelled'u
+                          UPDATE `Orders`
+                          SET `Status` = 'Shipped'u
+                          WHERE `Id` = 1
                           """);
+#else
+        AssertSql(logger, """
+                          $p='?'
+
+                          UPDATE `Orders`
+                          SET `Status` = @p
+                          WHERE `Id` = 1
+                          """);
+#endif
         logger.Clear();
-        Assert.Empty(await context.Orders.AsNoTracking().ToListAsync());
+        Assert.Equal("Shipped", await context.Orders.AsNoTracking().Select(order => order.Status).SingleAsync());
     }
 
     [Fact]
-    public async Task Delete_with_navigation_uses_delete_on_instead_of_correlated_subquery()
+    public async Task Update_with_navigation_uses_update_on_instead_of_correlated_subquery()
     {
         await using var testStore =
-            CreateStore(nameof(Delete_with_navigation_uses_delete_on_instead_of_correlated_subquery));
+            CreateStore(nameof(Update_with_navigation_uses_update_on_instead_of_correlated_subquery));
         using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
-        await using var context = new CorrelatedDeleteContext(sqlLoggerFactory);
+        await using var context = new CorrelatedUpdateContext(sqlLoggerFactory);
         await InitializeAsync(testStore, context);
 
         context.Customers.AddRange(
@@ -85,32 +107,45 @@ public class CorrelatedExecuteDeleteYdbTest
 
         await context.Orders
             .Where(order => order.Customer!.Name == "Acme")
-            .ExecuteDeleteAsync();
+            .ExecuteUpdateAsync(setters => setters.SetProperty(order => order.Status, "Shipped"));
 
+#if EFCORE9
         AssertSql(logger, """
-                          DELETE FROM `Orders` ON SELECT `o`.`Id` AS `Id`
+                          UPDATE `Orders` ON SELECT `o`.`Id` AS `Id`, 'Shipped'u AS `Status`
                           FROM `Orders` AS `o`
                           INNER JOIN `Customers` AS `c` ON `o`.`CustomerId` = `c`.`Id`
                           WHERE `c`.`Name` = 'Acme'u
                           """);
+#else
+        AssertSql(logger, """
+                          $p='?'
+
+                          UPDATE `Orders` ON SELECT `o`.`Id` AS `Id`, @p AS `Status`
+                          FROM `Orders` AS `o`
+                          INNER JOIN `Customers` AS `c` ON `o`.`CustomerId` = `c`.`Id`
+                          WHERE `c`.`Name` = 'Acme'u
+                          """);
+#endif
         Assert.DoesNotContain("EXISTS", logger.SqlStatements[0]);
         logger.Clear();
-        Assert.Equal([20], await context.Orders.AsNoTracking().Select(order => order.Id).ToListAsync());
+        Assert.Equal(
+            ["Shipped", "Pending"],
+            await context.Orders.AsNoTracking().OrderBy(order => order.Id).Select(order => order.Status).ToListAsync());
     }
 
     [Fact]
-    public async Task Delete_with_navigation_projects_every_composite_key_column()
+    public async Task Update_with_navigation_projects_every_composite_key_column()
     {
-        await using var testStore = CreateStore(nameof(Delete_with_navigation_projects_every_composite_key_column));
+        await using var testStore = CreateStore(nameof(Update_with_navigation_projects_every_composite_key_column));
         using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
-        await using var context = new CorrelatedDeleteContext(sqlLoggerFactory);
+        await using var context = new CorrelatedUpdateContext(sqlLoggerFactory);
         await InitializeAsync(testStore, context);
 
         context.Customers.Add(new Customer { Id = 1, Name = "Acme" });
         context.Orders.Add(new Order { Id = 10, CustomerId = 1, Status = "Pending" });
         context.OrderLines.AddRange(
-            new OrderLine { OrderId = 10, LineId = 1, Product = "Delete" },
-            new OrderLine { OrderId = 10, LineId = 2, Product = "Delete" });
+            new OrderLine { OrderId = 10, LineId = 1, Product = "Old" },
+            new OrderLine { OrderId = 10, LineId = 2, Product = "Old" });
         await context.SaveChangesAsync();
 
         var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
@@ -118,17 +153,32 @@ public class CorrelatedExecuteDeleteYdbTest
 
         await context.OrderLines
             .Where(line => line.Order!.Customer!.Name == "Acme")
-            .ExecuteDeleteAsync();
+            .ExecuteUpdateAsync(setters => setters.SetProperty(line => line.Product, "Updated"));
 
+#if EFCORE9
         AssertSql(logger, """
-                          DELETE FROM `OrderLines` ON SELECT `o`.`OrderKey` AS `OrderKey`, `o`.`LineKey` AS `LineKey`
+                          UPDATE `OrderLines` ON SELECT `o`.`OrderKey` AS `OrderKey`, `o`.`LineKey` AS `LineKey`, 'Updated'u AS `Product`
                           FROM `OrderLines` AS `o`
                           INNER JOIN `Orders` AS `o0` ON `o`.`OrderKey` = `o0`.`Id`
                           INNER JOIN `Customers` AS `c` ON `o0`.`CustomerId` = `c`.`Id`
                           WHERE `c`.`Name` = 'Acme'u
                           """);
+#else
+        AssertSql(logger, """
+                          $p='?'
+
+                          UPDATE `OrderLines` ON SELECT `o`.`OrderKey` AS `OrderKey`, `o`.`LineKey` AS `LineKey`, @p AS `Product`
+                          FROM `OrderLines` AS `o`
+                          INNER JOIN `Orders` AS `o0` ON `o`.`OrderKey` = `o0`.`Id`
+                          INNER JOIN `Customers` AS `c` ON `o0`.`CustomerId` = `c`.`Id`
+                          WHERE `c`.`Name` = 'Acme'u
+                          """);
+#endif
         logger.Clear();
-        Assert.Empty(await context.OrderLines.AsNoTracking().ToListAsync());
+        Assert.Equal(
+            ["Updated", "Updated"],
+            await context.OrderLines.AsNoTracking().OrderBy(line => line.LineId).Select(line => line.Product)
+                .ToListAsync());
     }
 
     private static async Task InitializeAsync(TestStore testStore, DbContext context)
@@ -138,7 +188,7 @@ public class CorrelatedExecuteDeleteYdbTest
     }
 
     private static TestStore CreateStore(string testName)
-        => YdbTestStoreFactory.Instance.Create($"{nameof(CorrelatedExecuteDeleteYdbTest)}_{testName}");
+        => YdbTestStoreFactory.Instance.Create($"{nameof(CorrelatedExecuteUpdateYdbTest)}_{testName}");
 
     private static void AssertSql(TestSqlLoggerFactory logger, string expected)
     {
@@ -172,7 +222,7 @@ public class CorrelatedExecuteDeleteYdbTest
         public string Product { get; set; } = "";
     }
 
-    private sealed class CorrelatedDeleteContext(ListLoggerFactory sqlLoggerFactory) : DbContext
+    private sealed class CorrelatedUpdateContext(ListLoggerFactory sqlLoggerFactory) : DbContext
     {
         public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<Order> Orders => Set<Order>();

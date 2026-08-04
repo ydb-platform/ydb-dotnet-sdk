@@ -1,5 +1,7 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using EntityFrameworkCore.Ydb.Storage.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -31,11 +33,25 @@ public partial class YdbQueryableMethodTranslatingExpressionVisitor
         _sqlExpressionFactory = dependencies._sqlExpressionFactory;
     }
 
-    protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
-        => new YdbQueryableMethodTranslatingExpressionVisitor(this);
+    protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor() =>
+        new YdbQueryableMethodTranslatingExpressionVisitor(this);
 
-    private static bool CanGenerateModificationOn(SelectExpression selectExpression)
-        => selectExpression.Tables.Count > 0
-           && selectExpression.Tables.All(table => table is
-               TableExpression or InnerJoinExpression or LeftJoinExpression or CrossJoinExpression);
+    private static bool CanGenerateModificationOn(SelectExpression selectExpression) =>
+        selectExpression.Tables.Count > 0 && selectExpression.Tables.All(table => table is
+            TableExpression or InnerJoinExpression or LeftJoinExpression or CrossJoinExpression);
+
+    protected override bool IsValidSelectExpressionForExecuteUpdate(
+        SelectExpression selectExpression,
+        TableExpressionBase targetTable,
+        [NotNullWhen(true)] out TableExpression? tableExpression)
+    {
+        if (!CanGenerateModificationOn(selectExpression))
+        {
+            tableExpression = null;
+            return false;
+        }
+
+        tableExpression = targetTable.UnwrapJoin() as TableExpression;
+        return tableExpression is not null;
+    }
 }

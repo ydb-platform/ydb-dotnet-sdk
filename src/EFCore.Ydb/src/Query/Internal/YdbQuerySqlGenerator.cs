@@ -72,58 +72,94 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
         return deleteExpression;
     }
 
-    private static bool CanUseBaseDelete(DeleteExpression deleteExpression)
-    {
-        var selectExpression = deleteExpression.SelectExpression;
+    private static bool CanUseBaseDelete(DeleteExpression deleteExpression) =>
+        CanUseBaseModification(deleteExpression.SelectExpression, deleteExpression.Table);
 
-        return selectExpression.Tables is [TableExpression table]
-               && table.Equals(deleteExpression.Table)
-               && selectExpression.Orderings.Count == 0
-               && selectExpression.Offset is null
-               && selectExpression.Limit is null
-               && selectExpression.GroupBy.Count == 0
-               && selectExpression.Having is null
-               && selectExpression.Projection.Count == 0;
-    }
-
-    private static SelectExpression WithPrimaryKeyProjection(DeleteExpression deleteExpression)
-    {
-        var table = deleteExpression.Table;
-        if (table.Table is not ITable { PrimaryKey: { } primaryKey })
-        {
-            throw new InvalidOperationException(
-                $"Could not determine primary key columns for DELETE ON over `{table.Name}`.");
-        }
-
-        var select = deleteExpression.SelectExpression;
-        return select.Update(
-            select.Tables,
-            select.Predicate,
-            select.GroupBy,
-            select.Having,
-            primaryKey.Columns
-                .Select(column => new ProjectionExpression(
-                    new ColumnExpression(
-                        column.Name,
-                        table.Alias,
-                        column.ProviderClrType,
-                        column.StoreTypeMapping,
-                        column.IsNullable),
-                    column.Name))
-                .ToArray(),
-            select.Orderings,
-            select.Offset,
-            select.Limit);
-    }
+    private static SelectExpression WithPrimaryKeyProjection(DeleteExpression deleteExpression) =>
+        WithModificationProjection(deleteExpression.SelectExpression,
+            PrimaryKeyProjection(deleteExpression.Table, "DELETE"));
 
     protected override Expression VisitUpdate(UpdateExpression updateExpression)
     {
+        if (CanUseBaseUpdate(updateExpression))
+        {
+            SkipAliases = true;
+            base.VisitUpdate(updateExpression);
+            SkipAliases = false;
+
+            return updateExpression;
+        }
+
+        Sql.Append("UPDATE ");
+
         SkipAliases = true;
-        base.VisitUpdate(updateExpression);
+        Visit(updateExpression.Table);
         SkipAliases = false;
+
+        Sql.Append(" ON ");
+        Visit(WithPrimaryKeyAndValueProjection(updateExpression));
 
         return updateExpression;
     }
+
+    private static bool CanUseBaseUpdate(UpdateExpression updateExpression) =>
+        CanUseBaseModification(updateExpression.SelectExpression, updateExpression.Table);
+
+    private static SelectExpression WithPrimaryKeyAndValueProjection(UpdateExpression updateExpression)
+    {
+        var projections = PrimaryKeyProjection(updateExpression.Table, "UPDATE")
+            .Concat(updateExpression.ColumnValueSetters.Select(setter =>
+                new ProjectionExpression(setter.Value, setter.Column.Name)))
+            .ToArray();
+
+        return WithModificationProjection(updateExpression.SelectExpression, projections);
+    }
+
+    private static bool CanUseBaseModification(SelectExpression select, TableExpression table) =>
+        select.Tables is [TableExpression sourceTable]
+        && sourceTable.Equals(table)
+        && select is
+        {
+            Orderings.Count: 0,
+            Offset: null,
+            Limit: null,
+            GroupBy.Count: 0,
+            Having: null,
+            Projection.Count: 0
+        };
+
+    private static ProjectionExpression[] PrimaryKeyProjection(TableExpression table, string operation)
+    {
+        if (table.Table is not ITable { PrimaryKey: { } primaryKey })
+        {
+            throw new InvalidOperationException(
+                $"Could not determine primary key columns for {operation} ON over `{table.Name}`.");
+        }
+
+        return primaryKey.Columns
+            .Select(column => new ProjectionExpression(
+                new ColumnExpression(
+                    column.Name,
+                    table.Alias,
+                    column.ProviderClrType,
+                    column.StoreTypeMapping,
+                    column.IsNullable),
+                column.Name))
+            .ToArray();
+    }
+
+    private static SelectExpression WithModificationProjection(
+        SelectExpression select,
+        ProjectionExpression[] projections
+    ) => select.Update(
+        select.Tables,
+        select.Predicate,
+        select.GroupBy,
+        select.Having,
+        projections,
+        select.Orderings,
+        select.Offset,
+        select.Limit);
 
     protected override void GenerateLimitOffset(SelectExpression selectExpression)
     {
@@ -151,8 +187,8 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
         }
     }
 
-    protected override string GetOperator(SqlBinaryExpression binaryExpression)
-        => binaryExpression.OperatorType switch
+    protected override string GetOperator(SqlBinaryExpression binaryExpression) =>
+        binaryExpression.OperatorType switch
         {
             ExpressionType.Add when binaryExpression.Type == typeof(string)
                                     || binaryExpression.Left.TypeMapping?.ClrType == typeof(string)
