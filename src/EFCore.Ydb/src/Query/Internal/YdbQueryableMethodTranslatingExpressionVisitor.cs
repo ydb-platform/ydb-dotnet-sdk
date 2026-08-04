@@ -35,10 +35,9 @@ public partial class YdbQueryableMethodTranslatingExpressionVisitor
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
         => new YdbQueryableMethodTranslatingExpressionVisitor(this);
 
-    private static bool CanGenerateModificationOn(SelectExpression selectExpression)
-        => selectExpression.Tables.Count > 0
-           && selectExpression.Tables.All(table => table is
-               TableExpression or InnerJoinExpression or LeftJoinExpression or CrossJoinExpression);
+    private static bool CanGenerateModificationOn(SelectExpression selectExpression) =>
+        selectExpression.Tables.Count > 0 && selectExpression.Tables.All(table => table is
+            TableExpression or InnerJoinExpression or LeftJoinExpression or CrossJoinExpression);
 
     protected override bool IsValidSelectExpressionForExecuteUpdate(
         SelectExpression selectExpression,
