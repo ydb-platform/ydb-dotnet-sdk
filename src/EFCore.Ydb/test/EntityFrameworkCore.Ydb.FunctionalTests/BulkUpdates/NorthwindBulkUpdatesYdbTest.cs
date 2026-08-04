@@ -16,15 +16,6 @@ public class NorthwindBulkUpdatesYdbTest(
 {
     private const string UnsupportedBulkOperationSkipReason = "YDB does not support this bulk operation shape";
 
-    public override Task Delete_non_entity_projection(bool async)
-        => base.Delete_non_entity_projection(async);
-
-    public override Task Delete_non_entity_projection_2(bool async)
-        => base.Delete_non_entity_projection_2(async);
-
-    public override Task Delete_non_entity_projection_3(bool async)
-        => base.Delete_non_entity_projection_3(async);
-
     [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_FromSql_converted_to_subquery(bool async)
@@ -161,12 +152,6 @@ public class NorthwindBulkUpdatesYdbTest(
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_with_invalid_lambda_in_set_property_throws(bool async)
         => base.Update_with_invalid_lambda_in_set_property_throws(async);
-
-    public override Task Update_multiple_tables_throws(bool async)
-        => base.Update_multiple_tables_throws(async);
-
-    public override Task Update_unmapped_property_throws(bool async)
-        => base.Update_unmapped_property_throws(async);
 
     public override Task Update_FromSql_set_constant(bool async)
         => AssertBulkOperation(base.Update_FromSql_set_constant, async);
