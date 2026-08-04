@@ -72,12 +72,11 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
         return deleteExpression;
     }
 
-    private static bool CanUseBaseDelete(DeleteExpression deleteExpression)
-        => CanUseBaseModification(deleteExpression.SelectExpression, deleteExpression.Table);
+    private static bool CanUseBaseDelete(DeleteExpression deleteExpression) =>
+        CanUseBaseModification(deleteExpression.SelectExpression, deleteExpression.Table);
 
-    private static SelectExpression WithPrimaryKeyProjection(DeleteExpression deleteExpression)
-        => WithModificationProjection(
-            deleteExpression.SelectExpression,
+    private static SelectExpression WithPrimaryKeyProjection(DeleteExpression deleteExpression) =>
+        WithModificationProjection(deleteExpression.SelectExpression,
             PrimaryKeyProjection(deleteExpression.Table, "DELETE"));
 
     protected override Expression VisitUpdate(UpdateExpression updateExpression)
@@ -103,8 +102,8 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
         return updateExpression;
     }
 
-    private static bool CanUseBaseUpdate(UpdateExpression updateExpression)
-        => CanUseBaseModification(updateExpression.SelectExpression, updateExpression.Table);
+    private static bool CanUseBaseUpdate(UpdateExpression updateExpression) =>
+        CanUseBaseModification(updateExpression.SelectExpression, updateExpression.Table);
 
     private static SelectExpression WithPrimaryKeyAndValueProjection(UpdateExpression updateExpression)
     {
@@ -116,16 +115,19 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
         return WithModificationProjection(updateExpression.SelectExpression, projections);
     }
 
-    private static bool CanUseBaseModification(SelectExpression select, TableExpression table)
-        => select.Tables is [TableExpression sourceTable]
-           && sourceTable.Equals(table)
-           && !select.IsDistinct
-           && select.Orderings.Count == 0
-           && select.Offset is null
-           && select.Limit is null
-           && select.GroupBy.Count == 0
-           && select.Having is null
-           && select.Projection.Count == 0;
+    private static bool CanUseBaseModification(SelectExpression select, TableExpression table) =>
+        select.Tables is [TableExpression sourceTable]
+        && sourceTable.Equals(table)
+        && select is
+        {
+            IsDistinct: false,
+            Orderings.Count: 0,
+            Offset: null,
+            Limit: null,
+            GroupBy.Count: 0,
+            Having: null,
+            Projection.Count: 0
+        };
 
     private static ProjectionExpression[] PrimaryKeyProjection(TableExpression table, string operation)
     {
@@ -149,16 +151,16 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
 
     private static SelectExpression WithModificationProjection(
         SelectExpression select,
-        ProjectionExpression[] projections)
-        => select.Update(
-            select.Tables,
-            select.Predicate,
-            select.GroupBy,
-            select.Having,
-            projections,
-            select.Orderings,
-            select.Offset,
-            select.Limit);
+        ProjectionExpression[] projections
+    ) => select.Update(
+        select.Tables,
+        select.Predicate,
+        select.GroupBy,
+        select.Having,
+        projections,
+        select.Orderings,
+        select.Offset,
+        select.Limit);
 
     protected override void GenerateLimitOffset(SelectExpression selectExpression)
     {
@@ -186,8 +188,8 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
         }
     }
 
-    protected override string GetOperator(SqlBinaryExpression binaryExpression)
-        => binaryExpression.OperatorType switch
+    protected override string GetOperator(SqlBinaryExpression binaryExpression) =>
+        binaryExpression.OperatorType switch
         {
             ExpressionType.Add when binaryExpression.Type == typeof(string)
                                     || binaryExpression.Left.TypeMapping?.ClrType == typeof(string)
