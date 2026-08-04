@@ -49,7 +49,8 @@ public class CorrelatedExecuteUpdateYdbTest
     [Fact]
     public async Task Update_with_navigation_uses_update_on_instead_of_correlated_subquery()
     {
-        await using var testStore = CreateStore(nameof(Update_with_navigation_uses_update_on_instead_of_correlated_subquery));
+        await using var testStore =
+            CreateStore(nameof(Update_with_navigation_uses_update_on_instead_of_correlated_subquery));
         using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
         await using var context = new CorrelatedUpdateContext(sqlLoggerFactory);
         await InitializeAsync(testStore, context);
@@ -137,7 +138,8 @@ public class CorrelatedExecuteUpdateYdbTest
         logger.Clear();
         Assert.Equal(
             ["Updated", "Updated"],
-            await context.OrderLines.AsNoTracking().OrderBy(line => line.LineId).Select(line => line.Product).ToListAsync());
+            await context.OrderLines.AsNoTracking().OrderBy(line => line.LineId).Select(line => line.Product)
+                .ToListAsync());
     }
 
     private static async Task InitializeAsync(TestStore testStore, DbContext context)
