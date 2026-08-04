@@ -47,6 +47,45 @@ public class CorrelatedExecuteUpdateYdbTest
     }
 
     [Fact]
+    public async Task Update_with_distinct_without_correlation_uses_base_sql()
+    {
+        await using var testStore = CreateStore(nameof(Update_with_distinct_without_correlation_uses_base_sql));
+        using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
+        await using var context = new CorrelatedUpdateContext(sqlLoggerFactory);
+        await InitializeAsync(testStore, context);
+
+        context.Customers.Add(new Customer { Id = 1, Name = "Acme" });
+        context.Orders.Add(new Order { Id = 1, CustomerId = 1, Status = "Pending" });
+        await context.SaveChangesAsync();
+
+        var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
+        logger.Clear();
+
+        await context.Orders
+            .Where(order => order.Id == 1)
+            .Distinct()
+            .ExecuteUpdateAsync(setters => setters.SetProperty(order => order.Status, "Shipped"));
+
+#if EFCORE9
+        AssertSql(logger, """
+                          UPDATE `Orders`
+                          SET `Status` = 'Shipped'u
+                          WHERE `Id` = 1
+                          """);
+#else
+        AssertSql(logger, """
+                          $p='?'
+
+                          UPDATE `Orders`
+                          SET `Status` = @p
+                          WHERE `Id` = 1
+                          """);
+#endif
+        logger.Clear();
+        Assert.Equal("Shipped", await context.Orders.AsNoTracking().Select(order => order.Status).SingleAsync());
+    }
+
+    [Fact]
     public async Task Update_with_navigation_uses_update_on_instead_of_correlated_subquery()
     {
         await using var testStore =

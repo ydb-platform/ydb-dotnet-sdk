@@ -36,6 +36,34 @@ public class CorrelatedExecuteDeleteYdbTest
     }
 
     [Fact]
+    public async Task Delete_with_distinct_without_correlation_uses_base_sql()
+    {
+        await using var testStore = CreateStore(nameof(Delete_with_distinct_without_correlation_uses_base_sql));
+        using var sqlLoggerFactory = YdbTestStoreFactory.Instance.CreateListLoggerFactory(_ => false);
+        await using var context = new CorrelatedDeleteContext(sqlLoggerFactory);
+        await InitializeAsync(testStore, context);
+
+        context.Orders.Add(new Order { Id = 1, CustomerId = 1, Status = "Cancelled" });
+        context.Customers.Add(new Customer { Id = 1, Name = "Acme" });
+        await context.SaveChangesAsync();
+
+        var logger = (TestSqlLoggerFactory)sqlLoggerFactory;
+        logger.Clear();
+
+        await context.Orders
+            .Where(order => order.Status == "Cancelled")
+            .Distinct()
+            .ExecuteDeleteAsync();
+
+        AssertSql(logger, """
+                          DELETE FROM `Orders`
+                          WHERE `Status` = 'Cancelled'u
+                          """);
+        logger.Clear();
+        Assert.Empty(await context.Orders.AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
     public async Task Delete_with_navigation_uses_delete_on_instead_of_correlated_subquery()
     {
         await using var testStore =

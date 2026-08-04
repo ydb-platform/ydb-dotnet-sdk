@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using EntityFrameworkCore.Ydb.Storage.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -32,8 +33,8 @@ public partial class YdbQueryableMethodTranslatingExpressionVisitor
         _sqlExpressionFactory = dependencies._sqlExpressionFactory;
     }
 
-    protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
-        => new YdbQueryableMethodTranslatingExpressionVisitor(this);
+    protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor() =>
+        new YdbQueryableMethodTranslatingExpressionVisitor(this);
 
     private static bool CanGenerateModificationOn(SelectExpression selectExpression) =>
         selectExpression.Tables.Count > 0 && selectExpression.Tables.All(table => table is
@@ -44,9 +45,13 @@ public partial class YdbQueryableMethodTranslatingExpressionVisitor
         TableExpressionBase targetTable,
         [NotNullWhen(true)] out TableExpression? tableExpression)
     {
-        tableExpression = null;
+        if (!CanGenerateModificationOn(selectExpression))
+        {
+            tableExpression = null;
+            return false;
+        }
 
-        return CanGenerateModificationOn(selectExpression)
-               && base.IsValidSelectExpressionForExecuteUpdate(selectExpression, targetTable, out tableExpression);
+        tableExpression = targetTable.UnwrapJoin() as TableExpression;
+        return tableExpression is not null;
     }
 }

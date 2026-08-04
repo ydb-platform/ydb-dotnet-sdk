@@ -120,7 +120,6 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
         && sourceTable.Equals(table)
         && select is
         {
-            IsDistinct: false,
             Orderings.Count: 0,
             Offset: null,
             Limit: null,
