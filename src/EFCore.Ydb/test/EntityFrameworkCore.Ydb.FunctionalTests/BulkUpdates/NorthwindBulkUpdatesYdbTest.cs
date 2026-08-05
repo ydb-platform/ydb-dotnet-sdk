@@ -136,9 +136,6 @@ public class NorthwindBulkUpdatesYdbTest(
         => AssertBulkOperation(base.Delete_with_RightJoin, async);
 #endif
 
-    public override Task Update_without_property_to_set_throws(bool async) =>
-        base.Update_without_property_to_set_throws(async);
-
 #if EFCORE9
     public override Task Update_with_invalid_lambda_throws(bool async) =>
         base.Update_with_invalid_lambda_throws(async);
