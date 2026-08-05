@@ -136,22 +136,16 @@ public class NorthwindBulkUpdatesYdbTest(
         => AssertBulkOperation(base.Delete_with_RightJoin, async);
 #endif
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Update_without_property_to_set_throws(bool async)
-        => base.Update_without_property_to_set_throws(async);
+    public override Task Update_without_property_to_set_throws(bool async) =>
+        base.Update_without_property_to_set_throws(async);
 
 #if EFCORE9
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Update_with_invalid_lambda_throws(bool async)
-        => base.Update_with_invalid_lambda_throws(async);
+    public override Task Update_with_invalid_lambda_throws(bool async) =>
+        base.Update_with_invalid_lambda_throws(async);
 #endif
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Update_with_invalid_lambda_in_set_property_throws(bool async)
-        => base.Update_with_invalid_lambda_in_set_property_throws(async);
+    public override Task Update_with_invalid_lambda_in_set_property_throws(bool async) =>
+        base.Update_with_invalid_lambda_in_set_property_throws(async);
 
     public override Task Update_FromSql_set_constant(bool async)
         => AssertBulkOperation(base.Update_FromSql_set_constant, async);

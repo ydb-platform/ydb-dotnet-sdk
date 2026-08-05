@@ -823,7 +823,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// This method closes the reader and releases any resources associated with it.
-    /// If the reader is closed during a transaction, the transaction will be marked as failed.
+    /// If the reader is closed before the stream is consumed during a transaction, the transaction will be marked as
+    /// failed.
     /// 
     /// <para>
     /// Important: If the stream is not fully read to the end, the session associated with this stream
@@ -858,8 +859,6 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         if (_ydbTransaction != null)
         {
             _ydbTransaction.Failed = true;
-
-            throw new YdbException("YdbDataReader was closed during transaction execution. Transaction is broken!");
         }
     }
 
@@ -871,7 +870,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </summary>
     /// <remarks>
     /// This method closes the reader and releases any resources associated with it.
-    /// If the reader is closed during a transaction, the transaction will be marked as failed.
+    /// If the reader is closed before the stream is consumed during a transaction, the transaction will be marked as
+    /// failed.
     /// 
     /// <para>
     /// Important: If the stream is not fully read to the end, the session associated with this stream
