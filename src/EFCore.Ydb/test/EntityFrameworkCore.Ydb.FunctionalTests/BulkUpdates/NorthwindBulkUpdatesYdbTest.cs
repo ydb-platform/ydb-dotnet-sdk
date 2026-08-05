@@ -14,9 +14,7 @@ public class NorthwindBulkUpdatesYdbTest(
     testOutputHelper
 )
 {
-    private const string UnsupportedBulkOperationSkipReason = "YDB does not support this bulk operation shape";
-
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_FromSql_converted_to_subquery(bool async)
         => AssertBulkOperation(base.Delete_FromSql_converted_to_subquery, async);
@@ -27,7 +25,7 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Delete_Where(bool async)
         => AssertBulkOperation(base.Delete_Where, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_Where_parameter(bool async)
         => AssertBulkOperation(base.Delete_Where_parameter, async);
@@ -53,12 +51,12 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Delete_Where_Skip_Take(bool async)
         => AssertBulkOperation(base.Delete_Where_Skip_Take, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_Where_predicate_with_GroupBy_aggregate(bool async)
         => AssertBulkOperation(base.Delete_Where_predicate_with_GroupBy_aggregate, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_Where_predicate_with_GroupBy_aggregate_2(bool async)
         => AssertBulkOperation(base.Delete_Where_predicate_with_GroupBy_aggregate_2, async);
@@ -78,7 +76,7 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Delete_SelectMany(bool async)
         => AssertBulkOperation(base.Delete_SelectMany, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_SelectMany_subquery(bool async)
         => AssertBulkOperation(base.Delete_SelectMany_subquery, async);
@@ -121,12 +119,12 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Delete_with_cross_join(bool async)
         => AssertBulkOperation(base.Delete_with_cross_join, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_with_cross_apply(bool async)
         => AssertBulkOperation(base.Delete_with_cross_apply, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_with_outer_apply(bool async)
         => AssertBulkOperation(base.Delete_with_outer_apply, async);
@@ -135,23 +133,6 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Delete_with_RightJoin(bool async)
         => AssertBulkOperation(base.Delete_with_RightJoin, async);
 #endif
-
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Update_without_property_to_set_throws(bool async)
-        => base.Update_without_property_to_set_throws(async);
-
-#if EFCORE9
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Update_with_invalid_lambda_throws(bool async)
-        => base.Update_with_invalid_lambda_throws(async);
-#endif
-
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Update_with_invalid_lambda_in_set_property_throws(bool async)
-        => base.Update_with_invalid_lambda_in_set_property_throws(async);
 
     public override Task Update_FromSql_set_constant(bool async)
         => AssertBulkOperation(base.Update_FromSql_set_constant, async);
@@ -206,12 +187,12 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Update_Where_OrderBy_Skip_Take_Skip_Take_set_constant(bool async)
         => AssertBulkOperation(base.Update_Where_OrderBy_Skip_Take_Skip_Take_set_constant, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_Where_GroupBy_aggregate_set_constant(bool async)
         => AssertBulkOperation(base.Update_Where_GroupBy_aggregate_set_constant, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_Where_GroupBy_First_set_constant(bool async)
         => AssertBulkOperation(base.Update_Where_GroupBy_First_set_constant, async);
@@ -219,7 +200,7 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Update_Where_GroupBy_First_set_constant_2(bool async)
         => AssertBulkOperation(base.Update_Where_GroupBy_First_set_constant_2, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_Where_GroupBy_First_set_constant_3(bool async)
         => AssertBulkOperation(base.Update_Where_GroupBy_First_set_constant_3, async);
@@ -227,17 +208,17 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Update_Where_Distinct_set_constant(bool async)
         => AssertBulkOperation(base.Update_Where_Distinct_set_constant, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_Where_using_navigation_set_null(bool async)
         => AssertBulkOperation(base.Update_Where_using_navigation_set_null, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_Where_using_navigation_2_set_constant(bool async)
         => AssertBulkOperation(base.Update_Where_using_navigation_2_set_constant, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_Where_SelectMany_set_null(bool async)
         => AssertBulkOperation(base.Update_Where_SelectMany_set_null, async);
@@ -292,12 +273,12 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Update_with_cross_join_set_constant(bool async)
         => AssertBulkOperation(base.Update_with_cross_join_set_constant, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_with_cross_apply_set_constant(bool async)
         => AssertBulkOperation(base.Update_with_cross_apply_set_constant, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_with_outer_apply_set_constant(bool async)
         => AssertBulkOperation(base.Update_with_outer_apply_set_constant, async);
@@ -305,22 +286,22 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Update_with_cross_join_left_join_set_constant(bool async)
         => AssertBulkOperation(base.Update_with_cross_join_left_join_set_constant, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_with_cross_join_cross_apply_set_constant(bool async)
         => AssertBulkOperation(base.Update_with_cross_join_cross_apply_set_constant, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_with_cross_join_outer_apply_set_constant(bool async)
         => AssertBulkOperation(base.Update_with_cross_join_outer_apply_set_constant, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_Where_SelectMany_subquery_set_null(bool async)
         => AssertBulkOperation(base.Update_Where_SelectMany_subquery_set_null, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_Where_Join_set_property_from_joined_single_result_table(bool async)
         => AssertBulkOperation(base.Update_Where_Join_set_property_from_joined_single_result_table, async);
@@ -328,12 +309,12 @@ public class NorthwindBulkUpdatesYdbTest(
     public override Task Update_Where_Join_set_property_from_joined_table(bool async)
         => AssertBulkOperation(base.Update_Where_Join_set_property_from_joined_table, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_Where_Join_set_property_from_joined_single_result_scalar(bool async)
         => AssertBulkOperation(base.Update_Where_Join_set_property_from_joined_single_result_scalar, async);
 
-    [ConditionalTheory(Skip = UnsupportedBulkOperationSkipReason)]
+    [ConditionalTheory(Skip = "YDB does not support this bulk operation shape")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Update_with_two_inner_joins(bool async)
         => AssertBulkOperation(base.Update_with_two_inner_joins, async);
