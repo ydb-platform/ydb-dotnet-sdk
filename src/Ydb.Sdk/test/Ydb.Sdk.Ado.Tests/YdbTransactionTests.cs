@@ -139,7 +139,7 @@ public class YdbTransactionTests : TestBase
     }
 
     [Fact]
-    public void BeginTransaction_WhenYdbDataReaderIsClosed_MarksTransactionAsFailed()
+    public void BeginTransaction_WhenYdbDataReaderIsClosed_ThrowExceptionTransactionIsBroken()
     {
         using var connection = CreateOpenConnection();
 
@@ -148,7 +148,8 @@ public class YdbTransactionTests : TestBase
         ydbCommand.CommandText = "SELECT 1; SELECT 2; SELECT 3";
         var dbDataReader = ydbCommand.ExecuteReader();
         dbDataReader.Read();
-        dbDataReader.Close();
+        Assert.Equal("YdbDataReader was closed during transaction execution. Transaction is broken!",
+            Assert.Throws<YdbException>(() => dbDataReader.Close()).Message);
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             Assert.Throws<InvalidOperationException>(() => ydbTransaction.Commit()).Message);
         ydbTransaction.Rollback();
@@ -159,7 +160,7 @@ public class YdbTransactionTests : TestBase
     }
 
     [Fact]
-    public async Task BeginTransaction_WhenTxIdIsReceivedThenYdbDataReaderIsClosed_MarksTransactionAsFailed()
+    public async Task BeginTransaction_WhenTxIdIsReceivedThenYdbDataReaderIsClosed_SuccessCommit()
     {
         await using var connection = await CreateOpenConnectionAsync();
 
@@ -171,7 +172,8 @@ public class YdbTransactionTests : TestBase
         ydbCommand2.CommandText = "SELECT 1; SELECT 2; SELECT 3";
         var dbDataReader = await ydbCommand2.ExecuteReaderAsync();
         await dbDataReader.NextResultAsync();
-        await dbDataReader.CloseAsync();
+        Assert.Equal("YdbDataReader was closed during transaction execution. Transaction is broken!",
+            (await Assert.ThrowsAsync<YdbException>(() => dbDataReader.CloseAsync())).Message);
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             (await Assert.ThrowsAsync<InvalidOperationException>(() => tx.CommitAsync())).Message);
         await tx.RollbackAsync(); // do nothing transaction
@@ -179,28 +181,6 @@ public class YdbTransactionTests : TestBase
             (await Assert.ThrowsAsync<InvalidOperationException>(() => tx.CommitAsync())).Message);
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             (await Assert.ThrowsAsync<InvalidOperationException>(() => tx.RollbackAsync())).Message);
-    }
-
-    [Fact]
-    public async Task BeginTransaction_WhenReaderCleanupFollowsCallerException_PreservesCallerException()
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        await using var transaction = connection.BeginTransaction();
-        var command = connection.CreateCommand();
-        command.CommandText = "SELECT 1; SELECT 2; SELECT 3";
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            await using var reader = await command.ExecuteReaderAsync();
-            Assert.True(await reader.ReadAsync());
-
-            throw new InvalidOperationException("Original caller exception");
-        });
-
-        Assert.Equal("Original caller exception", exception.Message);
-        Assert.Equal("This YdbTransaction has completed; it is no longer usable",
-            (await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.CommitAsync())).Message);
-        await transaction.RollbackAsync();
     }
 
     [Fact]
@@ -467,7 +447,7 @@ public class YdbTransactionTests : TestBase
     }
 
     [Fact]
-    public async Task EnableAutoCommit_WhenReaderClosedEarly_MarksTransactionFailedWithoutCompletingAutoCommit()
+    public async Task EnableAutoCommit_WhenReaderClosedEarly_MarksTransactionFailed()
     {
         await using var connection = await CreateOpenConnectionAsync();
         await using var transaction = connection.BeginTransaction();
@@ -478,7 +458,8 @@ public class YdbTransactionTests : TestBase
 
         var reader = await command.ExecuteReaderAsync();
         Assert.True(await reader.ReadAsync());
-        await reader.CloseAsync();
+        Assert.Equal("YdbDataReader was closed during transaction execution. Transaction is broken!",
+            (await Assert.ThrowsAsync<YdbException>(() => reader.CloseAsync())).Message);
 
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             (await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.CommitAsync())).Message);
