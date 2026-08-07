@@ -233,8 +233,8 @@ public class YdbMetricTests : TestBase
     }
 
     [Theory]
-    [InlineData(SessionState.SessionHintOneofCase.NodeShutdown, "node_shutdown_hint")]
-    [InlineData(SessionState.SessionHintOneofCase.SessionShutdown, "session_shutdown_hint")]
+    [InlineData(SessionState.SessionHintOneofCase.NodeShutdown, "node_shutdown")]
+    [InlineData(SessionState.SessionHintOneofCase.SessionShutdown, "session_shutdown")]
     public async Task SessionClosed_WhenAttachStreamSendsShutdownHint_ReportsReason(
         SessionState.SessionHintOneofCase hint,
         string reason)

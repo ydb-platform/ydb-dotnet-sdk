@@ -192,13 +192,13 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                             switch (sessionState.SessionHintCase)
                             {
                                 case SessionState.SessionHintOneofCase.NodeShutdown:
-                                    MetricsReporter.ReportSessionClosed("node_shutdown_hint");
+                                    MetricsReporter.ReportSessionClosed("node_shutdown");
                                     Driver.PessimizeNode(NodeId);
                                     _isBadSession = true;
                                     _isBroken = true;
                                     break;
                                 case SessionState.SessionHintOneofCase.SessionShutdown:
-                                    MetricsReporter.ReportSessionClosed("session_shutdown_hint");
+                                    MetricsReporter.ReportSessionClosed("session_shutdown");
                                     _isBadSession = true;
                                     _isBroken = true;
                                     break;

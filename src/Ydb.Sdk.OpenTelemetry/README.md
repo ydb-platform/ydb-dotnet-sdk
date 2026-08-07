@@ -70,8 +70,8 @@ Every `ydb.query.session.*` metric includes **`ydb.query.session.pool.name`** (v
 
 Supported `ydb.query.session.closed` reasons:
 
-- `node_shutdown_hint` — the server sends a node shutdown hint.
-- `session_shutdown_hint` — the server sends a session shutdown hint.
+- `node_shutdown` — the server sends a node shutdown hint.
+- `session_shutdown` — the server sends a session shutdown hint.
 
 ## Example
 

@@ -1,7 +1,7 @@
 - Feat ADO.NET metrics: added the `ydb.query.session.closed` counter (unit `{session}`) with
   `ydb.query.session.pool.name` and `reason` attributes for server shutdown hints:
-  - `node_shutdown_hint` for `NodeShutdown`.
-  - `session_shutdown_hint` for `SessionShutdown`.
+  - `node_shutdown` for `NodeShutdown`.
+  - `session_shutdown` for `SessionShutdown`.
 
 ## v0.35.0
 
