@@ -26,10 +26,11 @@ internal sealed class YdbMetricsReporter : IDisposable
     private static readonly Histogram<double> RetryDuration;
     private static readonly Histogram<int> RetryAttempts;
 
-    // Pool metrics: connection lifecycle (count, timeouts, pending requests, create time)
+    // Pool metrics: connection lifecycle (count, timeouts, pending requests, create/close)
     // create_time covers CreateSession RPC + first AttachStream message
     private static readonly Counter<int> ConnectionTimeouts;
     private static readonly Counter<int> PendingConnectionRequests;
+    private static readonly Counter<int> SessionsClosed;
     private static readonly Histogram<double> ConnectionCreateTime;
 
     private static readonly List<YdbMetricsReporter> Reporters = [];
@@ -86,6 +87,11 @@ internal sealed class YdbMetricsReporter : IDisposable
             unit: "{request}",
             description:
             "Increments when a connection request begins waiting for a free session; use rate to observe wait pressure.");
+
+        SessionsClosed = meter.CreateCounter<int>(
+            "ydb.query.session.closed",
+            unit: "{session}",
+            description: "The number of sessions removed from the pool, grouped by the reason attribute.");
 
         ConnectionCreateTime = meter.CreateHistogram(
             "ydb.query.session.create_time",
@@ -165,6 +171,7 @@ internal sealed class YdbMetricsReporter : IDisposable
         RetryAttempts.Enabled ||
         ConnectionTimeouts.Enabled ||
         PendingConnectionRequests.Enabled ||
+        SessionsClosed.Enabled ||
         ConnectionCreateTime.Enabled;
 
     internal void ReportCommandStop(long startTimestamp, string operationName)
@@ -188,6 +195,9 @@ internal sealed class YdbMetricsReporter : IDisposable
     }
 
     internal void ReportPendingConnectionRequestStart() => PendingConnectionRequests.Add(1, _poolNameTag);
+
+    internal void ReportSessionClosed(string reason) =>
+        SessionsClosed.Add(1, _poolNameTag, new KeyValuePair<string, object?>("reason", reason));
 
     internal static long ReportConnectionCreateTimeStart() =>
         ConnectionCreateTime.Enabled ? Stopwatch.GetTimestamp() : 0;

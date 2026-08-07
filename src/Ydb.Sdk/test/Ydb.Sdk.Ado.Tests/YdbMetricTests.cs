@@ -232,6 +232,76 @@ public class YdbMetricTests : TestBase
         Assert.Equal(settings.PoolName, ToDictionary(point.Tags)["ydb.query.session.pool.name"]);
     }
 
+    [Theory]
+    [InlineData(SessionState.SessionHintOneofCase.NodeShutdown, "node_shutdown_hint")]
+    [InlineData(SessionState.SessionHintOneofCase.SessionShutdown, "session_shutdown_hint")]
+    public async Task SessionClosed_WhenAttachStreamSendsShutdownHint_ReportsReason(
+        SessionState.SessionHintOneofCase hint,
+        string reason)
+    {
+        const string sessionId = "sessionId";
+        const long nodeId = 3;
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MaxPoolSize = 1;
+            builder.PoolName = $"ado-metrics-session-closed-{reason}";
+        });
+        var lifecycleState = new SessionState { Status = StatusIds.Types.StatusCode.Success };
+        if (hint == SessionState.SessionHintOneofCase.NodeShutdown)
+            lifecycleState.NodeShutdown = new NodeShutdownHint();
+        else
+            lifecycleState.SessionShutdown = new SessionShutdownHint();
+
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachStream = new Mock<IServerStream<SessionState>>(MockBehavior.Strict);
+        attachStream.SetupSequence(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(true);
+        attachStream.SetupSequence(stream => stream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success })
+            .Returns(lifecycleState);
+        attachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+
+        var driver = CreateMockDriver();
+        driver.Setup(d => d.UnaryCall(
+                QueryService.CreateSessionMethod,
+                It.IsAny<CreateSessionRequest>(),
+                It.Is<GrpcRequestSettings>(s => s.ClientCapabilities.Contains("session-balancer"))))
+            .ReturnsAsync(new CreateSessionResponse
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                SessionId = sessionId,
+                NodeId = nodeId
+            });
+        driver.Setup(d => d.ServerStreamCall(
+                QueryService.AttachSessionMethod,
+                It.Is<AttachSessionRequest>(r => r.SessionId == sessionId),
+                It.Is<GrpcRequestSettings>(s => s.NodeId == nodeId)))
+            .ReturnsAsync(attachStream.Object);
+        driver.Setup(d => d.PessimizeNode(nodeId));
+
+        await using var source = new PoolingSessionSource<PoolingSession>(
+            new PoolingSessionFactory(driver.Object, settings),
+            settings);
+        var session = await source.OpenSession();
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(session.IsBroken);
+        session.Dispose();
+
+        meterProvider.ForceFlush();
+
+        var metric = GetMetric(exportedItems, "ydb.query.session.closed");
+        var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
+        var tags = ToDictionary(point.Tags);
+
+        Assert.Equal(1, point.GetSumLong());
+        Assert.Equal(settings.PoolName, tags["ydb.query.session.pool.name"]);
+        Assert.Equal(reason, tags["reason"]);
+    }
+
     [Fact]
     public async Task ConnectionPendingRequests()
     {
@@ -508,7 +578,8 @@ public class YdbMetricTests : TestBase
         "ydb.query.session.min",
         "ydb.query.session.timeouts",
         "ydb.query.session.pending_requests",
-        "ydb.query.session.create_time"
+        "ydb.query.session.create_time",
+        "ydb.query.session.closed"
     ];
 
     private static void AssertNoPoolMetricsForPool(List<Metric> exportedItems, string poolName)
