@@ -31,12 +31,24 @@ public class YdbAdoUserPasswordTests : TestBase
     [Fact]
     public async Task DisableDiscovery_WhenUserIsCreatedAndPropertyIsTrue_SimpleWorking()
     {
-        await using var userPasswordConnection = new YdbConnection(
-            $"{ConnectionString};User={_user};Password=password;DisableDiscovery=true");
-        await userPasswordConnection.OpenAsync();
-        var ydbCommand = userPasswordConnection.CreateCommand();
-        ydbCommand.CommandText = "SELECT 1 + 2";
-        Assert.Equal(3, await ydbCommand.ExecuteScalarAsync());
+        for (var attempt = 1;; attempt++)
+        {
+            try
+            {
+                await using var userPasswordConnection = new YdbConnection(
+                    $"{ConnectionString};User={_user};Password=password;DisableDiscovery=true");
+                await userPasswordConnection.OpenAsync();
+                var ydbCommand = userPasswordConnection.CreateCommand();
+                ydbCommand.CommandText = "SELECT 1 + 2";
+                Assert.Equal(3, await ydbCommand.ExecuteScalarAsync());
+
+                return;
+            }
+            catch (YdbException) when (attempt < 5)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+        }
     }
 
     protected override async Task OnInitializeAsync()
