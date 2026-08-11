@@ -7,7 +7,7 @@ namespace Ydb.Sdk.Internal;
 internal static class MetadataSdkBuildInfoExtensions
 {
     private const string TracingChain = ";ydb-sdk-tracing/0.1.0";
-    private const string MetricsChain = ";ydb-sdk-metrics/0.1.0";
+    private const string MetricsChain = ";ydb-sdk-metrics/0.2.0";
 
     private static bool HasTracingListeners => YdbActivitySource.HasListeners || YdbTopicActivitySource.HasListeners;
 

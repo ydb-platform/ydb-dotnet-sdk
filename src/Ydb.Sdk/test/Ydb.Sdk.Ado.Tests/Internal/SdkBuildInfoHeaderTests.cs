@@ -108,7 +108,7 @@ public class SdkBuildInfoHeaderTests
         var headers = CreateHeadersWithSdkBuildInfo(clientInfo: null);
         headers.AppendObservabilityChain();
 
-        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/0.1.0",
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-metrics/0.2.0",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
@@ -130,7 +130,7 @@ public class SdkBuildInfoHeaderTests
         headers.AppendObservabilityChain();
 
         Assert.Equal(
-            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientChain};ydb-sdk-tracing/0.1.0;ydb-sdk-metrics/0.1.0",
+            $"ydb-dotnet-sdk/{YdbSdkVersion.Value};{clientChain};ydb-sdk-tracing/0.1.0;ydb-sdk-metrics/0.2.0",
             headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
     }
 
