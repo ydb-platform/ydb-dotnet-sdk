@@ -32,5 +32,6 @@ public enum StatusCode
     ClientTransportUnavailable = StatusRanges.ClientTransportFirst + 20,
     ClientTransportTimeout = StatusRanges.ClientTransportFirst + 30,
     ClientTransportResourceExhausted = StatusRanges.ClientTransportFirst + 40,
-    ClientTransportUnimplemented = StatusRanges.ClientTransportFirst + 50
+    ClientTransportUnimplemented = StatusRanges.ClientTransportFirst + 50,
+    ClientCancelled = StatusRanges.ClientTransportFirst + 60
 }

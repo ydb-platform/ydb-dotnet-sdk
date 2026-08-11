@@ -1,3 +1,4 @@
+using System.Data;
 using System.Diagnostics;
 using Grpc.Core;
 using Moq;
@@ -16,6 +17,9 @@ namespace Ydb.Sdk.Ado.Tests;
 [Collection("DisableParallelization")]
 public class YdbMetricTests : TestBase
 {
+    private const string MockSessionId = "sessionId";
+    private const long MockNodeId = 3;
+
     private static readonly YdbConnectionStringBuilder BaseConnectionSettings = new(TestUtils.ConnectionString)
     {
         PoolName = "ado-metrics-tests"
@@ -239,8 +243,6 @@ public class YdbMetricTests : TestBase
         SessionState.SessionHintOneofCase hint,
         string reason)
     {
-        const string sessionId = "sessionId";
-        const long nodeId = 3;
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
 
@@ -265,23 +267,7 @@ public class YdbMetricTests : TestBase
             .Returns(lifecycleState);
         attachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
 
-        var driver = CreateMockDriver();
-        driver.Setup(d => d.UnaryCall(
-                QueryService.CreateSessionMethod,
-                It.IsAny<CreateSessionRequest>(),
-                It.Is<GrpcRequestSettings>(s => s.ClientCapabilities.Contains("session-balancer"))))
-            .ReturnsAsync(new CreateSessionResponse
-            {
-                Status = StatusIds.Types.StatusCode.Success,
-                SessionId = sessionId,
-                NodeId = nodeId
-            });
-        driver.Setup(d => d.ServerStreamCall(
-                QueryService.AttachSessionMethod,
-                It.Is<AttachSessionRequest>(r => r.SessionId == sessionId),
-                It.Is<GrpcRequestSettings>(s => s.NodeId == nodeId)))
-            .ReturnsAsync(attachStream.Object);
-        driver.Setup(d => d.PessimizeNode(nodeId));
+        var driver = CreatePoolingDriver(attachStream.Object);
 
         await using var source = new PoolingSessionSource<PoolingSession>(
             new PoolingSessionFactory(driver.Object, settings),
@@ -292,14 +278,369 @@ public class YdbMetricTests : TestBase
         session.Dispose();
 
         meterProvider.ForceFlush();
+        AssertSessionClosed(exportedItems, settings, reason);
+    }
 
-        var metric = GetMetric(exportedItems, "ydb.query.session.closed");
-        var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
-        var tags = ToDictionary(point.Tags);
+    [Theory]
+    [InlineData(false, "eof")]
+    [InlineData(false, "hint")]
+    [InlineData(false, "error")]
+    [InlineData(true, "eof")]
+    [InlineData(true, "hint")]
+    [InlineData(true, "error")]
+    public async Task SessionClosed_ServerErrorBeforeLateAttachTermination_ReportsOnce(
+        bool retryable,
+        string lateAttachTermination)
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
 
-        Assert.Equal(1, point.GetSumLong());
-        Assert.Equal(settings.PoolName, tags["ydb.query.session.pool.name"]);
-        Assert.Equal(reason, tags["reason"]);
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MaxPoolSize = 1;
+            builder.PoolName = $"ado-metrics-query-error-{retryable}-{lateAttachTermination}";
+        });
+        var lifecycleAttach = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachStream = new Mock<IServerStream<SessionState>>(MockBehavior.Strict);
+        attachStream.SetupSequence(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .Returns(lifecycleAttach.Task);
+        attachStream.SetupSequence(stream => stream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success })
+            .Returns(new SessionState
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                SessionShutdown = new SessionShutdownHint()
+            });
+        attachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+
+        var queryErrorObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var queryDrain = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var queryStream = new Mock<IServerStream<ExecuteQueryResponsePart>>(MockBehavior.Strict);
+        queryStream.SetupSequence(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .Returns(queryDrain.Task);
+        queryStream.Setup(stream => stream.Current)
+            .Callback(() => queryErrorObserved.TrySetResult())
+            .Returns(new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.SessionBusy });
+
+        var driver = CreatePoolingDriver(attachStream.Object, queryStream.Object);
+
+        await using var source = new PoolingSessionSource<PoolingSession>(
+            new PoolingSessionFactory(driver.Object, settings),
+            settings);
+        Assert.True(PoolManager.Pools.TryAdd(settings.PoolKey, source));
+        try
+        {
+            await using var connection = new YdbConnection(settings);
+            if (retryable)
+                await connection.OpenAsync(new YdbRetryPolicyExecutor(
+                    new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 1 })));
+            else
+                await connection.OpenAsync();
+
+            var queryTask = new YdbCommand("SELECT 1", connection).ExecuteReaderAsync();
+            await queryErrorObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            queryDrain.SetResult(false);
+            var exception = await Assert.ThrowsAsync<YdbException>(() => queryTask);
+            Assert.Equal(StatusCode.SessionBusy, exception.Code);
+            Assert.Equal(retryable ? ConnectionState.Open : ConnectionState.Broken, connection.State);
+
+            switch (lateAttachTermination)
+            {
+                case "eof":
+                    lifecycleAttach.SetResult(false);
+                    break;
+                case "hint":
+                    lifecycleAttach.SetResult(true);
+                    break;
+                case "error":
+                    lifecycleAttach.SetException(
+                        new YdbException(StatusCode.ClientTransportUnavailable, "late attach error"));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(lateAttachTermination));
+            }
+
+            await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            await connection.CloseAsync();
+            meterProvider.ForceFlush();
+
+            AssertSessionClosed(exportedItems, settings, "server_error");
+            driver.Verify(d => d.UnaryCall(
+                QueryService.DeleteSessionMethod,
+                It.IsAny<DeleteSessionRequest>(),
+                It.IsAny<GrpcRequestSettings>()), Times.AtMostOnce());
+        }
+        finally
+        {
+            Assert.True(PoolManager.Pools.TryRemove(settings.PoolKey, out _));
+        }
+    }
+
+    [Theory]
+    [InlineData(false, "attach_stream_closed_by_server")]
+    [InlineData(true, "attach_stream_transport_error")]
+    public async Task SessionClosed_WhenActiveAttachStreamTerminates_ReportsReason(
+        bool transportError,
+        string reason)
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MaxPoolSize = 1;
+            builder.PoolName = $"ado-metrics-{reason}";
+        });
+        var lifecycleAttach = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachStream = new Mock<IServerStream<SessionState>>(MockBehavior.Strict);
+        attachStream.SetupSequence(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .Returns(lifecycleAttach.Task);
+        attachStream.Setup(stream => stream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success });
+        attachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+
+        var driver = CreatePoolingDriver(attachStream.Object);
+        await using var source = new PoolingSessionSource<PoolingSession>(
+            new PoolingSessionFactory(driver.Object, settings),
+            settings);
+        var session = await source.OpenSession();
+
+        if (transportError)
+        {
+            lifecycleAttach.SetException(
+                new YdbException(StatusCode.ClientTransportUnavailable, "attach transport error"));
+        }
+        else
+        {
+            lifecycleAttach.SetResult(false);
+        }
+
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(session.IsBroken);
+        session.Dispose();
+
+        meterProvider.ForceFlush();
+        AssertSessionClosed(exportedItems, settings, reason);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SessionClosed_WhenPrimaryAttachFails_DoesNotReport(bool transportError)
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+            builder.PoolName = $"ado-metrics-primary-attach-{transportError}");
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachStream = new Mock<IServerStream<SessionState>>(MockBehavior.Strict);
+        var firstMove = attachStream.Setup(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()));
+        if (transportError)
+        {
+            firstMove.ThrowsAsync(
+                new YdbException(StatusCode.ClientTransportUnavailable, "primary attach transport error"));
+        }
+        else
+        {
+            firstMove.ReturnsAsync(false);
+        }
+
+        attachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+
+        var driver = CreatePoolingDriver(attachStream.Object);
+        await using var source = new PoolingSessionSource<PoolingSession>(
+            new PoolingSessionFactory(driver.Object, settings),
+            settings);
+
+        await Assert.ThrowsAsync<YdbException>(() => source.OpenSession().AsTask());
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        meterProvider.ForceFlush();
+        AssertSessionNotClosed(exportedItems, settings.PoolName!);
+    }
+
+    [Theory]
+    [InlineData(Grpc.Core.StatusCode.DeadlineExceeded)]
+    [InlineData(Grpc.Core.StatusCode.Cancelled)]
+    public async Task SessionClosed_QueryTransportTimeout_ReportsReason(Grpc.Core.StatusCode grpcStatusCode)
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MaxPoolSize = 1;
+            builder.PoolName = $"ado-metrics-query-timeout-{grpcStatusCode}";
+        });
+        var lifecycleAttach = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachStream = new Mock<IServerStream<SessionState>>(MockBehavior.Strict);
+        attachStream.SetupSequence(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .Returns(lifecycleAttach.Task);
+        attachStream.Setup(stream => stream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success });
+        attachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+
+        var queryStream = new Mock<IServerStream<ExecuteQueryResponsePart>>(MockBehavior.Strict);
+        queryStream.Setup(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new YdbException(new RpcException(new Status(grpcStatusCode, "query transport timeout"))));
+
+        var driver = CreatePoolingDriver(attachStream.Object, queryStream.Object);
+        await using var source = new PoolingSessionSource<PoolingSession>(
+            new PoolingSessionFactory(driver.Object, settings),
+            settings);
+        Assert.True(PoolManager.Pools.TryAdd(settings.PoolKey, source));
+        try
+        {
+            await using var connection = new YdbConnection(settings);
+            await connection.OpenAsync();
+
+            var exception = await Assert.ThrowsAsync<YdbException>(() =>
+                new YdbCommand("SELECT 1", connection).ExecuteReaderAsync());
+            Assert.Equal(StatusCode.ClientTransportTimeout, exception.Code);
+
+            Assert.Equal(ConnectionState.Broken, connection.State);
+
+            lifecycleAttach.SetResult(false);
+            await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await connection.CloseAsync();
+
+            meterProvider.ForceFlush();
+            AssertSessionClosed(exportedItems, settings, "client_query_timeout");
+        }
+        finally
+        {
+            Assert.True(PoolManager.Pools.TryRemove(settings.PoolKey, out _));
+        }
+    }
+
+    [Fact]
+    public async Task SessionClosed_WhenClientClosesUnreadQueryStream_ReportsReason()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MaxPoolSize = 1;
+            builder.PoolName = "ado-metrics-query-stream-cancelled";
+        });
+        var lifecycleAttach = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachStream = new Mock<IServerStream<SessionState>>(MockBehavior.Strict);
+        attachStream.SetupSequence(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .Returns(lifecycleAttach.Task);
+        attachStream.Setup(stream => stream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success });
+        attachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+
+        var resultSet = ResultSet.Parser.ParseJson(
+            "{ \"columns\": [ { \"name\": \"column0\", \"type\": { \"typeId\": \"BOOL\" } } ], " +
+            "\"rows\": [ { \"items\": [ { \"boolValue\": true } ] } ] }");
+        var queryStream = new Mock<IServerStream<ExecuteQueryResponsePart>>(MockBehavior.Strict);
+        queryStream.Setup(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        queryStream.Setup(stream => stream.Current).Returns(new ExecuteQueryResponsePart
+        {
+            Status = StatusIds.Types.StatusCode.Success,
+            ResultSet = resultSet
+        });
+        queryStream.Setup(stream => stream.Dispose());
+
+        var driver = CreatePoolingDriver(attachStream.Object, queryStream.Object);
+        await using var source = new PoolingSessionSource<PoolingSession>(
+            new PoolingSessionFactory(driver.Object, settings),
+            settings);
+        Assert.True(PoolManager.Pools.TryAdd(settings.PoolKey, source));
+        try
+        {
+            await using var connection = new YdbConnection(settings);
+            await connection.OpenAsync();
+
+            await using var reader = await new YdbCommand("SELECT 1", connection).ExecuteReaderAsync();
+            await reader.CloseAsync();
+            Assert.Equal(ConnectionState.Broken, connection.State);
+
+            lifecycleAttach.SetResult(false);
+            await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await connection.CloseAsync();
+
+            meterProvider.ForceFlush();
+            AssertSessionClosed(exportedItems, settings, "query_stream_cancelled_by_client");
+
+            var operationFailed = GetMetric(exportedItems, "ydb.client.operation.failed");
+            var point = GetOperationFailedPoint(
+                operationFailed.GetMetricPoints(), settings, "ExecuteQuery", "ClientCancelled");
+            Assert.Equal(1, point.GetSumLong());
+        }
+        finally
+        {
+            Assert.True(PoolManager.Pools.TryRemove(settings.PoolKey, out _));
+        }
+    }
+
+    [Theory]
+    [InlineData(false, "pool_idle_timeout")]
+    [InlineData(true, "pool_graceful_shutdown")]
+    public async Task SessionClosed_WhenPoolClosesIdleSession_ReportsReason(
+        bool disposePool,
+        string reason)
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MaxPoolSize = 1;
+            builder.SessionIdleTimeout = 1;
+            builder.PoolName = $"ado-metrics-{reason}";
+        });
+        var lifecycleAttach = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var deleteStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachStream = new Mock<IServerStream<SessionState>>(MockBehavior.Strict);
+        attachStream.SetupSequence(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .Returns(lifecycleAttach.Task);
+        attachStream.Setup(stream => stream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success });
+        attachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+
+        var driver = CreatePoolingDriver(attachStream.Object, deleteSession: () =>
+        {
+            deleteStarted.TrySetResult();
+            lifecycleAttach.TrySetResult(false);
+        });
+        var source = new PoolingSessionSource<PoolingSession>(
+            new PoolingSessionFactory(driver.Object, settings),
+            settings);
+        try
+        {
+            var session = await source.OpenSession();
+            session.Dispose();
+
+            if (disposePool)
+                await source.DisposeAsync();
+
+            await deleteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            meterProvider.ForceFlush();
+            AssertSessionClosed(exportedItems, settings, reason);
+        }
+        finally
+        {
+            await source.DisposeAsync();
+        }
     }
 
     [Fact]
@@ -401,14 +742,42 @@ public class YdbMetricTests : TestBase
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
 
-        var settings = CreateConnectionSettings(builder => { builder.EnableImplicitSession = true; });
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.EnableImplicitSession = true;
+            builder.PoolName = "ado-metrics-implicit-query-error";
+        });
+        var queryStream = new Mock<IServerStream<ExecuteQueryResponsePart>>(MockBehavior.Strict);
+        queryStream.SetupSequence(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+        queryStream.Setup(stream => stream.Current)
+            .Returns(new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.SessionBusy });
 
-        await using var dataSource = new YdbDataSource(settings);
-        await using var _ = await dataSource.OpenConnectionAsync();
+        var driver = CreateMockDriver();
+        driver.Setup(d => d.ServerStreamCall(
+                QueryService.ExecuteQueryMethod,
+                It.IsAny<ExecuteQueryRequest>(),
+                It.IsAny<GrpcRequestSettings>()))
+            .ReturnsAsync(queryStream.Object);
 
-        meterProvider.ForceFlush();
+        await using var source = new ImplicitSessionSource(driver.Object, settings);
+        Assert.True(PoolManager.Pools.TryAdd(settings.PoolKey, source));
+        try
+        {
+            await using var connection = new YdbConnection(settings);
+            await connection.OpenAsync();
 
-        AssertNoPoolMetricsForPool(exportedItems, settings.PoolName!);
+            await Assert.ThrowsAsync<YdbException>(() =>
+                new YdbCommand("SELECT 1", connection).ExecuteReaderAsync());
+
+            meterProvider.ForceFlush();
+            AssertNoPoolMetricsForPool(exportedItems, settings.PoolName!);
+        }
+        finally
+        {
+            Assert.True(PoolManager.Pools.TryRemove(settings.PoolKey, out _));
+        }
     }
 
     private const string RetryDurationMetric = "ydb.client.retry.duration";
@@ -623,6 +992,68 @@ public class YdbMetricTests : TestBase
         driver.SetupGet(d => d.LoggerFactory).Returns(TestUtils.LoggerFactory);
         driver.Setup(d => d.DisposeAsync()).Returns(ValueTask.CompletedTask);
         return driver;
+    }
+
+    private static Mock<IDriver> CreatePoolingDriver(
+        IServerStream<SessionState> attachStream,
+        IServerStream<ExecuteQueryResponsePart>? queryStream = null,
+        Action? deleteSession = null)
+    {
+        var driver = CreateMockDriver();
+        driver.Setup(d => d.UnaryCall(
+                QueryService.CreateSessionMethod,
+                It.IsAny<CreateSessionRequest>(),
+                It.Is<GrpcRequestSettings>(s => s.ClientCapabilities.Contains("session-balancer"))))
+            .ReturnsAsync(new CreateSessionResponse
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                SessionId = MockSessionId,
+                NodeId = MockNodeId
+            });
+        driver.Setup(d => d.ServerStreamCall(
+                QueryService.AttachSessionMethod,
+                It.Is<AttachSessionRequest>(r => r.SessionId == MockSessionId),
+                It.Is<GrpcRequestSettings>(s => s.NodeId == MockNodeId)))
+            .ReturnsAsync(attachStream);
+        driver.Setup(d => d.UnaryCall(
+                QueryService.DeleteSessionMethod,
+                It.Is<DeleteSessionRequest>(r => r.SessionId == MockSessionId),
+                It.Is<GrpcRequestSettings>(s => s.NodeId == MockNodeId)))
+            .Callback(() => deleteSession?.Invoke())
+            .ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
+        driver.Setup(d => d.PessimizeNode(MockNodeId));
+
+        if (queryStream != null)
+        {
+            driver.Setup(d => d.ServerStreamCall(
+                    QueryService.ExecuteQueryMethod,
+                    It.IsAny<ExecuteQueryRequest>(),
+                    It.Is<GrpcRequestSettings>(s => s.NodeId == MockNodeId)))
+                .ReturnsAsync(queryStream);
+        }
+
+        return driver;
+    }
+
+    private static void AssertSessionClosed(
+        List<Metric> exportedItems,
+        YdbConnectionStringBuilder settings,
+        string reason)
+    {
+        var metric = GetMetric(exportedItems, "ydb.query.session.closed");
+        var point = GetPoolPoints(metric.GetMetricPoints(), settings.PoolName!).Single();
+        var tags = ToDictionary(point.Tags);
+
+        Assert.Equal(1, point.GetSumLong());
+        Assert.Equal(settings.PoolName, tags["ydb.query.session.pool.name"]);
+        Assert.Equal(reason, tags["reason"]);
+    }
+
+    private static void AssertSessionNotClosed(List<Metric> exportedItems, string poolName)
+    {
+        var metric = exportedItems.SingleOrDefault(m => m.Name == "ydb.query.session.closed");
+        if (metric != null)
+            Assert.Empty(GetPoolPoints(metric.GetMetricPoints(), poolName));
     }
 
     private static IEnumerable<MetricPoint> GetConnectionCountPoints(MetricPointsAccessor points, string poolName)

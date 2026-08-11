@@ -21,14 +21,14 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
     private readonly CancellationTokenSource _attachStreamLifecycleCts = new();
 
-    private volatile bool _isBroken = true;
+    private int _isBroken = 1;
     private volatile bool _isBadSession;
 
     private string SessionId { get; set; } = string.Empty;
     private long NodeId { get; set; }
 
     public override IDriver Driver { get; }
-    public override bool IsBroken => _isBroken;
+    public override bool IsBroken => Volatile.Read(ref _isBroken) != 0;
 
     internal PoolingSession(
         IDriver driver,
@@ -111,12 +111,23 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             StatusCode.ClientTransportTimeout or
             StatusCode.ClientTransportUnavailable or
             StatusCode.ClientTransportResourceExhausted or
-            StatusCode.ClientTransportUnknown)
+            StatusCode.ClientTransportUnknown or
+            StatusCode.ClientCancelled)
         {
             _logger.LogWarning("Session[{SessionId}] is deactivated. Reason Status: {Status}", SessionId, statusCode);
-
-            _isBroken = true;
+            BrokenSession(statusCode switch
+            {
+                StatusCode.ClientTransportTimeout => "client_query_timeout",
+                StatusCode.ClientCancelled => "query_stream_cancelled_by_client",
+                _ => "server_error"
+            });
         }
+    }
+
+    private void BrokenSession(string reason)
+    {
+        if (Interlocked.CompareExchange(ref _isBroken, 1, 0) == 0)
+            MetricsReporter.ReportSessionClosed(reason);
     }
 
     internal override async Task Open(CancellationToken cancellationToken)
@@ -143,105 +154,37 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 throw YdbException.FromServer(response.Status, response.Issues);
             }
 
-            TaskCompletionSource completeTask = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
             SessionId = response.SessionId;
             NodeId = response.NodeId;
-            _isBroken = false;
 
-            _ = Task.Run(async () =>
+            var stream = await Driver.ServerStreamCall(
+                QueryService.AttachSessionMethod,
+                new AttachSessionRequest { SessionId = SessionId },
+                new GrpcRequestSettings { NodeId = NodeId }
+            ).ConfigureAwait(false);
+
+            try
             {
-                try
+                if (!await stream.MoveNextAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    using var stream = await Driver.ServerStreamCall(
-                        QueryService.AttachSessionMethod,
-                        new AttachSessionRequest { SessionId = SessionId },
-                        new GrpcRequestSettings { NodeId = NodeId }
-                    ).ConfigureAwait(false);
-
-                    if (!await stream.MoveNextAsync(cancellationToken).ConfigureAwait(false))
-                    {
-                        // Session wasn't started!
-                        completeTask.SetException(new YdbException(StatusCode.Cancelled,
-                            "Attach stream is not started!"));
-
-                        return;
-                    }
-
-                    var initSessionState = stream.Current;
-
-                    if (initSessionState.Status.IsNotSuccess())
-                    {
-                        throw YdbException.FromServer(initSessionState.Status, initSessionState.Issues);
-                    }
-
-                    completeTask.SetResult();
-
-                    var lifecycleAttachToken = _attachStreamLifecycleCts.Token;
-
-                    try
-                    {
-                        // ReSharper disable once MethodSupportsCancellation
-                        while (await stream.MoveNextAsync(lifecycleAttachToken).ConfigureAwait(false))
-                        {
-                            var sessionState = stream.Current;
-
-                            var statusCode = sessionState.Status.Code();
-
-                            OnNotSuccessStatusCode(statusCode);
-                            switch (sessionState.SessionHintCase)
-                            {
-                                case SessionState.SessionHintOneofCase.NodeShutdown:
-                                    MetricsReporter.ReportSessionClosed("node_shutdown");
-                                    Driver.PessimizeNode(NodeId);
-                                    _isBadSession = true;
-                                    _isBroken = true;
-                                    break;
-                                case SessionState.SessionHintOneofCase.SessionShutdown:
-                                    MetricsReporter.ReportSessionClosed("session_shutdown");
-                                    _isBadSession = true;
-                                    _isBroken = true;
-                                    break;
-                            }
-
-                            _logger.LogDebug(
-                                "Session[{SessionId}] was received the status from the attach stream: {StatusMessage}",
-                                SessionId, statusCode.ToMessage(sessionState.Issues));
-
-                            if (IsBroken)
-                            {
-                                return;
-                            }
-                        }
-
-                        _logger.LogDebug("Session[{SessionId}]: Attached stream is closed", SessionId);
-
-                        // attach stream is closed
-                    }
-                    catch (YdbException e)
-                    {
-                        if (e.Code == StatusCode.ClientTransportTimeout)
-                        {
-                            _logger.LogDebug("AttachStream is cancelled (possible grpcChannel is closing)");
-
-                            return;
-                        }
-
-                        _logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", SessionId);
-                    }
+                    throw new YdbException(StatusCode.Cancelled, "Attach stream is not started!");
                 }
-                catch (Exception e)
+
+                var initSessionState = stream.Current;
+
+                if (initSessionState.Status.IsNotSuccess())
                 {
-                    completeTask.SetException(e);
+                    throw YdbException.FromServer(initSessionState.Status, initSessionState.Issues);
                 }
-                finally
-                {
-                    // Do not set _isBadSession here: attach stream end (EOF) is not BadSession; DeleteSession must still run.
-                    _isBroken = true;
-                }
-            }, cancellationToken);
+            }
+            catch
+            {
+                stream.Dispose();
+                throw;
+            }
 
-            await completeTask.Task.ConfigureAwait(false);
+            Volatile.Write(ref _isBroken, 0);
+            _ = ProcessAttachStream(stream);
         }
         catch (YdbException e)
         {
@@ -255,11 +198,69 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         }
     }
 
-    internal override async Task DeleteSession()
+    private async Task ProcessAttachStream(IServerStream<SessionState> stream)
+    {
+        using (stream)
+        {
+            try
+            {
+                // ReSharper disable once MethodSupportsCancellation
+                while (await stream.MoveNextAsync(_attachStreamLifecycleCts.Token).ConfigureAwait(false))
+                {
+                    var sessionState = stream.Current;
+                    var statusCode = sessionState.Status.Code();
+
+                    switch (sessionState.SessionHintCase)
+                    {
+                        case SessionState.SessionHintOneofCase.NodeShutdown:
+                            Driver.PessimizeNode(NodeId);
+                            _isBadSession = true;
+                            BrokenSession("node_shutdown");
+                            break;
+                        case SessionState.SessionHintOneofCase.SessionShutdown:
+                            _isBadSession = true;
+                            BrokenSession("session_shutdown");
+                            break;
+                        case SessionState.SessionHintOneofCase.None:
+                        default:
+                            OnNotSuccessStatusCode(statusCode);
+                            break;
+                    }
+
+                    _logger.LogDebug(
+                        "Session[{SessionId}] was received the status from the attach stream: {StatusMessage}, " +
+                        "hint: {Hint}",
+                        SessionId, statusCode.ToMessage(sessionState.Issues), sessionState.SessionHintCase);
+
+                    if (IsBroken)
+                    {
+                        return;
+                    }
+                }
+
+                _logger.LogDebug("Session[{SessionId}]: Attached stream is closed", SessionId);
+
+                BrokenSession("attach_stream_closed_by_server");
+            }
+            catch (YdbException e)
+            {
+                if (e.Code == StatusCode.ClientTransportTimeout)
+                {
+                    _logger.LogDebug("AttachStream is cancelled (possible grpcChannel is closing)");
+
+                    return;
+                }
+
+                _logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", SessionId);
+                BrokenSession("attach_stream_transport_error");
+            }
+        }
+    }
+
+    internal override async Task DeleteSession(string reason)
     {
         try
         {
-            _isBroken = true;
             _attachStreamLifecycleCts.CancelAfter(DeleteSessionTimeout);
 
             if (_isBadSession)
@@ -267,6 +268,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 return;
             }
 
+            BrokenSession(reason);
             _isBadSession = true;
             var deleteSessionResponse = await Driver.UnaryCall(
                 QueryService.DeleteSessionMethod,

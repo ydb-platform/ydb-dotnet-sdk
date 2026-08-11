@@ -38,14 +38,17 @@ public class PoolingSessionTests
     [Theory]
     [InlineData(StatusCode.Aborted, false)]
     [InlineData(StatusCode.BadSession, true)]
+    [InlineData(StatusCode.Cancelled, false)]
     [InlineData(StatusCode.SessionBusy, true)]
     [InlineData(StatusCode.SessionExpired, true)]
     [InlineData(StatusCode.ClientTransportTimeout, true)]
     [InlineData(StatusCode.ClientTransportUnavailable, true)]
     [InlineData(StatusCode.ClientTransportResourceExhausted, true)]
     [InlineData(StatusCode.ClientTransportUnknown, true)]
+    [InlineData(StatusCode.ClientCancelled, true)]
     [InlineData(StatusCode.Overloaded, false)]
-    public async Task OnNotSuccessStatusCode_WhenStatusCodeIsNotSuccess_UpdateIsBroken(StatusCode statusCode,
+    public async Task OnNotSuccessStatusCode_WhenStatusCodeIsNotSuccess_UpdateIsBroken(
+        StatusCode statusCode,
         bool isError)
     {
         SetupSuccessCreateSession();
@@ -103,7 +106,6 @@ public class PoolingSessionTests
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Transport RPC call error", ydbException.Message);
         Assert.Equal(StatusCode.ClientTransportTimeout, ydbException.Code);
-        await Task.Delay(500);
         Assert.True(session.IsBroken);
     }
 
@@ -116,7 +118,6 @@ public class PoolingSessionTests
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Attach stream is not started!", ydbException.Message);
         Assert.Equal(StatusCode.Cancelled, ydbException.Code);
-        await Task.Delay(500);
         Assert.True(session.IsBroken);
     }
 
@@ -137,7 +138,6 @@ public class PoolingSessionTests
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Status: BadSession, Issues:\n[1] Error: Ouch BadSession!", ydbException.Message);
         Assert.Equal(StatusCode.BadSession, ydbException.Code);
-        await Task.Delay(500);
         Assert.True(session.IsBroken);
     }
 
@@ -156,18 +156,19 @@ public class PoolingSessionTests
     }
 
     [Fact]
-    public async Task Open_WhenSuccessOpenThenAttachStreamSendRpcException_IsBroken()
+    public async Task Open_WhenSuccessOpenThenAttachStreamIsCancelled_IsNotBroken()
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _mockAttachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
         tcsSecondMoveAttachStream.SetException(
-            new YdbException(new RpcException(Status.DefaultCancelled))); // attach stream is closed
-        await Task.Delay(500);
-        Assert.True(session.IsBroken);
-        await CheckIsBrokenAndDeleteSessionOneTime(session);
+            new YdbException(new RpcException(Status.DefaultCancelled)));
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(session.IsBroken);
     }
 
     [Fact]
@@ -203,10 +204,10 @@ public class PoolingSessionTests
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
-        session.OnNotSuccessStatusCode(StatusCode.BadSession);
+        tcsSecondMoveAttachStream.TrySetResult(true);
+        await WaitUntilSessionBrokenAfterAttachAsync(session);
         Assert.True(session.IsBroken);
         await CheckIsBrokenAndDeleteSessionNeverTimes(session);
-        tcsSecondMoveAttachStream.TrySetResult(false);
     }
 
     [Fact]
@@ -323,7 +324,7 @@ public class PoolingSessionTests
             It.IsAny<DeleteSessionRequest>(),
             It.IsAny<GrpcRequestSettings>()
         )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
-        await session.DeleteSession();
+        await session.DeleteSession("pool_graceful_shutdown");
         _mockIDriver.Verify(driver => driver.UnaryCall(QueryService.DeleteSessionMethod,
             It.IsAny<DeleteSessionRequest>(), It.IsAny<GrpcRequestSettings>()), Times.Never());
         Assert.True(session.IsBroken);
@@ -336,7 +337,7 @@ public class PoolingSessionTests
             It.Is<DeleteSessionRequest>(request => request.SessionId.Equals(SessionId)),
             It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId)
         )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
-        await session.DeleteSession();
+        await session.DeleteSession("pool_graceful_shutdown");
         _mockIDriver.Verify(driver => driver.UnaryCall(QueryService.DeleteSessionMethod,
             It.IsAny<DeleteSessionRequest>(), It.IsAny<GrpcRequestSettings>()));
         Assert.True(session.IsBroken);
