@@ -1,5 +1,6 @@
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.Tracing;
+using Ydb.Sdk.Ado.Tracing;
+using Ydb.Sdk.Topic.Tracing;
 
 namespace Ydb.Sdk.Internal;
 
@@ -7,6 +8,8 @@ internal static class MetadataSdkBuildInfoExtensions
 {
     private const string TracingChain = ";ydb-sdk-tracing/0.1.0";
     private const string MetricsChain = ";ydb-sdk-metrics/0.1.0";
+
+    private static bool HasTracingListeners => YdbActivitySource.HasListeners || YdbTopicActivitySource.HasListeners;
 
     /// <summary>
     /// Appends the observability adoption chain (<c>ydb-sdk-tracing</c>/<c>ydb-sdk-metrics</c>)
@@ -18,6 +21,6 @@ internal static class MetadataSdkBuildInfoExtensions
         var entry = metadata.Get(Metadata.RpcSdkInfoHeader)!;
         metadata.Remove(entry);
         metadata.Add(Metadata.RpcSdkInfoHeader,
-            $"{entry.Value}{(YdbActivitySource.HasListeners ? TracingChain : string.Empty)}{(YdbMetricsReporter.HasEnabledInstruments ? MetricsChain : string.Empty)}");
+            $"{entry.Value}{(HasTracingListeners ? TracingChain : string.Empty)}{(YdbMetricsReporter.HasEnabledInstruments ? MetricsChain : string.Empty)}");
     }
 }

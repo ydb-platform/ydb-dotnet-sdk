@@ -82,6 +82,20 @@ public class SdkBuildInfoHeaderTests
     }
 
     [Fact]
+    public void AppendObservabilityChain_AddsTracingChain_WhenTopicTracingIsEnabled()
+    {
+        using var provider = OpenTelemetrySdk.CreateTracerProviderBuilder()
+            .AddYdbTopic()
+            .Build();
+
+        var headers = CreateHeadersWithSdkBuildInfo(clientInfo: null);
+        headers.AppendObservabilityChain();
+
+        Assert.Equal($"ydb-dotnet-sdk/{YdbSdkVersion.Value};ydb-sdk-tracing/0.1.0",
+            headers.Get(YdbMetadata.RpcSdkInfoHeader)?.Value);
+    }
+
+    [Fact]
     public void AppendObservabilityChain_AddsMetricsChain_WhenMetricsAreEnabled()
     {
         var exportedItems = new List<Metric>();

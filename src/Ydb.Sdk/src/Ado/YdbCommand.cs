@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Session;
-using Ydb.Sdk.Tracing;
+using Ydb.Sdk.Ado.Tracing;
 
 namespace Ydb.Sdk.Ado;
 
