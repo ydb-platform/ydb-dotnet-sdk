@@ -1,5 +1,6 @@
 - **Breaking Change** ADO.NET tracing: renamed the activity source from `Ydb.Sdk` to `Ydb.Sdk.Ado`.
-- Feat Topic tracing: added the `Ydb.Sdk.Topic` activity source.
+- Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
+  `ydb-sdk-metrics/0.1.0` to `ydb-sdk-metrics/0.2.0`.
 - Feat ADO.NET metrics: added the `ydb.query.session.closed` counter (unit `{session}`) with
   `ydb.query.session.pool.name` and `reason` attributes for server shutdown hints:
   - `node_shutdown` for `NodeShutdown`.
