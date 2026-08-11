@@ -851,8 +851,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        _metricsReporter.ReportOperationFailed(StatusCode.SessionBusy, OperationName);
-        _connection.OnNotSuccessStatusCode(StatusCode.SessionBusy);
+        _metricsReporter.ReportOperationFailed(StatusCode.ClientCancelled, OperationName);
+        _connection.OnNotSuccessStatusCode(StatusCode.ClientCancelled);
         _stream.Dispose();
 
         if (_ydbTransaction != null)

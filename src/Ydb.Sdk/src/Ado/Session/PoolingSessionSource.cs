@@ -257,7 +257,7 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         if (i == _maxPoolSize)
             return;
 
-        _ = session.DeleteSession();
+        _ = session.DeleteSession(IsDisposed ? "pool_graceful_shutdown" : "pool_idle_timeout");
 
         Interlocked.Decrement(ref _numSessions);
 
@@ -296,8 +296,6 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
         await _cleanerTimer.DisposeAsync().ConfigureAwait(false);
         await _disposeCts.CancelAsync().ConfigureAwait(false);
-        MetricsReporter.Dispose();
-
         var sw = Stopwatch.StartNew();
         var spinWait = new SpinWait();
         do
@@ -314,6 +312,8 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
 
             spinWait.SpinOnce();
         } while (_numSessions > 0 && sw.Elapsed < TimeSpan.FromSeconds(DisposeTimeoutSeconds));
+
+        MetricsReporter.Dispose();
 
         try
         {
@@ -377,7 +377,7 @@ internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : 
 
     internal abstract Task Open(CancellationToken cancellationToken);
 
-    internal abstract Task DeleteSession();
+    internal abstract Task DeleteSession(string reason);
 
     public abstract ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,

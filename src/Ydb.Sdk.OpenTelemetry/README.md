@@ -66,7 +66,7 @@ Every `ydb.query.session.*` metric includes **`ydb.query.session.pool.name`** (v
 | `ydb.client.operation.duration`      | Histogram         | `s`           | `database`, `endpoint`, `operation.name`                                   | Latency of each actual `ExecuteQuery`, `Commit`, or `Rollback` attempt.                             |
 | `ydb.client.operation.failed`        | Counter           | `{operation}` | `database`, `endpoint`, `operation.name`, `status_code`                    | Unsuccessful operation attempts.                                                                    |
 | `ydb.query.session.create_time`      | Histogram         | `s`           | `ydb.query.session.pool.name`                                              | Cost of session creation (CreateSession + first AttachStream message).                              |
-| `ydb.query.session.closed`           | Counter           | `{session}`   | `ydb.query.session.pool.name`, `reason`                                    | Sessions closed after a server shutdown hint.                                                       |
+| `ydb.query.session.closed`           | Counter           | `{session}`   | `ydb.query.session.pool.name`, `reason`                                    | Pooled sessions closed, grouped by lifecycle reason.                                                |
 | `ydb.query.session.pending_requests` | Counter           | `{request}`   | `ydb.query.session.pool.name`                                              | Increments when a caller starts waiting for a session; use **rate** (not level) for queue pressure. |
 | `ydb.query.session.timeouts`         | Counter           | `{timeout}`   | `ydb.query.session.pool.name`                                              | Pool could not satisfy demand within the acquisition timeout.                                       |
 | `ydb.query.session.count`            | ObservableGauge   | `{session}`   | `ydb.query.session.pool.name`, `ydb.query.session.state` (`idle` / `used`) | Current pool occupancy.                                                                             |
@@ -74,11 +74,6 @@ Every `ydb.query.session.*` metric includes **`ydb.query.session.pool.name`** (v
 | `ydb.query.session.min`              | ObservableGauge   | `{session}`   | `ydb.query.session.pool.name`                                              | Configured `MinPoolSize` (context).                                                                 |
 
 `database` is the YDB database path; `endpoint` is `host:port` from the connection string.
-
-Supported `ydb.query.session.closed` reasons:
-
-- `node_shutdown` — the server sends a node shutdown hint.
-- `session_shutdown` — the server sends a session shutdown hint.
 
 ## Example
 
