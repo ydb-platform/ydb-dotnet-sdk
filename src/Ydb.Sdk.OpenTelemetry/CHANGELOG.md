@@ -1,3 +1,8 @@
+## v1.1.0
+
+- Feat: Added `TracerProviderBuilder.AddYdbTopic()` for the `Ydb.Sdk.Topic` activity source. `AddYdb()` continues to
+  register the ADO.NET activity source (`Ydb.Sdk`).
+
 ## v1.0.1
 
 - Fix: Replaced `OpenTelemetry` SDK dependency (>= 1.15.0) with `OpenTelemetry.Api` (>= 1.15.3). The package now only
