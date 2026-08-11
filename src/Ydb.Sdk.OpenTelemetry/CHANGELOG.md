@@ -1,7 +1,8 @@
 ## v1.1.0
 
-- Feat: Added `TracerProviderBuilder.AddYdbTopic()` for the `Ydb.Sdk.Topic` activity source. `AddYdb()` continues to
-  register the ADO.NET activity source (`Ydb.Sdk`).
+- **Breaking Change**: The ADO.NET activity source is now `Ydb.Sdk.Ado` instead of `Ydb.Sdk`.
+- Feat: `TracerProviderBuilder.AddYdb()` now registers both `Ydb.Sdk.Ado` and `Ydb.Sdk.Topic`. Use `AddYdbAdo()` or
+  `AddYdbTopic()` to register only one client.
 
 ## v1.0.1
 

@@ -2,8 +2,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk.OpenTelemetry)](https://www.nuget.org/packages/Ydb.Sdk.OpenTelemetry)
 
-OpenTelemetry extension methods for [Ydb.Sdk](https://www.nuget.org/packages/Ydb.Sdk) — registers the `Ydb.Sdk` activity
-source and meter into your OpenTelemetry pipeline.
+OpenTelemetry extension methods for [Ydb.Sdk](https://www.nuget.org/packages/Ydb.Sdk) — registers YDB activity sources
+and the `Ydb.Sdk` meter into your OpenTelemetry pipeline.
 
 ## Installation
 
@@ -21,7 +21,14 @@ services.AddOpenTelemetry()
 
 ## Tracing
 
-ActivitySource name: `Ydb.Sdk`.
+`AddYdb()` registers both activity sources:
+
+- ADO.NET: `Ydb.Sdk.Ado`
+- Topic: `Ydb.Sdk.Topic`
+
+Use `AddYdbAdo()` or `AddYdbTopic()` to register only one client.
+
+ADO.NET spans:
 
 | Span                    | Kind     | Description                                                            |
 |-------------------------|----------|------------------------------------------------------------------------|

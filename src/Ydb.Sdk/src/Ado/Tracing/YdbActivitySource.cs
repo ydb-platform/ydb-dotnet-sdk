@@ -5,7 +5,7 @@ namespace Ydb.Sdk.Ado.Tracing;
 
 internal static class YdbActivitySource
 {
-    private static readonly ActivitySource Instance = new("Ydb.Sdk", YdbSdkVersion.Value);
+    private static readonly ActivitySource Instance = new("Ydb.Sdk.Ado", YdbSdkVersion.Value);
 
     internal static bool HasListeners => Instance.HasListeners();
 

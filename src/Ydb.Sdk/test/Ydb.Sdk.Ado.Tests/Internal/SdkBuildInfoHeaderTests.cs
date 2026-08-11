@@ -5,9 +5,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Xunit;
+using Ydb.Sdk.Ado.Tracing;
 using Ydb.Sdk.Internal;
 using Ydb.Sdk.OpenTelemetry;
 using Ydb.Sdk.Pool;
+using Ydb.Sdk.Topic.Tracing;
 using OpenTelemetrySdk = OpenTelemetry.Sdk;
 using Metadata = Grpc.Core.Metadata;
 using YdbMetadata = Ydb.Sdk.Internal.Metadata;
@@ -68,10 +70,21 @@ public class SdkBuildInfoHeaderTests
     public void YdbSdkVersion_HasNumericDottedFormat() => Assert.Matches(@"^\d+\.\d+\.\d+$", YdbSdkVersion.Value);
 
     [Fact]
-    public void AppendObservabilityChain_AddsTracingChain_WhenTracingIsEnabled()
+    public void AddYdb_EnablesAdoAndTopicTracing()
     {
         using var provider = OpenTelemetrySdk.CreateTracerProviderBuilder()
             .AddYdb()
+            .Build();
+
+        Assert.True(YdbActivitySource.HasListeners);
+        Assert.True(YdbTopicActivitySource.HasListeners);
+    }
+
+    [Fact]
+    public void AppendObservabilityChain_AddsTracingChain_WhenAdoTracingIsEnabled()
+    {
+        using var provider = OpenTelemetrySdk.CreateTracerProviderBuilder()
+            .AddYdbAdo()
             .Build();
 
         var headers = CreateHeadersWithSdkBuildInfo(clientInfo: null);
