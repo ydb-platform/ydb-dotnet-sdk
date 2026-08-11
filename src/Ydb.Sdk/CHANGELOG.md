@@ -1,3 +1,6 @@
+- **Breaking Change** ADO.NET tracing: renamed the activity source from `Ydb.Sdk` to `Ydb.Sdk.Ado`.
+- Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
+  `ydb-sdk-metrics/0.1.0` to `ydb-sdk-metrics/0.2.0`.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 
