@@ -143,7 +143,7 @@ internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> sourc
     public override bool IsBroken => false;
 
     internal override async Task Open(CancellationToken cancellationToken) => await Task.Yield();
-    internal override Task DeleteSession(string reason) => Task.CompletedTask;
+    internal override Task DeleteSession(SessionClosedReason reason) => Task.CompletedTask;
 
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,

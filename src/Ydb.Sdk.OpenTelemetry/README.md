@@ -73,6 +73,21 @@ Every `ydb.query.session.*` metric includes **`ydb.query.session.pool.name`** (v
 | `ydb.query.session.max`              | ObservableGauge   | `{session}`   | `ydb.query.session.pool.name`                                              | Configured `MaxPoolSize` (context).                                                                 |
 | `ydb.query.session.min`              | ObservableGauge   | `{session}`   | `ydb.query.session.pool.name`                                              | Configured `MinPoolSize` (context).                                                                 |
 
+`ydb.query.session.closed` uses these `reason` values:
+
+| Reason                   | Description                                                        |
+|--------------------------|--------------------------------------------------------------------|
+| `pool_idle_timeout`      | The idle-session cleaner removes a session.                        |
+| `pool_graceful_shutdown` | Pool disposal removes a session.                                   |
+| `client_timeout`         | A query stream exceeds its client-side transport timeout.          |
+| `client_cancelled`       | The client closes an unfinished query stream.                      |
+| `attach_closed`          | The server closes the active attach stream.                        |
+| `transport_error`        | A transport failure, including query `Unavailable` or attach failure, retires the session. |
+| `node_shutdown`          | The server sends a node shutdown hint.                             |
+| `session_shutdown`       | The server sends a session shutdown hint.                          |
+| `bad_session`            | The server returns `BadSession` or `SessionExpired`.               |
+| `session_busy`           | The server returns `SessionBusy`.                                  |
+
 `database` is the YDB database path; `endpoint` is `host:port` from the connection string.
 
 ## Example

@@ -62,7 +62,7 @@ internal class MockPoolingSession(
     public override bool IsBroken => _isBroken || mockIsBroken(sessionId);
 
     internal override Task Open(CancellationToken cancellationToken) => mockOpen(sessionId);
-    internal override Task DeleteSession(string reason) => mockDeleteSession();
+    internal override Task DeleteSession(SessionClosedReason reason) => mockDeleteSession();
 
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,

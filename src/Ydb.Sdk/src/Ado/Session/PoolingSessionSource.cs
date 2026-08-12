@@ -257,7 +257,9 @@ internal sealed class PoolingSessionSource<T> : ISessionSource where T : Pooling
         if (i == _maxPoolSize)
             return;
 
-        _ = session.DeleteSession(IsDisposed ? "pool_graceful_shutdown" : "pool_idle_timeout");
+        _ = session.DeleteSession(IsDisposed
+            ? SessionClosedReason.PoolGracefulShutdown
+            : SessionClosedReason.PoolIdleTimeout);
 
         Interlocked.Decrement(ref _numSessions);
 
@@ -355,6 +357,20 @@ internal enum PoolingSessionState
     Clean
 }
 
+internal enum SessionClosedReason
+{
+    PoolIdleTimeout,
+    PoolGracefulShutdown,
+    ClientTimeout,
+    ClientCancelled,
+    AttachClosed,
+    TransportError,
+    NodeShutdown,
+    SessionShutdown,
+    BadSession,
+    SessionBusy
+}
+
 internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : ISession
     where T : PoolingSessionBase<T>
 {
@@ -377,7 +393,7 @@ internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : 
 
     internal abstract Task Open(CancellationToken cancellationToken);
 
-    internal abstract Task DeleteSession(string reason);
+    internal abstract Task DeleteSession(SessionClosedReason reason);
 
     public abstract ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
