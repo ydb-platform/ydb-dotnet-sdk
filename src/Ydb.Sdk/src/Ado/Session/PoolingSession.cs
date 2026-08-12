@@ -102,29 +102,37 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
     public override void OnNotSuccessStatusCode(StatusCode statusCode)
     {
-        _isBadSession = _isBadSession || statusCode is StatusCode.BadSession;
-
-        if (statusCode is
-            StatusCode.BadSession or
-            StatusCode.SessionBusy or
-            StatusCode.SessionExpired or
-            StatusCode.ClientTransportTimeout or
-            StatusCode.ClientTransportUnavailable or
-            StatusCode.ClientTransportResourceExhausted or
-            StatusCode.ClientTransportUnknown or
-            StatusCode.ClientCancelled)
+        SessionClosedReason reason;
+        switch (statusCode)
         {
-            _logger.LogWarning("Session[{SessionId}] is deactivated. Reason Status: {Status}", SessionId, statusCode);
-            BrokenSession(statusCode switch
-            {
-                StatusCode.ClientTransportTimeout => "client_query_timeout",
-                StatusCode.ClientCancelled => "query_stream_cancelled_by_client",
-                _ => "server_error"
-            });
+            case StatusCode.BadSession:
+            case StatusCode.SessionExpired:
+                _isBadSession = true;
+                reason = SessionClosedReason.BadSession;
+                break;
+            case StatusCode.SessionBusy:
+                reason = SessionClosedReason.SessionBusy;
+                break;
+            case StatusCode.ClientTransportTimeout:
+                reason = SessionClosedReason.ClientTimeout;
+                break;
+            case StatusCode.ClientCancelled:
+                reason = SessionClosedReason.ClientCancelled;
+                break;
+            case StatusCode.ClientTransportUnavailable:
+            case StatusCode.ClientTransportResourceExhausted:
+            case StatusCode.ClientTransportUnknown:
+                reason = SessionClosedReason.TransportError;
+                break;
+            default:
+                return;
         }
+
+        _logger.LogWarning("Session[{SessionId}] is deactivated. Reason Status: {Status}", SessionId, statusCode);
+        BrokenSession(reason);
     }
 
-    private void BrokenSession(string reason)
+    private void BrokenSession(SessionClosedReason reason)
     {
         if (Interlocked.CompareExchange(ref _isBroken, 1, 0) == 0)
             MetricsReporter.ReportSessionClosed(reason);
@@ -215,11 +223,11 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                         case SessionState.SessionHintOneofCase.NodeShutdown:
                             Driver.PessimizeNode(NodeId);
                             _isBadSession = true;
-                            BrokenSession("node_shutdown");
+                            BrokenSession(SessionClosedReason.NodeShutdown);
                             break;
                         case SessionState.SessionHintOneofCase.SessionShutdown:
                             _isBadSession = true;
-                            BrokenSession("session_shutdown");
+                            BrokenSession(SessionClosedReason.SessionShutdown);
                             break;
                         case SessionState.SessionHintOneofCase.None:
                         default:
@@ -240,7 +248,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
                 _logger.LogDebug("Session[{SessionId}]: Attached stream is closed", SessionId);
 
-                BrokenSession("attach_stream_closed_by_server");
+                BrokenSession(SessionClosedReason.AttachClosed);
             }
             catch (YdbException e)
             {
@@ -252,12 +260,12 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 }
 
                 _logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", SessionId);
-                BrokenSession("attach_stream_transport_error");
+                BrokenSession(SessionClosedReason.TransportError);
             }
         }
     }
 
-    internal override async Task DeleteSession(string reason)
+    internal override async Task DeleteSession(SessionClosedReason reason)
     {
         try
         {

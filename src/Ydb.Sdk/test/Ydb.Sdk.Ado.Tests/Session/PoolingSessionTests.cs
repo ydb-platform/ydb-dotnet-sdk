@@ -324,7 +324,7 @@ public class PoolingSessionTests
             It.IsAny<DeleteSessionRequest>(),
             It.IsAny<GrpcRequestSettings>()
         )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
-        await session.DeleteSession("pool_graceful_shutdown");
+        await session.DeleteSession(SessionClosedReason.PoolGracefulShutdown);
         _mockIDriver.Verify(driver => driver.UnaryCall(QueryService.DeleteSessionMethod,
             It.IsAny<DeleteSessionRequest>(), It.IsAny<GrpcRequestSettings>()), Times.Never());
         Assert.True(session.IsBroken);
@@ -337,7 +337,7 @@ public class PoolingSessionTests
             It.Is<DeleteSessionRequest>(request => request.SessionId.Equals(SessionId)),
             It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId)
         )).ReturnsAsync(new DeleteSessionResponse { Status = StatusIds.Types.StatusCode.Success });
-        await session.DeleteSession("pool_graceful_shutdown");
+        await session.DeleteSession(SessionClosedReason.PoolGracefulShutdown);
         _mockIDriver.Verify(driver => driver.UnaryCall(QueryService.DeleteSessionMethod,
             It.IsAny<DeleteSessionRequest>(), It.IsAny<GrpcRequestSettings>()));
         Assert.True(session.IsBroken);

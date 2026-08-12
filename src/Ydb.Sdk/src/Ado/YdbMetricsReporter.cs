@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Ado;
@@ -196,8 +197,8 @@ internal sealed class YdbMetricsReporter : IDisposable
 
     internal void ReportPendingConnectionRequestStart() => PendingConnectionRequests.Add(1, _poolNameTag);
 
-    internal void ReportSessionClosed(string reason) =>
-        SessionsClosed.Add(1, _poolNameTag, new KeyValuePair<string, object?>("reason", reason));
+    internal void ReportSessionClosed(SessionClosedReason reason) =>
+        SessionsClosed.Add(1, _poolNameTag, new KeyValuePair<string, object?>("reason", reason.ToMetricValue()));
 
     internal static long ReportConnectionCreateTimeStart() =>
         ConnectionCreateTime.Enabled ? Stopwatch.GetTimestamp() : 0;

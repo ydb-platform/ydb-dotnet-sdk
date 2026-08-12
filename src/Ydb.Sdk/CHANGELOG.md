@@ -6,13 +6,14 @@
 
   - `pool_idle_timeout` — the idle-session cleaner removes a session.
   - `pool_graceful_shutdown` — pool disposal removes a session.
-  - `client_query_timeout` — a query stream exceeds its client-side transport timeout.
-  - `query_stream_cancelled_by_client` — the client closes an unfinished query stream.
-  - `attach_stream_closed_by_server` — the server closes the active attach stream.
-  - `attach_stream_transport_error` — the active attach stream fails in transport.
+  - `client_timeout` — a query stream exceeds its client-side transport timeout.
+  - `client_cancelled` — the client closes an unfinished query stream.
+  - `attach_closed` — the server closes the active attach stream.
+  - `transport_error` — a transport failure, including query `Unavailable` or an attach stream failure, retires the session.
   - `node_shutdown` — the server sends a node shutdown hint.
   - `session_shutdown` — the server sends a session shutdown hint.
-  - `server_error` — a terminal RPC status retires the session.
+  - `bad_session` — the server returns `BadSession` or `SessionExpired`.
+  - `session_busy` — the server returns `SessionBusy`.
 
   Only pooled query sessions publish this metric. Failure of the initial attach handshake does not count as closing an
   active session, and implicit sessions do not publish pool metrics.

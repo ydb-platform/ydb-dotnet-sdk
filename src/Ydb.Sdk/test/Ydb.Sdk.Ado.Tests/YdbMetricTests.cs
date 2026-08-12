@@ -282,13 +282,59 @@ public class YdbMetricTests : TestBase
     }
 
     [Theory]
+    [InlineData(StatusCode.BadSession, "bad_session")]
+    [InlineData(StatusCode.SessionExpired, "bad_session")]
+    [InlineData(StatusCode.SessionBusy, "session_busy")]
+    [InlineData(StatusCode.ClientTransportTimeout, "client_timeout")]
+    [InlineData(StatusCode.ClientCancelled, "client_cancelled")]
+    [InlineData(StatusCode.ClientTransportUnavailable, "transport_error")]
+    [InlineData(StatusCode.ClientTransportResourceExhausted, "transport_error")]
+    [InlineData(StatusCode.ClientTransportUnknown, "transport_error")]
+    public async Task SessionClosed_WhenStatusRetiresSession_ReportsReason(StatusCode statusCode, string reason)
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var settings = CreateConnectionSettings(builder =>
+        {
+            builder.MaxPoolSize = 1;
+            builder.PoolName = $"ado-metrics-session-status-{statusCode}";
+        });
+        var lifecycleAttach = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attachStream = new Mock<IServerStream<SessionState>>(MockBehavior.Strict);
+        attachStream.SetupSequence(stream => stream.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .Returns(lifecycleAttach.Task);
+        attachStream.Setup(stream => stream.Current)
+            .Returns(new SessionState { Status = StatusIds.Types.StatusCode.Success });
+        attachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+
+        var driver = CreatePoolingDriver(attachStream.Object);
+        await using var source = new PoolingSessionSource<PoolingSession>(
+            new PoolingSessionFactory(driver.Object, settings),
+            settings);
+        var session = await source.OpenSession();
+
+        session.OnNotSuccessStatusCode(statusCode);
+        Assert.True(session.IsBroken);
+
+        lifecycleAttach.SetResult(false);
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        session.Dispose();
+
+        meterProvider.ForceFlush();
+        AssertSessionClosed(exportedItems, settings, reason);
+    }
+
+    [Theory]
     [InlineData(false, "eof")]
     [InlineData(false, "hint")]
     [InlineData(false, "error")]
     [InlineData(true, "eof")]
     [InlineData(true, "hint")]
     [InlineData(true, "error")]
-    public async Task SessionClosed_ServerErrorBeforeLateAttachTermination_ReportsOnce(
+    public async Task SessionClosed_SessionBusyBeforeLateAttachTermination_ReportsOnce(
         bool retryable,
         string lateAttachTermination)
     {
@@ -369,7 +415,7 @@ public class YdbMetricTests : TestBase
             await connection.CloseAsync();
             meterProvider.ForceFlush();
 
-            AssertSessionClosed(exportedItems, settings, "server_error");
+            AssertSessionClosed(exportedItems, settings, "session_busy");
             driver.Verify(d => d.UnaryCall(
                 QueryService.DeleteSessionMethod,
                 It.IsAny<DeleteSessionRequest>(),
@@ -382,8 +428,8 @@ public class YdbMetricTests : TestBase
     }
 
     [Theory]
-    [InlineData(false, "attach_stream_closed_by_server")]
-    [InlineData(true, "attach_stream_transport_error")]
+    [InlineData(false, "attach_closed")]
+    [InlineData(true, "transport_error")]
     public async Task SessionClosed_WhenActiveAttachStreamTerminates_ReportsReason(
         bool transportError,
         string reason)
@@ -515,7 +561,7 @@ public class YdbMetricTests : TestBase
             await connection.CloseAsync();
 
             meterProvider.ForceFlush();
-            AssertSessionClosed(exportedItems, settings, "client_query_timeout");
+            AssertSessionClosed(exportedItems, settings, "client_timeout");
         }
         finally
         {
@@ -575,7 +621,7 @@ public class YdbMetricTests : TestBase
             await connection.CloseAsync();
 
             meterProvider.ForceFlush();
-            AssertSessionClosed(exportedItems, settings, "query_stream_cancelled_by_client");
+            AssertSessionClosed(exportedItems, settings, "client_cancelled");
 
             var operationFailed = GetMetric(exportedItems, "ydb.client.operation.failed");
             var point = GetOperationFailedPoint(
