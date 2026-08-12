@@ -197,8 +197,8 @@ internal sealed class YdbMetricsReporter : IDisposable
 
     internal void ReportPendingConnectionRequestStart() => PendingConnectionRequests.Add(1, _poolNameTag);
 
-    internal void ReportSessionClosed(SessionClosedReason reason) => SessionsClosed.Add(1, _poolNameTag,
-        new KeyValuePair<string, object?>("reason", reason.ToMetricValue()));
+    internal void ReportSessionClosed(SessionClosedReason reason) =>
+        SessionsClosed.Add(1, _poolNameTag, new KeyValuePair<string, object?>("reason", reason.ToMetricValue()));
 
     internal static long ReportConnectionCreateTimeStart() =>
         ConnectionCreateTime.Enabled ? Stopwatch.GetTimestamp() : 0;
