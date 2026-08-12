@@ -102,24 +102,34 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
 
     public override void OnNotSuccessStatusCode(StatusCode statusCode)
     {
-        var reason = statusCode switch
+        SessionClosedReason reason;
+        switch (statusCode)
         {
-            StatusCode.BadSession or StatusCode.SessionExpired => SessionClosedReason.BadSession,
-            StatusCode.SessionBusy => SessionClosedReason.SessionBusy,
-            StatusCode.ClientTransportTimeout => SessionClosedReason.ClientTimeout,
-            StatusCode.ClientCancelled => SessionClosedReason.ClientCancelled,
-            StatusCode.ClientTransportUnavailable or
-                StatusCode.ClientTransportResourceExhausted or
-                StatusCode.ClientTransportUnknown => SessionClosedReason.TransportError,
-            _ => (SessionClosedReason?)null
-        };
+            case StatusCode.BadSession:
+            case StatusCode.SessionExpired:
+                _isBadSession = true;
+                reason = SessionClosedReason.BadSession;
+                break;
+            case StatusCode.SessionBusy:
+                reason = SessionClosedReason.SessionBusy;
+                break;
+            case StatusCode.ClientTransportTimeout:
+                reason = SessionClosedReason.ClientTimeout;
+                break;
+            case StatusCode.ClientCancelled:
+                reason = SessionClosedReason.ClientCancelled;
+                break;
+            case StatusCode.ClientTransportUnavailable:
+            case StatusCode.ClientTransportResourceExhausted:
+            case StatusCode.ClientTransportUnknown:
+                reason = SessionClosedReason.TransportError;
+                break;
+            default:
+                return;
+        }
 
-        if (reason == null)
-            return;
-
-        _isBadSession = _isBadSession || reason is SessionClosedReason.BadSession;
         _logger.LogWarning("Session[{SessionId}] is deactivated. Reason Status: {Status}", SessionId, statusCode);
-        BrokenSession(reason.Value);
+        BrokenSession(reason);
     }
 
     private void BrokenSession(SessionClosedReason reason)
