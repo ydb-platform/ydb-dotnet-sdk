@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
 
@@ -369,6 +370,12 @@ internal enum SessionClosedReason
     SessionShutdown,
     BadSession,
     SessionBusy
+}
+
+internal static class SessionClosedReasonExtensions
+{
+    internal static string ToMetricValue(this SessionClosedReason reason) =>
+        JsonNamingPolicy.SnakeCaseLower.ConvertName(reason.ToString());
 }
 
 internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : ISession
