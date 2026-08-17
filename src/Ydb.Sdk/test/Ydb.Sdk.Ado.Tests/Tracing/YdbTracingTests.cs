@@ -82,7 +82,7 @@ public class YdbTracingTests : TestBase
     {
         var activities = new List<Activity>();
         using var listener = new ActivityListener();
-        listener.ShouldListenTo = source => source.Name == "Ydb.Sdk.Ado";
+        listener.ShouldListenTo = source => source.Name == "Ydb.Sdk";
         listener.Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.PropagationData;
         listener.ActivityStopped = activity => activities.Add(activity);
         ActivitySource.AddActivityListener(listener);
@@ -520,7 +520,7 @@ public class YdbTracingTests : TestBase
 
         var listener = new ActivityListener
         {
-            ShouldListenTo = source => source.Name == "Ydb.Sdk.Ado",
+            ShouldListenTo = source => source.Name == "Ydb.Sdk",
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStopped = activity => captured.Add(activity)
         };

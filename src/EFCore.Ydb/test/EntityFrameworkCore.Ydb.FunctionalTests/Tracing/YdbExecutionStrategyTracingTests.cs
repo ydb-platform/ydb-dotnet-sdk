@@ -221,7 +221,7 @@ public class YdbExecutionStrategyTracingTests
         var captured = new List<Activity>();
         var listener = new ActivityListener
         {
-            ShouldListenTo = source => source.Name == "Ydb.Sdk.Ado",
+            ShouldListenTo = source => source.Name == "Ydb.Sdk",
             // ReSharper disable once RedundantLambdaParameterType
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStopped = activity => captured.Add(activity)
