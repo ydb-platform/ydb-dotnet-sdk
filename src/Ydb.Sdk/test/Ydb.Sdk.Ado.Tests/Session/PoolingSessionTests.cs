@@ -146,11 +146,12 @@ public class PoolingSessionTests
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
+        var attachDisposed = SetupAttachStreamDisposal();
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
-        tcsSecondMoveAttachStream.TrySetResult(false); // attach stream is closed
-        await Task.Delay(500);
+        tcsSecondMoveAttachStream.TrySetResult(false);
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(session.IsBroken);
         await CheckIsBrokenAndDeleteSessionOneTime(session);
     }
@@ -160,8 +161,7 @@ public class PoolingSessionTests
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
-        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _mockAttachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+        var attachDisposed = SetupAttachStreamDisposal();
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
@@ -176,11 +176,12 @@ public class PoolingSessionTests
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
+        var attachDisposed = SetupAttachStreamDisposal();
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
-        tcsSecondMoveAttachStream.SetResult(true); // attach stream is closed
-        await Task.Delay(500);
+        tcsSecondMoveAttachStream.SetResult(true);
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await CheckIsBrokenAndDeleteSessionNeverTimes(session);
     }
 
@@ -201,11 +202,12 @@ public class PoolingSessionTests
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
+        var attachDisposed = SetupAttachStreamDisposal();
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
         tcsSecondMoveAttachStream.TrySetResult(true);
-        await WaitUntilSessionBrokenAfterAttachAsync(session);
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(session.IsBroken);
         await CheckIsBrokenAndDeleteSessionNeverTimes(session);
     }
@@ -237,6 +239,7 @@ public class PoolingSessionTests
     {
         SetupSuccessCreateSession();
         _mockIDriver.Setup(driver => driver.PessimizeNode(NodeId));
+        var attachDisposed = SetupAttachStreamDisposal();
 
         _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true)
@@ -252,7 +255,7 @@ public class PoolingSessionTests
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
 
-        await WaitUntilSessionBrokenAfterAttachAsync(session);
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(session.IsBroken);
         _mockIDriver.Verify(driver => driver.PessimizeNode(NodeId), Times.Once());
@@ -262,6 +265,7 @@ public class PoolingSessionTests
     public async Task Open_WhenAttachStreamSendsSessionShutdownHint_DoesNotCallPessimizeNode_BreaksSession()
     {
         SetupSuccessCreateSession();
+        var attachDisposed = SetupAttachStreamDisposal();
 
         _mockAttachStream.SetupSequence(attachStream => attachStream.MoveNextAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true)
@@ -277,7 +281,7 @@ public class PoolingSessionTests
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
 
-        await WaitUntilSessionBrokenAfterAttachAsync(session);
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(session.IsBroken);
         _mockIDriver.Verify(driver => driver.PessimizeNode(It.IsAny<long>()), Times.Never());
@@ -306,15 +310,11 @@ public class PoolingSessionTests
         tcsSecondMoveAttachStream.TrySetResult(false);
     }
 
-    /// <summary>
-    /// <see cref="PoolingSession.Open"/> awaits only the first attach frame; hint handling runs on a background task after that.
-    /// </summary>
-    private static async Task WaitUntilSessionBrokenAfterAttachAsync(PoolingSession session)
+    private TaskCompletionSource SetupAttachStreamDisposal()
     {
-        for (var i = 0; i < 50 && !session.IsBroken; i++)
-        {
-            await Task.Delay(20);
-        }
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _mockAttachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
+        return attachDisposed;
     }
 
     private async Task CheckIsBrokenAndDeleteSessionNeverTimes(PoolingSession session)
