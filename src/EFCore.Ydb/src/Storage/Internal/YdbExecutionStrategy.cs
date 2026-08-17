@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Ydb.Sdk;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.RetryPolicy;
-using Ydb.Sdk.Ado.Tracing;
+using Ydb.Sdk.Tracing;
 
 namespace EntityFrameworkCore.Ydb.Storage.Internal;
 

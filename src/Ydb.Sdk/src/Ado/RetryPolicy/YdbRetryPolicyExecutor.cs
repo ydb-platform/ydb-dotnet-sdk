@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Ydb.Sdk.Ado.Tracing;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado.RetryPolicy;
 

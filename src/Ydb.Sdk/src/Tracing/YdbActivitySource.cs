@@ -1,11 +1,12 @@
 using System.Diagnostics;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Internal;
 
-namespace Ydb.Sdk.Ado.Tracing;
+namespace Ydb.Sdk.Tracing;
 
 internal static class YdbActivitySource
 {
-    private static readonly ActivitySource Instance = new("Ydb.Sdk.Ado", YdbSdkVersion.Value);
+    private static readonly ActivitySource Instance = new("Ydb.Sdk", YdbSdkVersion.Value);
 
     internal static bool HasListeners => Instance.HasListeners();
 

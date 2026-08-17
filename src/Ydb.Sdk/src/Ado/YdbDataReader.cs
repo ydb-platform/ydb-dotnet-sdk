@@ -6,7 +6,7 @@ using Ydb.Issue;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Schema;
-using Ydb.Sdk.Ado.Tracing;
+using Ydb.Sdk.Tracing;
 
 namespace Ydb.Sdk.Ado;
 

@@ -28,6 +28,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Ydb.Sdk\src\Ydb.Sdk.csproj"/>
+        <PackageReference Include="Ydb.Sdk" Version="0.33.3"/>
     </ItemGroup>
 </Project>

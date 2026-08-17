@@ -1,9 +1,3 @@
-## v1.1.0
-
-- **Breaking Change**: The ADO.NET activity source is now `Ydb.Sdk.Ado` instead of `Ydb.Sdk`.
-- Feat: `TracerProviderBuilder.AddYdb()` now registers both `Ydb.Sdk.Ado` and `Ydb.Sdk.Topic`. Use `AddYdbAdo()` or
-  `AddYdbTopic()` to register only one client.
-
 ## v1.0.1
 
 - Fix: Replaced `OpenTelemetry` SDK dependency (>= 1.15.0) with `OpenTelemetry.Api` (>= 1.15.3). The package now only

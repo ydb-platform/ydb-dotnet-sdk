@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Internal;
-using Ydb.Sdk.Ado.Tracing;
+using Ydb.Sdk.Tracing;
 using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 using TransactionControl = Ydb.Query.TransactionControl;
 
