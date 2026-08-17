@@ -176,11 +176,13 @@ public class PoolingSessionTests
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
+        var attachDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _mockAttachStream.Setup(stream => stream.Dispose()).Callback(() => attachDisposed.TrySetResult());
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
-        tcsSecondMoveAttachStream.SetResult(true); // attach stream is closed
-        await Task.Delay(500);
+        tcsSecondMoveAttachStream.SetResult(true);
+        await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await CheckIsBrokenAndDeleteSessionNeverTimes(session);
     }
 
