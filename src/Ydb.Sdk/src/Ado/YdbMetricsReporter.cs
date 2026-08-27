@@ -11,13 +11,13 @@ namespace Ydb.Sdk.Ado;
 internal sealed class YdbMetricsReporter : IDisposable
 {
     private static readonly InstrumentAdvice<double> ShortHistogramAdvice = new()
-        { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] };
+    { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] };
 
     private static readonly InstrumentAdvice<double> RetryDurationAdvice = new()
-        { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30] };
+    { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30] };
 
     private static readonly InstrumentAdvice<int> RetryAttemptsAdvice = new()
-        { HistogramBucketBoundaries = [1, 2, 3, 4, 5, 7, 10, 20] };
+    { HistogramBucketBoundaries = [1, 2, 3, 4, 5, 7, 10, 20] };
 
     // Operation metrics: duration and failures
     private static readonly Histogram<double> OperationDuration;
@@ -46,7 +46,7 @@ internal sealed class YdbMetricsReporter : IDisposable
 
     static YdbMetricsReporter()
     {
-        var meter = new Meter("Ydb.Sdk", YdbSdkVersion.Value);
+        var meter = new Meter("Ydb.Sdk.Ado", YdbSdkVersion.Value);
 
         OperationDuration = meter.CreateHistogram(
             "ydb.client.operation.duration",

@@ -3,7 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/v/Ydb.Sdk.OpenTelemetry)](https://www.nuget.org/packages/Ydb.Sdk.OpenTelemetry)
 
 OpenTelemetry extension methods for [Ydb.Sdk](https://www.nuget.org/packages/Ydb.Sdk) — registers the `Ydb.Sdk` activity
-source and meter into your OpenTelemetry pipeline.
+source and the `Ydb.Sdk.Ado` and `Ydb.Sdk.Topic` meters into your OpenTelemetry pipeline.
 
 ## Installation
 
@@ -18,6 +18,8 @@ services.AddOpenTelemetry()
     .WithTracing(b => b.AddYdb())
     .WithMetrics(b => b.AddYdb());
 ```
+
+To subscribe only to a specific client meter, use `AddYdbAdo()` or `AddYdbTopic()` instead of the metrics `AddYdb()`.
 
 ## Tracing
 
@@ -50,7 +52,12 @@ spans.
 
 ## Metrics (beta)
 
-Meter name: `Ydb.Sdk`.
+Meter names: `Ydb.Sdk.Ado` and `Ydb.Sdk.Topic`. `AddYdb()` subscribes to both; `AddYdbAdo()` and `AddYdbTopic()`
+allow selective subscription.
+
+### ADO.NET
+
+Meter name: `Ydb.Sdk.Ado`.
 
 Every `ydb.query.session.*` metric includes **`ydb.query.session.pool.name`** (via `PoolName` in the connection string; otherwise the full connection string).
 
