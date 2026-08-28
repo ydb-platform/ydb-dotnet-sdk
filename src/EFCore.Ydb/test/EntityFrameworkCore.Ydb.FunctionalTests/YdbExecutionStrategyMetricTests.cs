@@ -122,7 +122,7 @@ public class YdbExecutionStrategyMetricTests
         {
             InstrumentPublished = (instrument, ml) =>
             {
-                if (instrument.Meter.Name != "Ydb.Sdk") return;
+                if (instrument.Meter.Name != "Ydb.Sdk.Ado") return;
                 if (instrument.Name is RetryDurationMetric or RetryAttemptsMetric)
                     ml.EnableMeasurementEvents(instrument);
             }
