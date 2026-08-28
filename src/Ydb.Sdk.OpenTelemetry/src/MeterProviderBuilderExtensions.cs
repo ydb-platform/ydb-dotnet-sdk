@@ -17,7 +17,7 @@ public static class MeterProviderBuilderExtensions
     /// Registers the <see href="https://opentelemetry.io/docs/specs/semconv/database/database-metrics/">database client</see>
     /// meter used by Ydb.Sdk ADO.NET (histograms, counters, connection pool observables).
     /// </summary>
-    public static MeterProviderBuilder AddYdbAdo(this MeterProviderBuilder builder) => builder.AddMeter("Ydb.Sdk.Ado");
+    public static MeterProviderBuilder AddYdbAdo(this MeterProviderBuilder builder) => builder.AddMeter("Ydb.Sdk");
 
     /// <summary>
     /// Registers the meter used by Ydb.Sdk Topic clients.

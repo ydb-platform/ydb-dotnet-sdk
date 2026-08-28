@@ -46,7 +46,7 @@ internal sealed class YdbMetricsReporter : IDisposable
 
     static YdbMetricsReporter()
     {
-        var meter = new Meter("Ydb.Sdk.Ado", YdbSdkVersion.Value);
+        var meter = new Meter("Ydb.Sdk", YdbSdkVersion.Value);
 
         OperationDuration = meter.CreateHistogram(
             "ydb.client.operation.duration",

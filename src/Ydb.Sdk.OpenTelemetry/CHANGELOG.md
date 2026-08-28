@@ -1,8 +1,8 @@
 ## Unreleased
 
-- Breaking: Split the `Ydb.Sdk` meter into `Ydb.Sdk.Ado` and `Ydb.Sdk.Topic`.
+- Added the `Ydb.Sdk.Topic` meter.
 - Added `MeterProviderBuilder.AddYdbAdo()` and `MeterProviderBuilder.AddYdbTopic()` for selective metric registration.
-  `MeterProviderBuilder.AddYdb()` now registers both meters.
+  `MeterProviderBuilder.AddYdb()` now registers the `Ydb.Sdk` ADO meter and the `Ydb.Sdk.Topic` meter.
 
 ## v1.0.1
 

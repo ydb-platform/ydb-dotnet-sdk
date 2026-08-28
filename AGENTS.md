@@ -126,7 +126,7 @@ Retry delay strategy by status code:
 
 #### Metrics (`YdbMetricsReporter`)
 
-One instance per session pool. Meter name: **`Ydb.Sdk.Ado`**.
+One instance per session pool. Meter name: **`Ydb.Sdk`**.
 
 All `ydb.query.session.*` metrics include the attribute **`ydb.query.session.pool.name`** (from the `PoolName` connection string option; defaults to the full connection string).
 
@@ -197,9 +197,9 @@ Pub/Sub client for YDB Topics (similar to Kafka). Key classes: `TopicClient`, `T
 
 ## Key Design Decisions
 
-1. **OpenTelemetry sources are split by signal and client.** Tracing uses the `Ydb.Sdk` activity source. Metrics use
-   the `Ydb.Sdk.Ado` and `Ydb.Sdk.Topic` meters. `MeterProviderBuilder.AddYdb()` subscribes to both meters;
-   `AddYdbAdo()` and `AddYdbTopic()` allow selective subscription.
+1. **OpenTelemetry sources are split only where selective subscription is useful.** Tracing and ADO metrics use
+   `Ydb.Sdk`; Topic metrics use `Ydb.Sdk.Topic`. `MeterProviderBuilder.AddYdb()` subscribes to both meters;
+   `AddYdbAdo()` and `AddYdbTopic()` allow selective metric subscription.
 
 2. **Example projects are not in `YdbSdk.sln`** — this prevents the CI auto-formatter
    (`dotnet format`) from touching example files and causing spurious diffs.
