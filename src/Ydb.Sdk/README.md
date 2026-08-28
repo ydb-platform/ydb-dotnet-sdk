@@ -125,7 +125,7 @@ services.AddOpenTelemetry().WithMetrics(b => b.AddYdb());
 ```
 
 Emitted spans: `ydb.RunWithRetry`, `ydb.Try`, `ydb.ExecuteQuery`, `ydb.Commit`, `ydb.Rollback`, `ydb.CreateSession`.  
-ADO metrics (meter `Ydb.Sdk`): operation histogram/counter use `database`, `endpoint`, `operation.name` (and `status_code` on failures); pool metrics use `ydb.query.session.pool.name`. See [README.md](../Ydb.Sdk.OpenTelemetry/README.md).
+ADO metrics (meter `Ydb.Sdk`): operation histogram/counter use `database`, `endpoint`, `operation.name` (and `status_code` on failures); pool metrics use `ydb.query.session.pool.name`. The metrics `AddYdb()` subscribes to both `Ydb.Sdk` and `Ydb.Sdk.Topic`; use `AddYdbAdo()` or `AddYdbTopic()` for selective subscription. See [README.md](../Ydb.Sdk.OpenTelemetry/README.md).
 
 ## More Examples
 

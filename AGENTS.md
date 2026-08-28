@@ -197,8 +197,9 @@ Pub/Sub client for YDB Topics (similar to Kafka). Key classes: `TopicClient`, `T
 
 ## Key Design Decisions
 
-1. **Single activity source** (`Ydb.Sdk`) for both tracing and metrics. Consumers opt-in via
-   `AddYdb()` extension methods on `TracerProviderBuilder` / `MeterProviderBuilder`.
+1. **OpenTelemetry sources are split only where selective subscription is useful.** Tracing and ADO metrics use
+   `Ydb.Sdk`; Topic metrics use `Ydb.Sdk.Topic`. `MeterProviderBuilder.AddYdb()` subscribes to both meters;
+   `AddYdbAdo()` and `AddYdbTopic()` allow selective metric subscription.
 
 2. **Example projects are not in `YdbSdk.sln`** — this prevents the CI auto-formatter
    (`dotnet format`) from touching example files and causing spurious diffs.

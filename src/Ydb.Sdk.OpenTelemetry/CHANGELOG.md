@@ -1,3 +1,9 @@
+## Unreleased
+
+- Added the `Ydb.Sdk.Topic` meter.
+- Added `MeterProviderBuilder.AddYdbAdo()` and `MeterProviderBuilder.AddYdbTopic()` for selective metric registration.
+  `MeterProviderBuilder.AddYdb()` now registers the `Ydb.Sdk` ADO meter and the `Ydb.Sdk.Topic` meter.
+
 ## v1.0.1
 
 - Fix: Replaced `OpenTelemetry` SDK dependency (>= 1.15.0) with `OpenTelemetry.Api` (>= 1.15.3). The package now only

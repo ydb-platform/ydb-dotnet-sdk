@@ -1014,7 +1014,7 @@ public class YdbMetricTests : TestBase
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
         global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
-            .AddYdb()
+            .AddYdbAdo()
             .AddInMemoryExporter(exportedItems)
             .Build();
 
