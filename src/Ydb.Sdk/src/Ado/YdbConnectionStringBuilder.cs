@@ -778,6 +778,12 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     /// </summary>
     internal string PoolKey => ConnectionString + ClientInfoKeyFragment + ProxyKeyFragment;
 
+    internal string Endpoint => $"{Host}:{Port}";
+
+    string IDriverFactory.Endpoint => Endpoint;
+
+    string IDriverFactory.Database => Database;
+
     string IDriverFactory.GrpcConnectionString =>
         $"UseTls={UseTls};Host={Host};Port={Port};Database={Database};User={User};Password={Password};" +
         $"ConnectTimeout={ConnectTimeout};KeepAlivePingDelay={KeepAlivePingDelay};KeepAlivePingTimeout={KeepAlivePingTimeout};" +
@@ -802,7 +808,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
 
             var address = Proxy is WebProxy webProxy
                 ? webProxy.Address
-                : Proxy.GetProxy(new Uri($"{(UseTls ? "https" : "http")}://{Host}:{Port}/"));
+                : Proxy.GetProxy(new Uri($"{(UseTls ? "https" : "http")}://{Endpoint}/"));
 
             var fragment = $";Proxy={address}";
             if (address is null || Proxy.Credentials is null)

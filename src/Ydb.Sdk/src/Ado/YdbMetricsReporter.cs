@@ -139,7 +139,7 @@ internal sealed class YdbMetricsReporter : IDisposable
         new TagList
         {
             { "database", settings.Database },
-            { "endpoint", $"{settings.Host}:{settings.Port}" }
+            { "endpoint", settings.Endpoint }
         },
         new KeyValuePair<string, object?>("ydb.query.session.pool.name",
             settings.PoolName ?? settings.ConnectionString),

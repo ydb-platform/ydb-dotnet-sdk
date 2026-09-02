@@ -3,43 +3,32 @@ using Microsoft.Extensions.Logging;
 
 namespace Ydb.Sdk.Topic.Reader;
 
-internal class PartitionSession
+internal class PartitionSession(
+    ILogger logger,
+    long partitionSessionId,
+    string topicPath,
+    long partitionId,
+    long commitedOffset)
 {
-    private readonly ILogger _logger;
     private readonly ConcurrentQueue<CommitSending> _waitCommitMessages = new();
 
     private volatile bool _isStopped;
 
-    public PartitionSession(
-        ILogger logger,
-        long partitionSessionId,
-        string topicPath,
-        long partitionId,
-        long commitedOffset)
-    {
-        _logger = logger;
-        PartitionSessionId = partitionSessionId;
-        TopicPath = topicPath;
-        PartitionId = partitionId;
-        PrevEndOffsetMessage = commitedOffset;
-        CommitedOffset = commitedOffset;
-    }
-
     internal bool IsActive => !_isStopped;
 
     // Identifier of partition session. Unique inside one RPC call.
-    internal long PartitionSessionId { get; }
+    internal long PartitionSessionId => partitionSessionId;
 
     // Topic path of partition
-    internal string TopicPath { get; }
+    internal string TopicPath => topicPath;
 
     // Partition identifier
-    internal long PartitionId { get; }
+    internal long PartitionId => partitionId;
 
-    internal long PrevEndOffsetMessage { get; set; }
+    internal long PrevEndOffsetMessage { get; set; } = commitedOffset;
 
     // Each offset up to and including (committed_offset - 1) was fully processed.
-    private long CommitedOffset { get; set; }
+    private long CommitedOffset { get; set; } = commitedOffset;
 
     internal void RegisterCommitRequest(CommitSending commitSending)
     {
@@ -62,24 +51,28 @@ internal class PartitionSession
         }
     }
 
-    internal void HandleCommitedOffset(long commitedOffset)
+    internal long HandleCommitedOffset(long commitedOffset)
     {
         if (CommitedOffset >= commitedOffset)
         {
-            _logger.LogError(
+            logger.LogError(
                 "PartitionSession[{PartitionSessionId}] received CommitOffsetResponse[CommitedOffset={CommitedOffset}] " +
                 "which is not greater than previous committed offset: {PrevCommitedOffset}",
                 PartitionSessionId, commitedOffset, CommitedOffset);
         }
 
         CommitedOffset = commitedOffset;
+        var acknowledgedMessages = 0L;
 
         while (_waitCommitMessages.TryPeek(out var waitCommitTcs) &&
                waitCommitTcs.OffsetsRange.End <= commitedOffset)
         {
             _waitCommitMessages.TryDequeue(out _);
             waitCommitTcs.TcsCommit.SetResult();
+            acknowledgedMessages += waitCommitTcs.OffsetsRange.End - waitCommitTcs.OffsetsRange.Start;
         }
+
+        return acknowledgedMessages;
     }
 
     internal void Stop(long commitedOffset)

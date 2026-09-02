@@ -24,6 +24,7 @@ internal class Reader<TValue> : IReader<TValue>
     private readonly ReaderConfig _config;
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ILogger _logger;
+    private readonly TopicReaderMetrics _metrics;
     private readonly GrpcRequestSettings _readerGrpcRequestSettings = new();
 
     private IDriver? _driver;
@@ -47,6 +48,10 @@ internal class Reader<TValue> : IReader<TValue>
         _config = config;
         _deserializer = deserializer;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Reader<TValue>>();
+        _metrics = new TopicReaderMetrics(
+            _driverFactory.Endpoint,
+            _driverFactory.Database,
+            _config.ConsumerName ?? string.Empty);
 
         _ = Initialize();
     }
@@ -59,6 +64,7 @@ internal class Reader<TValue> : IReader<TValue>
             {
                 if (batchInternalMessage.TryDequeueMessage(out var message))
                 {
+                    _metrics.ReportDelivered(1, message.Topic);
                     return message;
                 }
 
@@ -87,6 +93,11 @@ internal class Reader<TValue> : IReader<TValue>
 
             if (batchInternalMessage.TryPublicBatch(out var batch))
             {
+                if (batch.Batch.Count > 0)
+                {
+                    _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
+                }
+
                 return batch;
             }
         }
@@ -202,7 +213,8 @@ internal class Reader<TValue> : IReader<TValue>
                 await stream.AuthToken().ConfigureAwait(false),
                 _logger,
                 _receivedMessagesChannel.Writer,
-                _deserializer
+                _deserializer,
+                _metrics
             );
         }
         catch (Exception e)
@@ -262,6 +274,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private readonly ChannelWriter<InternalBatchMessages<TValue>> _channelWriter;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
     private readonly IDeserializer<TValue> _deserializer;
+    private readonly TopicReaderMetrics _metrics;
     private readonly Task _runProcessingStreamResponse;
     private readonly Task _runProcessingStreamRequest;
 
@@ -286,7 +299,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         string? lastToken,
         ILogger logger,
         ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
-        IDeserializer<TValue> deserializer
+        IDeserializer<TValue> deserializer,
+        TopicReaderMetrics metrics
     ) : base(
         stream,
         logger,
@@ -298,6 +312,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         _readerConfig = config;
         _channelWriter = channelWriter;
         _deserializer = deserializer;
+        _metrics = metrics;
 
         _runProcessingStreamResponse = RunProcessingStreamResponse();
         _runProcessingStreamRequest = RunProcessingStreamRequest();
@@ -396,7 +411,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             await _channelFromClientMessageSending.Writer
                 .WriteAsync(new MessageFromClient
-                    { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
+                { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
                 .ConfigureAwait(false);
         }
     }
@@ -436,7 +451,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             if (_partitionSessions.TryGetValue(partitionsCommittedOffset.PartitionSessionId,
                     out var partitionSession))
             {
-                partitionSession.HandleCommitedOffset(partitionsCommittedOffset.CommittedOffset);
+                _metrics.ReportCommitAcknowledged(
+                    partitionSession.HandleCommitedOffset(partitionsCommittedOffset.CommittedOffset),
+                    partitionSession.TopicPath);
             }
             else
             {
@@ -467,7 +484,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                 {
                     StopPartitionSessionResponse = new StreamReadMessage.Types.StopPartitionSessionResponse
-                        { PartitionSessionId = partitionSession.PartitionSessionId }
+                    { PartitionSessionId = partitionSession.PartitionSessionId }
                 }).ConfigureAwait(false);
             }
         }
@@ -496,10 +513,10 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             try
             {
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
+                {
+                    CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
                     {
-                        CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
-                        {
-                            CommitOffsets =
+                        CommitOffsets =
                             {
                                 new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
                                 {
@@ -507,9 +524,13 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                                     PartitionSessionId = partitionSessionId
                                 }
                             }
-                        }
                     }
+                }
                 ).ConfigureAwait(false);
+
+                _metrics.ReportCommitQueued(
+                    commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
+                    partitionSession.TopicPath);
             }
             catch (ChannelClosedException)
             {
@@ -550,9 +571,10 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
                 for (var batchIndex = 0; batchIndex < batchCount; batchIndex++)
                 {
+                    var batch = batches[batchIndex];
                     await _channelWriter.WriteAsync(
                         new InternalBatchMessages<TValue>(
-                            batches[batchIndex],
+                            batch,
                             partitionSession,
                             this,
                             Utils.CalculateApproximatelyBytesSize(
@@ -563,6 +585,10 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                             _deserializer
                         )
                     ).ConfigureAwait(false);
+
+                    _metrics.ReportReceived(
+                        batch.MessageData.Count,
+                        partitionSession.TopicPath);
                 }
             }
             else
