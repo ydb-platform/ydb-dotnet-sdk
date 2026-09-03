@@ -139,6 +139,7 @@ public class TopicReaderMetricsTests
         await batchCommitTask.WaitAsync(timeout);
         Assert.Equal(2, await acknowledgedMetrics.Reader.ReadAsync().AsTask().WaitAsync(timeout));
         AssertMetricValues(2);
+        return;
 
         void AssertMetricValues(long value)
         {
@@ -179,7 +180,7 @@ public class TopicReaderMetricsTests
         listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
         {
             var metricTags = tags.ToArray();
-            if (metricTags.Any(tag => tag.Key == "consumer" && Equals(tag.Value, "Metrics Consumer")))
+            if (metricTags.Any(tag => tag is { Key: "consumer", Value: "Metrics Consumer" }))
             {
                 measurements.Enqueue(new Measurement(instrument.Name, value, metricTags));
                 if (instrument.Name == MetricNames[3])
