@@ -5,7 +5,6 @@ using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Moq;
 using Xunit;
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic.Reader;
 using Ydb.Topic;
 
@@ -30,21 +29,19 @@ public class TopicReaderMetricsTests
     {
         var instruments = new List<Instrument>();
         var measurements = new List<Measurement>();
-        using var listener = new MeterListener
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
         {
-            InstrumentPublished = (instrument, meterListener) =>
+            if (instrument.Meter.Name == "Ydb.Sdk" && MetricNames.Contains(instrument.Name))
             {
-                if (instrument.Meter.Name == "Ydb.Sdk" && MetricNames.Contains(instrument.Name))
-                {
-                    instruments.Add(instrument);
-                    meterListener.EnableMeasurementEvents(instrument);
-                }
+                instruments.Add(instrument);
+                meterListener.EnableMeasurementEvents(instrument);
             }
         };
         listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
         {
             var metricTags = tags.ToArray();
-            if (metricTags.Contains(new KeyValuePair<string, object?>("consumer", "orders-consumer")))
+            if (metricTags.Any(tag => tag.Key == "consumer" && Equals(tag.Value, "orders-consumer")))
             {
                 measurements.Add(new Measurement(instrument.Name, value, metricTags));
             }
@@ -148,9 +145,12 @@ public class TopicReaderMetricsTests
         Assert.Equal(4, MetricValue(MetricNames[3]));
         Assert.All(measurements, measurement => AssertTags(measurement, "/topic", "Metrics Consumer"));
 
-        long MetricValue(string name) => measurements
-            .Where(measurement => measurement.InstrumentName == name)
-            .Sum(measurement => measurement.Value);
+        long MetricValue(string name)
+        {
+            return measurements
+                .Where(measurement => measurement.InstrumentName == name)
+                .Sum(measurement => measurement.Value);
+        }
     }
 
     private static void AssertMeasurement(Measurement measurement, string name, long value)
@@ -175,7 +175,7 @@ public class TopicReaderMetricsTests
         listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
         {
             var metricTags = tags.ToArray();
-            if (metricTags.Contains(new KeyValuePair<string, object?>("consumer", "Metrics Consumer")))
+            if (metricTags.Any(tag => tag.Key == "consumer" && Equals(tag.Value, "Metrics Consumer")))
             {
                 measurements.Enqueue(new Measurement(instrument.Name, value, metricTags));
             }
@@ -184,13 +184,18 @@ public class TopicReaderMetricsTests
         return listener;
     }
 
-    private static void AssertTags(Measurement measurement, string topic, string consumer)
+    private static void AssertTags(Measurement measurement, string topic, string consumer) => Assert.Collection(
+        measurement.Tags,
+        tag => AssertTag(tag, "endpoint", "localhost:2136"),
+        tag => AssertTag(tag, "database", "/local"),
+        tag => AssertTag(tag, "topic", topic),
+        tag => AssertTag(tag, "consumer", consumer)
+    );
+
+    private static void AssertTag(KeyValuePair<string, object?> tag, string key, string value)
     {
-        Assert.Collection(measurement.Tags,
-            tag => Assert.Equal(new KeyValuePair<string, object?>("endpoint", "localhost:2136"), tag),
-            tag => Assert.Equal(new KeyValuePair<string, object?>("database", "/local"), tag),
-            tag => Assert.Equal(new KeyValuePair<string, object?>("topic", topic), tag),
-            tag => Assert.Equal(new KeyValuePair<string, object?>("consumer", consumer), tag));
+        Assert.Equal(key, tag.Key);
+        Assert.Equal(value, tag.Value);
     }
 
     private static FromServer InitResponse() => new()
@@ -206,7 +211,7 @@ public class TopicReaderMetricsTests
         {
             PartitionOffsets = new OffsetsRange { End = 1000 },
             PartitionSession = new StreamReadMessage.Types.PartitionSession
-            { Path = "/topic", PartitionId = 1, PartitionSessionId = 1 }
+                { Path = "/topic", PartitionId = 1, PartitionSessionId = 1 }
         }
     };
 

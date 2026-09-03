@@ -411,7 +411,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             await _channelFromClientMessageSending.Writer
                 .WriteAsync(new MessageFromClient
-                { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
+                    { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
                 .ConfigureAwait(false);
         }
     }
@@ -484,7 +484,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                 {
                     StopPartitionSessionResponse = new StreamReadMessage.Types.StopPartitionSessionResponse
-                    { PartitionSessionId = partitionSession.PartitionSessionId }
+                        { PartitionSessionId = partitionSession.PartitionSessionId }
                 }).ConfigureAwait(false);
             }
         }
@@ -513,10 +513,10 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             try
             {
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
-                {
-                    CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
                     {
-                        CommitOffsets =
+                        CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
+                        {
+                            CommitOffsets =
                             {
                                 new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
                                 {
@@ -524,8 +524,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                                     PartitionSessionId = partitionSessionId
                                 }
                             }
+                        }
                     }
-                }
                 ).ConfigureAwait(false);
 
                 _metrics.ReportCommitQueued(
