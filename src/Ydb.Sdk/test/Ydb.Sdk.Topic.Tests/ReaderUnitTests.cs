@@ -8,6 +8,7 @@ using Ydb.Issue;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic.Reader;
 using Ydb.Topic;
+using static Ydb.Sdk.Topic.Tests.ReaderTestUtils;
 using Range = Moq.Range;
 
 namespace Ydb.Sdk.Topic.Tests;
@@ -18,12 +19,6 @@ using FromServer = StreamReadMessage.Types.FromServer;
 
 public class ReaderUnitTests
 {
-    private static readonly FromServer InitResponseFromServer = new()
-    {
-        Status = StatusIds.Types.StatusCode.Success,
-        InitResponse = new StreamReadMessage.Types.InitResponse { SessionId = "SessionId" }
-    };
-
     private readonly IDriverFactoryMock _driverFactoryMock;
     private readonly Mock<ReaderStream> _mockStream = new();
     private readonly Task<bool> _lastMoveNext;
@@ -105,7 +100,7 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(0, BitConverter.GetBytes(100)))
             .Returns(CommitOffsetResponse());
@@ -198,7 +193,7 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest(20))
             .Returns(ReadResponse(20, Encoding.UTF8.GetBytes("Hello World!")))
             .Returns(CommitOffsetResponse(21));
@@ -302,7 +297,7 @@ public class ReaderUnitTests
                 Status = StatusIds.Types.StatusCode.BadSession,
                 Issues = { new IssueMessage { Message = "Some message" } }
             })
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest(10))
             .Returns(ReadResponse(10, "First"u8.ToArray(), "Second"u8.ToArray()))
             .Returns(CommitOffsetResponse(12));
@@ -453,8 +448,8 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(0, BitConverter.GetBytes(0L), BitConverter.GetBytes(1L), BitConverter.GetBytes(2L)))
             .Returns(CommitOffsetResponse(3));
@@ -597,9 +592,9 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest(100))
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest(100))
             .Returns(ReadResponse(100, BitConverter.GetBytes(1L), BitConverter.GetBytes(2L), BitConverter.GetBytes(3L)))
             .Returns(CommitOffsetResponse(101))
@@ -752,10 +747,10 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(100, BitConverter.GetBytes(100L)))
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(100, BitConverter.GetBytes(100L)))
             .Returns(CommitOffsetResponse(101));
@@ -888,10 +883,10 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(100, Encoding.UTF8.GetBytes("Hello"), Encoding.UTF8.GetBytes("World!")))
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(100, Encoding.UTF8.GetBytes("Hello"), Encoding.UTF8.GetBytes("World!")))
             .Returns(CommitOffsetResponse(102));
@@ -1064,10 +1059,10 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(readResponseWithGaps)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(readResponseWithGaps)
             .Returns(CommitOffsetResponse(102));
@@ -1198,10 +1193,10 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(20, bytes, bytes, bytes))
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(20, bytes, bytes, bytes))
             .Returns(CommitOffsetResponse(10))
@@ -1303,7 +1298,7 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(0, BitConverter.GetBytes(100), BitConverter.GetBytes(100)))
             .Returns(new FromServer
@@ -1391,7 +1386,7 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(0, BitConverter.GetBytes(100)));
 
@@ -1467,7 +1462,7 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(0, BitConverter.GetBytes(100)))
             .Returns(CommitOffsetResponse());
@@ -1534,7 +1529,7 @@ public class ReaderUnitTests
             .Returns(_lastMoveNext);
 
         _mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponseFromServer)
+            .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse(0, BitConverter.GetBytes(100), BitConverter.GetBytes(1000)))
             .Returns(CommitOffsetResponse());
@@ -1587,64 +1582,4 @@ public class ReaderUnitTests
         public int Deserialize(byte[] data) => throw new Exception("Some serialize exception");
     }
 
-    private static FromServer StartPartitionSessionRequest(int commitedOffset = 0) => new()
-    {
-        Status = StatusIds.Types.StatusCode.Success,
-        StartPartitionSessionRequest = new StreamReadMessage.Types.StartPartitionSessionRequest
-        {
-            CommittedOffset = commitedOffset,
-            PartitionOffsets = new OffsetsRange { Start = commitedOffset, End = commitedOffset + 1000 },
-            PartitionSession = new StreamReadMessage.Types.PartitionSession
-                { Path = "/topic", PartitionId = 1, PartitionSessionId = 1 }
-        }
-    };
-
-    private static FromServer ReadResponse(int commitedOffset = 0, params byte[][] args)
-    {
-        var batch = new StreamReadMessage.Types.ReadResponse.Types.Batch
-        {
-            ProducerId = "ProducerId"
-        };
-
-        foreach (var arg in args)
-        {
-            batch.MessageData.Add(
-                new StreamReadMessage.Types.ReadResponse.Types.MessageData
-                {
-                    Data = ByteString.CopyFrom(arg),
-                    Offset = commitedOffset++,
-                    CreatedAt = new Timestamp()
-                }
-            );
-        }
-
-        return new FromServer
-        {
-            Status = StatusIds.Types.StatusCode.Success,
-            ReadResponse = new StreamReadMessage.Types.ReadResponse
-            {
-                BytesSize = 50, PartitionData =
-                {
-                    new StreamReadMessage.Types.ReadResponse.Types.PartitionData
-                    {
-                        PartitionSessionId = 1,
-                        Batches = { batch }
-                    }
-                }
-            }
-        };
-    }
-
-    private static FromServer CommitOffsetResponse(int committedOffset = 1) => new()
-    {
-        Status = StatusIds.Types.StatusCode.Success,
-        CommitOffsetResponse = new StreamReadMessage.Types.CommitOffsetResponse
-        {
-            PartitionsCommittedOffsets =
-            {
-                new StreamReadMessage.Types.CommitOffsetResponse.Types.PartitionCommittedOffset
-                    { PartitionSessionId = 1, CommittedOffset = committedOffset }
-            }
-        }
-    };
 }

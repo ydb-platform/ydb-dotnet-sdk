@@ -48,9 +48,7 @@ internal class Reader<TValue> : IReader<TValue>
         _config = config;
         _deserializer = deserializer;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Reader<TValue>>();
-        _metrics = new TopicReaderMetrics(
-            _driverFactory.Endpoint,
-            _driverFactory.Database,
+        _metrics = new TopicReaderMetrics(_driverFactory.Endpoint, _driverFactory.Database,
             _config.ConsumerName ?? string.Empty);
 
         _ = Initialize();
@@ -93,11 +91,7 @@ internal class Reader<TValue> : IReader<TValue>
 
             if (batchInternalMessage.TryPublicBatch(out var batch))
             {
-                if (batch.Batch.Count > 0)
-                {
-                    _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
-                }
-
+                _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
                 return batch;
             }
         }
@@ -586,9 +580,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                         )
                     ).ConfigureAwait(false);
 
-                    _metrics.ReportReceived(
-                        batch.MessageData.Count,
-                        partitionSession.TopicPath);
+                    _metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
                 }
             }
             else

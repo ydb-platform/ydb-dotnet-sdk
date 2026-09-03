@@ -80,6 +80,12 @@ internal class InternalBatchMessages<TValue>(
             messages.Add(message);
         }
 
+        if (messages.Count == 0)
+        {
+            batchMessages = null;
+            return false;
+        }
+
         batchMessages = new BatchMessages<TValue>(
             batch: messages,
             readerSession: readerSession,

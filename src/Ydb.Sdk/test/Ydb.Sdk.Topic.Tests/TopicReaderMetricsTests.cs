@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
-using Google.Protobuf;
-using Google.Protobuf.WellKnownTypes;
+using System.Threading.Channels;
 using Grpc.Core;
 using Moq;
 using Xunit;
 using Ydb.Sdk.Topic.Reader;
 using Ydb.Topic;
+using static Ydb.Sdk.Topic.Tests.ReaderTestUtils;
 
 namespace Ydb.Sdk.Topic.Tests;
 
@@ -69,10 +69,11 @@ public class TopicReaderMetricsTests
     }
 
     [Fact]
-    public async Task ReaderLifecycle_RecordsExpectedCountersForRepeatedCommitAndAcknowledgement()
+    public async Task ReaderLifecycle_RecordsCountersForMessageAndBatch()
     {
         var measurements = new ConcurrentQueue<Measurement>();
-        using var listener = CreateReaderMetricsListener(measurements);
+        var acknowledgedMetrics = Channel.CreateUnbounded<long>();
+        using var listener = CreateReaderMetricsListener(measurements, acknowledgedMetrics.Writer);
         var mockStream = new Mock<ReaderStream>();
         var mockDriver = new Mock<IDriver>();
         mockDriver.Setup(driver => driver.BidirectionalStreamCall(
@@ -83,50 +84,36 @@ public class TopicReaderMetricsTests
         mockDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
         var driverFactory = new IDriverFactoryMock(mockDriver, "Reader_Metrics");
         var lastMoveNext = new TaskCompletionSource<bool>();
+        var firstCommitReady = new TaskCompletionSource<bool>();
+        var secondReadReady = new TaskCompletionSource<bool>();
+        var batchCommitReady = new TaskCompletionSource<bool>();
         mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
         {
             lastMoveNext.TrySetResult(false);
+            firstCommitReady.TrySetResult(false);
+            secondReadReady.TrySetResult(false);
+            batchCommitReady.TrySetResult(false);
             return Task.CompletedTask;
         });
-        var readResponseReady = new TaskCompletionSource<bool>();
-        var commitsReady = new TaskCompletionSource<bool>();
-        var duplicateAckHandled = new TaskCompletionSource();
 
-        mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
-            .Returns(Task.CompletedTask)
-            .Returns(Task.CompletedTask)
-            .Returns(() =>
-            {
-                readResponseReady.SetResult(true);
-                return Task.CompletedTask;
-            })
-            .Returns(Task.CompletedTask)
-            .Returns(() =>
-            {
-                commitsReady.SetResult(true);
-                return Task.CompletedTask;
-            });
+        mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
 
         mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .Returns(readResponseReady.Task)
-            .Returns(commitsReady.Task)
             .ReturnsAsync(true)
-            .ReturnsAsync(true)
-            .Returns(() =>
-            {
-                duplicateAckHandled.SetResult();
-                return lastMoveNext.Task;
-            });
+            .Returns(firstCommitReady.Task)
+            .Returns(secondReadReady.Task)
+            .Returns(batchCommitReady.Task)
+            .Returns(lastMoveNext.Task);
 
         mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponse())
             .Returns(StartPartitionSessionRequest())
-            .Returns(ReadResponse("First"u8.ToArray(), "Second"u8.ToArray()))
-            .Returns(CommitOffsetResponse(2))
-            .Returns(CommitOffsetResponse(2))
-            .Returns(CommitOffsetResponse(1));
+            .Returns(ReadResponse("First"u8.ToArray()))
+            .Returns(CommitOffsetResponse())
+            .Returns(ReadResponse(1, "Second"u8.ToArray(), "Third"u8.ToArray()))
+            .Returns(CommitOffsetResponse(3));
 
         await using var reader = new ReaderBuilder<string>(driverFactory)
         {
@@ -135,15 +122,30 @@ public class TopicReaderMetricsTests
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
 
-        var batch = await reader.ReadBatchAsync();
-        await Task.WhenAll(batch.CommitBatchAsync(), batch.CommitBatchAsync());
-        await duplicateAckHandled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var timeout = TimeSpan.FromSeconds(5);
+        var message = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+        var commitTask = message.CommitAsync();
+        firstCommitReady.SetResult(true);
+        await commitTask.WaitAsync(timeout);
+        Assert.Equal(1, await acknowledgedMetrics.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        AssertMetricValues(1);
 
-        Assert.Equal(2, MetricValue(MetricNames[0]));
-        Assert.Equal(2, MetricValue(MetricNames[1]));
-        Assert.Equal(4, MetricValue(MetricNames[2]));
-        Assert.Equal(4, MetricValue(MetricNames[3]));
-        Assert.All(measurements, measurement => AssertTags(measurement, "/topic", "Metrics Consumer"));
+        measurements.Clear();
+        secondReadReady.SetResult(true);
+
+        var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
+        var batchCommitTask = batch.CommitBatchAsync();
+        batchCommitReady.SetResult(true);
+        await batchCommitTask.WaitAsync(timeout);
+        Assert.Equal(2, await acknowledgedMetrics.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        AssertMetricValues(2);
+
+        void AssertMetricValues(long value)
+        {
+            Assert.All(MetricNames, name => Assert.Equal(value, MetricValue(name)));
+            Assert.Equal(MetricNames.Length, measurements.Count);
+            Assert.All(measurements, measurement => AssertTags(measurement, "/topic", "Metrics Consumer"));
+        }
 
         long MetricValue(string name)
         {
@@ -160,7 +162,9 @@ public class TopicReaderMetricsTests
         AssertTags(measurement, "/orders", "orders-consumer");
     }
 
-    private static MeterListener CreateReaderMetricsListener(ConcurrentQueue<Measurement> measurements)
+    private static MeterListener CreateReaderMetricsListener(
+        ConcurrentQueue<Measurement> measurements,
+        ChannelWriter<long> acknowledgedMetrics)
     {
         var listener = new MeterListener
         {
@@ -178,6 +182,10 @@ public class TopicReaderMetricsTests
             if (metricTags.Any(tag => tag.Key == "consumer" && Equals(tag.Value, "Metrics Consumer")))
             {
                 measurements.Enqueue(new Measurement(instrument.Name, value, metricTags));
+                if (instrument.Name == MetricNames[3])
+                {
+                    acknowledgedMetrics.TryWrite(value);
+                }
             }
         });
         listener.Start();
@@ -197,64 +205,6 @@ public class TopicReaderMetricsTests
         Assert.Equal(key, tag.Key);
         Assert.Equal(value, tag.Value);
     }
-
-    private static FromServer InitResponse() => new()
-    {
-        Status = StatusIds.Types.StatusCode.Success,
-        InitResponse = new StreamReadMessage.Types.InitResponse { SessionId = "SessionId" }
-    };
-
-    private static FromServer StartPartitionSessionRequest() => new()
-    {
-        Status = StatusIds.Types.StatusCode.Success,
-        StartPartitionSessionRequest = new StreamReadMessage.Types.StartPartitionSessionRequest
-        {
-            PartitionOffsets = new OffsetsRange { End = 1000 },
-            PartitionSession = new StreamReadMessage.Types.PartitionSession
-                { Path = "/topic", PartitionId = 1, PartitionSessionId = 1 }
-        }
-    };
-
-    private static FromServer ReadResponse(params byte[][] messages)
-    {
-        var batch = new StreamReadMessage.Types.ReadResponse.Types.Batch { ProducerId = "ProducerId" };
-        for (var offset = 0; offset < messages.Length; offset++)
-        {
-            batch.MessageData.Add(new StreamReadMessage.Types.ReadResponse.Types.MessageData
-            {
-                Data = ByteString.CopyFrom(messages[offset]),
-                Offset = offset,
-                CreatedAt = new Timestamp()
-            });
-        }
-
-        return new FromServer
-        {
-            Status = StatusIds.Types.StatusCode.Success,
-            ReadResponse = new StreamReadMessage.Types.ReadResponse
-            {
-                BytesSize = 50,
-                PartitionData =
-                {
-                    new StreamReadMessage.Types.ReadResponse.Types.PartitionData
-                        { PartitionSessionId = 1, Batches = { batch } }
-                }
-            }
-        };
-    }
-
-    private static FromServer CommitOffsetResponse(int committedOffset) => new()
-    {
-        Status = StatusIds.Types.StatusCode.Success,
-        CommitOffsetResponse = new StreamReadMessage.Types.CommitOffsetResponse
-        {
-            PartitionsCommittedOffsets =
-            {
-                new StreamReadMessage.Types.CommitOffsetResponse.Types.PartitionCommittedOffset
-                    { PartitionSessionId = 1, CommittedOffset = committedOffset }
-            }
-        }
-    };
 
     private sealed record Measurement(
         string InstrumentName,
