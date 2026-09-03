@@ -6,16 +6,20 @@ using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Update;
 
-// Tests:
-// Ignore_before_save_property_is_still_generated_graph,
-// Ignore_before_save_property_is_still_generated,
-// SaveChanges_processes_all_tracked_entities.
-// They're failing, but I cannot ignore them because they're not virtual
+/// <summary>
+/// Tests for update operations in YDB provider.
+/// Note: Some tests fail due to non-virtual methods that cannot be overridden:
+/// - Ignore_before_save_property_is_still_generated_graph
+/// - Ignore_before_save_property_is_still_generated
+/// - SaveChanges_processes_all_tracked_entities
+/// 
+/// These represent YDB provider implementation gaps where update behavior differs.
+/// YDB also doesn't enforce foreign key constraints, affecting some update scenarios.
+/// </summary>
 #pragma warning disable xUnit1000
-internal class UpdatesYdbTest
+public class UpdatesYdbTest
 #pragma warning restore xUnit1000
     : UpdatesRelationalTestBase<UpdatesYdbTest.UpdatesYdbFixture>
-// , UpdatesTestBase<UpdatesYdbTest.UpdatesYdbFixture>
 {
     public UpdatesYdbTest(UpdatesYdbFixture fixture) : base(fixture)
     {
@@ -29,7 +33,7 @@ internal class UpdatesYdbTest
 
     public override void Identifiers_are_generated_correctly()
     {
-        // TODO: implement later
+        // Skip: YDB provider implementation - identifier generation needs implementation
     }
 
     public override Task SaveChanges_throws_for_entities_only_mapped_to_view()
