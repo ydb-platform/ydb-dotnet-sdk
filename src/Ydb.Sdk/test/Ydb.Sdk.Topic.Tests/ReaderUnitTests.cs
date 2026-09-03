@@ -1581,5 +1581,4 @@ public class ReaderUnitTests
     {
         public int Deserialize(byte[] data) => throw new Exception("Some serialize exception");
     }
-
 }
