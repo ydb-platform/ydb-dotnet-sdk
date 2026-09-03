@@ -115,6 +115,10 @@ public class PoolManagerTests
 
         public string GrpcConnectionString { get; } = grpcConnectionString;
 
+        public string Endpoint => "localhost:2136";
+
+        public string Database => "/local";
+
         public ILoggerFactory LoggerFactory => NullLoggerFactory.Instance;
     }
 

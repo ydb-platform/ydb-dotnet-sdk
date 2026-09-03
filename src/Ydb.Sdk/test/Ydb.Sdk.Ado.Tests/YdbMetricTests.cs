@@ -25,8 +25,6 @@ public class YdbMetricTests : TestBase
         PoolName = "ado-metrics-tests"
     };
 
-    private static string EndpointFor(YdbConnectionStringBuilder settings) => $"{settings.Host}:{settings.Port}";
-
     [Fact]
     public async Task OperationDuration()
     {
@@ -62,7 +60,7 @@ public class YdbMetricTests : TestBase
 
         var tags = ToDictionary(points["ExecuteQuery"].Tags);
         Assert.Equal(settings.Database, tags["database"]);
-        Assert.Equal(EndpointFor(settings), tags["endpoint"]);
+        Assert.Equal(settings.Endpoint, tags["endpoint"]);
         Assert.Equal("ExecuteQuery", tags["operation.name"]);
     }
 
@@ -127,7 +125,7 @@ public class YdbMetricTests : TestBase
 
         var tags = ToDictionary(point.Tags);
         Assert.Equal(settings.Database, tags["database"]);
-        Assert.Equal(EndpointFor(settings), tags["endpoint"]);
+        Assert.Equal(settings.Endpoint, tags["endpoint"]);
         Assert.Equal("ExecuteQuery", tags["operation.name"]);
         Assert.NotNull(tags["status_code"]);
     }
@@ -1142,7 +1140,7 @@ public class YdbMetricTests : TestBase
             var tags = ToDictionary(point.Tags);
             if (string.Equals(tags.GetValueOrDefault("database") as string, settings.Database,
                     StringComparison.Ordinal) &&
-                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(settings),
+                string.Equals(tags.GetValueOrDefault("endpoint") as string, settings.Endpoint,
                     StringComparison.Ordinal) &&
                 string.Equals(tags.GetValueOrDefault("operation.name") as string, operationName,
                     StringComparison.Ordinal) &&
@@ -1184,7 +1182,7 @@ public class YdbMetricTests : TestBase
             var tags = ToDictionary(point.Tags);
             if (string.Equals(tags.GetValueOrDefault("database") as string, BaseConnectionSettings.Database,
                     StringComparison.Ordinal) &&
-                string.Equals(tags.GetValueOrDefault("endpoint") as string, EndpointFor(BaseConnectionSettings),
+                string.Equals(tags.GetValueOrDefault("endpoint") as string, BaseConnectionSettings.Endpoint,
                     StringComparison.Ordinal))
             {
                 yield return point;
