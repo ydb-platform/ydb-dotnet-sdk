@@ -8,23 +8,25 @@ using FromServer = StreamReadMessage.Types.FromServer;
 
 internal static class ReaderTestUtils
 {
-    internal static FromServer InitResponse() => new()
+    internal static FromServer InitResponse { get; } = new()
     {
         Status = StatusIds.Types.StatusCode.Success,
         InitResponse = new StreamReadMessage.Types.InitResponse { SessionId = "SessionId" }
     };
 
-    internal static FromServer StartPartitionSessionRequest(int committedOffset = 0) => new()
-    {
-        Status = StatusIds.Types.StatusCode.Success,
-        StartPartitionSessionRequest = new StreamReadMessage.Types.StartPartitionSessionRequest
+    internal static FromServer StartPartitionSessionRequest(
+        int committedOffset = 0,
+        long partitionSessionId = 1) => new()
         {
-            CommittedOffset = committedOffset,
-            PartitionOffsets = new OffsetsRange { Start = committedOffset, End = committedOffset + 1000 },
-            PartitionSession = new StreamReadMessage.Types.PartitionSession
-                { Path = "/topic", PartitionId = 1, PartitionSessionId = 1 }
-        }
-    };
+            Status = StatusIds.Types.StatusCode.Success,
+            StartPartitionSessionRequest = new StreamReadMessage.Types.StartPartitionSessionRequest
+            {
+                CommittedOffset = committedOffset,
+                PartitionOffsets = new OffsetsRange { Start = committedOffset, End = committedOffset + 1000 },
+                PartitionSession = new StreamReadMessage.Types.PartitionSession
+                { Path = "/topic", PartitionId = partitionSessionId, PartitionSessionId = partitionSessionId }
+            }
+        };
 
     internal static FromServer ReadResponse(params byte[][] messages) => ReadResponse(0, messages);
 
