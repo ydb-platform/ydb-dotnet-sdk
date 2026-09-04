@@ -73,15 +73,15 @@ public class ReaderMetricsReporterTests
             return Task.CompletedTask;
         });
 
-        ReaderSession<string>? session = null;
+        var sessionHolder = new ReaderSession<string>?[1];
         var metrics = new ReaderMetricsReporter(
             endpoint: "logical.ydb.test:2136",
             database: "/normalized/database",
             consumer: "partition-count-consumer",
             readerName: "partition-count-reader",
-            readerStats: () => new ReaderStats(session?.PartitionSessionCount ?? 0));
+            readerStats: () => new ReaderStats(sessionHolder[0]?.PartitionSessionCount ?? 0));
         var channel = Channel.CreateUnbounded<InternalBatchMessages<string>>();
-        session = new ReaderSession<string>(
+        var session = sessionHolder[0] = new ReaderSession<string>(
             new ReaderConfig([new SubscribeSettings("/topic")], "partition-count-consumer", null, 1000),
             mockStream.Object,
             "session-id",
@@ -94,15 +94,15 @@ public class ReaderMetricsReporterTests
 
         try
         {
-            AssertMeasurement(0);
+            AssertPartitionSessionCount(0);
 
             startPartitionSession.SetResult(true);
             await startHandled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            AssertMeasurement(1);
+            AssertPartitionSessionCount(1);
 
             stopPartitionSession.SetResult(true);
             await stopHandled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            AssertMeasurement(0);
+            AssertPartitionSessionCount(0);
         }
         finally
         {
@@ -118,7 +118,7 @@ public class ReaderMetricsReporterTests
         Assert.Equal("{session}", publishedInstrument.Unit);
         return;
 
-        void AssertMeasurement(long expected)
+        void AssertPartitionSessionCount(long expected)
         {
             measurements.Clear();
             listener.RecordObservableInstruments();
@@ -272,14 +272,12 @@ public class ReaderMetricsReporterTests
         var measurements = new List<Measurement>();
         var metricNames = MetricNames.Append(PartitionSessionCountMetricName).ToHashSet();
         var readerName = consumer is null ? "null-consumer-reader" : "empty-consumer-reader";
-        using var listener = new MeterListener
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
         {
-            InstrumentPublished = (instrument, meterListener) =>
+            if (instrument.Meter.Name == "Ydb.Sdk.Topic" && metricNames.Contains(instrument.Name))
             {
-                if (instrument.Meter.Name == "Ydb.Sdk.Topic" && metricNames.Contains(instrument.Name))
-                {
-                    meterListener.EnableMeasurementEvents(instrument);
-                }
+                meterListener.EnableMeasurementEvents(instrument);
             }
         };
         listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
