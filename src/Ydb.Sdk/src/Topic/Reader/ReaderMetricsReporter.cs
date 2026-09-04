@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Globalization;
 using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Topic.Reader;
@@ -18,7 +17,6 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private static readonly Counter<long> DeliveredMessages;
     private static readonly Counter<long> CommitQueued;
     private static readonly Counter<long> CommitAcknowledged;
-    private static long _nextReaderId;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly Func<ReaderStats> _readerStats;
@@ -72,9 +70,11 @@ internal sealed class ReaderMetricsReporter : IDisposable
             commonTags.Add("consumer", consumer);
         }
 
-        commonTags.Add("reader.name", string.IsNullOrEmpty(readerName)
-            ? "reader-" + Interlocked.Increment(ref _nextReaderId).ToString(CultureInfo.InvariantCulture)
-            : readerName);
+        if (!string.IsNullOrEmpty(readerName))
+        {
+            commonTags.Add("reader.name", readerName);
+        }
+
         _commonTags = commonTags.ToArray();
         Register();
     }

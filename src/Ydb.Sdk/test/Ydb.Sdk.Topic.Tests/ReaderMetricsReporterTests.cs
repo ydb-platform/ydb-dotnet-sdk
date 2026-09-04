@@ -98,8 +98,10 @@ public class ReaderMetricsReporterTests
         }
     }
 
-    [Fact]
-    public async Task ReaderLifecycle_RecordsCountersForMessageAndBatch()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task ReaderLifecycle_RecordsCountersWithoutEmptyReaderName(string? readerName)
     {
         var measurements = new ConcurrentQueue<Measurement>();
         var acknowledgedMetrics = Channel.CreateUnbounded<long>();
@@ -148,7 +150,7 @@ public class ReaderMetricsReporterTests
         await using var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = "Metrics Consumer",
-            ReaderName = "Metrics Reader",
+            ReaderName = readerName,
             MemoryUsageMaxBytes = 1000,
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
@@ -176,8 +178,7 @@ public class ReaderMetricsReporterTests
         {
             Assert.All(MetricNames, name => Assert.Equal(value, MetricValue(name)));
             Assert.Equal(MetricNames.Length, measurements.Count);
-            Assert.All(measurements, measurement =>
-                AssertTags(measurement, "/topic", "Metrics Consumer", "Metrics Reader"));
+            Assert.All(measurements, measurement => AssertTags(measurement, "/topic", "Metrics Consumer"));
         }
 
         long MetricValue(string name)
@@ -218,20 +219,15 @@ public class ReaderMetricsReporterTests
         return listener;
     }
 
-    private static void AssertTags(Measurement measurement, string topic, string? consumer, string readerName)
+    private static void AssertTags(Measurement measurement, string topic, string consumer)
     {
-        var expectedTags = new List<KeyValuePair<string, object?>>
-        {
+        KeyValuePair<string, object?>[] expectedTags =
+        [
             new("endpoint", "localhost:2136"),
-            new("database", "/local")
-        };
-        if (consumer is not null)
-        {
-            expectedTags.Add(new KeyValuePair<string, object?>("consumer", consumer));
-        }
-
-        expectedTags.Add(new KeyValuePair<string, object?>("reader.name", readerName));
-        expectedTags.Add(new KeyValuePair<string, object?>("topic", topic));
+            new("database", "/local"),
+            new("consumer", consumer),
+            new("topic", topic)
+        ];
         Assert.Equal(expectedTags, measurement.Tags);
     }
 }
