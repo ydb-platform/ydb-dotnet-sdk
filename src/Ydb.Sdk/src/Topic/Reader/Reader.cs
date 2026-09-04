@@ -51,7 +51,7 @@ internal class Reader<TValue> : IReader<TValue>
         _metrics = new ReaderMetricsReporter(
             _driverFactory.Endpoint,
             _driverFactory.Database,
-            _config.ConsumerName ?? string.Empty,
+            _config.ConsumerName,
             _config.ReaderName,
             GetReaderStats);
 

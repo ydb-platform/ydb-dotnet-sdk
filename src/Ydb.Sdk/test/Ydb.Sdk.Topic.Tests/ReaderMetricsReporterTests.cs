@@ -265,6 +265,70 @@ public class ReaderMetricsReporterTests
     }
 
     [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void ConsumerAttribute_MatchesConfiguration(string? consumer)
+    {
+        var measurements = new List<Measurement>();
+        var metricNames = MetricNames.Append(PartitionSessionCountMetricName).ToHashSet();
+        var readerName = consumer is null ? "null-consumer-reader" : "empty-consumer-reader";
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == "Ydb.Sdk.Topic" && metricNames.Contains(instrument.Name))
+                {
+                    meterListener.EnableMeasurementEvents(instrument);
+                }
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
+        {
+            var metricTags = tags.ToArray();
+            if (metricTags.Any(tag => tag.Key == "reader.name" && Equals(tag.Value, readerName)))
+            {
+                measurements.Add(new Measurement(instrument.Name, value, metricTags));
+            }
+        });
+        listener.Start();
+
+        using var metrics = new ReaderMetricsReporter(
+            endpoint: "localhost:2136",
+            database: "/local",
+            consumer: consumer,
+            readerName: readerName,
+            readerStats: static () => new ReaderStats(1));
+
+        metrics.ReportReceived(1, "/topic");
+        metrics.ReportDelivered(1, "/topic");
+        metrics.ReportCommitQueued(1, "/topic");
+        metrics.ReportCommitAcknowledged(1, "/topic");
+        listener.RecordObservableInstruments();
+
+        Assert.Equal(5, measurements.Count);
+        Assert.All(measurements, measurement =>
+        {
+            var expectedTags = new List<KeyValuePair<string, object?>>
+            {
+                new("endpoint", "localhost:2136"),
+                new("database", "/local")
+            };
+            if (consumer is not null)
+            {
+                expectedTags.Add(new KeyValuePair<string, object?>("consumer", consumer));
+            }
+
+            expectedTags.Add(new KeyValuePair<string, object?>("reader.name", readerName));
+            if (measurement.InstrumentName != PartitionSessionCountMetricName)
+            {
+                expectedTags.Add(new KeyValuePair<string, object?>("topic", "/topic"));
+            }
+
+            Assert.Equal(expectedTags, measurement.Tags);
+        });
+    }
+
+    [Theory]
     [InlineData("configured-reader")]
     [InlineData(null)]
     public async Task PartitionSessionCount_ReaderNameStaysStableOnReconnect(string? configuredReaderName)

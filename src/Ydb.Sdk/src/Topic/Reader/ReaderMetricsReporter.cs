@@ -57,20 +57,25 @@ internal sealed class ReaderMetricsReporter : IDisposable
     internal ReaderMetricsReporter(
         string endpoint,
         string database,
-        string consumer,
+        string? consumer,
         string? readerName,
         Func<ReaderStats> readerStats)
     {
         _readerStats = readerStats;
-        _commonTags =
-        [
-            new KeyValuePair<string, object?>("endpoint", endpoint),
-            new KeyValuePair<string, object?>("database", database),
-            new KeyValuePair<string, object?>("consumer", consumer),
-            new KeyValuePair<string, object?>("reader.name", string.IsNullOrEmpty(readerName)
-                ? "reader-" + Interlocked.Increment(ref _nextReaderId).ToString(CultureInfo.InvariantCulture)
-                : readerName)
-        ];
+        var commonTags = new TagList
+        {
+            { "endpoint", endpoint },
+            { "database", database }
+        };
+        if (consumer is not null)
+        {
+            commonTags.Add("consumer", consumer);
+        }
+
+        commonTags.Add("reader.name", string.IsNullOrEmpty(readerName)
+            ? "reader-" + Interlocked.Increment(ref _nextReaderId).ToString(CultureInfo.InvariantCulture)
+            : readerName);
+        _commonTags = commonTags.ToArray();
         Register();
     }
 
