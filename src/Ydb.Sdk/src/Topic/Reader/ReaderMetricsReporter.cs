@@ -120,9 +120,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters
-                .Select(reader => new Measurement<long>(
-                    reader._readerStats().PartitionSessionCount,
-                    reader._commonTags))
+                .Select(reader =>
+                    new Measurement<long>(reader._readerStats().PartitionSessionCount, reader._commonTags))
                 .ToArray();
         }
     }

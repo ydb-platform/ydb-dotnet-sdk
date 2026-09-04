@@ -14,9 +14,8 @@ internal static class ReaderTestUtils
         InitResponse = new StreamReadMessage.Types.InitResponse { SessionId = "SessionId" }
     };
 
-    internal static FromServer StartPartitionSessionRequest(
-        int committedOffset = 0,
-        long partitionSessionId = 1) => new()
+    internal static FromServer StartPartitionSessionRequest(int committedOffset = 0, long partitionSessionId = 1) =>
+        new()
         {
             Status = StatusIds.Types.StatusCode.Success,
             StartPartitionSessionRequest = new StreamReadMessage.Types.StartPartitionSessionRequest
@@ -24,7 +23,7 @@ internal static class ReaderTestUtils
                 CommittedOffset = committedOffset,
                 PartitionOffsets = new OffsetsRange { Start = committedOffset, End = committedOffset + 1000 },
                 PartitionSession = new StreamReadMessage.Types.PartitionSession
-                { Path = "/topic", PartitionId = partitionSessionId, PartitionSessionId = partitionSessionId }
+                    { Path = "/topic", PartitionId = partitionSessionId, PartitionSessionId = partitionSessionId }
             }
         };
 
