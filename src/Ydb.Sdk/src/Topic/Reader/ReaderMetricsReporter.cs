@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Globalization;
 using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Topic.Reader;
@@ -18,8 +17,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private static readonly Counter<long> DeliveredMessages;
     private static readonly Counter<long> CommitQueued;
     private static readonly Counter<long> CommitAcknowledged;
-    private static long _nextReaderId;
 
+    private readonly (string Endpoint, string Database, string? Consumer) _attributes;
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly Func<ReaderStats> _readerStats;
 
@@ -58,9 +57,9 @@ internal sealed class ReaderMetricsReporter : IDisposable
         string endpoint,
         string database,
         string? consumer,
-        string? readerName,
         Func<ReaderStats> readerStats)
     {
+        _attributes = (endpoint, database, consumer);
         _readerStats = readerStats;
         var commonTags = new TagList
         {
@@ -72,9 +71,6 @@ internal sealed class ReaderMetricsReporter : IDisposable
             commonTags.Add("consumer", consumer);
         }
 
-        commonTags.Add("reader.name", string.IsNullOrEmpty(readerName)
-            ? "reader-" + Interlocked.Increment(ref _nextReaderId).ToString(CultureInfo.InvariantCulture)
-            : readerName);
         _commonTags = commonTags.ToArray();
         Register();
     }
@@ -120,8 +116,10 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters
-                .Select(reader =>
-                    new Measurement<long>(reader._readerStats().PartitionSessionCount, reader._commonTags))
+                .GroupBy(reporter => reporter._attributes)
+                .Select(reporters => new Measurement<long>(
+                    reporters.Sum(reporter => reporter._readerStats().PartitionSessionCount),
+                    reporters.First()._commonTags))
                 .ToArray();
         }
     }

@@ -52,7 +52,6 @@ internal class Reader<TValue> : IReader<TValue>
             _driverFactory.Endpoint,
             _driverFactory.Database,
             _config.ConsumerName,
-            _config.ReaderName,
             GetReaderStats);
 
         _ = Initialize();
