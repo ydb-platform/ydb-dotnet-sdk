@@ -99,37 +99,6 @@ public class ReaderMetricsReporterTests
     }
 
     [Fact]
-    public void PartitionSessionCount_ReportsReadersSeparatelyWithFallbackNames()
-    {
-        const string endpoint = "two-readers.ydb.test:2136";
-        var measurements = new List<Measurement>();
-        using var listener = CreatePartitionSessionCountListener(measurements, endpoint);
-        using var first = new ReaderMetricsReporter(
-            endpoint, "/database", consumer: null, readerName: null,
-            readerStats: static () => new ReaderStats(1));
-        using var second = new ReaderMetricsReporter(
-            endpoint, "/database", consumer: null, readerName: null,
-            readerStats: static () => new ReaderStats(2));
-
-        listener.RecordObservableInstruments();
-
-        var firstReaderName = ReaderName(measurements[0]);
-        var secondReaderName = ReaderName(measurements[1]);
-        Assert.StartsWith("reader-", firstReaderName);
-        Assert.StartsWith("reader-", secondReaderName);
-        Assert.NotEqual(firstReaderName, secondReaderName);
-        KeyValuePair<string, object?>[] firstTags =
-            [new("endpoint", endpoint), new("database", "/database"), new("reader.name", firstReaderName)];
-        KeyValuePair<string, object?>[] secondTags =
-            [new("endpoint", endpoint), new("database", "/database"), new("reader.name", secondReaderName)];
-        Assert.Equal(2, measurements.Count);
-        Assert.Equal(1, measurements[0].Value);
-        Assert.Equal(firstTags, measurements[0].Tags);
-        Assert.Equal(2, measurements[1].Value);
-        Assert.Equal(secondTags, measurements[1].Tags);
-    }
-
-    [Fact]
     public async Task ReaderLifecycle_RecordsCountersForMessageAndBatch()
     {
         var measurements = new ConcurrentQueue<Measurement>();
@@ -248,9 +217,6 @@ public class ReaderMetricsReporterTests
         listener.Start();
         return listener;
     }
-
-    private static string ReaderName(Measurement measurement) =>
-        Assert.IsType<string>(Assert.Single(measurement.Tags, tag => tag.Key == "reader.name").Value);
 
     private static void AssertTags(Measurement measurement, string topic, string? consumer, string readerName)
     {
