@@ -43,6 +43,7 @@ public class ReaderMetricsReporterTests
         var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = "partition-count-consumer",
+            ReaderName = "partition-count-reader",
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
 
@@ -79,7 +80,8 @@ public class ReaderMetricsReporterTests
             [
                 new("endpoint", "localhost:2136"),
                 new("database", "/local"),
-                new("consumer", "partition-count-consumer")
+                new("consumer", "partition-count-consumer"),
+                new("reader.name", "partition-count-reader")
             ];
             Assert.Equal(expectedTags, measurement.Tags);
         }
@@ -146,6 +148,7 @@ public class ReaderMetricsReporterTests
         await using var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = "Metrics Consumer",
+            ReaderName = "Metrics Reader",
             MemoryUsageMaxBytes = 1000,
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
@@ -173,7 +176,8 @@ public class ReaderMetricsReporterTests
         {
             Assert.All(MetricNames, name => Assert.Equal(value, MetricValue(name)));
             Assert.Equal(MetricNames.Length, measurements.Count);
-            Assert.All(measurements, measurement => AssertTags(measurement, "/topic", "Metrics Consumer"));
+            Assert.All(measurements, measurement =>
+                AssertTags(measurement, "/topic", "Metrics Consumer", "Metrics Reader"));
         }
 
         long MetricValue(string name)
@@ -214,15 +218,20 @@ public class ReaderMetricsReporterTests
         return listener;
     }
 
-    private static void AssertTags(Measurement measurement, string topic, string consumer)
+    private static void AssertTags(Measurement measurement, string topic, string? consumer, string readerName)
     {
-        KeyValuePair<string, object?>[] expectedTags =
-        [
+        var expectedTags = new List<KeyValuePair<string, object?>>
+        {
             new("endpoint", "localhost:2136"),
-            new("database", "/local"),
-            new("consumer", consumer),
-            new("topic", topic)
-        ];
+            new("database", "/local")
+        };
+        if (consumer is not null)
+        {
+            expectedTags.Add(new KeyValuePair<string, object?>("consumer", consumer));
+        }
+
+        expectedTags.Add(new KeyValuePair<string, object?>("reader.name", readerName));
+        expectedTags.Add(new KeyValuePair<string, object?>("topic", topic));
         Assert.Equal(expectedTags, measurement.Tags);
     }
 }

@@ -12,9 +12,9 @@
 
   Repeated deliveries and messages in repeated commit ranges are counted again. An acknowledgement counts messages
   in every queued range it completes; stale acknowledgements are ignored.
-  All Topic Reader metrics have the `endpoint` and `database` attributes, plus `consumer` when one is configured;
-  counters also have `topic`. The partition-session gauge is an SDK-local snapshot, not server ownership or processing
-  progress.
+  All Topic Reader metrics have the `endpoint`, `database`, and `reader.name` attributes, plus `consumer` when one is
+  configured; counters also have `topic`. The partition-session gauge is an SDK-local snapshot, not server ownership
+  or processing progress.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 
