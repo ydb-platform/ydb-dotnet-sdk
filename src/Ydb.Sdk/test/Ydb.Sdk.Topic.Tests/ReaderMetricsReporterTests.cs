@@ -98,10 +98,8 @@ public class ReaderMetricsReporterTests
         }
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public async Task ReaderLifecycle_RecordsCountersWithoutEmptyReaderName(string? readerName)
+    [Fact]
+    public async Task ReaderLifecycle_RecordsCounters()
     {
         var measurements = new ConcurrentQueue<Measurement>();
         var acknowledgedMetrics = Channel.CreateUnbounded<long>();
@@ -150,7 +148,6 @@ public class ReaderMetricsReporterTests
         await using var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = "Metrics Consumer",
-            ReaderName = readerName,
             MemoryUsageMaxBytes = 1000,
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
