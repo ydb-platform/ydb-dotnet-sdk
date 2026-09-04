@@ -27,10 +27,34 @@ public class ReaderMetricsReporterTests
         "ydb.topic.reader.commit.acknowledged"
     ];
 
+    private readonly IDriverFactoryMock _driverFactoryMock;
+    private readonly Mock<ReaderStream> _mockStream = new();
+    private readonly Task<bool> _lastMoveNext;
+
+    public ReaderMetricsReporterTests()
+    {
+        var mockDriver = new Mock<IDriver>();
+        mockDriver.Setup(driver => driver.BidirectionalStreamCall(
+            It.IsAny<Method<FromClient, FromServer>>(),
+            It.IsAny<GrpcRequestSettings>())).ReturnsAsync(_mockStream.Object);
+        mockDriver.Setup(driver => driver.DisposeAsync())
+            .Callback(() => mockDriver.Setup(driver => driver.IsDisposed).Returns(true));
+        mockDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
+
+        _driverFactoryMock = new IDriverFactoryMock(mockDriver, "Reader_Metrics_Partition_Session_Count");
+
+        var lastMoveNext = new TaskCompletionSource<bool>();
+        _lastMoveNext = lastMoveNext.Task;
+        _mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
+        {
+            lastMoveNext.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+    }
+
     [Fact]
     public async Task PartitionSessionCount_TracksReaderSessionMapAndUnregistersOnDispose()
     {
-        const string driverKey = "Reader_Metrics_Partition_Session_Count";
         var timeout = TimeSpan.FromSeconds(5);
         var measurements = new List<Measurement>();
         Instrument? publishedInstrument = null;
@@ -38,25 +62,27 @@ public class ReaderMetricsReporterTests
             measurements,
             "partition-count-consumer",
             instrument => publishedInstrument = instrument);
-        var responses = Channel.CreateUnbounded<FromServer>();
-        responses.Writer.TryWrite(InitResponse);
+        var startFirst = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var startSecond = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopFirst = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopSecond = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var initialized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var started = Channel.CreateUnbounded<long>();
         var stopped = Channel.CreateUnbounded<long>();
-        FromServer current = null!;
-        var mockStream = new Mock<ReaderStream>();
-        mockStream.Setup(stream => stream.MoveNextAsync()).Returns(async () =>
-        {
-            if (!await responses.Reader.WaitToReadAsync().ConfigureAwait(false))
-            {
-                return false;
-            }
-
-            current = await responses.Reader.ReadAsync().ConfigureAwait(false);
-            return true;
-        });
-        mockStream.Setup(stream => stream.Current).Returns(() => current);
-        mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(startFirst.Task)
+            .Returns(startSecond.Task)
+            .Returns(stopFirst.Task)
+            .Returns(stopSecond.Task)
+            .Returns(_lastMoveNext);
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponse)
+            .Returns(StartPartitionSessionRequest(partitionSessionId: 1))
+            .Returns(StartPartitionSessionRequest(partitionSessionId: 2))
+            .Returns(StopPartitionSessionRequest(partitionSessionId: 1))
+            .Returns(StopPartitionSessionRequest(partitionSessionId: 2));
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Callback<FromClient>(message =>
             {
                 if (message.ReadRequest != null)
@@ -75,25 +101,7 @@ public class ReaderMetricsReporterTests
                 }
             })
             .Returns(Task.CompletedTask);
-        mockStream.Setup(stream => stream.AuthToken()).ReturnsAsync((string?)null);
-        mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
-        {
-            responses.Writer.TryComplete();
-            return Task.CompletedTask;
-        });
-        var mockDriver = new Mock<IDriver>();
-        mockDriver.Setup(driver => driver.RegisterOwner()).Returns(true);
-        mockDriver.Setup(driver => driver.BidirectionalStreamCall(
-            It.IsAny<Method<FromClient, FromServer>>(),
-            It.IsAny<GrpcRequestSettings>())).ReturnsAsync(mockStream.Object);
-        mockDriver.Setup(driver => driver.DisposeAsync())
-            .Callback(() => mockDriver.Setup(driver => driver.IsDisposed).Returns(true));
-        mockDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
-        var reader = new ReaderBuilder<string>(new IDriverFactoryMock(
-            mockDriver,
-            driverKey,
-            endpoint: "logical.ydb.test:2136",
-            database: "/normalized/database"))
+        var reader = new ReaderBuilder<string>(_driverFactoryMock)
         {
             ConsumerName = "partition-count-consumer",
             ReaderName = "partition-count-reader",
@@ -105,26 +113,25 @@ public class ReaderMetricsReporterTests
             await initialized.Task.WaitAsync(timeout);
             AssertPartitionSessionCount(0);
 
-            responses.Writer.TryWrite(StartPartitionSessionRequest(partitionSessionId: 1));
+            startFirst.SetResult(true);
             Assert.Equal(1, await started.Reader.ReadAsync().AsTask().WaitAsync(timeout));
             AssertPartitionSessionCount(1);
 
-            responses.Writer.TryWrite(StartPartitionSessionRequest(partitionSessionId: 2));
+            startSecond.SetResult(true);
             Assert.Equal(2, await started.Reader.ReadAsync().AsTask().WaitAsync(timeout));
             AssertPartitionSessionCount(2);
 
-            responses.Writer.TryWrite(StopPartitionSessionRequest(partitionSessionId: 1));
+            stopFirst.SetResult(true);
             Assert.Equal(1, await stopped.Reader.ReadAsync().AsTask().WaitAsync(timeout));
             AssertPartitionSessionCount(1);
 
-            responses.Writer.TryWrite(StopPartitionSessionRequest(partitionSessionId: 2));
+            stopSecond.SetResult(true);
             Assert.Equal(2, await stopped.Reader.ReadAsync().AsTask().WaitAsync(timeout));
             AssertPartitionSessionCount(0);
         }
         finally
         {
             await reader.DisposeAsync();
-            PoolManager.Drivers.TryRemove(driverKey, out _);
         }
 
         measurements.Clear();
@@ -142,8 +149,8 @@ public class ReaderMetricsReporterTests
             var measurement = Assert.Single(measurements);
             Assert.Equal(expected, measurement.Value);
             Assert.Collection(measurement.Tags,
-                tag => AssertTag(tag, "endpoint", "logical.ydb.test:2136"),
-                tag => AssertTag(tag, "database", "/normalized/database"),
+                tag => AssertTag(tag, "endpoint", "localhost:2136"),
+                tag => AssertTag(tag, "database", "/local"),
                 tag => AssertTag(tag, "consumer", "partition-count-consumer"),
                 tag => AssertTag(tag, "reader.name", "partition-count-reader"));
         }
