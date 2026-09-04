@@ -1,9 +1,10 @@
-using System.Collections.Concurrent;
-using System.Diagnostics.Metrics;
 using System.Threading.Channels;
 using Grpc.Core;
 using Moq;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
 using Xunit;
+using Ydb.Sdk.OpenTelemetry;
 using Ydb.Sdk.Topic.Reader;
 using Ydb.Topic;
 using static Ydb.Sdk.Topic.Tests.ReaderTestUtils;
@@ -16,6 +17,8 @@ using FromServer = StreamReadMessage.Types.FromServer;
 
 public class ReaderMetricsReporterTests
 {
+    private const string PartitionSessionCountMetricName = "ydb.topic.reader.partition_session.count";
+    private const string PartitionSessionCountReaderName = "partition-count-reader";
     private const string LifecycleReaderName = "reader-lifecycle-metrics";
 
     private static readonly string[] MetricNames =
@@ -30,13 +33,8 @@ public class ReaderMetricsReporterTests
     public async Task PartitionSessionCount_TracksSessionsAcrossReconnectAndDispose()
     {
         var timeout = TimeSpan.FromSeconds(5);
-        var measurements = new List<Measurement>();
-        Instrument? publishedInstrument = null;
-        using var listener = CreatePartitionSessionCountListener(
-            measurements,
-            "localhost:2136",
-            "partition-count-consumer",
-            instrument => publishedInstrument = instrument);
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
         var mockStream = new Mock<ReaderStream>();
         var driverFactory = CreateDriverFactory(mockStream, "Reader_Partition_Session_Count_Metrics");
         var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
@@ -45,67 +43,55 @@ public class ReaderMetricsReporterTests
         var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = "partition-count-consumer",
-            ReaderName = "partition-count-reader",
+            ReaderName = PartitionSessionCountReaderName,
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
 
         try
         {
-            await SendResponse(listener, InitResponse, 0, 0);
-            await SendResponse(listener, StartPartitionSessionRequest(partitionSessionId: 1), 1, 1);
-            await SendResponse(listener, StartPartitionSessionRequest(partitionSessionId: 2), 2, 2);
-            await SendResponse(listener, StopPartitionSessionRequest(partitionSessionId: 1), -1, 1);
-            await SendResponse(listener, StopPartitionSessionRequest(partitionSessionId: 2), -2, 0);
+            await SendResponse(meterProvider, InitResponse, 0, 0);
+            Assert.Equal("{session}", GetMetric(exportedItems, PartitionSessionCountMetricName).Unit);
+            await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 1), 1, 1);
+            await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 2), 2, 2);
+            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 1), -1, 1);
+            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 2), -2, 0);
             await responses.Writer.WriteAsync((false, null));
-            await SendResponse(listener, InitResponse, 0, 0);
+            await SendResponse(meterProvider, InitResponse, 0, 0);
         }
         finally
         {
             await reader.DisposeAsync();
         }
 
-        measurements.Clear();
-        listener.RecordObservableInstruments();
-        Assert.Empty(measurements);
-
-        Assert.NotNull(publishedInstrument);
-        Assert.Equal("{session}", publishedInstrument.Unit);
+        var afterDisposeItems = new List<Metric>();
+        using var afterDisposeMeterProvider = CreateMeterProvider(afterDisposeItems);
+        afterDisposeMeterProvider.ForceFlush();
+        Assert.Empty(GetReaderPoints(afterDisposeItems, PartitionSessionCountMetricName,
+            PartitionSessionCountReaderName));
         return;
 
-        void AssertPartitionSessionCount(MeterListener meterListener, long expected)
-        {
-            measurements.Clear();
-            meterListener.RecordObservableInstruments();
-            var measurement = Assert.Single(measurements);
-            Assert.Equal(expected, measurement.Value);
-            KeyValuePair<string, object?>[] expectedTags =
-            [
-                new("endpoint", "localhost:2136"),
-                new("database", "/local"),
-                new("consumer", "partition-count-consumer"),
-                new("reader.name", "partition-count-reader")
-            ];
-            Assert.Equal(expectedTags, measurement.Tags);
-        }
-
         async Task SendResponse(
-            MeterListener meterListener,
+            MeterProvider provider,
             FromServer response,
             long expectedEvent,
             long expectedCount)
         {
             await responses.Writer.WriteAsync((true, response));
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
-            AssertPartitionSessionCount(meterListener, expectedCount);
+            exportedItems.Clear();
+            provider.ForceFlush();
+            var point = Assert.Single(GetReaderPoints(exportedItems, PartitionSessionCountMetricName,
+                PartitionSessionCountReaderName));
+            Assert.Equal(expectedCount, point.GetGaugeLastValueLong());
+            AssertTags(point, "partition-count-consumer", PartitionSessionCountReaderName);
         }
     }
 
     [Fact]
     public async Task ReaderLifecycle_RecordsCounters()
     {
-        var measurements = new ConcurrentQueue<Measurement>();
-        var acknowledgedMetrics = Channel.CreateUnbounded<long>();
-        using var listener = CreateReaderMetricsListener(measurements, acknowledgedMetrics.Writer);
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
         var mockStream = new Mock<ReaderStream>();
         var mockDriver = new Mock<IDriver>();
         mockDriver.Setup(driver => driver.BidirectionalStreamCall(
@@ -160,76 +146,89 @@ public class ReaderMetricsReporterTests
         var commitTask = message.CommitAsync();
         firstCommitReady.SetResult(true);
         await commitTask.WaitAsync(timeout);
-        Assert.Equal(1, await acknowledgedMetrics.Reader.ReadAsync().AsTask().WaitAsync(timeout));
         AssertMetricValues(1);
 
-        measurements.Clear();
         secondReadReady.SetResult(true);
 
         var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
         var batchCommitTask = batch.CommitBatchAsync();
         batchCommitReady.SetResult(true);
         await batchCommitTask.WaitAsync(timeout);
-        Assert.Equal(2, await acknowledgedMetrics.Reader.ReadAsync().AsTask().WaitAsync(timeout));
-        AssertMetricValues(2);
+        AssertMetricValues(3);
         return;
 
         void AssertMetricValues(long value)
         {
-            Assert.All(MetricNames, name => Assert.Equal(value, MetricValue(name)));
-            Assert.Equal(MetricNames.Length, measurements.Count);
-            Assert.All(measurements, measurement => AssertTags(measurement, "/topic", "Metrics Consumer"));
-        }
-
-        long MetricValue(string name)
-        {
-            return measurements
-                .Where(measurement => measurement.InstrumentName == name)
-                .Sum(measurement => measurement.Value);
+            exportedItems.Clear();
+            meterProvider.ForceFlush();
+            foreach (var name in MetricNames)
+            {
+                var point = Assert.Single(GetReaderPoints(exportedItems, name, LifecycleReaderName));
+                Assert.Equal(value, point.GetSumLong());
+                AssertTags(point, "Metrics Consumer", LifecycleReaderName, "/topic");
+            }
         }
     }
 
-    private static MeterListener CreateReaderMetricsListener(
-        ConcurrentQueue<Measurement> measurements,
-        ChannelWriter<long> acknowledgedMetrics)
+    private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
+        global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+            .AddYdbTopic()
+            .AddInMemoryExporter(exportedItems)
+            .Build();
+
+    private static Metric GetMetric(List<Metric> exportedItems, string name) =>
+        exportedItems.Single(metric => metric.Name == name);
+
+    private static IEnumerable<MetricPoint> GetReaderPoints(
+        List<Metric> exportedItems,
+        string metricName,
+        string readerName)
     {
-        var listener = new MeterListener
+        foreach (var point in exportedItems
+                     .Where(metric => metric.Name == metricName)
+                     .SelectMany(EnumeratePoints))
         {
-            InstrumentPublished = (instrument, meterListener) =>
+            if (ToDictionary(point.Tags).GetValueOrDefault("reader.name") as string == readerName)
             {
-                if (instrument.Meter.Name == "Ydb.Sdk.Topic" && MetricNames.Contains(instrument.Name))
-                {
-                    meterListener.EnableMeasurementEvents(instrument);
-                }
+                yield return point;
             }
-        };
-        listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
-        {
-            var metricTags = tags.ToArray();
-            if (metricTags.Any(tag => tag is { Key: "consumer", Value: "Metrics Consumer" }) &&
-                metricTags.Any(tag => tag is { Key: "reader.name", Value: LifecycleReaderName }))
-            {
-                measurements.Enqueue(new Measurement(instrument.Name, value, metricTags));
-                if (instrument.Name == MetricNames[3])
-                {
-                    acknowledgedMetrics.TryWrite(value);
-                }
-            }
-        });
-        listener.Start();
-        return listener;
+        }
     }
 
-    private static void AssertTags(Measurement measurement, string topic, string consumer)
+    private static IEnumerable<MetricPoint> EnumeratePoints(Metric metric)
     {
-        KeyValuePair<string, object?>[] expectedTags =
-        [
-            new("endpoint", "localhost:2136"),
-            new("database", "/local"),
-            new("consumer", consumer),
-            new("reader.name", LifecycleReaderName),
-            new("topic", topic)
-        ];
-        Assert.Equal(expectedTags, measurement.Tags);
+        foreach (var point in metric.GetMetricPoints())
+        {
+            yield return point;
+        }
+    }
+
+    private static void AssertTags(
+        MetricPoint point,
+        string consumer,
+        string readerName,
+        string? topic = null)
+    {
+        var tags = ToDictionary(point.Tags);
+        Assert.Equal(topic is null ? 4 : 5, tags.Count);
+        Assert.Equal("localhost:2136", tags["endpoint"]);
+        Assert.Equal("/local", tags["database"]);
+        Assert.Equal(consumer, tags["consumer"]);
+        Assert.Equal(readerName, tags["reader.name"]);
+        if (topic is not null)
+        {
+            Assert.Equal(topic, tags["topic"]);
+        }
+    }
+
+    private static Dictionary<string, object?> ToDictionary(ReadOnlyTagCollection tags)
+    {
+        var dictionary = new Dictionary<string, object?>();
+        foreach (var tag in tags)
+        {
+            dictionary[tag.Key] = tag.Value;
+        }
+
+        return dictionary;
     }
 }

@@ -1,4 +1,3 @@
-using System.Diagnostics.Metrics;
 using System.Threading.Channels;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
@@ -14,8 +13,6 @@ using ReaderStream = IBidirectionalStream<StreamReadMessage.Types.FromClient, St
 
 internal static class ReaderTestUtils
 {
-    private const string PartitionSessionCountMetricName = "ydb.topic.reader.partition_session.count";
-
     internal static FromServer InitResponse { get; } = new()
     {
         Status = StatusIds.Types.StatusCode.Success,
@@ -137,42 +134,4 @@ internal static class ReaderTestUtils
             })
             .Returns(Task.CompletedTask);
     }
-
-    internal static MeterListener CreatePartitionSessionCountListener(
-        List<Measurement> measurements,
-        string endpoint,
-        string? consumer = null,
-        Action<Instrument>? instrumentPublished = null)
-    {
-        var listener = new MeterListener
-        {
-            InstrumentPublished = (instrument, meterListener) =>
-            {
-                if (instrument is ObservableGauge<long>
-                    && instrument.Meter.Name == "Ydb.Sdk.Topic"
-                    && instrument.Name == PartitionSessionCountMetricName)
-                {
-                    instrumentPublished?.Invoke(instrument);
-                    meterListener.EnableMeasurementEvents(instrument);
-                }
-            }
-        };
-        listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
-        {
-            var metricTags = tags.ToArray();
-            if (metricTags.Any(tag => tag.Key == "endpoint" && Equals(tag.Value, endpoint))
-                && (consumer is null
-                    || metricTags.Any(tag => tag.Key == "consumer" && Equals(tag.Value, consumer))))
-            {
-                measurements.Add(new Measurement(instrument.Name, value, metricTags));
-            }
-        });
-        listener.Start();
-        return listener;
-    }
 }
-
-internal sealed record Measurement(
-    string InstrumentName,
-    long Value,
-    KeyValuePair<string, object?>[] Tags);
