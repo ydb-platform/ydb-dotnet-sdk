@@ -377,8 +377,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
         finally
         {
-            Deactivate();
             ReconnectSession();
+
+            _lifecycleReaderSessionCts.Cancel();
         }
     }
 
@@ -396,14 +397,10 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             Logger.LogError(e, "ReaderSession[{SessionId}] have error on Write", SessionId);
 
-            Deactivate();
             ReconnectSession();
-        }
-    }
 
-    private void Deactivate()
-    {
-        _lifecycleReaderSessionCts.Cancel();
+            _lifecycleReaderSessionCts.Cancel();
+        }
     }
 
     // Avoid using 'async' for method with the 'void' return type or catch all exceptions in it:
@@ -638,7 +635,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
         finally
         {
-            Deactivate();
+            _lifecycleReaderSessionCts.Cancel();
             Stream.Dispose();
         }
     }
