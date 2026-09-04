@@ -16,6 +16,8 @@ using FromServer = StreamReadMessage.Types.FromServer;
 
 public class ReaderMetricsReporterTests
 {
+    private const string LifecycleReaderName = "reader-lifecycle-metrics";
+
     private static readonly string[] MetricNames =
     [
         "ydb.topic.reader.received.messages",
@@ -148,6 +150,7 @@ public class ReaderMetricsReporterTests
         await using var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = "Metrics Consumer",
+            ReaderName = LifecycleReaderName,
             MemoryUsageMaxBytes = 1000,
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
@@ -203,7 +206,8 @@ public class ReaderMetricsReporterTests
         listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
         {
             var metricTags = tags.ToArray();
-            if (metricTags.Any(tag => tag is { Key: "consumer", Value: "Metrics Consumer" }))
+            if (metricTags.Any(tag => tag is { Key: "consumer", Value: "Metrics Consumer" }) &&
+                metricTags.Any(tag => tag is { Key: "reader.name", Value: LifecycleReaderName }))
             {
                 measurements.Enqueue(new Measurement(instrument.Name, value, metricTags));
                 if (instrument.Name == MetricNames[3])
@@ -223,6 +227,7 @@ public class ReaderMetricsReporterTests
             new("endpoint", "localhost:2136"),
             new("database", "/local"),
             new("consumer", consumer),
+            new("reader.name", LifecycleReaderName),
             new("topic", topic)
         ];
         Assert.Equal(expectedTags, measurement.Tags);
