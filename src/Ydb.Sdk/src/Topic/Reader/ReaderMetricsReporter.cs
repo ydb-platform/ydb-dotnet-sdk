@@ -4,19 +4,32 @@ using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Topic.Reader;
 
+internal readonly record struct ReaderStats(long PartitionSessionCount);
+
 /// <summary>
 /// Topic reader message and commit lifecycle metrics.
 /// </summary>
-internal sealed class TopicReaderMetrics(string endpoint, string database, string consumer)
+internal sealed class ReaderMetricsReporter : IDisposable
 {
+    private static readonly List<ReaderMetricsReporter> Reporters = [];
+
     private static readonly Counter<long> ReceivedMessages;
     private static readonly Counter<long> DeliveredMessages;
     private static readonly Counter<long> CommitQueued;
     private static readonly Counter<long> CommitAcknowledged;
 
-    static TopicReaderMetrics()
+    private readonly KeyValuePair<string, object?>[] _commonTags;
+    private readonly Func<ReaderStats> _readerStats;
+
+    static ReaderMetricsReporter()
     {
-        var meter = new Meter("Ydb.Sdk", YdbSdkVersion.Value);
+        var meter = new Meter("Ydb.Sdk.Topic", YdbSdkVersion.Value);
+
+        meter.CreateObservableGauge(
+            "ydb.topic.reader.partition_session.count",
+            ObservePartitionSessionCount,
+            unit: "{session}",
+            description: "The number of partition sessions currently in the reader session processing lifecycle.");
 
         ReceivedMessages = meter.CreateCounter<long>(
             "ydb.topic.reader.received.messages",
@@ -39,6 +52,33 @@ internal sealed class TopicReaderMetrics(string endpoint, string database, strin
             description: "The number of messages in commit ranges completed by successful acknowledgements.");
     }
 
+    internal ReaderMetricsReporter(
+        string endpoint,
+        string database,
+        string? consumer,
+        string? readerName,
+        Func<ReaderStats> readerStats)
+    {
+        _readerStats = readerStats;
+        var commonTags = new TagList
+        {
+            { "endpoint", endpoint },
+            { "database", database }
+        };
+        if (consumer is not null)
+        {
+            commonTags.Add("consumer", consumer);
+        }
+
+        if (!string.IsNullOrEmpty(readerName))
+        {
+            commonTags.Add("reader.name", readerName);
+        }
+
+        _commonTags = commonTags.ToArray();
+        Register();
+    }
+
     internal void ReportReceived(long messages, string topic) => Record(ReceivedMessages, messages, topic);
 
     internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
@@ -48,6 +88,22 @@ internal sealed class TopicReaderMetrics(string endpoint, string database, strin
     internal void ReportCommitAcknowledged(long messages, string topic) =>
         Record(CommitAcknowledged, messages, topic);
 
+    private void Register()
+    {
+        lock (Reporters)
+        {
+            Reporters.Add(this);
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (Reporters)
+        {
+            Reporters.Remove(this);
+        }
+    }
+
     private void Record(Counter<long> counter, long value, string topic)
     {
         if (!counter.Enabled || value <= 0)
@@ -55,13 +111,18 @@ internal sealed class TopicReaderMetrics(string endpoint, string database, strin
             return;
         }
 
-        var tags = new TagList
-        {
-            { "endpoint", endpoint },
-            { "database", database },
-            { "topic", topic },
-            { "consumer", consumer }
-        };
+        var tags = new TagList(_commonTags) { { "topic", topic } };
         counter.Add(value, tags);
+    }
+
+    private static IEnumerable<Measurement<long>> ObservePartitionSessionCount()
+    {
+        lock (Reporters)
+        {
+            return Reporters
+                .Select(reader =>
+                    new Measurement<long>(reader._readerStats().PartitionSessionCount, reader._commonTags))
+                .ToArray();
+        }
     }
 }
