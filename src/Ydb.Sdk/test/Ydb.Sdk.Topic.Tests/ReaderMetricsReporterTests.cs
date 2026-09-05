@@ -146,7 +146,7 @@ public class ReaderMetricsReporterTests
         var commitTask = message.CommitAsync();
         firstCommitReady.SetResult(true);
         await commitTask.WaitAsync(timeout);
-        AssertMetricValues(1);
+        await AssertMetricValues(meterProvider, 1);
 
         secondReadReady.SetResult(true);
 
@@ -154,13 +154,12 @@ public class ReaderMetricsReporterTests
         var batchCommitTask = batch.CommitBatchAsync();
         batchCommitReady.SetResult(true);
         await batchCommitTask.WaitAsync(timeout);
-        AssertMetricValues(3);
+        await AssertMetricValues(meterProvider, 3);
         return;
 
-        void AssertMetricValues(long value)
+        async Task AssertMetricValues(MeterProvider provider, long value)
         {
-            exportedItems.Clear();
-            meterProvider.ForceFlush();
+            await WaitForCounterValue(provider, exportedItems, MetricNames[3], LifecycleReaderName, value, timeout);
             foreach (var name in MetricNames)
             {
                 var point = Assert.Single(GetReaderPoints(exportedItems, name, LifecycleReaderName));
@@ -175,6 +174,31 @@ public class ReaderMetricsReporterTests
             .AddYdbTopic()
             .AddInMemoryExporter(exportedItems)
             .Build();
+
+    private static async Task WaitForCounterValue(
+        MeterProvider meterProvider,
+        List<Metric> exportedItems,
+        string metricName,
+        string readerName,
+        long expectedValue,
+        TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        do
+        {
+            exportedItems.Clear();
+            meterProvider.ForceFlush();
+            var points = GetReaderPoints(exportedItems, metricName, readerName).ToArray();
+            if (points is [var point] && point.GetSumLong() == expectedValue)
+            {
+                return;
+            }
+
+            await Task.Delay(10);
+        } while (DateTime.UtcNow < deadline);
+
+        Assert.Fail($"Metric '{metricName}' did not reach {expectedValue} within {timeout}.");
+    }
 
     private static Metric GetMetric(List<Metric> exportedItems, string name) =>
         exportedItems.Single(metric => metric.Name == name);
