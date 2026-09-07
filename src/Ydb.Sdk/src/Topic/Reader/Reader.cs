@@ -71,6 +71,7 @@ internal class Reader<TValue> : IReader<TValue>
             {
                 if (batchInternalMessage.TryDequeueMessage(out var message))
                 {
+                    _metrics.ReportLocalBuffer(-1, message.Topic);
                     _metrics.ReportDelivered(1, message.Topic);
                     return message;
                 }
@@ -100,6 +101,7 @@ internal class Reader<TValue> : IReader<TValue>
 
             if (batchInternalMessage.TryPublicBatch(out var batch))
             {
+                _metrics.ReportLocalBuffer(-batch.Batch.Count, batch.Batch[0].Topic);
                 _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
                 return batch;
             }
@@ -580,6 +582,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 for (var batchIndex = 0; batchIndex < batchCount; batchIndex++)
                 {
                     var batch = batches[batchIndex];
+                    _metrics.ReportLocalBuffer(batch.MessageData.Count, partitionSession.TopicPath);
                     await _channelWriter.WriteAsync(
                         new InternalBatchMessages<TValue>(
                             batch,

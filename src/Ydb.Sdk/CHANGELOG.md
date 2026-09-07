@@ -1,12 +1,14 @@
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
   `ydb-sdk-metrics/0.1.0` to `ydb-sdk-metrics/0.2.0`.
-- Feat Topic Reader metrics: added five counters and a partition-session gauge on the `Ydb.Sdk.Topic` meter.
+- Feat Topic Reader metrics: added five counters, a local-buffer UpDownCounter, and a partition-session gauge on
+  the `Ydb.Sdk.Topic` meter.
 
   | Metric                                             | Unit        | Description                                                  |
   |----------------------------------------------------|-------------|--------------------------------------------------------------|
   | `ydb.topic.reader.received.messages`               | `{message}` | Messages accepted by the SDK from active partition sessions  |
   | `ydb.topic.reader.received.bytes`                  | `By`        | Protocol `ReadResponse.bytes_size`, counted once per response |
   | `ydb.topic.reader.delivered.messages`              | `{message}` | Messages delivered by the SDK to application code            |
+  | `ydb.topic.reader.local_buffer.messages`           | `{message}` | Messages currently accepted but not delivered by the SDK      |
   | `ydb.topic.reader.commit.queued`                   | `{message}` | Messages in commit ranges accepted by the SDK                |
   | `ydb.topic.reader.commit.acknowledged`             | `{message}` | Messages in ranges completed by successful acknowledgements  |
   | `ydb.topic.reader.partition_session.count`         | `{session}` | Active partition sessions in the reader processing lifecycle |
@@ -17,6 +19,9 @@
   are configured; message and commit counters also have `topic`. The received-bytes counter covers the whole stream
   without `topic`, including data for unknown partitions. The partition-session gauge is an SDK-local snapshot, not server
   ownership or processing progress.
+  The local-buffer UpDownCounter increments when messages enter the local buffer and decrements when they are delivered.
+  Because it is synchronous, a listener attached after a Reader is created is not backfilled with the Reader's
+  already-buffered messages.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 
