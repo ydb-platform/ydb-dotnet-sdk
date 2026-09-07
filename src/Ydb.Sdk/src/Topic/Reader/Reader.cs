@@ -110,6 +110,12 @@ internal class Reader<TValue> : IReader<TValue>
         throw new ReaderException("Reader is disposed");
     }
 
+    private void InternalReconnect(StatusCode statusCode)
+    {
+        _metrics.ReportSessionError(statusCode);
+        _ = Task.Run(Initialize);
+    }
+
     private async Task Initialize()
     {
         try
@@ -217,7 +223,7 @@ internal class Reader<TValue> : IReader<TValue>
                 _config,
                 stream,
                 initResponse.SessionId,
-                Initialize,
+                InternalReconnect,
                 await stream.AuthToken().ConfigureAwait(false),
                 _logger,
                 _receivedMessagesChannel.Writer,
@@ -305,7 +311,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         ReaderConfig config,
         ReaderStream stream,
         string sessionId,
-        Func<Task> initialize,
+        Action<StatusCode> internalReconnect,
         string? lastToken,
         ILogger logger,
         ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
@@ -315,9 +321,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         stream,
         logger,
         sessionId,
-        initialize,
-        lastToken,
-        metrics.ReportSessionError
+        internalReconnect,
+        lastToken
     )
     {
         _readerConfig = config;
