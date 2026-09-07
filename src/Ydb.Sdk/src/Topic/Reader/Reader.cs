@@ -559,6 +559,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private async Task HandleReadResponse(StreamReadMessage.Types.ReadResponse readResponse)
     {
         var bytesSize = readResponse.BytesSize;
+        _metrics.ReportReceivedBytes(bytesSize);
         var partitionCount = readResponse.PartitionData.Count;
 
         for (var partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++)

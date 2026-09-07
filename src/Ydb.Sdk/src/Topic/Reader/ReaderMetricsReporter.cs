@@ -14,6 +14,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private static readonly List<ReaderMetricsReporter> Reporters = [];
 
     private static readonly Counter<long> ReceivedMessages;
+    private static readonly Counter<long> ReceivedBytes;
     private static readonly Counter<long> DeliveredMessages;
     private static readonly Counter<long> CommitQueued;
     private static readonly Counter<long> CommitAcknowledged;
@@ -35,6 +36,11 @@ internal sealed class ReaderMetricsReporter : IDisposable
             "ydb.topic.reader.received.messages",
             unit: "{message}",
             description: "The number of messages accepted by the SDK for an active partition session.");
+
+        ReceivedBytes = meter.CreateCounter<long>(
+            "ydb.topic.reader.received.bytes",
+            unit: "By",
+            description: "The protocol bytes_size received in read responses.");
 
         DeliveredMessages = meter.CreateCounter<long>(
             "ydb.topic.reader.delivered.messages",
@@ -80,6 +86,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
     }
 
     internal void ReportReceived(long messages, string topic) => Record(ReceivedMessages, messages, topic);
+
+    internal void ReportReceivedBytes(long bytes) => ReceivedBytes.Add(bytes, _commonTags);
 
     internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
 

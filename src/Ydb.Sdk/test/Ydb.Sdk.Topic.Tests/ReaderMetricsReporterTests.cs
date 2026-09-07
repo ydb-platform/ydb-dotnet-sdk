@@ -28,6 +28,68 @@ public class ReaderMetricsReporterTests
         "ydb.topic.reader.commit.acknowledged"
     ];
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("received-bytes-reader")]
+    public async Task ReceivedBytes_CountsResponseOnceAcrossTopicsAndUnknownPartitions(string? readerName)
+    {
+        const string metricName = "ydb.topic.reader.received.bytes";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var mockStream = new Mock<ReaderStream>();
+        var processed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondPartition = StartPartitionSessionRequest(partitionSessionId: 2);
+        secondPartition.StartPartitionSessionRequest.PartitionSession.Path = "/other-topic";
+        var response = ReadResponse("first"u8.ToArray());
+        response.ReadResponse.BytesSize = 1234;
+        var secondData = ReadResponse("second"u8.ToArray()).ReadResponse.PartitionData[0];
+        secondData.PartitionSessionId = 2;
+        var unknownData = ReadResponse("discarded"u8.ToArray()).ReadResponse.PartitionData[0];
+        unknownData.PartitionSessionId = 99;
+        response.ReadResponse.PartitionData.Add(secondData);
+        response.ReadResponse.PartitionData.Add(unknownData);
+        mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(() =>
+            {
+                processed.SetResult();
+                return closed.Task;
+            });
+        mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponse)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(secondPartition)
+            .Returns(response);
+        mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
+        mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
+        {
+            closed.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+        await using var reader =
+            new ReaderBuilder<string>(CreateDriverFactory(mockStream, $"received-bytes-{readerName}"))
+            {
+                ReaderName = readerName,
+                ConsumerName = "received-bytes-consumer",
+                SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("/other-topic") }
+            }.Build();
+
+        await processed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        meterProvider.ForceFlush();
+        var metric = GetMetric(exportedItems, metricName);
+        Assert.Equal(MetricType.LongSum, metric.MetricType);
+        Assert.Equal("By", metric.Unit);
+        var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName),
+            point => Equals(ToDictionary(point.Tags).GetValueOrDefault("consumer"), "received-bytes-consumer"));
+        Assert.Equal(1234, point.GetSumLong());
+        AssertTags(point, "received-bytes-consumer", readerName);
+    }
+
     [Fact]
     public async Task PartitionSessionCount_TracksSessionsAcrossReconnectAndDispose()
     {
@@ -223,7 +285,7 @@ public class ReaderMetricsReporterTests
     private static IEnumerable<MetricPoint> GetReaderPoints(
         List<Metric> exportedItems,
         string metricName,
-        string readerName)
+        string? readerName)
     {
         foreach (var point in exportedItems
                      .Where(metric => metric.Name == metricName)
@@ -247,15 +309,19 @@ public class ReaderMetricsReporterTests
     private static void AssertTags(
         MetricPoint point,
         string consumer,
-        string readerName,
+        string? readerName,
         string? topic = null)
     {
         var tags = ToDictionary(point.Tags);
-        Assert.Equal(topic is null ? 4 : 5, tags.Count);
+        Assert.Equal(3 + (topic is null ? 0 : 1) + (readerName is null ? 0 : 1), tags.Count);
         Assert.Equal("localhost:2136", tags["endpoint"]);
         Assert.Equal("/local", tags["database"]);
         Assert.Equal(consumer, tags["consumer"]);
-        Assert.Equal(readerName, tags["reader.name"]);
+        if (readerName is not null)
+        {
+            Assert.Equal(readerName, tags["reader.name"]);
+        }
+
         if (topic is not null)
         {
             Assert.Equal(topic, tags["topic"]);
