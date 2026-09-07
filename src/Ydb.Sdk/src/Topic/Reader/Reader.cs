@@ -112,6 +112,7 @@ internal class Reader<TValue> : IReader<TValue>
 
     private void Reconnect(StatusCode statusCode)
     {
+        _currentReaderSession = null;
         _metrics.ReportSessionError(statusCode);
         _ = Task.Run(Initialize, _disposeCts.Token);
     }
@@ -335,8 +336,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         _runProcessingStreamRequest = RunProcessingStreamRequest();
     }
 
-    internal long PartitionSessionCount =>
-        _lifecycleReaderSessionCts.IsCancellationRequested ? 0 : _partitionSessions.Count;
+    internal long PartitionSessionCount => _partitionSessions.Count;
 
     private async Task RunProcessingStreamResponse()
     {
