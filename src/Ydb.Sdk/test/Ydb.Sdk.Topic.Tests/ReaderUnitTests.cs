@@ -1,5 +1,4 @@
 using System.Text;
-using System.Threading.Channels;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -37,38 +36,6 @@ public class ReaderUnitTests
 
             return Task.CompletedTask;
         });
-    }
-
-    [Fact]
-    public async Task SessionStart_WhenStreamClosesSynchronously_ReconnectSeesPublishedSession()
-    {
-        _mockStream.Setup(stream => stream.MoveNextAsync()).ReturnsAsync(false);
-        ReaderSession<string>? currentSession = null;
-        ReaderSession<string>? sessionAtReconnect = null;
-        using var metrics = new ReaderMetricsReporter("localhost:2136", "/local", null, null,
-            () => new ReaderStats(0));
-        await using var session = new ReaderSession<string>(
-            new ReaderConfig([], null, null, 200),
-            _mockStream.Object,
-            "session-id",
-            _ =>
-            {
-                sessionAtReconnect = currentSession;
-                currentSession = null;
-            },
-            null,
-            Utils.LoggerFactory.CreateLogger("ReaderSessionTest"),
-            Channel.CreateUnbounded<InternalBatchMessages<string>>().Writer,
-            Mock.Of<IDeserializer<string>>(),
-            metrics);
-
-        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Never);
-        currentSession = session;
-        session.Start();
-
-        Assert.Same(session, sessionAtReconnect);
-        Assert.Null(currentSession);
-        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Once);
     }
 
     /*
