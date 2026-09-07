@@ -281,15 +281,21 @@ internal class Reader<TValue> : IReader<TValue>
 /// 5) Let's assume client somehow processes it, and its 200 bytes buffer is free again.
 ///    It should account for excess 10 bytes and send ReadRequest with bytes_size = 210.
 /// </summary>
-internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFromServer>
+internal class ReaderSession<TValue>(
+    ReaderConfig config,
+    ReaderStream stream,
+    string sessionId,
+    Action<StatusCode> reconnect,
+    string? lastToken,
+    ILogger logger,
+    ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
+    IDeserializer<TValue> deserializer,
+    ReaderMetricsReporter metrics
+) : TopicSession<MessageFromClient, MessageFromServer>(stream, logger, sessionId, reconnect, lastToken)
 {
     private const double FreeBufferCoefficient = 0.2;
 
-    private readonly ReaderConfig _readerConfig;
-    private readonly ChannelWriter<InternalBatchMessages<TValue>> _channelWriter;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
-    private readonly IDeserializer<TValue> _deserializer;
-    private readonly ReaderMetricsReporter _metrics;
     private Task _runProcessingStreamResponse = Task.CompletedTask;
     private Task _runProcessingStreamRequest = Task.CompletedTask;
 
@@ -305,30 +311,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private readonly ConcurrentDictionary<long, PartitionSession> _partitionSessions = new();
 
     private long _readRequestBytes;
-
-    public ReaderSession(
-        ReaderConfig config,
-        ReaderStream stream,
-        string sessionId,
-        Action<StatusCode> reconnect,
-        string? lastToken,
-        ILogger logger,
-        ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
-        IDeserializer<TValue> deserializer,
-        ReaderMetricsReporter metrics
-    ) : base(
-        stream,
-        logger,
-        sessionId,
-        reconnect,
-        lastToken
-    )
-    {
-        _readerConfig = config;
-        _channelWriter = channelWriter;
-        _deserializer = deserializer;
-        _metrics = metrics;
-    }
 
     internal void Start()
     {
@@ -424,7 +406,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     {
         var readRequestBytes = Interlocked.Add(ref _readRequestBytes, bytes);
 
-        if (readRequestBytes < FreeBufferCoefficient * _readerConfig.MemoryUsageMaxBytes)
+        if (readRequestBytes < FreeBufferCoefficient * config.MemoryUsageMaxBytes)
         {
             return;
         }
@@ -473,7 +455,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             if (_partitionSessions.TryGetValue(partitionsCommittedOffset.PartitionSessionId,
                     out var partitionSession))
             {
-                _metrics.ReportCommitAcknowledged(
+                metrics.ReportCommitAcknowledged(
                     partitionSession.HandleCommitedOffset(partitionsCommittedOffset.CommittedOffset),
                     partitionSession.TopicPath);
             }
@@ -550,7 +532,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     }
                 ).ConfigureAwait(false);
 
-                _metrics.ReportCommitQueued(
+                metrics.ReportCommitQueued(
                     commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
                     partitionSession.TopicPath);
             }
@@ -574,7 +556,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private async Task HandleReadResponse(StreamReadMessage.Types.ReadResponse readResponse)
     {
         var bytesSize = readResponse.BytesSize;
-        _metrics.ReportReceivedBytes(bytesSize);
+        metrics.ReportReceivedBytes(bytesSize);
         var partitionCount = readResponse.PartitionData.Count;
 
         for (var partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++)
@@ -595,8 +577,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 for (var batchIndex = 0; batchIndex < batchCount; batchIndex++)
                 {
                     var batch = batches[batchIndex];
-                    _metrics.ReportLocalBuffer(batch.MessageData.Count, partitionSession.TopicPath);
-                    await _channelWriter.WriteAsync(
+                    metrics.ReportLocalBuffer(batch.MessageData.Count, partitionSession.TopicPath);
+                    await channelWriter.WriteAsync(
                         new InternalBatchMessages<TValue>(
                             batch,
                             partitionSession,
@@ -606,11 +588,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                                 countParts: batchCount,
                                 currentIndex: batchIndex
                             ),
-                            _deserializer
+                            deserializer
                         )
                     ).ConfigureAwait(false);
 
-                    _metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
+                    metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
                 }
             }
             else
