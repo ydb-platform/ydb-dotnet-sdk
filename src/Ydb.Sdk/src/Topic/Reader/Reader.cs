@@ -341,11 +341,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
                 if (messageFromServer.Status.IsNotSuccess())
                 {
+                    var statusCode = messageFromServer.Status.Code();
                     Logger.LogError(
                         "ReaderSession[{SessionId}] received unsuccessful status while processing readAck: {Status}",
-                        SessionId, messageFromServer.Status.Code().ToMessage(messageFromServer.Issues));
-                    ReconnectSession(() =>
-                        _metrics.ReportSessionError(messageFromServer.Status.Code(), retry: true));
+                        SessionId, statusCode.ToMessage(messageFromServer.Issues));
+                    ReconnectSession(() => _metrics.ReportSessionError(statusCode, retry: true));
                     return;
                 }
 
