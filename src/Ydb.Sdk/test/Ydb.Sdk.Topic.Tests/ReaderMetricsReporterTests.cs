@@ -233,6 +233,17 @@ public class ReaderMetricsReporterTests
         var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
         var handledEvents = Channel.CreateUnbounded<long>();
         SetupResponseStream(mockStream, responses, handledEvents.Writer);
+        var reconnectStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var initRequests = 0;
+        mockStream.Setup(stream => stream.Write(It.Is<FromClient>(message => message.InitRequest != null)))
+            .Callback(() =>
+            {
+                if (++initRequests == 2)
+                {
+                    reconnectStarted.SetResult();
+                }
+            })
+            .Returns(Task.CompletedTask);
         var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = "partition-count-consumer",
@@ -247,9 +258,11 @@ public class ReaderMetricsReporterTests
             await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 1), 1, 1);
             await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 2), 2, 2);
             await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 1), -1, 1);
-            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 2), -2, 0);
             await responses.Writer.WriteAsync((false, null));
+            await reconnectStarted.Task.WaitAsync(timeout);
+            AssertCount(meterProvider, 0);
             await SendResponse(meterProvider, InitResponse, 0, 0);
+            await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 3), 3, 1);
         }
         finally
         {
@@ -271,6 +284,11 @@ public class ReaderMetricsReporterTests
         {
             await responses.Writer.WriteAsync((true, response));
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+            AssertCount(provider, expectedCount);
+        }
+
+        void AssertCount(MeterProvider provider, long expectedCount)
+        {
             exportedItems.Clear();
             provider.ForceFlush();
             var point = Assert.Single(GetReaderPoints(exportedItems, PartitionSessionCountMetricName,

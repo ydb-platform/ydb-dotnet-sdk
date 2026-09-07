@@ -112,6 +112,7 @@ internal class Reader<TValue> : IReader<TValue>
 
     private void Reconnect(StatusCode statusCode)
     {
+        _currentReaderSession = null;
         _metrics.ReportSessionError(statusCode);
         _ = Task.Run(Initialize);
     }
