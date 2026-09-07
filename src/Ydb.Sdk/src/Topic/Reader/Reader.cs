@@ -53,6 +53,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             _driverFactory.Database,
             _config.ConsumerName,
             _config.ReaderName,
+            _config.SubscribeSettings.Select(settings => settings.TopicPath),
             this);
 
         _ = Initialize();
@@ -64,6 +65,9 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         _receivedMessagesChannel.Reader.TryPeek(out var batch) && batch.ReceivedTimestamp > 0
             ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
             : 0;
+
+    IReadOnlyCollection<PartitionSession> IReaderMetricsSource.PartitionSessions =>
+        _currentReaderSession?.PartitionSessions ?? [];
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -324,6 +328,9 @@ internal class ReaderSession<TValue>(
 
     internal long PartitionSessionCount => _partitionSessions.Count;
 
+    internal IReadOnlyCollection<PartitionSession> PartitionSessions =>
+        _lifecycleReaderSessionCts.IsCancellationRequested ? [] : _partitionSessions.Values.ToArray();
+
     private async Task RunProcessingStreamResponse()
     {
         try
@@ -537,6 +544,7 @@ internal class ReaderSession<TValue>(
                     }
                 ).ConfigureAwait(false);
 
+                partitionSession.RecordCommitRequested(commitSending.OffsetsRange.End);
                 metrics.ReportCommitQueued(
                     commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
                     partitionSession.TopicPath);

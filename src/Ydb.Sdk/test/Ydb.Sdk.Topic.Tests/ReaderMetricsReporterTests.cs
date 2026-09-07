@@ -21,6 +21,7 @@ public class ReaderMetricsReporterTests
 {
     private const string PartitionSessionCountMetricName = "ydb.topic.reader.partition_session.count";
     private const string PartitionSessionCountReaderName = "partition-count-reader";
+    private const string CommitOffsetLagMetricName = "ydb.topic.reader.commit_offset.lag.max";
     private const string LifecycleReaderName = "reader-lifecycle-metrics";
 
     private static readonly string[] MetricNames =
@@ -431,6 +432,111 @@ public class ReaderMetricsReporterTests
     }
 
     [Fact]
+    public async Task CommitOffsetLag_TracksMaximumAcrossReaders()
+    {
+        const string readerName = "commit-offset-lag-reader";
+        const string consumer = "commit-offset-lag-consumer";
+        var timeout = TimeSpan.FromSeconds(5);
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var firstStream = new Mock<ReaderStream>();
+        var secondStream = new Mock<ReaderStream>();
+        var firstResponses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
+        var secondResponses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
+        var firstHandledEvents = Channel.CreateUnbounded<long>();
+        var secondHandledEvents = Channel.CreateUnbounded<long>();
+        var firstCommitWritten = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondCommitWritten = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        SetupResponseStream(firstStream, firstResponses, firstHandledEvents.Writer, message =>
+        {
+            if (message.CommitOffsetRequest is not null)
+            {
+                firstCommitWritten.TrySetResult();
+            }
+        });
+        SetupResponseStream(secondStream, secondResponses, secondHandledEvents.Writer, message =>
+        {
+            if (message.CommitOffsetRequest is not null)
+            {
+                secondCommitWritten.TrySetResult();
+            }
+        });
+        var firstReader = BuildReader(firstStream);
+        var secondReader = BuildReader(secondStream);
+
+        try
+        {
+            await SendResponse(firstResponses, firstHandledEvents, InitResponse, 0);
+            await SendResponse(secondResponses, secondHandledEvents, InitResponse, 0);
+            await SendResponse(firstResponses, firstHandledEvents, StartPartitionSessionRequest(10), 1);
+            await SendResponse(secondResponses, secondHandledEvents, StartPartitionSessionRequest(10), 1);
+            AssertLag(0);
+
+            await firstResponses.Writer.WriteAsync((true, ReadResponse(14, "first"u8.ToArray())));
+            await secondResponses.Writer.WriteAsync((true, ReadResponse(17, "second"u8.ToArray())));
+            var firstMessage = await firstReader.ReadAsync().AsTask().WaitAsync(timeout);
+            var secondMessage = await secondReader.ReadAsync().AsTask().WaitAsync(timeout);
+            var firstCommit = firstMessage.CommitAsync();
+            var secondCommit = secondMessage.CommitAsync();
+            await firstCommitWritten.Task.WaitAsync(timeout);
+            await secondCommitWritten.Task.WaitAsync(timeout);
+            AssertLag(8);
+
+            await secondResponses.Writer.WriteAsync((true, CommitOffsetResponse(18)));
+            await secondCommit.WaitAsync(timeout);
+            AssertLag(5);
+
+            await firstResponses.Writer.WriteAsync((true, CommitOffsetResponse(15)));
+            await firstCommit.WaitAsync(timeout);
+            AssertLag(0);
+
+            await SendResponse(firstResponses, firstHandledEvents, StopPartitionSessionRequest(), -1);
+            await SendResponse(secondResponses, secondHandledEvents, StopPartitionSessionRequest(), -1);
+            AssertLag(0);
+        }
+        finally
+        {
+            await firstReader.DisposeAsync();
+            await secondReader.DisposeAsync();
+        }
+
+        return;
+
+        IReader<string> BuildReader(Mock<ReaderStream> stream)
+        {
+            return new ReaderBuilder<string>(
+                CreateDriverFactory(stream, "Reader_Commit_Offset_Lag_Metrics"))
+            {
+                ConsumerName = consumer,
+                ReaderName = readerName,
+                SubscribeSettings = { new SubscribeSettings("/topic") }
+            }.Build();
+        }
+
+        async Task SendResponse(
+            Channel<(bool HasNext, FromServer? Response)> responses,
+            Channel<long> handledEvents,
+            FromServer response,
+            long expectedEvent)
+        {
+            await responses.Writer.WriteAsync((true, response));
+            Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        }
+
+        void AssertLag(long expected)
+        {
+            exportedItems.Clear();
+            meterProvider.ForceFlush();
+            var metric = GetMetric(exportedItems, CommitOffsetLagMetricName);
+            Assert.Equal(MetricType.LongGauge, metric.MetricType);
+            Assert.Equal("{message}", metric.Unit);
+            var point = Assert.Single(GetReaderPoints(exportedItems, CommitOffsetLagMetricName, readerName));
+            Assert.Equal(expected, point.GetGaugeLastValueLong());
+            AssertTags(point, consumer, readerName, "/topic");
+        }
+    }
+
+    [Fact]
     public async Task ReaderLifecycle_RecordsCounters()
     {
         var exportedItems = new List<Metric>();
@@ -527,7 +633,8 @@ public class ReaderMetricsReporterTests
     private static void SetupResponseStream(
         Mock<ReaderStream> stream,
         Channel<(bool HasNext, FromServer? Response)> responses,
-        ChannelWriter<long> handledEvents)
+        ChannelWriter<long> handledEvents,
+        Action<FromClient>? onWrite = null)
     {
         FromServer?[] currentResponse = [null];
         stream.Setup(mock => mock.MoveNextAsync()).Returns(async () =>
@@ -545,6 +652,7 @@ public class ReaderMetricsReporterTests
         stream.Setup(mock => mock.Write(It.IsAny<FromClient>()))
             .Callback<FromClient>(message =>
             {
+                onWrite?.Invoke(message);
                 if (message.ReadRequest != null)
                 {
                     handledEvents.TryWrite(0);

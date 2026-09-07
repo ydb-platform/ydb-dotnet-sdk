@@ -11,6 +11,10 @@ internal class PartitionSession(
     long commitedOffset)
 {
     private readonly ConcurrentQueue<CommitSending> _waitCommitMessages = new();
+    private readonly object _commitOffsetMetricsLock = new();
+
+    private long _maxRequestedCommitOffset = commitedOffset;
+    private long _lastAcknowledgedCommittedOffset = commitedOffset;
 
     private volatile bool _isStopped;
 
@@ -26,6 +30,17 @@ internal class PartitionSession(
     internal long PartitionId => partitionId;
 
     internal long PrevEndOffsetMessage { get; set; } = commitedOffset;
+
+    internal long CommitOffsetLag
+    {
+        get
+        {
+            lock (_commitOffsetMetricsLock)
+            {
+                return Math.Max(0, _maxRequestedCommitOffset - _lastAcknowledgedCommittedOffset);
+            }
+        }
+    }
 
     // Each offset up to and including (committed_offset - 1) was fully processed.
     private long CommitedOffset { get; set; } = commitedOffset;
@@ -51,8 +66,21 @@ internal class PartitionSession(
         }
     }
 
+    internal void RecordCommitRequested(long requestedCommitOffset)
+    {
+        lock (_commitOffsetMetricsLock)
+        {
+            _maxRequestedCommitOffset = Math.Max(_maxRequestedCommitOffset, requestedCommitOffset);
+        }
+    }
+
     internal long HandleCommitedOffset(long commitedOffset)
     {
+        lock (_commitOffsetMetricsLock)
+        {
+            _lastAcknowledgedCommittedOffset = Math.Max(_lastAcknowledgedCommittedOffset, commitedOffset);
+        }
+
         if (CommitedOffset >= commitedOffset)
         {
             logger.LogError(
