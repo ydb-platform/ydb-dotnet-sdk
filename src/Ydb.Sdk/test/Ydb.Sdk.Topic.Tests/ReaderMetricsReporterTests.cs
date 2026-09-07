@@ -1,5 +1,4 @@
 using System.Threading.Channels;
-using Grpc.Core;
 using Moq;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -93,14 +92,7 @@ public class ReaderMetricsReporterTests
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
         var mockStream = new Mock<ReaderStream>();
-        var mockDriver = new Mock<IDriver>();
-        mockDriver.Setup(driver => driver.BidirectionalStreamCall(
-            It.IsAny<Method<FromClient, FromServer>>(),
-            It.IsAny<GrpcRequestSettings>())).ReturnsAsync(mockStream.Object);
-        mockDriver.Setup(driver => driver.DisposeAsync())
-            .Callback(() => mockDriver.Setup(driver => driver.IsDisposed).Returns(true));
-        mockDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
-        var driverFactory = new IDriverFactoryMock(mockDriver, "Reader_Metrics");
+        var driverFactory = CreateDriverFactory(mockStream, "Reader_Metrics");
         var lastMoveNext = new TaskCompletionSource<bool>();
         var firstCommitReady = new TaskCompletionSource<bool>();
         var firstCommitHandled = new TaskCompletionSource<bool>();
@@ -187,6 +179,43 @@ public class ReaderMetricsReporterTests
             .AddYdbTopic()
             .AddInMemoryExporter(exportedItems)
             .Build();
+
+    private static void SetupResponseStream(
+        Mock<ReaderStream> stream,
+        Channel<(bool HasNext, FromServer? Response)> responses,
+        ChannelWriter<long> handledEvents)
+    {
+        FromServer?[] currentResponse = [null];
+        stream.Setup(mock => mock.MoveNextAsync()).Returns(async () =>
+        {
+            var response = await responses.Reader.ReadAsync();
+            currentResponse[0] = response.Response;
+            return response.HasNext;
+        });
+        stream.Setup(mock => mock.Current).Returns(() => currentResponse[0]!);
+        stream.Setup(mock => mock.RequestStreamComplete()).Returns(() =>
+        {
+            responses.Writer.TryWrite((false, null));
+            return Task.CompletedTask;
+        });
+        stream.Setup(mock => mock.Write(It.IsAny<FromClient>()))
+            .Callback<FromClient>(message =>
+            {
+                if (message.ReadRequest != null)
+                {
+                    handledEvents.TryWrite(0);
+                }
+                else if (message.StartPartitionSessionResponse != null)
+                {
+                    handledEvents.TryWrite(message.StartPartitionSessionResponse.PartitionSessionId);
+                }
+                else if (message.StopPartitionSessionResponse != null)
+                {
+                    handledEvents.TryWrite(-message.StopPartitionSessionResponse.PartitionSessionId);
+                }
+            })
+            .Returns(Task.CompletedTask);
+    }
 
     private static Metric GetMetric(List<Metric> exportedItems, string name) =>
         exportedItems.Single(metric => metric.Name == name);

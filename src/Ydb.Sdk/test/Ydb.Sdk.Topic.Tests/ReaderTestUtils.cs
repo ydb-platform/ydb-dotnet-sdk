@@ -1,4 +1,3 @@
-using System.Threading.Channels;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -28,7 +27,7 @@ internal static class ReaderTestUtils
                 CommittedOffset = committedOffset,
                 PartitionOffsets = new OffsetsRange { Start = committedOffset, End = committedOffset + 1000 },
                 PartitionSession = new StreamReadMessage.Types.PartitionSession
-                    { Path = "/topic", PartitionId = partitionSessionId, PartitionSessionId = partitionSessionId }
+                { Path = "/topic", PartitionId = partitionSessionId, PartitionSessionId = partitionSessionId }
             }
         };
 
@@ -98,40 +97,4 @@ internal static class ReaderTestUtils
         return new IDriverFactoryMock(driver, name);
     }
 
-    internal static void SetupResponseStream(
-        Mock<ReaderStream> stream,
-        Channel<(bool HasNext, FromServer? Response)> responses,
-        ChannelWriter<long> handledEvents)
-    {
-        FromServer?[] currentResponse = [null];
-        stream.Setup(mock => mock.MoveNextAsync()).Returns(async () =>
-        {
-            var response = await responses.Reader.ReadAsync();
-            currentResponse[0] = response.Response;
-            return response.HasNext;
-        });
-        stream.Setup(mock => mock.Current).Returns(() => currentResponse[0]!);
-        stream.Setup(mock => mock.RequestStreamComplete()).Returns(() =>
-        {
-            responses.Writer.TryWrite((false, null));
-            return Task.CompletedTask;
-        });
-        stream.Setup(mock => mock.Write(It.IsAny<FromClient>()))
-            .Callback<FromClient>(message =>
-            {
-                if (message.ReadRequest != null)
-                {
-                    handledEvents.TryWrite(0);
-                }
-                else if (message.StartPartitionSessionResponse != null)
-                {
-                    handledEvents.TryWrite(message.StartPartitionSessionResponse.PartitionSessionId);
-                }
-                else if (message.StopPartitionSessionResponse != null)
-                {
-                    handledEvents.TryWrite(-message.StopPartitionSessionResponse.PartitionSessionId);
-                }
-            })
-            .Returns(Task.CompletedTask);
-    }
 }

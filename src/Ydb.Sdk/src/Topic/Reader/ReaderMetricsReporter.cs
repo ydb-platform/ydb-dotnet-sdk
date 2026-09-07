@@ -70,7 +70,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
             commonTags.Add("consumer", consumer);
         }
 
-        if (!string.IsNullOrEmpty(readerName))
+        if (readerName is not null)
         {
             commonTags.Add("reader.name", readerName);
         }
