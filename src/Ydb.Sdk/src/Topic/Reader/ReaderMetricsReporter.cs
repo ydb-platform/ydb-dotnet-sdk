@@ -103,6 +103,12 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     internal void ReportSessionError(StatusCode statusCode, bool retry)
     {
+        if (statusCode == StatusCode.Unspecified)
+        {
+            ReportSessionClosed();
+            return;
+        }
+
         if (!SessionErrors.Enabled)
         {
             return;

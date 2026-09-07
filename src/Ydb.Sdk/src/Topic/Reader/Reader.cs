@@ -316,7 +316,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         logger,
         sessionId,
         initialize,
-        lastToken
+        lastToken,
+        metrics.ReportSessionError
     )
     {
         _readerConfig = config;
@@ -330,19 +331,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
     internal long PartitionSessionCount =>
         _lifecycleReaderSessionCts.IsCancellationRequested ? 0 : _partitionSessions.Count;
-
-    private void ReconnectSession(StatusCode statusCode = StatusCode.Unspecified, bool closedByServer = false) =>
-        base.ReconnectSession(() =>
-        {
-            if (closedByServer)
-            {
-                _metrics.ReportSessionClosed();
-            }
-            else
-            {
-                _metrics.ReportSessionError(statusCode, retry: true);
-            }
-        });
 
     private async Task RunProcessingStreamResponse()
     {
@@ -391,7 +379,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             }
 
             Logger.LogInformation("ReaderSession[{SessionId}]: ResponseStream is closed", SessionId);
-            ReconnectSession(closedByServer: true);
+            ReconnectSession();
         }
         catch (YdbException e)
         {
