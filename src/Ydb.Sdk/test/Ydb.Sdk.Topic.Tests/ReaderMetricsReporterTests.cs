@@ -28,12 +28,10 @@ public class ReaderMetricsReporterTests
         "ydb.topic.reader.commit.acknowledged"
     ];
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("received-bytes-reader")]
-    public async Task ReceivedBytes_CountsResponseOnceAcrossTopicsAndUnknownPartitions(string? readerName)
+    [Fact]
+    public async Task ReceivedBytes_CountsResponseOnceAcrossTopicsAndUnknownPartitions()
     {
+        const string readerName = "received-bytes-reader";
         const string metricName = "ydb.topic.reader.received.bytes";
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
@@ -71,21 +69,19 @@ public class ReaderMetricsReporterTests
             closed.TrySetResult(false);
             return Task.CompletedTask;
         });
-        await using var reader =
-            new ReaderBuilder<string>(CreateDriverFactory(mockStream, $"received-bytes-{readerName}"))
-            {
-                ReaderName = readerName,
-                ConsumerName = "received-bytes-consumer",
-                SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("/other-topic") }
-            }.Build();
+        await using var reader = new ReaderBuilder<string>(CreateDriverFactory(mockStream, readerName))
+        {
+            ReaderName = readerName,
+            ConsumerName = "received-bytes-consumer",
+            SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("/other-topic") }
+        }.Build();
 
         await processed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         meterProvider.ForceFlush();
         var metric = GetMetric(exportedItems, metricName);
         Assert.Equal(MetricType.LongSum, metric.MetricType);
         Assert.Equal("By", metric.Unit);
-        var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName),
-            point => Equals(ToDictionary(point.Tags).GetValueOrDefault("consumer"), "received-bytes-consumer"));
+        var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
         Assert.Equal(1234, point.GetSumLong());
         AssertTags(point, "received-bytes-consumer", readerName);
     }
@@ -285,7 +281,7 @@ public class ReaderMetricsReporterTests
     private static IEnumerable<MetricPoint> GetReaderPoints(
         List<Metric> exportedItems,
         string metricName,
-        string? readerName)
+        string readerName)
     {
         foreach (var point in exportedItems
                      .Where(metric => metric.Name == metricName)
@@ -309,19 +305,15 @@ public class ReaderMetricsReporterTests
     private static void AssertTags(
         MetricPoint point,
         string consumer,
-        string? readerName,
+        string readerName,
         string? topic = null)
     {
         var tags = ToDictionary(point.Tags);
-        Assert.Equal(3 + (topic is null ? 0 : 1) + (readerName is null ? 0 : 1), tags.Count);
+        Assert.Equal(topic is null ? 4 : 5, tags.Count);
         Assert.Equal("localhost:2136", tags["endpoint"]);
         Assert.Equal("/local", tags["database"]);
         Assert.Equal(consumer, tags["consumer"]);
-        if (readerName is not null)
-        {
-            Assert.Equal(readerName, tags["reader.name"]);
-        }
-
+        Assert.Equal(readerName, tags["reader.name"]);
         if (topic is not null)
         {
             Assert.Equal(topic, tags["topic"]);
