@@ -103,12 +103,6 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     internal void ReportSessionError(StatusCode statusCode, bool retry)
     {
-        if (statusCode == StatusCode.Unspecified)
-        {
-            ReportSessionClosed();
-            return;
-        }
-
         if (!SessionErrors.Enabled)
         {
             return;
@@ -117,23 +111,15 @@ internal sealed class ReaderMetricsReporter : IDisposable
         SessionErrors.Add(1, new TagList(_commonTags)
         {
             { "retry_decision", retry ? "retry" : "stop" },
-            { "status_code", statusCode.ToString() },
-            { "error.type", statusCode.IsTransportError() ? "transport_error" : "ydb_error" }
-        });
-    }
-
-    internal void ReportSessionClosed()
-    {
-        if (!SessionErrors.Enabled)
-        {
-            return;
-        }
-
-        SessionErrors.Add(1, new TagList(_commonTags)
-        {
-            { "retry_decision", "retry" },
-            { "status_code", "unknown" },
-            { "error.type", "session_closed" }
+            { "status_code", statusCode == StatusCode.Unspecified ? "unknown" : statusCode.ToString() },
+            {
+                "error.type", statusCode switch
+                {
+                    StatusCode.Unspecified => "session_closed",
+                    _ when statusCode.IsTransportError() => "transport_error",
+                    _ => "ydb_error"
+                }
+            }
         });
     }
 

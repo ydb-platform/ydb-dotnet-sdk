@@ -172,7 +172,7 @@ internal class Reader<TValue> : IReader<TValue>
                     initRequest);
 
                 _ = Task.Run(Initialize, _disposeCts.Token);
-                _metrics.ReportSessionClosed();
+                _metrics.ReportSessionError(StatusCode.Unspecified, retry: true);
 
                 return;
             }
