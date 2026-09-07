@@ -217,7 +217,7 @@ internal class Reader<TValue> : IReader<TValue>
                 ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = _config.MemoryUsageMaxBytes }
             }).ConfigureAwait(false);
 
-            _currentReaderSession = new ReaderSession<TValue>(
+            var readerSession = new ReaderSession<TValue>(
                 _config,
                 stream,
                 initResponse.SessionId,
@@ -228,6 +228,8 @@ internal class Reader<TValue> : IReader<TValue>
                 _deserializer,
                 _metrics
             );
+            _currentReaderSession = readerSession;
+            readerSession.Start();
         }
         catch (YdbException e)
         {
@@ -288,8 +290,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ReaderMetricsReporter _metrics;
-    private readonly Task _runProcessingStreamResponse;
-    private readonly Task _runProcessingStreamRequest;
+    private Task _runProcessingStreamResponse = Task.CompletedTask;
+    private Task _runProcessingStreamRequest = Task.CompletedTask;
 
     private readonly Channel<MessageFromClient> _channelFromClientMessageSending =
         Channel.CreateUnbounded<MessageFromClient>(
@@ -326,7 +328,10 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         _channelWriter = channelWriter;
         _deserializer = deserializer;
         _metrics = metrics;
+    }
 
+    internal void Start()
+    {
         _runProcessingStreamResponse = RunProcessingStreamResponse();
         _runProcessingStreamRequest = RunProcessingStreamRequest();
     }
