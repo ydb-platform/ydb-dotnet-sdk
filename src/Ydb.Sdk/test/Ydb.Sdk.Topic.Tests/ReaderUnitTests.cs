@@ -25,16 +25,7 @@ public class ReaderUnitTests
 
     public ReaderUnitTests()
     {
-        var mockIDriver = new Mock<IDriver>();
-        mockIDriver.Setup(driver => driver.BidirectionalStreamCall(
-            It.IsAny<Method<FromClient, FromServer>>(),
-            It.IsAny<GrpcRequestSettings>())
-        ).ReturnsAsync(_mockStream.Object);
-        mockIDriver.Setup(driver => driver.DisposeAsync())
-            .Callback(() => mockIDriver.Setup(driver => driver.IsDisposed).Returns(true));
-        mockIDriver.Setup(driver => driver.LoggerFactory).Returns(Utils.LoggerFactory);
-
-        _driverFactoryMock = new IDriverFactoryMock(mockIDriver, "Reader_Mock");
+        _driverFactoryMock = CreateDriverFactory(_mockStream, "Reader_Mock");
 
         var tcsLastMoveNext = new TaskCompletionSource<bool>();
 
