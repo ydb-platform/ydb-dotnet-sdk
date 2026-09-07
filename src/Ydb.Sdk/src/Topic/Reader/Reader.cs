@@ -112,9 +112,8 @@ internal class Reader<TValue> : IReader<TValue>
 
     private void Reconnect(StatusCode statusCode)
     {
-        _currentReaderSession = null;
         _metrics.ReportSessionError(statusCode);
-        _ = Task.Run(Initialize);
+        _ = Task.Run(Initialize, _disposeCts.Token);
     }
 
     private async Task Initialize()
@@ -178,8 +177,7 @@ internal class Reader<TValue> : IReader<TValue>
                 _logger.LogError("Stream unexpectedly closed by YDB server. Current InitRequest: {InitRequest}",
                     initRequest);
 
-                _ = Task.Run(Initialize, _disposeCts.Token);
-                _metrics.ReportSessionError(StatusCode.Unspecified);
+                Reconnect(StatusCode.Unspecified);
 
                 return;
             }
@@ -195,8 +193,7 @@ internal class Reader<TValue> : IReader<TValue>
                 {
                     _logger.LogError("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
-                    _ = Task.Run(Initialize, _disposeCts.Token);
-                    _metrics.ReportSessionError(initException.Code);
+                    Reconnect(initException.Code);
                 }
                 else
                 {
@@ -236,8 +233,7 @@ internal class Reader<TValue> : IReader<TValue>
         {
             _logger.LogError(e, "Error on executing ReaderSession");
 
-            _ = Task.Run(Initialize, _disposeCts.Token);
-            _metrics.ReportSessionError(e.Code);
+            Reconnect(e.Code);
         }
     }
 
