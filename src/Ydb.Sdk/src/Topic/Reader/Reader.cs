@@ -172,7 +172,7 @@ internal class Reader<TValue> : IReader<TValue>
                     initRequest);
 
                 _ = Task.Run(Initialize, _disposeCts.Token);
-                _metrics.ReportSessionError(StatusCode.Unspecified, retry: true);
+                _metrics.ReportSessionError(StatusCode.Unspecified);
 
                 return;
             }
@@ -189,7 +189,7 @@ internal class Reader<TValue> : IReader<TValue>
                     _logger.LogError("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
                     _ = Task.Run(Initialize, _disposeCts.Token);
-                    _metrics.ReportSessionError(initException.Code, retry: true);
+                    _metrics.ReportSessionError(initException.Code);
                 }
                 else
                 {
@@ -230,7 +230,7 @@ internal class Reader<TValue> : IReader<TValue>
             _logger.LogError(e, "Error on executing ReaderSession");
 
             _ = Task.Run(Initialize, _disposeCts.Token);
-            _metrics.ReportSessionError(e.Code, retry: true);
+            _metrics.ReportSessionError(e.Code);
         }
     }
 

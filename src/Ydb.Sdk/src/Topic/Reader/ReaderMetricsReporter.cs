@@ -101,7 +101,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     internal void ReportReceivedBytes(long bytes) => ReceivedBytes.Add(bytes, _commonTags);
 
-    internal void ReportSessionError(StatusCode statusCode, bool retry)
+    internal void ReportSessionError(StatusCode statusCode, bool retry = true)
     {
         if (!SessionErrors.Enabled)
         {
@@ -111,7 +111,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
         SessionErrors.Add(1, new TagList(_commonTags)
         {
             { "retry_decision", retry ? "retry" : "stop" },
-            { "status_code", statusCode == StatusCode.Unspecified ? "unknown" : statusCode.ToString() },
+            { "status_code", statusCode.ToString() },
             {
                 "error.type", statusCode switch
                 {
