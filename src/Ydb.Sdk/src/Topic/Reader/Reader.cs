@@ -217,7 +217,7 @@ internal class Reader<TValue> : IReader<TValue>
                 ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = _config.MemoryUsageMaxBytes }
             }).ConfigureAwait(false);
 
-            var readerSession = new ReaderSession<TValue>(
+            _currentReaderSession = new ReaderSession<TValue>(
                 _config,
                 stream,
                 initResponse.SessionId,
@@ -228,8 +228,7 @@ internal class Reader<TValue> : IReader<TValue>
                 _deserializer,
                 _metrics
             );
-            _currentReaderSession = readerSession;
-            readerSession.Start();
+            _currentReaderSession.Start();
         }
         catch (YdbException e)
         {
