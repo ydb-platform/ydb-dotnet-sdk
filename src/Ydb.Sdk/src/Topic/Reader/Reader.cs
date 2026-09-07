@@ -241,8 +241,8 @@ internal class Reader<TValue> : IReader<TValue>
             return;
         }
 
-        _disposeCts.Cancel();
         _receivedMessagesChannel.Writer.TryComplete();
+        _disposeCts.Cancel();
         _metrics.Dispose();
 
         await (_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
