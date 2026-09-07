@@ -1,17 +1,20 @@
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
   `ydb-sdk-metrics/0.1.0` to `ydb-sdk-metrics/0.2.0`.
-- Feat Topic Reader metrics: added four counters on the `Ydb.Sdk` meter with the `endpoint`, `database`, `topic`,
-  and `consumer` attributes.
+- Feat Topic Reader metrics: added four counters and a partition-session gauge on the `Ydb.Sdk.Topic` meter.
 
-  | Metric                                     | Unit        | Description                                                 |
-  |--------------------------------------------|-------------|-------------------------------------------------------------|
-  | `ydb.topic.reader.received.messages`       | `{message}` | Messages accepted by the SDK from active partition sessions |
-  | `ydb.topic.reader.delivered.messages`      | `{message}` | Messages delivered by the SDK to application code           |
-  | `ydb.topic.reader.commit.queued`           | `{message}` | Messages in commit ranges accepted by the SDK               |
-  | `ydb.topic.reader.commit.acknowledged`     | `{message}` | Messages in ranges completed by successful acknowledgements |
+  | Metric                                             | Unit        | Description                                                  |
+  |----------------------------------------------------|-------------|--------------------------------------------------------------|
+  | `ydb.topic.reader.received.messages`               | `{message}` | Messages accepted by the SDK from active partition sessions  |
+  | `ydb.topic.reader.delivered.messages`              | `{message}` | Messages delivered by the SDK to application code            |
+  | `ydb.topic.reader.commit.queued`                   | `{message}` | Messages in commit ranges accepted by the SDK                |
+  | `ydb.topic.reader.commit.acknowledged`             | `{message}` | Messages in ranges completed by successful acknowledgements  |
+  | `ydb.topic.reader.partition_session.count`         | `{session}` | Active partition sessions in the reader processing lifecycle |
 
   Repeated deliveries and messages in repeated commit ranges are counted again. An acknowledgement counts messages
   in every queued range it completes; stale acknowledgements are ignored.
+  All Topic Reader metrics have the `endpoint` and `database` attributes, plus `consumer` and `reader.name` when they
+  are configured; counters also have `topic`. The partition-session gauge is an SDK-local snapshot, not server
+  ownership or processing progress.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 

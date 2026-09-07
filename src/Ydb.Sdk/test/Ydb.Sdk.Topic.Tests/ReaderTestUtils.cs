@@ -1,28 +1,43 @@
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
+using Grpc.Core;
+using Moq;
 using Ydb.Topic;
 
 namespace Ydb.Sdk.Topic.Tests;
 
 using FromServer = StreamReadMessage.Types.FromServer;
+using FromClient = StreamReadMessage.Types.FromClient;
+using ReaderStream = IBidirectionalStream<StreamReadMessage.Types.FromClient, StreamReadMessage.Types.FromServer>;
 
 internal static class ReaderTestUtils
 {
-    internal static FromServer InitResponse() => new()
+    internal static FromServer InitResponse { get; } = new()
     {
         Status = StatusIds.Types.StatusCode.Success,
         InitResponse = new StreamReadMessage.Types.InitResponse { SessionId = "SessionId" }
     };
 
-    internal static FromServer StartPartitionSessionRequest(int committedOffset = 0) => new()
+    internal static FromServer StartPartitionSessionRequest(int committedOffset = 0, long partitionSessionId = 1) =>
+        new()
+        {
+            Status = StatusIds.Types.StatusCode.Success,
+            StartPartitionSessionRequest = new StreamReadMessage.Types.StartPartitionSessionRequest
+            {
+                CommittedOffset = committedOffset,
+                PartitionOffsets = new OffsetsRange { Start = committedOffset, End = committedOffset + 1000 },
+                PartitionSession = new StreamReadMessage.Types.PartitionSession
+                    { Path = "/topic", PartitionId = partitionSessionId, PartitionSessionId = partitionSessionId }
+            }
+        };
+
+    internal static FromServer StopPartitionSessionRequest(long partitionSessionId = 1) => new()
     {
         Status = StatusIds.Types.StatusCode.Success,
-        StartPartitionSessionRequest = new StreamReadMessage.Types.StartPartitionSessionRequest
+        StopPartitionSessionRequest = new StreamReadMessage.Types.StopPartitionSessionRequest
         {
-            CommittedOffset = committedOffset,
-            PartitionOffsets = new OffsetsRange { Start = committedOffset, End = committedOffset + 1000 },
-            PartitionSession = new StreamReadMessage.Types.PartitionSession
-                { Path = "/topic", PartitionId = 1, PartitionSessionId = 1 }
+            PartitionSessionId = partitionSessionId,
+            Graceful = true
         }
     };
 
@@ -69,4 +84,16 @@ internal static class ReaderTestUtils
             }
         }
     };
+
+    internal static IDriverFactoryMock CreateDriverFactory(Mock<ReaderStream> stream, string name)
+    {
+        var driver = new Mock<IDriver>();
+        driver.Setup(mock => mock.BidirectionalStreamCall(
+            It.IsAny<Method<FromClient, FromServer>>(),
+            It.IsAny<GrpcRequestSettings>())).ReturnsAsync(stream.Object);
+        driver.Setup(mock => mock.DisposeAsync())
+            .Callback(() => driver.Setup(mock => mock.IsDisposed).Returns(true));
+        driver.Setup(mock => mock.LoggerFactory).Returns(Utils.LoggerFactory);
+        return new IDriverFactoryMock(driver, name);
+    }
 }

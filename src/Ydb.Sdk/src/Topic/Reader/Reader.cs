@@ -24,7 +24,7 @@ internal class Reader<TValue> : IReader<TValue>
     private readonly ReaderConfig _config;
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ILogger _logger;
-    private readonly TopicReaderMetrics _metrics;
+    private readonly ReaderMetricsReporter _metrics;
     private readonly GrpcRequestSettings _readerGrpcRequestSettings = new();
 
     private IDriver? _driver;
@@ -48,11 +48,20 @@ internal class Reader<TValue> : IReader<TValue>
         _config = config;
         _deserializer = deserializer;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Reader<TValue>>();
-        _metrics = new TopicReaderMetrics(_driverFactory.Endpoint, _driverFactory.Database,
-            _config.ConsumerName ?? string.Empty);
+        _metrics = new ReaderMetricsReporter(
+            _driverFactory.Endpoint,
+            _driverFactory.Database,
+            _config.ConsumerName,
+            _config.ReaderName,
+            GetReaderStats);
 
         _ = Initialize();
     }
+
+    /// <summary>
+    /// Returns a diagnostic snapshot for Topic Reader metrics.
+    /// </summary>
+    private ReaderStats GetReaderStats() => new(_currentReaderSession?.PartitionSessionCount ?? 0);
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -228,6 +237,7 @@ internal class Reader<TValue> : IReader<TValue>
 
         _receivedMessagesChannel.Writer.TryComplete();
         _disposeCts.Cancel();
+        _metrics.Dispose();
 
         await (_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
         if (_driver != null)
@@ -268,7 +278,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private readonly ChannelWriter<InternalBatchMessages<TValue>> _channelWriter;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
     private readonly IDeserializer<TValue> _deserializer;
-    private readonly TopicReaderMetrics _metrics;
+    private readonly ReaderMetricsReporter _metrics;
     private readonly Task _runProcessingStreamResponse;
     private readonly Task _runProcessingStreamRequest;
 
@@ -294,7 +304,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         ILogger logger,
         ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
         IDeserializer<TValue> deserializer,
-        TopicReaderMetrics metrics
+        ReaderMetricsReporter metrics
     ) : base(
         stream,
         logger,
@@ -311,6 +321,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         _runProcessingStreamResponse = RunProcessingStreamResponse();
         _runProcessingStreamRequest = RunProcessingStreamRequest();
     }
+
+    internal long PartitionSessionCount =>
+        _lifecycleReaderSessionCts.IsCancellationRequested ? 0 : _partitionSessions.Count;
 
     private async Task RunProcessingStreamResponse()
     {
