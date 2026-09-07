@@ -6,13 +6,14 @@ internal abstract class TopicSession<TFromClient, TFromServer>(
     IBidirectionalStream<TFromClient, TFromServer> stream,
     ILogger logger,
     string sessionId,
-    Action<StatusCode> internalReconnect,
+    Func<Task> initialize,
     string? lastToken
 ) : IAsyncDisposable
 {
     protected readonly IBidirectionalStream<TFromClient, TFromServer> Stream = stream;
     protected readonly ILogger Logger = logger;
     protected readonly string SessionId = sessionId;
+    protected readonly Func<Task> Initialize = initialize;
 
     private int _isActive = 1;
     private string? _lastToken = lastToken;
@@ -30,8 +31,10 @@ internal abstract class TopicSession<TFromClient, TFromServer>(
 
         Logger.LogDebug("TopicSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
 
-        internalReconnect(statusCode);
+        InternalReconnect(statusCode);
     }
+
+    protected abstract void InternalReconnect(StatusCode statusCode);
 
     protected async Task SendMessage(TFromClient fromClient)
     {

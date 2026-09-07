@@ -209,8 +209,6 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private void WakeUpWorker() => _tcsWakeUp.TrySetResult();
 
-    private void InternalReconnect(StatusCode statusCode) => _ = Task.Run(Initialize);
-
     private async Task Initialize()
     {
         _session = DummyWriterSession.Instance;
@@ -326,7 +324,7 @@ internal class Writer<TValue> : IWriter<TValue>
                     stream: stream,
                     lastSeqNo: lastSeqNo,
                     sessionId: initResponse.SessionId,
-                    internalReconnect: InternalReconnect,
+                    initialize: Initialize,
                     await stream.AuthToken().ConfigureAwait(false),
                     logger: _logger,
                     inFlightMessages: _inFlightMessages
@@ -474,7 +472,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         WriterStream stream,
         long lastSeqNo,
         string sessionId,
-        Action<StatusCode> internalReconnect,
+        Func<Task> initialize,
         string? lastToken,
         ILogger logger,
         ConcurrentQueue<MessageSending> inFlightMessages
@@ -482,7 +480,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         stream,
         logger,
         sessionId,
-        internalReconnect,
+        initialize,
         lastToken
     )
     {
@@ -631,6 +629,8 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
             ReconnectSession();
         }
     }
+
+    protected override void InternalReconnect(StatusCode statusCode) => _ = Task.Run(Initialize);
 
     protected override MessageFromClient GetSendUpdateTokenRequest(string token) =>
         new()
