@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Topic.Reader;
@@ -102,7 +101,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     internal void ReportReceivedBytes(long bytes) => ReceivedBytes.Add(bytes, _commonTags);
 
-    internal void ReportSessionError(YdbException exception, bool retry)
+    internal void ReportSessionError(StatusCode statusCode, bool retry)
     {
         if (!SessionErrors.Enabled)
         {
@@ -112,8 +111,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
         SessionErrors.Add(1, new TagList(_commonTags)
         {
             { "retry_decision", retry ? "retry" : "stop" },
-            { "status_code", exception.Code.ToString() },
-            { "error.type", exception.Code.IsTransportError() ? "transport_error" : "ydb_error" }
+            { "status_code", statusCode.ToString() },
+            { "error.type", statusCode.IsTransportError() ? "transport_error" : "ydb_error" }
         });
     }
 

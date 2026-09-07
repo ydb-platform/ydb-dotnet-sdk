@@ -189,7 +189,7 @@ internal class Reader<TValue> : IReader<TValue>
                     _logger.LogError("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
                     _ = Task.Run(Initialize, _disposeCts.Token);
-                    _metrics.ReportSessionError(initException, retry: true);
+                    _metrics.ReportSessionError(initException.Code, retry: true);
                 }
                 else
                 {
@@ -197,7 +197,7 @@ internal class Reader<TValue> : IReader<TValue>
 
                     _receivedMessagesChannel.Writer.Complete(
                         new ReaderException($"Initialization failed! {statusMessage}"));
-                    _metrics.ReportSessionError(initException, retry: false);
+                    _metrics.ReportSessionError(initException.Code, retry: false);
                 }
 
                 return;
@@ -230,7 +230,7 @@ internal class Reader<TValue> : IReader<TValue>
             _logger.LogError(e, "Error on executing ReaderSession");
 
             _ = Task.Run(Initialize, _disposeCts.Token);
-            _metrics.ReportSessionError(e, retry: true);
+            _metrics.ReportSessionError(e.Code, retry: true);
         }
     }
 
@@ -344,9 +344,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     Logger.LogError(
                         "ReaderSession[{SessionId}] received unsuccessful status while processing readAck: {Status}",
                         SessionId, messageFromServer.Status.Code().ToMessage(messageFromServer.Issues));
-                    ReconnectSession(() => _metrics.ReportSessionError(
-                        YdbException.FromServer(messageFromServer.Status, messageFromServer.Issues),
-                        retry: true));
+                    ReconnectSession(() =>
+                        _metrics.ReportSessionError(messageFromServer.Status.Code(), retry: true));
                     return;
                 }
 
@@ -384,7 +383,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         catch (YdbException e)
         {
             Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages", SessionId);
-            ReconnectSession(() => _metrics.ReportSessionError(e, retry: true));
+            ReconnectSession(() => _metrics.ReportSessionError(e.Code, retry: true));
         }
         finally
         {
@@ -406,7 +405,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             Logger.LogError(e, "ReaderSession[{SessionId}] have error on Write", SessionId);
 
-            ReconnectSession(() => _metrics.ReportSessionError(e, retry: true));
+            ReconnectSession(() => _metrics.ReportSessionError(e.Code, retry: true));
 
             _lifecycleReaderSessionCts.Cancel();
         }
