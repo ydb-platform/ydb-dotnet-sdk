@@ -110,6 +110,13 @@ internal class Reader<TValue> : IReader<TValue>
         throw new ReaderException("Reader is disposed");
     }
 
+    private void Reconnect(StatusCode statusCode)
+    {
+        _currentReaderSession = null;
+        _metrics.ReportSessionError(statusCode);
+        _ = Task.Run(Initialize, _disposeCts.Token);
+    }
+
     private async Task Initialize()
     {
         try
@@ -171,7 +178,7 @@ internal class Reader<TValue> : IReader<TValue>
                 _logger.LogError("Stream unexpectedly closed by YDB server. Current InitRequest: {InitRequest}",
                     initRequest);
 
-                _ = Task.Run(Initialize, _disposeCts.Token);
+                Reconnect(StatusCode.Unspecified);
 
                 return;
             }
@@ -187,12 +194,13 @@ internal class Reader<TValue> : IReader<TValue>
                 {
                     _logger.LogError("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
-                    _ = Task.Run(Initialize, _disposeCts.Token);
+                    Reconnect(initException.Code);
                 }
                 else
                 {
                     _logger.LogCritical("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
+                    _metrics.ReportSessionError(initException.Code, retry: false);
                     _receivedMessagesChannel.Writer.Complete(
                         new ReaderException($"Initialization failed! {statusMessage}"));
                 }
@@ -214,19 +222,20 @@ internal class Reader<TValue> : IReader<TValue>
                 _config,
                 stream,
                 initResponse.SessionId,
-                Initialize,
+                Reconnect,
                 await stream.AuthToken().ConfigureAwait(false),
                 _logger,
                 _receivedMessagesChannel.Writer,
                 _deserializer,
                 _metrics
             );
+            _currentReaderSession.Start();
         }
-        catch (Exception e)
+        catch (YdbException e)
         {
             _logger.LogError(e, "Error on executing ReaderSession");
 
-            _ = Task.Run(Initialize, _disposeCts.Token);
+            Reconnect(e.Code);
         }
     }
 
@@ -272,17 +281,23 @@ internal class Reader<TValue> : IReader<TValue>
 /// 5) Let's assume client somehow processes it, and its 200 bytes buffer is free again.
 ///    It should account for excess 10 bytes and send ReadRequest with bytes_size = 210.
 /// </summary>
-internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFromServer>
+internal class ReaderSession<TValue>(
+    ReaderConfig config,
+    ReaderStream stream,
+    string sessionId,
+    Action<StatusCode> reconnect,
+    string? lastToken,
+    ILogger logger,
+    ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
+    IDeserializer<TValue> deserializer,
+    ReaderMetricsReporter metrics
+) : TopicSession<MessageFromClient, MessageFromServer>(stream, logger, sessionId, reconnect, lastToken)
 {
     private const double FreeBufferCoefficient = 0.2;
 
-    private readonly ReaderConfig _readerConfig;
-    private readonly ChannelWriter<InternalBatchMessages<TValue>> _channelWriter;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
-    private readonly IDeserializer<TValue> _deserializer;
-    private readonly ReaderMetricsReporter _metrics;
-    private readonly Task _runProcessingStreamResponse;
-    private readonly Task _runProcessingStreamRequest;
+    private Task _runProcessingStreamResponse = Task.CompletedTask;
+    private Task _runProcessingStreamRequest = Task.CompletedTask;
 
     private readonly Channel<MessageFromClient> _channelFromClientMessageSending =
         Channel.CreateUnbounded<MessageFromClient>(
@@ -297,35 +312,13 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
     private long _readRequestBytes;
 
-    public ReaderSession(
-        ReaderConfig config,
-        ReaderStream stream,
-        string sessionId,
-        Func<Task> initialize,
-        string? lastToken,
-        ILogger logger,
-        ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
-        IDeserializer<TValue> deserializer,
-        ReaderMetricsReporter metrics
-    ) : base(
-        stream,
-        logger,
-        sessionId,
-        initialize,
-        lastToken
-    )
+    internal void Start()
     {
-        _readerConfig = config;
-        _channelWriter = channelWriter;
-        _deserializer = deserializer;
-        _metrics = metrics;
-
         _runProcessingStreamResponse = RunProcessingStreamResponse();
         _runProcessingStreamRequest = RunProcessingStreamRequest();
     }
 
-    internal long PartitionSessionCount =>
-        _lifecycleReaderSessionCts.IsCancellationRequested ? 0 : _partitionSessions.Count;
+    internal long PartitionSessionCount => _partitionSessions.Count;
 
     private async Task RunProcessingStreamResponse()
     {
@@ -337,9 +330,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
                 if (messageFromServer.Status.IsNotSuccess())
                 {
+                    var statusCode = messageFromServer.Status.Code();
                     Logger.LogError(
                         "ReaderSession[{SessionId}] received unsuccessful status while processing readAck: {Status}",
-                        SessionId, messageFromServer.Status.Code().ToMessage(messageFromServer.Issues));
+                        SessionId, statusCode.ToMessage(messageFromServer.Issues));
+                    ReconnectSession(statusCode);
                     return;
                 }
 
@@ -372,15 +367,15 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             }
 
             Logger.LogInformation("ReaderSession[{SessionId}]: ResponseStream is closed", SessionId);
+            ReconnectSession();
         }
-        catch (Exception e)
+        catch (YdbException e)
         {
             Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages", SessionId);
+            ReconnectSession(e.Code);
         }
         finally
         {
-            ReconnectSession();
-
             _lifecycleReaderSessionCts.Cancel();
         }
     }
@@ -395,11 +390,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 await SendMessage(messageFromClient).ConfigureAwait(false);
             }
         }
-        catch (Exception e)
+        catch (YdbException e)
         {
             Logger.LogError(e, "ReaderSession[{SessionId}] have error on Write", SessionId);
 
-            ReconnectSession();
+            ReconnectSession(e.Code);
 
             _lifecycleReaderSessionCts.Cancel();
         }
@@ -411,7 +406,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     {
         var readRequestBytes = Interlocked.Add(ref _readRequestBytes, bytes);
 
-        if (readRequestBytes < FreeBufferCoefficient * _readerConfig.MemoryUsageMaxBytes)
+        if (readRequestBytes < FreeBufferCoefficient * config.MemoryUsageMaxBytes)
         {
             return;
         }
@@ -460,7 +455,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             if (_partitionSessions.TryGetValue(partitionsCommittedOffset.PartitionSessionId,
                     out var partitionSession))
             {
-                _metrics.ReportCommitAcknowledged(
+                metrics.ReportCommitAcknowledged(
                     partitionSession.HandleCommitedOffset(partitionsCommittedOffset.CommittedOffset),
                     partitionSession.TopicPath);
             }
@@ -537,7 +532,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     }
                 ).ConfigureAwait(false);
 
-                _metrics.ReportCommitQueued(
+                metrics.ReportCommitQueued(
                     commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
                     partitionSession.TopicPath);
             }
@@ -561,7 +556,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private async Task HandleReadResponse(StreamReadMessage.Types.ReadResponse readResponse)
     {
         var bytesSize = readResponse.BytesSize;
-        _metrics.ReportReceivedBytes(bytesSize);
+        metrics.ReportReceivedBytes(bytesSize);
         var partitionCount = readResponse.PartitionData.Count;
 
         for (var partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++)
@@ -582,8 +577,8 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 for (var batchIndex = 0; batchIndex < batchCount; batchIndex++)
                 {
                     var batch = batches[batchIndex];
-                    _metrics.ReportLocalBuffer(batch.MessageData.Count, partitionSession.TopicPath);
-                    await _channelWriter.WriteAsync(
+                    metrics.ReportLocalBuffer(batch.MessageData.Count, partitionSession.TopicPath);
+                    await channelWriter.WriteAsync(
                         new InternalBatchMessages<TValue>(
                             batch,
                             partitionSession,
@@ -593,11 +588,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                                 countParts: batchCount,
                                 currentIndex: batchIndex
                             ),
-                            _deserializer
+                            deserializer
                         )
                     ).ConfigureAwait(false);
 
-                    _metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
+                    metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
                 }
             }
             else

@@ -5,6 +5,12 @@ internal static class StatusRanges
     public const int ClientTransportFirst = 600000;
 }
 
+internal static class StatusCodeExtensions
+{
+    internal static bool IsTransportError(this StatusCode statusCode) =>
+        (int)statusCode >= StatusRanges.ClientTransportFirst;
+}
+
 public enum StatusCode
 {
     Unspecified = 0,

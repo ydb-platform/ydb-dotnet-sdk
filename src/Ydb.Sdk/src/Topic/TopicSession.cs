@@ -6,7 +6,7 @@ internal abstract class TopicSession<TFromClient, TFromServer>(
     IBidirectionalStream<TFromClient, TFromServer> stream,
     ILogger logger,
     string sessionId,
-    Func<Task> initialize,
+    Action<StatusCode> reconnect,
     string? lastToken
 ) : IAsyncDisposable
 {
@@ -19,7 +19,7 @@ internal abstract class TopicSession<TFromClient, TFromServer>(
 
     public bool IsActive => Volatile.Read(ref _isActive) == 1;
 
-    protected void ReconnectSession()
+    protected void ReconnectSession(StatusCode statusCode = StatusCode.Unspecified)
     {
         if (Interlocked.CompareExchange(ref _isActive, 0, 1) == 0)
         {
@@ -30,7 +30,7 @@ internal abstract class TopicSession<TFromClient, TFromServer>(
 
         Logger.LogDebug("TopicSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
 
-        _ = Task.Run(initialize);
+        reconnect(statusCode);
     }
 
     protected async Task SendMessage(TFromClient fromClient)
