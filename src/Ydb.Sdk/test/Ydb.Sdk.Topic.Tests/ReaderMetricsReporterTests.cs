@@ -103,8 +103,10 @@ public class ReaderMetricsReporterTests
         var driverFactory = new IDriverFactoryMock(mockDriver, "Reader_Metrics");
         var lastMoveNext = new TaskCompletionSource<bool>();
         var firstCommitReady = new TaskCompletionSource<bool>();
+        var firstCommitHandled = new TaskCompletionSource<bool>();
         var secondReadReady = new TaskCompletionSource<bool>();
         var batchCommitReady = new TaskCompletionSource<bool>();
+        var batchCommitHandled = new TaskCompletionSource<bool>();
         mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
         {
             lastMoveNext.TrySetResult(false);
@@ -121,9 +123,17 @@ public class ReaderMetricsReporterTests
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .Returns(firstCommitReady.Task)
-            .Returns(secondReadReady.Task)
+            .Returns(() =>
+            {
+                firstCommitHandled.SetResult(true);
+                return secondReadReady.Task;
+            })
             .Returns(batchCommitReady.Task)
-            .Returns(lastMoveNext.Task);
+            .Returns(() =>
+            {
+                batchCommitHandled.SetResult(true);
+                return lastMoveNext.Task;
+            });
 
         mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponse)
@@ -146,7 +156,8 @@ public class ReaderMetricsReporterTests
         var commitTask = message.CommitAsync();
         firstCommitReady.SetResult(true);
         await commitTask.WaitAsync(timeout);
-        await AssertMetricValues(meterProvider, 1);
+        await firstCommitHandled.Task.WaitAsync(timeout);
+        AssertMetricValues(1);
 
         secondReadReady.SetResult(true);
 
@@ -154,12 +165,14 @@ public class ReaderMetricsReporterTests
         var batchCommitTask = batch.CommitBatchAsync();
         batchCommitReady.SetResult(true);
         await batchCommitTask.WaitAsync(timeout);
-        await AssertMetricValues(meterProvider, 3);
+        await batchCommitHandled.Task.WaitAsync(timeout);
+        AssertMetricValues(3);
         return;
 
-        async Task AssertMetricValues(MeterProvider provider, long value)
+        void AssertMetricValues(long value)
         {
-            await WaitForCounterValue(provider, exportedItems, MetricNames[3], LifecycleReaderName, value, timeout);
+            exportedItems.Clear();
+            meterProvider.ForceFlush();
             foreach (var name in MetricNames)
             {
                 var point = Assert.Single(GetReaderPoints(exportedItems, name, LifecycleReaderName));
@@ -174,31 +187,6 @@ public class ReaderMetricsReporterTests
             .AddYdbTopic()
             .AddInMemoryExporter(exportedItems)
             .Build();
-
-    private static async Task WaitForCounterValue(
-        MeterProvider meterProvider,
-        List<Metric> exportedItems,
-        string metricName,
-        string readerName,
-        long expectedValue,
-        TimeSpan timeout)
-    {
-        var deadline = DateTime.UtcNow + timeout;
-        do
-        {
-            exportedItems.Clear();
-            meterProvider.ForceFlush();
-            var points = GetReaderPoints(exportedItems, metricName, readerName).ToArray();
-            if (points is [var point] && point.GetSumLong() == expectedValue)
-            {
-                return;
-            }
-
-            await Task.Delay(10);
-        } while (DateTime.UtcNow < deadline);
-
-        Assert.Fail($"Metric '{metricName}' did not reach {expectedValue} within {timeout}.");
-    }
 
     private static Metric GetMetric(List<Metric> exportedItems, string name) =>
         exportedItems.Single(metric => metric.Name == name);
