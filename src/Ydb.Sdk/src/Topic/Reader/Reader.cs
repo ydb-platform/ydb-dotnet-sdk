@@ -172,6 +172,7 @@ internal class Reader<TValue> : IReader<TValue>
                     initRequest);
 
                 _ = Task.Run(Initialize, _disposeCts.Token);
+                _metrics.ReportSessionClosed();
 
                 return;
             }
@@ -188,6 +189,7 @@ internal class Reader<TValue> : IReader<TValue>
                     _logger.LogError("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
                     _ = Task.Run(Initialize, _disposeCts.Token);
+                    _metrics.ReportSessionError(initException, retry: true);
                 }
                 else
                 {
@@ -195,6 +197,7 @@ internal class Reader<TValue> : IReader<TValue>
 
                     _receivedMessagesChannel.Writer.Complete(
                         new ReaderException($"Initialization failed! {statusMessage}"));
+                    _metrics.ReportSessionError(initException, retry: false);
                 }
 
                 return;
@@ -222,11 +225,12 @@ internal class Reader<TValue> : IReader<TValue>
                 _metrics
             );
         }
-        catch (Exception e)
+        catch (YdbException e)
         {
             _logger.LogError(e, "Error on executing ReaderSession");
 
             _ = Task.Run(Initialize, _disposeCts.Token);
+            _metrics.ReportSessionError(e, retry: true);
         }
     }
 
@@ -237,8 +241,8 @@ internal class Reader<TValue> : IReader<TValue>
             return;
         }
 
-        _receivedMessagesChannel.Writer.TryComplete();
         _disposeCts.Cancel();
+        _receivedMessagesChannel.Writer.TryComplete();
         _metrics.Dispose();
 
         await (_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
@@ -340,6 +344,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     Logger.LogError(
                         "ReaderSession[{SessionId}] received unsuccessful status while processing readAck: {Status}",
                         SessionId, messageFromServer.Status.Code().ToMessage(messageFromServer.Issues));
+                    ReconnectSession(() => _metrics.ReportSessionError(
+                        YdbException.FromServer(messageFromServer.Status, messageFromServer.Issues),
+                        retry: true));
                     return;
                 }
 
@@ -372,15 +379,15 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             }
 
             Logger.LogInformation("ReaderSession[{SessionId}]: ResponseStream is closed", SessionId);
+            ReconnectSession(_metrics.ReportSessionClosed);
         }
-        catch (Exception e)
+        catch (YdbException e)
         {
             Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages", SessionId);
+            ReconnectSession(() => _metrics.ReportSessionError(e, retry: true));
         }
         finally
         {
-            ReconnectSession();
-
             _lifecycleReaderSessionCts.Cancel();
         }
     }
@@ -395,11 +402,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                 await SendMessage(messageFromClient).ConfigureAwait(false);
             }
         }
-        catch (Exception e)
+        catch (YdbException e)
         {
             Logger.LogError(e, "ReaderSession[{SessionId}] have error on Write", SessionId);
 
-            ReconnectSession();
+            ReconnectSession(() => _metrics.ReportSessionError(e, retry: true));
 
             _lifecycleReaderSessionCts.Cancel();
         }

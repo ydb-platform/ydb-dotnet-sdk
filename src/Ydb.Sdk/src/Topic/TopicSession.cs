@@ -19,7 +19,7 @@ internal abstract class TopicSession<TFromClient, TFromServer>(
 
     public bool IsActive => Volatile.Read(ref _isActive) == 1;
 
-    protected void ReconnectSession()
+    protected void ReconnectSession(Action? reportMetric = null)
     {
         if (Interlocked.CompareExchange(ref _isActive, 0, 1) == 0)
         {
@@ -30,6 +30,7 @@ internal abstract class TopicSession<TFromClient, TFromServer>(
 
         Logger.LogDebug("TopicSession[{SessionId}] has been deactivated, starting to reconnect", SessionId);
 
+        reportMetric?.Invoke();
         _ = Task.Run(initialize);
     }
 

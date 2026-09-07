@@ -1,8 +1,10 @@
 using System.Threading.Channels;
+using Grpc.Core;
 using Moq;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Xunit;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.OpenTelemetry;
 using Ydb.Sdk.Topic.Reader;
 using Ydb.Topic;
@@ -122,6 +124,101 @@ public class ReaderMetricsReporterTests
             var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
             Assert.Equal(expected, point.GetSumLong());
             AssertTags(point, "local-buffer-consumer", readerName, "/topic");
+        }
+    }
+
+    [Fact]
+    public async Task SessionErrors_RecordsOneRetryAndTerminalStop()
+    {
+        const string readerName = "session-errors-reader";
+        const string metricName = "ydb.topic.reader.session.errors";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var firstStream = new Mock<ReaderStream>();
+        var secondStream = new Mock<ReaderStream>();
+        var fail = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseWaiting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requestWaiting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var transportError = new YdbException(StatusCode.ClientTransportUnavailable, "transport failure");
+
+        firstStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(async () =>
+            {
+                responseWaiting.SetResult();
+                await fail.Task;
+                throw transportError;
+            });
+        firstStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponse)
+            .Returns(StartPartitionSessionRequest());
+        firstStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask)
+            .Returns(async () =>
+            {
+                requestWaiting.SetResult();
+                await fail.Task;
+                throw transportError;
+            });
+        firstStream.Setup(stream => stream.RequestStreamComplete()).Returns(Task.CompletedTask);
+
+        secondStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
+        secondStream.Setup(stream => stream.MoveNextAsync()).ReturnsAsync(true);
+        secondStream.Setup(stream => stream.Current).Returns(new FromServer
+        {
+            Status = StatusIds.Types.StatusCode.Unauthorized
+        });
+
+        var driver = new Mock<IDriver>();
+        driver.SetupSequence(mock => mock.BidirectionalStreamCall(
+                It.IsAny<Method<FromClient, FromServer>>(),
+                It.IsAny<GrpcRequestSettings>()))
+            .ReturnsAsync(firstStream.Object)
+            .ReturnsAsync(secondStream.Object);
+        driver.Setup(mock => mock.LoggerFactory).Returns(Utils.LoggerFactory);
+        await using var reader = new ReaderBuilder<string>(new IDriverFactoryMock(driver, "session-errors"))
+        {
+            ReaderName = readerName,
+            ConsumerName = "session-errors-consumer",
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        var timeout = TimeSpan.FromSeconds(5);
+        await Task.WhenAll(responseWaiting.Task, requestWaiting.Task).WaitAsync(timeout);
+        fail.SetResult();
+        await Assert.ThrowsAsync<ReaderException>(async () =>
+            await reader.ReadAsync().AsTask().WaitAsync(timeout));
+
+        meterProvider.ForceFlush();
+        var metric = GetMetric(exportedItems, metricName);
+        Assert.Equal(MetricType.LongSum, metric.MetricType);
+        Assert.Equal("{error}", metric.Unit);
+        var points = GetReaderPoints(exportedItems, metricName, readerName)
+            .ToDictionary(point => ToDictionary(point.Tags)["retry_decision"]!.ToString()!);
+        Assert.Equal(1, points["retry"].GetSumLong());
+        Assert.Equal(1, points["stop"].GetSumLong());
+        AssertSessionErrorTags(points["retry"], "retry", "ClientTransportUnavailable", "transport_error");
+        AssertSessionErrorTags(points["stop"], "stop", "Unauthorized", "ydb_error");
+        return;
+
+        void AssertSessionErrorTags(
+            MetricPoint point,
+            string retryDecision,
+            string statusCode,
+            string errorType)
+        {
+            var tags = ToDictionary(point.Tags);
+            Assert.Equal(7, tags.Count);
+            Assert.Equal("localhost:2136", tags["endpoint"]);
+            Assert.Equal("/local", tags["database"]);
+            Assert.Equal("session-errors-consumer", tags["consumer"]);
+            Assert.Equal(readerName, tags["reader.name"]);
+            Assert.Equal(retryDecision, tags["retry_decision"]);
+            Assert.Equal(statusCode, tags["status_code"]);
+            Assert.Equal(errorType, tags["error.type"]);
+            Assert.DoesNotContain("topic", tags);
         }
     }
 

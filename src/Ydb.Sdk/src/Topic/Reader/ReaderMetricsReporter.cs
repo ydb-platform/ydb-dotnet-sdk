@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Ydb.Sdk.Ado;
 using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Topic.Reader;
@@ -15,6 +16,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     private static readonly Counter<long> ReceivedMessages;
     private static readonly Counter<long> ReceivedBytes;
+    private static readonly Counter<long> SessionErrors;
     private static readonly Counter<long> DeliveredMessages;
     private static readonly UpDownCounter<long> LocalBufferMessages;
     private static readonly Counter<long> CommitQueued;
@@ -42,6 +44,11 @@ internal sealed class ReaderMetricsReporter : IDisposable
             "ydb.topic.reader.received.bytes",
             unit: "By",
             description: "The protocol bytes_size received in read responses.");
+
+        SessionErrors = meter.CreateCounter<long>(
+            "ydb.topic.reader.session.errors",
+            unit: "{error}",
+            description: "The number of reader stream session errors by retry decision.");
 
         DeliveredMessages = meter.CreateCounter<long>(
             "ydb.topic.reader.delivered.messages",
@@ -95,11 +102,41 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     internal void ReportReceivedBytes(long bytes) => ReceivedBytes.Add(bytes, _commonTags);
 
+    internal void ReportSessionError(YdbException exception, bool retry)
+    {
+        if (!SessionErrors.Enabled)
+        {
+            return;
+        }
+
+        SessionErrors.Add(1, new TagList(_commonTags)
+        {
+            { "retry_decision", retry ? "retry" : "stop" },
+            { "status_code", exception.Code.ToString() },
+            { "error.type", exception.Code.IsTransportError() ? "transport_error" : "ydb_error" }
+        });
+    }
+
+    internal void ReportSessionClosed()
+    {
+        if (!SessionErrors.Enabled)
+        {
+            return;
+        }
+
+        SessionErrors.Add(1, new TagList(_commonTags)
+        {
+            { "retry_decision", "retry" },
+            { "status_code", "unknown" },
+            { "error.type", "session_closed" }
+        });
+    }
+
     internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
 
     internal void ReportLocalBuffer(long messages, string topic)
     {
-        if (!LocalBufferMessages.Enabled || messages == 0)
+        if (!LocalBufferMessages.Enabled)
         {
             return;
         }
