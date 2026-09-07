@@ -31,6 +31,75 @@ public class ReaderMetricsReporterTests
     ];
 
     [Fact]
+    public async Task CreditBalance_TracksOutstandingStreamCredit()
+    {
+        const string readerName = "credit-balance-reader";
+        const string metricName = "ydb.topic.reader.credit_balance_bytes";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var mockStream = new Mock<ReaderStream>();
+        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reconnectBlocked = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var initializationCount = 0;
+        mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(closed.Task)
+            .Returns(reconnectBlocked.Task);
+        mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponse)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(ReadResponse("message"u8.ToArray()));
+        mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
+            .Callback<FromClient>(message =>
+            {
+                if (message.InitRequest is not null && Interlocked.Increment(ref initializationCount) == 2)
+                {
+                    reconnected.TrySetResult();
+                }
+            })
+            .Returns(Task.CompletedTask);
+        mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
+        {
+            closed.TrySetResult(false);
+            reconnectBlocked.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+        var reader = new ReaderBuilder<string>(CreateDriverFactory(mockStream, readerName))
+        {
+            ReaderName = readerName,
+            ConsumerName = "credit-balance-consumer",
+            MemoryUsageMaxBytes = 1000,
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        await reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        meterProvider.ForceFlush();
+        var metric = GetMetric(exportedItems, metricName);
+        Assert.Equal(MetricType.LongGauge, metric.MetricType);
+        Assert.Equal("By", metric.Unit);
+        var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+        Assert.Equal(950, point.GetGaugeLastValueLong());
+        AssertTags(point, "credit-balance-consumer", readerName);
+
+        closed.TrySetResult(false);
+        await reconnected.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        exportedItems.Clear();
+        meterProvider.ForceFlush();
+        point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+        Assert.Equal(0, point.GetGaugeLastValueLong());
+
+        await reader.DisposeAsync();
+        reconnectBlocked.TrySetResult(false);
+        var afterDisposeItems = new List<Metric>();
+        using var afterDisposeMeterProvider = CreateMeterProvider(afterDisposeItems);
+        afterDisposeMeterProvider.ForceFlush();
+        Assert.Empty(GetReaderPoints(afterDisposeItems, metricName, readerName));
+    }
+
+    [Fact]
     public async Task ReceivedBytes_RecordsResponseSize()
     {
         const string readerName = "received-bytes-reader";

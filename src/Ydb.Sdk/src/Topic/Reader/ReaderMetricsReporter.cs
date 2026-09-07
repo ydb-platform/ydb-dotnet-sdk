@@ -4,7 +4,10 @@ using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Topic.Reader;
 
-internal readonly record struct ReaderStats(long PartitionSessionCount);
+internal interface IReaderMetricsSource
+{
+    long PartitionSessionCount { get; }
+}
 
 /// <summary>
 /// Topic reader message and commit lifecycle metrics.
@@ -20,9 +23,11 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private static readonly UpDownCounter<long> LocalBufferMessages;
     private static readonly Counter<long> CommitQueued;
     private static readonly Counter<long> CommitAcknowledged;
+    private static readonly ObservableGauge<long> CreditBalanceBytes;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
-    private readonly Func<ReaderStats> _readerStats;
+    private readonly IReaderMetricsSource _readerMetricsSource;
+    private long _creditBalanceBytes;
 
     static ReaderMetricsReporter()
     {
@@ -33,6 +38,12 @@ internal sealed class ReaderMetricsReporter : IDisposable
             ObservePartitionSessionCount,
             unit: "{session}",
             description: "The number of partition sessions currently in the reader session processing lifecycle.");
+
+        CreditBalanceBytes = meter.CreateObservableGauge(
+            "ydb.topic.reader.credit_balance_bytes",
+            ObserveCreditBalanceBytes,
+            unit: "By",
+            description: "The protocol credit granted to the server and not yet consumed by read responses.");
 
         ReceivedMessages = meter.CreateCounter<long>(
             "ydb.topic.reader.received.messages",
@@ -75,9 +86,9 @@ internal sealed class ReaderMetricsReporter : IDisposable
         string database,
         string? consumer,
         string? readerName,
-        Func<ReaderStats> readerStats)
+        IReaderMetricsSource readerMetricsSource)
     {
-        _readerStats = readerStats;
+        _readerMetricsSource = readerMetricsSource;
         var commonTags = new TagList
         {
             { "endpoint", endpoint },
@@ -100,6 +111,26 @@ internal sealed class ReaderMetricsReporter : IDisposable
     internal void ReportReceived(long messages, string topic) => Record(ReceivedMessages, messages, topic);
 
     internal void ReportReceivedBytes(long bytes) => ReceivedBytes.Add(bytes, _commonTags);
+
+    internal void ReportCreditBalanceBytes(long bytes)
+    {
+        if (!CreditBalanceBytes.Enabled)
+        {
+            return;
+        }
+
+        Interlocked.Add(ref _creditBalanceBytes, bytes);
+    }
+
+    internal void ResetCreditBalanceBytes(long bytes = 0)
+    {
+        if (!CreditBalanceBytes.Enabled)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _creditBalanceBytes, bytes);
+    }
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true)
     {
@@ -173,8 +204,19 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters
-                .Select(reader =>
-                    new Measurement<long>(reader._readerStats().PartitionSessionCount, reader._commonTags))
+                .Select(reporter =>
+                    new Measurement<long>(reporter._readerMetricsSource.PartitionSessionCount, reporter._commonTags))
+                .ToArray();
+        }
+    }
+
+    private static IEnumerable<Measurement<long>> ObserveCreditBalanceBytes()
+    {
+        lock (Reporters)
+        {
+            return Reporters
+                .Select(reporter =>
+                    new Measurement<long>(Interlocked.Read(ref reporter._creditBalanceBytes), reporter._commonTags))
                 .ToArray();
         }
     }

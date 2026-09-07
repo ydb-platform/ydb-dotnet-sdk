@@ -18,7 +18,7 @@ using ReaderStream = IBidirectionalStream<
     StreamReadMessage.Types.FromServer
 >;
 
-internal class Reader<TValue> : IReader<TValue>
+internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 {
     private readonly IDriverFactory _driverFactory;
     private readonly ReaderConfig _config;
@@ -53,15 +53,12 @@ internal class Reader<TValue> : IReader<TValue>
             _driverFactory.Database,
             _config.ConsumerName,
             _config.ReaderName,
-            GetReaderStats);
+            this);
 
         _ = Initialize();
     }
 
-    /// <summary>
-    /// Returns a diagnostic snapshot for Topic Reader metrics.
-    /// </summary>
-    private ReaderStats GetReaderStats() => new(_currentReaderSession?.PartitionSessionCount ?? 0);
+    long IReaderMetricsSource.PartitionSessionCount => _currentReaderSession?.PartitionSessionCount ?? 0;
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -113,6 +110,7 @@ internal class Reader<TValue> : IReader<TValue>
     private void Reconnect(StatusCode statusCode)
     {
         _currentReaderSession = null;
+        _metrics.ResetCreditBalanceBytes();
         _metrics.ReportSessionError(statusCode);
         _ = Task.Run(Initialize, _disposeCts.Token);
     }
@@ -229,6 +227,7 @@ internal class Reader<TValue> : IReader<TValue>
                 _deserializer,
                 _metrics
             );
+            _metrics.ResetCreditBalanceBytes(_config.MemoryUsageMaxBytes);
             _currentReaderSession.Start();
         }
         catch (YdbException e)
@@ -417,6 +416,7 @@ internal class ReaderSession<TValue>(
                 .WriteAsync(new MessageFromClient
                     { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
                 .ConfigureAwait(false);
+            metrics.ReportCreditBalanceBytes(readRequestBytes);
         }
     }
 
@@ -556,6 +556,7 @@ internal class ReaderSession<TValue>(
     private async Task HandleReadResponse(StreamReadMessage.Types.ReadResponse readResponse)
     {
         var bytesSize = readResponse.BytesSize;
+        metrics.ReportCreditBalanceBytes(-bytesSize);
         metrics.ReportReceivedBytes(bytesSize);
         var partitionCount = readResponse.PartitionData.Count;
 
