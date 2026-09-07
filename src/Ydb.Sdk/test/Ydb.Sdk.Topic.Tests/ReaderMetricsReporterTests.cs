@@ -70,6 +70,62 @@ public class ReaderMetricsReporterTests
     }
 
     [Fact]
+    public async Task LocalBufferMessages_TracksDelivery()
+    {
+        const string readerName = "local-buffer-reader";
+        const string metricName = "ydb.topic.reader.local_buffer.messages";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var mockStream = new Mock<ReaderStream>();
+        var responseHandled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(() =>
+            {
+                responseHandled.TrySetResult();
+                return closed.Task;
+            });
+        mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponse)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(ReadResponse("message"u8.ToArray()));
+        mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
+        mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
+        {
+            closed.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+        await using var reader = new ReaderBuilder<string>(CreateDriverFactory(mockStream, readerName))
+        {
+            ReaderName = readerName,
+            ConsumerName = "local-buffer-consumer",
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        await responseHandled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        AssertBufferedMessages(1);
+
+        await reader.ReadAsync();
+        AssertBufferedMessages(0);
+        return;
+
+        void AssertBufferedMessages(long expected)
+        {
+            exportedItems.Clear();
+            meterProvider.ForceFlush();
+            var metric = GetMetric(exportedItems, metricName);
+            Assert.Equal(MetricType.LongSumNonMonotonic, metric.MetricType);
+            Assert.Equal("{message}", metric.Unit);
+            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+            Assert.Equal(expected, point.GetSumLong());
+            AssertTags(point, "local-buffer-consumer", readerName, "/topic");
+        }
+    }
+
+    [Fact]
     public async Task PartitionSessionCount_TracksSessionsAcrossReconnectAndDispose()
     {
         var timeout = TimeSpan.FromSeconds(5);

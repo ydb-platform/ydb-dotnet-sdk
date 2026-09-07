@@ -16,6 +16,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private static readonly Counter<long> ReceivedMessages;
     private static readonly Counter<long> ReceivedBytes;
     private static readonly Counter<long> DeliveredMessages;
+    private static readonly UpDownCounter<long> LocalBufferMessages;
     private static readonly Counter<long> CommitQueued;
     private static readonly Counter<long> CommitAcknowledged;
 
@@ -46,6 +47,11 @@ internal sealed class ReaderMetricsReporter : IDisposable
             "ydb.topic.reader.delivered.messages",
             unit: "{message}",
             description: "The number of messages delivered by the SDK to application code.");
+
+        LocalBufferMessages = meter.CreateUpDownCounter<long>(
+            "ydb.topic.reader.local_buffer.messages",
+            unit: "{message}",
+            description: "The number of messages accepted by the SDK but not yet delivered.");
 
         CommitQueued = meter.CreateCounter<long>(
             "ydb.topic.reader.commit.queued",
@@ -90,6 +96,17 @@ internal sealed class ReaderMetricsReporter : IDisposable
     internal void ReportReceivedBytes(long bytes) => ReceivedBytes.Add(bytes, _commonTags);
 
     internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
+
+    internal void ReportLocalBuffer(long messages, string topic)
+    {
+        if (!LocalBufferMessages.Enabled || messages == 0)
+        {
+            return;
+        }
+
+        var tags = new TagList(_commonTags) { { "topic", topic } };
+        LocalBufferMessages.Add(messages, tags);
+    }
 
     internal void ReportCommitQueued(long messages, string topic) => Record(CommitQueued, messages, topic);
 
