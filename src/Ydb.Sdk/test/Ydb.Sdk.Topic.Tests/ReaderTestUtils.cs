@@ -27,7 +27,7 @@ internal static class ReaderTestUtils
                 CommittedOffset = committedOffset,
                 PartitionOffsets = new OffsetsRange { Start = committedOffset, End = committedOffset + 1000 },
                 PartitionSession = new StreamReadMessage.Types.PartitionSession
-                { Path = "/topic", PartitionId = partitionSessionId, PartitionSessionId = partitionSessionId }
+                    { Path = "/topic", PartitionId = partitionSessionId, PartitionSessionId = partitionSessionId }
             }
         };
 
@@ -96,5 +96,4 @@ internal static class ReaderTestUtils
         driver.Setup(mock => mock.LoggerFactory).Returns(Utils.LoggerFactory);
         return new IDriverFactoryMock(driver, name);
     }
-
 }
