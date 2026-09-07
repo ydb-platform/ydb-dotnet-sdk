@@ -110,6 +110,12 @@ internal class Reader<TValue> : IReader<TValue>
         throw new ReaderException("Reader is disposed");
     }
 
+    private void InternalReconnect(StatusCode statusCode)
+    {
+        _metrics.ReportSessionError(statusCode);
+        _ = Task.Run(Initialize);
+    }
+
     private async Task Initialize()
     {
         try
@@ -217,7 +223,7 @@ internal class Reader<TValue> : IReader<TValue>
                 _config,
                 stream,
                 initResponse.SessionId,
-                Initialize,
+                InternalReconnect,
                 await stream.AuthToken().ConfigureAwait(false),
                 _logger,
                 _receivedMessagesChannel.Writer,
@@ -281,7 +287,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private const double FreeBufferCoefficient = 0.2;
 
     private readonly ReaderConfig _readerConfig;
-    private readonly Func<Task> _initialize;
     private readonly ChannelWriter<InternalBatchMessages<TValue>> _channelWriter;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
     private readonly IDeserializer<TValue> _deserializer;
@@ -306,7 +311,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         ReaderConfig config,
         ReaderStream stream,
         string sessionId,
-        Func<Task> initialize,
+        Action<StatusCode> internalReconnect,
         string? lastToken,
         ILogger logger,
         ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
@@ -316,11 +321,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         stream,
         logger,
         sessionId,
+        internalReconnect,
         lastToken
     )
     {
         _readerConfig = config;
-        _initialize = initialize;
         _channelWriter = channelWriter;
         _deserializer = deserializer;
         _metrics = metrics;
@@ -615,12 +620,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     SessionId, partitionSessionId);
             }
         }
-    }
-
-    protected override void InternalReconnect(StatusCode statusCode)
-    {
-        _metrics.ReportSessionError(statusCode);
-        _ = Task.Run(_initialize);
     }
 
     protected override MessageFromClient GetSendUpdateTokenRequest(string token) =>

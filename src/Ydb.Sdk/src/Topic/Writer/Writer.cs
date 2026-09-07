@@ -209,6 +209,8 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private void WakeUpWorker() => _tcsWakeUp.TrySetResult();
 
+    private void InternalReconnect(StatusCode statusCode) => _ = Task.Run(Initialize);
+
     private async Task Initialize()
     {
         _session = DummyWriterSession.Instance;
@@ -324,7 +326,7 @@ internal class Writer<TValue> : IWriter<TValue>
                     stream: stream,
                     lastSeqNo: lastSeqNo,
                     sessionId: initResponse.SessionId,
-                    initialize: Initialize,
+                    internalReconnect: InternalReconnect,
                     await stream.AuthToken().ConfigureAwait(false),
                     logger: _logger,
                     inFlightMessages: _inFlightMessages
@@ -462,7 +464,6 @@ internal class DummyWriterSession : IWriteSession
 internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>, IWriteSession
 {
     private readonly WriterConfig _config;
-    private readonly Func<Task> _initialize;
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages;
     private readonly Task _processingResponseStream;
 
@@ -473,7 +474,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         WriterStream stream,
         long lastSeqNo,
         string sessionId,
-        Func<Task> initialize,
+        Action<StatusCode> internalReconnect,
         string? lastToken,
         ILogger logger,
         ConcurrentQueue<MessageSending> inFlightMessages
@@ -481,11 +482,11 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         stream,
         logger,
         sessionId,
+        internalReconnect,
         lastToken
     )
     {
         _config = config;
-        _initialize = initialize;
         _inFlightMessages = inFlightMessages;
         Volatile.Write(ref _seqNum, lastSeqNo); // happens-before for Volatile.Read
 
@@ -630,8 +631,6 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
             ReconnectSession();
         }
     }
-
-    protected override void InternalReconnect(StatusCode statusCode) => _ = Task.Run(_initialize);
 
     protected override MessageFromClient GetSendUpdateTokenRequest(string token) =>
         new()
