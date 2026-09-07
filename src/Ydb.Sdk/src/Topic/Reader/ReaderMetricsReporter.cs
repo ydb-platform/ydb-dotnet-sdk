@@ -28,6 +28,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IReaderMetricsSource _readerMetricsSource;
     private long _creditBalanceBytes;
+    private readonly Func<IEnumerable<KeyValuePair<string, double>>> _messageAges;
 
     static ReaderMetricsReporter()
     {
@@ -44,6 +45,12 @@ internal sealed class ReaderMetricsReporter : IDisposable
             ObserveCreditBalanceBytes,
             unit: "By",
             description: "The protocol credit granted to the server and not yet consumed by read responses.");
+
+        meter.CreateObservableGauge(
+            "ydb.topic.reader.local_buffer.message_age.max",
+            ObserveLocalBufferMessageAgeMax,
+            unit: "s",
+            description: "The maximum age of messages owned by the SDK but not yet delivered.");
 
         ReceivedMessages = meter.CreateCounter<long>(
             "ydb.topic.reader.received.messages",
@@ -86,9 +93,11 @@ internal sealed class ReaderMetricsReporter : IDisposable
         string database,
         string? consumer,
         string? readerName,
-        IReaderMetricsSource readerMetricsSource)
+        IReaderMetricsSource readerMetricsSource,
+        Func<IEnumerable<KeyValuePair<string, double>>> messageAges)
     {
         _readerMetricsSource = readerMetricsSource;
+        _messageAges = messageAges;
         var commonTags = new TagList
         {
             { "endpoint", endpoint },
@@ -217,6 +226,16 @@ internal sealed class ReaderMetricsReporter : IDisposable
             return Reporters
                 .Select(reporter =>
                     new Measurement<long>(Interlocked.Read(ref reporter._creditBalanceBytes), reporter._commonTags))
+                .ToArray();
+        }
+    }
+
+    private static IEnumerable<Measurement<double>> ObserveLocalBufferMessageAgeMax()
+    {
+        lock (Reporters)
+        {
+            return Reporters.SelectMany(reporter => reporter._messageAges().Select(age =>
+                    new Measurement<double>(age.Value, new TagList(reporter._commonTags) { { "topic", age.Key } })))
                 .ToArray();
         }
     }

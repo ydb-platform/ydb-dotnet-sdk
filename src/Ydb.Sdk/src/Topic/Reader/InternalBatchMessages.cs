@@ -8,9 +8,16 @@ internal class InternalBatchMessages<TValue>(
     PartitionSession partitionsSession,
     ReaderSession<TValue> readerSession,
     long approximatelyBatchSize,
-    IDeserializer<TValue> deserializer)
+    IDeserializer<TValue> deserializer,
+    long receivedTimestamp)
 {
     private int _startMessageDataIndex;
+
+    internal long ReceivedTimestamp { get; } = receivedTimestamp;
+
+    internal string Topic => partitionsSession.TopicPath;
+
+    internal bool HasMessages => Volatile.Read(ref _startMessageDataIndex) < OriginalMessageCount;
 
     private int OriginalMessageCount => batch.MessageData.Count;
 

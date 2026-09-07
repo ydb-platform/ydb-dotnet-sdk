@@ -1,7 +1,7 @@
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
   `ydb-sdk-metrics/0.1.0` to `ydb-sdk-metrics/0.2.0`.
-- Feat Topic Reader metrics: added six counters, a local-buffer UpDownCounter, and partition-session and credit-balance
-  gauges on the `Ydb.Sdk.Topic` meter.
+- Feat Topic Reader metrics: added six counters, a local-buffer UpDownCounter, and three gauges on
+  the `Ydb.Sdk.Topic` meter.
 
   | Metric                                             | Unit        | Description                                                  |
   |----------------------------------------------------|-------------|--------------------------------------------------------------|
@@ -14,11 +14,12 @@
   | `ydb.topic.reader.commit.queued`                   | `{message}` | Messages in commit ranges accepted by the SDK                |
   | `ydb.topic.reader.commit.acknowledged`             | `{message}` | Messages in ranges completed by successful acknowledgements  |
   | `ydb.topic.reader.partition_session.count`         | `{session}` | Active partition sessions in the reader processing lifecycle |
+  | `ydb.topic.reader.local_buffer.message_age.max`    | `s`         | Maximum age of an undelivered SDK-owned message               |
 
   Repeated deliveries and messages in repeated commit ranges are counted again. An acknowledgement counts messages
   in every queued range it completes; stale acknowledgements are ignored.
   All Topic Reader metrics have the `endpoint` and `database` attributes, plus `consumer` and `reader.name` when they
-  are configured; message and commit counters also have `topic`. The received-bytes counter covers the whole stream
+  are configured; message and commit counters and the message-age gauge also have `topic`. The received-bytes counter covers the whole stream
   without `topic`, including data for unknown partitions. The credit-balance gauge has the same stream scope, is updated
   for queued read-credit requests and read responses, returns zero when its reader session is inactive, and permits
   negative values for oversized responses. The partition-session gauge is an SDK-local snapshot, not server ownership or

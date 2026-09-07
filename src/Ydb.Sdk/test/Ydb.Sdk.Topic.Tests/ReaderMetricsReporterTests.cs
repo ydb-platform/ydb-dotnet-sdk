@@ -1,3 +1,4 @@
+using System.Text;
 using System.Threading.Channels;
 using Grpc.Core;
 using Moq;
@@ -288,6 +289,56 @@ public class ReaderMetricsReporterTests
             Assert.Equal(statusCode, tags["status_code"]);
             Assert.Equal(errorType, tags["error.type"]);
             Assert.DoesNotContain("topic", tags);
+        }
+    }
+
+    [Fact]
+    public async Task LocalBufferMessageAgeMax_TracksMessageUntilDelivery()
+    {
+        const string readerName = "message-age-reader";
+        const string metricName = "ydb.topic.reader.local_buffer.message_age.max";
+        var timeout = TimeSpan.FromSeconds(5);
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var mockStream = new Mock<ReaderStream>();
+        var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
+        var handledEvents = Channel.CreateUnbounded<long>();
+        SetupResponseStream(mockStream, responses, handledEvents.Writer);
+        var deserializer = new Mock<IDeserializer<string>>();
+        deserializer.Setup(instance => instance.Deserialize(It.IsAny<byte[]>())).Returns((byte[] data) =>
+        {
+            Assert.True(ObserveAge() > 0);
+            return Encoding.UTF8.GetString(data);
+        });
+        await using var reader = new ReaderBuilder<string>(CreateDriverFactory(mockStream, readerName))
+        {
+            ConsumerName = "message-age-consumer",
+            ReaderName = readerName,
+            Deserializer = deserializer.Object,
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        Assert.Equal(0, ObserveAge());
+        Assert.Equal(MetricType.DoubleGauge, GetMetric(exportedItems, metricName).MetricType);
+        Assert.Equal("s", GetMetric(exportedItems, metricName).Unit);
+        await responses.Writer.WriteAsync((true, InitResponse));
+        await responses.Writer.WriteAsync((true, StartPartitionSessionRequest()));
+        await responses.Writer.WriteAsync((true, ReadResponse("first"u8.ToArray(), "second"u8.ToArray())));
+
+        Assert.Equal("first", (await reader.ReadAsync().AsTask().WaitAsync(timeout)).Data);
+        Assert.True(ObserveAge() > 0);
+        var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
+        Assert.Equal("second", Assert.Single(batch.Batch).Data);
+        Assert.Equal(0, ObserveAge());
+        return;
+
+        double ObserveAge()
+        {
+            exportedItems.Clear();
+            meterProvider.ForceFlush();
+            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+            AssertTags(point, "message-age-consumer", readerName, "/topic");
+            return point.GetGaugeLastValueDouble();
         }
     }
 

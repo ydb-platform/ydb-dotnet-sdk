@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -29,9 +31,11 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
     private IDriver? _driver;
     private ReaderSession<TValue>? _currentReaderSession;
+    private volatile InternalBatchMessages<TValue>? _readingBatch;
+    private readonly ConcurrentQueue<InternalBatchMessages<TValue>> _receivedMessages = new();
 
-    private readonly Channel<InternalBatchMessages<TValue>> _receivedMessagesChannel =
-        Channel.CreateUnbounded<InternalBatchMessages<TValue>>(
+    private readonly Channel<byte> _receivedMessagesChannel =
+        Channel.CreateUnbounded<byte>(
             new UnboundedChannelOptions
             {
                 SingleReader = true,
@@ -53,27 +57,74 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             _driverFactory.Database,
             _config.ConsumerName,
             _config.ReaderName,
-            this);
+            this,
+            GetMessageAges);
 
         _ = Initialize();
     }
 
     long IReaderMetricsSource.PartitionSessionCount => _currentReaderSession?.PartitionSessionCount ?? 0;
 
+    private IEnumerable<KeyValuePair<string, double>> GetMessageAges()
+    {
+        var ages = _config.SubscribeSettings.Select(settings => settings.TopicPath).Distinct()
+            .ToDictionary(topic => topic, _ => 0d);
+        foreach (var batch in _receivedMessages)
+        {
+            if (batch.HasMessages || batch == _readingBatch)
+            {
+                ages[batch.Topic] = Math.Max(ages.GetValueOrDefault(batch.Topic),
+                    Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds);
+            }
+        }
+
+        return ages;
+    }
+
+    private void EnqueueBatch(InternalBatchMessages<TValue> batch)
+    {
+        lock (_receivedMessages)
+        {
+            if (!_receivedMessagesChannel.Writer.TryWrite(0))
+            {
+                throw new ChannelClosedException();
+            }
+
+            _receivedMessages.Enqueue(batch);
+        }
+    }
+
+    private bool TryPeekBatch([MaybeNullWhen(false)] out InternalBatchMessages<TValue> batch)
+    {
+        // The signal can arrive before Enqueue finishes publishing the batch.
+        lock (_receivedMessages)
+        {
+            return _receivedMessages.TryPeek(out batch);
+        }
+    }
+
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
         while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (_receivedMessagesChannel.Reader.TryPeek(out var batchInternalMessage))
+            if (TryPeekBatch(out var batchInternalMessage))
             {
-                if (batchInternalMessage.TryDequeueMessage(out var message))
+                _readingBatch = batchInternalMessage.HasMessages ? batchInternalMessage : null;
+                try
                 {
-                    _metrics.ReportLocalBuffer(-1, message.Topic);
-                    _metrics.ReportDelivered(1, message.Topic);
-                    return message;
+                    if (batchInternalMessage.TryDequeueMessage(out var message))
+                    {
+                        _metrics.ReportLocalBuffer(-1, message.Topic);
+                        _metrics.ReportDelivered(1, message.Topic);
+                        return message;
+                    }
+                }
+                finally
+                {
+                    _readingBatch = null;
                 }
 
-                if (!_receivedMessagesChannel.Reader.TryRead(out _))
+                if (!_receivedMessages.TryDequeue(out _) || !_receivedMessagesChannel.Reader.TryRead(out _))
                 {
                     throw new ReaderException("Detect race condition on ReadAsync operation");
                 }
@@ -91,16 +142,26 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
     {
         while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (!_receivedMessagesChannel.Reader.TryRead(out var batchInternalMessage))
+            if (!TryPeekBatch(out var batchInternalMessage))
             {
                 throw new ReaderException("Detect race condition on ReadBatchAsync operation");
             }
 
-            if (batchInternalMessage.TryPublicBatch(out var batch))
+            _readingBatch = batchInternalMessage.HasMessages ? batchInternalMessage : null;
+            try
             {
-                _metrics.ReportLocalBuffer(-batch.Batch.Count, batch.Batch[0].Topic);
-                _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
-                return batch;
+                if (batchInternalMessage.TryPublicBatch(out var batch))
+                {
+                    _metrics.ReportLocalBuffer(-batch.Batch.Count, batch.Batch[0].Topic);
+                    _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
+                    return batch;
+                }
+            }
+            finally
+            {
+                _receivedMessages.TryDequeue(out _);
+                _receivedMessagesChannel.Reader.TryRead(out _);
+                _readingBatch = null;
             }
         }
 
@@ -223,7 +284,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 Reconnect,
                 await stream.AuthToken().ConfigureAwait(false),
                 _logger,
-                _receivedMessagesChannel.Writer,
+                EnqueueBatch,
                 _deserializer,
                 _metrics
             );
@@ -287,7 +348,7 @@ internal class ReaderSession<TValue>(
     Action<StatusCode> reconnect,
     string? lastToken,
     ILogger logger,
-    ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
+    Action<InternalBatchMessages<TValue>> enqueueBatch,
     IDeserializer<TValue> deserializer,
     ReaderMetricsReporter metrics
 ) : TopicSession<MessageFromClient, MessageFromServer>(stream, logger, sessionId, reconnect, lastToken)
@@ -340,7 +401,7 @@ internal class ReaderSession<TValue>(
                 switch (messageFromServer.ServerMessageCase)
                 {
                     case ServerMessageOneofCase.ReadResponse:
-                        await HandleReadResponse(messageFromServer.ReadResponse).ConfigureAwait(false);
+                        HandleReadResponse(messageFromServer.ReadResponse);
                         break;
                     case ServerMessageOneofCase.StartPartitionSessionRequest:
                         await HandleStartPartitionSessionRequest(messageFromServer.StartPartitionSessionRequest)
@@ -553,8 +614,9 @@ internal class ReaderSession<TValue>(
         await tcsCommit.Task.ConfigureAwait(false);
     }
 
-    private async Task HandleReadResponse(StreamReadMessage.Types.ReadResponse readResponse)
+    private void HandleReadResponse(StreamReadMessage.Types.ReadResponse readResponse)
     {
+        var receivedTimestamp = Stopwatch.GetTimestamp();
         var bytesSize = readResponse.BytesSize;
         metrics.ReportCreditBalanceBytes(-bytesSize);
         metrics.ReportReceivedBytes(bytesSize);
@@ -579,19 +641,18 @@ internal class ReaderSession<TValue>(
                 {
                     var batch = batches[batchIndex];
                     metrics.ReportLocalBuffer(batch.MessageData.Count, partitionSession.TopicPath);
-                    await channelWriter.WriteAsync(
-                        new InternalBatchMessages<TValue>(
-                            batch,
-                            partitionSession,
-                            this,
-                            Utils.CalculateApproximatelyBytesSize(
-                                bytesSize: approximatelyPartitionBytesSize,
-                                countParts: batchCount,
-                                currentIndex: batchIndex
-                            ),
-                            deserializer
-                        )
-                    ).ConfigureAwait(false);
+                    enqueueBatch(new InternalBatchMessages<TValue>(
+                        batch,
+                        partitionSession,
+                        this,
+                        Utils.CalculateApproximatelyBytesSize(
+                            bytesSize: approximatelyPartitionBytesSize,
+                            countParts: batchCount,
+                            currentIndex: batchIndex
+                        ),
+                        deserializer,
+                        receivedTimestamp
+                    ));
 
                     metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
                 }
