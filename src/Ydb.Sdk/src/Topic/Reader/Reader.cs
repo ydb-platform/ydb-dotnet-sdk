@@ -195,9 +195,9 @@ internal class Reader<TValue> : IReader<TValue>
                 {
                     _logger.LogCritical("Reader initialization failed to start. {StatusMessage}", statusMessage);
 
+                    _metrics.ReportSessionError(initException.Code, retry: false);
                     _receivedMessagesChannel.Writer.Complete(
                         new ReaderException($"Initialization failed! {statusMessage}"));
-                    _metrics.ReportSessionError(initException.Code, retry: false);
                 }
 
                 return;
@@ -281,6 +281,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private const double FreeBufferCoefficient = 0.2;
 
     private readonly ReaderConfig _readerConfig;
+    private readonly Func<Task> _initialize;
     private readonly ChannelWriter<InternalBatchMessages<TValue>> _channelWriter;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
     private readonly IDeserializer<TValue> _deserializer;
@@ -315,11 +316,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         stream,
         logger,
         sessionId,
-        initialize,
         lastToken
     )
     {
         _readerConfig = config;
+        _initialize = initialize;
         _channelWriter = channelWriter;
         _deserializer = deserializer;
         _metrics = metrics;
@@ -619,7 +620,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     protected override void InternalReconnect(StatusCode statusCode)
     {
         _metrics.ReportSessionError(statusCode);
-        _ = Task.Run(Initialize);
+        _ = Task.Run(_initialize);
     }
 
     protected override MessageFromClient GetSendUpdateTokenRequest(string token) =>

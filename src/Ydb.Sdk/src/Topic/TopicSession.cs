@@ -6,14 +6,12 @@ internal abstract class TopicSession<TFromClient, TFromServer>(
     IBidirectionalStream<TFromClient, TFromServer> stream,
     ILogger logger,
     string sessionId,
-    Func<Task> initialize,
     string? lastToken
 ) : IAsyncDisposable
 {
     protected readonly IBidirectionalStream<TFromClient, TFromServer> Stream = stream;
     protected readonly ILogger Logger = logger;
     protected readonly string SessionId = sessionId;
-    protected readonly Func<Task> Initialize = initialize;
 
     private int _isActive = 1;
     private string? _lastToken = lastToken;

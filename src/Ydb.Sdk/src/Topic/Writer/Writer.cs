@@ -462,6 +462,7 @@ internal class DummyWriterSession : IWriteSession
 internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer>, IWriteSession
 {
     private readonly WriterConfig _config;
+    private readonly Func<Task> _initialize;
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages;
     private readonly Task _processingResponseStream;
 
@@ -480,11 +481,11 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         stream,
         logger,
         sessionId,
-        initialize,
         lastToken
     )
     {
         _config = config;
+        _initialize = initialize;
         _inFlightMessages = inFlightMessages;
         Volatile.Write(ref _seqNum, lastSeqNo); // happens-before for Volatile.Read
 
@@ -630,7 +631,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         }
     }
 
-    protected override void InternalReconnect(StatusCode statusCode) => _ = Task.Run(Initialize);
+    protected override void InternalReconnect(StatusCode statusCode) => _ = Task.Run(_initialize);
 
     protected override MessageFromClient GetSendUpdateTokenRequest(string token) =>
         new()
