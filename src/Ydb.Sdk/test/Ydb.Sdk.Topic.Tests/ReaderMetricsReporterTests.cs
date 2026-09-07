@@ -29,6 +29,47 @@ public class ReaderMetricsReporterTests
     ];
 
     [Fact]
+    public async Task ReceivedBytes_RecordsResponseSize()
+    {
+        const string readerName = "received-bytes-reader";
+        const string metricName = "ydb.topic.reader.received.bytes";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var mockStream = new Mock<ReaderStream>();
+        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(closed.Task);
+        mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponse)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(ReadResponse("message"u8.ToArray()));
+        mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
+        mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
+        {
+            closed.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+        await using var reader = new ReaderBuilder<string>(CreateDriverFactory(mockStream, readerName))
+        {
+            ReaderName = readerName,
+            ConsumerName = "received-bytes-consumer",
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        await reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        meterProvider.ForceFlush();
+        var metric = GetMetric(exportedItems, metricName);
+        Assert.Equal(MetricType.LongSum, metric.MetricType);
+        Assert.Equal("By", metric.Unit);
+        var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+        Assert.Equal(50, point.GetSumLong());
+        AssertTags(point, "received-bytes-consumer", readerName);
+    }
+
+    [Fact]
     public async Task PartitionSessionCount_TracksSessionsAcrossReconnectAndDispose()
     {
         var timeout = TimeSpan.FromSeconds(5);
