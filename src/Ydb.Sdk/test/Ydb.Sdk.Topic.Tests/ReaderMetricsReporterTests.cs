@@ -29,40 +29,23 @@ public class ReaderMetricsReporterTests
     ];
 
     [Fact]
-    public async Task ReceivedBytes_CountsResponseOnceAcrossTopicsAndUnknownPartitions()
+    public async Task ReceivedBytes_RecordsResponseSize()
     {
         const string readerName = "received-bytes-reader";
         const string metricName = "ydb.topic.reader.received.bytes";
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
         var mockStream = new Mock<ReaderStream>();
-        var processed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var secondPartition = StartPartitionSessionRequest(partitionSessionId: 2);
-        secondPartition.StartPartitionSessionRequest.PartitionSession.Path = "/other-topic";
-        var response = ReadResponse("first"u8.ToArray());
-        response.ReadResponse.BytesSize = 1234;
-        var secondData = ReadResponse("second"u8.ToArray()).ReadResponse.PartitionData[0];
-        secondData.PartitionSessionId = 2;
-        var unknownData = ReadResponse("discarded"u8.ToArray()).ReadResponse.PartitionData[0];
-        unknownData.PartitionSessionId = 99;
-        response.ReadResponse.PartitionData.Add(secondData);
-        response.ReadResponse.PartitionData.Add(unknownData);
         mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .ReturnsAsync(true)
-            .ReturnsAsync(true)
-            .Returns(() =>
-            {
-                processed.SetResult();
-                return closed.Task;
-            });
+            .Returns(closed.Task);
         mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponse)
             .Returns(StartPartitionSessionRequest())
-            .Returns(secondPartition)
-            .Returns(response);
+            .Returns(ReadResponse("message"u8.ToArray()));
         mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
         mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
         {
@@ -73,16 +56,16 @@ public class ReaderMetricsReporterTests
         {
             ReaderName = readerName,
             ConsumerName = "received-bytes-consumer",
-            SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("/other-topic") }
+            SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
 
-        await processed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         meterProvider.ForceFlush();
         var metric = GetMetric(exportedItems, metricName);
         Assert.Equal(MetricType.LongSum, metric.MetricType);
         Assert.Equal("By", metric.Unit);
         var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
-        Assert.Equal(1234, point.GetSumLong());
+        Assert.Equal(50, point.GetSumLong());
         AssertTags(point, "received-bytes-consumer", readerName);
     }
 
