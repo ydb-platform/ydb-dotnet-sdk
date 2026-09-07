@@ -331,6 +331,19 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     internal long PartitionSessionCount =>
         _lifecycleReaderSessionCts.IsCancellationRequested ? 0 : _partitionSessions.Count;
 
+    private void ReconnectSession(StatusCode statusCode = StatusCode.Unspecified, bool closedByServer = false) =>
+        base.ReconnectSession(() =>
+        {
+            if (closedByServer)
+            {
+                _metrics.ReportSessionClosed();
+            }
+            else
+            {
+                _metrics.ReportSessionError(statusCode, retry: true);
+            }
+        });
+
     private async Task RunProcessingStreamResponse()
     {
         try
@@ -345,7 +358,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     Logger.LogError(
                         "ReaderSession[{SessionId}] received unsuccessful status while processing readAck: {Status}",
                         SessionId, statusCode.ToMessage(messageFromServer.Issues));
-                    ReconnectSession(() => _metrics.ReportSessionError(statusCode, retry: true));
+                    ReconnectSession(statusCode);
                     return;
                 }
 
@@ -378,12 +391,12 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             }
 
             Logger.LogInformation("ReaderSession[{SessionId}]: ResponseStream is closed", SessionId);
-            ReconnectSession(_metrics.ReportSessionClosed);
+            ReconnectSession(closedByServer: true);
         }
         catch (YdbException e)
         {
             Logger.LogError(e, "ReaderSession[{SessionId}] have error on processing server messages", SessionId);
-            ReconnectSession(() => _metrics.ReportSessionError(e.Code, retry: true));
+            ReconnectSession(e.Code);
         }
         finally
         {
@@ -405,7 +418,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         {
             Logger.LogError(e, "ReaderSession[{SessionId}] have error on Write", SessionId);
 
-            ReconnectSession(() => _metrics.ReportSessionError(e.Code, retry: true));
+            ReconnectSession(e.Code);
 
             _lifecycleReaderSessionCts.Cancel();
         }
