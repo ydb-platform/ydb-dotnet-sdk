@@ -293,7 +293,21 @@ public class ReaderMetricsReporterTests
     }
 
     [Fact]
-    public async Task LocalBufferMessageAgeMax_TracksMessageUntilDelivery()
+    public void ReadResponseStart_CapturesTimestampOnlyWhenAgeGaugeIsEnabled()
+    {
+        Assert.Equal(0, ReaderMetricsReporter.ReportReadResponseStart());
+        using (CreateMeterProvider([]))
+        {
+            Assert.True(ReaderMetricsReporter.ReportReadResponseStart() > 0);
+        }
+
+        Assert.Equal(0, ReaderMetricsReporter.ReportReadResponseStart());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LocalBufferMessageAgeMax_TracksFifoAcrossTopicsUntilDelivery(bool readLastAsBatch)
     {
         const string readerName = "message-age-reader";
         const string metricName = "ydb.topic.reader.local_buffer.message_age.max";
@@ -315,7 +329,7 @@ public class ReaderMetricsReporterTests
             ConsumerName = "message-age-consumer",
             ReaderName = readerName,
             Deserializer = deserializer.Object,
-            SubscribeSettings = { new SubscribeSettings("/topic") }
+            SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("/another-topic") }
         }.Build();
 
         Assert.Equal(0, ObserveAge());
@@ -323,12 +337,30 @@ public class ReaderMetricsReporterTests
         Assert.Equal("s", GetMetric(exportedItems, metricName).Unit);
         await responses.Writer.WriteAsync((true, InitResponse));
         await responses.Writer.WriteAsync((true, StartPartitionSessionRequest()));
+        var anotherPartition = StartPartitionSessionRequest(partitionSessionId: 2);
+        anotherPartition.StartPartitionSessionRequest.PartitionSession.Path = "/another-topic";
+        await responses.Writer.WriteAsync((true, anotherPartition));
         await responses.Writer.WriteAsync((true, ReadResponse("first"u8.ToArray(), "second"u8.ToArray())));
+        var anotherTopicResponse = ReadResponse("third"u8.ToArray());
+        anotherTopicResponse.ReadResponse.PartitionData[0].PartitionSessionId = 2;
+        await responses.Writer.WriteAsync((true, anotherTopicResponse));
+        await responses.Writer.WriteAsync((true, ReadResponse()));
+        await responses.Writer.WriteAsync((true, StartPartitionSessionRequest(partitionSessionId: 3)));
+        for (var expectedEvent = 0; expectedEvent <= 3; expectedEvent++)
+        {
+            Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        }
 
         Assert.Equal("first", (await reader.ReadAsync().AsTask().WaitAsync(timeout)).Data);
         Assert.True(ObserveAge() > 0);
         var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
         Assert.Equal("second", Assert.Single(batch.Batch).Data);
+        Assert.True(ObserveAge() > 0);
+        var last = readLastAsBatch
+            ? Assert.Single((await reader.ReadBatchAsync().AsTask().WaitAsync(timeout)).Batch)
+            : await reader.ReadAsync().AsTask().WaitAsync(timeout);
+        Assert.Equal("third", last.Data);
+        Assert.Equal("/another-topic", last.Topic);
         Assert.Equal(0, ObserveAge());
         return;
 
@@ -337,7 +369,7 @@ public class ReaderMetricsReporterTests
             exportedItems.Clear();
             meterProvider.ForceFlush();
             var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
-            AssertTags(point, "message-age-consumer", readerName, "/topic");
+            AssertTags(point, "message-age-consumer", readerName);
             return point.GetGaugeLastValueDouble();
         }
     }

@@ -19,7 +19,7 @@
   Repeated deliveries and messages in repeated commit ranges are counted again. An acknowledgement counts messages
   in every queued range it completes; stale acknowledgements are ignored.
   All Topic Reader metrics have the `endpoint` and `database` attributes, plus `consumer` and `reader.name` when they
-  are configured; message and commit counters and the message-age gauge also have `topic`. The received-bytes counter covers the whole stream
+  are configured; message and commit counters also have `topic`. The received-bytes counter covers the whole stream
   without `topic`, including data for unknown partitions. The credit-balance gauge has the same stream scope, is updated
   for queued read-credit requests and read responses, returns zero when its reader session is inactive, and permits
   negative values for oversized responses. The partition-session gauge is an SDK-local snapshot, not server ownership or
@@ -28,6 +28,8 @@
   The local-buffer UpDownCounter increments when messages enter the local buffer and decrements when they are delivered.
   Because it is synchronous, a listener attached after a Reader is created is not backfilled with the Reader's
   already-buffered messages.
+  The message-age gauge reports one maximum per Reader across all topics and partitions, without `topic`, or zero
+  for an empty buffer. Receive timestamps are only captured while the gauge is enabled; earlier messages have no age.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 

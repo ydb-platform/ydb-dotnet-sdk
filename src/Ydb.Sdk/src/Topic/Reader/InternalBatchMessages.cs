@@ -15,15 +15,11 @@ internal class InternalBatchMessages<TValue>(
 
     internal long ReceivedTimestamp { get; } = receivedTimestamp;
 
-    internal string Topic => partitionsSession.TopicPath;
-
-    internal bool HasMessages => Volatile.Read(ref _startMessageDataIndex) < OriginalMessageCount;
-
     private int OriginalMessageCount => batch.MessageData.Count;
 
-    private bool IsActive => partitionsSession.IsActive &&
-                             readerSession.IsActive &&
-                             _startMessageDataIndex < OriginalMessageCount;
+    internal bool IsActive => partitionsSession.IsActive &&
+                              readerSession.IsActive &&
+                              _startMessageDataIndex < OriginalMessageCount;
 
     internal bool TryDequeueMessage([MaybeNullWhen(false)] out Message<TValue> message)
     {
