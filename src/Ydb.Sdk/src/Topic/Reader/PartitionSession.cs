@@ -11,7 +11,6 @@ internal class PartitionSession(
     long commitedOffset)
 {
     private readonly ConcurrentQueue<CommitSending> _waitCommitMessages = new();
-    private readonly object _commitOffsetMetricsLock = new();
 
     private long _maxRequestedCommitOffset = commitedOffset;
     private long _lastAcknowledgedCommittedOffset = commitedOffset;
@@ -35,10 +34,15 @@ internal class PartitionSession(
     {
         get
         {
-            lock (_commitOffsetMetricsLock)
+            long maxRequestedCommitOffset;
+            long lastAcknowledgedCommittedOffset;
+            do
             {
-                return Math.Max(0, _maxRequestedCommitOffset - _lastAcknowledgedCommittedOffset);
-            }
+                maxRequestedCommitOffset = Volatile.Read(ref _maxRequestedCommitOffset);
+                lastAcknowledgedCommittedOffset = Volatile.Read(ref _lastAcknowledgedCommittedOffset);
+            } while (maxRequestedCommitOffset != Volatile.Read(ref _maxRequestedCommitOffset));
+
+            return Math.Max(0, maxRequestedCommitOffset - lastAcknowledgedCommittedOffset);
         }
     }
 
@@ -66,20 +70,12 @@ internal class PartitionSession(
         }
     }
 
-    internal void RecordCommitRequested(long requestedCommitOffset)
-    {
-        lock (_commitOffsetMetricsLock)
-        {
-            _maxRequestedCommitOffset = Math.Max(_maxRequestedCommitOffset, requestedCommitOffset);
-        }
-    }
+    internal void RecordCommitRequested(long requestedCommitOffset) =>
+        SetMax(ref _maxRequestedCommitOffset, requestedCommitOffset);
 
     internal long HandleCommitedOffset(long commitedOffset)
     {
-        lock (_commitOffsetMetricsLock)
-        {
-            _lastAcknowledgedCommittedOffset = Math.Max(_lastAcknowledgedCommittedOffset, commitedOffset);
-        }
+        SetMax(ref _lastAcknowledgedCommittedOffset, commitedOffset);
 
         if (CommitedOffset >= commitedOffset)
         {
@@ -101,6 +97,21 @@ internal class PartitionSession(
         }
 
         return acknowledgedMessages;
+    }
+
+    private static void SetMax(ref long target, long value)
+    {
+        var current = Volatile.Read(ref target);
+        while (value > current)
+        {
+            var observed = Interlocked.CompareExchange(ref target, value, current);
+            if (observed == current)
+            {
+                return;
+            }
+
+            current = observed;
+        }
     }
 
     internal void Stop(long commitedOffset)
