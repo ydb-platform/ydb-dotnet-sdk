@@ -314,6 +314,7 @@ public class ReaderMetricsReporterTests
         var timeout = TimeSpan.FromSeconds(5);
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
+        var forceFlush = meterProvider.ForceFlush;
         var mockStream = new Mock<ReaderStream>();
         var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
         var handledEvents = Channel.CreateUnbounded<long>();
@@ -377,7 +378,7 @@ public class ReaderMetricsReporterTests
         double ObserveAge()
         {
             exportedItems.Clear();
-            meterProvider.ForceFlush();
+            forceFlush();
             var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
             AssertTags(point, "message-age-consumer", readerName);
             return point.GetGaugeLastValueDouble();
