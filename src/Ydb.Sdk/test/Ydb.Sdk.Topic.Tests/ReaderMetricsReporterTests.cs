@@ -307,7 +307,7 @@ public class ReaderMetricsReporterTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task LocalBufferMessageAgeMax_TracksFifoAcrossTopicsUntilDelivery(bool readLastAsBatch)
+    public async Task LocalBufferMessageAgeMax_TracksFifoAcrossTopicsUntilBatchRemoval(bool readLastAsBatch)
     {
         const string readerName = "message-age-reader";
         const string metricName = "ydb.topic.reader.local_buffer.message_age.max";
@@ -361,6 +361,16 @@ public class ReaderMetricsReporterTests
             : await reader.ReadAsync().AsTask().WaitAsync(timeout);
         Assert.Equal("third", last.Data);
         Assert.Equal("/another-topic", last.Topic);
+        if (!readLastAsBatch)
+        {
+            Assert.True(ObserveAge() > 0);
+            using var cancellation = new CancellationTokenSource();
+            var nextRead = reader.ReadAsync(cancellation.Token).AsTask();
+            Assert.Equal(0, ObserveAge());
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => nextRead);
+        }
+
         Assert.Equal(0, ObserveAge());
         return;
 

@@ -73,21 +73,16 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         {
             if (_receivedMessagesChannel.Reader.TryPeek(out var batchInternalMessage))
             {
-                try
+                if (batchInternalMessage.TryDequeueMessage(out var message))
                 {
-                    if (batchInternalMessage.TryDequeueMessage(out var message))
-                    {
-                        _metrics.ReportLocalBuffer(-1, message.Topic);
-                        _metrics.ReportDelivered(1, message.Topic);
-                        return message;
-                    }
+                    _metrics.ReportLocalBuffer(-1, message.Topic);
+                    _metrics.ReportDelivered(1, message.Topic);
+                    return message;
                 }
-                finally
+
+                if (!_receivedMessagesChannel.Reader.TryRead(out _))
                 {
-                    if (!batchInternalMessage.IsActive)
-                    {
-                        _receivedMessagesChannel.Reader.TryRead(out _);
-                    }
+                    throw new ReaderException("Detect race condition on ReadAsync operation");
                 }
             }
             else

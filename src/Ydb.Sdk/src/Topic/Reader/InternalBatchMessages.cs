@@ -17,9 +17,9 @@ internal class InternalBatchMessages<TValue>(
 
     private int OriginalMessageCount => batch.MessageData.Count;
 
-    internal bool IsActive => partitionsSession.IsActive &&
-                              readerSession.IsActive &&
-                              _startMessageDataIndex < OriginalMessageCount;
+    private bool IsActive => partitionsSession.IsActive &&
+                             readerSession.IsActive &&
+                             _startMessageDataIndex < OriginalMessageCount;
 
     internal bool TryDequeueMessage([MaybeNullWhen(false)] out Message<TValue> message)
     {

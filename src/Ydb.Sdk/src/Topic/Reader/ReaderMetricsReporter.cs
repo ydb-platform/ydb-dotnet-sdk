@@ -52,7 +52,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
             "ydb.topic.reader.local_buffer.message_age.max",
             ObserveLocalBufferMessageAgeMax,
             unit: "s",
-            description: "The maximum age of messages owned by the SDK but not yet delivered.");
+            description: "The age of the oldest batch retained in the reader's local buffer.");
 
         ReceivedMessages = meter.CreateCounter<long>(
             "ydb.topic.reader.received.messages",
@@ -237,7 +237,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters.Select(reporter =>
-                    new Measurement<double>(reporter._readerMetricsSource.LocalBufferMessageAgeMax, reporter._commonTags))
+                    new Measurement<double>(reporter._readerMetricsSource.LocalBufferMessageAgeMax,
+                        reporter._commonTags))
                 .ToArray();
         }
     }

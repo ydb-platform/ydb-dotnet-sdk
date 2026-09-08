@@ -14,7 +14,7 @@
   | `ydb.topic.reader.commit.queued`                   | `{message}` | Messages in commit ranges accepted by the SDK                |
   | `ydb.topic.reader.commit.acknowledged`             | `{message}` | Messages in ranges completed by successful acknowledgements  |
   | `ydb.topic.reader.partition_session.count`         | `{session}` | Active partition sessions in the reader processing lifecycle |
-  | `ydb.topic.reader.local_buffer.message_age.max`    | `s`         | Maximum age of an undelivered SDK-owned message               |
+  | `ydb.topic.reader.local_buffer.message_age.max`    | `s`         | Age of the oldest batch retained in the Reader's local buffer |
 
   Repeated deliveries and messages in repeated commit ranges are counted again. An acknowledgement counts messages
   in every queued range it completes; stale acknowledgements are ignored.
@@ -30,6 +30,7 @@
   already-buffered messages.
   The message-age gauge reports one maximum per Reader across all topics and partitions, without `topic`, or zero
   for an empty buffer. Receive timestamps are only captured while the gauge is enabled; earlier messages have no age.
+  After `ReadAsync` returns a batch's last message, that batch remains visible until the next read removes it.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 
