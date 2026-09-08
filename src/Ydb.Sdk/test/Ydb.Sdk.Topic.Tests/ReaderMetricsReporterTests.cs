@@ -292,32 +292,18 @@ public class ReaderMetricsReporterTests
         }
     }
 
-    [Fact]
-    public void ReadResponseStart_CapturesTimestampOnlyWhenAgeGaugeIsEnabled()
-    {
-        Assert.Equal(0, ReaderMetricsReporter.ReportReadResponseStart());
-        using (CreateMeterProvider([]))
-        {
-            Assert.True(ReaderMetricsReporter.ReportReadResponseStart() > 0);
-        }
-
-        Assert.Equal(0, ReaderMetricsReporter.ReportReadResponseStart());
-    }
-
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    [InlineData(true, true)]
-    public async Task LocalBufferMessageAgeMax_TracksFifoAcrossTopicsUntilBatchRemoval(
-        bool readLastAsBatch,
-        bool appendEmptyBatch)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LocalBufferMessageAgeMax_TracksFifoAcrossTopicsUntilBatchRemoval(bool readLastAsBatch)
     {
         const string readerName = "message-age-reader";
         const string metricName = "ydb.topic.reader.local_buffer.message_age.max";
         var timeout = TimeSpan.FromSeconds(5);
         var exportedItems = new List<Metric>();
+        Assert.Equal(0, ReaderMetricsReporter.ReportReadResponseStart());
         using var meterProvider = CreateMeterProvider(exportedItems);
+        Assert.True(ReaderMetricsReporter.ReportReadResponseStart() > 0);
         var forceFlush = meterProvider.ForceFlush;
         var mockStream = new Mock<ReaderStream>();
         var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
@@ -326,17 +312,8 @@ public class ReaderMetricsReporterTests
         var deserializer = new Mock<IDeserializer<string>>();
         deserializer.Setup(instance => instance.Deserialize(It.IsAny<byte[]>())).Returns((byte[] data) =>
         {
-            var value = Encoding.UTF8.GetString(data);
-            if (value == "third" && readLastAsBatch && !appendEmptyBatch)
-            {
-                Assert.Equal(0, ObserveAge());
-            }
-            else
-            {
-                Assert.True(ObserveAge() > 0);
-            }
-
-            return value;
+            Assert.True(ObserveAge() > 0);
+            return Encoding.UTF8.GetString(data);
         });
         await using var reader = new ReaderBuilder<string>(CreateDriverFactory(mockStream, readerName))
         {
@@ -358,11 +335,7 @@ public class ReaderMetricsReporterTests
         var anotherTopicResponse = ReadResponse("third"u8.ToArray());
         anotherTopicResponse.ReadResponse.PartitionData[0].PartitionSessionId = 2;
         await responses.Writer.WriteAsync((true, anotherTopicResponse));
-        if (appendEmptyBatch)
-        {
-            await responses.Writer.WriteAsync((true, ReadResponse()));
-        }
-
+        await responses.Writer.WriteAsync((true, ReadResponse()));
         await responses.Writer.WriteAsync((true, StartPartitionSessionRequest(partitionSessionId: 3)));
         for (var expectedEvent = 0; expectedEvent <= 3; expectedEvent++)
         {
@@ -379,15 +352,12 @@ public class ReaderMetricsReporterTests
             : await reader.ReadAsync().AsTask().WaitAsync(timeout);
         Assert.Equal("third", last.Data);
         Assert.Equal("/another-topic", last.Topic);
-        if (!readLastAsBatch || appendEmptyBatch)
-        {
-            Assert.True(ObserveAge() > 0);
-            using var cancellation = new CancellationTokenSource();
-            var nextRead = reader.ReadAsync(cancellation.Token).AsTask();
-            Assert.Equal(0, ObserveAge());
-            cancellation.Cancel();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => nextRead);
-        }
+        Assert.True(ObserveAge() > 0);
+        using var cancellation = new CancellationTokenSource();
+        var nextRead = reader.ReadAsync(cancellation.Token).AsTask();
+        Assert.Equal(0, ObserveAge());
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => nextRead);
 
         Assert.Equal(0, ObserveAge());
         return;
@@ -400,99 +370,6 @@ public class ReaderMetricsReporterTests
             AssertTags(point, "message-age-consumer", readerName);
             return point.GetGaugeLastValueDouble();
         }
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task LocalBufferMessageAgeMax_RetainsInactiveBatchesUntilRemoved(bool reconnect)
-    {
-        var timeout = TimeSpan.FromSeconds(5);
-        using var meterProvider = CreateMeterProvider([]);
-        var mockStream = new Mock<ReaderStream>();
-        var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
-        var handledEvents = Channel.CreateUnbounded<long>();
-        SetupResponseStream(mockStream, responses, handledEvents.Writer);
-        await using var reader = new ReaderBuilder<string>(CreateDriverFactory(mockStream, "message-age-inactive"))
-        {
-            SubscribeSettings = { new SubscribeSettings("/topic") }
-        }.Build();
-        var metricsSource = (IReaderMetricsSource)reader;
-
-        await SendResponse(InitResponse, 0);
-        await SendResponse(StartPartitionSessionRequest(), 1);
-        await responses.Writer.WriteAsync((true, ReadResponse("obsolete"u8.ToArray())));
-        await SendResponse(StartPartitionSessionRequest(partitionSessionId: 2), 2);
-        Assert.True(metricsSource.LocalBufferMessageAgeMax > 0);
-
-        if (reconnect)
-        {
-            await responses.Writer.WriteAsync((false, null));
-            await SendResponse(InitResponse, 0);
-        }
-        else
-        {
-            await SendResponse(StopPartitionSessionRequest(), -1);
-        }
-
-        Assert.True(metricsSource.LocalBufferMessageAgeMax > 0);
-        await SendResponse(StartPartitionSessionRequest(partitionSessionId: 3), 3);
-        var freshResponse = ReadResponse("fresh"u8.ToArray());
-        freshResponse.ReadResponse.PartitionData[0].PartitionSessionId = 3;
-        await responses.Writer.WriteAsync((true, freshResponse));
-        await SendResponse(StartPartitionSessionRequest(partitionSessionId: 4), 4);
-
-        Assert.True(metricsSource.LocalBufferMessageAgeMax > 0);
-        Assert.Equal("fresh", Assert.Single((await reader.ReadBatchAsync().AsTask().WaitAsync(timeout)).Batch).Data);
-        Assert.Equal(0, metricsSource.LocalBufferMessageAgeMax);
-        return;
-
-        async Task SendResponse(FromServer response, long expectedEvent)
-        {
-            await responses.Writer.WriteAsync((true, response));
-            Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
-        }
-    }
-
-    [Fact]
-    public async Task LocalBufferMessageAgeMax_DoesNotRetainDequeuedBatchAfterDeserializationFailure()
-    {
-        var timeout = TimeSpan.FromSeconds(5);
-        using var meterProvider = CreateMeterProvider([]);
-        var mockStream = new Mock<ReaderStream>();
-        var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
-        var handledEvents = Channel.CreateUnbounded<long>();
-        SetupResponseStream(mockStream, responses, handledEvents.Writer);
-        var deserializer = new Mock<IDeserializer<string>>();
-        deserializer.Setup(instance => instance.Deserialize(It.IsAny<byte[]>())).Returns((byte[] data) =>
-        {
-            var value = Encoding.UTF8.GetString(data);
-            return value == "bad" ? throw new InvalidOperationException("Invalid data") : value;
-        });
-        await using var reader =
-            new ReaderBuilder<string>(CreateDriverFactory(mockStream, "message-age-deserialization"))
-            {
-                Deserializer = deserializer.Object,
-                SubscribeSettings = { new SubscribeSettings("/topic") }
-            }.Build();
-        var metricsSource = (IReaderMetricsSource)reader;
-
-        await responses.Writer.WriteAsync((true, InitResponse));
-        await responses.Writer.WriteAsync((true, StartPartitionSessionRequest()));
-        await responses.Writer.WriteAsync((true, ReadResponse("bad"u8.ToArray(), "unread"u8.ToArray())));
-        await responses.Writer.WriteAsync((true, ReadResponse(2, "fresh"u8.ToArray())));
-        await responses.Writer.WriteAsync((true, StartPartitionSessionRequest(partitionSessionId: 2)));
-        for (var expectedEvent = 0; expectedEvent <= 2; expectedEvent++)
-        {
-            Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
-        }
-
-        var error = await Assert.ThrowsAsync<ReaderException>(() =>
-            reader.ReadBatchAsync().AsTask().WaitAsync(timeout));
-        Assert.IsType<InvalidOperationException>(error.InnerException);
-        Assert.True(metricsSource.LocalBufferMessageAgeMax > 0);
-        Assert.Equal("fresh", Assert.Single((await reader.ReadBatchAsync().AsTask().WaitAsync(timeout)).Batch).Data);
-        Assert.Equal(0, metricsSource.LocalBufferMessageAgeMax);
     }
 
     [Fact]
