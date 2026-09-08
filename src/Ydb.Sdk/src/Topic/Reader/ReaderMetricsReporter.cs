@@ -7,6 +7,8 @@ namespace Ydb.Sdk.Topic.Reader;
 internal interface IReaderMetricsSource
 {
     long PartitionSessionCount { get; }
+
+    double LocalBufferMessageAgeMax { get; }
 }
 
 /// <summary>
@@ -21,6 +23,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private static readonly Counter<long> SessionErrors;
     private static readonly Counter<long> DeliveredMessages;
     private static readonly UpDownCounter<long> LocalBufferMessages;
+    private static readonly ObservableGauge<double> LocalBufferMessageAgeMax;
     private static readonly Counter<long> CommitQueued;
     private static readonly Counter<long> CommitAcknowledged;
     private static readonly ObservableGauge<long> CreditBalanceBytes;
@@ -44,6 +47,12 @@ internal sealed class ReaderMetricsReporter : IDisposable
             ObserveCreditBalanceBytes,
             unit: "By",
             description: "The protocol credit granted to the server and not yet consumed by read responses.");
+
+        LocalBufferMessageAgeMax = meter.CreateObservableGauge(
+            "ydb.topic.reader.local_buffer.message_age.max",
+            ObserveLocalBufferMessageAgeMax,
+            unit: "s",
+            description: "The age of the oldest batch retained in the reader's local buffer.");
 
         ReceivedMessages = meter.CreateCounter<long>(
             "ydb.topic.reader.received.messages",
@@ -109,6 +118,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
     }
 
     internal void ReportReceived(long messages, string topic) => Record(ReceivedMessages, messages, topic);
+
+    internal static long ReportReadResponseStart() => LocalBufferMessageAgeMax.Enabled ? Stopwatch.GetTimestamp() : 0;
 
     internal void ReportReceivedBytes(long bytes) => ReceivedBytes.Add(bytes, _commonTags);
 
@@ -217,6 +228,17 @@ internal sealed class ReaderMetricsReporter : IDisposable
             return Reporters
                 .Select(reporter =>
                     new Measurement<long>(Interlocked.Read(ref reporter._creditBalanceBytes), reporter._commonTags))
+                .ToArray();
+        }
+    }
+
+    private static IEnumerable<Measurement<double>> ObserveLocalBufferMessageAgeMax()
+    {
+        lock (Reporters)
+        {
+            return Reporters.Select(reporter =>
+                    new Measurement<double>(reporter._readerMetricsSource.LocalBufferMessageAgeMax,
+                        reporter._commonTags))
                 .ToArray();
         }
     }

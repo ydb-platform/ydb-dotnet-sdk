@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -34,7 +35,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         Channel.CreateUnbounded<InternalBatchMessages<TValue>>(
             new UnboundedChannelOptions
             {
-                SingleReader = true,
                 SingleWriter = true,
                 AllowSynchronousContinuations = false
             }
@@ -59,6 +59,11 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
     }
 
     long IReaderMetricsSource.PartitionSessionCount => _currentReaderSession?.PartitionSessionCount ?? 0;
+
+    double IReaderMetricsSource.LocalBufferMessageAgeMax =>
+        _receivedMessagesChannel.Reader.TryPeek(out var batch) && batch.ReceivedTimestamp > 0
+            ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
+            : 0;
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -555,6 +560,7 @@ internal class ReaderSession<TValue>(
 
     private async Task HandleReadResponse(StreamReadMessage.Types.ReadResponse readResponse)
     {
+        var receivedTimestamp = ReaderMetricsReporter.ReportReadResponseStart();
         var bytesSize = readResponse.BytesSize;
         metrics.ReportCreditBalanceBytes(-bytesSize);
         metrics.ReportReceivedBytes(bytesSize);
@@ -589,7 +595,8 @@ internal class ReaderSession<TValue>(
                                 countParts: batchCount,
                                 currentIndex: batchIndex
                             ),
-                            deserializer
+                            deserializer,
+                            receivedTimestamp
                         )
                     ).ConfigureAwait(false);
 

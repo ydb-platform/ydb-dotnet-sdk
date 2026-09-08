@@ -1,3 +1,4 @@
+using System.Text;
 using System.Threading.Channels;
 using Grpc.Core;
 using Moq;
@@ -288,6 +289,86 @@ public class ReaderMetricsReporterTests
             Assert.Equal(statusCode, tags["status_code"]);
             Assert.Equal(errorType, tags["error.type"]);
             Assert.DoesNotContain("topic", tags);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LocalBufferMessageAgeMax_TracksFifoAcrossTopicsUntilBatchRemoval(bool readLastAsBatch)
+    {
+        const string readerName = "message-age-reader";
+        const string metricName = "ydb.topic.reader.local_buffer.message_age.max";
+        var timeout = TimeSpan.FromSeconds(5);
+        var exportedItems = new List<Metric>();
+        Assert.Equal(0, ReaderMetricsReporter.ReportReadResponseStart());
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        Assert.True(ReaderMetricsReporter.ReportReadResponseStart() > 0);
+        var forceFlush = meterProvider.ForceFlush;
+        var mockStream = new Mock<ReaderStream>();
+        var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
+        var handledEvents = Channel.CreateUnbounded<long>();
+        SetupResponseStream(mockStream, responses, handledEvents.Writer);
+        var deserializer = new Mock<IDeserializer<string>>();
+        deserializer.Setup(instance => instance.Deserialize(It.IsAny<byte[]>())).Returns((byte[] data) =>
+        {
+            Assert.True(ObserveAge() > 0);
+            return Encoding.UTF8.GetString(data);
+        });
+        await using var reader = new ReaderBuilder<string>(CreateDriverFactory(mockStream, readerName))
+        {
+            ConsumerName = "message-age-consumer",
+            ReaderName = readerName,
+            Deserializer = deserializer.Object,
+            SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("/another-topic") }
+        }.Build();
+
+        Assert.Equal(0, ObserveAge());
+        Assert.Equal(MetricType.DoubleGauge, GetMetric(exportedItems, metricName).MetricType);
+        Assert.Equal("s", GetMetric(exportedItems, metricName).Unit);
+        await responses.Writer.WriteAsync((true, InitResponse));
+        await responses.Writer.WriteAsync((true, StartPartitionSessionRequest()));
+        var anotherPartition = StartPartitionSessionRequest(partitionSessionId: 2);
+        anotherPartition.StartPartitionSessionRequest.PartitionSession.Path = "/another-topic";
+        await responses.Writer.WriteAsync((true, anotherPartition));
+        await responses.Writer.WriteAsync((true, ReadResponse("first"u8.ToArray(), "second"u8.ToArray())));
+        var anotherTopicResponse = ReadResponse("third"u8.ToArray());
+        anotherTopicResponse.ReadResponse.PartitionData[0].PartitionSessionId = 2;
+        await responses.Writer.WriteAsync((true, anotherTopicResponse));
+        await responses.Writer.WriteAsync((true, ReadResponse()));
+        await responses.Writer.WriteAsync((true, StartPartitionSessionRequest(partitionSessionId: 3)));
+        for (var expectedEvent = 0; expectedEvent <= 3; expectedEvent++)
+        {
+            Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        }
+
+        Assert.Equal("first", (await reader.ReadAsync().AsTask().WaitAsync(timeout)).Data);
+        Assert.True(ObserveAge() > 0);
+        var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
+        Assert.Equal("second", Assert.Single(batch.Batch).Data);
+        Assert.True(ObserveAge() > 0);
+        var last = readLastAsBatch
+            ? Assert.Single((await reader.ReadBatchAsync().AsTask().WaitAsync(timeout)).Batch)
+            : await reader.ReadAsync().AsTask().WaitAsync(timeout);
+        Assert.Equal("third", last.Data);
+        Assert.Equal("/another-topic", last.Topic);
+        Assert.True(ObserveAge() > 0);
+        using var cancellation = new CancellationTokenSource();
+        var nextRead = reader.ReadAsync(cancellation.Token).AsTask();
+        Assert.Equal(0, ObserveAge());
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => nextRead);
+
+        Assert.Equal(0, ObserveAge());
+        return;
+
+        double ObserveAge()
+        {
+            exportedItems.Clear();
+            forceFlush();
+            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+            AssertTags(point, "message-age-consumer", readerName);
+            return point.GetGaugeLastValueDouble();
         }
     }
 

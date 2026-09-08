@@ -8,9 +8,12 @@ internal class InternalBatchMessages<TValue>(
     PartitionSession partitionsSession,
     ReaderSession<TValue> readerSession,
     long approximatelyBatchSize,
-    IDeserializer<TValue> deserializer)
+    IDeserializer<TValue> deserializer,
+    long receivedTimestamp)
 {
     private int _startMessageDataIndex;
+
+    internal long ReceivedTimestamp { get; } = receivedTimestamp;
 
     private int OriginalMessageCount => batch.MessageData.Count;
 

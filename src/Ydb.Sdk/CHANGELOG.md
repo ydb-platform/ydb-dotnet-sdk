@@ -1,7 +1,7 @@
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
   `ydb-sdk-metrics/0.1.0` to `ydb-sdk-metrics/0.2.0`.
-- Feat Topic Reader metrics: added six counters, a local-buffer UpDownCounter, and partition-session and credit-balance
-  gauges on the `Ydb.Sdk.Topic` meter.
+- Feat Topic Reader metrics: added six counters, a local-buffer UpDownCounter, and three gauges on
+  the `Ydb.Sdk.Topic` meter.
 
   | Metric                                             | Unit        | Description                                                  |
   |----------------------------------------------------|-------------|--------------------------------------------------------------|
@@ -14,6 +14,7 @@
   | `ydb.topic.reader.commit.queued`                   | `{message}` | Messages in commit ranges accepted by the SDK                |
   | `ydb.topic.reader.commit.acknowledged`             | `{message}` | Messages in ranges completed by successful acknowledgements  |
   | `ydb.topic.reader.partition_session.count`         | `{session}` | Active partition sessions in the reader processing lifecycle |
+  | `ydb.topic.reader.local_buffer.message_age.max`    | `s`         | Age of the oldest batch retained in the Reader's local buffer |
 
   Repeated deliveries and messages in repeated commit ranges are counted again. An acknowledgement counts messages
   in every queued range it completes; stale acknowledgements are ignored.
@@ -27,6 +28,11 @@
   The local-buffer UpDownCounter increments when messages enter the local buffer and decrements when they are delivered.
   Because it is synchronous, a listener attached after a Reader is created is not backfilled with the Reader's
   already-buffered messages.
+  The message-age gauge reports one maximum per Reader across all topics and partitions, without `topic`, or zero
+  for an empty buffer. Receive timestamps are only captured while the gauge is enabled; earlier messages have no age.
+  The gauge observes the first batch in the channel, including empty batches and batches from inactive sessions.
+  After `ReadAsync` returns a batch's last message, that batch remains visible until the next read removes it.
+  `ReadBatchAsync` removes the batch before deserialization, so its deserialization time is not included.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 
