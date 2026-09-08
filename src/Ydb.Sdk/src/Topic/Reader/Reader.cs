@@ -66,8 +66,8 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
             : 0;
 
-    IReadOnlyCollection<PartitionSession> IReaderMetricsSource.PartitionSessions =>
-        _currentReaderSession?.PartitionSessions ?? [];
+    IReadOnlyDictionary<long, PartitionSession>? IReaderMetricsSource.PartitionSessions =>
+        _currentReaderSession?.PartitionSessions;
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -328,8 +328,8 @@ internal class ReaderSession<TValue>(
 
     internal long PartitionSessionCount => _partitionSessions.Count;
 
-    internal IReadOnlyCollection<PartitionSession> PartitionSessions =>
-        _lifecycleReaderSessionCts.IsCancellationRequested ? [] : _partitionSessions.Values.ToArray();
+    internal IReadOnlyDictionary<long, PartitionSession>? PartitionSessions =>
+        _lifecycleReaderSessionCts.IsCancellationRequested ? null : _partitionSessions;
 
     private async Task RunProcessingStreamResponse()
     {

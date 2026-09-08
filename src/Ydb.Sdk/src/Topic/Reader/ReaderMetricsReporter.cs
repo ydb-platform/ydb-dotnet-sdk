@@ -10,7 +10,7 @@ internal interface IReaderMetricsSource
 
     double LocalBufferMessageAgeMax { get; }
 
-    IReadOnlyCollection<PartitionSession> PartitionSessions { get; }
+    IReadOnlyDictionary<long, PartitionSession>? PartitionSessions { get; }
 }
 
 /// <summary>
@@ -278,11 +278,14 @@ internal sealed class ReaderMetricsReporter : IDisposable
                 }
 
                 var topicLags = reporter._topics.ToDictionary(topic => topic, _ => 0L);
-                foreach (var partitionSession in reporter._readerMetricsSource.PartitionSessions)
+                if (reporter._readerMetricsSource.PartitionSessions is { } partitionSessions)
                 {
-                    topicLags[partitionSession.TopicPath] = Math.Max(
-                        topicLags.GetValueOrDefault(partitionSession.TopicPath),
-                        partitionSession.CommitOffsetLag);
+                    foreach (var (_, partitionSession) in partitionSessions)
+                    {
+                        topicLags[partitionSession.TopicPath] = Math.Max(
+                            topicLags.GetValueOrDefault(partitionSession.TopicPath),
+                            partitionSession.CommitOffsetLag);
+                    }
                 }
 
                 foreach (var (topic, lag) in topicLags)
