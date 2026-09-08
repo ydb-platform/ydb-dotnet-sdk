@@ -30,7 +30,9 @@
   already-buffered messages.
   The message-age gauge reports one maximum per Reader across all topics and partitions, without `topic`, or zero
   for an empty buffer. Receive timestamps are only captured while the gauge is enabled; earlier messages have no age.
+  The gauge observes the first batch in the channel, including empty batches and batches from inactive sessions.
   After `ReadAsync` returns a batch's last message, that batch remains visible until the next read removes it.
+  `ReadBatchAsync` removes the batch before deserialization, so its deserialization time is not included.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 

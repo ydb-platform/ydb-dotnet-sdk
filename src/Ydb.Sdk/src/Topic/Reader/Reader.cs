@@ -98,23 +98,16 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
     {
         while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (!_receivedMessagesChannel.Reader.TryPeek(out var batchInternalMessage))
+            if (!_receivedMessagesChannel.Reader.TryRead(out var batchInternalMessage))
             {
                 throw new ReaderException("Detect race condition on ReadBatchAsync operation");
             }
 
-            try
+            if (batchInternalMessage.TryPublicBatch(out var batch))
             {
-                if (batchInternalMessage.TryPublicBatch(out var batch))
-                {
-                    _metrics.ReportLocalBuffer(-batch.Batch.Count, batch.Batch[0].Topic);
-                    _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
-                    return batch;
-                }
-            }
-            finally
-            {
-                _receivedMessagesChannel.Reader.TryRead(out _);
+                _metrics.ReportLocalBuffer(-batch.Batch.Count, batch.Batch[0].Topic);
+                _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
+                return batch;
             }
         }
 
@@ -593,24 +586,21 @@ internal class ReaderSession<TValue>(
                 for (var batchIndex = 0; batchIndex < batchCount; batchIndex++)
                 {
                     var batch = batches[batchIndex];
-                    if (batch.MessageData.Count == 0)
-                    {
-                        continue;
-                    }
-
                     metrics.ReportLocalBuffer(batch.MessageData.Count, partitionSession.TopicPath);
-                    await channelWriter.WriteAsync(new InternalBatchMessages<TValue>(
-                        batch,
-                        partitionSession,
-                        this,
-                        Utils.CalculateApproximatelyBytesSize(
-                            bytesSize: approximatelyPartitionBytesSize,
-                            countParts: batchCount,
-                            currentIndex: batchIndex
-                        ),
-                        deserializer,
-                        receivedTimestamp
-                    )).ConfigureAwait(false);
+                    await channelWriter.WriteAsync(
+                        new InternalBatchMessages<TValue>(
+                            batch,
+                            partitionSession,
+                            this,
+                            Utils.CalculateApproximatelyBytesSize(
+                                bytesSize: approximatelyPartitionBytesSize,
+                                countParts: batchCount,
+                                currentIndex: batchIndex
+                            ),
+                            deserializer,
+                            receivedTimestamp
+                        )
+                    ).ConfigureAwait(false);
 
                     metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
                 }
