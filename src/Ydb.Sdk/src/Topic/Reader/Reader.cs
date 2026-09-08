@@ -35,8 +35,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         Channel.CreateUnbounded<InternalBatchMessages<TValue>>(
             new UnboundedChannelOptions
             {
-                // The gauge peeks concurrently with application reads.
-                SingleReader = false,
                 SingleWriter = true,
                 AllowSynchronousContinuations = false
             }
