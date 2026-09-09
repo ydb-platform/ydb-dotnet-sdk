@@ -330,11 +330,6 @@ internal class ReaderSession<TValue>(
     {
         get
         {
-            if (_lifecycleReaderSessionCts.IsCancellationRequested)
-            {
-                return 0;
-            }
-
             var max = 0L;
             foreach (var (_, partitionSession) in _partitionSessions)
             {
