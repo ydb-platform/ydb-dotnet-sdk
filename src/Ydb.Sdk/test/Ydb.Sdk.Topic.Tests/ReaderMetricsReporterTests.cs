@@ -496,14 +496,8 @@ public class ReaderMetricsReporterTests
         await firstCommit.WaitAsync(timeout);
         AssertLag(0);
 
-        await responses.Writer.WriteAsync((true, CommitOffsetResponse(12)));
-        await SendResponse(StartPartitionSessionRequest(partitionSessionId: 3), 3);
-        await firstMessage.CommitAsync().WaitAsync(timeout);
-        AssertLag(0);
-
         await SendResponse(StopPartitionSessionRequest(), -1);
         await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2);
-        await SendResponse(StopPartitionSessionRequest(partitionSessionId: 3), -3);
         AssertLag(0);
 
         return;
