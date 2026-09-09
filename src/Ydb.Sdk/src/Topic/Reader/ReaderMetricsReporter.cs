@@ -19,12 +19,12 @@ internal interface IReaderMetricsSource
 internal sealed class ReaderMetricsReporter : IDisposable
 {
     private static readonly List<ReaderMetricsReporter> Reporters = [];
+    private static long _lastReaderId;
 
     private static readonly Counter<long> ReceivedMessages;
     private static readonly Counter<long> ReceivedBytes;
     private static readonly Counter<long> SessionErrors;
     private static readonly Counter<long> DeliveredMessages;
-    private static readonly UpDownCounter<long> LocalBufferMessages;
     private static readonly ObservableGauge<double> LocalBufferMessageAgeMax;
     private static readonly Counter<long> CommitQueued;
     private static readonly Counter<long> CommitAcknowledged;
@@ -33,6 +33,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IReaderMetricsSource _readerMetricsSource;
     private long _creditBalanceBytes;
+    private long _localBufferMessages;
 
     static ReaderMetricsReporter()
     {
@@ -82,10 +83,11 @@ internal sealed class ReaderMetricsReporter : IDisposable
             unit: "{message}",
             description: "The number of messages delivered by the SDK to application code.");
 
-        LocalBufferMessages = meter.CreateUpDownCounter<long>(
+        meter.CreateObservableGauge(
             "ydb.topic.reader.local_buffer.messages",
+            ObserveLocalBufferMessages,
             unit: "{message}",
-            description: "The number of messages accepted by the SDK but not yet delivered.");
+            description: "The number of messages currently buffered by the reader.");
 
         CommitQueued = meter.CreateCounter<long>(
             "ydb.topic.reader.commit.queued",
@@ -97,6 +99,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
             unit: "{message}",
             description: "The number of messages in commit ranges completed by successful acknowledgements.");
     }
+
+    private static string NextReaderName => $"reader-{Interlocked.Increment(ref _lastReaderId)}";
 
     internal ReaderMetricsReporter(
         string endpoint,
@@ -116,10 +120,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
             commonTags.Add("consumer", consumer);
         }
 
-        if (readerName is not null)
-        {
-            commonTags.Add("reader.name", readerName);
-        }
+        commonTags.Add("reader.name", readerName ?? NextReaderName);
 
         _commonTags = commonTags.ToArray();
         Register();
@@ -175,16 +176,9 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
 
-    internal void ReportLocalBuffer(long messages, string topic)
-    {
-        if (!LocalBufferMessages.Enabled)
-        {
-            return;
-        }
+    internal void ReportLocalBufferMessages(long messages) => Interlocked.Add(ref _localBufferMessages, messages);
 
-        var tags = new TagList(_commonTags) { { "topic", topic } };
-        LocalBufferMessages.Add(messages, tags);
-    }
+    internal void ResetLocalBufferMessages() => Interlocked.Exchange(ref _localBufferMessages, 0);
 
     internal void ReportCommitQueued(long messages, string topic) => Record(CommitQueued, messages, topic);
 
@@ -247,6 +241,16 @@ internal sealed class ReaderMetricsReporter : IDisposable
             return Reporters.Select(reporter =>
                     new Measurement<double>(reporter._readerMetricsSource.LocalBufferMessageAgeMax,
                         reporter._commonTags))
+                .ToArray();
+        }
+    }
+
+    private static IEnumerable<Measurement<long>> ObserveLocalBufferMessages()
+    {
+        lock (Reporters)
+        {
+            return Reporters.Select(reporter =>
+                    new Measurement<long>(Interlocked.Read(ref reporter._localBufferMessages), reporter._commonTags))
                 .ToArray();
         }
     }

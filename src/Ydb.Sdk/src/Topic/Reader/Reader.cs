@@ -75,7 +75,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             {
                 if (batchInternalMessage.TryDequeueMessage(out var message))
                 {
-                    _metrics.ReportLocalBuffer(-1, message.Topic);
+                    _metrics.ReportLocalBufferMessages(-1);
                     _metrics.ReportDelivered(1, message.Topic);
                     return message;
                 }
@@ -105,7 +105,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
             if (batchInternalMessage.TryPublicBatch(out var batch))
             {
-                _metrics.ReportLocalBuffer(-batch.Batch.Count, batch.Batch[0].Topic);
+                _metrics.ReportLocalBufferMessages(-batch.Batch.Count);
                 _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
                 return batch;
             }
@@ -116,23 +116,24 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
     private void Reconnect(StatusCode statusCode)
     {
+        if (_disposeCts.IsCancellationRequested)
+        {
+            _logger.LogDebug("Reconnect Reader[{ReaderConfig}] is stopped because it has been disposed", _config);
+
+            return;
+        }
+
         _currentReaderSession = null;
         _metrics.ResetCreditBalanceBytes();
+        _metrics.ResetLocalBufferMessages();
         _metrics.ReportSessionError(statusCode);
-        _ = Task.Run(Initialize, _disposeCts.Token);
+        _ = Task.Run(Initialize);
     }
 
     private async Task Initialize()
     {
         try
         {
-            if (_disposeCts.IsCancellationRequested)
-            {
-                _logger.LogDebug("Initialize Reader[{ReaderConfig}] is stopped because it has been disposed", _config);
-
-                return;
-            }
-
             _logger.LogInformation("Reader session initialization started. ReaderConfig: {ReaderConfig}", _config);
 
             var stream = await (_driver ??= await PoolManager.GetDriver(_driverFactory).ConfigureAwait(false))
@@ -600,7 +601,6 @@ internal class ReaderSession<TValue>(
                 for (var batchIndex = 0; batchIndex < batchCount; batchIndex++)
                 {
                     var batch = batches[batchIndex];
-                    metrics.ReportLocalBuffer(batch.MessageData.Count, partitionSession.TopicPath);
                     await channelWriter.WriteAsync(
                         new InternalBatchMessages<TValue>(
                             batch,
@@ -616,6 +616,7 @@ internal class ReaderSession<TValue>(
                         )
                     ).ConfigureAwait(false);
 
+                    metrics.ReportLocalBufferMessages(batch.MessageData.Count);
                     metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
                 }
             }

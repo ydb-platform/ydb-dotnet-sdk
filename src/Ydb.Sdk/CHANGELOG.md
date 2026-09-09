@@ -1,41 +1,24 @@
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
   `ydb-sdk-metrics/0.1.0` to `ydb-sdk-metrics/0.2.0`.
-- Feat Topic Reader metrics: added six counters, a local-buffer UpDownCounter, and three gauges on
-  the `Ydb.Sdk.Topic` meter.
+- Feat Topic Reader metrics: added the following instruments to the `Ydb.Sdk.Topic` meter. Metric names below omit the
+  common `ydb.topic.reader.` prefix.
 
-  | Metric                                             | Unit        | Description                                                  |
-  |----------------------------------------------------|-------------|--------------------------------------------------------------|
-  | `ydb.topic.reader.received.messages`               | `{message}` | Messages accepted by the SDK from active partition sessions  |
-  | `ydb.topic.reader.received.bytes`                  | `By`        | Protocol `ReadResponse.bytes_size`, counted once per response |
-  | `ydb.topic.reader.session.errors`                  | `{error}`   | Reader stream-session retry and terminal failure decisions    |
-  | `ydb.topic.reader.credit_balance_bytes`            | `By`        | Outstanding protocol credit for active read streams          |
-  | `ydb.topic.reader.delivered.messages`              | `{message}` | Messages delivered by the SDK to application code            |
-  | `ydb.topic.reader.local_buffer.messages`           | `{message}` | Messages currently accepted but not delivered by the SDK      |
-  | `ydb.topic.reader.commit.queued`                   | `{message}` | Messages in commit ranges accepted by the SDK                |
-  | `ydb.topic.reader.commit.acknowledged`             | `{message}` | Messages in ranges completed by successful acknowledgements  |
-  | `ydb.topic.reader.partition_session.count`         | `{session}` | Active partition sessions in the reader processing lifecycle |
-  | `ydb.topic.reader.local_buffer.message_age.max`    | `s`         | Age of the oldest batch retained in the Reader's local buffer |
-  | `ydb.topic.reader.commit_offset.lag.max`           | `{message}` | Maximum requested-to-acknowledged commit offset gap           |
+  | Metric                         | Instrument      | Unit        | Additional attributes                         | Description                                       |
+  |--------------------------------|-----------------|-------------|-----------------------------------------------|---------------------------------------------------|
+  | `received.messages`            | Counter         | `{message}` | `topic`                                       | Messages accepted into the local buffer           |
+  | `received.bytes`               | Counter         | `By`        | —                                             | `ReadResponse.BytesSize`, once per response       |
+  | `session.errors`               | Counter         | `{error}`   | `retry_decision`, `status_code`, `error.type` | Stream errors grouped by retry decision           |
+  | `credit_balance_bytes`         | ObservableGauge | `By`        | —                                             | Tracked read-stream credit balance                |
+  | `delivered.messages`           | Counter         | `{message}` | `topic`                                       | Messages returned to application code             |
+  | `local_buffer.messages`        | ObservableGauge | `{message}` | —                                             | Messages buffered by the active Reader session    |
+  | `commit.queued`                | Counter         | `{message}` | `topic`                                       | Messages in commit ranges sent to the SDK queue   |
+  | `commit.acknowledged`          | Counter         | `{message}` | `topic`                                       | Messages in queued ranges completed by an ACK     |
+  | `partition_session.count`      | ObservableGauge | `{session}` | —                                             | Partition sessions in the current Reader session  |
+  | `local_buffer.message_age.max` | ObservableGauge | `s`         | —                                             | Age of the first buffered batch, when timestamped |
+  | `commit_offset.lag.max`        | ObservableGauge | `{message}` | —                                             | Largest requested-to-acknowledged offset gap      |
 
-  Repeated deliveries and messages in repeated commit ranges are counted again. An acknowledgement counts messages
-  in every queued range it completes; stale acknowledgements are ignored.
-  All Topic Reader metrics have the `endpoint` and `database` attributes, plus `consumer` and `reader.name` when they
-  are configured; message and commit counters also have `topic`. The received-bytes counter covers the whole stream
-  without `topic`, including data for unknown partitions. The credit-balance gauge has the same stream scope, is updated
-  for queued read-credit requests and read responses, returns zero when its reader session is inactive, and permits
-  negative values for oversized responses. The partition-session gauge is an SDK-local snapshot, not server ownership or
-  processing progress. The session-error counter has `retry_decision`, `status_code`, and `error.type` attributes and does
-  not have `topic`.
-  The local-buffer UpDownCounter increments when messages enter the local buffer and decrements when they are delivered.
-  Because it is synchronous, a listener attached after a Reader is created is not backfilled with the Reader's
-  already-buffered messages.
-  The message-age gauge reports one maximum per Reader across all topics and partitions, without `topic`, or zero
-  for an empty buffer. Receive timestamps are only captured while the gauge is enabled; earlier messages have no age.
-  The gauge observes the first batch in the channel, including empty batches and batches from inactive sessions.
-  After `ReadAsync` returns a batch's last message, that batch remains visible until the next read removes it.
-  `ReadBatchAsync` removes the batch before deserialization, so its deserialization time is not included.
-  The commit-offset lag gauge reports one maximum per Reader across all active partition sessions, without `topic`,
-  or zero when the Reader has no active partition sessions.
+  Every metric has `endpoint`, `database`, and `reader.name`; non-null `consumer` is also included.
+
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 
