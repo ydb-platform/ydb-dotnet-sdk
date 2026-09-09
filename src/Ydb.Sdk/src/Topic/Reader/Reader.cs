@@ -125,7 +125,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             return;
         }
 
-        Interlocked.Exchange(ref _currentReaderSession, null);
+        Volatile.Write(ref _currentReaderSession, null);
         _metrics.ResetCreditBalanceBytes();
         _metrics.ResetLocalBufferMessages();
         _metrics.ReportSessionError(statusCode);
