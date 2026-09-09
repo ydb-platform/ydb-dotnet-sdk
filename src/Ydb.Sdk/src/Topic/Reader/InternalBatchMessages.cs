@@ -17,9 +17,9 @@ internal class InternalBatchMessages<TValue>(
 
     private int OriginalMessageCount => batch.MessageData.Count;
 
-    internal int RemainingMessageCount => OriginalMessageCount - _startMessageDataIndex;
-
-    internal bool IsActive => partitionsSession.IsActive && readerSession.IsActive && RemainingMessageCount > 0;
+    private bool IsActive => partitionsSession.IsActive &&
+                             readerSession.IsActive &&
+                             _startMessageDataIndex < OriginalMessageCount;
 
     internal bool TryDequeueMessage([MaybeNullWhen(false)] out Message<TValue> message)
     {
@@ -53,10 +53,10 @@ internal class InternalBatchMessages<TValue>(
             partitionSessionId: partitionsSession.PartitionSessionId,
             producerId: batch.ProducerId,
             createdAt: messageData.CreatedAt.ToDateTime(),
-            metadata: [.. messageData.MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray()))],
+            metadata: [..messageData.MetadataItems.Select(item => new Metadata(item.Key, item.Value.ToByteArray()))],
             seqNo: messageData.SeqNo,
             offsetsRange: new OffsetsRange
-            { Start = partitionsSession.PrevEndOffsetMessage, End = nextCommitedOffset },
+                { Start = partitionsSession.PrevEndOffsetMessage, End = nextCommitedOffset },
             readerSession: readerSession
         );
         partitionsSession.PrevEndOffsetMessage = nextCommitedOffset;
@@ -74,7 +74,7 @@ internal class InternalBatchMessages<TValue>(
 
         var nextCommitedOffset = batch.MessageData.Last().Offset + 1;
         var offsetsRangeBatch = new OffsetsRange
-        { Start = partitionsSession.PrevEndOffsetMessage, End = nextCommitedOffset };
+            { Start = partitionsSession.PrevEndOffsetMessage, End = nextCommitedOffset };
         partitionsSession.PrevEndOffsetMessage = nextCommitedOffset;
 
         var messages = new List<Message<TValue>>();

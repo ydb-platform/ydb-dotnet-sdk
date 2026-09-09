@@ -73,19 +73,11 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         {
             if (_receivedMessagesChannel.Reader.TryPeek(out var batchInternalMessage))
             {
-                var bufferedMessages = batchInternalMessage.RemainingMessageCount;
-                try
+                if (batchInternalMessage.TryDequeueMessage(out var message))
                 {
-                    if (batchInternalMessage.TryDequeueMessage(out var message))
-                    {
-                        _metrics.ReportDelivered(1, message.Topic);
-                        return message;
-                    }
-                }
-                finally
-                {
-                    _metrics.ReportLocalBufferMessages(
-                        batchInternalMessage.RemainingMessageCount - bufferedMessages);
+                    _metrics.ReportLocalBufferMessages(-1);
+                    _metrics.ReportDelivered(1, message.Topic);
+                    return message;
                 }
 
                 if (!_receivedMessagesChannel.Reader.TryRead(out _))
@@ -111,22 +103,11 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 throw new ReaderException("Detect race condition on ReadBatchAsync operation");
             }
 
-            var bufferedMessages = batchInternalMessage.RemainingMessageCount;
-            var isActive = batchInternalMessage.IsActive;
-            try
+            if (batchInternalMessage.TryPublicBatch(out var batch))
             {
-                if (batchInternalMessage.TryPublicBatch(out var batch))
-                {
-                    _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
-                    return batch;
-                }
-            }
-            finally
-            {
-                if (isActive)
-                {
-                    _metrics.ReportLocalBufferMessages(-bufferedMessages);
-                }
+                _metrics.ReportLocalBufferMessages(-batch.Batch.Count);
+                _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
+                return batch;
             }
         }
 
