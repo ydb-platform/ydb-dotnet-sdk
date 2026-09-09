@@ -224,16 +224,19 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = _config.MemoryUsageMaxBytes }
             }).ConfigureAwait(false);
 
-            _currentReaderSession = new ReaderSession<TValue>(
-                _config,
-                stream,
-                initResponse.SessionId,
-                Reconnect,
-                await stream.AuthToken().ConfigureAwait(false),
-                _logger,
-                _receivedMessagesChannel.Writer,
-                _deserializer,
-                _metrics
+            Interlocked.Exchange(
+                ref _currentReaderSession,
+                new ReaderSession<TValue>(
+                    _config,
+                    stream,
+                    initResponse.SessionId,
+                    Reconnect,
+                    await stream.AuthToken().ConfigureAwait(false),
+                    _logger,
+                    _receivedMessagesChannel.Writer,
+                    _deserializer,
+                    _metrics
+                )
             );
             if (_disposeCts.IsCancellationRequested)
             {
