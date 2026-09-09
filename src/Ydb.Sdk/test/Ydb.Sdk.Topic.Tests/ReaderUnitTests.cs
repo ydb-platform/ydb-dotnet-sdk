@@ -1569,25 +1569,26 @@ public class ReaderUnitTests
     }
 
     [Fact]
-    public async Task DisposeAsync_WhenInitializeContinues_DoesNotStartSession()
+    public async Task DisposeAsync_WhenInitializeContinues_DisposesSession()
     {
         var authTokenRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var authToken = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var disposedBeforeStart = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sessionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sessionDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
         _mockStream.SetupSequence(stream => stream.MoveNextAsync())
             .ReturnsAsync(true)
             .Returns(() =>
             {
-                disposedBeforeStart.TrySetResult(false);
+                sessionStarted.TrySetResult();
                 return _lastMoveNext;
             });
         _mockStream.Setup(stream => stream.Current).Returns(InitResponse);
         _mockStream.Setup(stream => stream.AuthToken())
             .Callback(authTokenRequested.SetResult)
             .Returns(() => new ValueTask<string?>(authToken.Task));
-        _mockStream.Setup(stream => stream.Dispose()).Callback(() => disposedBeforeStart.TrySetResult(true));
+        _mockStream.Setup(stream => stream.Dispose()).Callback(sessionDisposed.SetResult);
 
         var reader = new ReaderBuilder<string>(_driverFactoryMock)
         {
@@ -1599,14 +1600,10 @@ public class ReaderUnitTests
         await reader.DisposeAsync();
         authToken.SetResult(null);
 
-        var wasDisposed = await disposedBeforeStart.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        if (!wasDisposed)
-        {
-            await _mockStream.Object.RequestStreamComplete();
-        }
+        await sessionStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await sessionDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.True(wasDisposed);
-        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Once);
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Exactly(2));
         _mockStream.Verify(stream => stream.Dispose(), Times.Once);
     }
 
