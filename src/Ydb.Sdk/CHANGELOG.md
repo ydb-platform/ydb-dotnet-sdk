@@ -17,15 +17,6 @@
   | `local_buffer.message_age.max` | ObservableGauge | `s`         | —                                             | Age of the first buffered batch, when timestamped |
   | `commit_offset.lag.max`        | ObservableGauge | `{message}` | —                                             | Largest requested-to-acknowledged offset gap      |
 
-  Every metric has `endpoint`, `database`, and `reader.name`; non-null `consumer` is also included. A Reader with no
-  configured name receives a process-local `reader-{i}` name when it is built. Explicit names, including an empty string,
-  are preserved. The generated name is metric-only and is not sent to the server; its sequence is neither persistent nor
-  shared between processes.
-
-  `received.bytes`, the gauges, and `session.errors` have stream/Reader scope and therefore no `topic`. Repeated deliveries
-  and overlapping or repeated commit ranges are counted again; an ACK counts every queued range it completes. The
-  local-buffer and credit state reset on reconnect; credit tracking and age timestamps start only while their gauges are
-  enabled.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 
