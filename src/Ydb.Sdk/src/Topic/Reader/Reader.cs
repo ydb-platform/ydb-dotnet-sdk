@@ -558,7 +558,6 @@ internal class ReaderSession<TValue>(
                     }
                 ).ConfigureAwait(false);
 
-                partitionSession.RecordCommitRequested(commitSending.OffsetsRange.End);
                 metrics.ReportCommitQueued(
                     commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
                     partitionSession.TopicPath);

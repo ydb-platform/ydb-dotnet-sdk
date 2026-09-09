@@ -12,9 +12,6 @@ internal class PartitionSession(
 {
     private readonly ConcurrentQueue<CommitSending> _waitCommitMessages = new();
 
-    private long _maxRequestedCommitOffset = commitedOffset;
-    private long _lastAcknowledgedCommittedOffset = commitedOffset;
-
     private volatile bool _isStopped;
 
     internal bool IsActive => !_isStopped;
@@ -30,21 +27,8 @@ internal class PartitionSession(
 
     internal long PrevEndOffsetMessage { get; set; } = commitedOffset;
 
-    internal long CommitOffsetLag
-    {
-        get
-        {
-            long maxRequestedCommitOffset;
-            long lastAcknowledgedCommittedOffset;
-            do
-            {
-                maxRequestedCommitOffset = Volatile.Read(ref _maxRequestedCommitOffset);
-                lastAcknowledgedCommittedOffset = Volatile.Read(ref _lastAcknowledgedCommittedOffset);
-            } while (maxRequestedCommitOffset != Volatile.Read(ref _maxRequestedCommitOffset));
-
-            return Math.Max(0, maxRequestedCommitOffset - lastAcknowledgedCommittedOffset);
-        }
-    }
+    internal long CommitOffsetLag =>
+        _waitCommitMessages.LastOrDefault()?.OffsetsRange.End - CommitedOffset ?? 0;
 
     // Each offset up to and including (committed_offset - 1) was fully processed.
     private long CommitedOffset { get; set; } = commitedOffset;
@@ -70,13 +54,8 @@ internal class PartitionSession(
         }
     }
 
-    internal void RecordCommitRequested(long requestedCommitOffset) =>
-        SetMax(ref _maxRequestedCommitOffset, requestedCommitOffset);
-
     internal long HandleCommitedOffset(long commitedOffset)
     {
-        SetMax(ref _lastAcknowledgedCommittedOffset, commitedOffset);
-
         if (CommitedOffset >= commitedOffset)
         {
             logger.LogError(
@@ -97,21 +76,6 @@ internal class PartitionSession(
         }
 
         return acknowledgedMessages;
-    }
-
-    private static void SetMax(ref long target, long value)
-    {
-        var current = Volatile.Read(ref target);
-        while (value > current)
-        {
-            var observed = Interlocked.CompareExchange(ref target, value, current);
-            if (observed == current)
-            {
-                return;
-            }
-
-            current = observed;
-        }
     }
 
     internal void Stop(long commitedOffset)
