@@ -116,11 +116,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
     private void Reconnect(StatusCode statusCode)
     {
-        if (_disposeCts.IsCancellationRequested)
-        {
-            return;
-        }
-
         _currentReaderSession = null;
         _metrics.ResetCreditBalanceBytes();
         _metrics.ResetLocalBufferMessages();
@@ -441,7 +436,7 @@ internal class ReaderSession<TValue>(
         {
             await _channelFromClientMessageSending.Writer
                 .WriteAsync(new MessageFromClient
-                { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
+                    { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
                 .ConfigureAwait(false);
             metrics.ReportCreditBalanceBytes(readRequestBytes);
         }
@@ -515,7 +510,7 @@ internal class ReaderSession<TValue>(
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                 {
                     StopPartitionSessionResponse = new StreamReadMessage.Types.StopPartitionSessionResponse
-                    { PartitionSessionId = partitionSession.PartitionSessionId }
+                        { PartitionSessionId = partitionSession.PartitionSessionId }
                 }).ConfigureAwait(false);
             }
         }
@@ -544,10 +539,10 @@ internal class ReaderSession<TValue>(
             try
             {
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
-                {
-                    CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
                     {
-                        CommitOffsets =
+                        CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
+                        {
+                            CommitOffsets =
                             {
                                 new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
                                 {
@@ -555,8 +550,8 @@ internal class ReaderSession<TValue>(
                                     PartitionSessionId = partitionSessionId
                                 }
                             }
+                        }
                     }
-                }
                 ).ConfigureAwait(false);
 
                 metrics.ReportCommitQueued(

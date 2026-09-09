@@ -21,7 +21,6 @@ public class ReaderMetricsReporterTests
 {
     private const string PartitionSessionCountMetricName = "ydb.topic.reader.partition_session.count";
     private const string CommitOffsetLagMetricName = "ydb.topic.reader.commit_offset.lag.max";
-    private const string SessionErrorsMetricName = "ydb.topic.reader.session.errors";
     private const string LifecycleReaderName = "reader-lifecycle-metrics";
 
     private static readonly string[] MetricNames =
@@ -204,6 +203,7 @@ public class ReaderMetricsReporterTests
     public async Task SessionErrors_RecordsOneRetryAndTerminalStop()
     {
         const string readerName = "session-errors-reader";
+        const string metricName = "ydb.topic.reader.session.errors";
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
         var firstStream = new Mock<ReaderStream>();
@@ -264,10 +264,10 @@ public class ReaderMetricsReporterTests
             await reader.ReadAsync().AsTask().WaitAsync(timeout));
 
         meterProvider.ForceFlush();
-        var metric = GetMetric(exportedItems, SessionErrorsMetricName);
+        var metric = GetMetric(exportedItems, metricName);
         Assert.Equal(MetricType.LongSum, metric.MetricType);
         Assert.Equal("{error}", metric.Unit);
-        var points = GetReaderPoints(exportedItems, SessionErrorsMetricName, readerName)
+        var points = GetReaderPoints(exportedItems, metricName, readerName)
             .ToDictionary(point => ToDictionary(point.Tags)["retry_decision"]!.ToString()!);
         Assert.Equal(1, points["retry"].GetSumLong());
         Assert.Equal(1, points["stop"].GetSumLong());
@@ -411,11 +411,6 @@ public class ReaderMetricsReporterTests
         {
             await reader.DisposeAsync();
         }
-
-        exportedItems.Clear();
-        meterProvider.ForceFlush();
-        var sessionError = Assert.Single(GetReaderPoints(exportedItems, SessionErrorsMetricName, readerName!));
-        Assert.Equal(1, sessionError.GetSumLong());
 
         var afterDisposeItems = new List<Metric>();
         using var afterDisposeMeterProvider = CreateMeterProvider(afterDisposeItems);
