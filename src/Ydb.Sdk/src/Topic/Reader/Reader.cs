@@ -58,14 +58,16 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         _ = Initialize();
     }
 
-    long IReaderMetricsSource.PartitionSessionCount => _currentReaderSession?.PartitionSessionCount ?? 0;
+    long IReaderMetricsSource.PartitionSessionCount =>
+        Volatile.Read(ref _currentReaderSession)?.PartitionSessionCount ?? 0;
 
     double IReaderMetricsSource.LocalBufferMessageAgeMax =>
         _receivedMessagesChannel.Reader.TryPeek(out var batch) && batch.ReceivedTimestamp > 0
             ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
             : 0;
 
-    long IReaderMetricsSource.CommitOffsetLagMax => _currentReaderSession?.CommitOffsetLagMax ?? 0;
+    long IReaderMetricsSource.CommitOffsetLagMax =>
+        Volatile.Read(ref _currentReaderSession)?.CommitOffsetLagMax ?? 0;
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -249,7 +251,10 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             }
 
             _metrics.ResetCreditBalanceBytes(_config.MemoryUsageMaxBytes);
-            _currentReaderSession?.Start();
+            if (Volatile.Read(ref _currentReaderSession) is { } currentReaderSession)
+            {
+                currentReaderSession.Start();
+            }
         }
         catch (YdbException e)
         {
