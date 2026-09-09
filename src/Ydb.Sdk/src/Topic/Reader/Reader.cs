@@ -237,8 +237,11 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             );
             if (_disposeCts.IsCancellationRequested)
             {
-                await (Interlocked.Exchange(ref _currentReaderSession, null)?.DisposeAsync() ??
-                       ValueTask.CompletedTask).ConfigureAwait(false);
+                if (Interlocked.Exchange(ref _currentReaderSession, null) is { } readerSession)
+                {
+                    await readerSession.DisposeAsync().ConfigureAwait(false);
+                }
+
                 return;
             }
 
