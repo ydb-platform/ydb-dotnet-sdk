@@ -118,6 +118,8 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
     {
         if (_disposeCts.IsCancellationRequested)
         {
+            _logger.LogDebug("Reconnect Reader[{ReaderConfig}] is stopped because it has been disposed", _config);
+
             return;
         }
 
