@@ -20,7 +20,6 @@ using FromServer = StreamReadMessage.Types.FromServer;
 public class ReaderMetricsReporterTests
 {
     private const string PartitionSessionCountMetricName = "ydb.topic.reader.partition_session.count";
-    private const string PartitionSessionCountReaderName = "partition-count-reader";
     private const string CommitOffsetLagMetricName = "ydb.topic.reader.commit_offset.lag.max";
     private const string LifecycleReaderName = "reader-lifecycle-metrics";
 
@@ -376,6 +375,7 @@ public class ReaderMetricsReporterTests
     [Fact]
     public async Task PartitionSessionCount_TracksSessionsAcrossReconnectAndDispose()
     {
+        const string consumer = "partition-count-consumer";
         var timeout = TimeSpan.FromSeconds(5);
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
@@ -386,14 +386,15 @@ public class ReaderMetricsReporterTests
         SetupResponseStream(mockStream, responses, handledEvents.Writer);
         var reader = new ReaderBuilder<string>(driverFactory)
         {
-            ConsumerName = "partition-count-consumer",
-            ReaderName = PartitionSessionCountReaderName,
+            ConsumerName = consumer,
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
+        string? readerName = null;
 
         try
         {
             await SendResponse(meterProvider, InitResponse, 0, 0);
+            AssertGeneratedReaderName(readerName!);
             Assert.Equal("{session}", GetMetric(exportedItems, PartitionSessionCountMetricName).Unit);
             await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 1), 1, 1);
             await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 2), 2, 2);
@@ -401,6 +402,8 @@ public class ReaderMetricsReporterTests
             await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 2), -2, 0);
             await responses.Writer.WriteAsync((false, null));
             await SendResponse(meterProvider, InitResponse, 0, 0);
+            mockStream.Verify(stream => stream.Write(It.Is<FromClient>(message =>
+                message.InitRequest != null && message.InitRequest.ReaderName == "")), Times.Exactly(2));
         }
         finally
         {
@@ -410,8 +413,7 @@ public class ReaderMetricsReporterTests
         var afterDisposeItems = new List<Metric>();
         using var afterDisposeMeterProvider = CreateMeterProvider(afterDisposeItems);
         afterDisposeMeterProvider.ForceFlush();
-        Assert.Empty(GetReaderPoints(afterDisposeItems, PartitionSessionCountMetricName,
-            PartitionSessionCountReaderName));
+        Assert.Empty(GetReaderPoints(afterDisposeItems, PartitionSessionCountMetricName, readerName!));
         return;
 
         async Task SendResponse(
@@ -424,10 +426,12 @@ public class ReaderMetricsReporterTests
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
             exportedItems.Clear();
             provider.ForceFlush();
-            var point = Assert.Single(GetReaderPoints(exportedItems, PartitionSessionCountMetricName,
-                PartitionSessionCountReaderName));
+            var metric = GetMetric(exportedItems, PartitionSessionCountMetricName);
+            var point = Assert.Single(EnumeratePoints(metric),
+                point => ToDictionary(point.Tags).GetValueOrDefault("consumer") as string == consumer);
+            readerName ??= Assert.IsType<string>(ToDictionary(point.Tags)["reader.name"]);
             Assert.Equal(expectedCount, point.GetGaugeLastValueLong());
-            AssertTags(point, "partition-count-consumer", PartitionSessionCountReaderName);
+            AssertTags(point, consumer, readerName);
         }
     }
 
@@ -603,6 +607,14 @@ public class ReaderMetricsReporterTests
             .AddYdbTopic()
             .AddInMemoryExporter(exportedItems)
             .Build();
+
+    private static void AssertGeneratedReaderName(string readerName)
+    {
+        const string prefix = "reader-";
+        Assert.StartsWith(prefix, readerName);
+        Assert.True(long.TryParse(readerName.AsSpan(prefix.Length), out var id));
+        Assert.True(id > 0);
+    }
 
     private static void SetupResponseStream(
         Mock<ReaderStream> stream,

@@ -19,6 +19,7 @@ internal interface IReaderMetricsSource
 internal sealed class ReaderMetricsReporter : IDisposable
 {
     private static readonly List<ReaderMetricsReporter> Reporters = [];
+    private static long _lastReaderId;
 
     private static readonly Counter<long> ReceivedMessages;
     private static readonly Counter<long> ReceivedBytes;
@@ -98,6 +99,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
             description: "The number of messages in commit ranges completed by successful acknowledgements.");
     }
 
+    private static string NextReaderName => $"reader-{Interlocked.Increment(ref _lastReaderId)}";
+
     internal ReaderMetricsReporter(
         string endpoint,
         string database,
@@ -116,10 +119,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
             commonTags.Add("consumer", consumer);
         }
 
-        if (readerName is not null)
-        {
-            commonTags.Add("reader.name", readerName);
-        }
+        commonTags.Add("reader.name", readerName ?? NextReaderName);
 
         _commonTags = commonTags.ToArray();
         Register();
