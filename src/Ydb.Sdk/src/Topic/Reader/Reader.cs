@@ -116,24 +116,22 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
     private void Reconnect(StatusCode statusCode)
     {
+        if (_disposeCts.IsCancellationRequested)
+        {
+            return;
+        }
+
         _currentReaderSession = null;
         _metrics.ResetCreditBalanceBytes();
         _metrics.ResetLocalBufferMessages();
         _metrics.ReportSessionError(statusCode);
-        _ = Task.Run(Initialize, _disposeCts.Token);
+        _ = Task.Run(Initialize);
     }
 
     private async Task Initialize()
     {
         try
         {
-            if (_disposeCts.IsCancellationRequested)
-            {
-                _logger.LogDebug("Initialize Reader[{ReaderConfig}] is stopped because it has been disposed", _config);
-
-                return;
-            }
-
             _logger.LogInformation("Reader session initialization started. ReaderConfig: {ReaderConfig}", _config);
 
             var stream = await (_driver ??= await PoolManager.GetDriver(_driverFactory).ConfigureAwait(false))
