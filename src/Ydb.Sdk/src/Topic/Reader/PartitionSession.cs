@@ -27,6 +27,8 @@ internal class PartitionSession(
 
     internal long PrevEndOffsetMessage { get; set; } = commitedOffset;
 
+    internal long CommitOffsetLag => _waitCommitMessages.LastOrDefault()?.OffsetsRange.End - CommitedOffset ?? 0;
+
     // Each offset up to and including (committed_offset - 1) was fully processed.
     private long CommitedOffset { get; set; } = commitedOffset;
 

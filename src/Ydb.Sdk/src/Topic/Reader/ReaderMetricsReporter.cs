@@ -9,6 +9,8 @@ internal interface IReaderMetricsSource
     long PartitionSessionCount { get; }
 
     double LocalBufferMessageAgeMax { get; }
+
+    long CommitOffsetLagMax { get; }
 }
 
 /// <summary>
@@ -53,6 +55,12 @@ internal sealed class ReaderMetricsReporter : IDisposable
             ObserveLocalBufferMessageAgeMax,
             unit: "s",
             description: "The age of the oldest batch retained in the reader's local buffer.");
+
+        meter.CreateObservableGauge(
+            "ydb.topic.reader.commit_offset.lag.max",
+            ObserveCommitOffsetLag,
+            unit: "{message}",
+            description: "The maximum gap between requested and acknowledged commit offsets.");
 
         ReceivedMessages = meter.CreateCounter<long>(
             "ydb.topic.reader.received.messages",
@@ -238,6 +246,17 @@ internal sealed class ReaderMetricsReporter : IDisposable
         {
             return Reporters.Select(reporter =>
                     new Measurement<double>(reporter._readerMetricsSource.LocalBufferMessageAgeMax,
+                        reporter._commonTags))
+                .ToArray();
+        }
+    }
+
+    private static IEnumerable<Measurement<long>> ObserveCommitOffsetLag()
+    {
+        lock (Reporters)
+        {
+            return Reporters.Select(reporter =>
+                    new Measurement<long>(reporter._readerMetricsSource.CommitOffsetLagMax,
                         reporter._commonTags))
                 .ToArray();
         }

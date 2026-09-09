@@ -15,6 +15,7 @@
   | `ydb.topic.reader.commit.acknowledged`             | `{message}` | Messages in ranges completed by successful acknowledgements  |
   | `ydb.topic.reader.partition_session.count`         | `{session}` | Active partition sessions in the reader processing lifecycle |
   | `ydb.topic.reader.local_buffer.message_age.max`    | `s`         | Age of the oldest batch retained in the Reader's local buffer |
+  | `ydb.topic.reader.commit_offset.lag.max`           | `{message}` | Maximum requested-to-acknowledged commit offset gap           |
 
   Repeated deliveries and messages in repeated commit ranges are counted again. An acknowledgement counts messages
   in every queued range it completes; stale acknowledgements are ignored.
@@ -33,6 +34,8 @@
   The gauge observes the first batch in the channel, including empty batches and batches from inactive sessions.
   After `ReadAsync` returns a batch's last message, that batch remains visible until the next read removes it.
   `ReadBatchAsync` removes the batch before deserialization, so its deserialization time is not included.
+  The commit-offset lag gauge reports one maximum per Reader across all active partition sessions, without `topic`,
+  or zero when the Reader has no active partition sessions.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 

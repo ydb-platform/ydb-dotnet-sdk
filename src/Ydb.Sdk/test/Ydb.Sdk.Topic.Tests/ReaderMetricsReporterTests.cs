@@ -21,6 +21,7 @@ public class ReaderMetricsReporterTests
 {
     private const string PartitionSessionCountMetricName = "ydb.topic.reader.partition_session.count";
     private const string PartitionSessionCountReaderName = "partition-count-reader";
+    private const string CommitOffsetLagMetricName = "ydb.topic.reader.commit_offset.lag.max";
     private const string LifecycleReaderName = "reader-lifecycle-metrics";
 
     private static readonly string[] MetricNames =
@@ -431,6 +432,85 @@ public class ReaderMetricsReporterTests
     }
 
     [Fact]
+    public async Task CommitOffsetLag_TracksMaximumAcrossPartitions()
+    {
+        const string readerName = "commit-offset-lag-reader";
+        const string consumer = "commit-offset-lag-consumer";
+        var timeout = TimeSpan.FromSeconds(5);
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var stream = new Mock<ReaderStream>();
+        var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
+        var handledEvents = Channel.CreateUnbounded<long>();
+        var commitsWritten = Channel.CreateUnbounded<long>();
+        SetupResponseStream(stream, responses, handledEvents.Writer, message =>
+        {
+            if (message.CommitOffsetRequest is not null)
+            {
+                commitsWritten.Writer.TryWrite(message.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId);
+            }
+        });
+        await using var reader = new ReaderBuilder<string>(
+            CreateDriverFactory(stream, "Reader_Commit_Offset_Lag_Metrics"))
+        {
+            ConsumerName = consumer,
+            ReaderName = readerName,
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        await SendResponse(InitResponse, 0);
+        await SendResponse(StartPartitionSessionRequest(10), 1);
+        await SendResponse(StartPartitionSessionRequest(10, partitionSessionId: 2), 2);
+        AssertLag(0);
+
+        await responses.Writer.WriteAsync((true, ReadResponse(14, "first"u8.ToArray())));
+        var secondReadResponse = ReadResponse(17, "second"u8.ToArray());
+        secondReadResponse.ReadResponse.PartitionData[0].PartitionSessionId = 2;
+        await responses.Writer.WriteAsync((true, secondReadResponse));
+        var firstMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+        var secondMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+        var firstCommit = firstMessage.CommitAsync();
+        var secondCommit = secondMessage.CommitAsync();
+        Assert.Equal(1, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        Assert.Equal(2, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        AssertLag(8);
+
+        var secondCommitResponse = CommitOffsetResponse(18);
+        secondCommitResponse.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = 2;
+        await responses.Writer.WriteAsync((true, secondCommitResponse));
+        await secondCommit.WaitAsync(timeout);
+        AssertLag(5);
+
+        await responses.Writer.WriteAsync((true, CommitOffsetResponse(15)));
+        await firstCommit.WaitAsync(timeout);
+        AssertLag(0);
+
+        await SendResponse(StopPartitionSessionRequest(), -1);
+        await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2);
+        AssertLag(0);
+
+        return;
+
+        async Task SendResponse(FromServer response, long expectedEvent)
+        {
+            await responses.Writer.WriteAsync((true, response));
+            Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        }
+
+        void AssertLag(long expected)
+        {
+            exportedItems.Clear();
+            meterProvider.ForceFlush();
+            var metric = GetMetric(exportedItems, CommitOffsetLagMetricName);
+            Assert.Equal(MetricType.LongGauge, metric.MetricType);
+            Assert.Equal("{message}", metric.Unit);
+            var point = Assert.Single(GetReaderPoints(exportedItems, CommitOffsetLagMetricName, readerName));
+            Assert.Equal(expected, point.GetGaugeLastValueLong());
+            AssertTags(point, consumer, readerName);
+        }
+    }
+
+    [Fact]
     public async Task ReaderLifecycle_RecordsCounters()
     {
         var exportedItems = new List<Metric>();
@@ -527,7 +607,8 @@ public class ReaderMetricsReporterTests
     private static void SetupResponseStream(
         Mock<ReaderStream> stream,
         Channel<(bool HasNext, FromServer? Response)> responses,
-        ChannelWriter<long> handledEvents)
+        ChannelWriter<long> handledEvents,
+        Action<FromClient>? onWrite = null)
     {
         FromServer?[] currentResponse = [null];
         stream.Setup(mock => mock.MoveNextAsync()).Returns(async () =>
@@ -545,6 +626,7 @@ public class ReaderMetricsReporterTests
         stream.Setup(mock => mock.Write(It.IsAny<FromClient>()))
             .Callback<FromClient>(message =>
             {
+                onWrite?.Invoke(message);
                 if (message.ReadRequest != null)
                 {
                     handledEvents.TryWrite(0);
