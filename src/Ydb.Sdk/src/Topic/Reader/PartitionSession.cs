@@ -36,7 +36,7 @@ internal class PartitionSession(
     {
         var endOffset = commitSending.OffsetsRange.End;
 
-        if (endOffset < CommitedOffset)
+        if (endOffset <= CommitedOffset)
         {
             commitSending.TcsCommit.SetResult();
         }
@@ -61,6 +61,8 @@ internal class PartitionSession(
                 "PartitionSession[{PartitionSessionId}] received CommitOffsetResponse[CommitedOffset={CommitedOffset}] " +
                 "which is not greater than previous committed offset: {PrevCommitedOffset}",
                 PartitionSessionId, commitedOffset, CommitedOffset);
+
+            return 0;
         }
 
         CommitedOffset = commitedOffset;

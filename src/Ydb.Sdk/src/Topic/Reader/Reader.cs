@@ -60,6 +60,8 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
     long IReaderMetricsSource.PartitionSessionCount => _currentReaderSession?.PartitionSessionCount ?? 0;
 
+    long IReaderMetricsSource.LocalBufferMessages => _receivedMessagesChannel.Reader.Count;
+
     double IReaderMetricsSource.LocalBufferMessageAgeMax =>
         _receivedMessagesChannel.Reader.TryPeek(out var batch) && batch.ReceivedTimestamp > 0
             ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
@@ -75,7 +77,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             {
                 if (batchInternalMessage.TryDequeueMessage(out var message))
                 {
-                    _metrics.ReportLocalBuffer(-1, message.Topic);
                     _metrics.ReportDelivered(1, message.Topic);
                     return message;
                 }
@@ -105,7 +106,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
             if (batchInternalMessage.TryPublicBatch(out var batch))
             {
-                _metrics.ReportLocalBuffer(-batch.Batch.Count, batch.Batch[0].Topic);
                 _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
                 return batch;
             }
@@ -116,6 +116,11 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
     private void Reconnect(StatusCode statusCode)
     {
+        if (_disposeCts.IsCancellationRequested)
+        {
+            return;
+        }
+
         _currentReaderSession = null;
         _metrics.ResetCreditBalanceBytes();
         _metrics.ReportSessionError(statusCode);
@@ -435,7 +440,7 @@ internal class ReaderSession<TValue>(
         {
             await _channelFromClientMessageSending.Writer
                 .WriteAsync(new MessageFromClient
-                    { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
+                { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
                 .ConfigureAwait(false);
             metrics.ReportCreditBalanceBytes(readRequestBytes);
         }
@@ -509,7 +514,7 @@ internal class ReaderSession<TValue>(
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                 {
                     StopPartitionSessionResponse = new StreamReadMessage.Types.StopPartitionSessionResponse
-                        { PartitionSessionId = partitionSession.PartitionSessionId }
+                    { PartitionSessionId = partitionSession.PartitionSessionId }
                 }).ConfigureAwait(false);
             }
         }
@@ -538,10 +543,10 @@ internal class ReaderSession<TValue>(
             try
             {
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
+                {
+                    CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
                     {
-                        CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
-                        {
-                            CommitOffsets =
+                        CommitOffsets =
                             {
                                 new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
                                 {
@@ -549,8 +554,8 @@ internal class ReaderSession<TValue>(
                                     PartitionSessionId = partitionSessionId
                                 }
                             }
-                        }
                     }
+                }
                 ).ConfigureAwait(false);
 
                 metrics.ReportCommitQueued(
@@ -600,7 +605,6 @@ internal class ReaderSession<TValue>(
                 for (var batchIndex = 0; batchIndex < batchCount; batchIndex++)
                 {
                     var batch = batches[batchIndex];
-                    metrics.ReportLocalBuffer(batch.MessageData.Count, partitionSession.TopicPath);
                     await channelWriter.WriteAsync(
                         new InternalBatchMessages<TValue>(
                             batch,

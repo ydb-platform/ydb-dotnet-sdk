@@ -21,6 +21,7 @@ public class ReaderMetricsReporterTests
 {
     private const string PartitionSessionCountMetricName = "ydb.topic.reader.partition_session.count";
     private const string CommitOffsetLagMetricName = "ydb.topic.reader.commit_offset.lag.max";
+    private const string SessionErrorsMetricName = "ydb.topic.reader.session.errors";
     private const string LifecycleReaderName = "reader-lifecycle-metrics";
 
     private static readonly string[] MetricNames =
@@ -142,7 +143,7 @@ public class ReaderMetricsReporterTests
     }
 
     [Fact]
-    public async Task LocalBufferMessages_TracksDelivery()
+    public async Task LocalBufferMessages_TracksChannelCount()
     {
         const string readerName = "local-buffer-reader";
         const string metricName = "ydb.topic.reader.local_buffer.messages";
@@ -181,7 +182,12 @@ public class ReaderMetricsReporterTests
         AssertBufferedMessages(1);
 
         await reader.ReadAsync();
+        AssertBufferedMessages(1);
+        using var cancellation = new CancellationTokenSource();
+        var pendingRead = reader.ReadAsync(cancellation.Token).AsTask();
         AssertBufferedMessages(0);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pendingRead);
         return;
 
         void AssertBufferedMessages(long expected)
@@ -189,11 +195,11 @@ public class ReaderMetricsReporterTests
             exportedItems.Clear();
             meterProvider.ForceFlush();
             var metric = GetMetric(exportedItems, metricName);
-            Assert.Equal(MetricType.LongSumNonMonotonic, metric.MetricType);
+            Assert.Equal(MetricType.LongGauge, metric.MetricType);
             Assert.Equal("{message}", metric.Unit);
             var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
-            Assert.Equal(expected, point.GetSumLong());
-            AssertTags(point, "local-buffer-consumer", readerName, "/topic");
+            Assert.Equal(expected, point.GetGaugeLastValueLong());
+            AssertTags(point, "local-buffer-consumer", readerName);
         }
     }
 
@@ -201,7 +207,6 @@ public class ReaderMetricsReporterTests
     public async Task SessionErrors_RecordsOneRetryAndTerminalStop()
     {
         const string readerName = "session-errors-reader";
-        const string metricName = "ydb.topic.reader.session.errors";
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
         var firstStream = new Mock<ReaderStream>();
@@ -262,10 +267,10 @@ public class ReaderMetricsReporterTests
             await reader.ReadAsync().AsTask().WaitAsync(timeout));
 
         meterProvider.ForceFlush();
-        var metric = GetMetric(exportedItems, metricName);
+        var metric = GetMetric(exportedItems, SessionErrorsMetricName);
         Assert.Equal(MetricType.LongSum, metric.MetricType);
         Assert.Equal("{error}", metric.Unit);
-        var points = GetReaderPoints(exportedItems, metricName, readerName)
+        var points = GetReaderPoints(exportedItems, SessionErrorsMetricName, readerName)
             .ToDictionary(point => ToDictionary(point.Tags)["retry_decision"]!.ToString()!);
         Assert.Equal(1, points["retry"].GetSumLong());
         Assert.Equal(1, points["stop"].GetSumLong());
@@ -410,6 +415,11 @@ public class ReaderMetricsReporterTests
             await reader.DisposeAsync();
         }
 
+        exportedItems.Clear();
+        meterProvider.ForceFlush();
+        var sessionError = Assert.Single(GetReaderPoints(exportedItems, SessionErrorsMetricName, readerName!));
+        Assert.Equal(1, sessionError.GetSumLong());
+
         var afterDisposeItems = new List<Metric>();
         using var afterDisposeMeterProvider = CreateMeterProvider(afterDisposeItems);
         afterDisposeMeterProvider.ForceFlush();
@@ -489,8 +499,14 @@ public class ReaderMetricsReporterTests
         await firstCommit.WaitAsync(timeout);
         AssertLag(0);
 
+        await responses.Writer.WriteAsync((true, CommitOffsetResponse(12)));
+        await SendResponse(StartPartitionSessionRequest(partitionSessionId: 3), 3);
+        await firstMessage.CommitAsync().WaitAsync(timeout);
+        AssertLag(0);
+
         await SendResponse(StopPartitionSessionRequest(), -1);
         await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2);
+        await SendResponse(StopPartitionSessionRequest(partitionSessionId: 3), -3);
         AssertLag(0);
 
         return;

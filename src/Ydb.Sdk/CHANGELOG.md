@@ -10,7 +10,7 @@
   | `session.errors`               | Counter         | `{error}`   | `retry_decision`, `status_code`, `error.type` | Stream errors grouped by retry decision           |
   | `credit_balance_bytes`         | ObservableGauge | `By`        | —                                             | Tracked read-stream credit balance                |
   | `delivered.messages`           | Counter         | `{message}` | `topic`                                       | Messages returned to application code             |
-  | `local_buffer.messages`        | UpDownCounter   | `{message}` | `topic`                                       | Messages added to the buffer minus deliveries     |
+  | `local_buffer.messages`        | ObservableGauge | `{message}` | —                                             | Entries currently queued in the local channel     |
   | `commit.queued`                | Counter         | `{message}` | `topic`                                       | Messages in commit ranges sent to the SDK queue   |
   | `commit.acknowledged`          | Counter         | `{message}` | `topic`                                       | Messages in queued ranges completed by an ACK     |
   | `partition_session.count`      | ObservableGauge | `{session}` | —                                             | Partition sessions in the current Reader session  |
@@ -24,8 +24,8 @@
 
   `received.bytes`, the gauges, and `session.errors` have stream/Reader scope and therefore no `topic`. Repeated deliveries
   and overlapping or repeated commit ranges are counted again; an ACK counts every queued range it completes. The
-  synchronous buffer metric is not backfilled when instrumentation is enabled late; credit tracking and age timestamps
-  also start only while their gauges are enabled.
+  buffer gauges observe the local channel directly; credit tracking and age timestamps start only while their gauges are
+  enabled.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 
