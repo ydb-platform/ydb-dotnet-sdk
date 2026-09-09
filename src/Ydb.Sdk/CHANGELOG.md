@@ -1,3 +1,4 @@
+- Fix Topic Reader: close a session that finishes initialization after the reader has been disposed.
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
   `ydb-sdk-metrics/0.1.0` to `ydb-sdk-metrics/0.2.0`.
 - Feat Topic Reader metrics: added the following instruments to the `Ydb.Sdk.Topic` meter. Metric names below omit the
