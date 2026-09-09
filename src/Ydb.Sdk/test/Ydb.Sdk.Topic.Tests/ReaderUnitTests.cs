@@ -1569,7 +1569,7 @@ public class ReaderUnitTests
     }
 
     [Fact]
-    public async Task DisposeAsync_WhenInitializeContinues_DisposesSession()
+    public async Task DisposeAsync_WhenInitializationContinues_DisposesReader()
     {
         var authTokenRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var authToken = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
