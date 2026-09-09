@@ -123,7 +123,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             return;
         }
 
-        _currentReaderSession = null;
+        Interlocked.Exchange(ref _currentReaderSession, null);
         _metrics.ResetCreditBalanceBytes();
         _metrics.ResetLocalBufferMessages();
         _metrics.ReportSessionError(statusCode);
