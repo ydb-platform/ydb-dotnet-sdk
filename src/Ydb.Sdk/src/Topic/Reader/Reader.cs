@@ -226,35 +226,30 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = _config.MemoryUsageMaxBytes }
             }).ConfigureAwait(false);
 
-            Interlocked.Exchange(
-                ref _currentReaderSession,
-                new ReaderSession<TValue>(
-                    _config,
-                    stream,
-                    initResponse.SessionId,
-                    Reconnect,
-                    await stream.AuthToken().ConfigureAwait(false),
-                    _logger,
-                    _receivedMessagesChannel.Writer,
-                    _deserializer,
-                    _metrics
-                )
+            var readerSession = new ReaderSession<TValue>(
+                _config,
+                stream,
+                initResponse.SessionId,
+                Reconnect,
+                await stream.AuthToken().ConfigureAwait(false),
+                _logger,
+                _receivedMessagesChannel.Writer,
+                _deserializer,
+                _metrics
             );
+            Interlocked.Exchange(ref _currentReaderSession, readerSession);
             if (_disposeCts.IsCancellationRequested)
             {
-                if (Interlocked.Exchange(ref _currentReaderSession, null) is { } readerSession)
+                if (Interlocked.Exchange(ref _currentReaderSession, null) is { } sessionToDispose)
                 {
-                    await readerSession.DisposeAsync().ConfigureAwait(false);
+                    await sessionToDispose.DisposeAsync().ConfigureAwait(false);
                 }
 
                 return;
             }
 
             _metrics.ResetCreditBalanceBytes(_config.MemoryUsageMaxBytes);
-            if (Volatile.Read(ref _currentReaderSession) is { } currentReaderSession)
-            {
-                currentReaderSession.Start();
-            }
+            readerSession.Start();
         }
         catch (YdbException e)
         {
