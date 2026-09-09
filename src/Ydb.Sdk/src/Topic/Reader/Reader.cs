@@ -227,26 +227,26 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             }).ConfigureAwait(false);
 
             _metrics.ResetCreditBalanceBytes(_config.MemoryUsageMaxBytes);
-            var readerSession = new ReaderSession<TValue>(
-                _config,
-                stream,
-                initResponse.SessionId,
-                Reconnect,
-                await stream.AuthToken().ConfigureAwait(false),
-                _logger,
-                _receivedMessagesChannel.Writer,
-                _deserializer,
-                _metrics
+            Interlocked.Exchange(
+                ref _currentReaderSession,
+                new ReaderSession<TValue>(
+                    _config,
+                    stream,
+                    initResponse.SessionId,
+                    Reconnect,
+                    await stream.AuthToken().ConfigureAwait(false),
+                    _logger,
+                    _receivedMessagesChannel.Writer,
+                    _deserializer,
+                    _metrics
+                )
             );
-            Interlocked.Exchange(ref _currentReaderSession, readerSession);
             if (_disposeCts.IsCancellationRequested)
             {
                 if (Interlocked.Exchange(ref _currentReaderSession, null) is { } sessionToDispose)
                 {
                     await sessionToDispose.DisposeAsync().ConfigureAwait(false);
                 }
-
-                return;
             }
         }
         catch (YdbException e)
