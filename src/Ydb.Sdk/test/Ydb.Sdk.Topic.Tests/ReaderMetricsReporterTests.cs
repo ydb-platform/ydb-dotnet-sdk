@@ -143,7 +143,7 @@ public class ReaderMetricsReporterTests
     }
 
     [Fact]
-    public async Task LocalBufferMessages_TracksChannelCount()
+    public async Task LocalBufferMessages_TracksBufferedMessages()
     {
         const string readerName = "local-buffer-reader";
         const string metricName = "ydb.topic.reader.local_buffer.messages";
@@ -164,7 +164,7 @@ public class ReaderMetricsReporterTests
         mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponse)
             .Returns(StartPartitionSessionRequest())
-            .Returns(ReadResponse("message"u8.ToArray()));
+            .Returns(ReadResponse("first"u8.ToArray(), "second"u8.ToArray()));
         mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
         mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
         {
@@ -179,15 +179,12 @@ public class ReaderMetricsReporterTests
         }.Build();
 
         await responseHandled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        AssertBufferedMessages(1);
+        AssertBufferedMessages(2);
 
         await reader.ReadAsync();
         AssertBufferedMessages(1);
-        using var cancellation = new CancellationTokenSource();
-        var pendingRead = reader.ReadAsync(cancellation.Token).AsTask();
+        await reader.ReadAsync();
         AssertBufferedMessages(0);
-        cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pendingRead);
         return;
 
         void AssertBufferedMessages(long expected)

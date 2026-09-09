@@ -8,8 +8,6 @@ internal interface IReaderMetricsSource
 {
     long PartitionSessionCount { get; }
 
-    long LocalBufferMessages { get; }
-
     double LocalBufferMessageAgeMax { get; }
 
     long CommitOffsetLagMax { get; }
@@ -35,6 +33,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IReaderMetricsSource _readerMetricsSource;
     private long _creditBalanceBytes;
+    private long _localBufferMessages;
 
     static ReaderMetricsReporter()
     {
@@ -88,7 +87,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
             "ydb.topic.reader.local_buffer.messages",
             ObserveLocalBufferMessages,
             unit: "{message}",
-            description: "The number of entries currently queued in the reader's local channel.");
+            description: "The number of messages currently buffered by the reader.");
 
         CommitQueued = meter.CreateCounter<long>(
             "ydb.topic.reader.commit.queued",
@@ -177,6 +176,10 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
 
+    internal void ReportLocalBufferMessages(long messages) => Interlocked.Add(ref _localBufferMessages, messages);
+
+    internal void ResetLocalBufferMessages() => Interlocked.Exchange(ref _localBufferMessages, 0);
+
     internal void ReportCommitQueued(long messages, string topic) => Record(CommitQueued, messages, topic);
 
     internal void ReportCommitAcknowledged(long messages, string topic) =>
@@ -247,8 +250,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters.Select(reporter =>
-                    new Measurement<long>(reporter._readerMetricsSource.LocalBufferMessages,
-                        reporter._commonTags))
+                    new Measurement<long>(Interlocked.Read(ref reporter._localBufferMessages), reporter._commonTags))
                 .ToArray();
         }
     }

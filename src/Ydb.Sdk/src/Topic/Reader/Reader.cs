@@ -60,8 +60,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
     long IReaderMetricsSource.PartitionSessionCount => _currentReaderSession?.PartitionSessionCount ?? 0;
 
-    long IReaderMetricsSource.LocalBufferMessages => _receivedMessagesChannel.Reader.Count;
-
     double IReaderMetricsSource.LocalBufferMessageAgeMax =>
         _receivedMessagesChannel.Reader.TryPeek(out var batch) && batch.ReceivedTimestamp > 0
             ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
@@ -75,10 +73,19 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         {
             if (_receivedMessagesChannel.Reader.TryPeek(out var batchInternalMessage))
             {
-                if (batchInternalMessage.TryDequeueMessage(out var message))
+                var bufferedMessages = batchInternalMessage.RemainingMessageCount;
+                try
                 {
-                    _metrics.ReportDelivered(1, message.Topic);
-                    return message;
+                    if (batchInternalMessage.TryDequeueMessage(out var message))
+                    {
+                        _metrics.ReportDelivered(1, message.Topic);
+                        return message;
+                    }
+                }
+                finally
+                {
+                    _metrics.ReportLocalBufferMessages(
+                        batchInternalMessage.RemainingMessageCount - bufferedMessages);
                 }
 
                 if (!_receivedMessagesChannel.Reader.TryRead(out _))
@@ -104,10 +111,22 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 throw new ReaderException("Detect race condition on ReadBatchAsync operation");
             }
 
-            if (batchInternalMessage.TryPublicBatch(out var batch))
+            var bufferedMessages = batchInternalMessage.RemainingMessageCount;
+            var isActive = batchInternalMessage.IsActive;
+            try
             {
-                _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
-                return batch;
+                if (batchInternalMessage.TryPublicBatch(out var batch))
+                {
+                    _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
+                    return batch;
+                }
+            }
+            finally
+            {
+                if (isActive)
+                {
+                    _metrics.ReportLocalBufferMessages(-bufferedMessages);
+                }
             }
         }
 
@@ -123,6 +142,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
         _currentReaderSession = null;
         _metrics.ResetCreditBalanceBytes();
+        _metrics.ResetLocalBufferMessages();
         _metrics.ReportSessionError(statusCode);
         _ = Task.Run(Initialize, _disposeCts.Token);
     }
@@ -620,6 +640,7 @@ internal class ReaderSession<TValue>(
                         )
                     ).ConfigureAwait(false);
 
+                    metrics.ReportLocalBufferMessages(batch.MessageData.Count);
                     metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
                 }
             }
