@@ -1568,6 +1568,48 @@ public class ReaderUnitTests
         await reader.DisposeAsync();
     }
 
+    [Fact]
+    public async Task DisposeAsync_WhenInitializeContinues_DoesNotStartSession()
+    {
+        var authTokenRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var authToken = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var disposedBeforeStart = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(() =>
+            {
+                disposedBeforeStart.TrySetResult(false);
+                return _lastMoveNext;
+            });
+        _mockStream.Setup(stream => stream.Current).Returns(InitResponse);
+        _mockStream.Setup(stream => stream.AuthToken())
+            .Callback(authTokenRequested.SetResult)
+            .Returns(() => new ValueTask<string?>(authToken.Task));
+        _mockStream.Setup(stream => stream.Dispose()).Callback(() => disposedBeforeStart.TrySetResult(true));
+
+        var reader = new ReaderBuilder<string>(_driverFactoryMock)
+        {
+            ConsumerName = "Consumer Tester",
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        await authTokenRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await reader.DisposeAsync();
+        authToken.SetResult(null);
+
+        var wasDisposed = await disposedBeforeStart.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        if (!wasDisposed)
+        {
+            await _mockStream.Object.RequestStreamComplete();
+        }
+
+        Assert.True(wasDisposed);
+        _mockStream.Verify(stream => stream.MoveNextAsync(), Times.Once);
+        _mockStream.Verify(stream => stream.Dispose(), Times.Once);
+    }
+
     private class FailDeserializer : IDeserializer<int>
     {
         public int Deserialize(byte[] data) => throw new Exception("Some serialize exception");

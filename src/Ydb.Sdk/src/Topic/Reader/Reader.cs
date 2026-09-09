@@ -224,7 +224,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = _config.MemoryUsageMaxBytes }
             }).ConfigureAwait(false);
 
-            _currentReaderSession = new ReaderSession<TValue>(
+            var readerSession = new ReaderSession<TValue>(
                 _config,
                 stream,
                 initResponse.SessionId,
@@ -235,8 +235,16 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 _deserializer,
                 _metrics
             );
+            _currentReaderSession = readerSession;
+            if (_disposeCts.IsCancellationRequested)
+            {
+                await (Interlocked.Exchange(ref _currentReaderSession, null)?.DisposeAsync() ??
+                       ValueTask.CompletedTask).ConfigureAwait(false);
+                return;
+            }
+
             _metrics.ResetCreditBalanceBytes(_config.MemoryUsageMaxBytes);
-            _currentReaderSession.Start();
+            readerSession.Start();
         }
         catch (YdbException e)
         {
@@ -257,7 +265,8 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         _disposeCts.Cancel();
         _metrics.Dispose();
 
-        await (_currentReaderSession?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
+        await (Interlocked.Exchange(ref _currentReaderSession, null)?.DisposeAsync() ??
+               ValueTask.CompletedTask).ConfigureAwait(false);
         if (_driver != null)
         {
             await _driver.DisposeAsync().ConfigureAwait(false);
