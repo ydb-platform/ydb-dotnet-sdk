@@ -17,6 +17,8 @@
   | `local_buffer.message_age.max` | ObservableGauge | `s`         | —                                             | Age of the first buffered batch, when timestamped |
   | `commit_offset.lag.max`        | ObservableGauge | `{message}` | —                                             | Largest requested-to-acknowledged offset gap      |
 
+  Every metric has `endpoint`, `database`, and `reader.name`; non-null `consumer` is also included.
+
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 
