@@ -10,7 +10,7 @@ internal interface IReaderMetricsSource
 
     double LocalBufferMessageAgeMax { get; }
 
-    IReadOnlyDictionary<long, PartitionSession>? PartitionSessions { get; }
+    long CommitOffsetLagMax { get; }
 }
 
 /// <summary>
@@ -33,11 +33,6 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IReaderMetricsSource _readerMetricsSource;
     private long _creditBalanceBytes;
-    private readonly string _endpoint;
-    private readonly string _database;
-    private readonly string? _consumer;
-    private readonly string? _readerName;
-    private readonly string[] _topics;
 
     static ReaderMetricsReporter()
     {
@@ -108,15 +103,9 @@ internal sealed class ReaderMetricsReporter : IDisposable
         string database,
         string? consumer,
         string? readerName,
-        IEnumerable<string> topics,
         IReaderMetricsSource readerMetricsSource)
     {
         _readerMetricsSource = readerMetricsSource;
-        _endpoint = endpoint;
-        _database = database;
-        _consumer = consumer;
-        _readerName = readerName;
-        _topics = topics.Distinct().ToArray();
         var commonTags = new TagList
         {
             { "endpoint", endpoint },
@@ -266,52 +255,10 @@ internal sealed class ReaderMetricsReporter : IDisposable
     {
         lock (Reporters)
         {
-            var maxByTags = new Dictionary<
-                (string Endpoint, string Database, string Consumer, string? ReaderName, string Topic),
-                long>();
-
-            foreach (var reporter in Reporters)
-            {
-                if (reporter._consumer is null)
-                {
-                    continue;
-                }
-
-                var topicLags = reporter._topics.ToDictionary(topic => topic, _ => 0L);
-                if (reporter._readerMetricsSource.PartitionSessions is { } partitionSessions)
-                {
-                    foreach (var (_, partitionSession) in partitionSessions)
-                    {
-                        topicLags[partitionSession.TopicPath] = Math.Max(
-                            topicLags.GetValueOrDefault(partitionSession.TopicPath),
-                            partitionSession.CommitOffsetLag);
-                    }
-                }
-
-                foreach (var (topic, lag) in topicLags)
-                {
-                    var key = (reporter._endpoint, reporter._database, reporter._consumer,
-                        reporter._readerName, topic);
-                    maxByTags[key] = Math.Max(maxByTags.GetValueOrDefault(key), lag);
-                }
-            }
-
-            return maxByTags.Select(pair =>
-            {
-                var tags = new TagList
-                {
-                    { "endpoint", pair.Key.Endpoint },
-                    { "database", pair.Key.Database },
-                    { "consumer", pair.Key.Consumer }
-                };
-                if (pair.Key.ReaderName is not null)
-                {
-                    tags.Add("reader.name", pair.Key.ReaderName);
-                }
-
-                tags.Add("topic", pair.Key.Topic);
-                return new Measurement<long>(pair.Value, tags.ToArray());
-            }).ToArray();
+            return Reporters.Select(reporter =>
+                    new Measurement<long>(reporter._readerMetricsSource.CommitOffsetLagMax,
+                        reporter._commonTags))
+                .ToArray();
         }
     }
 }

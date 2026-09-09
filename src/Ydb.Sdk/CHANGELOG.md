@@ -34,8 +34,8 @@
   The gauge observes the first batch in the channel, including empty batches and batches from inactive sessions.
   After `ReadAsync` returns a batch's last message, that batch remains visible until the next read removes it.
   `ReadBatchAsync` removes the batch before deserialization, so its deserialization time is not included.
-  The commit-offset lag gauge is grouped by topic and consumer, takes the maximum across matching readers and active
-  partition sessions, and reports zero when a configured topic has no active partition sessions.
+  The commit-offset lag gauge reports one maximum per Reader across all active partition sessions, without `topic`,
+  or zero when the Reader has no active partition sessions.
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
 

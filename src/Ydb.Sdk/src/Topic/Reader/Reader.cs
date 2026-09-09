@@ -53,7 +53,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             _driverFactory.Database,
             _config.ConsumerName,
             _config.ReaderName,
-            _config.SubscribeSettings.Select(settings => settings.TopicPath),
             this);
 
         _ = Initialize();
@@ -66,8 +65,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
             : 0;
 
-    IReadOnlyDictionary<long, PartitionSession>? IReaderMetricsSource.PartitionSessions =>
-        _currentReaderSession?.PartitionSessions;
+    long IReaderMetricsSource.CommitOffsetLagMax => _currentReaderSession?.CommitOffsetLagMax ?? 0;
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -328,8 +326,24 @@ internal class ReaderSession<TValue>(
 
     internal long PartitionSessionCount => _partitionSessions.Count;
 
-    internal IReadOnlyDictionary<long, PartitionSession>? PartitionSessions =>
-        _lifecycleReaderSessionCts.IsCancellationRequested ? null : _partitionSessions;
+    internal long CommitOffsetLagMax
+    {
+        get
+        {
+            if (_lifecycleReaderSessionCts.IsCancellationRequested)
+            {
+                return 0;
+            }
+
+            var max = 0L;
+            foreach (var (_, partitionSession) in _partitionSessions)
+            {
+                max = Math.Max(max, partitionSession.CommitOffsetLag);
+            }
+
+            return max;
+        }
+    }
 
     private async Task RunProcessingStreamResponse()
     {
