@@ -552,10 +552,9 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
         var commitSending = new CommitSending(offsetsRange, tcsCommit);
 
-        if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession))
+        if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession) &&
+            partitionSession.RegisterCommitRequest(commitSending))
         {
-            partitionSession.RegisterCommitRequest(commitSending);
-
             try
             {
                 await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient

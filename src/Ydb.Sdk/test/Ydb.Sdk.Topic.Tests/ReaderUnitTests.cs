@@ -331,6 +331,51 @@ public class ReaderUnitTests
             msg.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 12)));
     }
 
+    [Fact]
+    public async Task CommitAsync_WhenOffsetAlreadyCommitted_DoesNotSendRequest()
+    {
+        var timeout = TimeSpan.FromSeconds(5);
+        var commitResponseReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var commitRequestWritten = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
+            .Callback<FromClient>(message =>
+            {
+                if (message.CommitOffsetRequest != null)
+                {
+                    commitRequestWritten.TrySetResult();
+                }
+            })
+            .Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(commitResponseReady.Task)
+            .Returns(_lastMoveNext);
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponse)
+            .Returns(StartPartitionSessionRequest(10))
+            .Returns(ReadResponse(10, "First"u8.ToArray(), "Second"u8.ToArray()))
+            .Returns(CommitOffsetResponse(12));
+
+        await using var reader = new ReaderBuilder<string>(_driverFactoryMock)
+        {
+            ConsumerName = "Consumer",
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        var batch = await reader.ReadBatchAsync();
+        var batchCommit = batch.CommitBatchAsync();
+        await commitRequestWritten.Task.WaitAsync(timeout);
+        commitResponseReady.SetResult(true);
+        await batchCommit.WaitAsync(timeout);
+        await batch.Batch[0].CommitAsync().WaitAsync(timeout);
+
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(message =>
+            message.CommitOffsetRequest != null)), Times.Once);
+    }
+
     /*
      * Performed invocations:
 
