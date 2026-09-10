@@ -552,36 +552,34 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
         var commitSending = new CommitSending(offsetsRange, tcsCommit);
 
-        if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession))
+        if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession) &&
+            partitionSession.RegisterCommitRequest(commitSending))
         {
-            if (partitionSession.RegisterCommitRequest(commitSending))
+            try
             {
-                try
-                {
-                    await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
+                await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
+                    {
+                        CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
                         {
-                            CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
+                            CommitOffsets =
                             {
-                                CommitOffsets =
+                                new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
                                 {
-                                    new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
-                                    {
-                                        Offsets = { commitSending.OffsetsRange },
-                                        PartitionSessionId = partitionSessionId
-                                    }
+                                    Offsets = { commitSending.OffsetsRange },
+                                    PartitionSessionId = partitionSessionId
                                 }
                             }
                         }
-                    ).ConfigureAwait(false);
+                    }
+                ).ConfigureAwait(false);
 
-                    _metrics.ReportCommitQueued(
-                        commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
-                        partitionSession.TopicPath);
-                }
-                catch (ChannelClosedException)
-                {
-                    throw new ReaderException("Reader is disposed");
-                }
+                _metrics.ReportCommitQueued(
+                    commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
+                    partitionSession.TopicPath);
+            }
+            catch (ChannelClosedException)
+            {
+                throw new ReaderException("Reader is disposed");
             }
         }
         else
