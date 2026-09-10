@@ -554,33 +554,34 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
         if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession))
         {
-            partitionSession.RegisterCommitRequest(commitSending);
-
-            try
+            if (partitionSession.RegisterCommitRequest(commitSending))
             {
-                await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
-                    {
-                        CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
+                try
+                {
+                    await _channelFromClientMessageSending.Writer.WriteAsync(new MessageFromClient
                         {
-                            CommitOffsets =
+                            CommitOffsetRequest = new StreamReadMessage.Types.CommitOffsetRequest
                             {
-                                new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
+                                CommitOffsets =
                                 {
-                                    Offsets = { commitSending.OffsetsRange },
-                                    PartitionSessionId = partitionSessionId
+                                    new StreamReadMessage.Types.CommitOffsetRequest.Types.PartitionCommitOffset
+                                    {
+                                        Offsets = { commitSending.OffsetsRange },
+                                        PartitionSessionId = partitionSessionId
+                                    }
                                 }
                             }
                         }
-                    }
-                ).ConfigureAwait(false);
+                    ).ConfigureAwait(false);
 
-                _metrics.ReportCommitQueued(
-                    commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
-                    partitionSession.TopicPath);
-            }
-            catch (ChannelClosedException)
-            {
-                throw new ReaderException("Reader is disposed");
+                    _metrics.ReportCommitQueued(
+                        commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
+                        partitionSession.TopicPath);
+                }
+                catch (ChannelClosedException)
+                {
+                    throw new ReaderException("Reader is disposed");
+                }
             }
         }
         else
