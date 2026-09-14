@@ -1,10 +1,7 @@
 using Grpc.Core;
 using Moq;
-using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Xunit;
-using Ydb.Issue;
-using Ydb.Sdk.Ado;
 using Ydb.Sdk.OpenTelemetry;
 using Ydb.Sdk.Topic.Writer;
 using Ydb.Topic;
@@ -58,12 +55,14 @@ public class WriterMetricsReporterTests
         stream.SetupSequence(instance => instance.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
-                InitResponse = new() { LastSeqNo = 0, PartitionId = 1, SessionId = "session-1" },
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "session-1" },
                 Status = StatusIds.Types.StatusCode.Success
             })
             .Returns(new StreamWriteMessage.Types.FromServer
             {
-                InitResponse = new() { LastSeqNo = 1, PartitionId = 1, SessionId = "session-2" },
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 1, PartitionId = 1, SessionId = "session-2" },
                 Status = StatusIds.Types.StatusCode.Success
             })
             .Returns(new StreamWriteMessage.Types.FromServer
