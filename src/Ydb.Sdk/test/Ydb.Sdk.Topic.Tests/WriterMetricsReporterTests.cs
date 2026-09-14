@@ -117,6 +117,11 @@ public class WriterMetricsReporterTests
         foreach (var point in metric.GetMetricPoints())
         {
             var tags = GetTags(point);
+            if (!Equals(topic, tags["topic"]))
+            {
+                continue;
+            }
+
             Assert.Equal(5, tags.Count);
             Assert.Equal("localhost:2136", tags["endpoint"]);
             Assert.Equal("/local", tags["database"]);
