@@ -35,14 +35,9 @@ public class WriterBuilder<TValue>
     public string? ProducerId { get; set; }
 
     /// <summary>
-    /// Optional stable name used as the <c>writer.name</c> attribute in Topic writer metrics.
-    /// A null value generates a unique, non-reused process-local name such as <c>writer-1</c>.
+    /// Identifies this writer in metrics. If not set, the SDK generates a unique name.
+    /// Use the same name for writers whose metrics should be combined.
     /// </summary>
-    /// <remarks>
-    /// Non-null values, including empty strings and whitespace, are used verbatim and remain stable across reconnects.
-    /// Equal custom names intentionally group metrics from multiple writers. Auto-generated names can create many
-    /// metric series when writers are created frequently; use a shared custom name when such grouping is appropriate.
-    /// </remarks>
     public string? WriterName { get; set; }
 
     /// <summary>
