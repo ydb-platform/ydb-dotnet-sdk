@@ -7,12 +7,14 @@ internal class WriterConfig
     internal WriterConfig(
         string topicPath,
         string? producerId,
+        string? writerName,
         Codec codec,
         int bufferMaxSize,
         long? partitionId)
     {
         TopicPath = topicPath;
         ProducerId = producerId;
+        WriterName = writerName;
         Codec = codec;
         BufferMaxSize = bufferMaxSize;
         PartitionId = partitionId;
@@ -21,6 +23,8 @@ internal class WriterConfig
     public string TopicPath { get; }
 
     public string? ProducerId { get; }
+
+    public string? WriterName { get; }
 
     public Codec Codec { get; }
 
