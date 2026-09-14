@@ -35,6 +35,12 @@ public class WriterBuilder<TValue>
     public string? ProducerId { get; set; }
 
     /// <summary>
+    /// Identifies this writer in metrics. If not set, the SDK generates a unique name.
+    /// Use the same name for writers whose metrics should be combined.
+    /// </summary>
+    public string? WriterName { get; set; }
+
+    /// <summary>
     /// Codec that is used for data compression.
     /// See enum Codec above for values.
     /// </summary>
@@ -66,6 +72,7 @@ public class WriterBuilder<TValue>
         new WriterConfig(
             topicPath: TopicPath,
             producerId: ProducerId,
+            writerName: WriterName,
             codec: Codec,
             bufferMaxSize: BufferMaxSize,
             partitionId: PartitionId

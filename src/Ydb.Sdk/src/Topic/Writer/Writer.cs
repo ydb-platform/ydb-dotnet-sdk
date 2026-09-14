@@ -24,6 +24,7 @@ internal class Writer<TValue> : IWriter<TValue>
     private readonly WriterConfig _config;
     private readonly ILogger<Writer<TValue>> _logger;
     private readonly ISerializer<TValue> _serializer;
+    private readonly WriterMetricsReporter _metrics;
     private readonly GrpcRequestSettings _writerGrpcRequestSettings = new();
     private readonly ConcurrentQueue<MessageSending> _toSendBuffer = new();
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages = new();
@@ -44,6 +45,11 @@ internal class Writer<TValue> : IWriter<TValue>
         _serializer = serializer;
         _limitBufferMaxSize = config.BufferMaxSize;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Writer<TValue>>();
+        _metrics = new WriterMetricsReporter(
+            _driverFactory.Endpoint,
+            _driverFactory.Database,
+            _config.TopicPath,
+            _config.WriterName);
 
         StartWriteWorker();
     }
@@ -309,6 +315,7 @@ internal class Writer<TValue> : IWriter<TValue>
                             "is less than or equal to the last processed server's SeqNo[{LastSeqNo}]",
                             sendData.MessageData.SeqNo, lastSeqNo);
 
+                        _metrics.ReportWritten(PersistenceStatus.AlreadyWritten);
                         sendData.Tcs.TrySetResult(WriteResult.Skipped);
 
                         continue;
@@ -329,7 +336,8 @@ internal class Writer<TValue> : IWriter<TValue>
                     reconnect: Reconnect,
                     await stream.AuthToken().ConfigureAwait(false),
                     logger: _logger,
-                    inFlightMessages: _inFlightMessages
+                    inFlightMessages: _inFlightMessages,
+                    metrics: _metrics
                 );
 
                 if (!copyInFlightMessages.IsEmpty)
@@ -466,6 +474,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
     private readonly WriterConfig _config;
     private readonly ConcurrentQueue<MessageSending> _inFlightMessages;
     private readonly Task _processingResponseStream;
+    private readonly WriterMetricsReporter _metrics;
 
     private long _seqNum;
 
@@ -477,7 +486,8 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
         Action<StatusCode> reconnect,
         string? lastToken,
         ILogger logger,
-        ConcurrentQueue<MessageSending> inFlightMessages
+        ConcurrentQueue<MessageSending> inFlightMessages,
+        WriterMetricsReporter metrics
     ) : base(
         stream,
         logger,
@@ -488,6 +498,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
     {
         _config = config;
         _inFlightMessages = inFlightMessages;
+        _metrics = metrics;
         Volatile.Write(ref _seqNum, lastSeqNo); // happens-before for Volatile.Read
 
         _processingResponseStream = RunProcessingWriteAck();
@@ -601,7 +612,9 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                             }
                             else
                             {
-                                messageFromClient.Tcs.TrySetResult(new WriteResult(ack));
+                                var writeResult = new WriteResult(ack);
+                                _metrics.ReportWritten(writeResult.Status);
+                                messageFromClient.Tcs.TrySetResult(writeResult);
                             }
 
                             _inFlightMessages.TryDequeue(out _); // Dequeue 
