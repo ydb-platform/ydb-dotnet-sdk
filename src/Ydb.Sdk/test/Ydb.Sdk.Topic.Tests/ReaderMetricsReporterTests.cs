@@ -19,18 +19,6 @@ using FromServer = StreamReadMessage.Types.FromServer;
 
 public class ReaderMetricsReporterTests
 {
-    private const string PartitionSessionCountMetricName = "ydb.topic.reader.partition_session.count";
-    private const string CommitOffsetLagMetricName = "ydb.topic.reader.commit_offset.lag.max";
-    private const string LifecycleReaderName = "reader-lifecycle-metrics";
-
-    private static readonly string[] MetricNames =
-    [
-        "ydb.topic.reader.received.messages",
-        "ydb.topic.reader.delivered.messages",
-        "ydb.topic.reader.commit.queued",
-        "ydb.topic.reader.commit.acknowledged"
-    ];
-
     [Fact]
     public async Task CreditBalance_TracksOutstandingStreamCredit()
     {
@@ -377,6 +365,7 @@ public class ReaderMetricsReporterTests
     [Fact]
     public async Task PartitionSessionCount_TracksSessionsAcrossReconnectAndDispose()
     {
+        const string metricName = "ydb.topic.reader.partition_session.count";
         const string consumer = "partition-count-consumer";
         var timeout = TimeSpan.FromSeconds(5);
         var exportedItems = new List<Metric>();
@@ -397,7 +386,7 @@ public class ReaderMetricsReporterTests
         {
             await SendResponse(meterProvider, InitResponse, 0, 0);
             AssertGeneratedReaderName(readerName!);
-            Assert.Equal("{session}", GetMetric(exportedItems, PartitionSessionCountMetricName).Unit);
+            Assert.Equal("{session}", GetMetric(exportedItems, metricName).Unit);
             await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 1), 1, 1);
             await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 2), 2, 2);
             await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 1), -1, 1);
@@ -415,7 +404,7 @@ public class ReaderMetricsReporterTests
         var afterDisposeItems = new List<Metric>();
         using var afterDisposeMeterProvider = CreateMeterProvider(afterDisposeItems);
         afterDisposeMeterProvider.ForceFlush();
-        Assert.Empty(GetReaderPoints(afterDisposeItems, PartitionSessionCountMetricName, readerName!));
+        Assert.Empty(GetReaderPoints(afterDisposeItems, metricName, readerName!));
         return;
 
         async Task SendResponse(
@@ -428,7 +417,7 @@ public class ReaderMetricsReporterTests
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
             exportedItems.Clear();
             provider.ForceFlush();
-            var metric = GetMetric(exportedItems, PartitionSessionCountMetricName);
+            var metric = GetMetric(exportedItems, metricName);
             var point = Assert.Single(EnumeratePoints(metric),
                 point => ToDictionary(point.Tags).GetValueOrDefault("consumer") as string == consumer);
             readerName ??= Assert.IsType<string>(ToDictionary(point.Tags)["reader.name"]);
@@ -440,6 +429,7 @@ public class ReaderMetricsReporterTests
     [Fact]
     public async Task CommitOffsetLag_TracksMaximumAcrossPartitions()
     {
+        const string metricName = "ydb.topic.reader.commit_offset.lag.max";
         const string readerName = "commit-offset-lag-reader";
         const string consumer = "commit-offset-lag-consumer";
         var timeout = TimeSpan.FromSeconds(5);
@@ -507,10 +497,10 @@ public class ReaderMetricsReporterTests
         {
             exportedItems.Clear();
             meterProvider.ForceFlush();
-            var metric = GetMetric(exportedItems, CommitOffsetLagMetricName);
+            var metric = GetMetric(exportedItems, metricName);
             Assert.Equal(MetricType.LongGauge, metric.MetricType);
             Assert.Equal("{message}", metric.Unit);
-            var point = Assert.Single(GetReaderPoints(exportedItems, CommitOffsetLagMetricName, readerName));
+            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
             Assert.Equal(expected, point.GetGaugeLastValueLong());
             AssertTags(point, consumer, readerName);
         }
@@ -519,6 +509,14 @@ public class ReaderMetricsReporterTests
     [Fact]
     public async Task ReaderLifecycle_RecordsCounters()
     {
+        const string readerName = "reader-lifecycle-metrics";
+        string[] metricNames =
+        [
+            "ydb.topic.reader.received.messages",
+            "ydb.topic.reader.delivered.messages",
+            "ydb.topic.reader.commit.queued",
+            "ydb.topic.reader.commit.acknowledged"
+        ];
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
         var mockStream = new Mock<ReaderStream>();
@@ -568,7 +566,7 @@ public class ReaderMetricsReporterTests
         await using var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = "Metrics Consumer",
-            ReaderName = LifecycleReaderName,
+            ReaderName = readerName,
             MemoryUsageMaxBytes = 1000,
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
@@ -595,11 +593,11 @@ public class ReaderMetricsReporterTests
         {
             exportedItems.Clear();
             meterProvider.ForceFlush();
-            foreach (var name in MetricNames)
+            foreach (var name in metricNames)
             {
-                var point = Assert.Single(GetReaderPoints(exportedItems, name, LifecycleReaderName));
+                var point = Assert.Single(GetReaderPoints(exportedItems, name, readerName));
                 Assert.Equal(value, point.GetSumLong());
-                AssertTags(point, "Metrics Consumer", LifecycleReaderName, "/topic");
+                AssertTags(point, "Metrics Consumer", readerName, "/topic");
             }
         }
     }
