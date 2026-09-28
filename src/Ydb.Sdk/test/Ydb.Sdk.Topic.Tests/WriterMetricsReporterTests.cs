@@ -14,6 +14,11 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 
 public class WriterMetricsReporterTests
 {
+    private sealed class BufferMetricsSource : IWriterMetricsSource
+    {
+        public long BufferUsed { get; set; }
+    }
+
     [Fact]
     public void BufferUsed_SumsMatchingWritersAndRemovesOnlyClosedContribution()
     {
@@ -42,25 +47,17 @@ public class WriterMetricsReporterTests
         });
         listener.Start();
 
-        long firstUsed = 5;
-        long secondUsed = 7;
-        var first = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer", () => firstUsed);
-        var second = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer", () => secondUsed);
-        try
-        {
-            Assert.Equal(12, Collect());
-            secondUsed = 3;
-            Assert.Equal(8, Collect());
-            first.Close();
-            Assert.Equal(3, Collect());
-            second.Close();
-            Assert.Null(Collect());
-        }
-        finally
-        {
-            first.Close();
-            second.Close();
-        }
+        var firstUsed = new BufferMetricsSource { BufferUsed = 5 };
+        var secondUsed = new BufferMetricsSource { BufferUsed = 7 };
+        using var first = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer", firstUsed);
+        using var second = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer", secondUsed);
+        Assert.Equal(12, Collect());
+        secondUsed.BufferUsed = 3;
+        Assert.Equal(8, Collect());
+        first.Dispose();
+        Assert.Equal(3, Collect());
+        second.Dispose();
+        Assert.Null(Collect());
 
         long? Collect()
         {

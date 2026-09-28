@@ -3,19 +3,24 @@ using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Topic.Writer;
 
-internal sealed class WriterMetricsReporter
+internal interface IWriterMetricsSource
 {
+    long BufferUsed { get; }
+}
+
+internal sealed class WriterMetricsReporter : IDisposable
+{
+    private static readonly List<WriterMetricsReporter> Reporters = [];
     private static long _lastWriterId;
 
     private static readonly Counter<long> WrittenMessages;
     private static readonly Counter<long> SendingMessages;
     private static readonly Counter<long> SendingBytes;
     private static readonly Counter<long> SessionErrors;
-    private static readonly HashSet<WriterMetricsReporter> ActiveReporters = [];
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly (string Endpoint, string Database, string Topic, string WriterName) _key;
-    private readonly Func<long> _bufferUsed;
+    private readonly IWriterMetricsSource _writerMetricsSource;
 
     static WriterMetricsReporter()
     {
@@ -44,10 +49,10 @@ internal sealed class WriterMetricsReporter
     private static string NextWriterName => $"writer-{Interlocked.Increment(ref _lastWriterId)}";
 
     internal WriterMetricsReporter(string endpoint, string database, string topic, string? writerName,
-        Func<long> bufferUsed)
+        IWriterMetricsSource writerMetricsSource)
     {
         _key = (endpoint, database, topic, writerName ?? NextWriterName);
-        _bufferUsed = bufferUsed;
+        _writerMetricsSource = writerMetricsSource;
         _commonTags =
         [
             new KeyValuePair<string, object?>("endpoint", endpoint),
@@ -55,9 +60,9 @@ internal sealed class WriterMetricsReporter
             new KeyValuePair<string, object?>("topic", topic),
             new KeyValuePair<string, object?>("writer.name", _key.WriterName)
         ];
-        lock (ActiveReporters)
+        lock (Reporters)
         {
-            ActiveReporters.Add(this);
+            Reporters.Add(this);
         }
     }
 
@@ -70,27 +75,24 @@ internal sealed class WriterMetricsReporter
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         MetricUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
 
-    internal void Close()
+    public void Dispose()
     {
-        lock (ActiveReporters)
+        lock (Reporters)
         {
-            ActiveReporters.Remove(this);
+            Reporters.Remove(this);
         }
     }
 
     private static IEnumerable<Measurement<long>> ObserveBufferUsed()
     {
-        lock (ActiveReporters)
+        lock (Reporters)
         {
-            var totals = new Dictionary<(string, string, string, string), (long Used,
-                KeyValuePair<string, object?>[] Tags)>();
-            foreach (var reporter in ActiveReporters)
-            {
-                totals.TryGetValue(reporter._key, out var total);
-                totals[reporter._key] = (total.Used + reporter._bufferUsed(), reporter._commonTags);
-            }
-
-            return totals.Values.Select(total => new Measurement<long>(total.Used, total.Tags)).ToArray();
+            return Reporters
+                .GroupBy(reporter => reporter._key)
+                .Select(group => new Measurement<long>(
+                    group.Sum(reporter => reporter._writerMetricsSource.BufferUsed),
+                    group.First()._commonTags))
+                .ToArray();
         }
     }
 }
