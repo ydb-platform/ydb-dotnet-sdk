@@ -54,9 +54,14 @@ public class WriterMetricsReporterTests
             var points = 0;
             foreach (var point in metric.GetMetricPoints())
             {
+                var tags = GetTags(point);
+                if (!Equals(topic, tags["topic"]))
+                {
+                    continue;
+                }
+
                 points++;
                 Assert.Equal(1, point.GetSumLong());
-                var tags = GetTags(point);
                 Assert.Equal(4, tags.Count);
                 Assert.Equal("localhost:2136", tags["endpoint"]);
                 Assert.Equal("/local", tags["database"]);
