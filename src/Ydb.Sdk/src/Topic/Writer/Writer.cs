@@ -105,6 +105,7 @@ internal class Writer<TValue> : IWriter<TValue>
                     _toSendBuffer.Enqueue(
                         new MessageSending(messageData, tcs, writerDisposedCancellationTokenRegistration)
                     );
+                    _metrics.ReportSending();
                     WakeUpWorker();
 
                     break;

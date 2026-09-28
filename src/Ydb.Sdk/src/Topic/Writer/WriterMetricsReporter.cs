@@ -8,6 +8,7 @@ internal sealed class WriterMetricsReporter
     private static long _lastWriterId;
 
     private static readonly Counter<long> WrittenMessages;
+    private static readonly Counter<long> SendingMessages;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
 
@@ -19,6 +20,10 @@ internal sealed class WriterMetricsReporter
             "ydb.topic.writer.written.messages",
             unit: "{message}",
             description: "The number of messages confirmed written by the server, including already written messages.");
+        SendingMessages = meter.CreateCounter<long>(
+            "ydb.topic.writer.sending.messages",
+            unit: "{message}",
+            description: "The number of messages accepted by the SDK for sending.");
     }
 
     private static string NextWriterName => $"writer-{Interlocked.Increment(ref _lastWriterId)}";
@@ -35,4 +40,6 @@ internal sealed class WriterMetricsReporter
     }
 
     internal void ReportWritten() => WrittenMessages.Add(1, _commonTags);
+
+    internal void ReportSending() => SendingMessages.Add(1, _commonTags);
 }

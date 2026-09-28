@@ -14,6 +14,69 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 public class WriterMetricsReporterTests
 {
     [Fact]
+    public async Task SendingMessages_DoesNotCountBufferOverflow()
+    {
+        const string topic = "/writer-sending-metrics";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+            .AddYdbTopic()
+            .AddInMemoryExporter(exportedItems)
+            .Build();
+        var opening = new TaskCompletionSource<WriterStream>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var driver = new Mock<IDriver>();
+        driver.Setup(instance => instance.BidirectionalStreamCall(
+                It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
+                It.IsAny<GrpcRequestSettings>()))
+            .Returns(new ValueTask<WriterStream>(opening.Task));
+        driver.Setup(instance => instance.LoggerFactory).Returns(Utils.LoggerFactory);
+        driver.Setup(instance => instance.DisposeAsync())
+            .Callback(() => driver.Setup(instance => instance.IsDisposed).Returns(true));
+        var writer =
+            new WriterBuilder<byte[]>(new IDriverFactoryMock(driver, "writer-sending-metrics"), topic)
+            {
+                WriterName = "writer",
+                BufferMaxSize = 1
+            }.Build();
+        Task<WriteResult> accepted;
+        await using (writer)
+        {
+            accepted = writer.WriteAsync([1]);
+            using var cancellation = new CancellationTokenSource();
+            var rejected = writer.WriteAsync([2], cancellation.Token);
+            Assert.False(rejected.IsCompleted);
+            await cancellation.CancelAsync();
+            Assert.Equal("Buffer overflow", (await Assert.ThrowsAsync<WriterException>(() => rejected)).Message);
+
+            Assert.True(meterProvider.ForceFlush());
+            var metric = Assert.Single(exportedItems, item => item.Name == "ydb.topic.writer.sending.messages");
+            Assert.Equal(MetricType.LongSum, metric.MetricType);
+            Assert.Equal("{message}", metric.Unit);
+            var points = 0;
+            foreach (var point in metric.GetMetricPoints())
+            {
+                var tags = GetTags(point);
+                if (!Equals(topic, tags["topic"]))
+                {
+                    continue;
+                }
+
+                points++;
+                Assert.Equal(1, point.GetSumLong());
+                Assert.Equal(4, tags.Count);
+                Assert.Equal("localhost:2136", tags["endpoint"]);
+                Assert.Equal("/local", tags["database"]);
+                Assert.Equal(topic, tags["topic"]);
+                Assert.Equal("writer", tags["writer.name"]);
+            }
+
+            Assert.Equal(1, points);
+            opening.TrySetCanceled();
+        }
+
+        await Assert.ThrowsAsync<WriterException>(() => accepted);
+    }
+
+    [Fact]
     public async Task WrittenMessages_ReportsTwoMessagesWithRetry()
     {
         const string topic = "/writer-metrics";
