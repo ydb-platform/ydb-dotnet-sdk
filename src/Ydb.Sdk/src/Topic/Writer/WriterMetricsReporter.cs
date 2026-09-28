@@ -34,13 +34,5 @@ internal sealed class WriterMetricsReporter
         ];
     }
 
-    internal void ReportWritten()
-    {
-        if (!WrittenMessages.Enabled)
-        {
-            return;
-        }
-
-        WrittenMessages.Add(1, _commonTags);
-    }
+    internal void ReportWritten() => WrittenMessages.Add(1, _commonTags);
 }
