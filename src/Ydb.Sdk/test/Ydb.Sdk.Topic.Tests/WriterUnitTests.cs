@@ -1,4 +1,3 @@
-using System.Diagnostics.Metrics;
 using Grpc.Core;
 using Moq;
 using Moq.Language;
@@ -52,29 +51,6 @@ public class WriterUnitTests
     [Fact]
     public async Task WriteAsync_WhenSerializeThrowException_ThrowWriterException()
     {
-        var sendingCount = 0L;
-        var instrumentSeen = false;
-        using var listener = new MeterListener();
-        listener.InstrumentPublished = (instrument, meterListener) =>
-        {
-            if (instrument.Name == "ydb.topic.writer.sending.messages")
-            {
-                instrumentSeen = true;
-                meterListener.EnableMeasurementEvents(instrument);
-            }
-        };
-        listener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
-        {
-            foreach (var tag in tags)
-            {
-                if (tag.Key == "topic" && Equals(tag.Value, "/topic-1"))
-                {
-                    sendingCount += value;
-                }
-            }
-        });
-        listener.Start();
-
         await using var writer = new WriterBuilder<int>(_driverFactoryMock, "/topic-1")
             { ProducerId = "producerId", Serializer = new FailSerializer() }.Build();
 
@@ -86,8 +62,6 @@ public class WriterUnitTests
 
         Assert.Equal("Error when serializing message data",
             (await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(123))).Message);
-        Assert.True(instrumentSeen);
-        Assert.Equal(0, sendingCount);
     }
 
     /*

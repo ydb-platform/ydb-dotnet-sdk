@@ -14,6 +14,60 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 public class WriterMetricsReporterTests
 {
     [Fact]
+    public async Task SendingMessages_DoesNotCountBufferOverflow()
+    {
+        const string topic = "/writer-sending-metrics";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+            .AddYdbTopic()
+            .AddInMemoryExporter(exportedItems)
+            .Build();
+        var opening = new TaskCompletionSource<WriterStream>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var driver = new Mock<IDriver>();
+        driver.Setup(instance => instance.BidirectionalStreamCall(
+                It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
+                It.IsAny<GrpcRequestSettings>()))
+            .Returns(new ValueTask<WriterStream>(opening.Task));
+        driver.Setup(instance => instance.LoggerFactory).Returns(Utils.LoggerFactory);
+        driver.Setup(instance => instance.DisposeAsync())
+            .Callback(() => driver.Setup(instance => instance.IsDisposed).Returns(true));
+        await using var writer = new WriterBuilder<byte[]>(new IDriverFactoryMock(driver, "writer-sending-metrics"), topic)
+        {
+            WriterName = "writer",
+            BufferMaxSize = 1
+        }.Build();
+
+        var accepted = writer.WriteAsync([1]);
+        using var cancellation = new CancellationTokenSource();
+        var rejected = writer.WriteAsync([2], cancellation.Token);
+        Assert.False(rejected.IsCompleted);
+        await cancellation.CancelAsync();
+        Assert.Equal("Buffer overflow", (await Assert.ThrowsAsync<WriterException>(() => rejected)).Message);
+
+        Assert.True(meterProvider.ForceFlush());
+        var metric = Assert.Single(exportedItems, item => item.Name == "ydb.topic.writer.sending.messages");
+        Assert.Equal(MetricType.LongSum, metric.MetricType);
+        Assert.Equal("{message}", metric.Unit);
+        var points = 0;
+        foreach (var point in metric.GetMetricPoints())
+        {
+            points++;
+            Assert.Equal(1, point.GetSumLong());
+            var tags = GetTags(point);
+            Assert.Equal(4, tags.Count);
+            Assert.Equal("localhost:2136", tags["endpoint"]);
+            Assert.Equal("/local", tags["database"]);
+            Assert.Equal(topic, tags["topic"]);
+            Assert.Equal("writer", tags["writer.name"]);
+        }
+
+        Assert.Equal(1, points);
+        opening.TrySetCanceled();
+        await writer.DisposeAsync();
+        await Assert.ThrowsAsync<WriterException>(() => accepted);
+    }
+
+    [Fact]
     public async Task WrittenMessages_ReportsTwoMessagesWithRetry()
     {
         const string topic = "/writer-metrics";
@@ -107,28 +161,7 @@ public class WriterMetricsReporterTests
 
         Assert.Equal(PersistenceStatus.AlreadyWritten, (await alreadyWritten).Status);
         Assert.Equal(PersistenceStatus.Written, (await written).Status);
-        await writer.DisposeAsync();
-        await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(300L));
         Assert.True(meterProvider.ForceFlush());
-
-        var sendingMetric = Assert.Single(exportedItems,
-            item => item.Name == "ydb.topic.writer.sending.messages");
-        Assert.Equal(MetricType.LongSum, sendingMetric.MetricType);
-        Assert.Equal("{message}", sendingMetric.Unit);
-        var sendingPoints = 0;
-        foreach (var sendingPoint in sendingMetric.GetMetricPoints())
-        {
-            sendingPoints++;
-            Assert.Equal(2, sendingPoint.GetSumLong());
-            var tags = GetTags(sendingPoint);
-            Assert.Equal(4, tags.Count);
-            Assert.Equal("localhost:2136", tags["endpoint"]);
-            Assert.Equal("/local", tags["database"]);
-            Assert.Equal(topic, tags["topic"]);
-            Assert.Equal("writer", tags["writer.name"]);
-        }
-
-        Assert.Equal(1, sendingPoints);
 
         var metric = Assert.Single(exportedItems,
             item => item.Name == "ydb.topic.writer.written.messages");

@@ -102,15 +102,10 @@ internal class Writer<TValue> : IWriter<TValue>
                 if (Interlocked.CompareExchange(ref _limitBufferMaxSize,
                         curLimitBufferSize - data.Length, curLimitBufferSize) == curLimitBufferSize)
                 {
-                    var accepted = !tcs.Task.IsCompleted;
                     _toSendBuffer.Enqueue(
                         new MessageSending(messageData, tcs, writerDisposedCancellationTokenRegistration)
                     );
-                    if (accepted)
-                    {
-                        _metrics.ReportSending();
-                    }
-
+                    _metrics.ReportSending();
                     WakeUpWorker();
 
                     break;
