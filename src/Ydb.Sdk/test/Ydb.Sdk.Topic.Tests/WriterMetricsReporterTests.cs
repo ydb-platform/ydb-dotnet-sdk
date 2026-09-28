@@ -107,7 +107,28 @@ public class WriterMetricsReporterTests
 
         Assert.Equal(PersistenceStatus.AlreadyWritten, (await alreadyWritten).Status);
         Assert.Equal(PersistenceStatus.Written, (await written).Status);
+        await writer.DisposeAsync();
+        await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(300L));
         Assert.True(meterProvider.ForceFlush());
+
+        var sendingMetric = Assert.Single(exportedItems,
+            item => item.Name == "ydb.topic.writer.sending.messages");
+        Assert.Equal(MetricType.LongSum, sendingMetric.MetricType);
+        Assert.Equal("{message}", sendingMetric.Unit);
+        var sendingPoints = 0;
+        foreach (var sendingPoint in sendingMetric.GetMetricPoints())
+        {
+            sendingPoints++;
+            Assert.Equal(2, sendingPoint.GetSumLong());
+            var tags = GetTags(sendingPoint);
+            Assert.Equal(4, tags.Count);
+            Assert.Equal("localhost:2136", tags["endpoint"]);
+            Assert.Equal("/local", tags["database"]);
+            Assert.Equal(topic, tags["topic"]);
+            Assert.Equal("writer", tags["writer.name"]);
+        }
+
+        Assert.Equal(1, sendingPoints);
 
         var metric = Assert.Single(exportedItems,
             item => item.Name == "ydb.topic.writer.written.messages");
