@@ -21,15 +21,18 @@
 
   Every metric has `endpoint`, `database`, and `reader.name`; non-null `consumer` is also included.
 
-- Feat Topic Writer metrics: added the following instrument to the `Ydb.Sdk.Topic` meter. The metric name below omits
+- Feat Topic Writer metrics: added the following instruments to the `Ydb.Sdk.Topic` meter. The metric names below omit
   the common `ydb.topic.writer.` prefix.
 
   | Metric             | Instrument | Unit        | Additional attributes | Description                                         |
   |--------------------|------------|-------------|-----------------------|-----------------------------------------------------|
+  | `sending.messages` | Counter    | `{message}` | —                     | Messages accepted into the Writer's send buffer    |
   | `written.messages` | Counter    | `{message}` | —                     | Messages confirmed by an ACK or recovered sequence |
 
-  The metric has `endpoint`, `database`, `topic`, and `writer.name`. `WriterBuilder.WriterName` supplies a stable
+  Both metrics have `endpoint`, `database`, `topic`, and `writer.name`. `WriterBuilder.WriterName` supplies a stable
   name; when it is null, the SDK generates a process-local `writer-N` name.
+  `sending.messages` increments once after a message enters the send buffer; waiting for buffer space and reconnect
+  retries do not increment it.
 
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
