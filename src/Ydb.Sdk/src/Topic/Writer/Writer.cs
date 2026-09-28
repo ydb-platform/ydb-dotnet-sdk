@@ -216,7 +216,18 @@ internal class Writer<TValue> : IWriter<TValue>
 
     private void WakeUpWorker() => _tcsWakeUp.TrySetResult();
 
-    private void Reconnect(StatusCode statusCode) => _ = Task.Run(Initialize);
+    private void Reconnect(StatusCode statusCode)
+    {
+        if (_isStopped)
+        {
+            _logger.LogDebug("Reconnect Writer[{WriterConfig}] is stopped because it has been disposed", _config);
+
+            return;
+        }
+
+        _metrics.ReportSessionError(statusCode);
+        _ = Task.Run(Initialize);
+    }
 
     private async Task Initialize()
     {
@@ -224,13 +235,6 @@ internal class Writer<TValue> : IWriter<TValue>
 
         try
         {
-            if (_isStopped)
-            {
-                _logger.LogDebug("Initialize Writer[{WriterConfig}] is stopped because it has been disposed", _config);
-
-                return;
-            }
-
             _logger.LogInformation("Writer session initialization started. WriterConfig: {WriterConfig}", _config);
 
             var stream =
@@ -256,7 +260,7 @@ internal class Writer<TValue> : IWriter<TValue>
                 _logger.LogError("Stream unexpectedly closed by YDB server. Current InitRequest: {initRequest}",
                     initRequest);
 
-                _ = Task.Run(Initialize);
+                Reconnect(StatusCode.Unspecified);
 
                 return;
             }
@@ -272,12 +276,13 @@ internal class Writer<TValue> : IWriter<TValue>
                 {
                     _logger.LogError("Writer initialization failed to start. {StatusMessage}", statusMessage);
 
-                    _ = Task.Run(Initialize);
+                    Reconnect(initException.Code);
                 }
                 else
                 {
                     _logger.LogCritical("Writer initialization failed to start. {StatusMessage}", statusMessage);
 
+                    _metrics.ReportSessionError(initException.Code, retry: false);
                     _session = new NotStartedWriterSession($"Initialization failed! {statusMessage}");
                 }
 
@@ -363,7 +368,7 @@ internal class Writer<TValue> : IWriter<TValue>
         {
             _logger.LogError(e, "Error on creating WriterSession");
 
-            _ = Task.Run(Initialize);
+            Reconnect(e is YdbException ydbException ? ydbException.Code : StatusCode.Unspecified);
         }
     }
 
@@ -565,6 +570,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                     Logger.LogError(
                         "WriterSession[{SessionId}] received unsuccessful status while processing writeAck: {Status}",
                         SessionId, messageFromServer.Status.Code().ToMessage(messageFromServer.Issues));
+                    ReconnectSession(messageFromServer.Status.Code());
                     return;
                 }
 
