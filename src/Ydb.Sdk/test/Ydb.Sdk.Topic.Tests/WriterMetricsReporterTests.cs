@@ -31,11 +31,12 @@ public class WriterMetricsReporterTests
         driver.Setup(instance => instance.LoggerFactory).Returns(Utils.LoggerFactory);
         driver.Setup(instance => instance.DisposeAsync())
             .Callback(() => driver.Setup(instance => instance.IsDisposed).Returns(true));
-        await using var writer = new WriterBuilder<byte[]>(new IDriverFactoryMock(driver, "writer-sending-metrics"), topic)
-        {
-            WriterName = "writer",
-            BufferMaxSize = 1
-        }.Build();
+        await using var writer =
+            new WriterBuilder<byte[]>(new IDriverFactoryMock(driver, "writer-sending-metrics"), topic)
+            {
+                WriterName = "writer",
+                BufferMaxSize = 1
+            }.Build();
 
         var accepted = writer.WriteAsync([1]);
         using var cancellation = new CancellationTokenSource();
