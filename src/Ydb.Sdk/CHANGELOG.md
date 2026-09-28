@@ -24,13 +24,14 @@
 - Feat Topic Writer metrics: added the following instruments to the `Ydb.Sdk.Topic` meter. The metric names below omit
   the common `ydb.topic.writer.` prefix.
 
-  | Metric             | Instrument | Unit        | Additional attributes | Description                                         |
-  |--------------------|------------|-------------|-----------------------|-----------------------------------------------------|
-  | `sending.messages` | Counter    | `{message}` | —                     | Messages accepted into the Writer's send buffer    |
-  | `sending.bytes`    | Counter    | `By`        | —                     | Uncompressed body bytes accepted into the buffer   |
-  | `written.messages` | Counter    | `{message}` | —                     | Messages confirmed by an ACK or recovered sequence |
+  | Metric              | Instrument      | Unit        | Additional attributes | Description                                         |
+  |---------------------|-----------------|-------------|-----------------------|-----------------------------------------------------|
+  | `sending.messages`  | Counter         | `{message}` | —                     | Messages accepted into the Writer's send buffer    |
+  | `sending.bytes`     | Counter         | `By`        | —                     | Uncompressed body bytes accepted into the buffer   |
+  | `written.messages`  | Counter         | `{message}` | —                     | Messages confirmed by an ACK or recovered sequence |
+  | `buffer.used.bytes` | ObservableGauge | `By`        | —                     | Occupied budget of the Writer buffer limiter       |
 
-  All three metrics have `endpoint`, `database`, `topic`, and `writer.name`. `WriterBuilder.WriterName` supplies a stable
+  These metrics have `endpoint`, `database`, `topic`, and `writer.name`. `WriterBuilder.WriterName` supplies a stable
   name; when it is null, the SDK generates a process-local `writer-N` name.
   `sending.messages` increments once after a message enters the send buffer; waiting for buffer space and reconnect
   retries do not increment it.

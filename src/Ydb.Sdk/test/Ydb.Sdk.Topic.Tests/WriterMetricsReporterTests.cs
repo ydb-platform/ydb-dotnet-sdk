@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using Grpc.Core;
 using Moq;
 using OpenTelemetry.Metrics;
@@ -13,6 +14,153 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 
 public class WriterMetricsReporterTests
 {
+    [Fact]
+    public void BufferUsed_SumsMatchingWritersAndRemovesOnlyClosedContribution()
+    {
+        const string topic = "/writer-buffer-group";
+        var observations = new List<long>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Name == "ydb.topic.writer.buffer.used.bytes")
+            {
+                Assert.Equal("By", instrument.Unit);
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
+        {
+            var attributes = tags.ToArray().ToDictionary(tag => tag.Key, tag => tag.Value);
+            if (Equals(attributes.GetValueOrDefault("topic"), topic))
+            {
+                Assert.Equal(4, attributes.Count);
+                Assert.Equal("localhost:2136", attributes["endpoint"]);
+                Assert.Equal("/local", attributes["database"]);
+                Assert.Equal("writer", attributes["writer.name"]);
+                observations.Add(value);
+            }
+        });
+        listener.Start();
+
+        long firstUsed = 5;
+        long secondUsed = 7;
+        var first = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer", () => firstUsed);
+        var second = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer", () => secondUsed);
+        try
+        {
+            Assert.Equal(12, Collect());
+            secondUsed = 3;
+            Assert.Equal(8, Collect());
+            first.Close();
+            Assert.Equal(3, Collect());
+            second.Close();
+            Assert.Null(Collect());
+        }
+        finally
+        {
+            first.Close();
+            second.Close();
+        }
+
+        long? Collect()
+        {
+            observations.Clear();
+            listener.RecordObservableInstruments();
+            return observations.Count == 0 ? null : Assert.Single(observations);
+        }
+    }
+
+    [Fact]
+    public async Task BufferUsed_FollowsLimiterReservationAndRelease()
+    {
+        const string topic = "/writer-buffer-used";
+        var observations = new List<long>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Name == "ydb.topic.writer.buffer.used.bytes")
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key == "topic" && Equals(tag.Value, topic))
+                {
+                    observations.Add(value);
+                }
+            }
+        });
+        listener.Start();
+
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stream = new Mock<WriterStream>();
+        stream.Setup(instance => instance.Write(It.IsAny<FromClient>())).Returns<FromClient>(message =>
+        {
+            if (message.WriteRequest != null)
+            {
+                sent.TrySetResult();
+            }
+
+            return Task.CompletedTask;
+        });
+        stream.SetupSequence(instance => instance.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(closed.Task);
+        stream.Setup(instance => instance.Current).Returns(new StreamWriteMessage.Types.FromServer
+        {
+            InitResponse = new StreamWriteMessage.Types.InitResponse
+            { LastSeqNo = 0, PartitionId = 1, SessionId = "session" },
+            Status = StatusIds.Types.StatusCode.Success
+        });
+        stream.Setup(instance => instance.RequestStreamComplete()).Returns(() =>
+        {
+            closed.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+        var driver = new Mock<IDriver>();
+        driver.Setup(instance => instance.BidirectionalStreamCall(
+                It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
+                It.IsAny<GrpcRequestSettings>()))
+            .ReturnsAsync(stream.Object);
+        driver.Setup(instance => instance.LoggerFactory).Returns(Utils.LoggerFactory);
+        driver.Setup(instance => instance.DisposeAsync())
+            .Callback(() => driver.Setup(instance => instance.IsDisposed).Returns(true));
+        var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-buffer-used"), topic)
+        {
+            WriterName = "writer",
+            BufferMaxSize = 1
+        }.Build();
+        try
+        {
+            Assert.Equal(0, Collect());
+            using var cancellation = new CancellationTokenSource();
+            var write = writer.WriteAsync(100L, cancellation.Token);
+            await sent.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(8, Collect());
+            Assert.Equal(8, Collect());
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => write);
+            Assert.Equal(0, Collect());
+        }
+        finally
+        {
+            await writer.DisposeAsync();
+        }
+
+        Assert.Null(Collect());
+
+        long? Collect()
+        {
+            observations.Clear();
+            listener.RecordObservableInstruments();
+            return observations.Count == 0 ? null : Assert.Single(observations);
+        }
+    }
+
     [Fact]
     public async Task SendingMetrics_DoNotCountBufferOverflow()
     {

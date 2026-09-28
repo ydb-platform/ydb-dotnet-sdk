@@ -49,7 +49,8 @@ internal class Writer<TValue> : IWriter<TValue>
             _driverFactory.Endpoint,
             _driverFactory.Database,
             _config.TopicPath,
-            _config.WriterName);
+            _config.WriterName,
+            () => (long)_config.BufferMaxSize - _limitBufferMaxSize);
 
         StartWriteWorker();
     }
@@ -409,10 +410,17 @@ internal class Writer<TValue> : IWriter<TValue>
 
         _isStopped = true;
 
-        await _session.DisposeAsync().ConfigureAwait(false);
-        if (_driver != null)
+        try
         {
-            await _driver.DisposeAsync().ConfigureAwait(false);
+            await _session.DisposeAsync().ConfigureAwait(false);
+            if (_driver != null)
+            {
+                await _driver.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _metrics.Close();
         }
 
         _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);

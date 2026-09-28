@@ -11,8 +11,11 @@ internal sealed class WriterMetricsReporter
     private static readonly Counter<long> SendingMessages;
     private static readonly Counter<long> SendingBytes;
     private static readonly Counter<long> SessionErrors;
+    private static readonly HashSet<WriterMetricsReporter> ActiveReporters = [];
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
+    private readonly (string Endpoint, string Database, string Topic, string WriterName) _key;
+    private readonly Func<long> _bufferUsed;
 
     static WriterMetricsReporter()
     {
@@ -34,19 +37,28 @@ internal sealed class WriterMetricsReporter
             "ydb.topic.writer.session.errors",
             unit: "{error}",
             description: "The number of writer stream session errors by retry decision.");
+        meter.CreateObservableGauge("ydb.topic.writer.buffer.used.bytes", ObserveBufferUsed,
+            unit: "By", description: "The occupied budget of the writer buffer limiter.");
     }
 
     private static string NextWriterName => $"writer-{Interlocked.Increment(ref _lastWriterId)}";
 
-    internal WriterMetricsReporter(string endpoint, string database, string topic, string? writerName)
+    internal WriterMetricsReporter(string endpoint, string database, string topic, string? writerName,
+        Func<long> bufferUsed)
     {
+        _key = (endpoint, database, topic, writerName ?? NextWriterName);
+        _bufferUsed = bufferUsed;
         _commonTags =
         [
             new KeyValuePair<string, object?>("endpoint", endpoint),
             new KeyValuePair<string, object?>("database", database),
             new KeyValuePair<string, object?>("topic", topic),
-            new KeyValuePair<string, object?>("writer.name", writerName ?? NextWriterName)
+            new KeyValuePair<string, object?>("writer.name", _key.WriterName)
         ];
+        lock (ActiveReporters)
+        {
+            ActiveReporters.Add(this);
+        }
     }
 
     internal void ReportWritten() => WrittenMessages.Add(1, _commonTags);
@@ -57,4 +69,28 @@ internal sealed class WriterMetricsReporter
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         MetricUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
+
+    internal void Close()
+    {
+        lock (ActiveReporters)
+        {
+            ActiveReporters.Remove(this);
+        }
+    }
+
+    private static IEnumerable<Measurement<long>> ObserveBufferUsed()
+    {
+        lock (ActiveReporters)
+        {
+            var totals = new Dictionary<(string, string, string, string), (long Used,
+                KeyValuePair<string, object?>[] Tags)>();
+            foreach (var reporter in ActiveReporters)
+            {
+                totals.TryGetValue(reporter._key, out var total);
+                totals[reporter._key] = (total.Used + reporter._bufferUsed(), reporter._commonTags);
+            }
+
+            return totals.Values.Select(total => new Measurement<long>(total.Used, total.Tags)).ToArray();
+        }
+    }
 }
