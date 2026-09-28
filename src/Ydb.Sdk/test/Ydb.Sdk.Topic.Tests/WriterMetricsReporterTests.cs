@@ -134,20 +134,23 @@ public class WriterMetricsReporterTests
             return Task.CompletedTask;
         });
         var driver = CreateDriver(stream);
-        await using var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-metrics"), topic)
+        var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-metrics"), topic)
         {
             WriterName = "writer"
         }.Build();
 
-        var alreadyWritten = writer.WriteAsync(100L);
-        await firstWriteSent.Task;
-        var written = writer.WriteAsync(200L);
-        await secondWriteSent.Task;
-        reconnect.SetResult(true);
+        await using (writer)
+        {
+            var alreadyWritten = writer.WriteAsync(100L);
+            await firstWriteSent.Task;
+            var written = writer.WriteAsync(200L);
+            await secondWriteSent.Task;
+            reconnect.SetResult(true);
 
-        Assert.Equal(PersistenceStatus.AlreadyWritten, (await alreadyWritten).Status);
-        Assert.Equal(PersistenceStatus.Written, (await written).Status);
-        await writer.DisposeAsync();
+            Assert.Equal(PersistenceStatus.AlreadyWritten, (await alreadyWritten).Status);
+            Assert.Equal(PersistenceStatus.Written, (await written).Status);
+        }
+
         Assert.True(meterProvider.ForceFlush());
 
         var metric = GetMetric(exportedItems, "ydb.topic.writer.written.messages");
@@ -190,13 +193,16 @@ public class WriterMetricsReporterTests
             Status = StatusIds.Types.StatusCode.Unauthorized
         });
         var driver = CreateDriver(stream);
-        await using var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-stop"), topic)
+        var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-stop"), topic)
         {
             WriterName = "writer"
         }.Build();
 
-        await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100L).WaitAsync(TimeSpan.FromSeconds(5)));
-        await writer.DisposeAsync();
+        await using (writer)
+        {
+            await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100L).WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+
         Assert.True(meterProvider.ForceFlush());
 
         var metric = GetMetric(exportedItems, "ydb.topic.writer.session.errors");
@@ -240,16 +246,19 @@ public class WriterMetricsReporterTests
         var driver = CreateDriver(stream);
         var serializer = new Mock<ISerializer<long>>();
         serializer.Setup(instance => instance.Serialize(It.IsAny<long>())).Throws(new InvalidOperationException());
-        await using var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-serialization"),
+        var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-serialization"),
             "/writer-serialization")
         {
             WriterName = "writer",
             Serializer = serializer.Object
         }.Build();
 
-        await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100L));
-        await active.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await writer.DisposeAsync();
+        await using (writer)
+        {
+            await Assert.ThrowsAsync<WriterException>(() => writer.WriteAsync(100L));
+            await active.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
         Assert.True(meterProvider.ForceFlush());
         foreach (var metric in exportedItems.Where(item => item.Name == "ydb.topic.writer.session.errors"))
         {
@@ -258,6 +267,7 @@ public class WriterMetricsReporterTests
                 Assert.NotEqual("/writer-serialization", GetTags(point)["topic"]);
             }
         }
+
         driver.Verify(instance => instance.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
             It.IsAny<GrpcRequestSettings>()), Times.Once);
