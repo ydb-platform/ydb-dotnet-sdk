@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Ydb.Sdk.Internal;
 
@@ -35,16 +34,13 @@ internal sealed class WriterMetricsReporter
         ];
     }
 
-    internal void ReportWritten(PersistenceStatus status)
+    internal void ReportWritten()
     {
         if (!WrittenMessages.Enabled)
         {
             return;
         }
 
-        WrittenMessages.Add(1, new TagList(_commonTags)
-        {
-            { "status", status == PersistenceStatus.Written ? "written" : "already_written" }
-        });
+        WrittenMessages.Add(1, _commonTags);
     }
 }

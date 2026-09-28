@@ -113,7 +113,7 @@ public class WriterMetricsReporterTests
             item => item.Name == "ydb.topic.writer.written.messages");
         Assert.Equal(MetricType.LongSum, metric.MetricType);
         Assert.Equal("{message}", metric.Unit);
-        var statuses = new Dictionary<string, long>();
+        var matchingPoints = 0;
         foreach (var point in metric.GetMetricPoints())
         {
             var tags = GetTags(point);
@@ -122,17 +122,17 @@ public class WriterMetricsReporterTests
                 continue;
             }
 
-            Assert.Equal(5, tags.Count);
+            matchingPoints++;
+            Assert.Equal(4, tags.Count);
             Assert.Equal("localhost:2136", tags["endpoint"]);
             Assert.Equal("/local", tags["database"]);
             Assert.Equal(topic, tags["topic"]);
             Assert.Equal("writer", tags["writer.name"]);
-            statuses.Add(Assert.IsType<string>(tags["status"]), point.GetSumLong());
+            Assert.False(tags.ContainsKey("status"));
+            Assert.Equal(2, point.GetSumLong());
         }
 
-        Assert.Equal(2, statuses.Count);
-        Assert.Equal(1, statuses["written"]);
-        Assert.Equal(1, statuses["already_written"]);
+        Assert.Equal(1, matchingPoints);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
             message.WriteRequest != null && message.WriteRequest.Messages[0].SeqNo == 1)), Times.Once);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
