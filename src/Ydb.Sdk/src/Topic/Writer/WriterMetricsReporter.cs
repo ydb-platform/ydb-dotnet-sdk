@@ -6,6 +6,8 @@ namespace Ydb.Sdk.Topic.Writer;
 internal interface IWriterMetricsSource
 {
     long BufferUsed { get; }
+
+    long BufferLimit { get; }
 }
 
 internal sealed class WriterMetricsReporter : IDisposable
@@ -44,6 +46,8 @@ internal sealed class WriterMetricsReporter : IDisposable
             description: "The number of writer stream session errors by retry decision.");
         meter.CreateObservableGauge("ydb.topic.writer.buffer.used.bytes", ObserveBufferUsed,
             unit: "By", description: "The occupied budget of the writer buffer limiter.");
+        meter.CreateObservableGauge("ydb.topic.writer.buffer.limit.bytes", ObserveBufferLimit,
+            unit: "By", description: "The configured limit of the writer buffer limiter.");
     }
 
     internal WriterMetricsReporter(string endpoint, string database, string topic, string writerName,
@@ -96,6 +100,17 @@ internal sealed class WriterMetricsReporter : IDisposable
             return Reporters
                 .Select(reporter =>
                     new Measurement<long>(reporter._writerMetricsSource.BufferUsed, reporter._commonTags))
+                .ToArray();
+        }
+    }
+
+    private static IEnumerable<Measurement<long>> ObserveBufferLimit()
+    {
+        lock (Reporters)
+        {
+            return Reporters
+                .Select(reporter =>
+                    new Measurement<long>(reporter._writerMetricsSource.BufferLimit, reporter._commonTags))
                 .ToArray();
         }
     }
