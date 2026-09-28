@@ -31,40 +31,43 @@ public class WriterMetricsReporterTests
         driver.Setup(instance => instance.LoggerFactory).Returns(Utils.LoggerFactory);
         driver.Setup(instance => instance.DisposeAsync())
             .Callback(() => driver.Setup(instance => instance.IsDisposed).Returns(true));
-        await using var writer =
+        var writer =
             new WriterBuilder<byte[]>(new IDriverFactoryMock(driver, "writer-sending-metrics"), topic)
             {
                 WriterName = "writer",
                 BufferMaxSize = 1
             }.Build();
-
-        var accepted = writer.WriteAsync([1]);
-        using var cancellation = new CancellationTokenSource();
-        var rejected = writer.WriteAsync([2], cancellation.Token);
-        Assert.False(rejected.IsCompleted);
-        await cancellation.CancelAsync();
-        Assert.Equal("Buffer overflow", (await Assert.ThrowsAsync<WriterException>(() => rejected)).Message);
-
-        Assert.True(meterProvider.ForceFlush());
-        var metric = Assert.Single(exportedItems, item => item.Name == "ydb.topic.writer.sending.messages");
-        Assert.Equal(MetricType.LongSum, metric.MetricType);
-        Assert.Equal("{message}", metric.Unit);
-        var points = 0;
-        foreach (var point in metric.GetMetricPoints())
+        Task<WriteResult> accepted;
+        await using (writer)
         {
-            points++;
-            Assert.Equal(1, point.GetSumLong());
-            var tags = GetTags(point);
-            Assert.Equal(4, tags.Count);
-            Assert.Equal("localhost:2136", tags["endpoint"]);
-            Assert.Equal("/local", tags["database"]);
-            Assert.Equal(topic, tags["topic"]);
-            Assert.Equal("writer", tags["writer.name"]);
+            accepted = writer.WriteAsync([1]);
+            using var cancellation = new CancellationTokenSource();
+            var rejected = writer.WriteAsync([2], cancellation.Token);
+            Assert.False(rejected.IsCompleted);
+            await cancellation.CancelAsync();
+            Assert.Equal("Buffer overflow", (await Assert.ThrowsAsync<WriterException>(() => rejected)).Message);
+
+            Assert.True(meterProvider.ForceFlush());
+            var metric = Assert.Single(exportedItems, item => item.Name == "ydb.topic.writer.sending.messages");
+            Assert.Equal(MetricType.LongSum, metric.MetricType);
+            Assert.Equal("{message}", metric.Unit);
+            var points = 0;
+            foreach (var point in metric.GetMetricPoints())
+            {
+                points++;
+                Assert.Equal(1, point.GetSumLong());
+                var tags = GetTags(point);
+                Assert.Equal(4, tags.Count);
+                Assert.Equal("localhost:2136", tags["endpoint"]);
+                Assert.Equal("/local", tags["database"]);
+                Assert.Equal(topic, tags["topic"]);
+                Assert.Equal("writer", tags["writer.name"]);
+            }
+
+            Assert.Equal(1, points);
+            opening.TrySetCanceled();
         }
 
-        Assert.Equal(1, points);
-        opening.TrySetCanceled();
-        await writer.DisposeAsync();
         await Assert.ThrowsAsync<WriterException>(() => accepted);
     }
 
