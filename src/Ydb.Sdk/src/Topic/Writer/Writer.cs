@@ -315,7 +315,7 @@ internal class Writer<TValue> : IWriter<TValue>
                             "is less than or equal to the last processed server's SeqNo[{LastSeqNo}]",
                             sendData.MessageData.SeqNo, lastSeqNo);
 
-                        _metrics.ReportWritten(PersistenceStatus.AlreadyWritten);
+                        _metrics.ReportWritten();
                         sendData.Tcs.TrySetResult(WriteResult.Skipped);
 
                         continue;
@@ -613,7 +613,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                             else
                             {
                                 var writeResult = new WriteResult(ack);
-                                _metrics.ReportWritten(writeResult.Status);
+                                _metrics.ReportWritten();
                                 messageFromClient.Tcs.TrySetResult(writeResult);
                             }
 
