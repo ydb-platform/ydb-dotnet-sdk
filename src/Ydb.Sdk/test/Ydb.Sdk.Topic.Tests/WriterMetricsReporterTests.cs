@@ -1,4 +1,3 @@
-using System.Diagnostics.Metrics;
 using Grpc.Core;
 using Moq;
 using OpenTelemetry.Metrics;
@@ -37,28 +36,7 @@ public class WriterMetricsReporterTests
     public void BufferUsed_ReportsEachWriterAndRemovesClosedContribution()
     {
         const string topic = "/writer-buffer-by-name";
-        var observations = new Dictionary<string, long>();
-        using var listener = new MeterListener();
-        listener.InstrumentPublished = (instrument, meterListener) =>
-        {
-            if (instrument.Name == "ydb.topic.writer.buffer.used.bytes")
-            {
-                Assert.Equal("By", instrument.Unit);
-                meterListener.EnableMeasurementEvents(instrument);
-            }
-        };
-        listener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
-        {
-            var attributes = tags.ToArray().ToDictionary(tag => tag.Key, tag => tag.Value);
-            if (Equals(attributes.GetValueOrDefault("topic"), topic))
-            {
-                Assert.Equal(4, attributes.Count);
-                Assert.Equal("localhost:2136", attributes["endpoint"]);
-                Assert.Equal("/local", attributes["database"]);
-                observations.Add((string)attributes["writer.name"]!, value);
-            }
-        });
-        listener.Start();
+        const string metricName = "ydb.topic.writer.buffer.used.bytes";
 
         var firstUsed = new BufferMetricsSource { BufferUsed = 5 };
         var secondUsed = new BufferMetricsSource { BufferUsed = 7 };
@@ -93,9 +71,26 @@ public class WriterMetricsReporterTests
 
         Dictionary<string, long> Collect()
         {
-            observations.Clear();
-            listener.RecordObservableInstruments();
-            return observations;
+            var exportedItems = new List<Metric>();
+            using var meterProvider = CreateMeterProvider(exportedItems);
+            Assert.True(meterProvider.ForceFlush());
+            foreach (var metric in exportedItems.Where(item => item.Name == metricName))
+            {
+                Assert.Equal(MetricType.LongGauge, metric.MetricType);
+                Assert.Equal("By", metric.Unit);
+            }
+
+            var values = new Dictionary<string, long>();
+            foreach (var point in GetPoints(exportedItems, metricName, topic))
+            {
+                var tags = GetTags(point);
+                Assert.Equal(4, tags.Count);
+                Assert.Equal("localhost:2136", tags["endpoint"]);
+                Assert.Equal("/local", tags["database"]);
+                values.Add((string)tags["writer.name"]!, point.GetGaugeLastValueLong());
+            }
+
+            return values;
         }
     }
 
@@ -103,26 +98,7 @@ public class WriterMetricsReporterTests
     public async Task BufferUsed_FollowsLimiterReservationAndRelease()
     {
         const string topic = "/writer-buffer-used";
-        var observations = new List<long>();
-        using var listener = new MeterListener();
-        listener.InstrumentPublished = (instrument, meterListener) =>
-        {
-            if (instrument.Name == "ydb.topic.writer.buffer.used.bytes")
-            {
-                meterListener.EnableMeasurementEvents(instrument);
-            }
-        };
-        listener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
-        {
-            foreach (var tag in tags)
-            {
-                if (tag.Key == "topic" && Equals(tag.Value, topic))
-                {
-                    observations.Add(value);
-                }
-            }
-        });
-        listener.Start();
+        const string metricName = "ydb.topic.writer.buffer.used.bytes";
 
         var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -184,9 +160,17 @@ public class WriterMetricsReporterTests
 
         long? Collect()
         {
-            observations.Clear();
-            listener.RecordObservableInstruments();
-            return observations.Count == 0 ? null : Assert.Single(observations);
+            var exportedItems = new List<Metric>();
+            using var meterProvider = CreateMeterProvider(exportedItems);
+            Assert.True(meterProvider.ForceFlush());
+            foreach (var metric in exportedItems.Where(item => item.Name == metricName))
+            {
+                Assert.Equal(MetricType.LongGauge, metric.MetricType);
+                Assert.Equal("By", metric.Unit);
+            }
+
+            var points = GetPoints(exportedItems, metricName, topic);
+            return points.Count == 0 ? null : Assert.Single(points).GetGaugeLastValueLong();
         }
     }
 
@@ -489,6 +473,23 @@ public class WriterMetricsReporterTests
 
     private static Metric GetMetric(List<Metric> exportedItems, string name) =>
         Assert.Single(exportedItems, item => item.Name == name);
+
+    private static List<MetricPoint> GetPoints(List<Metric> exportedItems, string name, string topic)
+    {
+        var points = new List<MetricPoint>();
+        foreach (var metric in exportedItems.Where(item => item.Name == name))
+        {
+            foreach (var point in metric.GetMetricPoints())
+            {
+                if (Equals(topic, GetTags(point).GetValueOrDefault("topic")))
+                {
+                    points.Add(point);
+                }
+            }
+        }
+
+        return points;
+    }
 
     private static MetricPoint GetSinglePoint(Metric metric, string topic)
     {
