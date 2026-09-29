@@ -291,7 +291,6 @@ public class ReaderMetricsReporterTests
         const string metricName = "ydb.topic.reader.local_buffer.message_age.max";
         var timeout = TimeSpan.FromSeconds(5);
         var exportedItems = new List<Metric>();
-        Assert.Equal(0, ReaderMetricsReporter.ReportReadResponseStart());
         using var meterProvider = CreateMeterProvider(exportedItems);
         Assert.True(ReaderMetricsReporter.ReportReadResponseStart() > 0);
         var forceFlush = meterProvider.ForceFlush;

@@ -57,6 +57,8 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
 
     long IWriterMetricsSource.BufferUsed => (long)_config.BufferMaxSize - _limitBufferMaxSize;
 
+    long IWriterMetricsSource.BufferLimit => _config.BufferMaxSize;
+
     public Task<WriteResult> WriteAsync(TValue data, CancellationToken cancellationToken) =>
         WriteAsync(new Message<TValue>(data), cancellationToken);
 

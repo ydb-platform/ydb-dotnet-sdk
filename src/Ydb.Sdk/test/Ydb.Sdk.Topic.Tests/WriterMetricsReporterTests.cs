@@ -16,6 +16,8 @@ public class WriterMetricsReporterTests
     private sealed class BufferMetricsSource : IWriterMetricsSource
     {
         public long BufferUsed { get; set; }
+
+        public long BufferLimit { get; set; }
     }
 
     [Fact]
@@ -95,6 +97,46 @@ public class WriterMetricsReporterTests
     }
 
     [Fact]
+    public void BufferLimit_ReportsEachWriterAndRemovesClosedContribution()
+    {
+        const string topic = "/writer-buffer-limit";
+        const string metricName = "ydb.topic.writer.buffer.limit.bytes";
+        using (new WriterMetricsReporter("localhost:2136", "/local", topic, "second-limit",
+                   new BufferMetricsSource { BufferLimit = 200 }))
+        {
+            using (new WriterMetricsReporter("localhost:2136", "/local", topic, "first-limit",
+                       new BufferMetricsSource { BufferLimit = 100 }))
+            {
+                var values = Collect();
+                Assert.Equal(2, values.Count);
+                Assert.Equal(100, values["first-limit"]);
+                Assert.Equal(200, values["second-limit"]);
+            }
+
+            var remainingValues = Collect();
+            Assert.Single(remainingValues);
+            Assert.Equal(200, remainingValues["second-limit"]);
+        }
+
+        Assert.Empty(Collect());
+
+        Dictionary<string, long> Collect()
+        {
+            var exportedItems = new List<Metric>();
+            using var meterProvider = CreateMeterProvider(exportedItems);
+            Assert.True(meterProvider.ForceFlush());
+            foreach (var metric in exportedItems.Where(item => item.Name == metricName))
+            {
+                Assert.Equal(MetricType.LongGauge, metric.MetricType);
+                Assert.Equal("By", metric.Unit);
+            }
+
+            return GetPoints(exportedItems, metricName, topic).ToDictionary(
+                point => (string)GetTags(point)["writer.name"]!, point => point.GetGaugeLastValueLong());
+        }
+    }
+
+    [Fact]
     public async Task BufferUsed_FollowsLimiterReservationAndRelease()
     {
         const string topic = "/writer-buffer-used";
@@ -170,6 +212,13 @@ public class WriterMetricsReporterTests
             }
 
             var points = GetPoints(exportedItems, metricName, topic);
+            var limits = GetPoints(exportedItems, "ydb.topic.writer.buffer.limit.bytes", topic);
+            Assert.Equal(points.Count, limits.Count);
+            if (limits.Count != 0)
+            {
+                Assert.Equal(1, Assert.Single(limits).GetGaugeLastValueLong());
+            }
+
             return points.Count == 0 ? null : Assert.Single(points).GetGaugeLastValueLong();
         }
     }
