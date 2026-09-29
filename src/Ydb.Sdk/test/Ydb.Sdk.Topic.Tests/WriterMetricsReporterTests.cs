@@ -20,6 +20,20 @@ public class WriterMetricsReporterTests
     }
 
     [Fact]
+    public void WriterName_MustBeUniqueAmongActiveWriters()
+    {
+        var source = new BufferMetricsSource();
+        using (var first = new WriterMetricsReporter("localhost:2136", "/local", "/first", "same-writer", source))
+        {
+            Assert.Throws<ArgumentException>(() =>
+                new WriterMetricsReporter("localhost:2136", "/local", "/second", "same-writer", source));
+        }
+
+        using var replacement = new WriterMetricsReporter("localhost:2136", "/local", "/second", "same-writer",
+            source);
+    }
+
+    [Fact]
     public void BufferUsed_ReportsEachWriterAndRemovesClosedContribution()
     {
         const string topic = "/writer-buffer-by-name";
@@ -125,7 +139,7 @@ public class WriterMetricsReporterTests
         stream.Setup(instance => instance.Current).Returns(new StreamWriteMessage.Types.FromServer
         {
             InitResponse = new StreamWriteMessage.Types.InitResponse
-                { LastSeqNo = 0, PartitionId = 1, SessionId = "session" },
+            { LastSeqNo = 0, PartitionId = 1, SessionId = "session" },
             Status = StatusIds.Types.StatusCode.Success
         });
         stream.Setup(instance => instance.RequestStreamComplete()).Returns(() =>
@@ -269,7 +283,7 @@ public class WriterMetricsReporterTests
             .Returns(new StreamWriteMessage.Types.FromServer
             {
                 InitResponse = new StreamWriteMessage.Types.InitResponse
-                    { LastSeqNo = 0, PartitionId = 1, SessionId = "session-1" },
+                { LastSeqNo = 0, PartitionId = 1, SessionId = "session-1" },
                 Status = StatusIds.Types.StatusCode.Success
             })
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -279,7 +293,7 @@ public class WriterMetricsReporterTests
             .Returns(new StreamWriteMessage.Types.FromServer
             {
                 InitResponse = new StreamWriteMessage.Types.InitResponse
-                    { LastSeqNo = 1, PartitionId = 1, SessionId = "session-2" },
+                { LastSeqNo = 1, PartitionId = 1, SessionId = "session-2" },
                 Status = StatusIds.Types.StatusCode.Success
             })
             .Returns(new StreamWriteMessage.Types.FromServer

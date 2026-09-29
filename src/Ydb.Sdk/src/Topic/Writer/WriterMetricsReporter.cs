@@ -11,6 +11,7 @@ internal interface IWriterMetricsSource
 internal sealed class WriterMetricsReporter : IDisposable
 {
     private static readonly List<WriterMetricsReporter> Reporters = [];
+    private static readonly HashSet<string> ActiveWriterNames = new(StringComparer.Ordinal);
     private static long _lastWriterId;
 
     private static readonly Counter<long> WrittenMessages;
@@ -20,6 +21,7 @@ internal sealed class WriterMetricsReporter : IDisposable
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IWriterMetricsSource _writerMetricsSource;
+    private readonly string _writerName;
 
     static WriterMetricsReporter()
     {
@@ -51,15 +53,28 @@ internal sealed class WriterMetricsReporter : IDisposable
         IWriterMetricsSource writerMetricsSource)
     {
         _writerMetricsSource = writerMetricsSource;
-        _commonTags =
-        [
-            new KeyValuePair<string, object?>("endpoint", endpoint),
-            new KeyValuePair<string, object?>("database", database),
-            new KeyValuePair<string, object?>("topic", topic),
-            new KeyValuePair<string, object?>("writer.name", writerName ?? NextWriterName)
-        ];
         lock (Reporters)
         {
+            if (writerName is null)
+            {
+                do
+                {
+                    writerName = NextWriterName;
+                } while (!ActiveWriterNames.Add(writerName));
+            }
+            else if (!ActiveWriterNames.Add(writerName))
+            {
+                throw new ArgumentException("WriterName must be unique among active writers.", nameof(writerName));
+            }
+
+            _writerName = writerName;
+            _commonTags =
+            [
+                new KeyValuePair<string, object?>("endpoint", endpoint),
+                new KeyValuePair<string, object?>("database", database),
+                new KeyValuePair<string, object?>("topic", topic),
+                new KeyValuePair<string, object?>("writer.name", writerName)
+            ];
             Reporters.Add(this);
         }
     }
@@ -77,7 +92,10 @@ internal sealed class WriterMetricsReporter : IDisposable
     {
         lock (Reporters)
         {
-            Reporters.Remove(this);
+            if (Reporters.Remove(this))
+            {
+                ActiveWriterNames.Remove(_writerName);
+            }
         }
     }
 
