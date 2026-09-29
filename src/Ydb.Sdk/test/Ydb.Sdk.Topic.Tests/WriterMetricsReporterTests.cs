@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using Grpc.Core;
 using Moq;
 using OpenTelemetry.Metrics;
@@ -13,6 +14,64 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 
 public class WriterMetricsReporterTests
 {
+    [Fact]
+    public async Task SendingBytes_CountsOnlyAcceptedBodiesAndKeepsCountAfterClose()
+    {
+        const string topic = "/writer-sending-bytes";
+        long observedBytes = 0;
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, currentListener) =>
+        {
+            if (instrument.Name == "ydb.topic.writer.sending.bytes")
+            {
+                currentListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((_, measurement, tags, _) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key == "topic" && Equals(tag.Value, topic))
+                {
+                    Interlocked.Add(ref observedBytes, measurement);
+                }
+            }
+        });
+        listener.Start();
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var stream = new Mock<WriterStream>();
+        var initializationResponse = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        stream.Setup(instance => instance.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
+        stream.Setup(instance => instance.MoveNextAsync()).Returns(initializationResponse.Task);
+        var driver = CreateDriver(stream);
+        var writer = new WriterBuilder<byte[]>(new IDriverFactoryMock(driver, "sending-bytes"), topic)
+        {
+            WriterName = "writer",
+            BufferMaxSize = 4
+        }.Build();
+
+        var message = new Message<byte[]>(new byte[4]);
+        message.Metadata.Add(new Metadata("key", new byte[20]));
+        var acceptedWrite = writer.WriteAsync(message);
+        Assert.Equal(4, Volatile.Read(ref observedBytes));
+
+        using var cancellation = new CancellationTokenSource();
+        var rejectedWrite = writer.WriteAsync(new byte[4], cancellation.Token);
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<WriterException>(() => rejectedWrite);
+        Assert.Equal(4, Volatile.Read(ref observedBytes));
+
+        await writer.DisposeAsync();
+        initializationResponse.SetResult(false);
+        await Assert.ThrowsAsync<WriterException>(() => acceptedWrite);
+        Assert.Equal(4, Volatile.Read(ref observedBytes));
+        Assert.True(meterProvider.ForceFlush());
+        var sendingBytes = GetMetric(exportedItems, "ydb.topic.writer.sending.bytes");
+        Assert.Equal(4, GetSinglePoint(sendingBytes, topic).GetSumLong());
+    }
+
     [Fact]
     public async Task SendingMessages_DoesNotCountBufferOverflow()
     {
@@ -162,6 +221,14 @@ public class WriterMetricsReporterTests
         AssertCommonTags(writtenTags, topic);
         Assert.False(writtenTags.ContainsKey("status"));
         Assert.Equal(2, writtenPoint.GetSumLong());
+        var sendingBytes = GetMetric(exportedItems, "ydb.topic.writer.sending.bytes");
+        Assert.Equal(MetricType.LongSum, sendingBytes.MetricType);
+        Assert.Equal("By", sendingBytes.Unit);
+        var bytesPoint = GetSinglePoint(sendingBytes, topic);
+        var bytesTags = GetTags(bytesPoint);
+        Assert.Equal(4, bytesTags.Count);
+        AssertCommonTags(bytesTags, topic);
+        Assert.Equal(16, bytesPoint.GetSumLong());
         var sessionErrors = GetMetric(exportedItems, "ydb.topic.writer.session.errors");
         Assert.Equal(MetricType.LongSum, sessionErrors.MetricType);
         Assert.Equal("{error}", sessionErrors.Unit);

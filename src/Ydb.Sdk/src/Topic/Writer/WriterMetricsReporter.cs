@@ -9,6 +9,7 @@ internal sealed class WriterMetricsReporter
 
     private static readonly Counter<long> WrittenMessages;
     private static readonly Counter<long> SendingMessages;
+    private static readonly Counter<long> SendingBytes;
     private static readonly Counter<long> SessionErrors;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
@@ -25,6 +26,10 @@ internal sealed class WriterMetricsReporter
             "ydb.topic.writer.sending.messages",
             unit: "{message}",
             description: "The number of messages accepted by the SDK for sending.");
+        SendingBytes = meter.CreateCounter<long>(
+            "ydb.topic.writer.sending.bytes",
+            unit: "By",
+            description: "The uncompressed body size of messages accepted by the writer.");
         SessionErrors = meter.CreateCounter<long>(
             "ydb.topic.writer.session.errors",
             unit: "{error}",
@@ -47,6 +52,8 @@ internal sealed class WriterMetricsReporter
     internal void ReportWritten() => WrittenMessages.Add(1, _commonTags);
 
     internal void ReportSending() => SendingMessages.Add(1, _commonTags);
+
+    internal void ReportSendingBytes(long bytes) => SendingBytes.Add(bytes, _commonTags);
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         MetricUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
