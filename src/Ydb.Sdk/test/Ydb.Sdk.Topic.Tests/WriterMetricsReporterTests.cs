@@ -101,20 +101,23 @@ public class WriterMetricsReporterTests
     {
         const string topic = "/writer-buffer-limit";
         const string metricName = "ydb.topic.writer.buffer.limit.bytes";
-        using var first = new WriterMetricsReporter("localhost:2136", "/local", topic, "first-limit",
-            new BufferMetricsSource { BufferLimit = 100 });
-        using var second = new WriterMetricsReporter("localhost:2136", "/local", topic, "second-limit",
-            new BufferMetricsSource { BufferLimit = 200 });
+        using (var second = new WriterMetricsReporter("localhost:2136", "/local", topic, "second-limit",
+                   new BufferMetricsSource { BufferLimit = 200 }))
+        {
+            using (var first = new WriterMetricsReporter("localhost:2136", "/local", topic, "first-limit",
+                       new BufferMetricsSource { BufferLimit = 100 }))
+            {
+                var values = Collect();
+                Assert.Equal(2, values.Count);
+                Assert.Equal(100, values["first-limit"]);
+                Assert.Equal(200, values["second-limit"]);
+            }
 
-        var values = Collect();
-        Assert.Equal(2, values.Count);
-        Assert.Equal(100, values["first-limit"]);
-        Assert.Equal(200, values["second-limit"]);
-        first.Dispose();
-        values = Collect();
-        Assert.Single(values);
-        Assert.Equal(200, values["second-limit"]);
-        second.Dispose();
+            var remainingValues = Collect();
+            Assert.Single(remainingValues);
+            Assert.Equal(200, remainingValues["second-limit"]);
+        }
+
         Assert.Empty(Collect());
 
         Dictionary<string, long> Collect()
