@@ -14,7 +14,7 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 public class WriterMetricsReporterTests
 {
     [Fact]
-    public async Task SendingMessages_DoesNotCountBufferOverflow()
+    public async Task SendingMetrics_DoNotCountBufferOverflow()
     {
         const string topic = "/writer-sending-metrics";
         var exportedItems = new List<Metric>();
@@ -37,26 +37,36 @@ public class WriterMetricsReporterTests
         Task<WriteResult> accepted;
         await using (writer)
         {
-            accepted = writer.WriteAsync([1]);
+            var message = new Message<byte[]>([1]);
+            message.Metadata.Add(new Metadata("key", new byte[20]));
+            accepted = writer.WriteAsync(message);
             using var cancellation = new CancellationTokenSource();
             var rejected = writer.WriteAsync([2], cancellation.Token);
             Assert.False(rejected.IsCompleted);
             await cancellation.CancelAsync();
             Assert.Equal("Buffer overflow", (await Assert.ThrowsAsync<WriterException>(() => rejected)).Message);
-
-            Assert.True(meterProvider.ForceFlush());
-            var metric = GetMetric(exportedItems, "ydb.topic.writer.sending.messages");
-            Assert.Equal(MetricType.LongSum, metric.MetricType);
-            Assert.Equal("{message}", metric.Unit);
-            var point = GetSinglePoint(metric, topic);
-            var tags = GetTags(point);
-            Assert.Equal(1, point.GetSumLong());
-            Assert.Equal(4, tags.Count);
-            AssertCommonTags(tags, topic);
             opening.TrySetCanceled();
         }
 
         await Assert.ThrowsAsync<WriterException>(() => accepted);
+        Assert.True(meterProvider.ForceFlush());
+        var metric = GetMetric(exportedItems, "ydb.topic.writer.sending.messages");
+        Assert.Equal(MetricType.LongSum, metric.MetricType);
+        Assert.Equal("{message}", metric.Unit);
+        var point = GetSinglePoint(metric, topic);
+        var tags = GetTags(point);
+        Assert.Equal(1, point.GetSumLong());
+        Assert.Equal(4, tags.Count);
+        AssertCommonTags(tags, topic);
+
+        var sendingBytes = GetMetric(exportedItems, "ydb.topic.writer.sending.bytes");
+        Assert.Equal(MetricType.LongSum, sendingBytes.MetricType);
+        Assert.Equal("By", sendingBytes.Unit);
+        var bytesPoint = GetSinglePoint(sendingBytes, topic);
+        var bytesTags = GetTags(bytesPoint);
+        Assert.Equal(1, bytesPoint.GetSumLong());
+        Assert.Equal(4, bytesTags.Count);
+        AssertCommonTags(bytesTags, topic);
     }
 
     [Fact]
@@ -162,6 +172,14 @@ public class WriterMetricsReporterTests
         AssertCommonTags(writtenTags, topic);
         Assert.False(writtenTags.ContainsKey("status"));
         Assert.Equal(2, writtenPoint.GetSumLong());
+        var sendingBytes = GetMetric(exportedItems, "ydb.topic.writer.sending.bytes");
+        Assert.Equal(MetricType.LongSum, sendingBytes.MetricType);
+        Assert.Equal("By", sendingBytes.Unit);
+        var bytesPoint = GetSinglePoint(sendingBytes, topic);
+        var bytesTags = GetTags(bytesPoint);
+        Assert.Equal(4, bytesTags.Count);
+        AssertCommonTags(bytesTags, topic);
+        Assert.Equal(16, bytesPoint.GetSumLong());
         var sessionErrors = GetMetric(exportedItems, "ydb.topic.writer.session.errors");
         Assert.Equal(MetricType.LongSum, sessionErrors.MetricType);
         Assert.Equal("{error}", sessionErrors.Unit);

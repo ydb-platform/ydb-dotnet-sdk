@@ -106,6 +106,7 @@ internal class Writer<TValue> : IWriter<TValue>
                         new MessageSending(messageData, tcs, writerDisposedCancellationTokenRegistration)
                     );
                     _metrics.ReportSending();
+                    _metrics.ReportSendingBytes(data.Length);
                     WakeUpWorker();
 
                     break;

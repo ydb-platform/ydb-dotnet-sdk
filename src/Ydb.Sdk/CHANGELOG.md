@@ -27,12 +27,15 @@
   | Metric             | Instrument | Unit        | Additional attributes | Description                                         |
   |--------------------|------------|-------------|-----------------------|-----------------------------------------------------|
   | `sending.messages` | Counter    | `{message}` | —                     | Messages accepted into the Writer's send buffer    |
+  | `sending.bytes`    | Counter    | `By`        | —                     | Uncompressed body bytes accepted into the buffer   |
   | `written.messages` | Counter    | `{message}` | —                     | Messages confirmed by an ACK or recovered sequence |
 
-  Both metrics have `endpoint`, `database`, `topic`, and `writer.name`. `WriterBuilder.WriterName` supplies a stable
+  All three metrics have `endpoint`, `database`, `topic`, and `writer.name`. `WriterBuilder.WriterName` supplies a stable
   name; when it is null, the SDK generates a process-local `writer-N` name.
   `sending.messages` increments once after a message enters the send buffer; waiting for buffer space and reconnect
   retries do not increment it.
+  `sending.bytes` counts the uncompressed message body without metadata at the same acceptance point; retries do not
+  increment it again.
 
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
