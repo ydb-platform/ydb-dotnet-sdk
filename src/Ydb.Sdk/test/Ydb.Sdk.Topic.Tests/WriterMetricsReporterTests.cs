@@ -62,23 +62,26 @@ public class WriterMetricsReporterTests
 
         var firstUsed = new BufferMetricsSource { BufferUsed = 5 };
         var secondUsed = new BufferMetricsSource { BufferUsed = 7 };
-        var first = new WriterMetricsReporter("localhost:2136", "/local", topic, "first", firstUsed);
-        var second = new WriterMetricsReporter("localhost:2136", "/local", topic, "second", secondUsed);
+        var firstName = new WriterConfig(topic, null, null, Codec.Raw, 1, null).WriterName;
+        var secondName = new WriterConfig(topic, null, null, Codec.Raw, 1, null).WriterName;
+        Assert.NotEqual(firstName, secondName);
+        var first = new WriterMetricsReporter("localhost:2136", "/local", topic, firstName, firstUsed);
+        var second = new WriterMetricsReporter("localhost:2136", "/local", topic, secondName, secondUsed);
         try
         {
             var values = Collect();
             Assert.Equal(2, values.Count);
-            Assert.Equal(5, values["first"]);
-            Assert.Equal(7, values["second"]);
+            Assert.Equal(5, values[firstName]);
+            Assert.Equal(7, values[secondName]);
             secondUsed.BufferUsed = 3;
             values = Collect();
             Assert.Equal(2, values.Count);
-            Assert.Equal(5, values["first"]);
-            Assert.Equal(3, values["second"]);
+            Assert.Equal(5, values[firstName]);
+            Assert.Equal(3, values[secondName]);
             first.Dispose();
             values = Collect();
             Assert.Single(values);
-            Assert.Equal(3, values["second"]);
+            Assert.Equal(3, values[secondName]);
             second.Dispose();
             Assert.Empty(Collect());
         }
@@ -139,7 +142,7 @@ public class WriterMetricsReporterTests
         stream.Setup(instance => instance.Current).Returns(new StreamWriteMessage.Types.FromServer
         {
             InitResponse = new StreamWriteMessage.Types.InitResponse
-            { LastSeqNo = 0, PartitionId = 1, SessionId = "session" },
+                { LastSeqNo = 0, PartitionId = 1, SessionId = "session" },
             Status = StatusIds.Types.StatusCode.Success
         });
         stream.Setup(instance => instance.RequestStreamComplete()).Returns(() =>
@@ -283,7 +286,7 @@ public class WriterMetricsReporterTests
             .Returns(new StreamWriteMessage.Types.FromServer
             {
                 InitResponse = new StreamWriteMessage.Types.InitResponse
-                { LastSeqNo = 0, PartitionId = 1, SessionId = "session-1" },
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "session-1" },
                 Status = StatusIds.Types.StatusCode.Success
             })
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -293,7 +296,7 @@ public class WriterMetricsReporterTests
             .Returns(new StreamWriteMessage.Types.FromServer
             {
                 InitResponse = new StreamWriteMessage.Types.InitResponse
-                { LastSeqNo = 1, PartitionId = 1, SessionId = "session-2" },
+                    { LastSeqNo = 1, PartitionId = 1, SessionId = "session-2" },
                 Status = StatusIds.Types.StatusCode.Success
             })
             .Returns(new StreamWriteMessage.Types.FromServer

@@ -12,7 +12,6 @@ internal sealed class WriterMetricsReporter : IDisposable
 {
     private static readonly List<WriterMetricsReporter> Reporters = [];
     private static readonly HashSet<string> ActiveWriterNames = new(StringComparer.Ordinal);
-    private static long _lastWriterId;
 
     private static readonly Counter<long> WrittenMessages;
     private static readonly Counter<long> SendingMessages;
@@ -47,22 +46,13 @@ internal sealed class WriterMetricsReporter : IDisposable
             unit: "By", description: "The occupied budget of the writer buffer limiter.");
     }
 
-    private static string NextWriterName => $"writer-{Interlocked.Increment(ref _lastWriterId)}";
-
-    internal WriterMetricsReporter(string endpoint, string database, string topic, string? writerName,
+    internal WriterMetricsReporter(string endpoint, string database, string topic, string writerName,
         IWriterMetricsSource writerMetricsSource)
     {
         _writerMetricsSource = writerMetricsSource;
         lock (Reporters)
         {
-            if (writerName is null)
-            {
-                do
-                {
-                    writerName = NextWriterName;
-                } while (!ActiveWriterNames.Add(writerName));
-            }
-            else if (!ActiveWriterNames.Add(writerName))
+            if (!ActiveWriterNames.Add(writerName))
             {
                 throw new ArgumentException("WriterName must be unique among active writers.", nameof(writerName));
             }

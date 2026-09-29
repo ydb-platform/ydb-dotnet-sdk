@@ -4,6 +4,8 @@ namespace Ydb.Sdk.Topic.Writer;
 
 internal class WriterConfig
 {
+    private static long _lastWriterId;
+
     internal WriterConfig(
         string topicPath,
         string? producerId,
@@ -14,7 +16,7 @@ internal class WriterConfig
     {
         TopicPath = topicPath;
         ProducerId = producerId;
-        WriterName = writerName;
+        WriterName = writerName ?? $"writer-{Interlocked.Increment(ref _lastWriterId)}";
         Codec = codec;
         BufferMaxSize = bufferMaxSize;
         PartitionId = partitionId;
@@ -24,7 +26,7 @@ internal class WriterConfig
 
     public string? ProducerId { get; }
 
-    public string? WriterName { get; }
+    public string WriterName { get; }
 
     public Codec Codec { get; }
 
