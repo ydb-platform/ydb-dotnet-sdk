@@ -23,7 +23,7 @@ public class WriterMetricsReporterTests
     public void WriterName_MustBeUniqueAmongActiveWriters()
     {
         var source = new BufferMetricsSource();
-        using (var first = new WriterMetricsReporter("localhost:2136", "/local", "/first", "same-writer", source))
+        using (new WriterMetricsReporter("localhost:2136", "/local", "/first", "same-writer", source))
         {
             Assert.Throws<ArgumentException>(() =>
                 new WriterMetricsReporter("localhost:2136", "/local", "/second", "same-writer", source));
