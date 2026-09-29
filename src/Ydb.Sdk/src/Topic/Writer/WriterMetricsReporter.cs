@@ -9,6 +9,7 @@ internal sealed class WriterMetricsReporter
 
     private static readonly Counter<long> WrittenMessages;
     private static readonly Counter<long> SendingMessages;
+    private static readonly Counter<long> SessionErrors;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
 
@@ -24,6 +25,10 @@ internal sealed class WriterMetricsReporter
             "ydb.topic.writer.sending.messages",
             unit: "{message}",
             description: "The number of messages accepted by the SDK for sending.");
+        SessionErrors = meter.CreateCounter<long>(
+            "ydb.topic.writer.session.errors",
+            unit: "{error}",
+            description: "The number of writer stream session errors by retry decision.");
     }
 
     private static string NextWriterName => $"writer-{Interlocked.Increment(ref _lastWriterId)}";
@@ -42,4 +47,7 @@ internal sealed class WriterMetricsReporter
     internal void ReportWritten() => WrittenMessages.Add(1, _commonTags);
 
     internal void ReportSending() => SendingMessages.Add(1, _commonTags);
+
+    internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
+        MetricUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
 }

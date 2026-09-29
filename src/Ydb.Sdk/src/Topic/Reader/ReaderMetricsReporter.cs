@@ -152,27 +152,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
         Interlocked.Exchange(ref _creditBalanceBytes, bytes);
     }
 
-    internal void ReportSessionError(StatusCode statusCode, bool retry = true)
-    {
-        if (!SessionErrors.Enabled)
-        {
-            return;
-        }
-
-        SessionErrors.Add(1, new TagList(_commonTags)
-        {
-            { "retry_decision", retry ? "retry" : "stop" },
-            { "status_code", statusCode.ToString() },
-            {
-                "error.type", statusCode switch
-                {
-                    StatusCode.Unspecified => "session_closed",
-                    _ when statusCode.IsTransportError() => "transport_error",
-                    _ => "ydb_error"
-                }
-            }
-        });
-    }
+    internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
+        MetricUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
 
     internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
 
