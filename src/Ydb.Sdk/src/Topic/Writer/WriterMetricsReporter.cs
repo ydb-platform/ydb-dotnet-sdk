@@ -3,9 +3,15 @@ using Ydb.Sdk.Internal;
 
 namespace Ydb.Sdk.Topic.Writer;
 
-internal sealed class WriterMetricsReporter
+internal interface IWriterMetricsSource
 {
-    private static long _lastWriterId;
+    long BufferUsed { get; }
+}
+
+internal sealed class WriterMetricsReporter : IDisposable
+{
+    private static readonly List<WriterMetricsReporter> Reporters = [];
+    private static readonly HashSet<string> ActiveWriterNames = new(StringComparer.Ordinal);
 
     private static readonly Counter<long> WrittenMessages;
     private static readonly Counter<long> SendingMessages;
@@ -13,6 +19,8 @@ internal sealed class WriterMetricsReporter
     private static readonly Counter<long> SessionErrors;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
+    private readonly IWriterMetricsSource _writerMetricsSource;
+    private readonly string _writerName;
 
     static WriterMetricsReporter()
     {
@@ -34,19 +42,31 @@ internal sealed class WriterMetricsReporter
             "ydb.topic.writer.session.errors",
             unit: "{error}",
             description: "The number of writer stream session errors by retry decision.");
+        meter.CreateObservableGauge("ydb.topic.writer.buffer.used.bytes", ObserveBufferUsed,
+            unit: "By", description: "The occupied budget of the writer buffer limiter.");
     }
 
-    private static string NextWriterName => $"writer-{Interlocked.Increment(ref _lastWriterId)}";
-
-    internal WriterMetricsReporter(string endpoint, string database, string topic, string? writerName)
+    internal WriterMetricsReporter(string endpoint, string database, string topic, string writerName,
+        IWriterMetricsSource writerMetricsSource)
     {
-        _commonTags =
-        [
-            new KeyValuePair<string, object?>("endpoint", endpoint),
-            new KeyValuePair<string, object?>("database", database),
-            new KeyValuePair<string, object?>("topic", topic),
-            new KeyValuePair<string, object?>("writer.name", writerName ?? NextWriterName)
-        ];
+        _writerMetricsSource = writerMetricsSource;
+        lock (Reporters)
+        {
+            if (!ActiveWriterNames.Add(writerName))
+            {
+                throw new ArgumentException("WriterName must be unique among active writers.", nameof(writerName));
+            }
+
+            _writerName = writerName;
+            _commonTags =
+            [
+                new KeyValuePair<string, object?>("endpoint", endpoint),
+                new KeyValuePair<string, object?>("database", database),
+                new KeyValuePair<string, object?>("topic", topic),
+                new KeyValuePair<string, object?>("writer.name", writerName)
+            ];
+            Reporters.Add(this);
+        }
     }
 
     internal void ReportWritten() => WrittenMessages.Add(1, _commonTags);
@@ -56,5 +76,27 @@ internal sealed class WriterMetricsReporter
     internal void ReportSendingBytes(long bytes) => SendingBytes.Add(bytes, _commonTags);
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
-        MetricUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
+        TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
+
+    public void Dispose()
+    {
+        lock (Reporters)
+        {
+            if (Reporters.Remove(this))
+            {
+                ActiveWriterNames.Remove(_writerName);
+            }
+        }
+    }
+
+    private static IEnumerable<Measurement<long>> ObserveBufferUsed()
+    {
+        lock (Reporters)
+        {
+            return Reporters
+                .Select(reporter =>
+                    new Measurement<long>(reporter._writerMetricsSource.BufferUsed, reporter._commonTags))
+                .ToArray();
+        }
+    }
 }

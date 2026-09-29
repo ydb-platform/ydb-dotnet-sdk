@@ -18,7 +18,7 @@ using WriterStream = IBidirectionalStream<
     StreamWriteMessage.Types.FromServer
 >;
 
-internal class Writer<TValue> : IWriter<TValue>
+internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
 {
     private readonly IDriverFactory _driverFactory;
     private readonly WriterConfig _config;
@@ -49,10 +49,13 @@ internal class Writer<TValue> : IWriter<TValue>
             _driverFactory.Endpoint,
             _driverFactory.Database,
             _config.TopicPath,
-            _config.WriterName);
+            _config.WriterName,
+            this);
 
         StartWriteWorker();
     }
+
+    long IWriterMetricsSource.BufferUsed => (long)_config.BufferMaxSize - _limitBufferMaxSize;
 
     public Task<WriteResult> WriteAsync(TValue data, CancellationToken cancellationToken) =>
         WriteAsync(new Message<TValue>(data), cancellationToken);
@@ -409,10 +412,17 @@ internal class Writer<TValue> : IWriter<TValue>
 
         _isStopped = true;
 
-        await _session.DisposeAsync().ConfigureAwait(false);
-        if (_driver != null)
+        try
         {
-            await _driver.DisposeAsync().ConfigureAwait(false);
+            await _session.DisposeAsync().ConfigureAwait(false);
+            if (_driver != null)
+            {
+                await _driver.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _metrics.Dispose();
         }
 
         _logger.LogInformation("Writer[{WriterConfig}] is disposed", _config);

@@ -3,7 +3,7 @@ using System.Diagnostics.Metrics;
 
 namespace Ydb.Sdk.Topic;
 
-internal static class MetricUtils
+internal static class TopicMetricsUtils
 {
     internal static void ReportSessionError(
         Counter<long> sessionErrors,

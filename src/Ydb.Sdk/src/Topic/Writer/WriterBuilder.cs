@@ -36,7 +36,7 @@ public class WriterBuilder<TValue>
 
     /// <summary>
     /// Identifies this writer in metrics. If not set, the SDK generates a unique name.
-    /// Use the same name for writers whose metrics should be combined.
+    /// Set a unique name for each active writer so their metrics remain distinct.
     /// </summary>
     public string? WriterName { get; set; }
 

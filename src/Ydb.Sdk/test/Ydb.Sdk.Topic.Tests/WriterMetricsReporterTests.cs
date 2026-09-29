@@ -13,6 +13,167 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 
 public class WriterMetricsReporterTests
 {
+    private sealed class BufferMetricsSource : IWriterMetricsSource
+    {
+        public long BufferUsed { get; set; }
+    }
+
+    [Fact]
+    public void WriterName_MustBeUniqueAmongActiveWriters()
+    {
+        var source = new BufferMetricsSource();
+        using (new WriterMetricsReporter("localhost:2136", "/local", "/first", "same-writer", source))
+        {
+            Assert.Throws<ArgumentException>(() =>
+                new WriterMetricsReporter("localhost:2136", "/local", "/second", "same-writer", source));
+        }
+
+        using var replacement = new WriterMetricsReporter("localhost:2136", "/local", "/second", "same-writer",
+            source);
+    }
+
+    [Fact]
+    public void BufferUsed_ReportsEachWriterAndRemovesClosedContribution()
+    {
+        const string topic = "/writer-buffer-by-name";
+        const string metricName = "ydb.topic.writer.buffer.used.bytes";
+
+        var firstUsed = new BufferMetricsSource { BufferUsed = 5 };
+        var secondUsed = new BufferMetricsSource { BufferUsed = 7 };
+        var firstName = new WriterConfig(topic, null, null, Codec.Raw, 1, null).WriterName;
+        var secondName = new WriterConfig(topic, null, null, Codec.Raw, 1, null).WriterName;
+        Assert.NotEqual(firstName, secondName);
+        var first = new WriterMetricsReporter("localhost:2136", "/local", topic, firstName, firstUsed);
+        var second = new WriterMetricsReporter("localhost:2136", "/local", topic, secondName, secondUsed);
+        try
+        {
+            var values = Collect();
+            Assert.Equal(2, values.Count);
+            Assert.Equal(5, values[firstName]);
+            Assert.Equal(7, values[secondName]);
+            secondUsed.BufferUsed = 3;
+            values = Collect();
+            Assert.Equal(2, values.Count);
+            Assert.Equal(5, values[firstName]);
+            Assert.Equal(3, values[secondName]);
+            first.Dispose();
+            values = Collect();
+            Assert.Single(values);
+            Assert.Equal(3, values[secondName]);
+            second.Dispose();
+            Assert.Empty(Collect());
+        }
+        finally
+        {
+            first.Dispose();
+            second.Dispose();
+        }
+
+        Dictionary<string, long> Collect()
+        {
+            var exportedItems = new List<Metric>();
+            using var meterProvider = CreateMeterProvider(exportedItems);
+            Assert.True(meterProvider.ForceFlush());
+            foreach (var metric in exportedItems.Where(item => item.Name == metricName))
+            {
+                Assert.Equal(MetricType.LongGauge, metric.MetricType);
+                Assert.Equal("By", metric.Unit);
+            }
+
+            var values = new Dictionary<string, long>();
+            foreach (var point in GetPoints(exportedItems, metricName, topic))
+            {
+                var tags = GetTags(point);
+                Assert.Equal(4, tags.Count);
+                Assert.Equal("localhost:2136", tags["endpoint"]);
+                Assert.Equal("/local", tags["database"]);
+                values.Add((string)tags["writer.name"]!, point.GetGaugeLastValueLong());
+            }
+
+            return values;
+        }
+    }
+
+    [Fact]
+    public async Task BufferUsed_FollowsLimiterReservationAndRelease()
+    {
+        const string topic = "/writer-buffer-used";
+        const string metricName = "ydb.topic.writer.buffer.used.bytes";
+
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stream = new Mock<WriterStream>();
+        stream.Setup(instance => instance.Write(It.IsAny<FromClient>())).Returns<FromClient>(message =>
+        {
+            if (message.WriteRequest != null)
+            {
+                sent.TrySetResult();
+            }
+
+            return Task.CompletedTask;
+        });
+        stream.SetupSequence(instance => instance.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(closed.Task);
+        stream.Setup(instance => instance.Current).Returns(new StreamWriteMessage.Types.FromServer
+        {
+            InitResponse = new StreamWriteMessage.Types.InitResponse
+                { LastSeqNo = 0, PartitionId = 1, SessionId = "session" },
+            Status = StatusIds.Types.StatusCode.Success
+        });
+        stream.Setup(instance => instance.RequestStreamComplete()).Returns(() =>
+        {
+            closed.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+        var driver = new Mock<IDriver>();
+        driver.Setup(instance => instance.BidirectionalStreamCall(
+                It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
+                It.IsAny<GrpcRequestSettings>()))
+            .ReturnsAsync(stream.Object);
+        driver.Setup(instance => instance.LoggerFactory).Returns(Utils.LoggerFactory);
+        driver.Setup(instance => instance.DisposeAsync())
+            .Callback(() => driver.Setup(instance => instance.IsDisposed).Returns(true));
+        var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-buffer-used"), topic)
+        {
+            WriterName = "writer",
+            BufferMaxSize = 1
+        }.Build();
+        try
+        {
+            Assert.Equal(0, Collect());
+            using var cancellation = new CancellationTokenSource();
+            var write = writer.WriteAsync(100L, cancellation.Token);
+            await sent.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(8, Collect());
+            Assert.Equal(8, Collect());
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => write);
+            Assert.Equal(0, Collect());
+        }
+        finally
+        {
+            await writer.DisposeAsync();
+        }
+
+        Assert.Null(Collect());
+
+        long? Collect()
+        {
+            var exportedItems = new List<Metric>();
+            using var meterProvider = CreateMeterProvider(exportedItems);
+            Assert.True(meterProvider.ForceFlush());
+            foreach (var metric in exportedItems.Where(item => item.Name == metricName))
+            {
+                Assert.Equal(MetricType.LongGauge, metric.MetricType);
+                Assert.Equal("By", metric.Unit);
+            }
+
+            var points = GetPoints(exportedItems, metricName, topic);
+            return points.Count == 0 ? null : Assert.Single(points).GetGaugeLastValueLong();
+        }
+    }
+
     [Fact]
     public async Task SendingMetrics_DoNotCountBufferOverflow()
     {
@@ -312,6 +473,23 @@ public class WriterMetricsReporterTests
 
     private static Metric GetMetric(List<Metric> exportedItems, string name) =>
         Assert.Single(exportedItems, item => item.Name == name);
+
+    private static List<MetricPoint> GetPoints(List<Metric> exportedItems, string name, string topic)
+    {
+        var points = new List<MetricPoint>();
+        foreach (var metric in exportedItems.Where(item => item.Name == name))
+        {
+            foreach (var point in metric.GetMetricPoints())
+            {
+                if (Equals(topic, GetTags(point).GetValueOrDefault("topic")))
+                {
+                    points.Add(point);
+                }
+            }
+        }
+
+        return points;
+    }
 
     private static MetricPoint GetSinglePoint(Metric metric, string topic)
     {
