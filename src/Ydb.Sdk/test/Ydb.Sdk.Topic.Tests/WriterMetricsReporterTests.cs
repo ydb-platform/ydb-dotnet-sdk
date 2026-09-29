@@ -280,7 +280,7 @@ public class WriterMetricsReporterTests
     }
 
     [Fact]
-    public async Task WrittenMessages_ReportsTwoMessagesWithRetry()
+    public async Task WrittenMessages_ReportsTwoMessagesWithRetryAndCanceledWait()
     {
         const string topic = "/writer-metrics";
         var exportedItems = new List<Metric>();
@@ -361,13 +361,16 @@ public class WriterMetricsReporterTests
 
         await using (writer)
         {
-            var alreadyWritten = writer.WriteAsync(100L);
+            using var cancellation = new CancellationTokenSource();
+            var alreadyWritten = writer.WriteAsync(100L, cancellation.Token);
             await firstWriteSent.Task;
+            await cancellation.CancelAsync();
+            await Assert.ThrowsAsync<TaskCanceledException>(() => alreadyWritten);
             var written = writer.WriteAsync(200L);
             await secondWriteSent.Task;
+            await Task.Delay(100);
             reconnect.SetResult(true);
 
-            Assert.Equal(PersistenceStatus.AlreadyWritten, (await alreadyWritten).Status);
             Assert.Equal(PersistenceStatus.Written, (await written).Status);
         }
 
@@ -401,6 +404,15 @@ public class WriterMetricsReporterTests
         Assert.Equal("BadSession", errorTags["status_code"]);
         Assert.Equal("ydb_error", errorTags["error.type"]);
         Assert.Equal(1, errorPoint.GetSumLong());
+        var ackDuration = GetMetric(exportedItems, "ydb.topic.writer.message.ack.duration");
+        Assert.Equal(MetricType.Histogram, ackDuration.MetricType);
+        Assert.Equal("s", ackDuration.Unit);
+        var durationPoint = GetSinglePoint(ackDuration, topic);
+        var durationTags = GetTags(durationPoint);
+        Assert.Equal(4, durationTags.Count);
+        AssertCommonTags(durationTags, topic);
+        Assert.Equal(2, durationPoint.GetHistogramCount());
+        Assert.True(durationPoint.GetHistogramSum() >= 0.2);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
             message.WriteRequest != null && message.WriteRequest.Messages[0].SeqNo == 1)), Times.Once);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
@@ -499,6 +511,80 @@ public class WriterMetricsReporterTests
         driver.Verify(instance => instance.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
             It.IsAny<GrpcRequestSettings>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task MessageAckDuration_ReportsWrittenInTxOnceBeforeReconnectSkip()
+    {
+        const string topic = "/writer-tx-ack-duration";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var stream = new Mock<WriterStream>();
+        var writeSent = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ackReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        stream.SetupSequence(instance => instance.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                writeSent.SetResult(true);
+                return Task.CompletedTask;
+            })
+            .Returns(Task.CompletedTask);
+        stream.SetupSequence(instance => instance.MoveNextAsync())
+            .ReturnsAsync(true)
+            .Returns(ackReady.Task)
+            .ReturnsAsync(true)
+            .Returns(closed.Task);
+        stream.SetupSequence(instance => instance.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 0, PartitionId = 1, SessionId = "session-1" },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 1,
+                            WrittenInTx = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.WrittenInTx()
+                        }
+                    }
+                },
+                Status = StatusIds.Types.StatusCode.Success
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                InitResponse = new StreamWriteMessage.Types.InitResponse
+                    { LastSeqNo = 1, PartitionId = 1, SessionId = "session-2" },
+                Status = StatusIds.Types.StatusCode.Success
+            });
+        stream.Setup(instance => instance.RequestStreamComplete()).Returns(() =>
+        {
+            closed.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+        var driver = CreateDriver(stream);
+        await using var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-tx-ack-duration"), topic)
+            { WriterName = "writer" }.Build();
+
+        var write = writer.WriteAsync(100L);
+        await writeSent.Task;
+        ackReady.SetResult(true);
+        Assert.Equal(PersistenceStatus.AlreadyWritten, (await write).Status);
+        Assert.True(meterProvider.ForceFlush());
+
+        var duration = GetMetric(exportedItems, "ydb.topic.writer.message.ack.duration");
+        var point = GetSinglePoint(duration, topic);
+        Assert.Equal(1, point.GetHistogramCount());
+        Assert.True(point.GetHistogramSum() >= 0);
+        stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
+            message.WriteRequest != null && message.WriteRequest.Messages[0].SeqNo == 1)), Times.Once);
     }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>

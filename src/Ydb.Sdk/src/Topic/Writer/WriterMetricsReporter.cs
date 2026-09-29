@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Ydb.Sdk.Internal;
 
@@ -19,6 +20,7 @@ internal sealed class WriterMetricsReporter : IDisposable
     private static readonly Counter<long> SendingMessages;
     private static readonly Counter<long> SendingBytes;
     private static readonly Counter<long> SessionErrors;
+    private static readonly Histogram<double> MessageAckDuration;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IWriterMetricsSource _writerMetricsSource;
@@ -48,6 +50,10 @@ internal sealed class WriterMetricsReporter : IDisposable
             unit: "By", description: "The occupied budget of the writer buffer limiter.");
         meter.CreateObservableGauge("ydb.topic.writer.buffer.limit.bytes", ObserveBufferLimit,
             unit: "By", description: "The configured limit of the writer buffer limiter.");
+        MessageAckDuration = meter.CreateHistogram<double>(
+            "ydb.topic.writer.message.ack.duration",
+            unit: "s",
+            description: "Time from the first send of a message to its server acknowledgement.");
     }
 
     internal WriterMetricsReporter(string endpoint, string database, string topic, string writerName,
@@ -81,6 +87,17 @@ internal sealed class WriterMetricsReporter : IDisposable
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
+
+    internal void ReportMessageAckDuration(MessageSending message)
+    {
+        if (message.AckDurationReported)
+        {
+            return;
+        }
+
+        message.AckDurationReported = true;
+        MessageAckDuration.Record(Stopwatch.GetElapsedTime(message.FirstSendTimestamp).TotalSeconds, _commonTags);
+    }
 
     public void Dispose()
     {

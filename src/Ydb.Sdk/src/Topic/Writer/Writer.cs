@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace Ydb.Sdk.Topic.Writer;
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
 using MessageFromClient = StreamWriteMessage.Types.FromClient;
 using MessageFromServer = StreamWriteMessage.Types.FromServer;
+using WriteAckStatus = StreamWriteMessage.Types.WriteResponse.Types.WriteAck.MessageWriteStatusOneofCase;
 using WriterStream = IBidirectionalStream<
     StreamWriteMessage.Types.FromClient,
     StreamWriteMessage.Types.FromServer
@@ -328,6 +330,7 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                             sendData.MessageData.SeqNo, lastSeqNo);
 
                         _metrics.ReportWritten();
+                        _metrics.ReportMessageAckDuration(sendData);
                         sendData.Tcs.TrySetResult(WriteResult.Skipped);
 
                         continue;
@@ -435,7 +438,11 @@ internal record MessageSending(
     MessageData MessageData,
     TaskCompletionSource<WriteResult> Tcs,
     CancellationTokenRegistration DisposedCtr
-);
+)
+{
+    internal long FirstSendTimestamp { get; set; }
+    internal bool AckDurationReported { get; set; }
+}
 
 internal interface IWriteSession : IAsyncDisposable
 {
@@ -554,6 +561,10 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
                 writeMessage.Messages.Add(messageData);
                 _inFlightMessages.Enqueue(sendData);
+                if (sendData.FirstSendTimestamp == 0)
+                {
+                    sendData.FirstSendTimestamp = Stopwatch.GetTimestamp();
+                }
             }
 
             Volatile.Write(ref _seqNum, currentSeqNum);
@@ -632,6 +643,12 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                             }
                             else
                             {
+                                if (ack.MessageWriteStatusCase is
+                                    WriteAckStatus.Written or WriteAckStatus.Skipped or WriteAckStatus.WrittenInTx)
+                                {
+                                    _metrics.ReportMessageAckDuration(messageFromClient);
+                                }
+
                                 var writeResult = new WriteResult(ack);
                                 _metrics.ReportWritten();
                                 messageFromClient.Tcs.TrySetResult(writeResult);
