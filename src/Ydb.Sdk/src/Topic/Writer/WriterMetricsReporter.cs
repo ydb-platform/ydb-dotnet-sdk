@@ -19,7 +19,6 @@ internal sealed class WriterMetricsReporter : IDisposable
     private static readonly Counter<long> SessionErrors;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
-    private readonly (string Endpoint, string Database, string Topic, string WriterName) _key;
     private readonly IWriterMetricsSource _writerMetricsSource;
 
     static WriterMetricsReporter()
@@ -51,14 +50,13 @@ internal sealed class WriterMetricsReporter : IDisposable
     internal WriterMetricsReporter(string endpoint, string database, string topic, string? writerName,
         IWriterMetricsSource writerMetricsSource)
     {
-        _key = (endpoint, database, topic, writerName ?? NextWriterName);
         _writerMetricsSource = writerMetricsSource;
         _commonTags =
         [
             new KeyValuePair<string, object?>("endpoint", endpoint),
             new KeyValuePair<string, object?>("database", database),
             new KeyValuePair<string, object?>("topic", topic),
-            new KeyValuePair<string, object?>("writer.name", _key.WriterName)
+            new KeyValuePair<string, object?>("writer.name", writerName ?? NextWriterName)
         ];
         lock (Reporters)
         {
@@ -73,7 +71,7 @@ internal sealed class WriterMetricsReporter : IDisposable
     internal void ReportSendingBytes(long bytes) => SendingBytes.Add(bytes, _commonTags);
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
-        MetricUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
+        TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
 
     public void Dispose()
     {
@@ -88,10 +86,8 @@ internal sealed class WriterMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters
-                .GroupBy(reporter => reporter._key)
-                .Select(group => new Measurement<long>(
-                    group.Sum(reporter => reporter._writerMetricsSource.BufferUsed),
-                    group.First()._commonTags))
+                .Select(reporter =>
+                    new Measurement<long>(reporter._writerMetricsSource.BufferUsed, reporter._commonTags))
                 .ToArray();
         }
     }

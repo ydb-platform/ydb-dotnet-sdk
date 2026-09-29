@@ -20,10 +20,10 @@ public class WriterMetricsReporterTests
     }
 
     [Fact]
-    public void BufferUsed_SumsMatchingWritersAndRemovesOnlyClosedContribution()
+    public void BufferUsed_ReportsEachWriterAndRemovesClosedContribution()
     {
-        const string topic = "/writer-buffer-group";
-        var observations = new List<long>();
+        const string topic = "/writer-buffer-by-name";
+        var observations = new Dictionary<string, long>();
         using var listener = new MeterListener();
         listener.InstrumentPublished = (instrument, meterListener) =>
         {
@@ -41,29 +41,44 @@ public class WriterMetricsReporterTests
                 Assert.Equal(4, attributes.Count);
                 Assert.Equal("localhost:2136", attributes["endpoint"]);
                 Assert.Equal("/local", attributes["database"]);
-                Assert.Equal("writer", attributes["writer.name"]);
-                observations.Add(value);
+                observations.Add((string)attributes["writer.name"]!, value);
             }
         });
         listener.Start();
 
         var firstUsed = new BufferMetricsSource { BufferUsed = 5 };
         var secondUsed = new BufferMetricsSource { BufferUsed = 7 };
-        using var first = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer", firstUsed);
-        using var second = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer", secondUsed);
-        Assert.Equal(12, Collect());
-        secondUsed.BufferUsed = 3;
-        Assert.Equal(8, Collect());
-        first.Dispose();
-        Assert.Equal(3, Collect());
-        second.Dispose();
-        Assert.Null(Collect());
+        var first = new WriterMetricsReporter("localhost:2136", "/local", topic, "first", firstUsed);
+        var second = new WriterMetricsReporter("localhost:2136", "/local", topic, "second", secondUsed);
+        try
+        {
+            var values = Collect();
+            Assert.Equal(2, values.Count);
+            Assert.Equal(5, values["first"]);
+            Assert.Equal(7, values["second"]);
+            secondUsed.BufferUsed = 3;
+            values = Collect();
+            Assert.Equal(2, values.Count);
+            Assert.Equal(5, values["first"]);
+            Assert.Equal(3, values["second"]);
+            first.Dispose();
+            values = Collect();
+            Assert.Single(values);
+            Assert.Equal(3, values["second"]);
+            second.Dispose();
+            Assert.Empty(Collect());
+        }
+        finally
+        {
+            first.Dispose();
+            second.Dispose();
+        }
 
-        long? Collect()
+        Dictionary<string, long> Collect()
         {
             observations.Clear();
             listener.RecordObservableInstruments();
-            return observations.Count == 0 ? null : Assert.Single(observations);
+            return observations;
         }
     }
 
@@ -110,7 +125,7 @@ public class WriterMetricsReporterTests
         stream.Setup(instance => instance.Current).Returns(new StreamWriteMessage.Types.FromServer
         {
             InitResponse = new StreamWriteMessage.Types.InitResponse
-            { LastSeqNo = 0, PartitionId = 1, SessionId = "session" },
+                { LastSeqNo = 0, PartitionId = 1, SessionId = "session" },
             Status = StatusIds.Types.StatusCode.Success
         });
         stream.Setup(instance => instance.RequestStreamComplete()).Returns(() =>

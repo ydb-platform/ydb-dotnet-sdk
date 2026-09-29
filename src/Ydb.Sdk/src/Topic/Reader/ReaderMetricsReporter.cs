@@ -153,7 +153,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
     }
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
-        MetricUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
+        TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
 
     internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
 
