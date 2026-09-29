@@ -101,10 +101,10 @@ public class WriterMetricsReporterTests
     {
         const string topic = "/writer-buffer-limit";
         const string metricName = "ydb.topic.writer.buffer.limit.bytes";
-        using (var second = new WriterMetricsReporter("localhost:2136", "/local", topic, "second-limit",
+        using (new WriterMetricsReporter("localhost:2136", "/local", topic, "second-limit",
                    new BufferMetricsSource { BufferLimit = 200 }))
         {
-            using (var first = new WriterMetricsReporter("localhost:2136", "/local", topic, "first-limit",
+            using (new WriterMetricsReporter("localhost:2136", "/local", topic, "first-limit",
                        new BufferMetricsSource { BufferLimit = 100 }))
             {
                 var values = Collect();
