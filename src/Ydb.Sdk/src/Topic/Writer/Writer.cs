@@ -563,6 +563,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                 {
                     sendData.FirstSendTimestamp = Stopwatch.GetTimestamp();
                 }
+
                 _inFlightMessages.Enqueue(sendData);
             }
 
