@@ -31,6 +31,7 @@
   | `written.messages`   | Counter         | `{message}` | —                     | Messages confirmed by an ACK or recovered sequence |
   | `buffer.used.bytes`  | ObservableGauge | `By`        | —                     | Occupied budget of the Writer buffer limiter       |
   | `buffer.limit.bytes` | ObservableGauge | `By`        | —                     | Configured limit of the Writer buffer limiter      |
+  | `message.ack.duration` | Histogram     | `s`         | —                     | Time from first send to matching server ACK        |
 
   These metrics have `endpoint`, `database`, `topic`, and `writer.name`. `WriterBuilder.WriterName` supplies a stable
   name; when it is null, the SDK generates a process-local `writer-N` name.
@@ -38,6 +39,9 @@
   retries do not increment it.
   `sending.bytes` counts the uncompressed message body without metadata at the same acceptance point; retries do not
   increment it again.
+  `message.ack.duration` records one measurement per acknowledged message, including retries and reconnect
+  confirmation through a recovered sequence number, without filtering ACK status. Histogram bucket boundaries are
+  `0.001`, `0.005`, `0.01`, `0.05`, `0.1`, `0.5`, `1`, `5`, and `10` seconds.
 
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:

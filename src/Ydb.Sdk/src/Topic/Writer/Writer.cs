@@ -438,7 +438,7 @@ internal record MessageSending(
     CancellationTokenRegistration DisposedCtr
 )
 {
-    internal long FirstSendTimestamp { get; set; }
+    internal long SendTimestamp { get; set; }
 }
 
 internal interface IWriteSession : IAsyncDisposable
@@ -553,7 +553,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
                 if (messageData.SeqNo == 0)
                 {
-                    sendData.FirstSendTimestamp = WriterMetricsReporter.ReportMessageSendStart();
+                    sendData.SendTimestamp = WriterMetricsReporter.ReportMessageSendStart();
                     messageData.SeqNo = ++currentSeqNum;
                 }
 

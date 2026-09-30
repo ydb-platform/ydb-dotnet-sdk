@@ -94,13 +94,13 @@ internal sealed class WriterMetricsReporter : IDisposable
 
     internal void ReportMessageAckDuration(MessageSending message)
     {
-        var startTimestamp = message.FirstSendTimestamp;
+        var startTimestamp = message.SendTimestamp;
         if (startTimestamp == 0)
         {
             return;
         }
 
-        message.FirstSendTimestamp = 0;
+        message.SendTimestamp = 0;
         MessageAckDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _commonTags);
     }
 
