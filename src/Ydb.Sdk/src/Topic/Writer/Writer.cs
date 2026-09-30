@@ -636,10 +636,9 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                             }
                             else
                             {
-                                _metrics.ReportMessageAckDuration(messageFromClient);
-
                                 var writeResult = new WriteResult(ack);
                                 _metrics.ReportWritten();
+                                _metrics.ReportMessageAckDuration(messageFromClient);
                                 messageFromClient.Tcs.TrySetResult(writeResult);
                             }
 
