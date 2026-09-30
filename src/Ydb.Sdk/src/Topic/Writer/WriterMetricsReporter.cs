@@ -50,10 +50,12 @@ internal sealed class WriterMetricsReporter : IDisposable
             unit: "By", description: "The occupied budget of the writer buffer limiter.");
         meter.CreateObservableGauge("ydb.topic.writer.buffer.limit.bytes", ObserveBufferLimit,
             unit: "By", description: "The configured limit of the writer buffer limiter.");
-        MessageAckDuration = meter.CreateHistogram<double>(
+        MessageAckDuration = meter.CreateHistogram(
             "ydb.topic.writer.message.ack.duration",
             unit: "s",
-            description: "Time from the first send of a message to its server acknowledgement.");
+            description: "Time from the first send of a message to its server acknowledgement.",
+            advice: new InstrumentAdvice<double>
+                { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] });
     }
 
     internal WriterMetricsReporter(string endpoint, string database, string topic, string writerName,
@@ -88,15 +90,18 @@ internal sealed class WriterMetricsReporter : IDisposable
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
 
+    internal static long ReportMessageSendStart() => MessageAckDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
+
     internal void ReportMessageAckDuration(MessageSending message)
     {
-        if (message.AckDurationReported)
+        var startTimestamp = message.FirstSendTimestamp;
+        if (startTimestamp == 0)
         {
             return;
         }
 
-        message.AckDurationReported = true;
-        MessageAckDuration.Record(Stopwatch.GetElapsedTime(message.FirstSendTimestamp).TotalSeconds, _commonTags);
+        message.FirstSendTimestamp = 0;
+        MessageAckDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _commonTags);
     }
 
     public void Dispose()

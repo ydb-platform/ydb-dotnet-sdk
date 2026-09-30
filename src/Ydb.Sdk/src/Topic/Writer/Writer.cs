@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -440,7 +439,6 @@ internal record MessageSending(
 )
 {
     internal long FirstSendTimestamp { get; set; }
-    internal bool AckDurationReported { get; set; }
 }
 
 internal interface IWriteSession : IAsyncDisposable
@@ -555,15 +553,11 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
                 if (messageData.SeqNo == 0)
                 {
+                    sendData.FirstSendTimestamp = WriterMetricsReporter.ReportMessageSendStart();
                     messageData.SeqNo = ++currentSeqNum;
                 }
 
                 writeMessage.Messages.Add(messageData);
-                if (sendData.FirstSendTimestamp == 0)
-                {
-                    sendData.FirstSendTimestamp = Stopwatch.GetTimestamp();
-                }
-
                 _inFlightMessages.Enqueue(sendData);
             }
 

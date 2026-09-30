@@ -413,6 +413,13 @@ public class WriterMetricsReporterTests
         AssertCommonTags(durationTags, topic);
         Assert.Equal(2, durationPoint.GetHistogramCount());
         Assert.True(durationPoint.GetHistogramSum() >= 0);
+        var boundaries = new List<double>();
+        foreach (var bucket in durationPoint.GetHistogramBuckets())
+        {
+            boundaries.Add(bucket.ExplicitBound);
+        }
+
+        Assert.Equal([0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, double.PositiveInfinity], boundaries);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
             message.WriteRequest != null && message.WriteRequest.Messages[0].SeqNo == 1)), Times.Once);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
@@ -511,6 +518,24 @@ public class WriterMetricsReporterTests
         driver.Verify(instance => instance.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
             It.IsAny<GrpcRequestSettings>()), Times.Once);
+    }
+
+    [Fact]
+    public void MessageAckDuration_DoesNotRecordUnsentMessage()
+    {
+        const string topic = "/writer-unsent-ack-duration";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        using var metrics = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer",
+            new BufferMetricsSource());
+        var message = new MessageSending(
+            new StreamWriteMessage.Types.WriteRequest.Types.MessageData(),
+            new TaskCompletionSource<WriteResult>(), default);
+
+        metrics.ReportMessageAckDuration(message);
+
+        Assert.True(meterProvider.ForceFlush());
+        Assert.Empty(GetPoints(exportedItems, "ydb.topic.writer.message.ack.duration", topic));
     }
 
     [Theory]
