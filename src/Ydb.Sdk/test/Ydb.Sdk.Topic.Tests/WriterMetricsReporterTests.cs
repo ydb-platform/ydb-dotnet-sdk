@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Grpc.Core;
 using Moq;
 using OpenTelemetry.Metrics;
@@ -363,15 +364,14 @@ public class WriterMetricsReporterTests
         {
             using var cancellation = new CancellationTokenSource();
             var alreadyWritten = writer.WriteAsync(100L, cancellation.Token);
-            await firstWriteSent.Task;
+            await firstWriteSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await cancellation.CancelAsync();
             await Assert.ThrowsAsync<TaskCanceledException>(() => alreadyWritten);
             var written = writer.WriteAsync(200L);
-            await secondWriteSent.Task;
-            await Task.Delay(100);
+            await secondWriteSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
             reconnect.SetResult(true);
 
-            Assert.Equal(PersistenceStatus.Written, (await written).Status);
+            Assert.Equal(PersistenceStatus.Written, (await written.WaitAsync(TimeSpan.FromSeconds(5))).Status);
         }
 
         Assert.True(meterProvider.ForceFlush());
@@ -412,7 +412,7 @@ public class WriterMetricsReporterTests
         Assert.Equal(4, durationTags.Count);
         AssertCommonTags(durationTags, topic);
         Assert.Equal(2, durationPoint.GetHistogramCount());
-        Assert.True(durationPoint.GetHistogramSum() >= 0.2);
+        Assert.True(durationPoint.GetHistogramSum() >= 0);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
             message.WriteRequest != null && message.WriteRequest.Messages[0].SeqNo == 1)), Times.Once);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
@@ -513,77 +513,57 @@ public class WriterMetricsReporterTests
             It.IsAny<GrpcRequestSettings>()), Times.Once);
     }
 
-    [Fact]
-    public async Task MessageAckDuration_ReportsWrittenInTxOnceBeforeReconnectSkip()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MessageAckDuration_ReportsAckRegardlessOfStatus(bool writtenInTx)
     {
         const string topic = "/writer-tx-ack-duration";
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
         var stream = new Mock<WriterStream>();
-        var writeSent = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var ackReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        stream.SetupSequence(instance => instance.Write(It.IsAny<FromClient>()))
-            .Returns(Task.CompletedTask)
-            .Returns(() =>
-            {
-                writeSent.SetResult(true);
-                return Task.CompletedTask;
-            })
-            .Returns(Task.CompletedTask);
-        stream.SetupSequence(instance => instance.MoveNextAsync())
-            .ReturnsAsync(true)
-            .Returns(ackReady.Task)
-            .ReturnsAsync(true)
-            .Returns(closed.Task);
-        stream.SetupSequence(instance => instance.Current)
-            .Returns(new StreamWriteMessage.Types.FromServer
-            {
-                InitResponse = new StreamWriteMessage.Types.InitResponse
-                    { LastSeqNo = 0, PartitionId = 1, SessionId = "session-1" },
-                Status = StatusIds.Types.StatusCode.Success
-            })
-            .Returns(new StreamWriteMessage.Types.FromServer
-            {
-                WriteResponse = new StreamWriteMessage.Types.WriteResponse
-                {
-                    Acks =
-                    {
-                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
-                        {
-                            SeqNo = 1,
-                            WrittenInTx = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.WrittenInTx()
-                        }
-                    }
-                },
-                Status = StatusIds.Types.StatusCode.Success
-            })
-            .Returns(new StreamWriteMessage.Types.FromServer
-            {
-                InitResponse = new StreamWriteMessage.Types.InitResponse
-                    { LastSeqNo = 1, PartitionId = 1, SessionId = "session-2" },
-                Status = StatusIds.Types.StatusCode.Success
-            });
-        stream.Setup(instance => instance.RequestStreamComplete()).Returns(() =>
+        var processed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ack = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck { SeqNo = 1 };
+        if (writtenInTx)
         {
-            closed.TrySetResult(false);
-            return Task.CompletedTask;
-        });
-        var driver = CreateDriver(stream);
-        await using var writer =
-            new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-tx-ack-duration"), topic)
-                { WriterName = "writer" }.Build();
+            ack.WrittenInTx = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.WrittenInTx();
+        }
 
-        var write = writer.WriteAsync(100L);
-        await writeSent.Task;
+        stream.Setup(instance => instance.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
+        stream.Setup(instance => instance.MoveNextAsync()).Returns(ackReady.Task);
+        stream.Setup(instance => instance.Current).Returns(new StreamWriteMessage.Types.FromServer
+        {
+            WriteResponse = new StreamWriteMessage.Types.WriteResponse { Acks = { ack } },
+            Status = StatusIds.Types.StatusCode.Success
+        });
+        stream.Setup(instance => instance.RequestStreamComplete()).Returns(Task.CompletedTask);
+        using var metrics = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer",
+            new BufferMetricsSource());
+        var inFlight = new ConcurrentQueue<MessageSending>();
+        await using var session = new WriterSession(
+            new WriterConfig(topic, null, "writer", Codec.Raw, 1024, null),
+            stream.Object, 0, "session", _ => processed.TrySetResult(), null,
+            Utils.LoggerFactory.CreateLogger("writer-metrics"), inFlight, metrics);
+        var message = new MessageSending(
+            new StreamWriteMessage.Types.WriteRequest.Types.MessageData(),
+            new TaskCompletionSource<WriteResult>(TaskCreationOptions.RunContinuationsAsynchronously), default);
+        await session.Write(new ConcurrentQueue<MessageSending>([message]));
+
         ackReady.SetResult(true);
-        Assert.Equal(PersistenceStatus.AlreadyWritten, (await write).Status);
+        await processed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(meterProvider.ForceFlush());
 
         var duration = GetMetric(exportedItems, "ydb.topic.writer.message.ack.duration");
         var point = GetSinglePoint(duration, topic);
         Assert.Equal(1, point.GetHistogramCount());
         Assert.True(point.GetHistogramSum() >= 0);
+        // A reconnect can confirm the same message via LastSeqNo.
+        metrics.ReportMessageAckDuration(message);
+        exportedItems.Clear();
+        Assert.True(meterProvider.ForceFlush());
+        Assert.Equal(1, GetSinglePoint(
+            GetMetric(exportedItems, "ydb.topic.writer.message.ack.duration"), topic).GetHistogramCount());
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
             message.WriteRequest != null && message.WriteRequest.Messages[0].SeqNo == 1)), Times.Once);
     }

@@ -14,7 +14,6 @@ namespace Ydb.Sdk.Topic.Writer;
 using MessageData = StreamWriteMessage.Types.WriteRequest.Types.MessageData;
 using MessageFromClient = StreamWriteMessage.Types.FromClient;
 using MessageFromServer = StreamWriteMessage.Types.FromServer;
-using WriteAckStatus = StreamWriteMessage.Types.WriteResponse.Types.WriteAck.MessageWriteStatusOneofCase;
 using WriterStream = IBidirectionalStream<
     StreamWriteMessage.Types.FromClient,
     StreamWriteMessage.Types.FromServer
@@ -560,11 +559,11 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                 }
 
                 writeMessage.Messages.Add(messageData);
-                _inFlightMessages.Enqueue(sendData);
                 if (sendData.FirstSendTimestamp == 0)
                 {
                     sendData.FirstSendTimestamp = Stopwatch.GetTimestamp();
                 }
+                _inFlightMessages.Enqueue(sendData);
             }
 
             Volatile.Write(ref _seqNum, currentSeqNum);
@@ -643,11 +642,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                             }
                             else
                             {
-                                if (ack.MessageWriteStatusCase is
-                                    WriteAckStatus.Written or WriteAckStatus.Skipped or WriteAckStatus.WrittenInTx)
-                                {
-                                    _metrics.ReportMessageAckDuration(messageFromClient);
-                                }
+                                _metrics.ReportMessageAckDuration(messageFromClient);
 
                                 var writeResult = new WriteResult(ack);
                                 _metrics.ReportWritten();
