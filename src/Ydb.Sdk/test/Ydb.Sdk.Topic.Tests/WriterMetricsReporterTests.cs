@@ -570,8 +570,9 @@ public class WriterMetricsReporterTests
             return Task.CompletedTask;
         });
         var driver = CreateDriver(stream);
-        await using var writer = new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-tx-ack-duration"), topic)
-            { WriterName = "writer" }.Build();
+        await using var writer =
+            new WriterBuilder<long>(new IDriverFactoryMock(driver, "writer-tx-ack-duration"), topic)
+                { WriterName = "writer" }.Build();
 
         var write = writer.WriteAsync(100L);
         await writeSent.Task;
