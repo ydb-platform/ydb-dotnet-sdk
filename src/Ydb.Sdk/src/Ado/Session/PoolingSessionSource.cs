@@ -420,7 +420,8 @@ internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : 
         TransactionControl? txControl
     );
 
-    public abstract Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken);
+    public abstract Task<VirtualTimestamp?> CommitTransaction(string txId, Activity? dbActivity,
+        CancellationToken cancellationToken);
 
     public abstract Task RollbackTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken);
 

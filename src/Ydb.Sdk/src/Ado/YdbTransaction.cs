@@ -22,6 +22,23 @@ namespace Ydb.Sdk.Ado;
 public sealed class YdbTransaction : DbTransaction
 {
     private readonly TransactionMode _transactionMode;
+    private readonly object _timestampScope;
+
+    /// <summary>
+    /// Gets the commit timestamp returned by a successful StrictSerializableRW write transaction,
+    /// or null when the server did not return one.
+    /// </summary>
+    public YdbCommitTimestamp? CommitTimestamp { get; private set; }
+
+    internal bool IsStrictSerializableRW => _transactionMode == TransactionMode.StrictSerializableRW;
+
+    internal void SetCommitTimestamp(VirtualTimestamp? value)
+    {
+        if (IsStrictSerializableRW && value is not null)
+        {
+            CommitTimestamp = new YdbCommitTimestamp(value, _timestampScope);
+        }
+    }
 
     private bool _failed;
     private YdbConnection? _ydbConnection;
@@ -93,6 +110,7 @@ public sealed class YdbTransaction : DbTransaction
     {
         _ydbConnection = ydbConnection;
         _transactionMode = transactionMode;
+        _timestampScope = ydbConnection.TimestampScope;
     }
 
     /// <summary>
@@ -219,6 +237,7 @@ public sealed class YdbTransaction : DbTransaction
     public override IsolationLevel IsolationLevel => _transactionMode switch
     {
         TransactionMode.SerializableRw => IsolationLevel.Serializable,
+        TransactionMode.StrictSerializableRW => IsolationLevel.Serializable,
         TransactionMode.SnapshotRw => IsolationLevel.Snapshot,
         _ => IsolationLevel.Unspecified
     };
@@ -250,7 +269,8 @@ public sealed class YdbTransaction : DbTransaction
 
             if (isCommit)
             {
-                await DbConnection.Session.CommitTransaction(TxId, dbActivity, cancellationToken).ConfigureAwait(false);
+                SetCommitTimestamp(await DbConnection.Session.CommitTransaction(TxId, dbActivity, cancellationToken)
+                    .ConfigureAwait(false));
             }
             else
             {

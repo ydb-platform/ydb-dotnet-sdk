@@ -151,7 +151,8 @@ internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> sourc
         TransactionControl? txControl
     ) => throw new NotImplementedException();
 
-    public override Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>
+    public override Task<VirtualTimestamp?> CommitTransaction(string txId, Activity? dbActivity,
+        CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
     public override Task RollbackTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>

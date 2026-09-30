@@ -234,6 +234,39 @@ public class PoolingSessionTests
         tcsSecondMoveAttachStream.TrySetResult(false);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CommitTransaction_ReturnsOnlyServerTimestamp(bool withTimestamp)
+    {
+        SetupSuccessCreateSession();
+        var finishAttach = SetupAttachStream();
+        var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
+        await session.Open(CancellationToken.None);
+
+        var response = new CommitTransactionResponse { Status = StatusIds.Types.StatusCode.Success };
+        if (withTimestamp)
+        {
+            response.CommitTimestamp = new VirtualTimestamp { PlanStep = ulong.MaxValue, TxId = 42 };
+        }
+
+        _mockIDriver.Setup(driver => driver.UnaryCall(QueryService.CommitTransactionMethod,
+                It.Is<CommitTransactionRequest>(request => request.SessionId == SessionId && request.TxId == "tx"),
+                It.Is<GrpcRequestSettings>(settings => settings.NodeId == NodeId)))
+            .ReturnsAsync(response);
+
+        var timestamp = await session.CommitTransaction("tx", null, CancellationToken.None);
+
+        Assert.Equal(withTimestamp, timestamp is not null);
+        if (withTimestamp)
+        {
+            Assert.Equal(ulong.MaxValue, timestamp!.PlanStep);
+            Assert.Equal((ulong)42, timestamp.TxId);
+        }
+
+        finishAttach.TrySetResult(false);
+    }
+
     [Fact]
     public async Task Open_WhenAttachStreamSendsNodeShutdownHint_CallsPessimizeNodeAndBreaksSession()
     {

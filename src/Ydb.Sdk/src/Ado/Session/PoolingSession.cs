@@ -64,7 +64,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public override async Task CommitTransaction(
+    public override async Task<VirtualTimestamp?> CommitTransaction(
         string txId,
         Activity? dbActivity,
         CancellationToken cancellationToken
@@ -80,6 +80,8 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         {
             throw YdbException.FromServer(response.Status, response.Issues);
         }
+
+        return response.CommitTimestamp;
     }
 
     public override async Task RollbackTransaction(

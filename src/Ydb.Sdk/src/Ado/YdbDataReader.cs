@@ -34,6 +34,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
     private ResultSet? _currentResultSet;
+    private VirtualTimestamp? _lastPartCommitTimestamp;
+
+    /// <summary>
+    /// Gets the commit timestamp after the query stream has been fully consumed, if the server
+    /// returned one for a successful StrictSerializableRW write transaction.
+    /// </summary>
+    public YdbCommitTimestamp? CommitTimestamp { get; private set; }
 
     private interface IMetadata
     {
@@ -910,6 +917,13 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             if (!await _stream.MoveNextAsync(cancellationToken).ConfigureAwait(false))
             {
+                if (_ydbTransaction is { IsStrictSerializableRW: true, Completed: false } &&
+                    _lastPartCommitTimestamp is not null)
+                {
+                    _ydbTransaction.SetCommitTimestamp(_lastPartCommitTimestamp);
+                    CommitTimestamp = _ydbTransaction.CommitTimestamp;
+                }
+
                 if (_ydbTransaction?.AutoCommit == true)
                 {
                     _ydbTransaction.Completed = true;
@@ -931,6 +945,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
                 throw YdbException.FromServer(part.Status, _issueMessagesInStream);
             }
+
+            // Only the final part without a result set can supply the commit timestamp.
+            // Keep it private until the stream ends successfully.
+            _lastPartCommitTimestamp = part.ResultSet is null ? part.CommitTimestamp : null;
 
             _currentResultSet = part.ResultSet;
             ReaderMetadata = _currentResultSet != null ? new Metadata(_currentResultSet) : EmptyMetadata.Instance;

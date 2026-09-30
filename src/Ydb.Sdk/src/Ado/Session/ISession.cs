@@ -17,7 +17,8 @@ internal interface ISession : IDisposable
         TransactionControl? txControl
     );
 
-    Task CommitTransaction(string txId, Activity? dbActivity = null, CancellationToken cancellationToken = default);
+    Task<VirtualTimestamp?> CommitTransaction(string txId, Activity? dbActivity = null,
+        CancellationToken cancellationToken = default);
 
     Task RollbackTransaction(string txId, Activity? dbActivity = null, CancellationToken cancellationToken = default);
 
