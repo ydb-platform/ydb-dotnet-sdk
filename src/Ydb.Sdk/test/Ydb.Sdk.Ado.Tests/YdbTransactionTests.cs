@@ -1,5 +1,9 @@
 using System.Data;
+using System.Diagnostics;
+using System.Reflection;
 using Xunit;
+using Ydb.Query;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -7,6 +11,72 @@ namespace Ydb.Sdk.Ado.Tests;
 public class YdbTransactionTests : TestBase
 {
     private static readonly TemporaryTables<YdbTransactionTests> Tables = new();
+
+    [Fact]
+    public async Task Commit_ExposesTimestampFromSuccessfulCommitResponse()
+    {
+        var connection = await CreateOpenConnectionAsync();
+        YdbTransaction? transaction = null;
+        var fakeSession = new CommitTimestampSession(new VirtualTimestamp { PlanStep = ulong.MaxValue, TxId = 42 });
+
+        try
+        {
+            transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+            transaction.TxId = "tx";
+            var originalSession = connection.Session;
+            var sessionField = typeof(YdbConnection).GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            try
+            {
+                sessionField.SetValue(connection, fakeSession);
+                await transaction.CommitAsync();
+
+                Assert.Equal(ulong.MaxValue, transaction.CommitTimestamp!.PlanStep);
+                Assert.Equal((ulong)42, transaction.CommitTimestamp.TxId);
+            }
+            finally
+            {
+                sessionField.SetValue(connection, originalSession);
+            }
+
+            Assert.Equal(1, fakeSession.CommitCount);
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                transaction.Completed = true;
+            }
+
+            await connection.DisposeAsync();
+        }
+    }
+
+    private sealed class CommitTimestampSession(VirtualTimestamp timestamp) : ISession
+    {
+        public IDriver Driver => throw new NotSupportedException();
+        public bool IsBroken => false;
+        public int CommitCount { get; private set; }
+
+        public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(string query,
+            Dictionary<string, TypedValue> parameters, GrpcRequestSettings settings, TransactionControl? txControl) =>
+            throw new NotSupportedException();
+
+        public Task<VirtualTimestamp?> CommitTransaction(string txId, Activity? dbActivity = null,
+            CancellationToken cancellationToken = default)
+        {
+            Assert.Equal("tx", txId);
+            CommitCount++;
+            return Task.FromResult<VirtualTimestamp?>(timestamp);
+        }
+
+        public Task RollbackTransaction(string txId, Activity? dbActivity = null,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public void OnNotSuccessStatusCode(StatusCode code) => throw new NotSupportedException();
+        public void Dispose()
+        {
+        }
+    }
 
     [Fact]
     public void Rollback_WhenUpsertThenRollback_ReturnPrevRow()

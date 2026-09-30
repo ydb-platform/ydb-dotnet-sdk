@@ -3,7 +3,7 @@ using Ydb.Sdk.Ado.Transaction;
 
 namespace Ydb.Sdk.Ado.Tests;
 
-public class YdbCommitTimestampTests
+public class YdbCommitTimestampTests : TestBase
 {
     [Fact]
     public void StrictSerializableRW_UsesQueryProtocolMode()
@@ -41,6 +41,27 @@ public class YdbCommitTimestampTests
         var first = new YdbCommitTimestamp(new VirtualTimestamp { PlanStep = 1 }, new object());
         var second = new YdbCommitTimestamp(new VirtualTimestamp { PlanStep = 2 }, new object());
 
+        Assert.Throws<InvalidOperationException>(() => first.CompareTo(second));
+    }
+
+    [Fact]
+    public void CompareTo_NullIsLessThanTimestamp()
+    {
+        var timestamp = new YdbCommitTimestamp(new VirtualTimestamp(), new object());
+
+        Assert.True(timestamp.CompareTo(null) > 0);
+    }
+
+    [Fact]
+    public async Task CompareTo_RejectsValuesFromReopenedConnection()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var first = new YdbCommitTimestamp(new VirtualTimestamp { PlanStep = 1 }, connection.TimestampScope);
+
+        await connection.CloseAsync();
+        await connection.OpenAsync();
+
+        var second = new YdbCommitTimestamp(new VirtualTimestamp { PlanStep = 2 }, connection.TimestampScope);
         Assert.Throws<InvalidOperationException>(() => first.CompareTo(second));
     }
 
