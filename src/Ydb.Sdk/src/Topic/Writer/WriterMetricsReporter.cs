@@ -92,9 +92,8 @@ internal sealed class WriterMetricsReporter : IDisposable
 
     internal static long ReportMessageSendStart() => MessageAckDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
 
-    internal void ReportMessageAckDuration(MessageSending message)
+    internal void ReportMessageAckDuration(long startTimestamp)
     {
-        var startTimestamp = message.SendTimestamp;
         if (startTimestamp == 0)
         {
             return;

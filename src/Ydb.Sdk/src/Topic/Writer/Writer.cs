@@ -328,7 +328,7 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                             sendData.MessageData.SeqNo, lastSeqNo);
 
                         _metrics.ReportWritten();
-                        _metrics.ReportMessageAckDuration(sendData);
+                        _metrics.ReportMessageAckDuration(sendData.SendTimestamp);
                         sendData.Tcs.TrySetResult(WriteResult.Skipped);
 
                         continue;
@@ -638,7 +638,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                             {
                                 var writeResult = new WriteResult(ack);
                                 _metrics.ReportWritten();
-                                _metrics.ReportMessageAckDuration(messageFromClient);
+                                _metrics.ReportMessageAckDuration(messageFromClient.SendTimestamp);
                                 messageFromClient.Tcs.TrySetResult(writeResult);
                             }
 

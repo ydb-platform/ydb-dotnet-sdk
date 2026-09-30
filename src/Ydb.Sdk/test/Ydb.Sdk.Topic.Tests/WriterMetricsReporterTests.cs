@@ -523,16 +523,12 @@ public class WriterMetricsReporterTests
     public void MessageAckDuration_DoesNotRecordZeroTimestamp()
     {
         const string topic = "/writer-unsent-ack-duration";
-        var message = new MessageSending(
-            new StreamWriteMessage.Types.WriteRequest.Types.MessageData(),
-            new TaskCompletionSource<WriteResult>(), default);
-        Assert.Equal(0, message.SendTimestamp);
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
         using var metrics = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer",
             new BufferMetricsSource());
 
-        metrics.ReportMessageAckDuration(message);
+        metrics.ReportMessageAckDuration(0);
 
         Assert.True(meterProvider.ForceFlush());
         Assert.Empty(GetPoints(exportedItems, "ydb.topic.writer.message.ack.duration", topic));
