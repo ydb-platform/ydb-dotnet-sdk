@@ -564,8 +564,8 @@ public class WriterMetricsReporterTests
         Assert.True(meterProvider.ForceFlush());
         Assert.Equal(1, GetSinglePoint(
             GetMetric(exportedItems, "ydb.topic.writer.message.ack.duration"), topic).GetHistogramCount());
-        stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
-            message.WriteRequest != null && message.WriteRequest.Messages[0].SeqNo == 1)), Times.Once);
+        stream.Verify(instance => instance.Write(It.Is<FromClient>(request =>
+            request.WriteRequest != null && request.WriteRequest.Messages[0].SeqNo == 1)), Times.Once);
     }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
