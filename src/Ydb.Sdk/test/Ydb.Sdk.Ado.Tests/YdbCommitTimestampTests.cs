@@ -14,7 +14,7 @@ public class YdbCommitTimestampTests : TestBase
 
         var settings = TransactionMode.StrictSerializableRW.TransactionSettings();
 
-        Assert.Equal(Ydb.Query.TransactionSettings.TxModeOneofCase.StrictSerializableReadWrite, settings.TxModeCase);
+        Assert.Equal(Query.TransactionSettings.TxModeOneofCase.StrictSerializableReadWrite, settings.TxModeCase);
         Assert.NotNull(settings.StrictSerializableReadWrite);
         Assert.Equal(System.Data.IsolationLevel.Serializable,
             new YdbTransaction(new YdbConnection(), TransactionMode.StrictSerializableRW).IsolationLevel);
