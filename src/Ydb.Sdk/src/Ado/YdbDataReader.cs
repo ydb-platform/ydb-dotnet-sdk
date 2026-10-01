@@ -946,9 +946,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 throw YdbException.FromServer(part.Status, _issueMessagesInStream);
             }
 
-            // Only the final part without a result set can supply the commit timestamp.
-            // Keep it private until the stream ends successfully.
-            _lastPartCommitTimestamp = part.ResultSet is null ? part.CommitTimestamp : null;
+            // Keep the latest part's timestamp private until the stream ends successfully.
+            // A final part may contain both a result set and a commit timestamp.
+            _lastPartCommitTimestamp = part.CommitTimestamp;
 
             _currentResultSet = part.ResultSet;
             ReaderMetadata = _currentResultSet != null ? new Metadata(_currentResultSet) : EmptyMetadata.Instance;

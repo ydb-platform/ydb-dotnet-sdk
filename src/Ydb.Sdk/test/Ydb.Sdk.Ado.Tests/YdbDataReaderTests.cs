@@ -32,6 +32,38 @@ public class YdbDataReaderTests : TestBase
         await reader.CloseAsync();
     }
 
+    [Fact]
+    public async Task CommitTimestamp_IsAvailableWhenFinalPartAlsoContainsResultSet()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+        connection.EnableAutoCommit();
+        var resultSet = ResultSet.Parser.ParseJson("""
+            {"columns":[{"name":"value","type":{"typeId":"BOOL"}}],
+             "rows":[{"items":[{"boolValue":true}]}]}
+            """);
+        var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+        [
+            new()
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = resultSet,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 15, TxId = ulong.MaxValue }
+            }
+        ]), connection);
+
+        Assert.Null(reader.CommitTimestamp);
+        Assert.True(await reader.ReadAsync());
+        Assert.True(reader.GetBoolean(0));
+        Assert.Null(reader.CommitTimestamp);
+
+        Assert.False(await reader.ReadAsync());
+        Assert.Equal((ulong)15, reader.CommitTimestamp!.PlanStep);
+        Assert.Equal(ulong.MaxValue, reader.CommitTimestamp.TxId);
+        Assert.Same(reader.CommitTimestamp, transaction.CommitTimestamp);
+        await reader.CloseAsync();
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
