@@ -208,10 +208,9 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                     await _sendInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token).ConfigureAwait(false);
                     try
                     {
-                        var session = _session;
-                        if (session.IsActive)
+                        if (_session.IsActive)
                         {
-                            await session.Write(_toSendBuffer).ConfigureAwait(false);
+                            await _session.Write(_toSendBuffer).ConfigureAwait(false);
                         }
                     }
                     finally
