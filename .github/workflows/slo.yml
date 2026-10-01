@@ -100,6 +100,12 @@ jobs:
             --context "$GITHUB_WORKSPACE/current" \
             --workload "${{ matrix.workload.name }}"
 
+      - name: Use the same V3 harness for baseline SDK
+        run: |
+          rm -rf baseline/slo
+          cp -R current/slo baseline/slo
+          cp current/.github/scripts/build-slo-image.sh baseline/.github/scripts/build-slo-image.sh
+
       - name: Build baseline workload image
         run: |
           set -euxo pipefail
@@ -111,7 +117,7 @@ jobs:
             --workload "${{ matrix.workload.name }}"
 
       - name: Run YDB SLO
-        uses: ydb-platform/ydb-slo-action/init@v2
+        uses: ydb-platform/ydb-slo-action/init@v3
         timeout-minutes: 30
         with:
           github_issue: ${{ github.event.inputs.github_issue }}
@@ -124,13 +130,28 @@ jobs:
             run "Host=ydb;Port=2136;Database=/Root/testdb"
             --read-rps ${{ inputs.slo_workload_read_max_rps || '1000' }}
             --write-rps ${{ inputs.slo_workload_write_max_rps || '100' }}
-            --read-timeout 1000
-            --write-timeout 1000
+            --read-timeout 10
+            --write-timeout 10
           workload_baseline_ref: ${{ steps.baseline.outputs.ref }}
           workload_baseline_image: ydb-app-baseline
           workload_baseline_command: >-
             run "Host=ydb;Port=2136;Database=/Root/testdb"
             --read-rps ${{ inputs.slo_workload_read_max_rps || '1000' }}
             --write-rps ${{ inputs.slo_workload_write_max_rps || '100' }}
-            --read-timeout 1000
-            --write-timeout 1000
+            --read-timeout 10
+            --write-timeout 10
+
+  report:
+    name: Table SLO graphs
+    needs: ydb-slo-action
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: ydb-platform/ydb-slo-action/report@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_run_id: ${{ github.run_id }}
+          post_comment: false

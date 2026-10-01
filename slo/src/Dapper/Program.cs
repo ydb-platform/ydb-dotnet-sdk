@@ -1,4 +1,4 @@
-﻿using AdoNet.Dapper;
+using AdoNet.Dapper;
 using Internal;
 
-await Cli.Run(new SloTableContext(), args);
+return await Cli.Run(new SloTableContext(), args);

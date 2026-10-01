@@ -12,7 +12,9 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
     protected override string Job => "EF";
 
     protected override PooledDbContextFactory<TableDbContext> CreateClient(SloConfig config) =>
-        new(new DbContextOptionsBuilder<TableDbContext>().UseYdb(config.ConnectionString,
+        new(new DbContextOptionsBuilder<TableDbContext>().UseYdb(
+            new YdbConnectionStringBuilder(config.ConnectionString)
+                { PoolName = Job, MinPoolSize = 0, MaxPoolSize = 20 }.ToString(),
             builder => builder.EnableRetryIdempotence()).Options);
 
     protected override async Task Create(
@@ -21,6 +23,7 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
     )
     {
         await using var dbContext = await client.CreateDbContextAsync();
+        dbContext.Database.SetCommandTimeout(operationTimeout);
         await dbContext.Database.ExecuteSqlRawAsync(
             $"""
              CREATE TABLE IF NOT EXISTS `{SloTable.Name}` (
@@ -45,7 +48,8 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
         var executeStrategy = context.Database.CreateExecutionStrategy();
         await executeStrategy.ExecuteAsync(async () =>
         {
-            var dbContext = await client.CreateDbContextAsync();
+            await using var dbContext = await client.CreateDbContextAsync();
+            dbContext.Database.SetCommandTimeout(writeTimeout);
 
             return await dbContext.Database.ExecuteSqlRawAsync(
                 $"UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp) " +
@@ -85,13 +89,14 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
         return 0;
     }
 
-    protected override async Task<object?> Select(
+    protected override async Task<SloTable?> Select(
         PooledDbContextFactory<TableDbContext> client,
         (Guid Guid, int Id) select,
         int readTimeout
     )
     {
         await using var dbContext = await client.CreateDbContextAsync();
+        dbContext.Database.SetCommandTimeout(readTimeout);
         return await dbContext.SloEntities.FirstOrDefaultAsync(table =>
             table.Guid == select.Guid && table.Id == select.Id);
     }
