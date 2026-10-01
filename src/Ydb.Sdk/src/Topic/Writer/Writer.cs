@@ -59,6 +59,9 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
 
     long IWriterMetricsSource.BufferLimit => _config.BufferMaxSize;
 
+    long IWriterMetricsSource.OldestMessageTimestamp =>
+        _inFlightMessages.TryPeek(out var message) ? message.SendTimestamp : 0;
+
     public Task<WriteResult> WriteAsync(TValue data, CancellationToken cancellationToken) =>
         WriteAsync(new Message<TValue>(data), cancellationToken);
 
@@ -96,6 +99,7 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                 { Key = metadata.Key, Value = ByteString.CopyFrom(metadata.Value) });
         }
 
+        long bufferWaitTimestamp = 0;
         while (true)
         {
             var curLimitBufferSize = _limitBufferMaxSize;
@@ -112,6 +116,7 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                     );
                     _metrics.ReportSending();
                     _metrics.ReportSendingBytes(data.Length);
+                    _metrics.ReportBufferWaitDuration(bufferWaitTimestamp);
                     WakeUpWorker();
 
                     break;
@@ -127,6 +132,11 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
 
             try
             {
+                if (bufferWaitTimestamp == 0)
+                {
+                    bufferWaitTimestamp = WriterMetricsReporter.ReportBufferWaitStart();
+                }
+
                 await WaitBufferAvailable(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -328,6 +338,7 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                             sendData.MessageData.SeqNo, lastSeqNo);
 
                         _metrics.ReportWritten();
+                        _metrics.ReportMessageAckDuration(sendData.SendTimestamp);
                         sendData.Tcs.TrySetResult(WriteResult.Skipped);
 
                         continue;
@@ -358,7 +369,14 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                         .ConfigureAwait(false); // retry prev in flight messages    
                 }
 
-                _session = newSession;
+                Interlocked.Exchange(ref _session, newSession);
+                if (_disposeCts.IsCancellationRequested)
+                {
+                    await Interlocked.Exchange(ref _session, DummyWriterSession.Instance)
+                        .DisposeAsync().ConfigureAwait(false);
+                    return;
+                }
+
                 WakeUpWorker(); // attempt send buffer     
             }
             finally
@@ -416,7 +434,8 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
 
         try
         {
-            await _session.DisposeAsync().ConfigureAwait(false);
+            await Interlocked.Exchange(ref _session, DummyWriterSession.Instance)
+                .DisposeAsync().ConfigureAwait(false);
             if (_driver != null)
             {
                 await _driver.DisposeAsync().ConfigureAwait(false);
@@ -435,7 +454,10 @@ internal record MessageSending(
     MessageData MessageData,
     TaskCompletionSource<WriteResult> Tcs,
     CancellationTokenRegistration DisposedCtr
-);
+)
+{
+    internal long SendTimestamp { get; } = WriterMetricsReporter.ReportMessageSendStart();
+}
 
 internal interface IWriteSession : IAsyncDisposable
 {
@@ -634,6 +656,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                             {
                                 var writeResult = new WriteResult(ack);
                                 _metrics.ReportWritten();
+                                _metrics.ReportMessageAckDuration(messageFromClient.SendTimestamp);
                                 messageFromClient.Tcs.TrySetResult(writeResult);
                             }
 

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Ydb.Sdk.Internal;
 
@@ -8,6 +9,8 @@ internal interface IWriterMetricsSource
     long BufferUsed { get; }
 
     long BufferLimit { get; }
+
+    long OldestMessageTimestamp { get; }
 }
 
 internal sealed class WriterMetricsReporter : IDisposable
@@ -19,6 +22,9 @@ internal sealed class WriterMetricsReporter : IDisposable
     private static readonly Counter<long> SendingMessages;
     private static readonly Counter<long> SendingBytes;
     private static readonly Counter<long> SessionErrors;
+    private static readonly Histogram<double> MessageAckDuration;
+    private static readonly ObservableGauge<double> SendingOldestAge;
+    private static readonly Histogram<double> BufferWaitDuration;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IWriterMetricsSource _writerMetricsSource;
@@ -48,6 +54,23 @@ internal sealed class WriterMetricsReporter : IDisposable
             unit: "By", description: "The occupied budget of the writer buffer limiter.");
         meter.CreateObservableGauge("ydb.topic.writer.buffer.limit.bytes", ObserveBufferLimit,
             unit: "By", description: "The configured limit of the writer buffer limiter.");
+        SendingOldestAge = meter.CreateObservableGauge(
+            "ydb.topic.writer.sending.oldest_age",
+            ObserveSendingOldestAge,
+            unit: "s",
+            description: "The age of the oldest message in the writer's in-flight buffer.");
+        MessageAckDuration = meter.CreateHistogram(
+            "ydb.topic.writer.message.ack.duration",
+            unit: "s",
+            description: "Time from accepting a message into the send buffer to its server acknowledgement.",
+            advice: new InstrumentAdvice<double>
+                { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] });
+        BufferWaitDuration = meter.CreateHistogram(
+            "ydb.topic.writer.buffer.wait.duration",
+            unit: "s",
+            description: "Time waiting for buffer capacity before a message is accepted.",
+            advice: new InstrumentAdvice<double>
+                { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] });
     }
 
     internal WriterMetricsReporter(string endpoint, string database, string topic, string writerName,
@@ -82,6 +105,32 @@ internal sealed class WriterMetricsReporter : IDisposable
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
 
+    internal static long ReportMessageSendStart() =>
+        MessageAckDuration.Enabled || SendingOldestAge.Enabled ? Stopwatch.GetTimestamp() : 0;
+
+    internal static long ReportBufferWaitStart() =>
+        BufferWaitDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
+
+    internal void ReportMessageAckDuration(long startTimestamp)
+    {
+        if (startTimestamp == 0)
+        {
+            return;
+        }
+
+        MessageAckDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _commonTags);
+    }
+
+    internal void ReportBufferWaitDuration(long startTimestamp)
+    {
+        if (startTimestamp == 0)
+        {
+            return;
+        }
+
+        BufferWaitDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _commonTags);
+    }
+
     public void Dispose()
     {
         lock (Reporters)
@@ -112,6 +161,20 @@ internal sealed class WriterMetricsReporter : IDisposable
                 .Select(reporter =>
                     new Measurement<long>(reporter._writerMetricsSource.BufferLimit, reporter._commonTags))
                 .ToArray();
+        }
+    }
+
+    private static IEnumerable<Measurement<double>> ObserveSendingOldestAge()
+    {
+        lock (Reporters)
+        {
+            return Reporters.Select(reporter =>
+            {
+                var timestamp = reporter._writerMetricsSource.OldestMessageTimestamp;
+                return new Measurement<double>(
+                    timestamp == 0 ? 0 : Stopwatch.GetElapsedTime(timestamp).TotalSeconds,
+                    reporter._commonTags);
+            }).ToArray();
         }
     }
 }

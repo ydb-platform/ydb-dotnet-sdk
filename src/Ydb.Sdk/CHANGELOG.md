@@ -3,8 +3,11 @@
   `Ydb.VirtualTimestamp` through `YdbCommitTimestamp.Value` and can be compared within one
   connection opening.
 
+## v0.36.0
+
 - Fix Topic Reader: do not send redundant commit requests for already committed offsets or closed partition sessions.
 - Fix Topic Reader: close a session that finishes initialization after the reader has been disposed.
+- Fix Topic Writer: close a session that finishes initialization after the writer has been disposed.
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
   `ydb-sdk-metrics/0.1.0` to `ydb-sdk-metrics/0.2.0`.
 - Feat Topic Reader metrics: added the following instruments to the `Ydb.Sdk.Topic` meter. Metric names below omit the
@@ -33,9 +36,12 @@
   |----------------------|-----------------|-------------|-----------------------|-----------------------------------------------------|
   | `sending.messages`   | Counter         | `{message}` | —                     | Messages accepted into the Writer's send buffer    |
   | `sending.bytes`      | Counter         | `By`        | —                     | Uncompressed body bytes accepted into the buffer   |
+  | `sending.oldest_age` | ObservableGauge | `s`         | —                     | Age of the oldest message in the in-flight buffer   |
   | `written.messages`   | Counter         | `{message}` | —                     | Messages confirmed by an ACK or recovered sequence |
   | `buffer.used.bytes`  | ObservableGauge | `By`        | —                     | Occupied budget of the Writer buffer limiter       |
   | `buffer.limit.bytes` | ObservableGauge | `By`        | —                     | Configured limit of the Writer buffer limiter      |
+  | `buffer.wait.duration` | Histogram     | `s`         | —                     | Capacity wait ending in successful buffer acceptance |
+  | `message.ack.duration` | Histogram     | `s`         | —                     | Time from entering SDK send buffer to server ACK   |
 
   These metrics have `endpoint`, `database`, `topic`, and `writer.name`. `WriterBuilder.WriterName` supplies a stable
   name; when it is null, the SDK generates a process-local `writer-N` name.
@@ -43,6 +49,18 @@
   retries do not increment it.
   `sending.bytes` counts the uncompressed message body without metadata at the same acceptance point; retries do not
   increment it again.
+  `sending.oldest_age` reports the age of the first message in the in-flight buffer using its original creation
+  timestamp. Messages still waiting in the send queue are not included.
+  An empty in-flight buffer reports zero; a disposed writer no longer contributes a series.
+  Send timestamps are captured only when `message.ack.duration` or `sending.oldest_age` is enabled at message creation.
+  `buffer.wait.duration` records one measurement from the first timestamped capacity wait through successful buffer
+  acceptance, including repeated wakeups. Immediate acceptance and canceled or unfinished waits do not record a
+  measurement. Wait timestamps are captured only when this histogram is enabled.
+  Its bucket boundaries are `0.001`, `0.005`, `0.01`, `0.05`, `0.1`, `0.5`, `1`, `5`, and `10` seconds.
+  `message.ack.duration` measures from message creation at send-buffer acceptance to acknowledgement, including
+  waiting for the first send, retries and reconnect
+  confirmation through a recovered sequence number. Histogram bucket boundaries are
+  `0.001`, `0.005`, `0.01`, `0.05`, `0.1`, `0.5`, `1`, `5`, and `10` seconds.
 
 - Added `StatusCode.ClientCancelled` to represent a client closing an unfinished query stream.
 - Supported `ydb.query.session.closed` reasons:
