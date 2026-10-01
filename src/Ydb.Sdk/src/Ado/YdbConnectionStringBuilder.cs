@@ -1,6 +1,8 @@
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -25,6 +27,9 @@ namespace Ydb.Sdk.Ado;
 /// </remarks>
 public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDriverFactory
 {
+    private static readonly ConditionalWeakTable<ICredentialsProvider, string> CredentialsProviderIds = new();
+    private static long _credentialsProviderId;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="YdbConnectionStringBuilder"/> class.
     /// </summary>
@@ -773,10 +778,11 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     }
 
     /// <summary>
-    /// Session-pool key. Includes <see cref="ClientInfo"/> and <see cref="Proxy"/> identity when set
+    /// Session-pool key. Includes <see cref="ClientInfo"/>, <see cref="Proxy"/> and credentials-provider identity when set
     /// so builders that differ only by code-only options do not share a pool.
     /// </summary>
-    internal string PoolKey => ConnectionString + ClientInfoKeyFragment + ProxyKeyFragment;
+    internal string PoolKey =>
+        ConnectionString + ClientInfoKeyFragment + ProxyKeyFragment + CredentialsProviderKeyFragment;
 
     internal string Endpoint => $"{Host}:{Port}";
 
@@ -790,9 +796,15 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
         $"EnableMultipleHttp2Connections={EnableMultipleHttp2Connections};MaxSendMessageSize={MaxSendMessageSize};" +
         $"MaxReceiveMessageSize={MaxReceiveMessageSize};DisableDiscovery={DisableDiscovery};" +
         $"ServiceAccountKeyFilePath={ServiceAccountKeyFilePath};EnableMetadataCredentials={EnableMetadataCredentials};" +
-        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing}" + ClientInfoKeyFragment + ProxyKeyFragment;
+        $"EnablePreferNearestDcBalancing={EnablePreferNearestDcBalancing}" + ClientInfoKeyFragment + ProxyKeyFragment +
+        CredentialsProviderKeyFragment;
 
     private string ClientInfoKeyFragment => ClientInfo is null ? string.Empty : $";ClientInfo={ClientInfo}";
+
+    private string CredentialsProviderKeyFragment => CredentialsProvider is null
+        ? string.Empty
+        : ";CredentialsProvider=" + CredentialsProviderIds.GetValue(CredentialsProvider,
+            static _ => Interlocked.Increment(ref _credentialsProviderId).ToString(CultureInfo.InvariantCulture));
 
     /// <summary>
     /// Stable cache-key fragment for <see cref="Proxy"/> (address + username, never password).

@@ -9,6 +9,41 @@ public class YdbConnectionStringBuilderTests
     private const int MessageSize = 64 * 1024 * 1024;
 
     [Fact]
+    public void CredentialsProvider_WhenDifferentInstances_ProduceDifferentCacheKeys()
+    {
+        const string connectionString = "Host=server;Port=2135;Database=/my/path";
+        var anonymous = new YdbConnectionStringBuilder(connectionString);
+        var first = new YdbConnectionStringBuilder(connectionString)
+        {
+            CredentialsProvider = new TokenProvider("same-token")
+        };
+        var second = new YdbConnectionStringBuilder(connectionString)
+        {
+            CredentialsProvider = new TokenProvider("same-token")
+        };
+
+        Assert.NotEqual(anonymous.PoolKey, first.PoolKey);
+        Assert.NotEqual(first.PoolKey, second.PoolKey);
+        Assert.NotEqual(((IDriverFactory)anonymous).GrpcConnectionString, ((IDriverFactory)first).GrpcConnectionString);
+        Assert.NotEqual(((IDriverFactory)first).GrpcConnectionString, ((IDriverFactory)second).GrpcConnectionString);
+        Assert.Equal(connectionString, first.ConnectionString);
+        Assert.DoesNotContain("same-token", first.PoolKey);
+        Assert.DoesNotContain("same-token", ((IDriverFactory)first).GrpcConnectionString);
+    }
+
+    [Fact]
+    public void CredentialsProvider_WhenSameInstance_ProducesSameCacheKeys()
+    {
+        const string connectionString = "Host=server;Port=2135;Database=/my/path";
+        var provider = new TokenProvider("same-token");
+        var first = new YdbConnectionStringBuilder(connectionString) { CredentialsProvider = provider };
+        var second = new YdbConnectionStringBuilder(connectionString) { CredentialsProvider = provider };
+
+        Assert.Equal(first.PoolKey, second.PoolKey);
+        Assert.Equal(((IDriverFactory)first).GrpcConnectionString, ((IDriverFactory)second).GrpcConnectionString);
+    }
+
+    [Fact]
     public void InitDefaultValues_WhenEmptyConstructorInvoke_ReturnDefaultConnectionString()
     {
         var ydbConnectionStringBuilder = new YdbConnectionStringBuilder();
