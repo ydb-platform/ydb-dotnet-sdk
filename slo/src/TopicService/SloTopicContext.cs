@@ -28,14 +28,48 @@ public class SloTopicContext : ISloContext
     public async Task Run(SloConfig config)
     {
         var runId = Guid.NewGuid().ToString("N");
+        var checks = new List<SloCheck>();
+        using var lifetime = new CancellationTokenSource();
+        try
+        {
+            if (config.CompletionTimeout <= 0)
+                throw new ArgumentException("SLO completion timeout must be positive");
+            lifetime.CancelAfter(TimeSpan.FromSeconds(config.CompletionTimeout));
+            // SDK construction and disposal belong to this process deadline, not the result writer.
+            checks = await Task.Run(() => RunWorkload(config, runId, lifetime.Token))
+                .WaitAsync(lifetime.Token);
+        }
+        catch (Exception error)
+        {
+            var detail = lifetime.IsCancellationRequested
+                ? $"Completion deadline expired after {config.CompletionTimeout}s"
+                : error.Message;
+            checks.Add(new SloCheck("P01", "FAIL", detail));
+            checks.Add(new SloCheck("P02", "FAIL", detail));
+            checks.Add(new SloCheck("P03", "FAIL", detail));
+            throw;
+        }
+        finally
+        {
+            await SloResult.WriteAsync(runId, "topic", checks,
+            [
+                new SloOperationCount("write", _acked.Sum(), Interlocked.Read(ref _writeErrors)),
+                new SloOperationCount("read", _delivered.Sum(),
+                    Interlocked.Read(ref _readErrors) + Interlocked.Read(ref _commitErrors))
+            ]);
+        }
+    }
+
+    private async Task<List<SloCheck>> RunWorkload(SloConfig config, string runId, CancellationToken lifetime)
+    {
         using var telemetry = SloTelemetry.Create(config, "TopicService", runId);
         var connection = new YdbConnectionStringBuilder(config.ConnectionString)
             { LoggerFactory = ISloContext.Factory, PoolName = "TopicService" };
         var path = $"{connection.Database.TrimEnd('/')}/slo-v3-topic-{runId}";
         const string consumer = "slo-v3-reader";
         await using var topicClient = new TopicClient(connection);
-        using var writerStop = new CancellationTokenSource();
-        using var readerStop = new CancellationTokenSource();
+        using var writerStop = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
+        using var readerStop = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
         var checks = new List<SloCheck>();
         var readers = Array.Empty<Task>();
         var created = false;
@@ -82,23 +116,28 @@ public class SloTopicContext : ISloContext
                 }.Build();
                 while (!writerStop.IsCancellationRequested)
                 {
+                    RateLimitLease lease;
                     try
                     {
-                        using var lease = await limiter.AcquireAsync(cancellationToken: writerStop.Token);
-                        if (!lease.IsAcquired) continue;
-                        var sequence = Volatile.Read(ref _acked[partition]) + 1;
-                        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(config.WriteTimeout));
-                        await writer.WriteAsync($"{runId}:{partition}:{sequence}", deadline.Token);
-                        Volatile.Write(ref _acked[partition], sequence);
+                        lease = await limiter.AcquireAsync(cancellationToken: writerStop.Token);
                     }
                     catch (OperationCanceledException) when (writerStop.IsCancellationRequested)
                     {
                         break;
                     }
+                    using var acquiredLease = lease;
+                    if (!lease.IsAcquired) continue;
+                    try
+                    {
+                        var sequence = Volatile.Read(ref _acked[partition]) + 1;
+                        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(config.WriteTimeout));
+                        await writer.WriteAsync($"{runId}:{partition}:{sequence}", deadline.Token);
+                        Volatile.Write(ref _acked[partition], sequence);
+                    }
                     catch (OperationCanceledException error)
                     {
                         Interlocked.Increment(ref _writeErrors);
-                        Logger.LogWarning(error, "Write ACK deadline expired; sequence will be retried");
+                        Logger.LogWarning(error, "Write ACK deadline expired");
                     }
                     catch
                     {
@@ -110,13 +149,10 @@ public class SloTopicContext : ISloContext
                 }
             }
         }
-        catch (Exception error)
+        catch
         {
             await writerStop.CancelAsync();
             await readerStop.CancelAsync();
-            checks.Add(new SloCheck("P01", "FAIL", error.Message));
-            checks.Add(new SloCheck("P02", "FAIL", error.Message));
-            checks.Add(new SloCheck("P03", "FAIL", error.Message));
             throw;
         }
         finally
@@ -125,13 +161,9 @@ public class SloTopicContext : ISloContext
             try { await Task.WhenAll(readers); }
             catch (Exception error) { Logger.LogError(error, "Reader failed during shutdown"); }
             telemetry?.ForceFlush();
-            await SloResult.WriteAsync(runId, "topic", checks,
-            [
-                new SloOperationCount("write", _acked.Sum(), _writeErrors),
-                new SloOperationCount("read", _delivered.Sum(), _readErrors + _commitErrors)
-            ]);
             if (created) await topicClient.DropTopic(path);
         }
+        return checks;
 
         async Task Read(int readerIndex)
         {

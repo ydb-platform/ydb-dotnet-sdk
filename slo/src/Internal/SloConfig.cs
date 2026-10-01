@@ -9,5 +9,6 @@ public record SloConfig(
     int WriteRps,
     int WriteTimeout,
     int Time,
-    int InitialDataCount
+    int InitialDataCount,
+    int CompletionTimeout
 );
