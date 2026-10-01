@@ -2,14 +2,13 @@ using System.Text;
 using System.Threading.Channels;
 using Grpc.Core;
 using Moq;
-using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Xunit;
 using Ydb.Sdk.Ado;
-using Ydb.Sdk.OpenTelemetry;
 using Ydb.Sdk.Topic.Reader;
 using Ydb.Topic;
 using static Ydb.Sdk.Topic.Tests.ReaderTestUtils;
+using static Ydb.Sdk.Topic.Tests.TopicMetricsTestUtils;
 
 namespace Ydb.Sdk.Topic.Tests;
 
@@ -17,10 +16,11 @@ using ReaderStream = IBidirectionalStream<StreamReadMessage.Types.FromClient, St
 using FromClient = StreamReadMessage.Types.FromClient;
 using FromServer = StreamReadMessage.Types.FromServer;
 
+[Collection("Topic metrics")]
 public class ReaderMetricsReporterTests
 {
     [Fact]
-    public async Task CreditBalance_TracksOutstandingStreamCredit()
+    public async Task ReaderMetrics_TrackCreditAndReceivedBytesAcrossReconnect()
     {
         const string readerName = "credit-balance-reader";
         const string metricName = "ydb.topic.reader.credit_balance_bytes";
@@ -73,6 +73,13 @@ public class ReaderMetricsReporterTests
         Assert.Equal(950, point.GetGaugeLastValueLong());
         AssertTags(point, "credit-balance-consumer", readerName);
 
+        var receivedBytes = GetMetric(exportedItems, "ydb.topic.reader.received.bytes");
+        Assert.Equal(MetricType.LongSum, receivedBytes.MetricType);
+        Assert.Equal("By", receivedBytes.Unit);
+        var receivedPoint = Assert.Single(GetReaderPoints(exportedItems, receivedBytes.Name, readerName));
+        Assert.Equal(50, receivedPoint.GetSumLong());
+        AssertTags(receivedPoint, "credit-balance-consumer", readerName);
+
         closed.TrySetResult(false);
         await reconnected.Task.WaitAsync(TimeSpan.FromSeconds(5));
         exportedItems.Clear();
@@ -86,47 +93,6 @@ public class ReaderMetricsReporterTests
         using var afterDisposeMeterProvider = CreateMeterProvider(afterDisposeItems);
         afterDisposeMeterProvider.ForceFlush();
         Assert.Empty(GetReaderPoints(afterDisposeItems, metricName, readerName));
-    }
-
-    [Fact]
-    public async Task ReceivedBytes_RecordsResponseSize()
-    {
-        const string readerName = "received-bytes-reader";
-        const string metricName = "ydb.topic.reader.received.bytes";
-        var exportedItems = new List<Metric>();
-        using var meterProvider = CreateMeterProvider(exportedItems);
-        var mockStream = new Mock<ReaderStream>();
-        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        mockStream.SetupSequence(stream => stream.MoveNextAsync())
-            .ReturnsAsync(true)
-            .ReturnsAsync(true)
-            .ReturnsAsync(true)
-            .Returns(closed.Task);
-        mockStream.SetupSequence(stream => stream.Current)
-            .Returns(InitResponse)
-            .Returns(StartPartitionSessionRequest())
-            .Returns(ReadResponse("message"u8.ToArray()));
-        mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
-        mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
-        {
-            closed.TrySetResult(false);
-            return Task.CompletedTask;
-        });
-        await using var reader = new ReaderBuilder<string>(CreateDriverFactory(mockStream, readerName))
-        {
-            ReaderName = readerName,
-            ConsumerName = "received-bytes-consumer",
-            SubscribeSettings = { new SubscribeSettings("/topic") }
-        }.Build();
-
-        await reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-        meterProvider.ForceFlush();
-        var metric = GetMetric(exportedItems, metricName);
-        Assert.Equal(MetricType.LongSum, metric.MetricType);
-        Assert.Equal("By", metric.Unit);
-        var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
-        Assert.Equal(50, point.GetSumLong());
-        AssertTags(point, "received-bytes-consumer", readerName);
     }
 
     [Fact]
@@ -601,12 +567,6 @@ public class ReaderMetricsReporterTests
         }
     }
 
-    private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
-        global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
-            .AddYdbTopic()
-            .AddInMemoryExporter(exportedItems)
-            .Build();
-
     private static void AssertGeneratedReaderName(string readerName)
     {
         const string prefix = "reader-";
@@ -660,26 +620,8 @@ public class ReaderMetricsReporterTests
     private static IEnumerable<MetricPoint> GetReaderPoints(
         List<Metric> exportedItems,
         string metricName,
-        string readerName)
-    {
-        foreach (var point in exportedItems
-                     .Where(metric => metric.Name == metricName)
-                     .SelectMany(EnumeratePoints))
-        {
-            if (ToDictionary(point.Tags).GetValueOrDefault("reader.name") as string == readerName)
-            {
-                yield return point;
-            }
-        }
-    }
-
-    private static IEnumerable<MetricPoint> EnumeratePoints(Metric metric)
-    {
-        foreach (var point in metric.GetMetricPoints())
-        {
-            yield return point;
-        }
-    }
+        string readerName) =>
+        GetPoints(exportedItems, metricName, "reader.name", readerName);
 
     private static void AssertTags(
         MetricPoint point,
@@ -697,16 +639,5 @@ public class ReaderMetricsReporterTests
         {
             Assert.Equal(topic, tags["topic"]);
         }
-    }
-
-    private static Dictionary<string, object?> ToDictionary(ReadOnlyTagCollection tags)
-    {
-        var dictionary = new Dictionary<string, object?>();
-        foreach (var tag in tags)
-        {
-            dictionary[tag.Key] = tag.Value;
-        }
-
-        return dictionary;
     }
 }
