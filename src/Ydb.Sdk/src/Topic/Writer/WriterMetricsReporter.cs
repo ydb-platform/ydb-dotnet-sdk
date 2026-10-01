@@ -23,6 +23,7 @@ internal sealed class WriterMetricsReporter : IDisposable
     private static readonly Counter<long> SendingBytes;
     private static readonly Counter<long> SessionErrors;
     private static readonly Histogram<double> MessageAckDuration;
+    private static readonly ObservableGauge<double> SendingOldestAge;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IWriterMetricsSource _writerMetricsSource;
@@ -52,7 +53,7 @@ internal sealed class WriterMetricsReporter : IDisposable
             unit: "By", description: "The occupied budget of the writer buffer limiter.");
         meter.CreateObservableGauge("ydb.topic.writer.buffer.limit.bytes", ObserveBufferLimit,
             unit: "By", description: "The configured limit of the writer buffer limiter.");
-        meter.CreateObservableGauge(
+        SendingOldestAge = meter.CreateObservableGauge(
             "ydb.topic.writer.sending.oldest_age",
             ObserveSendingOldestAge,
             unit: "s",
@@ -96,6 +97,9 @@ internal sealed class WriterMetricsReporter : IDisposable
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
+
+    internal static long ReportMessageSendStart() =>
+        MessageAckDuration.Enabled || SendingOldestAge.Enabled ? Stopwatch.GetTimestamp() : 0;
 
     internal void ReportMessageAckDuration(long startTimestamp)
     {

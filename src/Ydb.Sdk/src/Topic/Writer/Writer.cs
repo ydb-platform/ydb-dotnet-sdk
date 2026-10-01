@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -442,7 +441,7 @@ internal record MessageSending(
     CancellationTokenRegistration DisposedCtr
 )
 {
-    internal long SendTimestamp { get; } = Stopwatch.GetTimestamp();
+    internal long SendTimestamp { get; } = WriterMetricsReporter.ReportMessageSendStart();
 }
 
 internal interface IWriteSession : IAsyncDisposable

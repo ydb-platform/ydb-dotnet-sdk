@@ -43,6 +43,7 @@
   `sending.oldest_age` reports the age of the first message in the in-flight buffer using its original creation
   timestamp. Messages still waiting in the send queue are not included.
   An empty in-flight buffer reports zero; a disposed writer no longer contributes a series.
+  Send timestamps are captured only when `message.ack.duration` or `sending.oldest_age` is enabled at message creation.
   `message.ack.duration` measures from message creation at send-buffer acceptance to acknowledgement, including
   waiting for the first send, retries and reconnect
   confirmation through a recovered sequence number. Histogram bucket boundaries are

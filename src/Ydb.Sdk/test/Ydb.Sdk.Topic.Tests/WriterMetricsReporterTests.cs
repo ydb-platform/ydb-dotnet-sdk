@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using Grpc.Core;
 using Moq;
 using OpenTelemetry.Metrics;
@@ -11,6 +12,9 @@ namespace Ydb.Sdk.Topic.Tests;
 
 using WriterStream = IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>;
 using FromClient = StreamWriteMessage.Types.FromClient;
+
+[CollectionDefinition("Topic metrics", DisableParallelization = true)]
+public class TopicMetricsCollection;
 
 [Collection("Topic metrics")]
 public class WriterMetricsReporterTests
@@ -188,17 +192,28 @@ public class WriterMetricsReporterTests
         }
     }
 
-    [Fact]
-    public void SendingOldestAge_ReportsMessagesAcceptedBeforeSubscription()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void MessageSendTimestamp_IsCapturedWhenEitherMetricIsEnabled(bool ackEnabled, bool oldestAgeEnabled)
     {
-        const string topic = "/writer-late-subscription";
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Meter.Name == "Ydb.Sdk.Topic" &&
+                ((ackEnabled && instrument.Name == "ydb.topic.writer.message.ack.duration") ||
+                 (oldestAgeEnabled && instrument.Name == "ydb.topic.writer.sending.oldest_age")))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.Start();
         var message = new MessageSending(
             new StreamWriteMessage.Types.WriteRequest.Types.MessageData(),
             new TaskCompletionSource<WriteResult>(), default);
-        using var metrics = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer",
-            new BufferMetricsSource { OldestMessageTimestamp = message.SendTimestamp });
-
-        Assert.True(CollectOldestAge(topic) is > 0);
+        Assert.Equal(ackEnabled || oldestAgeEnabled, message.SendTimestamp != 0);
     }
 
     [Fact]
@@ -206,6 +221,7 @@ public class WriterMetricsReporterTests
     {
         const string topic = "/writer-buffer-used";
         const string metricName = "ydb.topic.writer.buffer.used.bytes";
+        using var subscription = CreateMeterProvider([]);
 
         var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var ageAtFirstSend = 0d;
