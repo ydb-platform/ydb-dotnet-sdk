@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Grpc.Core;
+using Microsoft.Extensions.Logging;
 using Moq;
 using OpenTelemetry.Metrics;
 using Xunit;
@@ -351,6 +352,7 @@ public class WriterMetricsReporterTests
         await Assert.ThrowsAsync<WriterException>(() => accepted);
         Assert.Null(CollectOldestAge(topic));
         Assert.True(meterProvider.ForceFlush());
+        Assert.Empty(GetPoints(exportedItems, "ydb.topic.writer.buffer.wait.duration", topic));
         var metric = GetMetric(exportedItems, "ydb.topic.writer.sending.messages");
         Assert.Equal(MetricType.LongSum, metric.MetricType);
         Assert.Equal("{message}", metric.Unit);
@@ -368,6 +370,151 @@ public class WriterMetricsReporterTests
         Assert.Equal(1, bytesPoint.GetSumLong());
         Assert.Equal(4, bytesTags.Count);
         AssertCommonTags(bytesTags, topic);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BufferWaitTimestamp_IsCapturedOnlyWhenEnabled(bool enabled)
+    {
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (enabled && instrument.Meter.Name == "Ydb.Sdk.Topic" &&
+                instrument.Name == "ydb.topic.writer.buffer.wait.duration")
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.Start();
+        Assert.Equal(enabled, WriterMetricsReporter.ReportBufferWaitStart() != 0);
+    }
+
+    [Fact]
+    public async Task BufferWaitDuration_ReportsOnceAfterRepeatedWakeups()
+    {
+        const string topic = "/writer-buffer-wait";
+        const string metricName = "ydb.topic.writer.buffer.wait.duration";
+        var exportedItems = new List<Metric>();
+        using var provider = CreateMeterProvider(exportedItems);
+        var firstTwoSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thirdSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitingAgain = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstAck = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondAck = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thirdAck = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var logger = new Mock<ILogger>();
+        var waits = 0;
+        logger.Setup(instance => instance.Log(
+                LogLevel.Warning, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception?>(), It.IsAny<Func<It.IsAnyType, Exception?, string>>()))
+            .Callback(new InvocationAction(_ =>
+            {
+                if (Interlocked.Increment(ref waits) == 2)
+                {
+                    waitingAgain.TrySetResult();
+                }
+            }));
+        var loggerFactory = new Mock<ILoggerFactory>();
+        loggerFactory.Setup(instance => instance.CreateLogger(It.IsAny<string>())).Returns(logger.Object);
+        var stream = new Mock<WriterStream>();
+        stream.Setup(instance => instance.Write(It.IsAny<FromClient>()))
+            .Callback<FromClient>(request =>
+            {
+                var seqNo = request.WriteRequest?.Messages.LastOrDefault()?.SeqNo;
+                if (seqNo >= 2)
+                {
+                    firstTwoSent.TrySetResult();
+                }
+
+                if (seqNo == 3)
+                {
+                    thirdSent.TrySetResult();
+                }
+            }).Returns(Task.CompletedTask);
+        stream.SetupSequence(instance => instance.MoveNextAsync())
+            .ReturnsAsync(true).Returns(firstAck.Task).Returns(secondAck.Task)
+            .Returns(thirdAck.Task).Returns(closed.Task);
+        stream.SetupSequence(instance => instance.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                InitResponse = new StreamWriteMessage.Types.InitResponse { SessionId = "buffer-wait" }
+            })
+            .Returns(Ack(1)).Returns(Ack(2)).Returns(Ack(3));
+        stream.Setup(instance => instance.RequestStreamComplete()).Returns(() =>
+        {
+            firstAck.TrySetResult(false);
+            secondAck.TrySetResult(false);
+            thirdAck.TrySetResult(false);
+            closed.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+        var driver = CreateDriver(stream);
+        driver.Setup(instance => instance.LoggerFactory).Returns(loggerFactory.Object);
+        var factory = new IDriverFactoryMock(driver, "writer-buffer-wait")
+        {
+            LoggerFactory = loggerFactory.Object
+        };
+        using var cancellation = new CancellationTokenSource();
+        await using var writer = new WriterBuilder<byte[]>(factory, topic)
+        {
+            WriterName = "writer",
+            BufferMaxSize = 2
+        }.Build();
+        var first = writer.WriteAsync([1], cancellation.Token);
+        var second = writer.WriteAsync([2], cancellation.Token);
+        var third = writer.WriteAsync([3, 3], cancellation.Token);
+        try
+        {
+            await firstTwoSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(provider.ForceFlush());
+            Assert.Empty(GetPoints(exportedItems, metricName, topic));
+            firstAck.SetResult(true);
+            await first.WaitAsync(TimeSpan.FromSeconds(5));
+            await waitingAgain.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(provider.ForceFlush());
+            Assert.Empty(GetPoints(exportedItems, metricName, topic));
+            secondAck.SetResult(true);
+            await second.WaitAsync(TimeSpan.FromSeconds(5));
+            await thirdSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(provider.ForceFlush());
+            var metric = GetMetric(exportedItems, metricName);
+            Assert.Equal(MetricType.Histogram, metric.MetricType);
+            Assert.Equal("s", metric.Unit);
+            var point = GetSinglePoint(metric, topic);
+            Assert.Equal(1, point.GetHistogramCount());
+            Assert.True(point.GetHistogramSum() > 0);
+            var tags = GetTags(point);
+            Assert.Equal(4, tags.Count);
+            AssertCommonTags(tags, topic);
+            thirdAck.SetResult(true);
+            await third.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            await cancellation.CancelAsync();
+        }
+
+        static StreamWriteMessage.Types.FromServer Ack(long seqNo)
+        {
+            return new StreamWriteMessage.Types.FromServer
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = seqNo,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written()
+                        }
+                    }
+                }
+            };
+        }
     }
 
     [Fact]

@@ -24,6 +24,7 @@ internal sealed class WriterMetricsReporter : IDisposable
     private static readonly Counter<long> SessionErrors;
     private static readonly Histogram<double> MessageAckDuration;
     private static readonly ObservableGauge<double> SendingOldestAge;
+    private static readonly Histogram<double> BufferWaitDuration;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IWriterMetricsSource _writerMetricsSource;
@@ -64,6 +65,12 @@ internal sealed class WriterMetricsReporter : IDisposable
             description: "Time from accepting a message into the send buffer to its server acknowledgement.",
             advice: new InstrumentAdvice<double>
                 { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] });
+        BufferWaitDuration = meter.CreateHistogram(
+            "ydb.topic.writer.buffer.wait.duration",
+            unit: "s",
+            description: "Time waiting for buffer capacity before a message is accepted.",
+            advice: new InstrumentAdvice<double>
+                { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] });
     }
 
     internal WriterMetricsReporter(string endpoint, string database, string topic, string writerName,
@@ -101,6 +108,9 @@ internal sealed class WriterMetricsReporter : IDisposable
     internal static long ReportMessageSendStart() =>
         MessageAckDuration.Enabled || SendingOldestAge.Enabled ? Stopwatch.GetTimestamp() : 0;
 
+    internal static long ReportBufferWaitStart() =>
+        BufferWaitDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
+
     internal void ReportMessageAckDuration(long startTimestamp)
     {
         if (startTimestamp == 0)
@@ -109,6 +119,16 @@ internal sealed class WriterMetricsReporter : IDisposable
         }
 
         MessageAckDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _commonTags);
+    }
+
+    internal void ReportBufferWaitDuration(long startTimestamp)
+    {
+        if (startTimestamp == 0)
+        {
+            return;
+        }
+
+        BufferWaitDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _commonTags);
     }
 
     public void Dispose()

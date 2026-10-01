@@ -18,5 +18,5 @@ internal class IDriverFactoryMock(
 
     public string GrpcConnectionString => grpcConnectionString;
 
-    public ILoggerFactory LoggerFactory => Utils.LoggerFactory;
+    public ILoggerFactory LoggerFactory { get; init; } = Utils.LoggerFactory;
 }

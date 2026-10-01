@@ -99,6 +99,7 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                 { Key = metadata.Key, Value = ByteString.CopyFrom(metadata.Value) });
         }
 
+        long bufferWaitTimestamp = 0;
         while (true)
         {
             var curLimitBufferSize = _limitBufferMaxSize;
@@ -115,6 +116,7 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                     );
                     _metrics.ReportSending();
                     _metrics.ReportSendingBytes(data.Length);
+                    _metrics.ReportBufferWaitDuration(bufferWaitTimestamp);
                     WakeUpWorker();
 
                     break;
@@ -130,6 +132,11 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
 
             try
             {
+                if (bufferWaitTimestamp == 0)
+                {
+                    bufferWaitTimestamp = WriterMetricsReporter.ReportBufferWaitStart();
+                }
+
                 await WaitBufferAvailable(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)

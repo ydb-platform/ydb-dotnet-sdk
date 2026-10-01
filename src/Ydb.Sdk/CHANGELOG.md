@@ -32,6 +32,7 @@
   | `written.messages`   | Counter         | `{message}` | —                     | Messages confirmed by an ACK or recovered sequence |
   | `buffer.used.bytes`  | ObservableGauge | `By`        | —                     | Occupied budget of the Writer buffer limiter       |
   | `buffer.limit.bytes` | ObservableGauge | `By`        | —                     | Configured limit of the Writer buffer limiter      |
+  | `buffer.wait.duration` | Histogram     | `s`         | —                     | Capacity wait ending in successful buffer acceptance |
   | `message.ack.duration` | Histogram     | `s`         | —                     | Time from entering SDK send buffer to server ACK   |
 
   These metrics have `endpoint`, `database`, `topic`, and `writer.name`. `WriterBuilder.WriterName` supplies a stable
@@ -44,6 +45,10 @@
   timestamp. Messages still waiting in the send queue are not included.
   An empty in-flight buffer reports zero; a disposed writer no longer contributes a series.
   Send timestamps are captured only when `message.ack.duration` or `sending.oldest_age` is enabled at message creation.
+  `buffer.wait.duration` records one measurement from the first timestamped capacity wait through successful buffer
+  acceptance, including repeated wakeups. Immediate acceptance and canceled or unfinished waits do not record a
+  measurement. Wait timestamps are captured only when this histogram is enabled.
+  Its bucket boundaries are `0.001`, `0.005`, `0.01`, `0.05`, `0.1`, `0.5`, `1`, `5`, and `10` seconds.
   `message.ack.duration` measures from message creation at send-buffer acceptance to acknowledgement, including
   waiting for the first send, retries and reconnect
   confirmation through a recovered sequence number. Histogram bucket boundaries are
