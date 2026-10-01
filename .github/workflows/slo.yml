@@ -159,7 +159,7 @@ jobs:
   report:
     name: Table SLO graphs
     needs: ydb-slo-action
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.ydb-slo-action.result != 'skipped' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
