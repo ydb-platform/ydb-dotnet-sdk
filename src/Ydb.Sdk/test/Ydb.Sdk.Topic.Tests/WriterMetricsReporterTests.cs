@@ -497,21 +497,24 @@ public class WriterMetricsReporterTests
             await cancellation.CancelAsync();
         }
 
-        static StreamWriteMessage.Types.FromServer Ack(long seqNo) => new()
+        static StreamWriteMessage.Types.FromServer Ack(long seqNo)
         {
-            Status = StatusIds.Types.StatusCode.Success,
-            WriteResponse = new StreamWriteMessage.Types.WriteResponse
+            return new StreamWriteMessage.Types.FromServer
             {
-                Acks =
+                Status = StatusIds.Types.StatusCode.Success,
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
                 {
-                    new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                    Acks =
                     {
-                        SeqNo = seqNo,
-                        Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written()
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = seqNo,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written()
+                        }
                     }
                 }
-            }
-        };
+            };
+        }
     }
 
     [Fact]
