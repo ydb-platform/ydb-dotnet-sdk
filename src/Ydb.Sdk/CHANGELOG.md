@@ -1,3 +1,5 @@
+## v0.36.0
+
 - Fix Topic Reader: do not send redundant commit requests for already committed offsets or closed partition sessions.
 - Fix Topic Reader: close a session that finishes initialization after the reader has been disposed.
 - Fix Topic Writer: close a session that finishes initialization after the writer has been disposed.
