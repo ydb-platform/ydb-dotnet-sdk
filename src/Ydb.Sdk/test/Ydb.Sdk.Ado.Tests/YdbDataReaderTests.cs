@@ -100,6 +100,25 @@ public class YdbDataReaderTests : TestBase
     }
 
     [Fact]
+    public async Task CommitTimestamp_IsAbsentWhenQueryDoesNotCommitTransaction()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+        var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+        [
+            new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new() { Status = StatusIds.Types.StatusCode.Success,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 } }
+        ]), connection);
+
+        Assert.False(await reader.ReadAsync());
+        Assert.Null(reader.CommitTimestamp);
+        Assert.Null(transaction.CommitTimestamp);
+        Assert.False(transaction.Completed);
+        await reader.CloseAsync();
+    }
+
+    [Fact]
     public async Task BasedIteration_WhenNotCallMethodRead_ThrowException()
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();

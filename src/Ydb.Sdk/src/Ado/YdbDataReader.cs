@@ -917,7 +917,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             if (!await _stream.MoveNextAsync(cancellationToken).ConfigureAwait(false))
             {
-                if (_ydbTransaction is { IsStrictSerializableRW: true, Completed: false } &&
+                if (_ydbTransaction is { IsStrictSerializableRW: true, Completed: false, AutoCommit: true } &&
                     _lastPartCommitTimestamp is not null)
                 {
                     _ydbTransaction.SetCommitTimestamp(_lastPartCommitTimestamp);
