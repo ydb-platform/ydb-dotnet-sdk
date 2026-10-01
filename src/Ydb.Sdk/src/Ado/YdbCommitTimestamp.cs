@@ -41,7 +41,8 @@ public sealed class YdbCommitTimestamp : IComparable<YdbCommitTimestamp>
 
         if (!ReferenceEquals(_connectionScope, other._connectionScope))
         {
-            throw new InvalidOperationException("Commit timestamps from different connection openings cannot be compared.");
+            throw new InvalidOperationException(
+                "Commit timestamps from different connection openings cannot be compared.");
         }
 
         var planStepComparison = PlanStep.CompareTo(other.PlanStep);

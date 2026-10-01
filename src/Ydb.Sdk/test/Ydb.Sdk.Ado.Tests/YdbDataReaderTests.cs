@@ -17,8 +17,8 @@ public class YdbDataReaderTests : TestBase
         var timestamp = new VirtualTimestamp { PlanStep = ulong.MaxValue, TxId = 17 };
         var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
         [
-            new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
-            new() { Status = StatusIds.Types.StatusCode.Success, CommitTimestamp = timestamp }
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, CommitTimestamp = timestamp }
         ]), connection);
 
         Assert.Null(reader.CommitTimestamp);
@@ -39,12 +39,12 @@ public class YdbDataReaderTests : TestBase
         var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
         connection.EnableAutoCommit();
         var resultSet = ResultSet.Parser.ParseJson("""
-            {"columns":[{"name":"value","type":{"typeId":"BOOL"}}],
-             "rows":[{"items":[{"boolValue":true}]}]}
-            """);
+                                                   {"columns":[{"name":"value","type":{"typeId":"BOOL"}}],
+                                                    "rows":[{"items":[{"boolValue":true}]}]}
+                                                   """);
         var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
         [
-            new()
+            new ExecuteQueryResponsePart
             {
                 Status = StatusIds.Types.StatusCode.Success,
                 ResultSet = resultSet,
@@ -82,7 +82,7 @@ public class YdbDataReaderTests : TestBase
         var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
         [
             first,
-            new() { Status = StatusIds.Types.StatusCode.Success }
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success }
         ]), connection);
 
         Assert.False(await reader.ReadAsync());
@@ -99,10 +99,13 @@ public class YdbDataReaderTests : TestBase
         connection.EnableAutoCommit();
         var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
         [
-            new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
-            new() { Status = StatusIds.Types.StatusCode.Success,
-                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 } },
-            new() { Status = StatusIds.Types.StatusCode.Aborted }
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 }
+            },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Aborted }
         ]), connection);
 
         await Assert.ThrowsAsync<YdbException>(() => reader.ReadAsync());
@@ -119,10 +122,13 @@ public class YdbDataReaderTests : TestBase
         connection.EnableAutoCommit();
         var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
         [
-            new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
-            new() { Status = StatusIds.Types.StatusCode.Success,
-                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 } },
-            new() { Status = StatusIds.Types.StatusCode.Success }
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 }
+            },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success }
         ]), connection);
 
         Assert.False(await reader.ReadAsync());
@@ -138,9 +144,12 @@ public class YdbDataReaderTests : TestBase
         var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
         var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
         [
-            new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
-            new() { Status = StatusIds.Types.StatusCode.Success,
-                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 } }
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 }
+            }
         ]), connection);
 
         Assert.False(await reader.ReadAsync());

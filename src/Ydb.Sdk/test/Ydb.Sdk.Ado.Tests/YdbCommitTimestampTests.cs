@@ -1,4 +1,6 @@
+using System.Data;
 using Xunit;
+using Ydb.Query;
 using Ydb.Sdk.Ado.Transaction;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -14,9 +16,9 @@ public class YdbCommitTimestampTests : TestBase
 
         var settings = TransactionMode.StrictSerializableRW.TransactionSettings();
 
-        Assert.Equal(Query.TransactionSettings.TxModeOneofCase.StrictSerializableReadWrite, settings.TxModeCase);
+        Assert.Equal(TransactionSettings.TxModeOneofCase.StrictSerializableReadWrite, settings.TxModeCase);
         Assert.NotNull(settings.StrictSerializableReadWrite);
-        Assert.Equal(System.Data.IsolationLevel.Serializable,
+        Assert.Equal(IsolationLevel.Serializable,
             new YdbTransaction(new YdbConnection(), TransactionMode.StrictSerializableRW).IsolationLevel);
     }
 

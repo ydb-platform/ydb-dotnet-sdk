@@ -24,7 +24,8 @@ public class YdbTransactionTests : TestBase
             transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
             transaction.TxId = "tx";
             var originalSession = connection.Session;
-            var sessionField = typeof(YdbConnection).GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var sessionField =
+                typeof(YdbConnection).GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)!;
             try
             {
                 sessionField.SetValue(connection, fakeSession);
@@ -73,6 +74,7 @@ public class YdbTransactionTests : TestBase
             CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public void OnNotSuccessStatusCode(StatusCode code) => throw new NotSupportedException();
+
         public void Dispose()
         {
         }
