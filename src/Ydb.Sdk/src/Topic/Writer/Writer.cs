@@ -59,6 +59,9 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
 
     long IWriterMetricsSource.BufferLimit => _config.BufferMaxSize;
 
+    long IWriterMetricsSource.OldestMessageTimestamp =>
+        _inFlightMessages.TryPeek(out var message) ? message.SendTimestamp : 0;
+
     public Task<WriteResult> WriteAsync(TValue data, CancellationToken cancellationToken) =>
         WriteAsync(new Message<TValue>(data), cancellationToken);
 
