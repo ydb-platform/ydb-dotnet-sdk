@@ -328,6 +328,7 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                             sendData.MessageData.SeqNo, lastSeqNo);
 
                         _metrics.ReportWritten();
+                        _metrics.ReportMessageAckDuration(sendData.SendTimestamp);
                         sendData.Tcs.TrySetResult(WriteResult.Skipped);
 
                         continue;
@@ -435,7 +436,10 @@ internal record MessageSending(
     MessageData MessageData,
     TaskCompletionSource<WriteResult> Tcs,
     CancellationTokenRegistration DisposedCtr
-);
+)
+{
+    internal long SendTimestamp { get; } = WriterMetricsReporter.ReportMessageSendStart();
+}
 
 internal interface IWriteSession : IAsyncDisposable
 {
@@ -634,6 +638,7 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                             {
                                 var writeResult = new WriteResult(ack);
                                 _metrics.ReportWritten();
+                                _metrics.ReportMessageAckDuration(messageFromClient.SendTimestamp);
                                 messageFromClient.Tcs.TrySetResult(writeResult);
                             }
 

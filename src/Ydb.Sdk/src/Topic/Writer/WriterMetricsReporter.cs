@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Ydb.Sdk.Internal;
 
@@ -19,6 +20,7 @@ internal sealed class WriterMetricsReporter : IDisposable
     private static readonly Counter<long> SendingMessages;
     private static readonly Counter<long> SendingBytes;
     private static readonly Counter<long> SessionErrors;
+    private static readonly Histogram<double> MessageAckDuration;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IWriterMetricsSource _writerMetricsSource;
@@ -48,6 +50,12 @@ internal sealed class WriterMetricsReporter : IDisposable
             unit: "By", description: "The occupied budget of the writer buffer limiter.");
         meter.CreateObservableGauge("ydb.topic.writer.buffer.limit.bytes", ObserveBufferLimit,
             unit: "By", description: "The configured limit of the writer buffer limiter.");
+        MessageAckDuration = meter.CreateHistogram(
+            "ydb.topic.writer.message.ack.duration",
+            unit: "s",
+            description: "Time from accepting a message into the send buffer to its server acknowledgement.",
+            advice: new InstrumentAdvice<double>
+                { HistogramBucketBoundaries = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10] });
     }
 
     internal WriterMetricsReporter(string endpoint, string database, string topic, string writerName,
@@ -81,6 +89,18 @@ internal sealed class WriterMetricsReporter : IDisposable
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
+
+    internal static long ReportMessageSendStart() => MessageAckDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
+
+    internal void ReportMessageAckDuration(long startTimestamp)
+    {
+        if (startTimestamp == 0)
+        {
+            return;
+        }
+
+        MessageAckDuration.Record(Stopwatch.GetElapsedTime(startTimestamp).TotalSeconds, _commonTags);
+    }
 
     public void Dispose()
     {

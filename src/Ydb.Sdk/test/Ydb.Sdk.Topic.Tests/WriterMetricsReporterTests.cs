@@ -280,7 +280,7 @@ public class WriterMetricsReporterTests
     }
 
     [Fact]
-    public async Task WrittenMessages_ReportsTwoMessagesWithRetry()
+    public async Task WrittenMessages_ReportsTwoMessagesWithRetryAndCanceledWait()
     {
         const string topic = "/writer-metrics";
         var exportedItems = new List<Metric>();
@@ -361,14 +361,16 @@ public class WriterMetricsReporterTests
 
         await using (writer)
         {
-            var alreadyWritten = writer.WriteAsync(100L);
-            await firstWriteSent.Task;
+            using var cancellation = new CancellationTokenSource();
+            var alreadyWritten = writer.WriteAsync(100L, cancellation.Token);
+            await firstWriteSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await cancellation.CancelAsync();
+            await Assert.ThrowsAsync<TaskCanceledException>(() => alreadyWritten);
             var written = writer.WriteAsync(200L);
-            await secondWriteSent.Task;
+            await secondWriteSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
             reconnect.SetResult(true);
 
-            Assert.Equal(PersistenceStatus.AlreadyWritten, (await alreadyWritten).Status);
-            Assert.Equal(PersistenceStatus.Written, (await written).Status);
+            Assert.Equal(PersistenceStatus.Written, (await written.WaitAsync(TimeSpan.FromSeconds(5))).Status);
         }
 
         Assert.True(meterProvider.ForceFlush());
@@ -401,6 +403,22 @@ public class WriterMetricsReporterTests
         Assert.Equal("BadSession", errorTags["status_code"]);
         Assert.Equal("ydb_error", errorTags["error.type"]);
         Assert.Equal(1, errorPoint.GetSumLong());
+        var ackDuration = GetMetric(exportedItems, "ydb.topic.writer.message.ack.duration");
+        Assert.Equal(MetricType.Histogram, ackDuration.MetricType);
+        Assert.Equal("s", ackDuration.Unit);
+        var durationPoint = GetSinglePoint(ackDuration, topic);
+        var durationTags = GetTags(durationPoint);
+        Assert.Equal(4, durationTags.Count);
+        AssertCommonTags(durationTags, topic);
+        Assert.Equal(2, durationPoint.GetHistogramCount());
+        Assert.True(durationPoint.GetHistogramSum() >= 0);
+        var boundaries = new List<double>();
+        foreach (var bucket in durationPoint.GetHistogramBuckets())
+        {
+            boundaries.Add(bucket.ExplicitBound);
+        }
+
+        Assert.Equal([0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, double.PositiveInfinity], boundaries);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
             message.WriteRequest != null && message.WriteRequest.Messages[0].SeqNo == 1)), Times.Once);
         stream.Verify(instance => instance.Write(It.Is<FromClient>(message =>
@@ -499,6 +517,21 @@ public class WriterMetricsReporterTests
         driver.Verify(instance => instance.BidirectionalStreamCall(
             It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
             It.IsAny<GrpcRequestSettings>()), Times.Once);
+    }
+
+    [Fact]
+    public void MessageAckDuration_DoesNotRecordZeroTimestamp()
+    {
+        const string topic = "/writer-unsent-ack-duration";
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        using var metrics = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer",
+            new BufferMetricsSource());
+
+        metrics.ReportMessageAckDuration(0);
+
+        Assert.True(meterProvider.ForceFlush());
+        Assert.Empty(GetPoints(exportedItems, "ydb.topic.writer.message.ack.duration", topic));
     }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
