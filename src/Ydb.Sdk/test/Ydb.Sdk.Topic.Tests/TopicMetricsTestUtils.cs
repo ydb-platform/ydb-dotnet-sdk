@@ -7,11 +7,18 @@ namespace Ydb.Sdk.Topic.Tests;
 
 internal static class TopicMetricsTestUtils
 {
-    internal static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
-        global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
+    internal static MeterProvider CreateMeterProvider(List<Metric> exportedItems, params string[] disabledMetrics)
+    {
+        var builder = global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
             .AddYdbTopic()
-            .AddInMemoryExporter(exportedItems)
-            .Build();
+            .AddInMemoryExporter(exportedItems);
+        foreach (var name in disabledMetrics)
+        {
+            builder.AddView(name, MetricStreamConfiguration.Drop);
+        }
+
+        return builder.Build();
+    }
 
     internal static Metric GetMetric(List<Metric> exportedItems, string name) =>
         Assert.Single(exportedItems, metric => metric.Name == name);

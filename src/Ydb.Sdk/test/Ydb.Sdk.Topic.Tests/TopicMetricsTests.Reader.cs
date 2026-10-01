@@ -16,8 +16,7 @@ using ReaderStream = IBidirectionalStream<StreamReadMessage.Types.FromClient, St
 using FromClient = StreamReadMessage.Types.FromClient;
 using FromServer = StreamReadMessage.Types.FromServer;
 
-[Collection("Topic metrics")]
-public class ReaderMetricsReporterTests
+public partial class TopicMetricsTests
 {
     [Fact]
     public async Task ReaderMetrics_TrackCreditAndReceivedBytesAcrossReconnect()
@@ -614,14 +613,11 @@ public class ReaderMetricsReporterTests
             .Returns(Task.CompletedTask);
     }
 
-    private static Metric GetMetric(List<Metric> exportedItems, string name) =>
-        exportedItems.Single(metric => metric.Name == name);
-
     private static IEnumerable<MetricPoint> GetReaderPoints(
         List<Metric> exportedItems,
         string metricName,
         string readerName) =>
-        GetPoints(exportedItems, metricName, "reader.name", readerName);
+        TopicMetricsTestUtils.GetPoints(exportedItems, metricName, "reader.name", readerName);
 
     private static void AssertTags(
         MetricPoint point,
