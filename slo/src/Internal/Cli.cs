@@ -47,6 +47,10 @@ public static class Cli
         () => 1000,
         "amount of initially created rows");
 
+    private static readonly Option<int?> CompletionTimeoutOption = new(
+        "--completion-timeout",
+        "total initialization, load, verification and cleanup budget in seconds; defaults to time + 60");
+
     private static readonly Command RunCommand = new(
         "run",
         "runs workload (read and write to table with sets RPS). Creates table and seeds initial data if missing.")
@@ -59,7 +63,8 @@ public static class Cli
         ReadTimeoutOption,
         WriteRpsOption,
         WriteTimeoutOption,
-        TimeOption
+        TimeOption,
+        CompletionTimeoutOption
     };
 
     private static readonly RootCommand RootCommand = new("SLO app")
@@ -80,7 +85,8 @@ public static class Cli
                 WriteRpsOption,
                 WriteTimeoutOption,
                 TimeOption,
-                InitialDataCountOption
+                InitialDataCountOption,
+                CompletionTimeoutOption
             )
         );
 

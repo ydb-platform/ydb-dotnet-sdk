@@ -37,6 +37,37 @@ public abstract class SloTableContext<T> : ISloContext
     public async Task Run(SloConfig config)
     {
         var runId = Guid.NewGuid().ToString("N");
+        var checks = new List<SloCheck>();
+        using var lifetime = new CancellationTokenSource();
+        try
+        {
+            if (config.CompletionTimeout <= 0)
+                throw new ArgumentException("SLO completion timeout must be positive");
+            lifetime.CancelAfter(TimeSpan.FromSeconds(config.CompletionTimeout));
+            checks = await Task.Run(() => RunWorkload(config, runId, lifetime.Token))
+                .WaitAsync(lifetime.Token);
+        }
+        catch (Exception error)
+        {
+            var detail = lifetime.IsCancellationRequested
+                ? $"Completion deadline expired after {config.CompletionTimeout}s"
+                : error.Message;
+            checks.Add(new SloCheck("T01", "FAIL", detail));
+            checks.Add(new SloCheck("T02", "FAIL", detail));
+            throw;
+        }
+        finally
+        {
+            await SloResult.WriteAsync(runId, "table", checks,
+            [
+                new SloOperationCount("read", Interlocked.Read(ref _reads), Interlocked.Read(ref _readErrors)),
+                new SloOperationCount("write", Interlocked.Read(ref _writes), Interlocked.Read(ref _writeErrors))
+            ]);
+        }
+    }
+
+    private async Task<List<SloCheck>> RunWorkload(SloConfig config, string runId, CancellationToken lifetime)
+    {
         using var telemetry = SloTelemetry.Create(config, Job, runId);
         var client = CreateClient(config);
         var checks = new List<SloCheck>();
@@ -63,8 +94,27 @@ public abstract class SloTableContext<T> : ISloContext
                     }
                 }
             }
-            for (var i = 0; i < config.InitialDataCount; i++) await Write(client, config);
-            using var duration = new CancellationTokenSource(TimeSpan.FromSeconds(config.Time));
+            for (var i = 0; i < config.InitialDataCount; i++)
+            {
+                for (var attempt = 1; ; attempt++)
+                {
+                    try
+                    {
+                        await Write(client, config);
+                        break;
+                    }
+                    catch (YdbException error)
+                    {
+                        Interlocked.Increment(ref _writeErrors);
+                        var delay = YdbRetryPolicy.IdempotenceDefault.GetNextDelay(error, attempt);
+                        if (delay is null) throw;
+                        Logger.LogWarning(error, "Initial write failed; retrying within completion budget");
+                        await Task.Delay(delay.Value, lifetime);
+                    }
+                }
+            }
+            using var duration = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
+            duration.CancelAfter(TimeSpan.FromSeconds(config.Time));
             await Task.WhenAll(Shoot(client, config, false, duration),
                 Shoot(client, config, true, duration));
 
@@ -92,23 +142,13 @@ public abstract class SloTableContext<T> : ISloContext
             checks.Add(new SloCheck("T02", _reads > 0 ? "PASS" : "INVALID",
                 $"Verified reads: {_reads}; operation errors: {_readErrors}"));
         }
-        catch (Exception error)
-        {
-            checks.Add(new SloCheck("T01", "FAIL", error.Message));
-            checks.Add(new SloCheck("T02", "FAIL", error.Message));
-            throw;
-        }
         finally
         {
             if (client is IAsyncDisposable asyncDisposable) await asyncDisposable.DisposeAsync();
             else if (client is IDisposable disposable) disposable.Dispose();
             telemetry?.ForceFlush();
-            await SloResult.WriteAsync(runId, "table", checks,
-            [
-                new SloOperationCount("read", _reads, _readErrors),
-                new SloOperationCount("write", _writes, _writeErrors)
-            ]);
         }
+        return checks;
     }
 
     private async Task Write(T client, SloConfig config)
