@@ -10,10 +10,12 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     env:
       VERSION: ${{ github.event.inputs.version }}
       CHANGELOG_FILE: ./src/Ydb.Sdk.OpenTelemetry/CHANGELOG.md
-      NUGET_TOKEN: ${{ secrets.YDB_PLATFORM_NUGET_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -25,5 +27,12 @@ jobs:
         run: |
           cd src/Ydb.Sdk.OpenTelemetry/src
           dotnet build --configuration Release
+      - name: NuGet login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: nuget-login
+        with:
+          user: robot-ydb-platform
       - name: Publish
+        env:
+          NUGET_TOKEN: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: bash .github/scripts/publish-otel.sh
