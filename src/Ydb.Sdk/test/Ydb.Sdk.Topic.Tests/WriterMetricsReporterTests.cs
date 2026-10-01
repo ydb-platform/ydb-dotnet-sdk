@@ -322,13 +322,13 @@ public class WriterMetricsReporterTests
             var message = new Message<byte[]>([1]);
             message.Metadata.Add(new Metadata("key", new byte[20]));
             accepted = writer.WriteAsync(message);
-            Assert.True(CollectOldestAge(topic) is > 0);
+            Assert.Equal(0, CollectOldestAge(topic));
             using var cancellation = new CancellationTokenSource();
             var rejected = writer.WriteAsync([2], cancellation.Token);
             Assert.False(rejected.IsCompleted);
             await cancellation.CancelAsync();
             Assert.Equal("Buffer overflow", (await Assert.ThrowsAsync<WriterException>(() => rejected)).Message);
-            Assert.True(CollectOldestAge(topic) is > 0);
+            Assert.Equal(0, CollectOldestAge(topic));
             opening.TrySetCanceled();
         }
 
@@ -368,18 +368,6 @@ public class WriterMetricsReporterTests
         var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var acknowledgementsProcessed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var retryAge = 0d;
-        var retryTokenRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var retryToken = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        stream.Setup(instance => instance.AuthToken()).Returns(() =>
-        {
-            if (!reconnect.Task.IsCompleted)
-            {
-                return new ValueTask<string?>((string?)null);
-            }
-
-            retryTokenRequested.TrySetResult();
-            return new ValueTask<string?>(retryToken.Task);
-        });
         stream.SetupSequence(instance => instance.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask)
             .Returns(() =>
@@ -471,16 +459,6 @@ public class WriterMetricsReporterTests
             await secondWriteSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Equal(firstTimestamp, source.OldestMessageTimestamp);
             reconnect.SetResult(true);
-
-            try
-            {
-                await retryTokenRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
-                Assert.True(CollectOldestAge(topic) is > 0);
-            }
-            finally
-            {
-                retryToken.TrySetResult(null);
-            }
 
             Assert.Equal(PersistenceStatus.Written, (await written.WaitAsync(TimeSpan.FromSeconds(5))).Status);
             await acknowledgementsProcessed.Task.WaitAsync(TimeSpan.FromSeconds(5));

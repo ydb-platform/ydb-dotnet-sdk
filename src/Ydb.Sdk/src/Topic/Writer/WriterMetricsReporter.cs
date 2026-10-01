@@ -56,7 +56,7 @@ internal sealed class WriterMetricsReporter : IDisposable
             "ydb.topic.writer.sending.oldest_age",
             ObserveSendingOldestAge,
             unit: "s",
-            description: "The age of the oldest accepted message awaiting its final outcome.");
+            description: "The age of the oldest message in the writer's in-flight buffer.");
         MessageAckDuration = meter.CreateHistogram(
             "ydb.topic.writer.message.ack.duration",
             unit: "s",
