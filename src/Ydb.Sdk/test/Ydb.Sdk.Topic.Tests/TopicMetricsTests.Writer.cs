@@ -1,195 +1,127 @@
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
 using Grpc.Core;
-using Microsoft.Extensions.Logging;
 using Moq;
 using OpenTelemetry.Metrics;
 using Xunit;
-using Ydb.Sdk.OpenTelemetry;
 using Ydb.Sdk.Topic.Writer;
 using Ydb.Topic;
+using static Ydb.Sdk.Topic.Tests.TopicMetricsTestUtils;
 
 namespace Ydb.Sdk.Topic.Tests;
 
 using WriterStream = IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>;
 using FromClient = StreamWriteMessage.Types.FromClient;
 
-[CollectionDefinition("Topic metrics", DisableParallelization = true)]
-public class TopicMetricsCollection;
-
-[Collection("Topic metrics")]
-public class WriterMetricsReporterTests
+public partial class TopicMetricsTests
 {
-    private sealed class BufferMetricsSource : IWriterMetricsSource
-    {
-        public long BufferUsed { get; set; }
-
-        public long BufferLimit { get; set; }
-
-        public long OldestMessageTimestamp { get; set; }
-    }
-
     [Fact]
-    public void WriterName_MustBeUniqueAmongActiveWriters()
+    public async Task WriterName_MustBeUniqueAmongActiveWriters()
     {
-        var source = new BufferMetricsSource();
-        using (new WriterMetricsReporter("localhost:2136", "/local", "/first", "same-writer", source))
-        {
-            Assert.Throws<ArgumentException>(() =>
-                new WriterMetricsReporter("localhost:2136", "/local", "/second", "same-writer", source));
-        }
-
-        using var replacement = new WriterMetricsReporter("localhost:2136", "/local", "/second", "same-writer",
-            source);
-    }
-
-    [Fact]
-    public void BufferUsed_ReportsEachWriterAndRemovesClosedContribution()
-    {
-        const string topic = "/writer-buffer-by-name";
-        const string metricName = "ydb.topic.writer.buffer.used.bytes";
-
-        var firstUsed = new BufferMetricsSource { BufferUsed = 5 };
-        var secondUsed = new BufferMetricsSource { BufferUsed = 7 };
-        var firstName = new WriterConfig(topic, null, null, Codec.Raw, 1, null).WriterName;
-        var secondName = new WriterConfig(topic, null, null, Codec.Raw, 1, null).WriterName;
-        Assert.NotEqual(firstName, secondName);
-        var first = new WriterMetricsReporter("localhost:2136", "/local", topic, firstName, firstUsed);
-        var second = new WriterMetricsReporter("localhost:2136", "/local", topic, secondName, secondUsed);
+        var opening = new TaskCompletionSource<WriterStream>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var factory = new IDriverFactoryMock(CreateDriver(opening.Task), "writer-name-metrics");
         try
         {
-            var values = Collect();
-            Assert.Equal(2, values.Count);
-            Assert.Equal(5, values[firstName]);
-            Assert.Equal(7, values[secondName]);
-            secondUsed.BufferUsed = 3;
-            values = Collect();
-            Assert.Equal(2, values.Count);
-            Assert.Equal(5, values[firstName]);
-            Assert.Equal(3, values[secondName]);
-            first.Dispose();
-            values = Collect();
-            Assert.Single(values);
-            Assert.Equal(3, values[secondName]);
-            second.Dispose();
-            Assert.Empty(Collect());
+            await using (new WriterBuilder<byte[]>(factory, "/first") { WriterName = "same-writer" }.Build())
+            {
+                Assert.Throws<ArgumentException>(() =>
+                    new WriterBuilder<byte[]>(factory, "/second") { WriterName = "same-writer" }.Build());
+            }
+
+            await using var replacement =
+                new WriterBuilder<byte[]>(factory, "/second") { WriterName = "same-writer" }.Build();
         }
         finally
         {
-            first.Dispose();
-            second.Dispose();
-        }
-
-        Dictionary<string, long> Collect()
-        {
-            var exportedItems = new List<Metric>();
-            using var meterProvider = CreateMeterProvider(exportedItems);
-            Assert.True(meterProvider.ForceFlush());
-            foreach (var metric in exportedItems.Where(item => item.Name == metricName))
-            {
-                Assert.Equal(MetricType.LongGauge, metric.MetricType);
-                Assert.Equal("By", metric.Unit);
-            }
-
-            var values = new Dictionary<string, long>();
-            foreach (var point in GetPoints(exportedItems, metricName, topic))
-            {
-                var tags = GetTags(point);
-                Assert.Equal(4, tags.Count);
-                Assert.Equal("localhost:2136", tags["endpoint"]);
-                Assert.Equal("/local", tags["database"]);
-                values.Add((string)tags["writer.name"]!, point.GetGaugeLastValueLong());
-            }
-
-            return values;
+            opening.TrySetCanceled();
         }
     }
 
     [Fact]
-    public void BufferLimit_ReportsEachWriterAndRemovesClosedContribution()
+    public async Task WriterGauges_TrackEachWriterAndRemoveClosedContributions()
     {
-        const string topic = "/writer-buffer-limit";
-        const string metricName = "ydb.topic.writer.buffer.limit.bytes";
-        using (new WriterMetricsReporter("localhost:2136", "/local", topic, "second-limit",
-                   new BufferMetricsSource { BufferLimit = 200 }))
+        const string topic = "/writer-gauges";
+        var opening = new TaskCompletionSource<WriterStream>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var factory = new IDriverFactoryMock(CreateDriver(opening.Task), "writer-gauge-metrics");
+        try
         {
-            using (new WriterMetricsReporter("localhost:2136", "/local", topic, "first-limit",
-                       new BufferMetricsSource { BufferLimit = 100 }))
+            Task<WriteResult> firstWrite;
+            await using (var first = new WriterBuilder<byte[]>(factory, topic) { BufferMaxSize = 100 }.Build())
             {
-                var values = Collect();
-                Assert.Equal(2, values.Count);
-                Assert.Equal(100, values["first-limit"]);
-                Assert.Equal(200, values["second-limit"]);
+                firstWrite = first.WriteAsync(new byte[5]);
+                string firstName;
+                Task<WriteResult> replacementWrite;
+                await using (var second = new WriterBuilder<byte[]>(factory, topic) { BufferMaxSize = 200 }.Build())
+                {
+                    using var cancellation = new CancellationTokenSource();
+                    var secondWrite = second.WriteAsync(new byte[7], cancellation.Token);
+                    var exportedItems = new List<Metric>();
+                    using var provider = CreateMeterProvider(exportedItems);
+                    provider.ForceFlush();
+                    var points = GetPoints(exportedItems, "ydb.topic.writer.buffer.used.bytes", topic);
+                    firstName = (string)GetTags(Assert.Single(points, p => p.GetGaugeLastValueLong() == 5))
+                        ["writer.name"]!;
+                    var secondName = (string)GetTags(Assert.Single(points, p => p.GetGaugeLastValueLong() == 7))
+                        ["writer.name"]!;
+                    Assert.NotEqual(firstName, secondName);
+                    AssertGauges((firstName, 5, 100), (secondName, 7, 200));
+                    await cancellation.CancelAsync();
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => secondWrite);
+                    replacementWrite = second.WriteAsync(new byte[3]);
+                    AssertGauges((firstName, 5, 100), (secondName, 3, 200));
+                }
+
+                await Assert.ThrowsAsync<WriterException>(() => replacementWrite);
+                AssertGauges((firstName, 5, 100));
             }
 
-            var remainingValues = Collect();
-            Assert.Single(remainingValues);
-            Assert.Equal(200, remainingValues["second-limit"]);
+            await Assert.ThrowsAsync<WriterException>(() => firstWrite);
+            AssertGauges();
         }
-
-        Assert.Empty(Collect());
-
-        Dictionary<string, long> Collect()
+        finally
         {
-            var exportedItems = new List<Metric>();
-            using var meterProvider = CreateMeterProvider(exportedItems);
-            Assert.True(meterProvider.ForceFlush());
-            foreach (var metric in exportedItems.Where(item => item.Name == metricName))
-            {
-                Assert.Equal(MetricType.LongGauge, metric.MetricType);
-                Assert.Equal("By", metric.Unit);
-            }
-
-            return GetPoints(exportedItems, metricName, topic).ToDictionary(
-                point => (string)GetTags(point)["writer.name"]!, point => point.GetGaugeLastValueLong());
-        }
-    }
-
-    [Fact]
-    public void SendingOldestAge_ReportsEachWriterAndRemovesClosedContribution()
-    {
-        const string topic = "/writer-oldest-age";
-        const string metricName = "ydb.topic.writer.sending.oldest_age";
-        var now = Stopwatch.GetTimestamp();
-        var firstSource = new BufferMetricsSource { OldestMessageTimestamp = now - 2 * Stopwatch.Frequency };
-        var secondSource = new BufferMetricsSource { OldestMessageTimestamp = now - Stopwatch.Frequency };
-        using (new WriterMetricsReporter("localhost:2136", "/local", topic, "first", firstSource))
-        {
-            using (new WriterMetricsReporter("localhost:2136", "/local", topic, "second", secondSource))
-            {
-                var values = Collect();
-                Assert.Equal(2, values.Count);
-                Assert.True(values["first"] >= 2);
-                Assert.True(values["second"] >= 1);
-                firstSource.OldestMessageTimestamp = 0;
-                Assert.Equal(0, Collect()["first"]);
-            }
-
-            Assert.Equal(0, Assert.Single(Collect()).Value);
+            opening.TrySetCanceled();
         }
 
-        Assert.Empty(Collect());
-
-        Dictionary<string, double> Collect()
+        void AssertGauges(params (string Name, long Used, long Limit)[] expected)
         {
             var exportedItems = new List<Metric>();
             using var provider = CreateMeterProvider(exportedItems);
             Assert.True(provider.ForceFlush());
-            foreach (var metric in exportedItems.Where(item => item.Name == metricName))
+            string[] names =
+            [
+                "ydb.topic.writer.buffer.used.bytes",
+                "ydb.topic.writer.buffer.limit.bytes",
+                "ydb.topic.writer.sending.oldest_age"
+            ];
+            foreach (var name in names)
             {
-                Assert.Equal(MetricType.DoubleGauge, metric.MetricType);
-                Assert.Equal("s", metric.Unit);
+                Assert.Equal(expected.Length, GetPoints(exportedItems, name, topic).Count);
+                if (expected.Length == 0)
+                    continue;
+
+                var metric = GetMetric(exportedItems, name);
+                var ageMetric = name == "ydb.topic.writer.sending.oldest_age";
+                Assert.Equal(ageMetric ? MetricType.DoubleGauge : MetricType.LongGauge, metric.MetricType);
+                Assert.Equal(ageMetric ? "s" : "By", metric.Unit);
             }
 
-            return GetPoints(exportedItems, metricName, topic).ToDictionary(point =>
+            foreach (var (name, used, limit) in expected)
             {
+                Assert.Equal(used, Point(names[0], name).GetGaugeLastValueLong());
+                Assert.Equal(limit, Point(names[1], name).GetGaugeLastValueLong());
+                Assert.Equal(0, Point(names[2], name).GetGaugeLastValueDouble());
+            }
+
+            MetricPoint Point(string metricName, string writerName)
+            {
+                var point = Assert.Single(GetPoints(exportedItems, metricName, topic),
+                    point => Equals(GetTags(point)["writer.name"], writerName));
                 var tags = GetTags(point);
                 Assert.Equal(4, tags.Count);
                 Assert.Equal("localhost:2136", tags["endpoint"]);
                 Assert.Equal("/local", tags["database"]);
                 Assert.Equal(topic, tags["topic"]);
-                return (string)tags["writer.name"]!;
-            }, point => point.GetGaugeLastValueDouble());
+                return point;
+            }
         }
     }
 
@@ -200,17 +132,12 @@ public class WriterMetricsReporterTests
     [InlineData(true, true)]
     public void MessageSendTimestamp_IsCapturedWhenEitherMetricIsEnabled(bool ackEnabled, bool oldestAgeEnabled)
     {
-        using var listener = new MeterListener();
-        listener.InstrumentPublished = (instrument, meterListener) =>
-        {
-            if (instrument.Meter.Name == "Ydb.Sdk.Topic" &&
-                ((ackEnabled && instrument.Name == "ydb.topic.writer.message.ack.duration") ||
-                 (oldestAgeEnabled && instrument.Name == "ydb.topic.writer.sending.oldest_age")))
-            {
-                meterListener.EnableMeasurementEvents(instrument);
-            }
-        };
-        listener.Start();
+        var disabledMetrics = new List<string>();
+        if (!ackEnabled)
+            disabledMetrics.Add("ydb.topic.writer.message.ack.duration");
+        if (!oldestAgeEnabled)
+            disabledMetrics.Add("ydb.topic.writer.sending.oldest_age");
+        using var provider = CreateMeterProvider([], disabledMetrics.ToArray());
         var message = new MessageSending(
             new StreamWriteMessage.Types.WriteRequest.Types.MessageData(),
             new TaskCompletionSource<WriteResult>(), default);
@@ -377,16 +304,9 @@ public class WriterMetricsReporterTests
     [InlineData(true)]
     public void BufferWaitTimestamp_IsCapturedOnlyWhenEnabled(bool enabled)
     {
-        using var listener = new MeterListener();
-        listener.InstrumentPublished = (instrument, meterListener) =>
-        {
-            if (enabled && instrument.Meter.Name == "Ydb.Sdk.Topic" &&
-                instrument.Name == "ydb.topic.writer.buffer.wait.duration")
-            {
-                meterListener.EnableMeasurementEvents(instrument);
-            }
-        };
-        listener.Start();
+        using var provider = enabled
+            ? CreateMeterProvider([])
+            : CreateMeterProvider([], "ydb.topic.writer.buffer.wait.duration");
         Assert.Equal(enabled, WriterMetricsReporter.ReportBufferWaitStart() != 0);
     }
 
@@ -399,25 +319,11 @@ public class WriterMetricsReporterTests
         using var provider = CreateMeterProvider(exportedItems);
         var firstTwoSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var thirdSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var waitingAgain = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstAckHandled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstAck = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var secondAck = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var thirdAck = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var logger = new Mock<ILogger>();
-        var waits = 0;
-        logger.Setup(instance => instance.Log(
-                LogLevel.Warning, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(),
-                It.IsAny<Exception?>(), It.IsAny<Func<It.IsAnyType, Exception?, string>>()))
-            .Callback(new InvocationAction(_ =>
-            {
-                if (Interlocked.Increment(ref waits) == 2)
-                {
-                    waitingAgain.TrySetResult();
-                }
-            }));
-        var loggerFactory = new Mock<ILoggerFactory>();
-        loggerFactory.Setup(instance => instance.CreateLogger(It.IsAny<string>())).Returns(logger.Object);
         var stream = new Mock<WriterStream>();
         stream.Setup(instance => instance.Write(It.IsAny<FromClient>()))
             .Callback<FromClient>(request =>
@@ -434,7 +340,12 @@ public class WriterMetricsReporterTests
                 }
             }).Returns(Task.CompletedTask);
         stream.SetupSequence(instance => instance.MoveNextAsync())
-            .ReturnsAsync(true).Returns(firstAck.Task).Returns(secondAck.Task)
+            .ReturnsAsync(true).Returns(firstAck.Task)
+            .Returns(() =>
+            {
+                firstAckHandled.TrySetResult();
+                return secondAck.Task;
+            })
             .Returns(thirdAck.Task).Returns(closed.Task);
         stream.SetupSequence(instance => instance.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
@@ -452,11 +363,7 @@ public class WriterMetricsReporterTests
             return Task.CompletedTask;
         });
         var driver = CreateDriver(stream);
-        driver.Setup(instance => instance.LoggerFactory).Returns(loggerFactory.Object);
-        var factory = new IDriverFactoryMock(driver, "writer-buffer-wait")
-        {
-            LoggerFactory = loggerFactory.Object
-        };
+        var factory = new IDriverFactoryMock(driver, "writer-buffer-wait");
         using var cancellation = new CancellationTokenSource();
         await using var writer = new WriterBuilder<byte[]>(factory, topic)
         {
@@ -465,20 +372,30 @@ public class WriterMetricsReporterTests
         }.Build();
         var first = writer.WriteAsync([1], cancellation.Token);
         var second = writer.WriteAsync([2], cancellation.Token);
-        var third = writer.WriteAsync([3, 3], cancellation.Token);
+        var third = writer.WriteAsync([3, 3]);
         try
         {
             await firstTwoSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            exportedItems.Clear();
             Assert.True(provider.ForceFlush());
             Assert.Empty(GetPoints(exportedItems, metricName, topic));
+            Assert.Equal(2, GetSinglePoint(GetMetric(exportedItems,
+                "ydb.topic.writer.sending.messages"), topic).GetSumLong());
+            Assert.Equal(2, GetSinglePoint(GetMetric(exportedItems,
+                "ydb.topic.writer.buffer.used.bytes"), topic).GetGaugeLastValueLong());
             firstAck.SetResult(true);
             await first.WaitAsync(TimeSpan.FromSeconds(5));
-            await waitingAgain.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await firstAckHandled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(third.IsCompleted);
+            exportedItems.Clear();
             Assert.True(provider.ForceFlush());
             Assert.Empty(GetPoints(exportedItems, metricName, topic));
+            Assert.Equal(1, GetSinglePoint(GetMetric(exportedItems,
+                "ydb.topic.writer.buffer.used.bytes"), topic).GetGaugeLastValueLong());
             secondAck.SetResult(true);
             await second.WaitAsync(TimeSpan.FromSeconds(5));
             await thirdSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            exportedItems.Clear();
             Assert.True(provider.ForceFlush());
             var metric = GetMetric(exportedItems, metricName);
             Assert.Equal(MetricType.Histogram, metric.MetricType);
@@ -489,6 +406,10 @@ public class WriterMetricsReporterTests
             var tags = GetTags(point);
             Assert.Equal(4, tags.Count);
             AssertCommonTags(tags, topic);
+            Assert.Equal(3, GetSinglePoint(GetMetric(exportedItems,
+                "ydb.topic.writer.sending.messages"), topic).GetSumLong());
+            Assert.Equal(4, GetSinglePoint(GetMetric(exportedItems,
+                "ydb.topic.writer.sending.bytes"), topic).GetSumLong());
             thirdAck.SetResult(true);
             await third.WaitAsync(TimeSpan.FromSeconds(5));
         }
@@ -777,17 +698,69 @@ public class WriterMetricsReporterTests
     }
 
     [Fact]
-    public void MessageAckDuration_DoesNotRecordZeroTimestamp()
+    public async Task MessageAckDuration_DoesNotReportMessagesAcceptedWithoutTimingMetrics()
     {
         const string topic = "/writer-unsent-ack-duration";
         var exportedItems = new List<Metric>();
-        using var meterProvider = CreateMeterProvider(exportedItems);
-        using var metrics = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer",
-            new BufferMetricsSource());
+        var acknowledgement = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stream = new Mock<WriterStream>();
+        stream.Setup(instance => instance.Write(It.IsAny<FromClient>()))
+            .Callback<FromClient>(request =>
+            {
+                if (request.WriteRequest is not null)
+                    sent.TrySetResult();
+            })
+            .Returns(Task.CompletedTask);
+        stream.SetupSequence(instance => instance.MoveNextAsync())
+            .ReturnsAsync(true).Returns(acknowledgement.Task).Returns(closed.Task);
+        stream.SetupSequence(instance => instance.Current)
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                InitResponse = new StreamWriteMessage.Types.InitResponse { SessionId = "no-timing" }
+            })
+            .Returns(new StreamWriteMessage.Types.FromServer
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                WriteResponse = new StreamWriteMessage.Types.WriteResponse
+                {
+                    Acks =
+                    {
+                        new StreamWriteMessage.Types.WriteResponse.Types.WriteAck
+                        {
+                            SeqNo = 1,
+                            Written = new StreamWriteMessage.Types.WriteResponse.Types.WriteAck.Types.Written()
+                        }
+                    }
+                }
+            });
+        stream.Setup(instance => instance.RequestStreamComplete()).Returns(() =>
+        {
+            acknowledgement.TrySetResult(false);
+            closed.TrySetResult(false);
+            return Task.CompletedTask;
+        });
+        await using var writer = new WriterBuilder<byte[]>(
+            new IDriverFactoryMock(CreateDriver(stream), "writer-no-timing"), topic)
+        {
+            WriterName = "writer"
+        }.Build();
+        Task<WriteResult> write;
+        using (CreateMeterProvider([], "ydb.topic.writer.message.ack.duration",
+                   "ydb.topic.writer.sending.oldest_age"))
+        {
+            write = writer.WriteAsync([1]);
+            await sent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
 
-        metrics.ReportMessageAckDuration(0);
-
-        Assert.True(meterProvider.ForceFlush());
+        using var provider = CreateMeterProvider(exportedItems);
+        acknowledgement.SetResult(true);
+        await write.WaitAsync(TimeSpan.FromSeconds(5));
+        provider.ForceFlush();
+        Assert.Equal(1, GetSinglePoint(GetMetric(exportedItems,
+            "ydb.topic.writer.written.messages"), topic).GetSumLong());
         Assert.Empty(GetPoints(exportedItems, "ydb.topic.writer.message.ack.duration", topic));
     }
 
@@ -813,44 +786,24 @@ public class WriterMetricsReporterTests
         return point.GetGaugeLastValueDouble();
     }
 
-    private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
-        global::OpenTelemetry.Sdk.CreateMeterProviderBuilder()
-            .AddYdbTopic()
-            .AddInMemoryExporter(exportedItems)
-            .Build();
+    private static Mock<IDriver> CreateDriver(Mock<WriterStream> stream) =>
+        CreateDriver(Task.FromResult(stream.Object));
 
-    private static Mock<IDriver> CreateDriver(Mock<WriterStream> stream)
+    private static Mock<IDriver> CreateDriver(Task<WriterStream> stream)
     {
         var driver = new Mock<IDriver>();
         driver.Setup(instance => instance.BidirectionalStreamCall(
                 It.IsAny<Method<FromClient, StreamWriteMessage.Types.FromServer>>(),
                 It.IsAny<GrpcRequestSettings>()))
-            .ReturnsAsync(stream.Object);
+            .Returns(new ValueTask<WriterStream>(stream));
         driver.Setup(instance => instance.LoggerFactory).Returns(Utils.LoggerFactory);
         driver.Setup(instance => instance.DisposeAsync())
             .Callback(() => driver.Setup(instance => instance.IsDisposed).Returns(true));
         return driver;
     }
 
-    private static Metric GetMetric(List<Metric> exportedItems, string name) =>
-        Assert.Single(exportedItems, item => item.Name == name);
-
-    private static List<MetricPoint> GetPoints(List<Metric> exportedItems, string name, string topic)
-    {
-        var points = new List<MetricPoint>();
-        foreach (var metric in exportedItems.Where(item => item.Name == name))
-        {
-            foreach (var point in metric.GetMetricPoints())
-            {
-                if (Equals(topic, GetTags(point).GetValueOrDefault("topic")))
-                {
-                    points.Add(point);
-                }
-            }
-        }
-
-        return points;
-    }
+    private static List<MetricPoint> GetPoints(List<Metric> exportedItems, string name, string topic) =>
+        TopicMetricsTestUtils.GetPoints(exportedItems, name, "topic", topic).ToList();
 
     private static MetricPoint GetSinglePoint(Metric metric, string topic)
     {
@@ -872,16 +825,5 @@ public class WriterMetricsReporterTests
         Assert.Equal("/local", tags["database"]);
         Assert.Equal(topic, tags["topic"]);
         Assert.Equal("writer", tags["writer.name"]);
-    }
-
-    private static Dictionary<string, object?> GetTags(MetricPoint point)
-    {
-        var tags = new Dictionary<string, object?>();
-        foreach (var tag in point.Tags)
-        {
-            tags.Add(tag.Key, tag.Value);
-        }
-
-        return tags;
     }
 }
