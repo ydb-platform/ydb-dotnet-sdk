@@ -208,9 +208,10 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                     await _sendInFlightMessagesSemaphoreSlim.WaitAsync(_disposeCts.Token).ConfigureAwait(false);
                     try
                     {
-                        if (_session.IsActive)
+                        var session = _session;
+                        if (session.IsActive)
                         {
-                            await _session.Write(_toSendBuffer).ConfigureAwait(false);
+                            await session.Write(_toSendBuffer).ConfigureAwait(false);
                         }
                     }
                     finally
@@ -369,7 +370,14 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                         .ConfigureAwait(false); // retry prev in flight messages    
                 }
 
-                _session = newSession;
+                Interlocked.Exchange(ref _session, newSession);
+                if (_disposeCts.IsCancellationRequested)
+                {
+                    await Interlocked.Exchange(ref _session, DummyWriterSession.Instance)
+                        .DisposeAsync().ConfigureAwait(false);
+                    return;
+                }
+
                 WakeUpWorker(); // attempt send buffer     
             }
             finally
@@ -427,7 +435,8 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
 
         try
         {
-            await _session.DisposeAsync().ConfigureAwait(false);
+            await Interlocked.Exchange(ref _session, DummyWriterSession.Instance)
+                .DisposeAsync().ConfigureAwait(false);
             if (_driver != null)
             {
                 await _driver.DisposeAsync().ConfigureAwait(false);
