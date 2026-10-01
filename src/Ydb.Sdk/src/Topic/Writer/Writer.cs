@@ -369,7 +369,14 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                         .ConfigureAwait(false); // retry prev in flight messages    
                 }
 
-                _session = newSession;
+                Interlocked.Exchange(ref _session, newSession);
+                if (_disposeCts.IsCancellationRequested)
+                {
+                    await Interlocked.Exchange(ref _session, DummyWriterSession.Instance)
+                        .DisposeAsync().ConfigureAwait(false);
+                    return;
+                }
+
                 WakeUpWorker(); // attempt send buffer     
             }
             finally
@@ -427,7 +434,8 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
 
         try
         {
-            await _session.DisposeAsync().ConfigureAwait(false);
+            await Interlocked.Exchange(ref _session, DummyWriterSession.Instance)
+                .DisposeAsync().ConfigureAwait(false);
             if (_driver != null)
             {
                 await _driver.DisposeAsync().ConfigureAwait(false);

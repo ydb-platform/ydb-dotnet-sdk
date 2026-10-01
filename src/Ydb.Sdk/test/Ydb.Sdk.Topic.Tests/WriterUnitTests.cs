@@ -49,6 +49,44 @@ public class WriterUnitTests
     }
 
     [Fact]
+    public async Task DisposeAsync_WhenInitializationCompletesLater_ClosesLateSession()
+    {
+        var initializing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var initialized = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var streamDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>())).Returns(Task.CompletedTask);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .Returns(() =>
+            {
+                initializing.TrySetResult();
+                return initialized.Task;
+            })
+            .Returns(_lastMoveNext);
+        _mockStream.Setup(stream => stream.Current).Returns(new StreamWriteMessage.Types.FromServer
+        {
+            Status = StatusIds.Types.StatusCode.Success,
+            InitResponse = new StreamWriteMessage.Types.InitResponse { SessionId = "late-session" }
+        });
+        _mockStream.Setup(stream => stream.Dispose()).Callback(() => streamDisposed.TrySetResult());
+        var writer = new WriterBuilder<int>(_driverFactoryMock, "/late-session").Build();
+        try
+        {
+            await initializing.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await writer.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            initialized.SetResult(true);
+            await streamDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            _mockStream.Verify(stream => stream.RequestStreamComplete(), Times.Once);
+        }
+        finally
+        {
+            initialized.TrySetResult(true);
+            await _mockStream.Object.RequestStreamComplete();
+            await writer.DisposeAsync();
+            _mockStream.Object.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task WriteAsync_WhenSerializeThrowException_ThrowWriterException()
     {
         await using var writer = new WriterBuilder<int>(_driverFactoryMock, "/topic-1")
