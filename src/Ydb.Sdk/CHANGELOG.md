@@ -28,6 +28,7 @@
   |----------------------|-----------------|-------------|-----------------------|-----------------------------------------------------|
   | `sending.messages`   | Counter         | `{message}` | —                     | Messages accepted into the Writer's send buffer    |
   | `sending.bytes`      | Counter         | `By`        | —                     | Uncompressed body bytes accepted into the buffer   |
+  | `sending.oldest_age` | ObservableGauge | `s`         | —                     | Age of the oldest accepted message awaiting outcome |
   | `written.messages`   | Counter         | `{message}` | —                     | Messages confirmed by an ACK or recovered sequence |
   | `buffer.used.bytes`  | ObservableGauge | `By`        | —                     | Occupied budget of the Writer buffer limiter       |
   | `buffer.limit.bytes` | ObservableGauge | `By`        | —                     | Configured limit of the Writer buffer limiter      |
@@ -39,6 +40,9 @@
   retries do not increment it.
   `sending.bytes` counts the uncompressed message body without metadata at the same acceptance point; retries do not
   increment it again.
+  `sending.oldest_age` includes messages waiting for their first send or a server acknowledgement. Age starts at
+  send-buffer acceptance and is preserved across retries, reconnects, and cancellation of the application's wait.
+  An empty writer reports zero; a disposed writer no longer contributes a series.
   `message.ack.duration` measures from message creation at send-buffer acceptance to acknowledgement, including
   waiting for the first send, retries and reconnect
   confirmation through a recovered sequence number. Histogram bucket boundaries are

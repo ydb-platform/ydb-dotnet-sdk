@@ -9,6 +9,8 @@ internal interface IWriterMetricsSource
     long BufferUsed { get; }
 
     long BufferLimit { get; }
+
+    long OldestMessageTimestamp { get; }
 }
 
 internal sealed class WriterMetricsReporter : IDisposable
@@ -50,6 +52,11 @@ internal sealed class WriterMetricsReporter : IDisposable
             unit: "By", description: "The occupied budget of the writer buffer limiter.");
         meter.CreateObservableGauge("ydb.topic.writer.buffer.limit.bytes", ObserveBufferLimit,
             unit: "By", description: "The configured limit of the writer buffer limiter.");
+        meter.CreateObservableGauge(
+            "ydb.topic.writer.sending.oldest_age",
+            ObserveSendingOldestAge,
+            unit: "s",
+            description: "The age of the oldest accepted message awaiting its final outcome.");
         MessageAckDuration = meter.CreateHistogram(
             "ydb.topic.writer.message.ack.duration",
             unit: "s",
@@ -89,8 +96,6 @@ internal sealed class WriterMetricsReporter : IDisposable
 
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
-
-    internal static long ReportMessageSendStart() => MessageAckDuration.Enabled ? Stopwatch.GetTimestamp() : 0;
 
     internal void ReportMessageAckDuration(long startTimestamp)
     {
@@ -132,6 +137,20 @@ internal sealed class WriterMetricsReporter : IDisposable
                 .Select(reporter =>
                     new Measurement<long>(reporter._writerMetricsSource.BufferLimit, reporter._commonTags))
                 .ToArray();
+        }
+    }
+
+    private static IEnumerable<Measurement<double>> ObserveSendingOldestAge()
+    {
+        lock (Reporters)
+        {
+            return Reporters.Select(reporter =>
+            {
+                var timestamp = reporter._writerMetricsSource.OldestMessageTimestamp;
+                return new Measurement<double>(
+                    timestamp == 0 ? 0 : Stopwatch.GetElapsedTime(timestamp).TotalSeconds,
+                    reporter._commonTags);
+            }).ToArray();
         }
     }
 }

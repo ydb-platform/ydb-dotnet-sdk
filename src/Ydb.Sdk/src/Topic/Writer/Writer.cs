@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -58,6 +59,20 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
     long IWriterMetricsSource.BufferUsed => (long)_config.BufferMaxSize - _limitBufferMaxSize;
 
     long IWriterMetricsSource.BufferLimit => _config.BufferMaxSize;
+
+    long IWriterMetricsSource.OldestMessageTimestamp
+    {
+        get
+        {
+            _toSendBuffer.TryPeek(out var queued);
+            _inFlightMessages.TryPeek(out var inFlight);
+            return queued is null
+                ? inFlight?.SendTimestamp ?? 0
+                : inFlight is null
+                    ? queued.SendTimestamp
+                    : Math.Min(queued.SendTimestamp, inFlight.SendTimestamp);
+        }
+    }
 
     public Task<WriteResult> WriteAsync(TValue data, CancellationToken cancellationToken) =>
         WriteAsync(new Message<TValue>(data), cancellationToken);
@@ -318,10 +333,11 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                 var copyInFlightMessages = new ConcurrentQueue<MessageSending>();
                 var lastSeqNo = initResponse.LastSeqNo;
 
-                while (_inFlightMessages.TryDequeue(out var sendData))
+                while (_inFlightMessages.TryPeek(out var sendData))
                 {
                     if (lastSeqNo >= sendData.MessageData.SeqNo)
                     {
+                        _inFlightMessages.TryDequeue(out _);
                         _logger.LogWarning(
                             "Message[SeqNo={SeqNo}] has been skipped because its sequence number " +
                             "is less than or equal to the last processed server's SeqNo[{LastSeqNo}]",
@@ -334,7 +350,11 @@ internal class Writer<TValue> : IWriter<TValue>, IWriterMetricsSource
                         continue;
                     }
 
+                    break;
+                }
 
+                foreach (var sendData in _inFlightMessages)
+                {
                     // Calculate the next sequence number from the calculated previous messages.
                     lastSeqNo = Math.Max(lastSeqNo, sendData.MessageData.SeqNo);
 
@@ -438,7 +458,7 @@ internal record MessageSending(
     CancellationTokenRegistration DisposedCtr
 )
 {
-    internal long SendTimestamp { get; } = WriterMetricsReporter.ReportMessageSendStart();
+    internal long SendTimestamp { get; } = Stopwatch.GetTimestamp();
 }
 
 internal interface IWriteSession : IAsyncDisposable
@@ -538,10 +558,11 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
 
             var currentSeqNum = Volatile.Read(ref _seqNum);
 
-            while (toSendBuffer.TryDequeue(out var sendData))
+            while (toSendBuffer.TryPeek(out var sendData))
             {
                 if (sendData.Tcs.Task.IsFaulted)
                 {
+                    toSendBuffer.TryDequeue(out _);
                     Logger.LogWarning("Message[SeqNo={SeqNo}] is cancelled", sendData.MessageData.SeqNo);
 
                     continue;
@@ -554,10 +575,11 @@ internal class WriterSession : TopicSession<MessageFromClient, MessageFromServer
                 if (messageData.SeqNo == 0)
                 {
                     messageData.SeqNo = ++currentSeqNum;
+                    _inFlightMessages.Enqueue(sendData);
                 }
 
+                toSendBuffer.TryDequeue(out _);
                 writeMessage.Messages.Add(messageData);
-                _inFlightMessages.Enqueue(sendData);
             }
 
             Volatile.Write(ref _seqNum, currentSeqNum);

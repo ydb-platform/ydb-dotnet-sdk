@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Grpc.Core;
 using Moq;
 using OpenTelemetry.Metrics;
@@ -11,6 +12,7 @@ namespace Ydb.Sdk.Topic.Tests;
 using WriterStream = IBidirectionalStream<StreamWriteMessage.Types.FromClient, StreamWriteMessage.Types.FromServer>;
 using FromClient = StreamWriteMessage.Types.FromClient;
 
+[Collection("Topic metrics")]
 public class WriterMetricsReporterTests
 {
     private sealed class BufferMetricsSource : IWriterMetricsSource
@@ -18,6 +20,8 @@ public class WriterMetricsReporterTests
         public long BufferUsed { get; set; }
 
         public long BufferLimit { get; set; }
+
+        public long OldestMessageTimestamp { get; set; }
     }
 
     [Fact]
@@ -137,18 +141,81 @@ public class WriterMetricsReporterTests
     }
 
     [Fact]
+    public void SendingOldestAge_ReportsEachWriterAndRemovesClosedContribution()
+    {
+        const string topic = "/writer-oldest-age";
+        const string metricName = "ydb.topic.writer.sending.oldest_age";
+        var now = Stopwatch.GetTimestamp();
+        var firstSource = new BufferMetricsSource { OldestMessageTimestamp = now - 2 * Stopwatch.Frequency };
+        var secondSource = new BufferMetricsSource { OldestMessageTimestamp = now - Stopwatch.Frequency };
+        using (new WriterMetricsReporter("localhost:2136", "/local", topic, "first", firstSource))
+        {
+            using (new WriterMetricsReporter("localhost:2136", "/local", topic, "second", secondSource))
+            {
+                var values = Collect();
+                Assert.Equal(2, values.Count);
+                Assert.True(values["first"] >= 2);
+                Assert.True(values["second"] >= 1);
+                firstSource.OldestMessageTimestamp = 0;
+                Assert.Equal(0, Collect()["first"]);
+            }
+
+            Assert.Equal(0, Assert.Single(Collect()).Value);
+        }
+
+        Assert.Empty(Collect());
+
+        Dictionary<string, double> Collect()
+        {
+            var exportedItems = new List<Metric>();
+            using var provider = CreateMeterProvider(exportedItems);
+            Assert.True(provider.ForceFlush());
+            foreach (var metric in exportedItems.Where(item => item.Name == metricName))
+            {
+                Assert.Equal(MetricType.DoubleGauge, metric.MetricType);
+                Assert.Equal("s", metric.Unit);
+            }
+
+            return GetPoints(exportedItems, metricName, topic).ToDictionary(point =>
+            {
+                var tags = GetTags(point);
+                Assert.Equal(4, tags.Count);
+                Assert.Equal("localhost:2136", tags["endpoint"]);
+                Assert.Equal("/local", tags["database"]);
+                Assert.Equal(topic, tags["topic"]);
+                return (string)tags["writer.name"]!;
+            }, point => point.GetGaugeLastValueDouble());
+        }
+    }
+
+    [Fact]
+    public void SendingOldestAge_ReportsMessagesAcceptedBeforeSubscription()
+    {
+        const string topic = "/writer-late-subscription";
+        var message = new MessageSending(
+            new StreamWriteMessage.Types.WriteRequest.Types.MessageData(),
+            new TaskCompletionSource<WriteResult>(), default);
+        using var metrics = new WriterMetricsReporter("localhost:2136", "/local", topic, "writer",
+            new BufferMetricsSource { OldestMessageTimestamp = message.SendTimestamp });
+
+        Assert.True(CollectOldestAge(topic) is > 0);
+    }
+
+    [Fact]
     public async Task BufferUsed_FollowsLimiterReservationAndRelease()
     {
         const string topic = "/writer-buffer-used";
         const string metricName = "ydb.topic.writer.buffer.used.bytes";
 
         var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ageAtFirstSend = 0d;
         var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var stream = new Mock<WriterStream>();
         stream.Setup(instance => instance.Write(It.IsAny<FromClient>())).Returns<FromClient>(message =>
         {
             if (message.WriteRequest != null)
             {
+                ageAtFirstSend = CollectOldestAge(topic) ?? 0;
                 sent.TrySetResult();
             }
 
@@ -184,14 +251,17 @@ public class WriterMetricsReporterTests
         try
         {
             Assert.Equal(0, Collect());
+            Assert.Equal(0, CollectOldestAge(topic));
             using var cancellation = new CancellationTokenSource();
             var write = writer.WriteAsync(100L, cancellation.Token);
             await sent.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(ageAtFirstSend > 0);
             Assert.Equal(8, Collect());
             Assert.Equal(8, Collect());
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => write);
             Assert.Equal(0, Collect());
+            Assert.True(CollectOldestAge(topic) is > 0);
         }
         finally
         {
@@ -199,6 +269,7 @@ public class WriterMetricsReporterTests
         }
 
         Assert.Null(Collect());
+        Assert.Null(CollectOldestAge(topic));
 
         long? Collect()
         {
@@ -247,18 +318,22 @@ public class WriterMetricsReporterTests
         Task<WriteResult> accepted;
         await using (writer)
         {
+            Assert.Equal(0, CollectOldestAge(topic));
             var message = new Message<byte[]>([1]);
             message.Metadata.Add(new Metadata("key", new byte[20]));
             accepted = writer.WriteAsync(message);
+            Assert.True(CollectOldestAge(topic) is > 0);
             using var cancellation = new CancellationTokenSource();
             var rejected = writer.WriteAsync([2], cancellation.Token);
             Assert.False(rejected.IsCompleted);
             await cancellation.CancelAsync();
             Assert.Equal("Buffer overflow", (await Assert.ThrowsAsync<WriterException>(() => rejected)).Message);
+            Assert.True(CollectOldestAge(topic) is > 0);
             opening.TrySetCanceled();
         }
 
         await Assert.ThrowsAsync<WriterException>(() => accepted);
+        Assert.Null(CollectOldestAge(topic));
         Assert.True(meterProvider.ForceFlush());
         var metric = GetMetric(exportedItems, "ydb.topic.writer.sending.messages");
         Assert.Equal(MetricType.LongSum, metric.MetricType);
@@ -291,6 +366,20 @@ public class WriterMetricsReporterTests
         var retriedWriteSent = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reconnect = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var acknowledgementsProcessed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var retryAge = 0d;
+        var retryTokenRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var retryToken = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        stream.Setup(instance => instance.AuthToken()).Returns(() =>
+        {
+            if (!reconnect.Task.IsCompleted)
+            {
+                return new ValueTask<string?>((string?)null);
+            }
+
+            retryTokenRequested.TrySetResult();
+            return new ValueTask<string?>(retryToken.Task);
+        });
         stream.SetupSequence(instance => instance.Write(It.IsAny<FromClient>()))
             .Returns(Task.CompletedTask)
             .Returns(() =>
@@ -306,6 +395,7 @@ public class WriterMetricsReporterTests
             .Returns(Task.CompletedTask)
             .Returns(() =>
             {
+                retryAge = CollectOldestAge(topic) ?? 0;
                 retriedWriteSent.SetResult(true);
                 return Task.CompletedTask;
             });
@@ -314,7 +404,11 @@ public class WriterMetricsReporterTests
             .Returns(reconnect.Task)
             .ReturnsAsync(true)
             .Returns(retriedWriteSent.Task)
-            .Returns(closed.Task);
+            .Returns(() =>
+            {
+                acknowledgementsProcessed.TrySetResult();
+                return closed.Task;
+            });
         stream.SetupSequence(instance => instance.Current)
             .Returns(new StreamWriteMessage.Types.FromServer
             {
@@ -361,18 +455,40 @@ public class WriterMetricsReporterTests
 
         await using (writer)
         {
+            var source = Assert.IsAssignableFrom<IWriterMetricsSource>(writer);
+            Assert.Equal(0, CollectOldestAge(topic));
             using var cancellation = new CancellationTokenSource();
             var alreadyWritten = writer.WriteAsync(100L, cancellation.Token);
             await firstWriteSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var firstTimestamp = source.OldestMessageTimestamp;
+            Assert.NotEqual(0, firstTimestamp);
+            Assert.True(CollectOldestAge(topic) is > 0);
             await cancellation.CancelAsync();
             await Assert.ThrowsAsync<TaskCanceledException>(() => alreadyWritten);
+            Assert.Equal(firstTimestamp, source.OldestMessageTimestamp);
+            Assert.True(CollectOldestAge(topic) is > 0);
             var written = writer.WriteAsync(200L);
             await secondWriteSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(firstTimestamp, source.OldestMessageTimestamp);
             reconnect.SetResult(true);
 
+            try
+            {
+                await retryTokenRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.True(CollectOldestAge(topic) is > 0);
+            }
+            finally
+            {
+                retryToken.TrySetResult(null);
+            }
+
             Assert.Equal(PersistenceStatus.Written, (await written.WaitAsync(TimeSpan.FromSeconds(5))).Status);
+            await acknowledgementsProcessed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(retryAge > 0);
+            Assert.Equal(0, CollectOldestAge(topic));
         }
 
+        Assert.Null(CollectOldestAge(topic));
         Assert.True(meterProvider.ForceFlush());
 
         var metric = GetMetric(exportedItems, "ydb.topic.writer.written.messages");
@@ -532,6 +648,28 @@ public class WriterMetricsReporterTests
 
         Assert.True(meterProvider.ForceFlush());
         Assert.Empty(GetPoints(exportedItems, "ydb.topic.writer.message.ack.duration", topic));
+    }
+
+    private static double? CollectOldestAge(string topic)
+    {
+        const string metricName = "ydb.topic.writer.sending.oldest_age";
+        var exportedItems = new List<Metric>();
+        using var provider = CreateMeterProvider(exportedItems);
+        Assert.True(provider.ForceFlush());
+        var points = GetPoints(exportedItems, metricName, topic);
+        if (points.Count == 0)
+        {
+            return null;
+        }
+
+        var metric = GetMetric(exportedItems, metricName);
+        Assert.Equal(MetricType.DoubleGauge, metric.MetricType);
+        Assert.Equal("s", metric.Unit);
+        var point = Assert.Single(points);
+        var tags = GetTags(point);
+        Assert.Equal(4, tags.Count);
+        AssertCommonTags(tags, topic);
+        return point.GetGaugeLastValueDouble();
     }
 
     private static MeterProvider CreateMeterProvider(List<Metric> exportedItems) =>
