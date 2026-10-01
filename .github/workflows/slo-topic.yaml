@@ -62,7 +62,7 @@ jobs:
             --workload "TopicService"
 
       - name: Run YDB SLO Topic
-        uses: ydb-platform/ydb-slo-action/init@v2
+        uses: ydb-platform/ydb-slo-action/init@v3
         timeout-minutes: 30
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -70,6 +70,23 @@ jobs:
           workload_duration: ${{ inputs.slo_workload_duration_seconds || '600' }}
           workload_current_ref: ${{ github.head_ref || github.ref_name }}
           workload_current_image: ydb-app-current
-          workload_current_command: run "Host=ydb;Port=2136;Database=/Root/testdb"
+          workload_current_command: >-
+            run "Host=ydb;Port=2136;Database=/Root/testdb"
+            --write-rps 100 --read-timeout 120 --write-timeout 10
           fail_on_workload_error: true
-          disable_compose_profiles: workload-baseline,telemetry
+          disable_compose_profiles: workload-baseline
+
+  report:
+    name: Topic SLO graphs
+    needs: ydb-slo-topic-action
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: ydb-platform/ydb-slo-action/report@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          post_comment: false
+          github_run_id: ${{ github.run_id }}

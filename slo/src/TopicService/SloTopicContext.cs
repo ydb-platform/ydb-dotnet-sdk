@@ -1,7 +1,8 @@
-using System.Collections.Concurrent;
 using System.Threading.RateLimiting;
 using Internal;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic;
 using Ydb.Sdk.Topic.Reader;
@@ -11,353 +12,217 @@ namespace TopicService;
 
 public class SloTopicContext : ISloContext
 {
-    private const string PathTopic = "/Root/testdb/slo-topic";
-    private const string ConsumerName = "Consumer";
-    private const int PartitionSize = 10;
-
+    private const int Partitions = 10;
     private static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTopicContext>();
+    private readonly long[] _acked = new long[Partitions];
+    private readonly long[] _delivered = new long[Partitions];
+    private readonly long[] _committed = new long[Partitions];
+    private readonly object[] _ordering = Enumerable.Range(0, Partitions).Select(_ => new object()).ToArray();
+    private readonly TaskCompletionSource[] _drained = Enumerable.Range(0, Partitions)
+        .Select(_ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
+    private int _writersFinished;
+    private long _writeErrors;
+    private long _commitErrors;
+    private long _readErrors;
 
     public async Task Run(SloConfig config)
     {
-        var connectionStringBuilder = new YdbConnectionStringBuilder(config.ConnectionString)
-            { LoggerFactory = ISloContext.Factory };
-
-        await using (var topicClient = new TopicClient(connectionStringBuilder))
+        var runId = Guid.NewGuid().ToString("N");
+        using var telemetry = SloTelemetry.Create(config, "TopicService", runId);
+        var connection = new YdbConnectionStringBuilder(config.ConnectionString)
+            { LoggerFactory = ISloContext.Factory, PoolName = "TopicService" };
+        var path = $"{connection.Database.TrimEnd('/')}/slo-v3-topic-{runId}";
+        const string consumer = "slo-v3-reader";
+        await using var topicClient = new TopicClient(connection);
+        using var writerStop = new CancellationTokenSource();
+        using var readerStop = new CancellationTokenSource();
+        var checks = new List<SloCheck>();
+        var readers = Array.Empty<Task>();
+        var created = false;
+        try
         {
-            await topicClient.CreateTopic(
-                new CreateTopicSettings
+            if (config.Time <= 0 || config.WriteRps <= 0 || config.WriteTimeout <= 0 || config.ReadTimeout <= 0)
+                throw new ArgumentException("Topic SLO requires positive duration, RPS and deadlines");
+            await topicClient.CreateTopic(new CreateTopicSettings
+            {
+                Path = path,
+                PartitioningSettings = new PartitioningSettings { MinActivePartitions = Partitions },
+                Consumers = { new Consumer(consumer) { Important = true } }
+            });
+            created = true;
+            using var limiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = config.WriteRps, TokensPerPeriod = config.WriteRps,
+                ReplenishmentPeriod = TimeSpan.FromSeconds(1), AutoReplenishment = true,
+                QueueLimit = Partitions, QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            });
+            readers = Enumerable.Range(0, Partitions).Select(Read).ToArray();
+            writerStop.CancelAfter(TimeSpan.FromSeconds(config.Time));
+            var writers = Enumerable.Range(0, Partitions).Select(Write).ToArray();
+            await Task.WhenAll(writers);
+            if (readers.Any(task => task.IsFaulted)) await Task.WhenAll(readers);
+            Volatile.Write(ref _writersFinished, 1);
+            for (var i = 0; i < Partitions; i++) SignalDrain(i);
+            await Task.WhenAll(_drained.Select(signal => signal.Task))
+                .WaitAsync(TimeSpan.FromSeconds(config.ReadTimeout));
+            await readerStop.CancelAsync();
+            await Task.WhenAll(readers);
+            checks.Add(new SloCheck("P01", "PASS", "Every ACKed sequence delivered in partition order"));
+            checks.Add(new SloCheck("P02", "PASS", "Batch and single APIs completed delivery and commit"));
+            checks.Add(new SloCheck("P03", "PASS", $"All ACKed sequences committed; transient commit errors: {_commitErrors}"));
+
+            async Task Write(int partition)
+            {
+                await using var writer = new WriterBuilder<string>(connection, path)
                 {
-                    Path = PathTopic,
-                    PartitioningSettings = new PartitioningSettings
-                    {
-                        MinActivePartitions = PartitionSize
-                    },
-                    Consumers =
-                    {
-                        new Consumer(ConsumerName)
-                        {
-                            Important = true
-                        }
-                    }
-                }
-            );
-
-            Logger.LogInformation("Topic[{TopicName}] created!", PathTopic);
-        }
-
-        Logger.LogInformation("Started Run topic slo test");
-
-        var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
-        {
-            Window = TimeSpan.FromMilliseconds(100), PermitLimit = config.WriteRps / 10, QueueLimit = int.MaxValue
-        });
-
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromSeconds(config.Time));
-
-        var messageSending = new ConcurrentDictionary<long, ConcurrentQueue<string>>();
-
-        var writeTasks = new List<Task>();
-        for (var i = 0; i < PartitionSize; i++)
-        {
-            var partitionId = i;
-            messageSending[partitionId] = new ConcurrentQueue<string>();
-
-            writeTasks.Add(
-                Task.Run(async () =>
+                    ProducerId = $"{runId}-{partition}",
+                    WriterName = $"writer-{partition}",
+                    PartitionId = partition,
+                    BufferMaxSize = 8 * 1024 * 1024
+                }.Build();
+                while (!writerStop.IsCancellationRequested)
                 {
                     try
                     {
-                        await using var writer = new WriterBuilder<string>(connectionStringBuilder, PathTopic)
-                        {
-                            BufferMaxSize = 8 * 1024 * 1024,
-                            ProducerId = "producer-" + partitionId,
-                            PartitionId = partitionId
-                        }.Build();
-
-                        Logger.LogInformation("Started Writer[PartitionId={PartitionId}]", partitionId);
-
-                        var messageNum = 1;
-                        while (!cts.IsCancellationRequested)
-                        {
-                            using var lease = await writeLimiter.AcquireAsync(cancellationToken: cts.Token);
-                            using var writeRpc = new CancellationTokenSource();
-                            writeRpc.CancelAfter(TimeSpan.FromSeconds(config.WriteTimeout));
-
-                            if (!lease.IsAcquired)
-                            {
-                                continue;
-                            }
-
-                            var data = $"message-{messageNum++}";
-                            messageSending[partitionId].Enqueue(data);
-
-                            await writer.WriteAsync(data, writeRpc.Token);
-                        }
+                        using var lease = await limiter.AcquireAsync(cancellationToken: writerStop.Token);
+                        if (!lease.IsAcquired) continue;
+                        var sequence = Volatile.Read(ref _acked[partition]) + 1;
+                        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(config.WriteTimeout));
+                        await writer.WriteAsync($"{runId}:{partition}:{sequence}", deadline.Token);
+                        Volatile.Write(ref _acked[partition], sequence);
                     }
-                    catch (OperationCanceledException)
+                    catch (OperationCanceledException) when (writerStop.IsCancellationRequested)
                     {
-                        Logger.LogInformation("Finished Writer[PartitionId={PartitionId}]", partitionId);
+                        break;
                     }
-                    catch (WriterException e)
+                    catch (OperationCanceledException error)
                     {
-                        Logger.LogCritical(e, "Failed Writer[PartitionId={PartitionId}]", partitionId);
-
-                        await cts.CancelAsync();
-
+                        Interlocked.Increment(ref _writeErrors);
+                        Logger.LogWarning(error, "Write ACK deadline expired; sequence will be retried");
+                    }
+                    catch
+                    {
+                        Interlocked.Increment(ref _writeErrors);
+                        await writerStop.CancelAsync();
+                        await readerStop.CancelAsync();
                         throw;
                     }
-                }, cts.Token)
-            );
+                }
+            }
+        }
+        catch (Exception error)
+        {
+            await writerStop.CancelAsync();
+            await readerStop.CancelAsync();
+            checks.Add(new SloCheck("P01", "FAIL", error.Message));
+            checks.Add(new SloCheck("P02", "FAIL", error.Message));
+            checks.Add(new SloCheck("P03", "FAIL", error.Message));
+            throw;
+        }
+        finally
+        {
+            await readerStop.CancelAsync();
+            try { await Task.WhenAll(readers); }
+            catch (Exception error) { Logger.LogError(error, "Reader failed during shutdown"); }
+            telemetry?.ForceFlush();
+            await SloResult.WriteAsync(runId, "topic", checks,
+            [
+                new SloOperationCount("write", _acked.Sum(), _writeErrors),
+                new SloOperationCount("read", _delivered.Sum(), _readErrors + _commitErrors)
+            ]);
+            if (created) await topicClient.DropTopic(path);
         }
 
-        var readTasks = new List<Task>();
-        for (var i = 0; i < PartitionSize; i++)
+        async Task Read(int readerIndex)
         {
-            var handlerBatch = i % 2 == 0;
-            var partitionId = i;
-            readTasks.Add(Task.Run(async () =>
+            await using var reader = new ReaderBuilder<string>(connection)
             {
-                try
+                ConsumerName = consumer,
+                ReaderName = $"reader-{readerIndex}",
+                SubscribeSettings = { new SubscribeSettings(path) },
+                MemoryUsageMaxBytes = 8 * 1024 * 1024
+            }.Build();
+            try
+            {
+                while (!readerStop.IsCancellationRequested)
                 {
-                    await using var reader = new ReaderBuilder<string>(connectionStringBuilder)
+                    if (readerIndex % 2 == 0)
                     {
-                        ConsumerName = ConsumerName,
-                        SubscribeSettings =
+                        var batch = await reader.ReadBatchAsync(readerStop.Token);
+                        foreach (var message in batch.Batch) Verify(message);
+                        try
                         {
-                            new SubscribeSettings(PathTopic)
-                            {
-                                PartitionIds = { partitionId }
-                            }
-                        },
-                        MemoryUsageMaxBytes = 8 * 1024 * 1024
-                    }.Build();
-
-                    Logger.LogInformation("Started Reader[PartitionId={PartitionId}]", partitionId);
-
-                    if (handlerBatch)
-                    {
-                        await ReadBatchMessages(cts, reader, messageSending, partitionId);
+                            await batch.CommitBatchAsync().WaitAsync(readerStop.Token);
+                            if (batch.Batch.Count > 0)
+                                ConfirmCommit(batch.Batch[0].PartitionId,
+                                    batch.Batch.Max(message => long.Parse(message.Data.Split(':')[2])));
+                        }
+                        catch (ReaderException error)
+                        {
+                            Interlocked.Increment(ref _commitErrors);
+                            Logger.LogWarning(error, "Batch commit will be retried on redelivery");
+                        }
                     }
                     else
                     {
-                        await ReadMessage(cts, reader, messageSending, partitionId);
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    Logger.LogInformation("Finished Reader[PartitionId={PartitionId}]", partitionId);
-                }
-                catch (Exception e)
-                {
-                    Logger.LogCritical(e, "Failed SLO test");
-
-                    await cts.CancelAsync();
-                }
-            }, cts.Token));
-        }
-
-        await Task.WhenAll(writeTasks);
-        await Task.WhenAll(readTasks);
-
-        Logger.LogInformation("Task finish!");
-    }
-
-    private static async Task ReadBatchMessages(
-        CancellationTokenSource cts,
-        IReader<string> reader,
-        ConcurrentDictionary<long, ConcurrentQueue<string>> localStore,
-        int partitionId
-    )
-    {
-        var queryFailedCommited = new Queue<string>();
-        var prevSuccessCommitMessage = "Nothing";
-        while (!cts.IsCancellationRequested)
-        {
-            var batchMessages = await reader.ReadBatchAsync(cts.Token);
-
-            foreach (var message in batchMessages.Batch)
-            {
-                while (queryFailedCommited.TryDequeue(out var expectedMessageData))
-                {
-                    Logger.LogInformation(
-                        "ReadBatchMessages[PartitionId={PartitionId}] has repeated read: {MessageData}", partitionId,
-                        expectedMessageData);
-
-                    if (expectedMessageData == message.Data)
-                    {
-                        goto ContinueForeach;
-                    }
-
-                    if (localStore.TryGetValue(message.PartitionId, out var expectedQueue))
-                    {
-                        if (expectedQueue.TryPeek(out var commitedMessage))
+                        var message = await reader.ReadAsync(readerStop.Token);
+                        Verify(message);
+                        try
                         {
-                            if (commitedMessage == message.Data)
-                            {
-                                expectedQueue.TryDequeue(out _);
-
-                                goto ContinueForeach;
-                            }
+                            await message.CommitAsync().WaitAsync(readerStop.Token);
+                            ConfirmCommit(message.PartitionId, long.Parse(message.Data.Split(':')[2]));
                         }
-                    }
-
-                    if (string.CompareOrdinal(expectedMessageData, message.Data) < 0)
-                    {
-                        continue;
-                    }
-
-                    Logger.LogCritical("Previous success messages: {PrevSuccessCommitMessage}. \n" +
-                                       "FAILED ReadBatchMessages prevFailMessage is greater than message data! \n" +
-                                       "Local store: {LocalStore}",
-                        prevSuccessCommitMessage, PrintLocalStore(localStore));
-
-                    AssertMessage(message, expectedMessageData);
-                }
-
-                CheckMessage(localStore, message);
-
-                ContinueForeach: ;
-            }
-
-            try
-            {
-                await batchMessages.CommitBatchAsync();
-
-                prevSuccessCommitMessage = string.Join(", ", batchMessages.Batch.Select(m =>
-                    $"[Topic: {m.Topic}, Data: {m.Data}, PartitionId: {m.PartitionId}, CreatedAt: {m.CreatedAt}]"));
-            }
-            catch (ReaderException e)
-            {
-                Logger.LogInformation(e, "Previous success messages: {PrevSuccessCommitMessage}. \n" +
-                                         "Commit batch have readerException error! For messages: {Messages} \n" +
-                                         "Local store: {LocalStore}",
-                    prevSuccessCommitMessage, string.Join(", ", batchMessages.Batch.Select(m =>
-                        $"[Topic: {m.Topic}, Data: {m.Data}, PartitionId: {m.PartitionId}, CreatedAt: {m.CreatedAt}]")),
-                    PrintLocalStore(localStore));
-
-                foreach (var message in batchMessages.Batch)
-                {
-                    queryFailedCommited.Enqueue(message.Data);
-                }
-            }
-        }
-    }
-
-    private static async Task ReadMessage(
-        CancellationTokenSource cts,
-        IReader<string> reader,
-        ConcurrentDictionary<long, ConcurrentQueue<string>> localStore,
-        int partitionId
-    )
-    {
-        string? prevFailMessage = null;
-        var prevSuccessCommitMessage = "Nothing";
-
-        while (!cts.IsCancellationRequested)
-        {
-            var message = await reader.ReadAsync(cts.Token);
-
-            if (prevFailMessage != null)
-            {
-                Logger.LogInformation("ReadMessage[PartitionId={PartitionId}] has repeated read: {MessageData}",
-                    partitionId, prevFailMessage);
-
-                if (string.CompareOrdinal(prevFailMessage, message.Data) > 0)
-                {
-                    Logger.LogCritical("Previous success messages: {PrevSuccessCommitMessage}. \n" +
-                                       "FAILED ReadMessage prevFailMessage is greater than message data! \n" +
-                                       "Local store: {LocalStore}",
-                        prevSuccessCommitMessage, PrintLocalStore(localStore));
-
-                    AssertMessage(message, prevFailMessage);
-                }
-
-                prevFailMessage = null;
-
-                if (localStore.TryGetValue(message.PartitionId, out var expectedQueue))
-                {
-                    if (expectedQueue.TryPeek(out var commitedMessage))
-                    {
-                        if (commitedMessage == message.Data)
+                        catch (ReaderException error)
                         {
-                            expectedQueue.TryDequeue(out _);
+                            Interlocked.Increment(ref _commitErrors);
+                            Logger.LogWarning(error, "Commit will be retried on redelivery");
                         }
                     }
                 }
-
-                goto ContinueForeach;
             }
-
-            CheckMessage(localStore, message);
-
-            ContinueForeach:
-            try
+            catch (OperationCanceledException) when (readerStop.IsCancellationRequested) { }
+            catch
             {
-                await message.CommitAsync();
-
-                prevSuccessCommitMessage = $"[Topic: {message.Topic}, Data: {message.Data}, " +
-                                           $"PartitionId: {message.PartitionId}, CreatedAt: {message.CreatedAt}]";
+                Interlocked.Increment(ref _readErrors);
+                await writerStop.CancelAsync();
+                await readerStop.CancelAsync();
+                throw;
             }
-            catch (ReaderException e)
-            {
-                Logger.LogInformation(e,
-                    "Commit message have ReaderException error! For message: " +
-                    "[Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}] \n" +
-                    "Previous success messages: {PrevSuccessCommitMessage}. \n" +
-                    "Local store: {LocalStore}",
-                    message.Topic, message.Data, message.PartitionId, message.CreatedAt, prevSuccessCommitMessage,
-                    PrintLocalStore(localStore));
+        }
 
-                prevFailMessage = message.Data;
+        void Verify(Ydb.Sdk.Topic.Reader.Message<string> message)
+        {
+            var partition = checked((int)message.PartitionId);
+            if (partition < 0 || partition >= Partitions)
+                throw new InvalidDataException($"Unexpected partition {partition}");
+            var parts = message.Data.Split(':');
+            if (parts.Length != 3 || parts[0] != runId || parts[1] != partition.ToString()
+                || !long.TryParse(parts[2], out var sequence) || sequence <= 0
+                || message.Data != $"{runId}:{partition}:{sequence}")
+                throw new InvalidDataException($"Partition {partition}: payload mismatch");
+            lock (_ordering[partition])
+            {
+                if (sequence > _delivered[partition] + 1)
+                    throw new InvalidDataException($"Partition {partition}: forward sequence gap");
+                if (sequence == _delivered[partition] + 1)
+                    Volatile.Write(ref _delivered[partition], sequence);
             }
         }
     }
 
-    private static void CheckMessage(ConcurrentDictionary<long, ConcurrentQueue<string>> localStore,
-        Ydb.Sdk.Topic.Reader.Message<string> message)
+    private void ConfirmCommit(long partitionId, long sequence)
     {
-        if (localStore.TryGetValue(message.PartitionId, out var partition))
-        {
-            if (partition.TryDequeue(out var expectedMessageData))
-            {
-                AssertMessage(message, expectedMessageData);
-                return;
-            }
-
-            Logger.LogCritical(
-                "Unknown message: [Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}]\n" +
-                "Local store: {LocalStore}",
-                message.Topic, message.Data, message.PartitionId, message.CreatedAt, PrintLocalStore(localStore));
-
-            throw new Exception("FAILED SLO TEST: UNKNOWN MESSAGE!");
-        }
-
-        Logger.LogCritical(
-            "Unknown message: [Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}]\n" +
-            "Local store: {LocalStore}",
-            message.Topic, message.Data, message.PartitionId, message.CreatedAt, PrintLocalStore(localStore));
-
-        throw new Exception("FAILED SLO TEST: NOT FOUND PARTITION FOR PRODUCER_ID!");
+        var partition = checked((int)partitionId);
+        lock (_ordering[partition])
+            Volatile.Write(ref _committed[partition], Math.Max(_committed[partition], sequence));
+        SignalDrain(partition);
     }
 
-    private static string PrintLocalStore(ConcurrentDictionary<long, ConcurrentQueue<string>> localStore) =>
-        "[" +
-        string.Join("\n", localStore.Select(pair => pair.Key + ": " + string.Join(", ", pair.Value))) +
-        "]";
-
-    private static void AssertMessage(Ydb.Sdk.Topic.Reader.Message<string> message, string expectedMessageData)
+    private void SignalDrain(int partition)
     {
-        if (expectedMessageData == message.Data)
-        {
-            return;
-        }
-
-        Logger.LogCritical(
-            "Fail assertion messages! expectedData: {ExpectedData}, " +
-            "actualMessage: [Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}]",
-            expectedMessageData, message.Topic, message.Data, message.PartitionId, message.CreatedAt);
-
-        throw new Exception("FAILED SLO TEST: ASSERT ERROR!");
+        var acked = Volatile.Read(ref _acked[partition]);
+        if (Volatile.Read(ref _writersFinished) != 0 && acked > 0
+            && Volatile.Read(ref _committed[partition]) >= acked)
+            _drained[partition].TrySetResult();
     }
 }
