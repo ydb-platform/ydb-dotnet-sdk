@@ -7,21 +7,19 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
     env:
       VERSION: ${{ github.event.inputs.version }}
       CHANGELOG_FILE: ./src/Ydb.Sdk.OpenTelemetry/CHANGELOG.md
     steps:
       - name: Checkout
-        run: |
-          git init
-          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
-          git fetch --depth=1 origin "$GITHUB_SHA"
-          git checkout --detach FETCH_HEAD
+        uses: actions/checkout@v6
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
         with:
