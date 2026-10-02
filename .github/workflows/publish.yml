@@ -15,14 +15,11 @@ on:
         type: boolean
         default: True
 
-permissions:
-  contents: write
-
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       id-token: write
     env:
       VERSION_CHANGE: ${{ github.event.inputs.version-change }}
