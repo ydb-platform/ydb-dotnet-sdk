@@ -10,8 +10,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     protected override string Job => "AdoNet";
 
     protected override YdbDataSource CreateClient(SloConfig config) => new YdbDataSourceBuilder(
-        new YdbConnectionStringBuilder(config.ConnectionString)
-            { LoggerFactory = ISloContext.Factory, PoolName = Job, MinPoolSize = 0, MaxPoolSize = 20 }
+        new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
     ) { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
@@ -93,7 +92,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         return attempts;
     }
 
-    protected override async Task<SloTable?> Select(
+    protected override async Task<object?> Select(
         YdbDataSource client,
         (Guid Guid, int Id) select,
         int readTimeout
@@ -115,16 +114,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
             }
         };
 
-        await using var reader = await ydbCommand.ExecuteReaderAsync();
-        if (!await reader.ReadAsync()) return null;
-        return new SloTable
-        {
-            Guid = reader.GetGuid(0),
-            Id = reader.GetInt32(1),
-            PayloadStr = reader.GetString(2),
-            PayloadDouble = reader.GetDouble(3),
-            PayloadTimestamp = reader.GetDateTime(4)
-        };
+        return await ydbCommand.ExecuteScalarAsync();
     }
 
     protected override async Task<int> SelectCount(YdbDataSource client)

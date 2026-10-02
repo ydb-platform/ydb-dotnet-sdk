@@ -10,8 +10,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     protected override string Job => "Dapper";
 
     protected override YdbDataSource CreateClient(SloConfig config) => new YdbDataSourceBuilder(
-        new YdbConnectionStringBuilder(config.ConnectionString)
-            { LoggerFactory = ISloContext.Factory, PoolName = Job, MinPoolSize = 0, MaxPoolSize = 20 }
+        new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
     ) { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
@@ -27,7 +26,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
                                            PRIMARY KEY (Guid, Id)
                                        );
                                        {SloTable.Options}
-                                       """, commandTimeout: operationTimeout);
+                                       """);
     }
 
     protected override async Task<int> Save(YdbDataSource client, SloTable sloTable, int writeTimeout)
@@ -38,12 +37,12 @@ public class SloTableContext : SloTableContext<YdbDataSource>
             $"""
              UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
              VALUES (@Guid, @Id, @PayloadStr, @PayloadDouble, @PayloadTimestamp)
-             """, sloTable, commandTimeout: writeTimeout);
+             """, sloTable);
 
         return 1;
     }
 
-    protected override async Task<SloTable?> Select(YdbDataSource client, (Guid Guid, int Id) select,
+    protected override async Task<object?> Select(YdbDataSource client, (Guid Guid, int Id) select,
         int readTimeout)
     {
         await using var ydbConnection =
@@ -52,7 +51,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
             $"""
              SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp
              FROM `{SloTable.Name}` WHERE Guid = @Guid AND Id = @Id;
-             """, new { select.Guid, select.Id }, commandTimeout: readTimeout
+             """, new { select.Guid, select.Id }
         );
     }
 

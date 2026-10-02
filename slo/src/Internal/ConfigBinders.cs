@@ -12,8 +12,7 @@ internal class RunConfigBinder(
     Option<int> writeRpsOption,
     Option<int> writeTimeoutOption,
     Option<int> timeOption,
-    Option<int> initialDataCountOption,
-    Option<int?> completionTimeoutOption
+    Option<int> initialDataCountOption
 ) : BinderBase<SloConfig>
 {
     protected override SloConfig GetBoundValue(BindingContext bindingContext) =>
@@ -26,8 +25,6 @@ internal class RunConfigBinder(
             bindingContext.ParseResult.GetValueForOption(writeRpsOption),
             bindingContext.ParseResult.GetValueForOption(writeTimeoutOption),
             bindingContext.ParseResult.GetValueForOption(timeOption),
-            bindingContext.ParseResult.GetValueForOption(initialDataCountOption),
-            bindingContext.ParseResult.GetValueForOption(completionTimeoutOption)
-            ?? bindingContext.ParseResult.GetValueForOption(timeOption) + 60
+            bindingContext.ParseResult.GetValueForOption(initialDataCountOption)
         );
 }

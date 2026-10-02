@@ -16,7 +16,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="HdrHistogram" Version="2.5.0"/>
         <PackageReference Include="NLog.Extensions.Logging" Version="5.5.0"/>
         <PackageReference Include="OpenTelemetry" Version="1.15.3"/>
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3"/>
