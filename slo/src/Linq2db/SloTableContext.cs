@@ -68,14 +68,16 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         var row = await db.GetTable<SloRow>()
             .FirstOrDefaultAsync(sloRow => sloRow.Guid == select.Guid && sloRow.Id == select.Id);
 
-        return row is null ? null : new SloTable
-        {
-            Guid = row.Guid,
-            Id = row.Id,
-            PayloadStr = row.PayloadStr ?? throw new InvalidDataException("Null confirmed payload"),
-            PayloadDouble = row.PayloadDouble,
-            PayloadTimestamp = row.PayloadTimestamp
-        };
+        return row is null
+            ? null
+            : new SloTable
+            {
+                Guid = row.Guid,
+                Id = row.Id,
+                PayloadStr = row.PayloadStr ?? throw new InvalidDataException("Null confirmed payload"),
+                PayloadDouble = row.PayloadDouble,
+                PayloadTimestamp = row.PayloadTimestamp
+            };
     }
 
     protected override async Task<int> SelectCount(Linq2dbClient client)

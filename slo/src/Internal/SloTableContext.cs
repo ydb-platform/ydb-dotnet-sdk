@@ -1,7 +1,6 @@
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
-using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Ydb.Sdk;
 using Ydb.Sdk.Ado;
@@ -44,8 +43,9 @@ public abstract class SloTableContext<T> : ISloContext
             if (config.CompletionTimeout <= 0)
                 throw new ArgumentException("SLO completion timeout must be positive");
             lifetime.CancelAfter(TimeSpan.FromSeconds(config.CompletionTimeout));
-            checks = await Task.Run(() => RunWorkload(config, runId, lifetime.Token))
-                .WaitAsync(lifetime.Token);
+            var cancellation = lifetime.Token;
+            checks = await Task.Run(() => RunWorkload(config, runId, cancellation))
+                .WaitAsync(cancellation);
         }
         catch (Exception error)
         {
@@ -79,7 +79,7 @@ public abstract class SloTableContext<T> : ISloContext
 
             using (var initialization = new CancellationTokenSource(TimeSpan.FromSeconds(config.WriteTimeout)))
             {
-                for (var attempt = 1; ; attempt++)
+                for (var attempt = 1;; attempt++)
                 {
                     try
                     {
@@ -94,9 +94,10 @@ public abstract class SloTableContext<T> : ISloContext
                     }
                 }
             }
+
             for (var i = 0; i < config.InitialDataCount; i++)
             {
-                for (var attempt = 1; ; attempt++)
+                for (var attempt = 1;; attempt++)
                 {
                     try
                     {
@@ -113,6 +114,7 @@ public abstract class SloTableContext<T> : ISloContext
                     }
                 }
             }
+
             using var duration = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
             duration.CancelAfter(TimeSpan.FromSeconds(config.Time));
             await Task.WhenAll(Shoot(client, config, false, duration),
@@ -120,7 +122,8 @@ public abstract class SloTableContext<T> : ISloContext
 
             SloTable[] rows;
             lock (_ledgerLock) rows = _confirmed.ToArray();
-            using var verification = new CancellationTokenSource(TimeSpan.FromSeconds(config.Time + config.ReadTimeout));
+            using var verification =
+                new CancellationTokenSource(TimeSpan.FromSeconds(config.Time + config.ReadTimeout));
             using var verificationRate = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
             {
                 TokenLimit = config.ReadRps, TokensPerPeriod = config.ReadRps,
@@ -148,6 +151,7 @@ public abstract class SloTableContext<T> : ISloContext
             else if (client is IDisposable disposable) disposable.Dispose();
             telemetry?.ForceFlush();
         }
+
         return checks;
     }
 
@@ -180,19 +184,24 @@ public abstract class SloTableContext<T> : ISloContext
             QueueLimit = 10,
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst
         });
-        await Task.WhenAll(Enumerable.Range(0, 10).Select(async _ =>
+        var workers = new Task[10];
+        for (var i = 0; i < workers.Length; i++) workers[i] = RunWorker(limiter);
+        await Task.WhenAll(workers);
+
+        async Task RunWorker(TokenBucketRateLimiter rateLimiter)
         {
             while (!token.IsCancellationRequested)
             {
                 try
                 {
-                    using var lease = await limiter.AcquireAsync(cancellationToken: token);
+                    using var lease = await rateLimiter.AcquireAsync(cancellationToken: token);
                     if (!lease.IsAcquired) continue;
                     if (!read)
                     {
                         await Write(client, config);
                         continue;
                     }
+
                     SloTable row;
                     lock (_ledgerLock) row = _confirmed[Random.Shared.Next(_confirmed.Count)];
                     var actual = await Select(client, (row.Guid, row.Id), config.ReadTimeout);
@@ -217,13 +226,15 @@ public abstract class SloTableContext<T> : ISloContext
                     throw;
                 }
             }
-        }));
+        }
     }
 
     private static void Verify(SloTable expected, SloTable? actual)
     {
         if (actual is null || expected.Guid != actual.Guid || expected.Id != actual.Id
-            || expected.PayloadStr != actual.PayloadStr || expected.PayloadDouble != actual.PayloadDouble
+            || expected.PayloadStr != actual.PayloadStr
+            || BitConverter.DoubleToInt64Bits(expected.PayloadDouble) !=
+            BitConverter.DoubleToInt64Bits(actual.PayloadDouble)
             || expected.PayloadTimestamp.Ticks != actual.PayloadTimestamp.Ticks)
             throw new InvalidDataException($"Confirmed row payload mismatch: {expected.Guid}/{expected.Id}");
     }
