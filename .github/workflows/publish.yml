@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   publish:
@@ -26,7 +27,6 @@ jobs:
       RELEASE_CANDIDATE: ${{ github.event.inputs.release-candidate }}
       CHANGELOG_FILE: ./src/Ydb.Sdk/CHANGELOG.md
       GITHUB_TOKEN: ${{ secrets.YDB_PLATFORM_BOT_TOKEN_REPO }}
-      NUGET_TOKEN: ${{ secrets.YDB_PLATFORM_NUGET_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -41,6 +41,13 @@ jobs:
         run: |
           cd src/Ydb.Sdk/src
           dotnet build --configuration Release 
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: robot-ydb-platform
       - name: Publish
+        env:
+          NUGET_TOKEN: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: bash .github/scripts/publish.sh
         
