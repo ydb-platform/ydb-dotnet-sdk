@@ -111,7 +111,7 @@ jobs:
             --workload "${{ matrix.workload.name }}"
 
       - name: Run YDB SLO
-        uses: ydb-platform/ydb-slo-action/init@topic-sdk-graphs-and-budgets
+        uses: ydb-platform/ydb-slo-action/init@v3
         timeout-minutes: 30
         with:
           github_issue: ${{ github.event.inputs.github_issue }}
