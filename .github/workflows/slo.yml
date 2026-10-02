@@ -100,11 +100,6 @@ jobs:
             --context "$GITHUB_WORKSPACE/current" \
             --workload "${{ matrix.workload.name }}"
 
-      - name: Use SDK metrics exporter for baseline
-        run: |
-          cp current/slo/src/Internal/SloTableContext.cs baseline/slo/src/Internal/SloTableContext.cs
-          cp current/slo/src/Internal/Internal.csproj baseline/slo/src/Internal/Internal.csproj
-
       - name: Build baseline workload image
         run: |
           set -euxo pipefail
