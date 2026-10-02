@@ -1,4 +1,4 @@
-﻿using Internal;
+using Internal;
 using LinqToDB;
 using LinqToDB.Async;
 using LinqToDB.Data;

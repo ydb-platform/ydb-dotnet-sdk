@@ -17,7 +17,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Publish YDB SLO Report
-        uses: ydb-platform/ydb-slo-action/report@v2
+        uses: ydb-platform/ydb-slo-action/report@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           github_run_id: ${{ github.event.workflow_run.id }}
