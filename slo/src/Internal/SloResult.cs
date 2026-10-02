@@ -18,7 +18,9 @@ public static class SloResult
     {
         var verdict = checks.Any(check => check.Verdict == "FAIL")
             ? "FAIL"
-            : checks.Any(check => check.Verdict != "PASS") ? "INVALID" : "PASS";
+            : checks.Any(check => check.Verdict != "PASS")
+                ? "INVALID"
+                : "PASS";
         var result = new
         {
             SchemaVersion = 3,

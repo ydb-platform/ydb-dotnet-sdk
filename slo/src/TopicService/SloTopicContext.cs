@@ -1,7 +1,6 @@
 using System.Threading.RateLimiting;
 using Internal;
 using Microsoft.Extensions.Logging;
-using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic;
@@ -18,8 +17,10 @@ public class SloTopicContext : ISloContext
     private readonly long[] _delivered = new long[Partitions];
     private readonly long[] _committed = new long[Partitions];
     private readonly object[] _ordering = Enumerable.Range(0, Partitions).Select(_ => new object()).ToArray();
+
     private readonly TaskCompletionSource[] _drained = Enumerable.Range(0, Partitions)
         .Select(_ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
+
     private int _writersFinished;
     private long _writeErrors;
     private long _commitErrors;
@@ -35,9 +36,10 @@ public class SloTopicContext : ISloContext
             if (config.CompletionTimeout <= 0)
                 throw new ArgumentException("SLO completion timeout must be positive");
             lifetime.CancelAfter(TimeSpan.FromSeconds(config.CompletionTimeout));
+            var cancellation = lifetime.Token;
             // SDK construction and disposal belong to this process deadline, not the result writer.
-            checks = await Task.Run(() => RunWorkload(config, runId, lifetime.Token))
-                .WaitAsync(lifetime.Token);
+            checks = await Task.Run(() => RunWorkload(config, runId, cancellation))
+                .WaitAsync(cancellation);
         }
         catch (Exception error)
         {
@@ -90,9 +92,11 @@ public class SloTopicContext : ISloContext
                 ReplenishmentPeriod = TimeSpan.FromSeconds(1), AutoReplenishment = true,
                 QueueLimit = Partitions, QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             });
-            readers = Enumerable.Range(0, Partitions).Select(Read).ToArray();
+            readers = new Task[Partitions];
+            for (var i = 0; i < Partitions; i++) readers[i] = Read(i, readerStop, writerStop.CancelAsync);
             writerStop.CancelAfter(TimeSpan.FromSeconds(config.Time));
-            var writers = Enumerable.Range(0, Partitions).Select(Write).ToArray();
+            var writers = new Task[Partitions];
+            for (var i = 0; i < Partitions; i++) writers[i] = Write(i, limiter, writerStop, readerStop.CancelAsync);
             await Task.WhenAll(writers);
             if (readers.Any(task => task.IsFaulted)) await Task.WhenAll(readers);
             Volatile.Write(ref _writersFinished, 1);
@@ -103,9 +107,11 @@ public class SloTopicContext : ISloContext
             await Task.WhenAll(readers);
             checks.Add(new SloCheck("P01", "PASS", "Every ACKed sequence delivered in partition order"));
             checks.Add(new SloCheck("P02", "PASS", "Batch and single APIs completed delivery and commit"));
-            checks.Add(new SloCheck("P03", "PASS", $"All ACKed sequences committed; transient commit errors: {_commitErrors}"));
+            checks.Add(new SloCheck("P03", "PASS",
+                $"All ACKed sequences committed; transient commit errors: {_commitErrors}"));
 
-            async Task Write(int partition)
+            async Task Write(int partition, TokenBucketRateLimiter rateLimiter,
+                CancellationTokenSource stopWrites, Func<Task> stopReads)
             {
                 await using var writer = new WriterBuilder<string>(connection, path)
                 {
@@ -114,17 +120,18 @@ public class SloTopicContext : ISloContext
                     PartitionId = partition,
                     BufferMaxSize = 8 * 1024 * 1024
                 }.Build();
-                while (!writerStop.IsCancellationRequested)
+                while (!stopWrites.IsCancellationRequested)
                 {
                     RateLimitLease lease;
                     try
                     {
-                        lease = await limiter.AcquireAsync(cancellationToken: writerStop.Token);
+                        lease = await rateLimiter.AcquireAsync(cancellationToken: stopWrites.Token);
                     }
-                    catch (OperationCanceledException) when (writerStop.IsCancellationRequested)
+                    catch (OperationCanceledException) when (stopWrites.IsCancellationRequested)
                     {
                         break;
                     }
+
                     using var acquiredLease = lease;
                     if (!lease.IsAcquired) continue;
                     try
@@ -142,8 +149,8 @@ public class SloTopicContext : ISloContext
                     catch
                     {
                         Interlocked.Increment(ref _writeErrors);
-                        await writerStop.CancelAsync();
-                        await readerStop.CancelAsync();
+                        await stopWrites.CancelAsync();
+                        await stopReads();
                         throw;
                     }
                 }
@@ -158,14 +165,22 @@ public class SloTopicContext : ISloContext
         finally
         {
             await readerStop.CancelAsync();
-            try { await Task.WhenAll(readers); }
-            catch (Exception error) { Logger.LogError(error, "Reader failed during shutdown"); }
+            try
+            {
+                await Task.WhenAll(readers);
+            }
+            catch (Exception error)
+            {
+                Logger.LogError(error, "Reader failed during shutdown");
+            }
+
             telemetry?.ForceFlush();
             if (created) await topicClient.DropTopic(path);
         }
+
         return checks;
 
-        async Task Read(int readerIndex)
+        async Task Read(int readerIndex, CancellationTokenSource stopReads, Func<Task> stopWrites)
         {
             await using var reader = new ReaderBuilder<string>(connection)
             {
@@ -176,15 +191,15 @@ public class SloTopicContext : ISloContext
             }.Build();
             try
             {
-                while (!readerStop.IsCancellationRequested)
+                while (!stopReads.IsCancellationRequested)
                 {
                     if (readerIndex % 2 == 0)
                     {
-                        var batch = await reader.ReadBatchAsync(readerStop.Token);
+                        var batch = await reader.ReadBatchAsync(stopReads.Token);
                         foreach (var message in batch.Batch) Verify(message);
                         try
                         {
-                            await batch.CommitBatchAsync().WaitAsync(readerStop.Token);
+                            await batch.CommitBatchAsync().WaitAsync(stopReads.Token);
                             if (batch.Batch.Count > 0)
                                 ConfirmCommit(batch.Batch[0].PartitionId,
                                     batch.Batch.Max(message => long.Parse(message.Data.Split(':')[2])));
@@ -197,11 +212,11 @@ public class SloTopicContext : ISloContext
                     }
                     else
                     {
-                        var message = await reader.ReadAsync(readerStop.Token);
+                        var message = await reader.ReadAsync(stopReads.Token);
                         Verify(message);
                         try
                         {
-                            await message.CommitAsync().WaitAsync(readerStop.Token);
+                            await message.CommitAsync().WaitAsync(stopReads.Token);
                             ConfirmCommit(message.PartitionId, long.Parse(message.Data.Split(':')[2]));
                         }
                         catch (ReaderException error)
@@ -212,12 +227,14 @@ public class SloTopicContext : ISloContext
                     }
                 }
             }
-            catch (OperationCanceledException) when (readerStop.IsCancellationRequested) { }
+            catch (OperationCanceledException) when (stopReads.IsCancellationRequested)
+            {
+            }
             catch
             {
                 Interlocked.Increment(ref _readErrors);
-                await writerStop.CancelAsync();
-                await readerStop.CancelAsync();
+                await stopWrites();
+                await stopReads.CancelAsync();
                 throw;
             }
         }
@@ -254,7 +271,7 @@ public class SloTopicContext : ISloContext
     {
         var acked = Volatile.Read(ref _acked[partition]);
         if (Volatile.Read(ref _writersFinished) != 0 && acked > 0
-            && Volatile.Read(ref _committed[partition]) >= acked)
+                                                     && Volatile.Read(ref _committed[partition]) >= acked)
             _drained[partition].TrySetResult();
     }
 }

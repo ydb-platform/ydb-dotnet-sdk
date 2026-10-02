@@ -27,14 +27,13 @@ public static class SloTelemetry
                     Environment.GetEnvironmentVariable("WORKLOAD_NAME") ?? job),
                 new KeyValuePair<string, object>("run_id", runId)
             ]))
-            .AddOtlpExporter(
-                (options, readerOptions) =>
-                {
-                    options.Protocol = OtlpExportProtocol.HttpProtobuf;
-                    options.Endpoint = new Uri(endpoint);
-                    readerOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
-                        config.ReportPeriod;
-                })
+            .AddOtlpExporter((options, readerOptions) =>
+            {
+                options.Protocol = OtlpExportProtocol.HttpProtobuf;
+                options.Endpoint = new Uri(endpoint);
+                readerOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
+                    config.ReportPeriod;
+            })
             .Build();
     }
 }
