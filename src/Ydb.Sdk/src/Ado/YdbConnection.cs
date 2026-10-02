@@ -26,6 +26,7 @@ public sealed class YdbConnection : DbConnection
     private bool _disposed;
     private YdbConnectionStringBuilder? _connectionStringBuilder;
     private ISessionSource? _sessionSource;
+    internal object TimestampScope { get; private set; } = new();
 
     private YdbConnectionStringBuilder ConnectionStringBuilder
     {
@@ -177,6 +178,8 @@ public sealed class YdbConnection : DbConnection
                 .ConfigureAwait(false)
         ).OpenSession(cancellationToken).ConfigureAwait(false);
 
+        TimestampScope = new object();
+
         OnStateChange(ClosedToOpenEventArgs);
 
         ConnectionState = ConnectionState.Open;
@@ -192,6 +195,8 @@ public sealed class YdbConnection : DbConnection
         Session = new RetryableSession(
             _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false),
             retryPolicyExecutor);
+
+        TimestampScope = new object();
 
         ConnectionState = ConnectionState.Open;
     }

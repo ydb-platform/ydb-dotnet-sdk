@@ -34,7 +34,7 @@ internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : I
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public Task CommitTransaction(
+    public Task<VirtualTimestamp?> CommitTransaction(
         string txId,
         Activity? dbActivity = null,
         CancellationToken cancellationToken = default

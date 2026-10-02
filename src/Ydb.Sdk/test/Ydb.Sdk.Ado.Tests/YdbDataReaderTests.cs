@@ -9,6 +9,157 @@ namespace Ydb.Sdk.Ado.Tests;
 public class YdbDataReaderTests : TestBase
 {
     [Fact]
+    public async Task CommitTimestamp_IsAvailableOnlyAfterSuccessfulTrailingPart()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+        connection.EnableAutoCommit();
+        var timestamp = new VirtualTimestamp { PlanStep = ulong.MaxValue, TxId = 17 };
+        var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+        [
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, CommitTimestamp = timestamp }
+        ]), connection);
+
+        Assert.Null(reader.CommitTimestamp);
+        Assert.Null(transaction.CommitTimestamp);
+
+        Assert.False(await reader.ReadAsync());
+
+        Assert.Equal(ulong.MaxValue, reader.CommitTimestamp!.Value.PlanStep);
+        Assert.Equal((ulong)17, reader.CommitTimestamp.Value.TxId);
+        Assert.Same(reader.CommitTimestamp, transaction.CommitTimestamp);
+        await reader.CloseAsync();
+    }
+
+    [Fact]
+    public async Task CommitTimestamp_IsAvailableWhenFinalPartAlsoContainsResultSet()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+        connection.EnableAutoCommit();
+        var resultSet = ResultSet.Parser.ParseJson("""
+                                                   {"columns":[{"name":"value","type":{"typeId":"BOOL"}}],
+                                                    "rows":[{"items":[{"boolValue":true}]}]}
+                                                   """);
+        var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+        [
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = resultSet,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 15, TxId = ulong.MaxValue }
+            }
+        ]), connection);
+
+        Assert.Null(reader.CommitTimestamp);
+        Assert.True(await reader.ReadAsync());
+        Assert.True(reader.GetBoolean(0));
+        Assert.Null(reader.CommitTimestamp);
+
+        Assert.False(await reader.ReadAsync());
+        Assert.Equal((ulong)15, reader.CommitTimestamp!.PlanStep);
+        Assert.Equal(ulong.MaxValue, reader.CommitTimestamp.TxId);
+        Assert.Same(reader.CommitTimestamp, transaction.CommitTimestamp);
+        await reader.CloseAsync();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CommitTimestamp_IsAbsentWithoutFinalTrailingValue(bool earlierPartHasTimestamp)
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+        connection.EnableAutoCommit();
+        var first = new ExecuteQueryResponsePart
+            { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() };
+        if (earlierPartHasTimestamp)
+        {
+            first.CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 };
+        }
+
+        var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+        [
+            first,
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success }
+        ]), connection);
+
+        Assert.False(await reader.ReadAsync());
+        Assert.Null(reader.CommitTimestamp);
+        Assert.Null(transaction.CommitTimestamp);
+        await reader.CloseAsync();
+    }
+
+    [Fact]
+    public async Task CommitTimestamp_IsAbsentWhenStreamFailsAfterTimestamp()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+        connection.EnableAutoCommit();
+        var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+        [
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 }
+            },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Aborted }
+        ]), connection);
+
+        await Assert.ThrowsAsync<YdbException>(() => reader.ReadAsync());
+
+        Assert.Null(reader.CommitTimestamp);
+        Assert.Null(transaction.CommitTimestamp);
+    }
+
+    [Fact]
+    public async Task CommitTimestamp_IgnoresNonFinalTrailingPart()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+        connection.EnableAutoCommit();
+        var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+        [
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 }
+            },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success }
+        ]), connection);
+
+        Assert.False(await reader.ReadAsync());
+        Assert.Null(reader.CommitTimestamp);
+        Assert.Null(transaction.CommitTimestamp);
+        await reader.CloseAsync();
+    }
+
+    [Fact]
+    public async Task CommitTimestamp_IsAbsentWhenQueryDoesNotCommitTransaction()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+        var reader = await CreateYdbDataReader(new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+        [
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 1, TxId = 2 }
+            }
+        ]), connection);
+
+        Assert.False(await reader.ReadAsync());
+        Assert.Null(reader.CommitTimestamp);
+        Assert.Null(transaction.CommitTimestamp);
+        Assert.False(transaction.Completed);
+        await reader.CloseAsync();
+    }
+
+    [Fact]
     public async Task BasedIteration_WhenNotCallMethodRead_ThrowException()
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();

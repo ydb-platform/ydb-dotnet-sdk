@@ -37,7 +37,7 @@ internal class RetryableSession : ISession
             new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings));
     }
 
-    public Task CommitTransaction(
+    public Task<VirtualTimestamp?> CommitTransaction(
         string txId,
         Activity? dbActivity = null,
         CancellationToken cancellationToken = default

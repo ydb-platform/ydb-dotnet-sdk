@@ -1,3 +1,8 @@
+- Feat ADO.NET: support `TransactionMode.StrictSerializableRW` and optional commit timestamps
+  from `CommitTransaction` and the final `ExecuteQuery` response part. Timestamps expose
+  `Ydb.VirtualTimestamp` through `YdbCommitTimestamp.Value` and can be compared within one
+  connection opening.
+
 ## v0.36.0
 
 - Fix Topic Reader: do not send redundant commit requests for already committed offsets or closed partition sessions.

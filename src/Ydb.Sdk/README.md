@@ -77,6 +77,25 @@ await new YdbCommand("UPSERT INTO logs (id, msg) VALUES (1, 'hello');", connecti
 await tx.CommitAsync();
 ```
 
+For a commit timestamp, start a transaction in `StrictSerializableRW` mode:
+
+```csharp
+await using var tx = connection.BeginTransaction(TransactionMode.StrictSerializableRW);
+await new YdbCommand("UPSERT INTO logs (id, msg) VALUES (2, 'world');", connection).ExecuteNonQueryAsync();
+await tx.CommitAsync();
+
+Ydb.VirtualTimestamp? value = tx.CommitTimestamp?.Value;
+```
+
+`CommitTimestamp` is null when the server omits it, including read-only and unsuccessful
+transactions. Its `Value` is a `Ydb.VirtualTimestamp` with unsigned `ulong` `PlanStep`
+and `TxId` fields. When `EnableAutoCommit()` commits through `ExecuteQuery`, consume the
+`YdbDataReader` to the end before reading `reader.CommitTimestamp` or `tx.CommitTimestamp`.
+The SDK compares timestamps lexicographically through `YdbCommitTimestamp.CompareTo`.
+Comparison is limited to timestamps from the same opening of a `YdbConnection`; separate
+connection openings cannot be compared because the SDK does not verify physical database
+identity across them.
+
 ## Retry Policy
 
 Execute operations with automatic retry on transient errors:
