@@ -1,3 +1,8 @@
+## Unreleased
+
+- Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
+  `ydb-sdk-metrics/0.2.0` to `ydb-sdk-metrics/0.3.0`.
+
 ## v0.36.0
 
 - Fix Topic Reader: do not send redundant commit requests for already committed offsets or closed partition sessions.

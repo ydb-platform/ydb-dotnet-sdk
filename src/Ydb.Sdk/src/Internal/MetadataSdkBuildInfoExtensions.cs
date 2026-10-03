@@ -6,7 +6,7 @@ namespace Ydb.Sdk.Internal;
 internal static class MetadataSdkBuildInfoExtensions
 {
     private const string TracingChain = ";ydb-sdk-tracing/0.1.0";
-    private const string MetricsChain = ";ydb-sdk-metrics/0.2.0";
+    private const string MetricsChain = ";ydb-sdk-metrics/0.3.0";
 
     /// <summary>
     /// Appends the observability adoption chain (<c>ydb-sdk-tracing</c>/<c>ydb-sdk-metrics</c>)
