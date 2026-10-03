@@ -5,11 +5,13 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, reopened, synchronize, labeled]
   schedule:
     - cron: "45 * * * *"
 
 jobs:
   ydb-slo-topic-action:
+    if: github.event.action != 'labeled' || github.event.label.name == 'SLO'
     name: SLO Topic test
     runs-on: "large-runner-dotnet-sdk"
 
