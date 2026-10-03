@@ -2,6 +2,10 @@ using System.Collections.Concurrent;
 using System.Threading.RateLimiting;
 using Internal;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic;
 using Ydb.Sdk.Topic.Reader;
@@ -19,6 +23,28 @@ public class SloTopicContext : ISloContext
 
     public async Task Run(SloConfig config)
     {
+        using var meterProvider = Sdk.CreateMeterProviderBuilder()
+            .AddMeter("Ydb.Sdk.Topic")
+            .ConfigureResource(resource => resource.AddService("workload-TopicService").AddAttributes(
+            [
+                new KeyValuePair<string, object>("ref",
+                    Environment.GetEnvironmentVariable("WORKLOAD_REF") ?? "unknown")
+            ]))
+            .AddOtlpExporter((options, readerOptions) =>
+            {
+                var endpoint = config.OtlpEndpoint
+                               ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT");
+                if (!string.IsNullOrWhiteSpace(endpoint))
+                {
+                    options.Endpoint = new Uri(endpoint);
+                }
+
+                options.Protocol = OtlpExportProtocol.HttpProtobuf;
+                readerOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
+                    config.ReportPeriod;
+            })
+            .Build();
+
         var connectionStringBuilder = new YdbConnectionStringBuilder(config.ConnectionString)
             { LoggerFactory = ISloContext.Factory };
 
