@@ -1,5 +1,3 @@
-## Unreleased
-
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
   `ydb-sdk-metrics/0.2.0` to `ydb-sdk-metrics/0.3.0`.
 
