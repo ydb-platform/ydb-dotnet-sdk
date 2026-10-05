@@ -1,15 +1,12 @@
 name: SLO YDB Topics
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     types: [opened, reopened, synchronize, labeled]
 
 jobs:
   ydb-slo-topic-action:
-    if: github.event.action != 'labeled' || github.event.label.name == 'SLO'
+    if: contains(github.event.pull_request.labels.*.name, 'SLO')
     name: SLO Topic test
     runs-on: "large-runner-dotnet-sdk"
 
@@ -77,7 +74,7 @@ jobs:
   report:
     name: Topic SLO graphs
     needs: ydb-slo-topic-action
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.ydb-slo-topic-action.result != 'skipped' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
