@@ -6,8 +6,6 @@ on:
       - main
   pull_request:
     types: [opened, reopened, synchronize, labeled]
-  schedule:
-    - cron: "45 * * * *"
 
 jobs:
   ydb-slo-topic-action:
@@ -90,3 +88,30 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           post_comment: false
           github_run_id: ${{ github.run_id }}
+      - name: Topic SLO run summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          RESULT: ${{ needs.ydb-slo-topic-action.result }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+          report_id=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" \
+            --jq '[.artifacts[] | select(.name == "TopicService-report.html" and .expired == false)] | max_by(.created_at) | .id // empty')
+          report="Unavailable"
+          if [ -n "$report_id" ]; then
+            report="[Graphs]($run_url/artifacts/$report_id)"
+          fi
+          {
+            printf '## Topic SLO runs\n\n'
+            printf '| Run | Result | Commit | Graphs |\n'
+            printf '| --- | --- | --- | --- |\n'
+            printf '| [#%s.%s](%s) | %s | [%s](%s/%s/commit/%s) | %s |\n' \
+              "$RUN_ID" "$RUN_ATTEMPT" "$run_url" "$RESULT" "${COMMIT:0:7}" \
+              "$SERVER_URL" "$REPO" "$COMMIT" "$report"
+          } >> "$GITHUB_STEP_SUMMARY"
