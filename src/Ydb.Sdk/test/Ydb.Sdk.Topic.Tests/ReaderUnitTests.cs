@@ -1788,6 +1788,7 @@ public class ReaderUnitTests
         {
             await merged.CommitBatchAsync().WaitAsync(timeout);
         }
+
         var other = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
         Assert.Equal("other partition", Assert.Single(other.Batch).Data);
         Assert.Equal(2, other.Batch[0].PartitionId);
@@ -1807,6 +1808,7 @@ public class ReaderUnitTests
         {
             expectedRanges.Add((1, expectedStarts[readMessages], 16));
         }
+
         expectedRanges.Add((2, 20, 21));
         expectedRanges.Add((1, 16, 17));
         Assert.Equal(expectedRanges, commitRanges);
