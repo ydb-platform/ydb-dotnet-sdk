@@ -6,7 +6,7 @@ They use the SDK from this checkout and create temporary topics with unique name
 Start a local YDB instance, then run from the repository root:
 
 ```sh
-dotnet run --project ydb_tech/topic/Topic.csproj
+dotnet run --project examples/ydb_tech/topic/Topic.csproj
 ```
 
 Set `YDB_CONNECTION_STRING` to an ADO.NET connection string to select another database.
