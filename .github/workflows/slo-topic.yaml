@@ -63,7 +63,7 @@ jobs:
         timeout-minutes: 30
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          workload_name: "TopicService"
+          workload_name: "Topic-write-read-commit"
           workload_duration: ${{ inputs.slo_workload_duration_seconds || '600' }}
           workload_current_ref: ${{ github.head_ref || github.ref_name }}
           workload_current_image: ydb-app-current
@@ -99,7 +99,7 @@ jobs:
           set -euo pipefail
           run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
           report_id=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" \
-            --jq '[.artifacts[] | select(.name == "TopicService-report.html" and .expired == false)] | max_by(.created_at) | .id // empty')
+            --jq '[.artifacts[] | select(.name == "Topic-write-read-commit-report.html" and .expired == false)] | max_by(.created_at) | .id // empty')
           report="Unavailable"
           if [ -n "$report_id" ]; then
             report="[Graphs]($run_url/artifacts/$report_id)"
