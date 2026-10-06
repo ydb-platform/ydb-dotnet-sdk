@@ -121,11 +121,12 @@ public class SloTopicContext : ISloContext
                             await writer.WriteAsync(data, writeRpc.Token);
                         }
                     }
-                    catch (OperationCanceledException)
+                    catch (OperationCanceledException e) when (cts.IsCancellationRequested &&
+                                                               e.CancellationToken == cts.Token)
                     {
                         Logger.LogInformation("Finished Writer[PartitionId={PartitionId}]", partitionId);
                     }
-                    catch (WriterException e)
+                    catch (Exception e)
                     {
                         Logger.LogCritical(e, "Failed Writer[PartitionId={PartitionId}]", partitionId);
 
@@ -170,7 +171,7 @@ public class SloTopicContext : ISloContext
                         await ReadMessage(cts, reader, messageSending, partitionId);
                     }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (cts.IsCancellationRequested)
                 {
                     Logger.LogInformation("Finished Reader[PartitionId={PartitionId}]", partitionId);
                 }
@@ -179,6 +180,8 @@ public class SloTopicContext : ISloContext
                     Logger.LogCritical(e, "Failed SLO test");
 
                     await cts.CancelAsync();
+
+                    throw;
                 }
             }, cts.Token));
         }
