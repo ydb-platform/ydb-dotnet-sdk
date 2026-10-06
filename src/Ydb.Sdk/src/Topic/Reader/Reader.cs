@@ -614,30 +614,20 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
             if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession))
             {
-                var batchCount = partition.Batches.Count;
-                var batches = partition.Batches;
+                await _channelWriter.WriteAsync(
+                    new InternalBatchMessages<TValue>(
+                        partition.Batches,
+                        partitionSession,
+                        this,
+                        approximatelyPartitionBytesSize,
+                        _deserializer,
+                        receivedTimestamp
+                    )
+                ).ConfigureAwait(false);
 
-                for (var batchIndex = 0; batchIndex < batchCount; batchIndex++)
-                {
-                    var batch = batches[batchIndex];
-                    await _channelWriter.WriteAsync(
-                        new InternalBatchMessages<TValue>(
-                            batch,
-                            partitionSession,
-                            this,
-                            Utils.CalculateApproximatelyBytesSize(
-                                bytesSize: approximatelyPartitionBytesSize,
-                                countParts: batchCount,
-                                currentIndex: batchIndex
-                            ),
-                            _deserializer,
-                            receivedTimestamp
-                        )
-                    ).ConfigureAwait(false);
-
-                    _metrics.ReportLocalBufferMessages(batch.MessageData.Count);
-                    _metrics.ReportReceived(batch.MessageData.Count, partitionSession.TopicPath);
-                }
+                var messageCount = partition.Batches.Sum(batch => batch.MessageData.Count);
+                _metrics.ReportLocalBufferMessages(messageCount);
+                _metrics.ReportReceived(messageCount, partitionSession.TopicPath);
             }
             else
             {
