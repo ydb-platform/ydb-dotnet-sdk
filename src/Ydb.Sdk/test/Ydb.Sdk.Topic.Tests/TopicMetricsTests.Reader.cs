@@ -550,8 +550,8 @@ public partial class TopicMetricsTests
         secondReadReady.SetResult(true);
 
         var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
-        Assert.Equal(["Second", "Third"], batch.Batch.Select(message => message.Data));
-        Assert.Equal(["ProducerId", "AnotherProducer"], batch.Batch.Select(message => message.ProducerId));
+        Assert.Equal(["Second", "Third"], batch.Batch.Select(batchMessage => batchMessage.Data));
+        Assert.Equal(["ProducerId", "AnotherProducer"], batch.Batch.Select(batchMessage => batchMessage.ProducerId));
         var batchCommitTask = batch.CommitBatchAsync();
         batchCommitReady.SetResult(true);
         await batchCommitTask.WaitAsync(timeout);
