@@ -1692,6 +1692,7 @@ public class ReaderUnitTests
         {
             var timeout = TimeSpan.FromSeconds(5);
             var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
+            Assert.Null(typeof(BatchMessages<string>).GetProperty(nameof(Message<string>.ProducerId)));
             Assert.Equal(["First", "Second"], batch.Batch.Select(message => message.Data));
             Assert.Equal(["ProducerId", "AnotherProducer"], batch.Batch.Select(message => message.ProducerId));
             await batch.CommitBatchAsync().WaitAsync(timeout);

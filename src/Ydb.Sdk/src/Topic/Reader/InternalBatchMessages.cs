@@ -97,8 +97,7 @@ internal class InternalBatchMessages<TValue>(
             batch: messages,
             readerSession: readerSession,
             offsetsRange: new OffsetsRange { Start = startOffset, End = partitionsSession.PrevEndOffsetMessage },
-            partitionSessionId: partitionsSession.PartitionSessionId,
-            producerId: messages[0].ProducerId
+            partitionSessionId: partitionsSession.PartitionSessionId
         );
 
         return true;
