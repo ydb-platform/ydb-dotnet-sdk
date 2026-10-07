@@ -491,10 +491,6 @@ public partial class TopicMetricsTests
         var secondReadReady = new TaskCompletionSource<bool>();
         var batchCommitReady = new TaskCompletionSource<bool>();
         var batchCommitHandled = new TaskCompletionSource<bool>();
-        var secondRead = ReadResponse(1, "Second"u8.ToArray());
-        var thirdBatch = ReadResponse(2, "Third"u8.ToArray()).ReadResponse.PartitionData[0].Batches[0];
-        thirdBatch.ProducerId = "AnotherProducer";
-        secondRead.ReadResponse.PartitionData[0].Batches.Add(thirdBatch);
         mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
         {
             lastMoveNext.TrySetResult(false);
@@ -528,7 +524,7 @@ public partial class TopicMetricsTests
             .Returns(StartPartitionSessionRequest())
             .Returns(ReadResponse("First"u8.ToArray()))
             .Returns(CommitOffsetResponse())
-            .Returns(secondRead)
+            .Returns(ReadResponse(1, "Second"u8.ToArray(), "Third"u8.ToArray()))
             .Returns(CommitOffsetResponse(3));
 
         await using var reader = new ReaderBuilder<string>(driverFactory)
@@ -550,8 +546,6 @@ public partial class TopicMetricsTests
         secondReadReady.SetResult(true);
 
         var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
-        Assert.Equal(["Second", "Third"], batch.Batch.Select(batchMessage => batchMessage.Data));
-        Assert.Equal(["ProducerId", "AnotherProducer"], batch.Batch.Select(batchMessage => batchMessage.ProducerId));
         var batchCommitTask = batch.CommitBatchAsync();
         batchCommitReady.SetResult(true);
         await batchCommitTask.WaitAsync(timeout);

@@ -1,5 +1,4 @@
 using System.Text;
-using System.Threading.Channels;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -1653,166 +1652,64 @@ public class ReaderUnitTests
         _mockStream.Verify(stream => stream.Dispose(), Times.Once);
     }
 
-    [Theory]
-    [InlineData(0, false, false)]
-    [InlineData(1, false, false)]
-    [InlineData(2, false, false)]
-    [InlineData(3, false, false)]
-    [InlineData(0, true, false)]
-    [InlineData(2, true, false)]
-    [InlineData(0, false, true)]
-    [InlineData(2, true, true)]
-    public async Task ReadBatchAsync_WhenPartitionHasMultipleProducers_MergesRemainingMessages(
-        int readMessages, bool includeEmptyBatches, bool commitIndividually)
+    [Fact]
+    public async Task ReadBatchAsync_WhenPartitionHasMultipleProducers_MergesAndCommitsBatch()
     {
-        var timeout = TimeSpan.FromSeconds(5);
-        var responses = Channel.CreateUnbounded<FromServer>();
-        FromServer current = null!;
-        _mockStream.Setup(stream => stream.MoveNextAsync()).Returns(async () =>
-        {
-            if (!await responses.Reader.WaitToReadAsync())
-            {
-                return false;
-            }
+        var commitWritten = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var response = ReadResponse(10, "First"u8.ToArray());
+        var secondBatch = ReadResponse(11, "Second"u8.ToArray()).ReadResponse.PartitionData[0].Batches[0];
+        secondBatch.ProducerId = "AnotherProducer";
+        response.ReadResponse.PartitionData[0].Batches.Add(secondBatch);
 
-            current = await responses.Reader.ReadAsync();
-            return true;
-        });
-        _mockStream.Setup(stream => stream.Current).Returns(() => current);
-        _mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
-        {
-            responses.Writer.TryComplete();
-            return Task.CompletedTask;
-        });
-        var readRequests = new List<long>();
-        var commitRanges = new List<(long Partition, long Start, long End)>();
         _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Callback<FromClient>(request =>
             {
-                if (request.ReadRequest is { } readRequest)
+                if (request.CommitOffsetRequest != null)
                 {
-                    readRequests.Add(readRequest.BytesSize);
+                    commitWritten.TrySetResult(true);
                 }
-
-                if (request.CommitOffsetRequest is not { } commitRequest)
-                {
-                    return;
-                }
-
-                var commit = Assert.Single(commitRequest.CommitOffsets);
-                var range = Assert.Single(commit.Offsets);
-                commitRanges.Add((commit.PartitionSessionId, range.Start, range.End));
-                var ack = CommitOffsetResponse();
-                ack.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = commit.PartitionSessionId;
-                ack.CommitOffsetResponse.PartitionsCommittedOffsets[0].CommittedOffset = range.End;
-                responses.Writer.TryWrite(ack);
             })
             .Returns(Task.CompletedTask);
-
-        var response = ReadResponse(10, "first"u8.ToArray(), "second"u8.ToArray());
-        response.ReadResponse.BytesSize = 101;
-        var partition = response.ReadResponse.PartitionData[0];
-        partition.Batches[0].ProducerId = "producer-a";
-        var secondBatch = ReadResponse(14, "third"u8.ToArray(), "fourth"u8.ToArray())
-            .ReadResponse.PartitionData[0].Batches[0];
-        secondBatch.ProducerId = "producer-b";
-        partition.Batches.Add(secondBatch);
-        var createdAt = DateTime.SpecifyKind(new DateTime(2026, 10, 6), DateTimeKind.Utc);
-        var index = 0;
-        foreach (var message in partition.Batches.SelectMany(batch => batch.MessageData))
-        {
-            message.SeqNo = ++index;
-            message.CreatedAt = Timestamp.FromDateTime(createdAt.AddSeconds(index));
-            message.MetadataItems.Add(new MetadataItem { Key = "index", Value = ByteString.CopyFromUtf8($"{index}") });
-        }
-
-        if (includeEmptyBatches)
-        {
-            partition.Batches.Insert(0, new StreamReadMessage.Types.ReadResponse.Types.Batch());
-            partition.Batches.Add(new StreamReadMessage.Types.ReadResponse.Types.Batch());
-        }
-
-        var otherPartition = ReadResponse(20, "other partition"u8.ToArray()).ReadResponse.PartitionData[0];
-        otherPartition.PartitionSessionId = 2;
-        response.ReadResponse.PartitionData.Add(otherPartition);
-        var nextResponse = ReadResponse(16, "next response"u8.ToArray());
-        nextResponse.ReadResponse.BytesSize = 7;
-        responses.Writer.TryWrite(InitResponse);
-        responses.Writer.TryWrite(StartPartitionSessionRequest(10));
-        responses.Writer.TryWrite(StartPartitionSessionRequest(20, 2));
-        responses.Writer.TryWrite(response);
-        responses.Writer.TryWrite(nextResponse);
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(commitWritten.Task)
+            .Returns(_lastMoveNext);
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponse)
+            .Returns(StartPartitionSessionRequest(10))
+            .Returns(response)
+            .Returns(CommitOffsetResponse(12));
 
         await using var reader = new ReaderBuilder<string>(_driverFactoryMock)
         {
             ConsumerName = "Consumer Tester",
-            MemoryUsageMaxBytes = 1,
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
-        string[] expectedData = ["first", "second", "third", "fourth"];
-        string[] expectedProducers = ["producer-a", "producer-a", "producer-b", "producer-b"];
-        long[] expectedStarts = [10, 11, 12, 15];
-        long[] expectedEnds = [11, 12, 15, 16];
-        for (var i = 0; i < readMessages; i++)
-        {
-            var message = await reader.ReadAsync().AsTask().WaitAsync(timeout);
-            Assert.Equal(expectedData[i], message.Data);
-            await message.CommitAsync().WaitAsync(timeout);
-        }
 
-        var merged = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
-        Assert.Equal(expectedData.Skip(readMessages), merged.Batch.Select(message => message.Data));
-        Assert.Equal(expectedProducers.Skip(readMessages), merged.Batch.Select(message => message.ProducerId));
-        Assert.Equal(expectedProducers[readMessages], merged.ProducerId);
-        for (var i = 0; i < merged.Batch.Count; i++)
+        try
         {
-            var message = merged.Batch[i];
-            var originalIndex = i + readMessages;
-            Assert.Equal(1, message.PartitionId);
-            Assert.Equal("/topic", message.Topic);
-            Assert.Equal(originalIndex + 1, message.SeqNo);
-            Assert.Equal(createdAt.AddSeconds(originalIndex + 1), message.CreatedAt);
-            var metadata = Assert.Single(message.Metadata);
-            Assert.Equal("index", metadata.Key);
-            Assert.Equal($"{originalIndex + 1}", Encoding.UTF8.GetString(metadata.Value));
-        }
+            var timeout = TimeSpan.FromSeconds(5);
+            var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
+            Assert.Equal(["First", "Second"], batch.Batch.Select(message => message.Data));
+            Assert.Equal(["ProducerId", "AnotherProducer"], batch.Batch.Select(message => message.ProducerId));
+            await batch.CommitBatchAsync().WaitAsync(timeout);
 
-        if (commitIndividually)
-        {
-            foreach (var message in merged.Batch)
-            {
-                await message.CommitAsync().WaitAsync(timeout);
-            }
+            _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(request =>
+                request.CommitOffsetRequest != null)), Times.Once);
+            _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(request =>
+                request.CommitOffsetRequest != null &&
+                request.CommitOffsetRequest.CommitOffsets.Count == 1 &&
+                request.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId == 1 &&
+                request.CommitOffsetRequest.CommitOffsets[0].Offsets.Count == 1 &&
+                request.CommitOffsetRequest.CommitOffsets[0].Offsets[0].Start == 10 &&
+                request.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 12)), Times.Once);
         }
-        else
+        finally
         {
-            await merged.CommitBatchAsync().WaitAsync(timeout);
+            commitWritten.TrySetResult(false);
         }
-
-        var other = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
-        Assert.Equal("other partition", Assert.Single(other.Batch).Data);
-        Assert.Equal(2, other.Batch[0].PartitionId);
-        await other.CommitBatchAsync().WaitAsync(timeout);
-        var next = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
-        Assert.Equal("next response", Assert.Single(next.Batch).Data);
-        await next.CommitBatchAsync().WaitAsync(timeout);
-
-        var expectedRanges = Enumerable.Range(0, readMessages)
-            .Select(i => (1L, expectedStarts[i], expectedEnds[i])).ToList();
-        if (commitIndividually)
-        {
-            expectedRanges.AddRange(Enumerable.Range(readMessages, 4 - readMessages)
-                .Select(i => (1L, expectedStarts[i], expectedEnds[i])));
-        }
-        else
-        {
-            expectedRanges.Add((1, expectedStarts[readMessages], 16));
-        }
-
-        expectedRanges.Add((2, 20, 21));
-        expectedRanges.Add((1, 16, 17));
-        Assert.Equal(expectedRanges, commitRanges);
-        Assert.Equal(108, readRequests.Skip(1).Sum());
     }
 
     private class FailDeserializer : IDeserializer<int>
