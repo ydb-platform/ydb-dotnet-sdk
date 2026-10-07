@@ -62,11 +62,6 @@ public class BatchMessages<TValue>
 
     public IReadOnlyList<Message<TValue>> Batch { get; }
 
-    /// <summary>
-    /// Producer identifier of the first message in the batch.
-    /// A partition batch can contain messages from multiple producers;
-    /// use <see cref="Message{TValue}.ProducerId"/> for each message's producer.
-    /// </summary>
     public string ProducerId { get; }
 
     internal BatchMessages(
