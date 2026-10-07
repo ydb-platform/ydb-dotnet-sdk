@@ -2,28 +2,54 @@ name: SLO Report
 
 on:
   workflow_run:
-    workflows: ["SLO"]
+    workflows: ["SLO", "SLO YDB Topics"]
     types:
       - completed
 
 jobs:
   publish-slo-report:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion != 'skipped' &&
+      github.event.workflow_run.conclusion != 'cancelled'
     runs-on: ubuntu-latest
     name: Publish YDB SLO Report
+    concurrency:
+      group: slo-report-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
     permissions:
+      actions: read
       checks: write
       contents: read
       pull-requests: write
     steps:
+      - name: Select latest completed SLO runs for this revision
+        id: runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_RUN: ${{ toJSON(github.event.workflow_run) }}
+        run: |
+          set -euo pipefail
+          RUNS=$(gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$HEAD_SHA&event=pull_request&status=completed&per_page=100" |
+            jq -r '[.[].workflow_runs[], (env.SOURCE_RUN | fromjson)] |
+              map(select(.head_sha == env.HEAD_SHA and .event == "pull_request" and
+                .status == "completed" and (.name == "SLO" or .name == "SLO YDB Topics") and
+                .conclusion != "skipped" and .conclusion != "cancelled")) |
+              group_by(.name) | map(max_by(.run_number)) | map(.id) | join(",")')
+          echo "ids=$RUNS" >> "$GITHUB_OUTPUT"
+
       - name: Publish YDB SLO Report
-        uses: ydb-platform/ydb-slo-action/report@v2
+        uses: ydb-platform/ydb-slo-action/report@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          github_run_id: ${{ github.event.workflow_run.id }}
+          github_run_id: ${{ steps.runs.outputs.ids }}
 
   remove-slo-label:
-    if: github.event.workflow_run.event == 'pull_request'
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.name == 'SLO'
     runs-on: ubuntu-latest
     name: Remove SLO Label
     permissions:
@@ -34,7 +60,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
           REPO: ${{ github.event.workflow_run.repository.full_name }}
+          HEAD: ${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
           PR=$(jq -r '.[0].number' <<<"$PRS")
+          if [ "$PR" = null ]; then
+            PR=$(gh api --method GET "repos/$REPO/pulls" -f head="$HEAD" -f state=open --jq '.[0].number')
+          fi
           gh pr edit "$PR" --repo "$REPO" --remove-label SLO

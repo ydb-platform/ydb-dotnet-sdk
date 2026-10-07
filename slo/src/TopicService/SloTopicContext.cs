@@ -2,6 +2,10 @@ using System.Collections.Concurrent;
 using System.Threading.RateLimiting;
 using Internal;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Topic;
 using Ydb.Sdk.Topic.Reader;
@@ -19,6 +23,28 @@ public class SloTopicContext : ISloContext
 
     public async Task Run(SloConfig config)
     {
+        using var meterProvider = Sdk.CreateMeterProviderBuilder()
+            .AddMeter("Ydb.Sdk.Topic")
+            .ConfigureResource(resource => resource.AddService("workload-TopicService").AddAttributes(
+            [
+                new KeyValuePair<string, object>("ref",
+                    Environment.GetEnvironmentVariable("WORKLOAD_REF") ?? "unknown")
+            ]))
+            .AddOtlpExporter((options, readerOptions) =>
+            {
+                var endpoint = config.OtlpEndpoint
+                               ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT");
+                if (!string.IsNullOrWhiteSpace(endpoint))
+                {
+                    options.Endpoint = new Uri(endpoint);
+                }
+
+                options.Protocol = OtlpExportProtocol.HttpProtobuf;
+                readerOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
+                    config.ReportPeriod;
+            })
+            .Build();
+
         var connectionStringBuilder = new YdbConnectionStringBuilder(config.ConnectionString)
             { LoggerFactory = ISloContext.Factory };
 
@@ -95,11 +121,12 @@ public class SloTopicContext : ISloContext
                             await writer.WriteAsync(data, writeRpc.Token);
                         }
                     }
-                    catch (OperationCanceledException)
+                    catch (OperationCanceledException e) when (cts.IsCancellationRequested &&
+                                                               e.CancellationToken == cts.Token)
                     {
                         Logger.LogInformation("Finished Writer[PartitionId={PartitionId}]", partitionId);
                     }
-                    catch (WriterException e)
+                    catch (Exception e)
                     {
                         Logger.LogCritical(e, "Failed Writer[PartitionId={PartitionId}]", partitionId);
 
@@ -144,7 +171,7 @@ public class SloTopicContext : ISloContext
                         await ReadMessage(cts, reader, messageSending, partitionId);
                     }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (cts.IsCancellationRequested)
                 {
                     Logger.LogInformation("Finished Reader[PartitionId={PartitionId}]", partitionId);
                 }
@@ -153,6 +180,8 @@ public class SloTopicContext : ISloContext
                     Logger.LogCritical(e, "Failed SLO test");
 
                     await cts.CancelAsync();
+
+                    throw;
                 }
             }, cts.Token));
         }
