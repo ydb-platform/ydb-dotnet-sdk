@@ -1656,11 +1656,18 @@ public class ReaderUnitTests
     public async Task ReadBatchAsync_WhenPartitionHasMultipleProducers_MergesAndCommitsBatch()
     {
         var commitWritten = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lastMoveNext = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var response = ReadResponse(10, "First"u8.ToArray());
         var secondBatch = ReadResponse(11, "Second"u8.ToArray()).ReadResponse.PartitionData[0].Batches[0];
         secondBatch.ProducerId = "AnotherProducer";
         response.ReadResponse.PartitionData[0].Batches.Add(secondBatch);
 
+        _mockStream.Setup(stream => stream.RequestStreamComplete()).Returns(() =>
+        {
+            commitWritten.TrySetResult(false);
+            lastMoveNext.TrySetResult(false);
+            return Task.CompletedTask;
+        });
         _mockStream.Setup(stream => stream.Write(It.IsAny<FromClient>()))
             .Callback<FromClient>(request =>
             {
@@ -1675,7 +1682,7 @@ public class ReaderUnitTests
             .ReturnsAsync(true)
             .ReturnsAsync(true)
             .Returns(commitWritten.Task)
-            .Returns(_lastMoveNext);
+            .Returns(lastMoveNext.Task);
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponse)
             .Returns(StartPartitionSessionRequest(10))
@@ -1688,29 +1695,22 @@ public class ReaderUnitTests
             SubscribeSettings = { new SubscribeSettings("/topic") }
         }.Build();
 
-        try
-        {
-            var timeout = TimeSpan.FromSeconds(5);
-            var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
-            Assert.Null(typeof(BatchMessages<string>).GetProperty(nameof(Message<string>.ProducerId)));
-            Assert.Equal(["First", "Second"], batch.Batch.Select(message => message.Data));
-            Assert.Equal(["ProducerId", "AnotherProducer"], batch.Batch.Select(message => message.ProducerId));
-            await batch.CommitBatchAsync().WaitAsync(timeout);
+        var timeout = TimeSpan.FromSeconds(5);
+        var batch = await reader.ReadBatchAsync().AsTask().WaitAsync(timeout);
+        Assert.Null(typeof(BatchMessages<string>).GetProperty(nameof(Message<string>.ProducerId)));
+        Assert.Equal(["First", "Second"], batch.Batch.Select(message => message.Data));
+        Assert.Equal(["ProducerId", "AnotherProducer"], batch.Batch.Select(message => message.ProducerId));
+        await batch.CommitBatchAsync().WaitAsync(timeout);
 
-            _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(request =>
-                request.CommitOffsetRequest != null)), Times.Once);
-            _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(request =>
-                request.CommitOffsetRequest != null &&
-                request.CommitOffsetRequest.CommitOffsets.Count == 1 &&
-                request.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId == 1 &&
-                request.CommitOffsetRequest.CommitOffsets[0].Offsets.Count == 1 &&
-                request.CommitOffsetRequest.CommitOffsets[0].Offsets[0].Start == 10 &&
-                request.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 12)), Times.Once);
-        }
-        finally
-        {
-            commitWritten.TrySetResult(false);
-        }
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(request =>
+            request.CommitOffsetRequest != null)), Times.Once);
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(request =>
+            request.CommitOffsetRequest != null &&
+            request.CommitOffsetRequest.CommitOffsets.Count == 1 &&
+            request.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId == 1 &&
+            request.CommitOffsetRequest.CommitOffsets[0].Offsets.Count == 1 &&
+            request.CommitOffsetRequest.CommitOffsets[0].Offsets[0].Start == 10 &&
+            request.CommitOffsetRequest.CommitOffsets[0].Offsets[0].End == 12)), Times.Once);
     }
 
     private class FailDeserializer : IDeserializer<int>
