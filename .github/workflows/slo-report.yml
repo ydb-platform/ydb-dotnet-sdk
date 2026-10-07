@@ -45,26 +45,3 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           github_run_id: ${{ steps.runs.outputs.ids }}
-
-  remove-slo-label:
-    if: >-
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.name == 'SLO'
-    runs-on: ubuntu-latest
-    name: Remove SLO Label
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Remove SLO label from PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PRS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
-          REPO: ${{ github.event.workflow_run.repository.full_name }}
-          HEAD: ${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}
-        run: |
-          set -euo pipefail
-          PR=$(jq -r '.[0].number' <<<"$PRS")
-          if [ "$PR" = null ]; then
-            PR=$(gh api --method GET "repos/$REPO/pulls" -f head="$HEAD" -f state=open --jq '.[0].number')
-          fi
-          gh pr edit "$PR" --repo "$REPO" --remove-label SLO
