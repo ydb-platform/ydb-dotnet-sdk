@@ -1,6 +1,5 @@
-- **Breaking Change**: Topic Reader now combines producer batches from each read response into one batch per partition,
-  preserving message order, per-message `ProducerId`, and correct batch and message commit ranges.
-  `BatchMessages.ProducerId` is removed; use each message's `Message.ProducerId` instead.
+- Fix Topic Reader: merge batches from different producers into one batch per partition.
+- **Breaking Change**: removed `BatchMessages.ProducerId`; use `Message.ProducerId`.
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from
   `ydb-sdk-metrics/0.2.0` to `ydb-sdk-metrics/0.3.0`.
 
