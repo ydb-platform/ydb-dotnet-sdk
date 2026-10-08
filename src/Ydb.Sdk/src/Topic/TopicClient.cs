@@ -37,6 +37,11 @@ public sealed class TopicClient : IAsyncDisposable
         _driver = GetDriver(ydbConnectionStringBuilder).AsTask().Result;
     }
 
+    internal TopicClient(IDriverFactory driverFactory)
+    {
+        _driver = GetDriver(driverFactory).AsTask().Result;
+    }
+
     public async Task CreateTopic(CreateTopicSettings settings)
     {
         var protoSettings = new CreateTopicRequest
