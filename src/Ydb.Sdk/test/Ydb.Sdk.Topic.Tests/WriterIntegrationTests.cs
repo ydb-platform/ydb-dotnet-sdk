@@ -17,7 +17,15 @@ public class WriterIntegrationTests
     {
         var topicSettings = new CreateTopicSettings
         {
-            Path = _topicName
+            Path = _topicName,
+            SupportedCodecs = { Ydb.Sdk.Topic.Codec.Raw, Ydb.Sdk.Topic.Codec.Gzip },
+            Consumers =
+            {
+                new Ydb.Sdk.Topic.Consumer("codec-consumer")
+                {
+                    SupportedCodecs = { Ydb.Sdk.Topic.Codec.Raw, Ydb.Sdk.Topic.Codec.Gzip }
+                }
+            }
         };
         await _topicClient.CreateTopic(topicSettings);
 

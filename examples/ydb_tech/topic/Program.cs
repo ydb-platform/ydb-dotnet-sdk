@@ -1,194 +1,281 @@
-using System.Text;
 using Ydb.Sdk.Topic;
 using Ydb.Sdk.Topic.Reader;
 using Ydb.Sdk.Topic.Writer;
 
 var connectionString = Environment.GetEnvironmentVariable("YDB_CONNECTION_STRING")
                        ?? "Host=localhost;Port=2136;Database=/local";
-var topicName = "ydb_tech_" + Guid.NewGuid().ToString("N");
-var consumers = new[] { "one", "batch", "commit_one", "commit_batch", "selectors" };
-var expected = new HashSet<string> { "buffered", "acknowledged", "deadline", "metadata" };
-using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+await using var cleanupClient = new TopicClient(connectionString);
 var createdTopics = new List<string>();
-
-// [BEGIN topic_init]
-await using var topicClient = new TopicClient(connectionString);
-// [END topic_init]
-
 try
 {
-    // [BEGIN topic_create]
-    var settings = new CreateTopicSettings
-    {
-        Path = topicName,
-        PartitioningSettings = new PartitioningSettings { MinActivePartitions = 3, MaxActivePartitions = 3 }
-    };
-    foreach (var consumerName in consumers)
-    {
-        settings.Consumers.Add(new Consumer(consumerName));
-    }
-    await topicClient.CreateTopic(settings);
-    createdTopics.Add(topicName);
-    // [END topic_create]
-
-    await topicClient.CreateTopic(new CreateTopicSettings
-    {
-        Path = topicName + "_another",
-        Consumers = { new Consumer("selectors") }
-    });
-    createdTopics.Add(topicName + "_another");
-
-    // [BEGIN topic_start_writer]
-    await using (var writer = new WriterBuilder<string>(connectionString, topicName)
-                 { ProducerId = "ydb-tech-producer" }.Build())
-    // [END topic_start_writer]
-    {
-        // [BEGIN topic_write]
-        var pendingWrite = writer.WriteAsync("buffered", deadline.Token);
-        // [END topic_write]
-        var result = await pendingWrite;
-        if (result.Status != PersistenceStatus.Written)
-        {
-            throw new InvalidOperationException("The first message was not written");
-        }
-
-        // [BEGIN topic_write_ack]
-        await writer.WriteAsync("acknowledged", deadline.Token);
-        // [END topic_write_ack]
-
-        // [BEGIN topic_write_deadline]
-        using var writeDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await writer.WriteAsync("deadline", writeDeadline.Token);
-        // [END topic_write_deadline]
-
-        // [BEGIN topic_write_metadata]
-        await writer.WriteAsync(new Ydb.Sdk.Topic.Writer.Message<string>("metadata")
-        {
-            Metadata = { new Metadata("meta-key", Encoding.UTF8.GetBytes("meta-value")) }
-        }, deadline.Token);
-        // [END topic_write_metadata]
-    }
-
-    await ReadOne("one", false);
-    await ReadBatch("batch", false);
-    await ReadOne("commit_one", true);
-    await ReadBatch("commit_batch", true);
-
-    // [BEGIN topic_reader_selectors]
-    await using (var reader = new ReaderBuilder<string>(connectionString)
-    {
-        ConsumerName = "selectors",
-        SubscribeSettings =
-        {
-            new SubscribeSettings(topicName),
-            new SubscribeSettings(topicName + "_another") { ReadFrom = DateTime.UnixEpoch }
-        }
-    }.Build())
-    // [END topic_reader_selectors]
-    {
-        var message = await reader.ReadAsync(deadline.Token);
-        CheckPayload(message.Data);
-    }
+    var topicName = "ydb_tech_" + Guid.NewGuid().ToString("N");
+    await Create(topicName);
+    await Initialize(topicName);
+    await Write(topicName);
+    await ReadOne(topicName, false);
+    await ReadBatch(topicName, false);
+    await ReadOne(topicName, true);
+    var batchTopic = topicName + "_batch";
+    await Create(batchTopic);
+    await Seed(batchTopic);
+    await ReadBatch(batchTopic, true);
+    var selectorTopic = topicName + "_selectors";
+    await Create(selectorTopic);
+    await Create(selectorTopic + "_another");
+    await Seed(selectorTopic);
+    await Selectors(selectorTopic);
 }
 finally
 {
-    foreach (var path in createdTopics)
+    foreach (var topicName in createdTopics)
     {
-        // [BEGIN topic_drop]
-        await topicClient.DropTopic(path);
-        // [END topic_drop]
+        await Drop(topicName);
     }
 }
-
 Console.WriteLine("All topic scenarios completed");
 
-async Task ReadOne(string consumerName, bool commit)
+async Task Initialize(string topicName)
+{
+    // [BEGIN topic_init]
+    await using var topicClient = new TopicClient(connectionString);
+
+    await using var writer = new WriterBuilder<string>(connectionString, topicName)
+    {
+        ProducerId = "ProducerId_Example"
+    }.Build();
+
+    await using var reader = new ReaderBuilder<string>(connectionString)
+    {
+        ConsumerName = "Consumer_Example",
+        SubscribeSettings = { new SubscribeSettings(topicName) }
+    }.Build();
+    // [END topic_init]
+}
+
+async Task Create(string topicName)
+{
+    var topicClient = cleanupClient;
+    // [BEGIN topic_create]
+    await topicClient.CreateTopic(new CreateTopicSettings
+    {
+        Path = topicName,
+        Consumers = { new Consumer("Consumer_Example") },
+        SupportedCodecs = { Codec.Raw, Codec.Gzip },
+        PartitioningSettings = new PartitioningSettings
+        {
+            MinActivePartitions = 3
+        }
+    });
+    // [END topic_create]
+    createdTopics.Add(topicName);
+}
+
+async Task Drop(string topicName)
+{
+    var topicClient = cleanupClient;
+    // [BEGIN topic_drop]
+    await topicClient.DropTopic(topicName);
+    // [END topic_drop]
+}
+
+async Task Write(string topicName)
+{
+    // [BEGIN topic_start_writer]
+    await using var writer = new WriterBuilder<string>(connectionString, topicName)
+    {
+        ProducerId = "ProducerId_Example"
+    }.Build();
+    // [END topic_start_writer]
+    // [BEGIN topic_write]
+    var asyncWriteTask = writer.WriteAsync("Hello, Example YDB Topics!"); // Task<WriteResult>
+    // [END topic_write]
+    var result = await asyncWriteTask;
+    if (result.Status != PersistenceStatus.Written)
+        throw new InvalidOperationException("The first message was not written");
+    // [BEGIN topic_write_ack]
+    await writer.WriteAsync("Hello, Example YDB Topics!");
+    // [END topic_write_ack]
+    // [BEGIN topic_write_deadline]
+    var writeCts = new CancellationTokenSource();
+    writeCts.CancelAfter(TimeSpan.FromSeconds(3));
+
+    await writer.WriteAsync("Hello, Example YDB Topics!", writeCts.Token);
+    // [END topic_write_deadline]
+    writeCts.Dispose();
+    // [BEGIN topic_write_metadata]
+    await writer.WriteAsync(
+        new Ydb.Sdk.Topic.Writer.Message<string>("Hello, Example YDB Topics!")
+            { Metadata = { new Metadata("meta-key", "meta-value"u8.ToArray()) } }
+    );
+    // [END topic_write_metadata]
+}
+
+async Task Seed(string topicName)
+{
+    await using var writer = new WriterBuilder<string>(connectionString, topicName)
+    {
+        ProducerId = "seed"
+    }.Build();
+    for (var i = 0; i < 4; i++)
+        await writer.WriteAsync("Hello, Example YDB Topics!");
+}
+
+async Task Selectors(string topicName)
+{
+    // [BEGIN topic_reader_selectors]
+    await using var reader = new ReaderBuilder<string>(connectionString)
+    {
+        ConsumerName = "Consumer_Example",
+        SubscribeSettings =
+        {
+            new SubscribeSettings(topicName),
+            new SubscribeSettings(topicName + "_another") { ReadFrom = DateTime.Now }
+        }
+    }.Build();
+    // [END topic_reader_selectors]
+    using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+    var message = await reader.ReadAsync(deadline.Token);
+    if (message.Data != "Hello, Example YDB Topics!")
+        throw new InvalidOperationException("Unexpected selector payload");
+}
+
+async Task ReadOne(string topicName, bool commit)
 {
     // [BEGIN topic_start_reader]
     await using var reader = new ReaderBuilder<string>(connectionString)
     {
-        ConsumerName = consumerName,
+        ConsumerName = "Consumer_Example",
         SubscribeSettings = { new SubscribeSettings(topicName) }
     }.Build();
     // [END topic_start_reader]
-
-    var received = new HashSet<string>();
+    using var readerCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+    var logger = new ExampleLogger(readerCts, 4);
     if (!commit)
     {
         // [BEGIN topic_read_one]
-        while (received.Count < expected.Count)
+        try
         {
-            var message = await reader.ReadAsync(deadline.Token);
-            CheckPayload(message.Data);
-            received.Add(message.Data);
+            while (!readerCts.IsCancellationRequested)
+            {
+                var message = await reader.ReadAsync(readerCts.Token);
+
+                logger.LogInformation("Received message: [{MessageData}]", message.Data);
+            }
+        }
+        catch (OperationCanceledException)
+        {
         }
         // [END topic_read_one]
     }
     else
     {
         // [BEGIN topic_read_commit]
-        while (received.Count < expected.Count)
+        try
         {
-            var message = await reader.ReadAsync(deadline.Token);
-            CheckPayload(message.Data);
-            received.Add(message.Data);
-            await message.CommitAsync();
+            while (!readerCts.IsCancellationRequested)
+            {
+                var message = await reader.ReadAsync(readerCts.Token);
+
+                logger.LogInformation("Received message: [{MessageData}]", message.Data);
+
+                try
+                {
+                    await message.CommitAsync();
+                }
+                catch (ReaderException e)
+                {
+                    logger.LogError(e, "Failed to commit a message");
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
         }
         // [END topic_read_commit]
     }
-    if (!received.SetEquals(expected))
-    {
-        throw new InvalidOperationException("The reader did not receive the expected messages");
-    }
+    logger.RequireComplete();
 }
 
-async Task ReadBatch(string consumerName, bool commit)
+async Task ReadBatch(string topicName, bool commit)
 {
     await using var reader = new ReaderBuilder<string>(connectionString)
     {
-        ConsumerName = consumerName,
+        ConsumerName = "Consumer_Example",
         SubscribeSettings = { new SubscribeSettings(topicName) }
     }.Build();
-    var received = new HashSet<string>();
+    using var readerCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+    var logger = new ExampleLogger(readerCts, 4);
     if (!commit)
     {
         // [BEGIN topic_read_batch]
-        while (received.Count < expected.Count)
+        try
         {
-            var batch = await reader.ReadBatchAsync(deadline.Token);
-            foreach (var message in batch.Batch)
+            while (!readerCts.IsCancellationRequested)
             {
-                CheckPayload(message.Data);
-                received.Add(message.Data);
+                var batchMessages = await reader.ReadBatchAsync(readerCts.Token);
+
+                foreach (var message in batchMessages.Batch)
+                {
+                    logger.LogInformation("Received message: [{MessageData}]", message.Data);
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
         }
         // [END topic_read_batch]
     }
     else
     {
         // [BEGIN topic_read_batch_commit]
-        while (received.Count < expected.Count)
+        try
         {
-            var batch = await reader.ReadBatchAsync(deadline.Token);
-            foreach (var message in batch.Batch)
+            while (!readerCts.IsCancellationRequested)
             {
-                CheckPayload(message.Data);
-                received.Add(message.Data);
+                var batchMessages = await reader.ReadBatchAsync(readerCts.Token);
+
+                foreach (var message in batchMessages.Batch)
+                {
+                    logger.LogInformation("Received message: [{MessageData}]", message.Data);
+                }
+
+                try
+                {
+                    await batchMessages.CommitBatchAsync();
+                }
+                catch (ReaderException e)
+                {
+                    logger.LogError(e, "Failed to commit a message");
+                }
             }
-            await batch.CommitBatchAsync();
+        }
+        catch (OperationCanceledException)
+        {
         }
         // [END topic_read_batch_commit]
     }
-    if (!received.SetEquals(expected))
-    {
-        throw new InvalidOperationException("The reader did not receive the expected messages");
-    }
+    logger.RequireComplete();
 }
 
-void CheckPayload(string data)
+sealed class ExampleLogger(CancellationTokenSource cancellation, int expected)
 {
-    if (!expected.Contains(data))
+    private int _received;
+
+    public void LogInformation(string format, string data)
     {
-        throw new InvalidOperationException("Unexpected message: " + data);
+        if (data != "Hello, Example YDB Topics!")
+            throw new InvalidOperationException("Unexpected message: " + data);
+        Console.WriteLine(format.Replace("{MessageData}", data));
+        if (++_received == expected)
+            cancellation.Cancel();
+    }
+
+    public void LogError(Exception error, string message) =>
+        throw new InvalidOperationException(message, error);
+
+    public void RequireComplete()
+    {
+        if (_received != expected)
+            throw new InvalidOperationException($"Expected {expected} messages, received {_received}");
     }
 }

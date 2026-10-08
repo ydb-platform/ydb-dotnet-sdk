@@ -67,6 +67,7 @@ public sealed class TopicClient : IAsyncDisposable
 
         foreach (var codec in settings.SupportedCodecs)
         {
+            protoSettings.SupportedCodecs ??= new Ydb.Topic.SupportedCodecs();
             protoSettings.SupportedCodecs.Codecs.Add((int)codec);
         }
 
@@ -86,6 +87,7 @@ public sealed class TopicClient : IAsyncDisposable
 
             foreach (var codec in consumer.SupportedCodecs)
             {
+                protoConsumer.SupportedCodecs ??= new Ydb.Topic.SupportedCodecs();
                 protoConsumer.SupportedCodecs.Codecs.Add((int)codec);
             }
 
