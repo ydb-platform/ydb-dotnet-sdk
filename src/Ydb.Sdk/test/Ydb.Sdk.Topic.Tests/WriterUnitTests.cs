@@ -23,8 +23,8 @@ public class WriterUnitTests
         driver.Setup(value => value.UnaryCall(
                 It.IsAny<Method<CreateTopicRequest, CreateTopicResponse>>(),
                 It.IsAny<CreateTopicRequest>(), It.IsAny<GrpcRequestSettings>()))
-            .Callback<Method<CreateTopicRequest, CreateTopicResponse>, CreateTopicRequest, GrpcRequestSettings>(
-                (_, value, _) => request = value)
+            .Callback<Method<CreateTopicRequest, CreateTopicResponse>, CreateTopicRequest, GrpcRequestSettings>((_,
+                value, _) => request = value)
             .ReturnsAsync(new CreateTopicResponse
             {
                 Operation = new Operations.Operation { Ready = true, Status = StatusIds.Types.StatusCode.Success }
@@ -44,7 +44,8 @@ public class WriterUnitTests
 
         Assert.NotNull(request);
         Assert.Equal(new[] { (int)Codec.Raw, (int)Codec.Gzip }, request.SupportedCodecs.Codecs);
-        Assert.Equal(new[] { (int)Codec.Raw, (int)Codec.Gzip }, Assert.Single(request.Consumers).SupportedCodecs.Codecs);
+        Assert.Equal(new[] { (int)Codec.Raw, (int)Codec.Gzip },
+            Assert.Single(request.Consumers).SupportedCodecs.Codecs);
     }
 
     private readonly IDriverFactoryMock _driverFactoryMock;
