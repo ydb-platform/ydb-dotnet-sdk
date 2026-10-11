@@ -47,6 +47,7 @@ public static class YdbServiceCollectionExtensions
             .TryAdd<IMethodCallTranslatorProvider, YdbMethodCallTranslatorProvider>()
             .TryAdd<IAggregateMethodCallTranslatorProvider, YdbAggregateMethodCallTranslatorProvider>()
             .TryAdd<IMemberTranslatorProvider, YdbMemberTranslatorProvider>()
+            .TryAdd<IEvaluatableExpressionFilter, YdbEvaluatableExpressionFilter>()
             .TryAdd<IQuerySqlGeneratorFactory, YdbQuerySqlGeneratorFactory>()
 #pragma warning disable EF9002
             .TryAdd<ISqlAliasManagerFactory, YdbSqlAliasManagerFactory>()

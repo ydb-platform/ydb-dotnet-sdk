@@ -90,6 +90,15 @@ public class YdbSqlNullabilityProcessor(
     }
 
     private bool IsNull(SqlExpression? expression)
-        => expression is SqlConstantExpression { Value: null }
-           || expression is SqlParameterExpression;
+        => expression switch
+        {
+            SqlConstantExpression { Value: null } => true,
+            SqlParameterExpression { Name: var parameterName } =>
+#if EFCORE9
+                ParameterValues[parameterName] is null,
+#else
+                ParametersDecorator.IsNull(parameterName),
+#endif
+            _ => false
+        };
 }
