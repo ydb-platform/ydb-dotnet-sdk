@@ -241,10 +241,13 @@ public class YdbSchemaTests : TestBase
     [Fact]
     public async Task GetSchema_WhenTablesAreDroppedConcurrently_SkipsDroppedTables()
     {
+        // Races GetSchema against real DDL; YdbSchemaMockTests covers the same path deterministically.
         const int ddlWorkers = 2;
         const int ddlCycles = 25;
         var tableNames = Enumerable.Range(0, ddlWorkers).Select(_ => $"dropped_table_{Random.Shared.Next()}").ToArray();
         var ddlDone = 0;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var cancellationToken = timeout.Token;
 
         var ddlTasks = tableNames.Select(tableName => Task.Run(async () =>
         {
@@ -254,32 +257,52 @@ public class YdbSchemaTests : TestBase
                 for (var i = 0; i < ddlCycles; i++)
                 {
                     await new YdbCommand($"CREATE TABLE `{tableName}` (a Int32 NOT NULL, PRIMARY KEY(a))",
-                        ydbConnection).ExecuteNonQueryAsync();
-                    await new YdbCommand($"DROP TABLE `{tableName}`", ydbConnection).ExecuteNonQueryAsync();
+                        ydbConnection).ExecuteNonQueryAsync(cancellationToken);
+                    await new YdbCommand($"DROP TABLE `{tableName}`", ydbConnection)
+                        .ExecuteNonQueryAsync(cancellationToken);
                 }
             }
             finally
             {
                 Interlocked.Increment(ref ddlDone);
             }
-        })).ToArray();
+        }, cancellationToken)).ToArray();
 
         var schemaTasks = Enumerable.Range(0, 2).Select(_ => Task.Run(async () =>
         {
             await using var ydbConnection = await CreateOpenConnectionAsync();
             while (Volatile.Read(ref ddlDone) < ddlWorkers)
             {
-                await ydbConnection.GetSchemaAsync("Columns");
-                await ydbConnection.GetSchemaAsync("TablesWithStats");
+                await ydbConnection.GetSchemaAsync("Columns", cancellationToken);
+                await ydbConnection.GetSchemaAsync("TablesWithStats", cancellationToken);
             }
 
             // The tables that existed before the concurrent DDL are still reported.
-            var columns = await ydbConnection.GetSchemaAsync("Columns", [null, "a"]);
-            var tableNamesWithColumnA = columns.Rows.Cast<DataRow>().Select(row => row["table_name"].ToString()!);
-            Assert.Superset(_simpleTableNames, tableNamesWithColumnA.ToHashSet());
-        })).ToArray();
+            var columns = await ydbConnection.GetSchemaAsync("Columns", [null, "a"], cancellationToken);
+            var reportedTableNames = columns.Rows.Cast<DataRow>()
+                .Select(row => row["table_name"].ToString())
+                .ToHashSet();
+            foreach (var tableName in _simpleTableNames)
+            {
+                Assert.Contains(tableName, reportedTableNames);
+            }
+        }, cancellationToken)).ToArray();
 
-        await Task.WhenAll(ddlTasks.Concat(schemaTasks));
+        try
+        {
+            await Task.WhenAll(ddlTasks.Concat(schemaTasks));
+        }
+        finally
+        {
+            // A failed DROP would leave a worker table behind for the other schema tests.
+            using var cleanupTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await using var ydbConnection = await CreateOpenConnectionAsync();
+            foreach (var tableName in tableNames)
+            {
+                await new YdbCommand($"DROP TABLE IF EXISTS `{tableName}`", ydbConnection)
+                    .ExecuteNonQueryAsync(cleanupTimeout.Token);
+            }
+        }
     }
 
     [Fact]
