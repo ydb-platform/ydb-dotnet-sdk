@@ -253,7 +253,7 @@ public class YdbSchemaTests : TestBase
         {
             try
             {
-                await using var ydbConnection = await CreateOpenConnectionAsync();
+                await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
                 for (var i = 0; i < ddlCycles; i++)
                 {
                     await new YdbCommand($"CREATE TABLE `{tableName}` (a Int32 NOT NULL, PRIMARY KEY(a))",
@@ -270,7 +270,7 @@ public class YdbSchemaTests : TestBase
 
         var schemaTasks = Enumerable.Range(0, 2).Select(_ => Task.Run(async () =>
         {
-            await using var ydbConnection = await CreateOpenConnectionAsync();
+            await using var ydbConnection = await OpenConnectionAsync(cancellationToken);
             while (Volatile.Read(ref ddlDone) < ddlWorkers)
             {
                 await ydbConnection.GetSchemaAsync("Columns", cancellationToken);
@@ -294,13 +294,43 @@ public class YdbSchemaTests : TestBase
         }
         finally
         {
-            // A failed DROP would leave a worker table behind for the other schema tests.
+            // A failed DROP would leave a worker table behind for the other schema tests. Cleanup is best effort,
+            // so that its own failure neither skips the other table nor hides the test's failure.
             using var cleanupTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            await using var ydbConnection = await CreateOpenConnectionAsync();
-            foreach (var tableName in tableNames)
+            try
             {
-                await new YdbCommand($"DROP TABLE IF EXISTS `{tableName}`", ydbConnection)
-                    .ExecuteNonQueryAsync(cleanupTimeout.Token);
+                await using var ydbConnection = await OpenConnectionAsync(cleanupTimeout.Token);
+                foreach (var tableName in tableNames)
+                {
+                    try
+                    {
+                        await new YdbCommand($"DROP TABLE IF EXISTS `{tableName}`", ydbConnection)
+                            .ExecuteNonQueryAsync(cleanupTimeout.Token);
+                    }
+                    catch (Exception)
+                    {
+                        // Best effort, see above.
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Best effort, see above.
+            }
+        }
+
+        async Task<YdbConnection> OpenConnectionAsync(CancellationToken token)
+        {
+            var ydbConnection = CreateConnection();
+            try
+            {
+                await ydbConnection.OpenAsync(token);
+                return ydbConnection;
+            }
+            catch
+            {
+                await ydbConnection.DisposeAsync();
+                throw;
             }
         }
     }
