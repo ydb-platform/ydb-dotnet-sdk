@@ -156,6 +156,7 @@ internal static class YdbSchema
                         row["modification_time"] = (object?)tableStats.ModificationTime ?? DBNull.Value;
                     },
                     new DescribeTableSettings { IncludeTableStats = true },
+                    skipIfNotFound: true,
                     cancellationToken
                 ).ConfigureAwait(false);
             }
@@ -236,7 +237,10 @@ internal static class YdbSchema
                         row["family_name"] = column.Family;
                         row["column_default"] = (object?)column.DefaultValue?.ToString() ?? DBNull.Value;
                     }
-                }, cancellationToken: cancellationToken).ConfigureAwait(false);
+                },
+                // Table names taken from the directory listing may be gone by the time they are described.
+                skipIfNotFound: tableNameRestriction == null,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         return table;
@@ -248,10 +252,24 @@ internal static class YdbSchema
         string? tableType,
         Action<YdbTableDescription, string> appendInTable,
         DescribeTableSettings settings = default,
+        bool skipIfNotFound = false,
         CancellationToken cancellationToken = default)
     {
-        var ydbTable = await DescribeTable(ydbConnection.Session.Driver, tableName, settings, cancellationToken)
-            .ConfigureAwait(false);
+        YdbTableDescription ydbTable;
+        try
+        {
+            ydbTable = await DescribeTable(ydbConnection.Session.Driver, tableName, settings, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (YdbException e) when (skipIfNotFound && e.Code == StatusCode.SchemeError)
+        {
+            // Listing and describing are not atomic: a listed table may be dropped (or not yet fully created)
+            // before it is described. Such a table is left out of the result, as if it had not been listed.
+            // A missing path comes back as SchemeError, often with no issues attached, so the status code
+            // is the only signal available.
+            return;
+        }
+
         var type = ydbTable.IsSystem
             ? "SYSTEM_TABLE"
             : ydbTable.Type switch

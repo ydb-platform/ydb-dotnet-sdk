@@ -1,3 +1,4 @@
+- Fix ADO.NET: `GetSchema("Columns")` and `GetSchema("TablesWithStats")` no longer fail with `SchemeError` when a listed table is dropped concurrently; such a table is left out of the result ([#687](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/687)).
 - Fix Topic Reader: merge batches from different producers into one batch per partition.
 - **Breaking Change**: removed `BatchMessages.ProducerId`; use `Message.ProducerId`.
 - Dev: bumped the metrics observability-chain minor version in `x-ydb-sdk-build-info` from

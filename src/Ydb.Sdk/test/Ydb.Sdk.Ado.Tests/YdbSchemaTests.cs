@@ -238,6 +238,66 @@ public class YdbSchemaTests : TestBase
         Assert.Equal("text", dataTable.Rows[12]["column_default"]);
     }
 
+    [Fact]
+    public async Task GetSchema_WhenTablesAreDroppedConcurrently_SkipsDroppedTables()
+    {
+        const int ddlWorkers = 2;
+        const int ddlCycles = 25;
+        var tableNames = Enumerable.Range(0, ddlWorkers).Select(_ => $"dropped_table_{Random.Shared.Next()}").ToArray();
+        var ddlDone = 0;
+
+        var ddlTasks = tableNames.Select(tableName => Task.Run(async () =>
+        {
+            try
+            {
+                await using var ydbConnection = await CreateOpenConnectionAsync();
+                for (var i = 0; i < ddlCycles; i++)
+                {
+                    await new YdbCommand($"CREATE TABLE `{tableName}` (a Int32 NOT NULL, PRIMARY KEY(a))",
+                        ydbConnection).ExecuteNonQueryAsync();
+                    await new YdbCommand($"DROP TABLE `{tableName}`", ydbConnection).ExecuteNonQueryAsync();
+                }
+            }
+            finally
+            {
+                Interlocked.Increment(ref ddlDone);
+            }
+        })).ToArray();
+
+        var schemaTasks = Enumerable.Range(0, 2).Select(_ => Task.Run(async () =>
+        {
+            await using var ydbConnection = await CreateOpenConnectionAsync();
+            while (Volatile.Read(ref ddlDone) < ddlWorkers)
+            {
+                await ydbConnection.GetSchemaAsync("Columns");
+                await ydbConnection.GetSchemaAsync("TablesWithStats");
+            }
+
+            // The tables that existed before the concurrent DDL are still reported.
+            var columns = await ydbConnection.GetSchemaAsync("Columns", [null, "a"]);
+            var tableNamesWithColumnA = columns.Rows.Cast<DataRow>().Select(row => row["table_name"].ToString()!);
+            Assert.Superset(_simpleTableNames, tableNamesWithColumnA.ToHashSet());
+        })).ToArray();
+
+        await Task.WhenAll(ddlTasks.Concat(schemaTasks));
+    }
+
+    [Fact]
+    public async Task GetSchema_WhenRestrictedToMissingTable_ThrowsYdbException()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+
+        var columnsException = await Assert.ThrowsAsync<YdbException>(async () =>
+            await ydbConnection.GetSchemaAsync("Columns", ["not_found", null])
+        );
+        Assert.Equal(StatusCode.SchemeError, columnsException.Code);
+
+        var tablesWithStatsException = await Assert.ThrowsAsync<YdbException>(async () =>
+            await ydbConnection.GetSchemaAsync("TablesWithStats", ["not_found", null])
+        );
+        Assert.Equal(StatusCode.SchemeError, tablesWithStatsException.Code);
+    }
+
     protected override async Task OnInitializeAsync()
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
