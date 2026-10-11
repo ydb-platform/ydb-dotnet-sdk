@@ -82,7 +82,6 @@ options.UseYdb(
 
 ## Documentation
 
-- [Provider support and test-gap inventory](../../docs/efcore-support-map.md)
 - [Official EF Core docs for YDB](https://ydb.tech/docs/en/integrations/orm/entity-framework?version=main)
 - [EF Core QuickStart example](../../examples/EntityFrameworkCore.Ydb.QuickStart)
 - [EF Core advanced samples](../../examples/EntityFrameworkCore.Ydb.Samples)
