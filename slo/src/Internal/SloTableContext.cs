@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using HdrHistogram;
@@ -76,7 +77,8 @@ public abstract class SloTableContext<T> : ISloContext
         }
         catch (Exception e)
         {
-            Logger.LogError(e, "Init failed when all tasks, continue..");
+            Logger.LogError(e, "Initial data write failed");
+            throw;
         }
         finally
         {
@@ -129,7 +131,7 @@ public abstract class SloTableContext<T> : ISloContext
             unit: "s",
             description: "P99 latency of operations, recomputed each push period.");
 
-        var meterProvider = Sdk.CreateMeterProviderBuilder()
+        using var meterProvider = Sdk.CreateMeterProviderBuilder()
             .ConfigureResource(resource => resource
                 .AddService(serviceName: $"workload-{workloadLabel}")
                 .AddAttributes([
@@ -171,19 +173,20 @@ public abstract class SloTableContext<T> : ISloContext
 
         Logger.LogInformation("Init row count: {MaxId}", _maxId);
 
-        var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+        using var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
             Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = sloConfig.WriteRps / 10,
             QueueLimit = int.MaxValue
         });
-        var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+        using var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
             Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = sloConfig.ReadRps / 10,
             QueueLimit = int.MaxValue
         });
 
-        var cancellationTokenSource = new CancellationTokenSource();
+        using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(sloConfig.Time));
+        ExceptionDispatchInfo? firstFailure = null;
 
         var writeTask = ShootingTask(writeLimiter, "write", Save);
         var readTask = ShootingTask(readLimiter, "read", Select);
@@ -194,12 +197,18 @@ public abstract class SloTableContext<T> : ISloContext
         {
             await Task.WhenAll(readTask, writeTask);
         }
+        catch (OperationCanceledException e) when (
+            firstFailure == null && cancellationTokenSource.IsCancellationRequested &&
+            e.CancellationToken == cancellationTokenSource.Token)
+        {
+            Logger.LogInformation("Workload duration elapsed");
+        }
         catch (Exception e)
         {
-            Logger.LogInformation(e, "Cancel shooting");
+            Logger.LogError(e, "Workload failed");
+            firstFailure?.Throw();
+            throw;
         }
-
-        meterProvider.Dispose();
 
         Logger.LogInformation("Run task is finished");
         return;
@@ -225,30 +234,45 @@ public abstract class SloTableContext<T> : ISloContext
             {
                 workJobs.Add(Task.Run(async () =>
                 {
-                    while (!cancellationTokenSource.Token.IsCancellationRequested)
+                    try
                     {
-                        using var lease = await rateLimitPolicy
-                            .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
-
-                        if (!lease.IsAcquired)
+                        while (!cancellationTokenSource.Token.IsCancellationRequested)
                         {
-                            await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
-                        }
+                            using var lease = await rateLimitPolicy
+                                .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
 
-                        var sw = Stopwatch.StartNew();
+                            if (!lease.IsAcquired)
+                            {
+                                await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
+                            }
 
-                        try
-                        {
-                            await action(client, sloConfig);
-                            sw.Stop();
-                            operationsTotal.Add(1, successTags);
-                            latencyAggregators[operationType].Record(sw.Elapsed.TotalSeconds);
+                            var sw = Stopwatch.StartNew();
+
+                            try
+                            {
+                                await action(client, sloConfig);
+                                sw.Stop();
+                                operationsTotal.Add(1, successTags);
+                                latencyAggregators[operationType].Record(sw.Elapsed.TotalSeconds);
+                            }
+                            catch (Exception)
+                            {
+                                operationsTotal.Add(1, errorTags);
+                                throw;
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            operationsTotal.Add(1, errorTags);
-                            Logger.LogWarning(ex, "Operation {OperationType} failed", operationType);
-                        }
+                    }
+                    catch (OperationCanceledException e) when (
+                        cancellationTokenSource.IsCancellationRequested &&
+                        e.CancellationToken == cancellationTokenSource.Token)
+                    {
+                    }
+                    catch (Exception ex)
+                    {
+                        Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(ex), null);
+                        Logger.LogError(ex, "Operation {OperationType} failed", operationType);
+                        await cancellationTokenSource.CancelAsync();
+                        throw;
                     }
                 }, cancellationTokenSource.Token));
             }

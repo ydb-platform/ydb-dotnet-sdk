@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
 using System.Threading.RateLimiting;
 using Internal;
 using Microsoft.Extensions.Logging;
@@ -73,13 +74,14 @@ public class SloTopicContext : ISloContext
 
         Logger.LogInformation("Started Run topic slo test");
 
-        var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+        using var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
             Window = TimeSpan.FromMilliseconds(100), PermitLimit = config.WriteRps / 10, QueueLimit = int.MaxValue
         });
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromSeconds(config.Time));
+        ExceptionDispatchInfo? firstFailure = null;
 
         var messageSending = new ConcurrentDictionary<long, ConcurrentQueue<string>>();
 
@@ -118,7 +120,15 @@ public class SloTopicContext : ISloContext
                             var data = $"message-{messageNum++}";
                             messageSending[partitionId].Enqueue(data);
 
-                            await writer.WriteAsync(data, writeRpc.Token);
+                            try
+                            {
+                                await writer.WriteAsync(data, writeRpc.Token);
+                            }
+                            catch (Exception e)
+                            {
+                                Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(e), null);
+                                throw;
+                            }
                         }
                     }
                     catch (OperationCanceledException e) when (cts.IsCancellationRequested &&
@@ -128,6 +138,7 @@ public class SloTopicContext : ISloContext
                     }
                     catch (Exception e)
                     {
+                        Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(e), null);
                         Logger.LogCritical(e, "Failed Writer[PartitionId={PartitionId}]", partitionId);
 
                         await cts.CancelAsync();
@@ -162,21 +173,33 @@ public class SloTopicContext : ISloContext
 
                     Logger.LogInformation("Started Reader[PartitionId={PartitionId}]", partitionId);
 
-                    if (handlerBatch)
+                    try
                     {
-                        await ReadBatchMessages(cts, reader, messageSending, partitionId);
+                        if (handlerBatch)
+                        {
+                            await ReadBatchMessages(cts, reader, messageSending, partitionId);
+                        }
+                        else
+                        {
+                            await ReadMessage(cts, reader, messageSending, partitionId);
+                        }
                     }
-                    else
+                    catch (Exception e) when (!(e is OperationCanceledException canceled &&
+                                               cts.IsCancellationRequested &&
+                                               canceled.CancellationToken == cts.Token))
                     {
-                        await ReadMessage(cts, reader, messageSending, partitionId);
+                        Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(e), null);
+                        throw;
                     }
                 }
-                catch (OperationCanceledException) when (cts.IsCancellationRequested)
+                catch (OperationCanceledException e) when (cts.IsCancellationRequested &&
+                                                          e.CancellationToken == cts.Token)
                 {
                     Logger.LogInformation("Finished Reader[PartitionId={PartitionId}]", partitionId);
                 }
                 catch (Exception e)
                 {
+                    Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(e), null);
                     Logger.LogCritical(e, "Failed SLO test");
 
                     await cts.CancelAsync();
@@ -186,8 +209,20 @@ public class SloTopicContext : ISloContext
             }, cts.Token));
         }
 
-        await Task.WhenAll(writeTasks);
-        await Task.WhenAll(readTasks);
+        try
+        {
+            await Task.WhenAll(writeTasks.Concat(readTasks));
+        }
+        catch (OperationCanceledException e) when (
+            firstFailure == null && cts.IsCancellationRequested && e.CancellationToken == cts.Token)
+        {
+            Logger.LogInformation("Workload duration elapsed");
+        }
+        catch (Exception)
+        {
+            firstFailure?.Throw();
+            throw;
+        }
 
         Logger.LogInformation("Task finish!");
     }
@@ -200,10 +235,22 @@ public class SloTopicContext : ISloContext
     )
     {
         var queryFailedCommited = new Queue<string>();
+        ExceptionDispatchInfo? pendingCommitFailure = null;
         var prevSuccessCommitMessage = "Nothing";
         while (!cts.IsCancellationRequested)
         {
-            var batchMessages = await reader.ReadBatchAsync(cts.Token);
+            BatchMessages<string> batchMessages;
+            try
+            {
+                batchMessages = await reader.ReadBatchAsync(cts.Token);
+            }
+            catch (OperationCanceledException e) when (
+                cts.IsCancellationRequested && e.CancellationToken == cts.Token &&
+                pendingCommitFailure != null)
+            {
+                pendingCommitFailure.Throw();
+                throw;
+            }
 
             foreach (var message in batchMessages.Batch)
             {
@@ -252,12 +299,17 @@ public class SloTopicContext : ISloContext
             try
             {
                 await batchMessages.CommitBatchAsync();
+                if (batchMessages.Batch.Count > 0 && queryFailedCommited.Count == 0)
+                {
+                    pendingCommitFailure = null;
+                }
 
                 prevSuccessCommitMessage = string.Join(", ", batchMessages.Batch.Select(m =>
                     $"[Topic: {m.Topic}, Data: {m.Data}, PartitionId: {m.PartitionId}, CreatedAt: {m.CreatedAt}]"));
             }
             catch (ReaderException e)
             {
+                pendingCommitFailure ??= ExceptionDispatchInfo.Capture(e);
                 Logger.LogInformation(e, "Previous success messages: {PrevSuccessCommitMessage}. \n" +
                                          "Commit batch have readerException error! For messages: {Messages} \n" +
                                          "Local store: {LocalStore}",
@@ -271,6 +323,7 @@ public class SloTopicContext : ISloContext
                 }
             }
         }
+        pendingCommitFailure?.Throw();
     }
 
     private static async Task ReadMessage(
@@ -281,11 +334,23 @@ public class SloTopicContext : ISloContext
     )
     {
         string? prevFailMessage = null;
+        ExceptionDispatchInfo? pendingCommitFailure = null;
         var prevSuccessCommitMessage = "Nothing";
 
         while (!cts.IsCancellationRequested)
         {
-            var message = await reader.ReadAsync(cts.Token);
+            Ydb.Sdk.Topic.Reader.Message<string> message;
+            try
+            {
+                message = await reader.ReadAsync(cts.Token);
+            }
+            catch (OperationCanceledException e) when (
+                cts.IsCancellationRequested && e.CancellationToken == cts.Token &&
+                pendingCommitFailure != null)
+            {
+                pendingCommitFailure.Throw();
+                throw;
+            }
 
             if (prevFailMessage != null)
             {
@@ -324,12 +389,14 @@ public class SloTopicContext : ISloContext
             try
             {
                 await message.CommitAsync();
+                pendingCommitFailure = null;
 
                 prevSuccessCommitMessage = $"[Topic: {message.Topic}, Data: {message.Data}, " +
                                            $"PartitionId: {message.PartitionId}, CreatedAt: {message.CreatedAt}]";
             }
             catch (ReaderException e)
             {
+                pendingCommitFailure ??= ExceptionDispatchInfo.Capture(e);
                 Logger.LogInformation(e,
                     "Commit message have ReaderException error! For message: " +
                     "[Topic: {Topic}, Data: {Data}, PartitionId: {PartitionId}, CreatedAt: {CreatedAt}] \n" +
@@ -341,6 +408,7 @@ public class SloTopicContext : ISloContext
                 prevFailMessage = message.Data;
             }
         }
+        pendingCommitFailure?.Throw();
     }
 
     private static void CheckMessage(ConcurrentDictionary<long, ConcurrentQueue<string>> localStore,
