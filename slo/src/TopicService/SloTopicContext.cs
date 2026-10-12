@@ -123,6 +123,10 @@ public class SloTopicContext : ISloContext
                             try
                             {
                                 await writer.WriteAsync(data, writeRpc.Token);
+                                if (Environment.GetEnvironmentVariable("SLO_QA_FINAL_ERROR") == "1")
+                                {
+                                    throw new InvalidOperationException("SLO_QA_CSHARP_FINAL_OPERATION");
+                                }
                             }
                             catch (Exception e)
                             {
