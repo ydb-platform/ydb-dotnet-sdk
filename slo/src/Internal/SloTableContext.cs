@@ -393,10 +393,6 @@ public abstract class SloTableContext<T> : ISloContext
     {
         var id = Random.Shared.Next(_maxId);
         _ = await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);
-        if (Environment.GetEnvironmentVariable("SLO_QA_FINAL_ERROR") == "1")
-        {
-            throw new InvalidOperationException("SLO_QA_CSHARP_FINAL_OPERATION");
-        }
     }
 
     private static Guid GuidFromInt(int value)
