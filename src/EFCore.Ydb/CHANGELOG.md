@@ -1,3 +1,4 @@
+- Fixed LINQ `StartsWith` and `EndsWith` with column-based patterns on `Utf8` strings.
 - Fixed parameterized `EF.Functions.ILike` returning no matches or being evaluated on the client on EF Core 9 and 10.
 - Added string concatenation support in LINQ (`||` in YQL).
 - Fixed LINQ `Skip`/`Take` pagination: default `LIMIT` for offset-only queries uses `int.MaxValue` instead of `ulong.MaxValue`.
