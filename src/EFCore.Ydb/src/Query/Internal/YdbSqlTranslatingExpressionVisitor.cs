@@ -1,4 +1,3 @@
-using System.Data;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -7,7 +6,6 @@ using System.Reflection;
 using System.Text;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 using ArgumentOutOfRangeException = System.ArgumentOutOfRangeException;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;
@@ -95,9 +93,6 @@ public class YdbSqlTranslatingExpressionVisitor(
 
         var stringTypeMapping = ExpressionExtensions.InferTypeMapping(translatedInstance, translatedPattern);
 
-        // UTF8 is DbType.String whereas STRING is DbType.Binary
-        var isUtf8 = stringTypeMapping?.DbType == DbType.String;
-
         translatedInstance = _sqlExpressionFactory.ApplyTypeMapping(translatedInstance, stringTypeMapping);
         translatedPattern = _sqlExpressionFactory.ApplyTypeMapping(translatedPattern, stringTypeMapping);
 
@@ -161,76 +156,16 @@ public class YdbSqlTranslatingExpressionVisitor(
                 switch (methodType)
                 {
                     case StartsEndsWithContains.StartsWith or StartsEndsWithContains.EndsWith:
-                        var substringArguments = new SqlExpression[3];
-                        substringArguments[0] = translatedInstance;
-                        substringArguments[2] = _sqlExpressionFactory.Function(
-                            "LENGTH",
-                            [translatedPattern],
-                            nullable: true,
-                            argumentsPropagateNullability: [true],
-                            typeof(int)
-                        );
-
-                        if (methodType == StartsEndsWithContains.StartsWith)
-                        {
-                            substringArguments[1] = _sqlExpressionFactory.Constant(1);
-                        }
-                        else
-                        {
-                            substringArguments[1] = _sqlExpressionFactory.Subtract(
-                                _sqlExpressionFactory.Function(
-                                    "LENGTH",
-                                    [translatedInstance],
-                                    nullable: true,
-                                    argumentsPropagateNullability: [true],
-                                    typeof(int)
-                                ),
-                                _sqlExpressionFactory.Function(
-                                    "LENGTH",
-                                    [translatedPattern],
-                                    nullable: true,
-                                    argumentsPropagateNullability: [true],
-                                    typeof(int)
-                                )
-                            );
-                        }
-
-                        var substringFunction = _sqlExpressionFactory.Function(
-                            "SUBSTRING",
-                            substringArguments,
-                            nullable: true,
-                            argumentsPropagateNullability: [true, false, false],
-                            typeof(string),
-                            stringTypeMapping
-                        );
-
                         translation = _sqlExpressionFactory.AndAlso(
                             _sqlExpressionFactory.IsNotNull(translatedInstance),
                             _sqlExpressionFactory.AndAlso(
                                 _sqlExpressionFactory.IsNotNull(translatedPattern),
-                                _sqlExpressionFactory.OrElse(
-                                    _sqlExpressionFactory.Equal(
-                                        isUtf8
-                                            ? _sqlExpressionFactory.Function(
-                                                "unwrap",
-                                                [
-                                                    _sqlExpressionFactory.Convert(
-                                                        substringFunction,
-                                                        typeof(string),
-                                                        typeMapping: StringTypeMapping.Default
-                                                    )
-                                                ],
-                                                nullable: false,
-                                                argumentsPropagateNullability: [true],
-                                                typeof(string)
-                                            )
-                                            : substringFunction,
-                                        translatedPattern
-                                    ),
-                                    _sqlExpressionFactory.Equal(translatedPattern,
-                                        _sqlExpressionFactory.Constant(string.Empty)
-                                    )
-                                )
+                                _sqlExpressionFactory.Function(
+                                    methodType == StartsEndsWithContains.StartsWith ? "StartsWith" : "EndsWith",
+                                    [translatedInstance, translatedPattern],
+                                    nullable: true,
+                                    argumentsPropagateNullability: [true, true],
+                                    typeof(bool))
                             )
                         );
                         break;
