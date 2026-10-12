@@ -1,3 +1,4 @@
+- Re-enabled inherited integer-key `Find` tests, including owned graphs and asynchronous overloads, on EF Core 9 and 10.
 - Fixed parameterized `EF.Functions.ILike` returning no matches or being evaluated on the client on EF Core 9 and 10.
 - Added string concatenation support in LINQ (`||` in YQL).
 - Fixed LINQ `Skip`/`Take` pagination: default `LIMIT` for offset-only queries uses `int.MaxValue` instead of `ulong.MaxValue`.
