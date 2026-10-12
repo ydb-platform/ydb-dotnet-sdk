@@ -58,6 +58,18 @@ public class StringColumnPatternYdbTest(StringColumnPatternYdbTest.StringColumnP
     public Task String_ends_with_not_equals_nullable_column(bool async)
         => _tests.String_ends_with_not_equals_nullable_column(async);
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task String_contains_on_argument_with_wildcard_column(bool async)
+        => _tests.String_contains_on_argument_with_wildcard_column(async);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task String_contains_on_argument_with_wildcard_column_negated(bool async)
+        => _tests.String_contains_on_argument_with_wildcard_column_negated(async);
+
     private class MicrosoftTests(StringColumnPatternYdbFixture fixture)
         : FunkyDataQueryTestBase<StringColumnPatternYdbFixture>(fixture);
 
