@@ -1,3 +1,4 @@
+- Fixed literal wildcard matching in parameterized LINQ `Contains`, `StartsWith` and `EndsWith`.
 - Fixed LINQ `Contains` with column-based patterns on `Utf8` strings.
 - Fixed LINQ `StartsWith` and `EndsWith` with column-based patterns on `Utf8` strings.
 - Fixed parameterized `EF.Functions.ILike` returning no matches or being evaluated on the client on EF Core 9 and 10.

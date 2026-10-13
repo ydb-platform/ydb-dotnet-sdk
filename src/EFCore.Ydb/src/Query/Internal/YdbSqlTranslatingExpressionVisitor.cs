@@ -147,7 +147,9 @@ public class YdbSqlTranslatingExpressionVisitor(
                         !
 #endif
                         , escapedPatternParameter.Type,
-                        stringTypeMapping));
+                        stringTypeMapping),
+                    // YQL requires a String literal and does not support '\' as the escape character.
+                    _sqlExpressionFactory.Fragment("'!'"));
 
                 return true;
             }
@@ -235,9 +237,9 @@ public class YdbSqlTranslatingExpressionVisitor(
 
                     string s => methodType switch
                     {
-                        StartsEndsWithContains.StartsWith => EscapeLikePattern(s) + '%',
-                        StartsEndsWithContains.EndsWith => '%' + EscapeLikePattern(s),
-                        StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s)}%",
+                        StartsEndsWithContains.StartsWith => EscapeLikePattern(s, '!') + '%',
+                        StartsEndsWithContains.EndsWith => '%' + EscapeLikePattern(s, '!'),
+                        StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s, '!')}%",
                         _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
                     },
 
@@ -249,14 +251,14 @@ public class YdbSqlTranslatingExpressionVisitor(
     private static bool IsLikeWildChar(char c)
         => c is '%' or '_';
 
-    private static string EscapeLikePattern(string pattern)
+    private static string EscapeLikePattern(string pattern, char escapeChar = LikeEscapeChar)
     {
         var builder = new StringBuilder();
         foreach (var c in pattern)
         {
-            if (IsLikeWildChar(c) || c == LikeEscapeChar)
+            if (IsLikeWildChar(c) || c == escapeChar)
             {
-                builder.Append(LikeEscapeChar);
+                builder.Append(escapeChar);
             }
 
             builder.Append(c);
