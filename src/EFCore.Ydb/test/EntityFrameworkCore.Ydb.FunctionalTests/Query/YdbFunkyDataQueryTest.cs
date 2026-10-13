@@ -11,6 +11,25 @@ public class YdbFunkyDataQueryTest(YdbFunkyDataQueryTest.YdbFunkyDataQueryFixtur
 {
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
+    public async Task String_methods_with_escape_character_constant(bool async)
+    {
+        await AssertQuery(
+            async,
+            ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName != null
+                                                     && ("!" + c.FirstName + "!").Contains("!")
+                                                     && ("!" + c.FirstName + "!").StartsWith("!")
+                                                     && ("!" + c.FirstName + "!").EndsWith("!")),
+            ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName != null));
+
+        await AssertQuery(
+            async,
+            ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName.Contains("\\")),
+            ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName != null && c.FirstName.Contains("\\")),
+            assertEmpty: true);
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
     public Task String_methods_with_escape_character_parameter(bool async)
     {
         var pattern = "!";
@@ -23,21 +42,6 @@ public class YdbFunkyDataQueryTest(YdbFunkyDataQueryTest.YdbFunkyDataQueryFixtur
                                                      && ("!" + c.FirstName + "!").EndsWith(pattern)),
             ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName != null));
     }
-
-    [ConditionalTheory(Skip = "TODO: Fix LIKE wildcard escaping for constant string patterns")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task String_contains_on_argument_with_wildcard_constant(bool async)
-        => base.String_contains_on_argument_with_wildcard_constant(async);
-
-    [ConditionalTheory(Skip = "TODO: Fix LIKE wildcard escaping for constant string patterns")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task String_starts_with_on_argument_with_wildcard_constant(bool async)
-        => base.String_starts_with_on_argument_with_wildcard_constant(async);
-
-    [ConditionalTheory(Skip = "TODO: Fix LIKE wildcard escaping for constant string patterns")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task String_ends_with_on_argument_with_wildcard_constant(bool async)
-        => base.String_ends_with_on_argument_with_wildcard_constant(async);
 
     [ConditionalTheory(Skip = "TODO: Translate FirstOrDefault/LastOrDefault for nullable strings")]
     [MemberData(nameof(IsAsyncData))]

@@ -110,14 +110,15 @@ public class YdbSqlTranslatingExpressionVisitor(
                     string s => _sqlExpressionFactory.Like(
                         translatedInstance,
                         _sqlExpressionFactory.Constant(
-                            methodType switch
+                            (methodType switch
                             {
                                 StartsEndsWithContains.StartsWith => EscapeLikePattern(s) + '%',
                                 StartsEndsWithContains.EndsWith => '%' + EscapeLikePattern(s),
                                 StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s)}%",
 
                                 _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
-                            })),
+                            }).Replace("\\", "\\\\")),
+                        _sqlExpressionFactory.Fragment("'!'")),
 
                     _ => throw new UnreachableException()
                 };
@@ -237,28 +238,28 @@ public class YdbSqlTranslatingExpressionVisitor(
 
                     string s => methodType switch
                     {
-                        StartsEndsWithContains.StartsWith => EscapeLikePattern(s, '!') + '%',
-                        StartsEndsWithContains.EndsWith => '%' + EscapeLikePattern(s, '!'),
-                        StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s, '!')}%",
+                        StartsEndsWithContains.StartsWith => EscapeLikePattern(s) + '%',
+                        StartsEndsWithContains.EndsWith => '%' + EscapeLikePattern(s),
+                        StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s)}%",
                         _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
                     },
 
                     _ => throw new UnreachableException()
                 };
 
-    private const char LikeEscapeChar = '\\';
+    private const char LikeEscapeChar = '!';
 
     private static bool IsLikeWildChar(char c)
         => c is '%' or '_';
 
-    private static string EscapeLikePattern(string pattern, char escapeChar = LikeEscapeChar)
+    private static string EscapeLikePattern(string pattern)
     {
         var builder = new StringBuilder();
         foreach (var c in pattern)
         {
-            if (IsLikeWildChar(c) || c == escapeChar)
+            if (IsLikeWildChar(c) || c == LikeEscapeChar)
             {
-                builder.Append(escapeChar);
+                builder.Append(LikeEscapeChar);
             }
 
             builder.Append(c);
