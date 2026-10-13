@@ -175,11 +175,27 @@ public class YdbSqlTranslatingExpressionVisitor(
                                 _sqlExpressionFactory.IsNotNull(translatedInstance),
                                 _sqlExpressionFactory.AndAlso(
                                     _sqlExpressionFactory.IsNotNull(translatedPattern),
-                                    _sqlExpressionFactory.GreaterThan(
+                                    _sqlExpressionFactory.IsNotNull(
                                         _sqlExpressionFactory.Function(
-                                            "strpos", [translatedInstance, translatedPattern], nullable: true,
-                                            argumentsPropagateNullability: [true, true], typeof(int)),
-                                        _sqlExpressionFactory.Constant(0))));
+                                            "Find",
+                                            [
+                                                translatedInstance,
+                                                // Keep NVL: EF can remove COALESCE after the null guard.
+                                                _sqlExpressionFactory.Function(
+                                                    "NVL",
+                                                    [
+                                                        translatedPattern,
+                                                        _sqlExpressionFactory.Constant("", typeof(string),
+                                                            stringTypeMapping)
+                                                    ],
+                                                    nullable: false,
+                                                    argumentsPropagateNullability: [false, false],
+                                                    typeof(string),
+                                                    stringTypeMapping)
+                                            ],
+                                            nullable: true,
+                                            argumentsPropagateNullability: [false, false],
+                                            typeof(uint)))));
                         break;
 
                     default:

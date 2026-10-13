@@ -1,3 +1,4 @@
+- Fixed LINQ `Contains` with column-based patterns on `Utf8` strings.
 - Fixed LINQ `StartsWith` and `EndsWith` with column-based patterns on `Utf8` strings.
 - Fixed parameterized `EF.Functions.ILike` returning no matches or being evaluated on the client on EF Core 9 and 10.
 - Added string concatenation support in LINQ (`||` in YQL).
