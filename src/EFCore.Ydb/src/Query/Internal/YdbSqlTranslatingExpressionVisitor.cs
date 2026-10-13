@@ -110,14 +110,14 @@ public class YdbSqlTranslatingExpressionVisitor(
                     string s => _sqlExpressionFactory.Like(
                         translatedInstance,
                         _sqlExpressionFactory.Constant(
-                            (methodType switch
+                            methodType switch
                             {
                                 StartsEndsWithContains.StartsWith => EscapeLikePattern(s) + '%',
                                 StartsEndsWithContains.EndsWith => '%' + EscapeLikePattern(s),
                                 StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s)}%",
 
                                 _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
-                            }).Replace("\\", "\\\\")),
+                            }),
                         _sqlExpressionFactory.Fragment("'!'")),
 
                     _ => throw new UnreachableException()

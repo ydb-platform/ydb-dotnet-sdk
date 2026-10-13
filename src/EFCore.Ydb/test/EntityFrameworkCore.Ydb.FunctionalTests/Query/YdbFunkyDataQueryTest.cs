@@ -11,6 +11,30 @@ public class YdbFunkyDataQueryTest(YdbFunkyDataQueryTest.YdbFunkyDataQueryFixtur
 {
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
+    public Task String_equality_with_backslash_constant(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName == @"\%Bar"),
+            assertEmpty: true);
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public Task String_equality_with_quote_constant(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName == "O'Brien"),
+            assertEmpty: true);
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public Task String_equality_with_null_character_constant(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName == "\012"),
+            assertEmpty: true);
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
     public async Task String_methods_with_escape_character_constant(bool async)
     {
         await AssertQuery(
