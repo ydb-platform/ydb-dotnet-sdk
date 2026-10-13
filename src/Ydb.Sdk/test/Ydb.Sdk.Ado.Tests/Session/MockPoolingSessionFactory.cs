@@ -68,7 +68,8 @@ internal class MockPoolingSession(
         string query,
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
-        TransactionControl? txControl
+        TransactionControl? txControl,
+        StatsMode statsMode = StatsMode.None
     ) => new(executeQuery(sessionId));
 
     public override Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>

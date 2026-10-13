@@ -148,7 +148,8 @@ internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> sourc
     public override ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(
         string query,
         Dictionary<string, TypedValue> parameters, GrpcRequestSettings settings,
-        TransactionControl? txControl
+        TransactionControl? txControl,
+        StatsMode statsMode = StatsMode.None
     ) => throw new NotImplementedException();
 
     public override Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>

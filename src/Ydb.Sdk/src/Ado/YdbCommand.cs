@@ -185,6 +185,17 @@ public sealed class YdbCommand : DbCommand
 
     public new YdbTransaction? Transaction { get; set; }
 
+    /// <summary>
+    /// Gets or sets the level of server statistics collected for this command. The default is None.
+    /// </summary>
+    public StatsMode StatsMode { get; set; } = StatsMode.None;
+
+    /// <summary>
+    /// Gets the statistics of the last successfully completed execution, or null when
+    /// statistics were not returned or the execution is incomplete.
+    /// </summary>
+    public YdbQueryStats? QueryStats { get; private set; }
+
     public override bool DesignTimeVisible { get; set; }
 
     protected override YdbParameter CreateDbParameter() => new();
@@ -198,6 +209,7 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
+        QueryStats = null;
         cancellationToken.ThrowIfCancellationRequested();
 
         if (YdbConnection.IsBusy)
@@ -253,9 +265,11 @@ public sealed class YdbCommand : DbCommand
         }
 
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session
-                .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl)
+                .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl,
+                    StatsMode)
                 .ConfigureAwait(false),
-            YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
+            YdbConnection, dbActivity, startTimestamp, cancellationToken,
+            stats => QueryStats = stats).ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;

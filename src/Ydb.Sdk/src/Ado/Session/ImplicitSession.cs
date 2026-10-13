@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Ydb.Query;
 using Ydb.Query.V1;
+using Ydb.Sdk.Ado.Internal;
 
 namespace Ydb.Sdk.Ado.Session;
 
@@ -14,7 +15,8 @@ internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : I
         string query,
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
-        TransactionControl? txControl
+        TransactionControl? txControl,
+        StatsMode statsMode = StatsMode.None
     )
     {
         if (txControl is not null && !txControl.CommitTx)
@@ -26,7 +28,7 @@ internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : I
         {
             ExecMode = ExecMode.Execute,
             QueryContent = new QueryContent { Text = query, Syntax = Syntax.YqlV1 },
-            StatsMode = StatsMode.None,
+            StatsMode = statsMode.ToProto(),
             TxControl = txControl
         };
         request.Parameters.Add(parameters);
