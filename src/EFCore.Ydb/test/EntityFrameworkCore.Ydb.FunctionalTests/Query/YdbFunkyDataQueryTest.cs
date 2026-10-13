@@ -67,10 +67,22 @@ public class YdbFunkyDataQueryTest(YdbFunkyDataQueryTest.YdbFunkyDataQueryFixtur
             ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName != null));
     }
 
-    [ConditionalTheory(Skip = "TODO: Translate FirstOrDefault/LastOrDefault for nullable strings")]
+    [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
-    public override Task String_FirstOrDefault_and_LastOrDefault(bool async)
-        => base.String_FirstOrDefault_and_LastOrDefault(async);
+    public Task String_FirstOrDefault_and_LastOrDefault_use_UTF16_code_units(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<FunkyCustomer>().OrderBy(e => e.Id).Select(e => new
+            {
+                first = (char?)("\U0001F642" + e.FirstName + "\U0001F642").FirstOrDefault(),
+                last = (char?)("\U0001F642" + e.FirstName + "\U0001F642").LastOrDefault()
+            }),
+            assertOrder: true,
+            elementAsserter: (e, a) =>
+            {
+                AssertEqual(e.first, a.first);
+                AssertEqual(e.last, a.last);
+            });
 
     public class YdbFunkyDataQueryFixture : FunkyDataQueryFixtureBase
     {
