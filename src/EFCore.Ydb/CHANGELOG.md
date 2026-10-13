@@ -1,3 +1,4 @@
+- Fixed literal wildcard and backslash matching in constant LINQ `Contains`, `StartsWith` and `EndsWith` patterns.
 - Fixed literal wildcard matching in parameterized LINQ `Contains`, `StartsWith` and `EndsWith`.
 - Fixed LINQ `Contains` with column-based patterns on `Utf8` strings.
 - Fixed LINQ `StartsWith` and `EndsWith` with column-based patterns on `Utf8` strings.
