@@ -100,17 +100,6 @@ jobs:
             --context "$GITHUB_WORKSPACE/current" \
             --workload "${{ matrix.workload.name }}"
 
-      - name: Use current KV workload with baseline SDK
-        env:
-          WORKLOAD: ${{ matrix.workload.name }}
-        run: |
-          set -euo pipefail
-          for project in Internal "$WORKLOAD"; do
-            rsync -a --delete --exclude Dockerfile --exclude bin --exclude obj \
-              "$GITHUB_WORKSPACE/current/slo/src/$project/" \
-              "$GITHUB_WORKSPACE/baseline/slo/src/$project/"
-          done
-
       - name: Build baseline workload image
         run: |
           set -euxo pipefail
