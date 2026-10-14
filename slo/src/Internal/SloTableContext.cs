@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using HdrHistogram;
@@ -27,6 +28,8 @@ public abstract class SloTableContext<T> : ISloContext
     private static readonly ILogger Logger = ISloContext.Factory.CreateLogger<SloTableContext<T>>();
 
     private volatile int _maxId;
+    private SloTable[] _controlRows = [];
+    private readonly byte[] _keyNamespace = Guid.NewGuid().ToByteArray();
 
     protected abstract string Job { get; }
 
@@ -34,6 +37,11 @@ public abstract class SloTableContext<T> : ISloContext
 
     public async Task Create(SloConfig sloConfig)
     {
+        if (sloConfig.ReadRps > 0 && sloConfig.InitialDataCount < 1)
+        {
+            throw new ArgumentException("KV reads require at least one prefilled control row");
+        }
+
         // Retries cover SCHEME_ERROR: schema cache on query nodes propagates async from
         // SchemeBoard after CREATE TABLE returns — a follow-up ALTER/INSERT can hit a node
         // whose cache still misses the table (ydb-platform/ydb#23386, #36335).
@@ -64,19 +72,24 @@ public abstract class SloTableContext<T> : ISloContext
             }
         }
 
+        var rows = new SloTable[sloConfig.InitialDataCount];
         var tasks = new Task[sloConfig.InitialDataCount];
         for (var i = 0; i < sloConfig.InitialDataCount; i++)
         {
-            tasks[i] = Save(client, sloConfig);
+            rows[i] = CreateRow(i + 1);
+            tasks[i] = Save(client, rows[i], sloConfig.WriteTimeout);
         }
 
         try
         {
             await Task.WhenAll(tasks);
+            _controlRows = rows;
+            _maxId = rows.Length;
         }
         catch (Exception e)
         {
-            Logger.LogError(e, "Init failed when all tasks, continue..");
+            Logger.LogError(e, "Initial data write failed");
+            throw;
         }
         finally
         {
@@ -129,7 +142,7 @@ public abstract class SloTableContext<T> : ISloContext
             unit: "s",
             description: "P99 latency of operations, recomputed each push period.");
 
-        var meterProvider = Sdk.CreateMeterProviderBuilder()
+        using var meterProvider = Sdk.CreateMeterProviderBuilder()
             .ConfigureResource(resource => resource
                 .AddService(serviceName: $"workload-{workloadLabel}")
                 .AddAttributes([
@@ -167,23 +180,24 @@ public abstract class SloTableContext<T> : ISloContext
 
         var client = CreateClient(sloConfig);
 
-        _maxId = await SelectCount(client) + 1;
-
         Logger.LogInformation("Init row count: {MaxId}", _maxId);
 
-        var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+        using var writeLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = sloConfig.WriteRps / 10,
+            Window = TimeSpan.FromMilliseconds(IntervalMs),
+            PermitLimit = sloConfig.WriteRps / 10,
             QueueLimit = int.MaxValue
         });
-        var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+        using var readLimiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
         {
-            Window = TimeSpan.FromMilliseconds(IntervalMs), PermitLimit = sloConfig.ReadRps / 10,
+            Window = TimeSpan.FromMilliseconds(IntervalMs),
+            PermitLimit = sloConfig.ReadRps / 10,
             QueueLimit = int.MaxValue
         });
 
-        var cancellationTokenSource = new CancellationTokenSource();
+        using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(sloConfig.Time));
+        ExceptionDispatchInfo? firstFailure = null;
 
         var writeTask = ShootingTask(writeLimiter, "write", Save);
         var readTask = ShootingTask(readLimiter, "read", Select);
@@ -194,12 +208,18 @@ public abstract class SloTableContext<T> : ISloContext
         {
             await Task.WhenAll(readTask, writeTask);
         }
+        catch (OperationCanceledException e) when (
+            firstFailure == null && cancellationTokenSource.IsCancellationRequested &&
+            e.CancellationToken == cancellationTokenSource.Token)
+        {
+            Logger.LogInformation("Workload duration elapsed");
+        }
         catch (Exception e)
         {
-            Logger.LogInformation(e, "Cancel shooting");
+            Logger.LogError(e, "Workload failed");
+            firstFailure?.Throw();
+            throw;
         }
-
-        meterProvider.Dispose();
 
         Logger.LogInformation("Run task is finished");
         return;
@@ -225,30 +245,45 @@ public abstract class SloTableContext<T> : ISloContext
             {
                 workJobs.Add(Task.Run(async () =>
                 {
-                    while (!cancellationTokenSource.Token.IsCancellationRequested)
+                    try
                     {
-                        using var lease = await rateLimitPolicy
-                            .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
-
-                        if (!lease.IsAcquired)
+                        while (!cancellationTokenSource.Token.IsCancellationRequested)
                         {
-                            await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
-                        }
+                            using var lease = await rateLimitPolicy
+                                .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
 
-                        var sw = Stopwatch.StartNew();
+                            if (!lease.IsAcquired)
+                            {
+                                await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
+                            }
 
-                        try
-                        {
-                            await action(client, sloConfig);
-                            sw.Stop();
-                            operationsTotal.Add(1, successTags);
-                            latencyAggregators[operationType].Record(sw.Elapsed.TotalSeconds);
+                            var sw = Stopwatch.StartNew();
+
+                            try
+                            {
+                                await action(client, sloConfig);
+                                sw.Stop();
+                                operationsTotal.Add(1, successTags);
+                                latencyAggregators[operationType].Record(sw.Elapsed.TotalSeconds);
+                            }
+                            catch (Exception)
+                            {
+                                operationsTotal.Add(1, errorTags);
+                                throw;
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            operationsTotal.Add(1, errorTags);
-                            Logger.LogWarning(ex, "Operation {OperationType} failed", operationType);
-                        }
+                    }
+                    catch (OperationCanceledException e) when (
+                        cancellationTokenSource.IsCancellationRequested &&
+                        e.CancellationToken == cancellationTokenSource.Token)
+                    {
+                    }
+                    catch (Exception ex)
+                    {
+                        Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(ex), null);
+                        Logger.LogError(ex, "Operation {OperationType} failed", operationType);
+                        await cancellationTokenSource.CancelAsync();
+                        throw;
                     }
                 }, cancellationTokenSource.Token));
             }
@@ -341,40 +376,51 @@ public abstract class SloTableContext<T> : ISloContext
 
     protected abstract Task<int> Save(T client, SloTable sloTable, int writeTimeout);
 
-    protected abstract Task<object?> Select(T client, (Guid Guid, int Id) select, int readTimeout);
+    protected abstract Task<SloTable?> Select(T client, (Guid Guid, int Id) select, int readTimeout);
 
-    protected abstract Task<int> SelectCount(T client);
-
-    private Task<int> Save(T client, SloConfig config)
+    private SloTable CreateRow(int id)
     {
         const int minSizeStr = 20;
         const int maxSizeStr = 40;
 
-        var id = Interlocked.Increment(ref _maxId);
-        var sloTable = new SloTable
+        var timestamp = DateTime.UtcNow;
+        return new SloTable
         {
             Guid = GuidFromInt(id),
             Id = id,
-            PayloadStr = string.Join(string.Empty, Enumerable
+            PayloadStr = "v1:" + string.Join(string.Empty, Enumerable
                 .Repeat(0, Random.Shared.Next(minSizeStr, maxSizeStr))
                 .Select(_ => (char)Random.Shared.Next(127))),
             PayloadDouble = Random.Shared.NextDouble(),
-            PayloadTimestamp = DateTime.Now
+            PayloadTimestamp = timestamp.AddTicks(-(timestamp.Ticks % 10))
         };
+    }
 
-        return Save(client, sloTable, config.WriteTimeout);
+    private Task<int> Save(T client, SloConfig config)
+    {
+        var row = CreateRow(Interlocked.Increment(ref _maxId));
+        return Save(client, row, config.WriteTimeout);
     }
 
     private async Task Select(T client, SloConfig config)
     {
-        var id = Random.Shared.Next(_maxId);
-        _ = await Select(client, new ValueTuple<Guid, int>(GuidFromInt(id), id), config.ReadTimeout);
+        // Load writes append after prefill; only these immutable owned rows are read.
+        var expected = _controlRows[Random.Shared.Next(_controlRows.Length)];
+        var actual = await Select(client, (expected.Guid, expected.Id), config.ReadTimeout);
+        if (actual == null || actual.Guid != expected.Guid || actual.Id != expected.Id ||
+            actual.PayloadStr != expected.PayloadStr || actual.PayloadDouble != expected.PayloadDouble ||
+            actual.PayloadTimestamp != expected.PayloadTimestamp)
+        {
+            throw new InvalidOperationException($"KV data mismatch for control key {expected.Id}");
+        }
     }
 
-    private static Guid GuidFromInt(int value)
+    private Guid GuidFromInt(int value)
     {
-        var intBytes = BitConverter.GetBytes(value);
-        var hash = SHA1.HashData(intBytes);
+        var input = new byte[20];
+        _keyNamespace.CopyTo(input, 0);
+        BitConverter.GetBytes(value).CopyTo(input, 16);
+        var hash = SHA1.HashData(input);
         var guidBytes = new byte[16];
         Array.Copy(hash, guidBytes, 16);
         return new Guid(guidBytes);

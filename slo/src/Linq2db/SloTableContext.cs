@@ -1,4 +1,4 @@
-﻿using Internal;
+using Internal;
 using LinqToDB;
 using LinqToDB.Async;
 using LinqToDB.Data;
@@ -57,21 +57,22 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         return affected > 0 ? affected : 1;
     }
 
-    protected override async Task<object?> Select(Linq2dbClient client, (Guid Guid, int Id) select, int readTimeout)
+    protected override async Task<SloTable?> Select(Linq2dbClient client, (Guid Guid, int Id) select, int readTimeout)
     {
         await using var db = client.Open();
         db.CommandTimeout = readTimeout;
 
         var row = await db.GetTable<SloRow>()
-            .FirstOrDefaultAsync(sloRow => sloRow.Guid == select.Guid && sloRow.Id == select.Id);
+            .SingleOrDefaultAsync(sloRow => sloRow.Guid == select.Guid && sloRow.Id == select.Id);
 
-        return row;
-    }
-
-    protected override async Task<int> SelectCount(Linq2dbClient client)
-    {
-        await using var db = client.Open();
-        return await db.GetTable<SloRow>().CountAsync();
+        return row == null ? null : new SloTable
+        {
+            Guid = row.Guid,
+            Id = row.Id,
+            PayloadStr = row.PayloadStr ?? throw new InvalidOperationException("KV payload is null"),
+            PayloadDouble = row.PayloadDouble,
+            PayloadTimestamp = row.PayloadTimestamp
+        };
     }
 
     [Table(SloTable.Name)]

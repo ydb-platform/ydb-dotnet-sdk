@@ -11,7 +11,8 @@ public class SloTableContext : SloTableContext<YdbDataSource>
 
     protected override YdbDataSource CreateClient(SloConfig config) => new YdbDataSourceBuilder(
         new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
-    ) { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
+    )
+    { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
     {
@@ -42,12 +43,12 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         return 1;
     }
 
-    protected override async Task<object?> Select(YdbDataSource client, (Guid Guid, int Id) select,
+    protected override async Task<SloTable?> Select(YdbDataSource client, (Guid Guid, int Id) select,
         int readTimeout)
     {
         await using var ydbConnection =
             await client.OpenRetryableConnectionAsync(YdbRetryPolicy.IdempotenceDefault);
-        return await ydbConnection.QueryFirstOrDefaultAsync<SloTable>(
+        return await ydbConnection.QuerySingleOrDefaultAsync<SloTable>(
             $"""
              SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp
              FROM `{SloTable.Name}` WHERE Guid = @Guid AND Id = @Id;
@@ -55,9 +56,4 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         );
     }
 
-    protected override async Task<int> SelectCount(YdbDataSource client)
-    {
-        await using var connection = await client.OpenConnectionAsync();
-        return await connection.ExecuteScalarAsync<int>($"SELECT MAX(Id) FROM {SloTable.Name}");
-    }
 }
