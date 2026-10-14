@@ -10,9 +10,9 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     protected override string Job => "Dapper";
 
     protected override YdbDataSource CreateClient(SloConfig config) => new YdbDataSourceBuilder(
-        new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
-    )
-    { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
+            new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
+        )
+        { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
     {
@@ -55,5 +55,4 @@ public class SloTableContext : SloTableContext<YdbDataSource>
              """, new { select.Guid, select.Id }
         );
     }
-
 }

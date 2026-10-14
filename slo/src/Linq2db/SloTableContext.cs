@@ -65,14 +65,16 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         var row = await db.GetTable<SloRow>()
             .SingleOrDefaultAsync(sloRow => sloRow.Guid == select.Guid && sloRow.Id == select.Id);
 
-        return row == null ? null : new SloTable
-        {
-            Guid = row.Guid,
-            Id = row.Id,
-            PayloadStr = row.PayloadStr ?? throw new InvalidOperationException("KV payload is null"),
-            PayloadDouble = row.PayloadDouble,
-            PayloadTimestamp = row.PayloadTimestamp
-        };
+        return row == null
+            ? null
+            : new SloTable
+            {
+                Guid = row.Guid,
+                Id = row.Id,
+                PayloadStr = row.PayloadStr ?? throw new InvalidOperationException("KV payload is null"),
+                PayloadDouble = row.PayloadDouble,
+                PayloadTimestamp = row.PayloadTimestamp
+            };
     }
 
     [Table(SloTable.Name)]

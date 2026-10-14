@@ -10,9 +10,9 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     protected override string Job => "AdoNet";
 
     protected override YdbDataSource CreateClient(SloConfig config) => new YdbDataSourceBuilder(
-        new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
-    )
-    { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
+            new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
+        )
+        { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
     {

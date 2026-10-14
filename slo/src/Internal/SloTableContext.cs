@@ -199,8 +199,8 @@ public abstract class SloTableContext<T> : ISloContext
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(sloConfig.Time));
         ExceptionDispatchInfo? firstFailure = null;
 
-        var writeTask = ShootingTask(writeLimiter, "write", Save);
-        var readTask = ShootingTask(readLimiter, "read", Select);
+        var writeTask = ShootingTask(writeLimiter, "write", Save, cancellationTokenSource);
+        var readTask = ShootingTask(readLimiter, "read", Select, cancellationTokenSource);
 
         Logger.LogInformation("Started write / read shooting...");
 
@@ -224,7 +224,8 @@ public abstract class SloTableContext<T> : ISloContext
         Logger.LogInformation("Run task is finished");
         return;
 
-        async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, SloConfig, Task> action)
+        async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, SloConfig, Task> action,
+            CancellationTokenSource cancellation)
         {
             var successTags = new TagList
             {
@@ -247,14 +248,14 @@ public abstract class SloTableContext<T> : ISloContext
                 {
                     try
                     {
-                        while (!cancellationTokenSource.Token.IsCancellationRequested)
+                        while (!cancellation.Token.IsCancellationRequested)
                         {
                             using var lease = await rateLimitPolicy
-                                .AcquireAsync(cancellationToken: cancellationTokenSource.Token);
+                                .AcquireAsync(cancellationToken: cancellation.Token);
 
                             if (!lease.IsAcquired)
                             {
-                                await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellationTokenSource.Token);
+                                await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellation.Token);
                             }
 
                             var sw = Stopwatch.StartNew();
@@ -274,18 +275,18 @@ public abstract class SloTableContext<T> : ISloContext
                         }
                     }
                     catch (OperationCanceledException e) when (
-                        cancellationTokenSource.IsCancellationRequested &&
-                        e.CancellationToken == cancellationTokenSource.Token)
+                        cancellation.IsCancellationRequested &&
+                        e.CancellationToken == cancellation.Token)
                     {
                     }
                     catch (Exception ex)
                     {
                         Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(ex), null);
                         Logger.LogError(ex, "Operation {OperationType} failed", operationType);
-                        await cancellationTokenSource.CancelAsync();
+                        await cancellation.CancelAsync();
                         throw;
                     }
-                }, cancellationTokenSource.Token));
+                }, cancellation.Token));
             }
 
             await Task.WhenAll(workJobs);
@@ -408,7 +409,9 @@ public abstract class SloTableContext<T> : ISloContext
         var expected = _controlRows[Random.Shared.Next(_controlRows.Length)];
         var actual = await Select(client, (expected.Guid, expected.Id), config.ReadTimeout);
         if (actual == null || actual.Guid != expected.Guid || actual.Id != expected.Id ||
-            actual.PayloadStr != expected.PayloadStr || actual.PayloadDouble != expected.PayloadDouble ||
+            actual.PayloadStr != expected.PayloadStr ||
+            BitConverter.DoubleToInt64Bits(actual.PayloadDouble) !=
+            BitConverter.DoubleToInt64Bits(expected.PayloadDouble) ||
             actual.PayloadTimestamp != expected.PayloadTimestamp)
         {
             throw new InvalidOperationException($"KV data mismatch for control key {expected.Id}");

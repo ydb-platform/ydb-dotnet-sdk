@@ -95,5 +95,4 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
         return await dbContext.SloEntities.SingleOrDefaultAsync(table =>
             table.Guid == select.Guid && table.Id == select.Id);
     }
-
 }
