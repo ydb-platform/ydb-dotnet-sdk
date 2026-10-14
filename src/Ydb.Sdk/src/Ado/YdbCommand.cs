@@ -191,8 +191,7 @@ public sealed class YdbCommand : DbCommand
     public StatsMode StatsMode { get; set; } = StatsMode.None;
 
     /// <summary>
-    /// Gets the statistics of the last successfully completed execution, or null when
-    /// statistics were not returned or the execution is incomplete or failed.
+    /// Gets the statistics received for the current execution, or null when none have been received.
     /// </summary>
     public YdbQueryStats? QueryStats { get; internal set; }
 

@@ -4,9 +4,9 @@ namespace Ydb.Sdk.Ado;
 /// Specifies the level of server statistics collected for a command.
 /// </summary>
 /// <remarks>
-/// Set <see cref="YdbCommand.StatsMode"/> before execution. Statistics are available through
-/// <see cref="YdbCommand.QueryStats"/> only after the response stream has been fully consumed
-/// successfully. The server may omit statistics or individual fields for any collection level.
+/// Set <see cref="YdbCommand.StatsMode"/> before execution. Received statistics are available through
+/// <see cref="YdbCommand.QueryStats"/>. The server may omit statistics or individual fields
+/// for any collection level.
 /// </remarks>
 public enum StatsMode
 {

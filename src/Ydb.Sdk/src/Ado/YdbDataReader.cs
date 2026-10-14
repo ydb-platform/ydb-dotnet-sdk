@@ -7,7 +7,6 @@ using Ydb.Query;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.Schema;
 using Ydb.Sdk.Tracing;
-using Ydb.TableStats;
 
 namespace Ydb.Sdk.Ado;
 
@@ -31,12 +30,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Activity? _dbActivity;
     private readonly long _startTimestamp;
-    private YdbCommand? _command;
+    private readonly YdbCommand? _command;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
     private ResultSet? _currentResultSet;
-    private QueryStats? _queryStats;
 
     private interface IMetadata
     {
@@ -847,7 +845,6 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        _command = null;
         var isConsumed = ReaderState == State.IsConsumed ||
                          (!await ReadAsync().ConfigureAwait(false) && ReaderState == State.IsConsumed);
         ReaderMetadata = CloseMetadata.Instance;
@@ -924,15 +921,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                     _ydbTransaction.Completed = true;
                 }
 
-                if (_command is not null && _queryStats is not null)
-                {
-                    _command.QueryStats = new YdbQueryStats(_queryStats);
-                }
-
                 return State.IsConsumed;
             }
 
             var part = _stream.Current;
+
+            if (_command is not null && part.ExecStats is not null)
+            {
+                _command.QueryStats = new YdbQueryStats(part.ExecStats);
+            }
 
             _issueMessagesInStream.AddRange(part.Issues);
 
@@ -946,7 +943,6 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 throw YdbException.FromServer(part.Status, _issueMessagesInStream);
             }
 
-            _queryStats = part.ExecStats ?? _queryStats;
             _currentResultSet = part.ResultSet;
             ReaderMetadata = _currentResultSet != null ? new Metadata(_currentResultSet) : EmptyMetadata.Instance;
 
