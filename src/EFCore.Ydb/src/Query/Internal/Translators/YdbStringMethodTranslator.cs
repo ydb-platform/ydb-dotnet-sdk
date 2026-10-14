@@ -36,16 +36,38 @@ public class YdbStringMethodTranslator(
 
         var argument = arguments[0];
         var isFirst = method.Name == nameof(Enumerable.FirstOrDefault);
+        var offset = isFirst
+            ? sqlExpressionFactory.Constant(0ul)
+            : sqlExpressionFactory.Case(
+                [
+                    new CaseWhenClause(
+                        sqlExpressionFactory.Equal(argument, sqlExpressionFactory.Constant(string.Empty)),
+                        sqlExpressionFactory.Constant(0ul))
+                ],
+                sqlExpressionFactory.Subtract(
+                    sqlExpressionFactory.Function(
+                        "Unicode::GetLength",
+                        [argument],
+                        nullable: true,
+                        argumentsPropagateNullability: [true],
+                        typeof(ulong)),
+                    sqlExpressionFactory.Constant(1ul)));
+        var character = sqlExpressionFactory.Function(
+            "Unicode::Substring",
+            [argument, offset, sqlExpressionFactory.Constant(1ul)],
+            nullable: true,
+            argumentsPropagateNullability: [true, false, false],
+            typeof(string));
         var codePoints = sqlExpressionFactory.Function(
             "Unicode::ToCodePointList",
-            [argument],
+            [character],
             nullable: true,
             argumentsPropagateNullability: [true],
             typeof(uint[]),
             typeMappingSource.FindMapping(typeof(uint[])));
         var codePoint = sqlExpressionFactory.Coalesce(
             sqlExpressionFactory.Function(
-                isFirst ? "ListHead" : "ListLast",
+                "ListHead",
                 [codePoints],
                 nullable: true,
                 argumentsPropagateNullability: [false],
