@@ -46,7 +46,8 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         string query,
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
-        TransactionControl? txControl
+        TransactionControl? txControl,
+        StatsMode statsMode = StatsMode.None
     )
     {
         settings.NodeId = NodeId;
@@ -56,7 +57,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             SessionId = SessionId,
             ExecMode = ExecMode.Execute,
             QueryContent = new QueryContent { Text = query, Syntax = Syntax.YqlV1 },
-            StatsMode = StatsMode.None,
+            StatsMode = statsMode.ToProto(),
             TxControl = txControl
         };
         request.Parameters.Add(parameters);

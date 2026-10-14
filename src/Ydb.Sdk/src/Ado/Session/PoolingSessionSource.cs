@@ -417,7 +417,8 @@ internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : 
         string query,
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
-        TransactionControl? txControl
+        TransactionControl? txControl,
+        StatsMode statsMode = StatsMode.None
     );
 
     public abstract Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken);

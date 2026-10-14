@@ -388,7 +388,8 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     private static async Task<YdbDataReader> CreateYdbDataReader(
         MockAsyncEnumerator<ExecuteQueryResponsePart> enumerator,
         YdbConnection ydbConnection
-    ) => await YdbDataReader.CreateYdbDataReader(enumerator, ydbConnection, null, 0, CancellationToken.None);
+    ) => await YdbDataReader.CreateYdbDataReader(enumerator, new YdbCommand(ydbConnection), null, 0,
+        CancellationToken.None);
 
     private static MockAsyncEnumerator<ExecuteQueryResponsePart> EnumeratorSuccess(int size = 1,
         bool longFirstResultSet = false)

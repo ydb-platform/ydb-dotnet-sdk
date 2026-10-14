@@ -14,7 +14,8 @@ internal interface ISession : IDisposable
         string query,
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
-        TransactionControl? txControl
+        TransactionControl? txControl,
+        StatsMode statsMode = StatsMode.None
     );
 
     Task CommitTransaction(string txId, Activity? dbActivity = null, CancellationToken cancellationToken = default);

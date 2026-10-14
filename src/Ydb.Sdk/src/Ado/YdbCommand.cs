@@ -20,7 +20,7 @@ public sealed class YdbCommand : DbCommand
     private YdbConnection? _ydbConnection;
     private string _commandText = string.Empty;
 
-    private YdbConnection YdbConnection =>
+    internal YdbConnection YdbConnection =>
         _ydbConnection ?? throw new InvalidOperationException("Connection property has not been initialized");
 
     /// <summary>
@@ -185,6 +185,16 @@ public sealed class YdbCommand : DbCommand
 
     public new YdbTransaction? Transaction { get; set; }
 
+    /// <summary>
+    /// Gets or sets the level of server statistics collected for this command. The default is None.
+    /// </summary>
+    public StatsMode StatsMode { get; set; } = StatsMode.None;
+
+    /// <summary>
+    /// Gets the statistics received for the current execution, or null when none have been received.
+    /// </summary>
+    public YdbQueryStats? QueryStats { get; internal set; }
+
     public override bool DesignTimeVisible { get; set; }
 
     protected override YdbParameter CreateDbParameter() => new();
@@ -198,6 +208,7 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
+        QueryStats = null;
         cancellationToken.ThrowIfCancellationRequested();
 
         if (YdbConnection.IsBusy)
@@ -253,9 +264,10 @@ public sealed class YdbCommand : DbCommand
         }
 
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session
-                .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl)
+                .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl,
+                    StatsMode)
                 .ConfigureAwait(false),
-            YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
+            this, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;
