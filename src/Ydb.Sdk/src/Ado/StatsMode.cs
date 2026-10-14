@@ -16,7 +16,7 @@ public enum StatsMode
     /// <remarks>
     /// This is the default for new commands.
     /// </remarks>
-    None,
+    None = 10,
 
     /// <summary>
     /// Collects aggregated statistics for reads, updates and deletes.
@@ -24,7 +24,7 @@ public enum StatsMode
     /// <remarks>
     /// Includes query timings and table operation counters.
     /// </remarks>
-    Basic,
+    Basic = 20,
 
     /// <summary>
     /// Collects execution statistics and the query plan.
@@ -32,7 +32,7 @@ public enum StatsMode
     /// <remarks>
     /// Includes the Basic statistics and a JSON query plan.
     /// </remarks>
-    Full,
+    Full = 30,
 
     /// <summary>
     /// Collects detailed execution statistics for tasks and channels.
@@ -40,7 +40,7 @@ public enum StatsMode
     /// <remarks>
     /// Includes the Full statistics and per-task and per-channel details in the query plan.
     /// </remarks>
-    Profile,
+    Profile = 40,
 
     /// <summary>
     /// Uses the server's default statistics collection mode.
@@ -48,18 +48,13 @@ public enum StatsMode
     /// <remarks>
     /// The server selects the effective collection level instead of the client disabling it.
     /// </remarks>
-    Unspecified
+    Unspecified = 0
 }
 
 internal static class StatsModeExtensions
 {
-    internal static Query.StatsMode ToProto(this StatsMode mode) => mode switch
-    {
-        StatsMode.None => Query.StatsMode.None,
-        StatsMode.Basic => Query.StatsMode.Basic,
-        StatsMode.Full => Query.StatsMode.Full,
-        StatsMode.Profile => Query.StatsMode.Profile,
-        StatsMode.Unspecified => Query.StatsMode.Unspecified,
-        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
-    };
+    internal static Query.StatsMode ToProto(this StatsMode mode) =>
+        Enum.IsDefined(typeof(StatsMode), (int)mode)
+            ? (Query.StatsMode)mode
+            : throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
 }
