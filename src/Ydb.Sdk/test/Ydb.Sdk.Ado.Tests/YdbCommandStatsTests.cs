@@ -128,7 +128,7 @@ public class YdbCommandStatsTests : TestBase
     public async Task QueryStats_MetadataOnlyPartsAreRetainedAndPublishedOnlyOnSuccess(bool fails)
     {
         await using var connection = await CreateOpenConnectionAsync();
-        await using var command = new YdbCommand();
+        await using var command = new YdbCommand(connection);
         var responses = new[]
         {
             new ExecuteQueryResponsePart
@@ -148,8 +148,7 @@ public class YdbCommandStatsTests : TestBase
             }
         };
         await using var reader = await YdbDataReader.CreateYdbDataReader(
-            new MockAsyncEnumerator<ExecuteQueryResponsePart>(responses), connection, null, 0,
-            command: command);
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>(responses), command, null, 0);
         Assert.Null(command.QueryStats);
 
         if (fails)
@@ -168,11 +167,10 @@ public class YdbCommandStatsTests : TestBase
     public async Task QueryStats_EmptyStreamDoesNotPublishStatistics()
     {
         await using var connection = await CreateOpenConnectionAsync();
-        await using var command = new YdbCommand();
+        await using var command = new YdbCommand(connection);
 
         await Assert.ThrowsAsync<YdbException>(() => YdbDataReader.CreateYdbDataReader(
-            new MockAsyncEnumerator<ExecuteQueryResponsePart>([]), connection, null, 0,
-            command: command));
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([]), command, null, 0));
         Assert.Null(command.QueryStats);
     }
 }

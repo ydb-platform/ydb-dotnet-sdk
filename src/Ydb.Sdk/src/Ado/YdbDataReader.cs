@@ -75,15 +75,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     private YdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
-        YdbConnection connection,
+        YdbCommand command,
         Activity? dbActivity,
-        long startTimestamp,
-        YdbCommand? command)
+        long startTimestamp)
     {
         _stream = resultSetStream;
-        _connection = connection;
-        _metricsReporter = connection.MetricsReporter;
-        _ydbTransaction = connection.CurrentTransaction;
+        _connection = command.YdbConnection;
+        _metricsReporter = _connection.MetricsReporter;
+        _ydbTransaction = _connection.CurrentTransaction;
         _dbActivity = dbActivity;
         _startTimestamp = startTimestamp;
         _command = command;
@@ -93,24 +92,22 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// Creates a new instance of YdbDataReader from a result set stream.
     /// </summary>
     /// <param name="resultSetStream">The server stream containing query results.</param>
-    /// <param name="connection">The YDB connection associated with this reader.</param>
+    /// <param name="command">
+    /// The command that owns this reader and receives its statistics.
+    /// </param>
     /// <param name="dbActivity">OTel span for the current operation.</param>
     /// <param name="startTimestamp">Timestamp when the command execution started.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
-    /// <param name="command">
-    /// The command receiving statistics after successful completion of the stream.
-    /// </param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized YdbDataReader.</returns>
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
-        YdbConnection connection,
+        YdbCommand command,
         Activity? dbActivity,
         long startTimestamp,
-        CancellationToken cancellationToken = default,
-        YdbCommand? command = null
+        CancellationToken cancellationToken = default
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp, command);
+        var ydbDataReader = new YdbDataReader(resultSetStream, command, dbActivity, startTimestamp);
         await ydbDataReader.Init(cancellationToken).ConfigureAwait(false);
 
         return ydbDataReader;
