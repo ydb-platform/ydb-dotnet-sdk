@@ -30,7 +30,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Activity? _dbActivity;
     private readonly long _startTimestamp;
-    private readonly YdbCommand? _command;
+    private readonly YdbCommand _command;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -926,7 +926,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             var part = _stream.Current;
 
-            if (_command is not null && part.ExecStats is not null)
+            if (part.ExecStats is not null)
             {
                 _command.QueryStats = new YdbQueryStats(part.ExecStats);
             }
