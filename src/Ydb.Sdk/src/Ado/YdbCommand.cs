@@ -191,10 +191,10 @@ public sealed class YdbCommand : DbCommand
     public StatsMode StatsMode { get; set; } = StatsMode.None;
 
     /// <summary>
-    /// Gets the metadata of the last successfully completed execution, or null when
-    /// the execution is incomplete or failed.
+    /// Gets the statistics of the last successfully completed execution, or null when
+    /// statistics were not returned or the execution is incomplete or failed.
     /// </summary>
-    public YdbQueryInfo? QueryInfo { get; private set; }
+    public YdbQueryStats? QueryStats { get; internal set; }
 
     public override bool DesignTimeVisible { get; set; }
 
@@ -209,7 +209,7 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
-        QueryInfo = null;
+        QueryStats = null;
         cancellationToken.ThrowIfCancellationRequested();
 
         if (YdbConnection.IsBusy)
@@ -269,7 +269,7 @@ public sealed class YdbCommand : DbCommand
                     StatsMode)
                 .ConfigureAwait(false),
             YdbConnection, dbActivity, startTimestamp, cancellationToken,
-            queryInfo => QueryInfo = queryInfo).ConfigureAwait(false);
+            this).ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;

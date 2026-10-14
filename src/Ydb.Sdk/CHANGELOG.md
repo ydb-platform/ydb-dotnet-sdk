@@ -1,5 +1,5 @@
 - Feat ADO.NET: configure query statistics with the ADO `StatsMode` enum and read
-  `YdbCommand.QueryInfo.Stats` after successful completion of any execution method.
+  `YdbCommand.QueryStats` after successful completion of any execution method.
   `YdbQueryStats` exposes timings, plan, AST, compilation, phases and table operation
   counters without protobuf types. Metadata-only responses no longer produce result sets.
 
