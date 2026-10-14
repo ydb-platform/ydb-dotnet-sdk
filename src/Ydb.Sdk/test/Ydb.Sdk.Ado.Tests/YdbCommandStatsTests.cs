@@ -36,19 +36,19 @@ public class YdbCommandStatsTests : TestBase
         }
 
         await using var command = new YdbCommand("SELECT 1; SELECT 2;", connection) { StatsMode = statsMode };
-        Assert.Null(command.QueryStats);
+        Assert.Null(command.QueryInfo);
         switch (executionMethod)
         {
             case 0:
                 await using (var reader = await command.ExecuteReaderAsync())
                 {
-                    Assert.Null(command.QueryStats);
+                    Assert.Null(command.QueryInfo);
                     var values = new List<int>();
                     do
                     {
                         while (await reader.ReadAsync())
                         {
-                            Assert.Null(command.QueryStats);
+                            Assert.Null(command.QueryInfo);
                             values.Add(reader.GetInt32(0));
                         }
                     } while (await reader.NextResultAsync());
@@ -65,13 +65,14 @@ public class YdbCommandStatsTests : TestBase
                 break;
         }
 
+        var queryInfo = Assert.IsType<YdbQueryInfo>(command.QueryInfo);
         if (statsMode == StatsMode.None)
         {
-            Assert.Null(command.QueryStats);
+            Assert.Null(queryInfo.Stats);
         }
         else if (statsMode != StatsMode.Unspecified)
         {
-            var stats = Assert.IsType<YdbQueryStats>(command.QueryStats);
+            var stats = Assert.IsType<YdbQueryStats>(queryInfo.Stats);
             Assert.True(stats.TotalDurationUs > 0);
             if (statsMode is StatsMode.Full or StatsMode.Profile)
             {
@@ -82,36 +83,36 @@ public class YdbCommandStatsTests : TestBase
     }
 
     [Fact]
-    public async Task QueryStats_NewExecutionClearsPreviousStatistics()
+    public async Task QueryInfo_NewExecutionClearsPreviousMetadata()
     {
         await using var connection = await CreateOpenConnectionAsync();
         await using var command = new YdbCommand("SELECT 1;", connection) { StatsMode = StatsMode.Full };
         await command.ExecuteNonQueryAsync();
-        Assert.NotNull(command.QueryStats);
+        Assert.NotNull(command.QueryInfo?.Stats);
 
         command.StatsMode = StatsMode.None;
         await command.ExecuteScalarAsync();
-        Assert.Null(command.QueryStats);
+        Assert.Null(Assert.IsType<YdbQueryInfo>(command.QueryInfo).Stats);
 
         command.StatsMode = StatsMode.Full;
         await command.ExecuteNonQueryAsync();
-        Assert.NotNull(command.QueryStats);
+        Assert.NotNull(command.QueryInfo?.Stats);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => command.ExecuteScalarAsync(cancellation.Token));
-        Assert.Null(command.QueryStats);
+        Assert.Null(command.QueryInfo);
 
         await command.ExecuteNonQueryAsync();
-        Assert.NotNull(command.QueryStats);
+        Assert.NotNull(command.QueryInfo?.Stats);
         command.CommandText = "SELECT FROM";
         await Assert.ThrowsAsync<YdbException>(() => command.ExecuteNonQueryAsync());
-        Assert.Null(command.QueryStats);
+        Assert.Null(command.QueryInfo);
     }
 
     [Theory]
     [InlineData("SELECT 1;")]
     [InlineData("SELECT 1; SELECT 2;")]
-    public async Task QueryStats_EarlyReaderDisposalLeavesStatisticsNull(string query)
+    public async Task QueryInfo_EarlyReaderDisposalLeavesMetadataNull(string query)
     {
         await using var connection = await CreateOpenConnectionAsync();
         await using var command = new YdbCommand(query, connection) { StatsMode = StatsMode.Full };
@@ -119,7 +120,7 @@ public class YdbCommandStatsTests : TestBase
         Assert.True(await reader.ReadAsync());
         await reader.CloseAsync();
 
-        Assert.Null(command.QueryStats);
+        Assert.Null(command.QueryInfo);
     }
 
     [Theory]
@@ -128,7 +129,7 @@ public class YdbCommandStatsTests : TestBase
     public async Task QueryStats_MetadataOnlyPartsAreRetainedAndPublishedOnlyOnSuccess(bool fails)
     {
         await using var connection = await CreateOpenConnectionAsync();
-        YdbQueryStats? stats = null;
+        YdbQueryInfo? queryInfo = null;
         var responses = new[]
         {
             new ExecuteQueryResponsePart
@@ -149,18 +150,19 @@ public class YdbCommandStatsTests : TestBase
         };
         await using var reader = await YdbDataReader.CreateYdbDataReader(
             new MockAsyncEnumerator<ExecuteQueryResponsePart>(responses), connection, null, 0,
-            onQueryStats: value => stats = value);
-        Assert.Null(stats);
+            onQueryInfo: value => queryInfo = value);
+        Assert.Null(queryInfo);
 
         if (fails)
         {
             await Assert.ThrowsAsync<YdbException>(() => reader.NextResultAsync());
-            Assert.Null(stats);
+            Assert.Null(queryInfo);
         }
         else
         {
             Assert.False(await reader.NextResultAsync());
-            Assert.Equal((ulong)23, Assert.IsType<YdbQueryStats>(stats).TotalDurationUs);
+            Assert.Equal((ulong)23,
+                Assert.IsType<YdbQueryStats>(Assert.IsType<YdbQueryInfo>(queryInfo).Stats).TotalDurationUs);
         }
     }
 }

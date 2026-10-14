@@ -171,6 +171,7 @@ public class YdbCommandTests : TestBase
     {
         await using var connection = await CreateOpenConnectionAsync();
         var ydbCommand = connection.CreateCommand();
+        Assert.Equal(StatsMode.None, ydbCommand.StatsMode);
         ydbCommand.CommandText = "SELECT 1;";
         var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 

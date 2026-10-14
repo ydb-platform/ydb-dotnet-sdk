@@ -31,7 +31,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Activity? _dbActivity;
     private readonly long _startTimestamp;
-    private Action<YdbQueryStats?>? _onQueryStats;
+    private Action<YdbQueryInfo>? _onQueryInfo;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -79,7 +79,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         YdbConnection connection,
         Activity? dbActivity,
         long startTimestamp,
-        Action<YdbQueryStats?>? onQueryStats)
+        Action<YdbQueryInfo>? onQueryInfo)
     {
         _stream = resultSetStream;
         _connection = connection;
@@ -87,7 +87,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         _ydbTransaction = connection.CurrentTransaction;
         _dbActivity = dbActivity;
         _startTimestamp = startTimestamp;
-        _onQueryStats = onQueryStats;
+        _onQueryInfo = onQueryInfo;
     }
 
     /// <summary>
@@ -98,7 +98,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="dbActivity">OTel span for the current operation.</param>
     /// <param name="startTimestamp">Timestamp when the command execution started.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
-    /// <param name="onQueryStats">Receives statistics after successful completion of the stream.</param>
+    /// <param name="onQueryInfo">Receives metadata after successful completion of the stream.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized YdbDataReader.</returns>
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
@@ -106,10 +106,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         Activity? dbActivity,
         long startTimestamp,
         CancellationToken cancellationToken = default,
-        Action<YdbQueryStats?>? onQueryStats = null
+        Action<YdbQueryInfo>? onQueryInfo = null
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp, onQueryStats);
+        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp, onQueryInfo);
         await ydbDataReader.Init(cancellationToken).ConfigureAwait(false);
 
         return ydbDataReader;
@@ -853,7 +853,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        _onQueryStats = null;
+        _onQueryInfo = null;
         var isConsumed = ReaderState == State.IsConsumed ||
                          (!await ReadAsync().ConfigureAwait(false) && ReaderState == State.IsConsumed);
         ReaderMetadata = CloseMetadata.Instance;
@@ -969,7 +969,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 _ydbTransaction.Completed = true;
             }
 
-            _onQueryStats?.Invoke(_queryStats is null ? null : new YdbQueryStats(_queryStats));
+            _onQueryInfo?.Invoke(new YdbQueryInfo(_queryStats));
             return State.IsConsumed;
         }
         catch (YdbException e)

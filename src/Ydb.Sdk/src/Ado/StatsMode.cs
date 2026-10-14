@@ -3,7 +3,7 @@ namespace Ydb.Sdk.Ado;
 /// <summary>Specifies the level of server statistics collected for a command.</summary>
 /// <remarks>
 /// Set <see cref="YdbCommand.StatsMode"/> before execution. Statistics are available through
-/// <see cref="YdbCommand.QueryStats"/> only after the response stream has been fully consumed
+/// <see cref="YdbCommand.QueryInfo"/> only after the response stream has been fully consumed
 /// successfully. The server may omit statistics or individual fields for any collection level.
 /// </remarks>
 public enum StatsMode
@@ -27,4 +27,17 @@ public enum StatsMode
     /// <summary>Uses the server's default statistics collection mode.</summary>
     /// <remarks>The server selects the effective collection level instead of the client disabling it.</remarks>
     Unspecified
+}
+
+internal static class StatsModeExtensions
+{
+    internal static Query.StatsMode ToProto(this StatsMode mode) => mode switch
+    {
+        StatsMode.None => Query.StatsMode.None,
+        StatsMode.Basic => Query.StatsMode.Basic,
+        StatsMode.Full => Query.StatsMode.Full,
+        StatsMode.Profile => Query.StatsMode.Profile,
+        StatsMode.Unspecified => Query.StatsMode.Unspecified,
+        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
+    };
 }

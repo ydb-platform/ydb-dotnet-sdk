@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Ydb.Query;
 using Ydb.Query.V1;
-using Ydb.Sdk.Ado.Internal;
 
 namespace Ydb.Sdk.Ado.Session;
 
