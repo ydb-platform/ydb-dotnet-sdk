@@ -969,7 +969,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 _ydbTransaction.Completed = true;
             }
 
-            _onQueryInfo?.Invoke(new YdbQueryInfo(_queryStats));
+            if (_hasResponse)
+            {
+                _onQueryInfo?.Invoke(new YdbQueryInfo(_queryStats));
+            }
+
             return State.IsConsumed;
         }
         catch (YdbException e)

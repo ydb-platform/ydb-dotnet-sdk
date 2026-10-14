@@ -165,4 +165,16 @@ public class YdbCommandStatsTests : TestBase
                 Assert.IsType<YdbQueryStats>(Assert.IsType<YdbQueryInfo>(queryInfo).Stats).TotalDurationUs);
         }
     }
+
+    [Fact]
+    public async Task QueryInfo_EmptyStreamDoesNotPublishMetadata()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        YdbQueryInfo? queryInfo = null;
+
+        await Assert.ThrowsAsync<YdbException>(() => YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([]), connection, null, 0,
+            onQueryInfo: value => queryInfo = value));
+        Assert.Null(queryInfo);
+    }
 }
