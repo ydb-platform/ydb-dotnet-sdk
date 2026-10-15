@@ -313,31 +313,41 @@ public class RmwNativeTests
     [Fact]
     public async Task SerializableAdoTransactions_ContendingWritersAndIndependentNamespaces()
     {
-        await using var client = new YdbDataSourceBuilder(TestUtils.ConnectionString)
-            { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
-        var currentAttempts = new ConcurrentBag<int>();
-        var peerAttempts = new ConcurrentBag<int>();
-        using var current = new AdoRmwStore(client, 30, 30, currentAttempts.Add);
-        using var peer = new AdoRmwStore(client, 30, 30, peerAttempts.Add);
-        var contended = new ContendedStore(current);
-        Assert.NotEqual(current.Namespace, peer.Namespace);
-        try
+        await using var unrelated = new YdbConnection(TestUtils.ConnectionString);
+        await unrelated.OpenAsync();
+        // Disposing this datasource must not clear the pool used by parallel SDK tests.
+        var settings = new YdbConnectionStringBuilder(TestUtils.ConnectionString)
+            { ClientInfo = $"slo-rmw-native-{Guid.NewGuid():N}/1.0.0" };
+        await using (var client = new YdbDataSourceBuilder(settings)
+                         { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build())
         {
-            await Task.WhenAll(current.Create(2), peer.Create(2));
-            var results = await Task.WhenAll(
-                RmwScenario.Run(contended, 4, 2, default, 6),
-                RmwScenario.Run(peer, 4, 2, default, 6)).WaitAsync(TimeSpan.FromSeconds(90));
-            Assert.Equal(new[] { 24, 24 }, results);
-            Assert.Contains(contended.Attempts.Values, attempts => attempts > 1);
-            Assert.Equal(24, currentAttempts.Count);
-            Assert.Equal(24, peerAttempts.Count);
-            Assert.True(currentAttempts.Sum() >= contended.Attempts.Values.Sum());
-            Assert.True(currentAttempts.Sum() > 24);
+            var currentAttempts = new ConcurrentBag<int>();
+            var peerAttempts = new ConcurrentBag<int>();
+            using var current = new AdoRmwStore(client, 30, 30, currentAttempts.Add);
+            using var peer = new AdoRmwStore(client, 30, 30, peerAttempts.Add);
+            var contended = new ContendedStore(current);
+            Assert.NotEqual(current.Namespace, peer.Namespace);
+            try
+            {
+                await Task.WhenAll(current.Create(2), peer.Create(2));
+                var results = await Task.WhenAll(
+                    RmwScenario.Run(contended, 4, 2, default, 6),
+                    RmwScenario.Run(peer, 4, 2, default, 6)).WaitAsync(TimeSpan.FromSeconds(90));
+                Assert.Equal(new[] { 24, 24 }, results);
+                Assert.Contains(contended.Attempts.Values, attempts => attempts > 1);
+                Assert.Equal(24, currentAttempts.Count);
+                Assert.Equal(24, peerAttempts.Count);
+                Assert.True(currentAttempts.Sum() >= contended.Attempts.Values.Sum());
+                Assert.True(currentAttempts.Sum() > 24);
+            }
+            finally
+            {
+                await Task.WhenAll(current.Drop(), peer.Drop());
+            }
         }
-        finally
-        {
-            await Task.WhenAll(current.Drop(), peer.Drop());
-        }
+
+        await using var command = new YdbCommand("SELECT 1;", unrelated);
+        Assert.Equal(1, await command.ExecuteScalarAsync());
     }
 
     // Hold the first four actual counter reads before allowing writes. At least one transaction
