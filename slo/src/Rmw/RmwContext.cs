@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Runtime.InteropServices;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using HdrHistogram;
 using Internal;
 using OpenTelemetry;
@@ -24,26 +24,31 @@ public sealed class RmwContext : ISloContext
 
         await using var client = new YdbDataSourceBuilder(
             new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory })
-        { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
+            { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
         using var metrics = new RmwMetrics(config);
         using var store = new AdoRmwStore(client, config.WriteTimeout, config.ReadTimeout, metrics.RecordAttempts);
         using var stop = new CancellationTokenSource();
+        var shutdown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var term = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
         {
             context.Cancel = true;
-            stop.Cancel();
+            shutdown.TrySetResult();
         });
         using var interrupt = PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
         {
             context.Cancel = true;
-            stop.Cancel();
+            shutdown.TrySetResult();
         });
         Console.WriteLine($"RMW namespace={store.Namespace} writers={writers} counters={counters}");
         try
         {
             await store.Create(counters);
             stop.CancelAfter(TimeSpan.FromSeconds(config.Time));
-            var count = await RmwScenario.Run(store, writers, counters, stop.Token, record: metrics.Record);
+            if (shutdown.Task.IsCompleted) stop.Cancel();
+            var loading = RmwScenario.Run(store, writers, counters, stop.Token, record: metrics.Record);
+            await Task.WhenAny(loading, shutdown.Task);
+            if (shutdown.Task.IsCompleted) stop.Cancel();
+            var count = await loading;
             Console.WriteLine($"RMW verified namespace={store.Namespace} unique_operations={count}");
             if (count == 0 && !stop.IsCancellationRequested)
                 throw new InvalidOperationException("RMW completed without operations");

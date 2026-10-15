@@ -1,9 +1,12 @@
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 
 namespace Rmw;
 
 public sealed record RmwOperation(string Id, int Counter, long Delta);
+
 public sealed record RmwCounter(int Id, long Value, long Version);
+
 public sealed record RmwSnapshot(IReadOnlyList<RmwOperation> Operations, IReadOnlyList<RmwCounter> Counters);
 
 public interface IRmwTransaction
@@ -65,16 +68,16 @@ public static class RmwScenario
 
         async Task Write(RmwOperation operation)
         {
-            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            var started = Stopwatch.GetTimestamp();
             try
             {
                 await store.ExecuteTransaction(transaction => Apply(transaction, operation));
-                record?.Invoke(true, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+                record?.Invoke(true, Stopwatch.GetElapsedTime(started));
             }
             catch (Exception error)
             {
                 Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(error), null);
-                record?.Invoke(false, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+                record?.Invoke(false, Stopwatch.GetElapsedTime(started));
             }
         }
     }
@@ -88,6 +91,7 @@ public static class RmwScenario
             if (!seen.Add(operation.Id) || !byId.TryGetValue(operation.Id, out var wanted) || wanted != operation)
                 throw new InvalidOperationException($"RMW ledger mismatch: {operation.Id}");
         }
+
         if (seen.Count != byId.Count)
             throw new InvalidOperationException("RMW ledger is missing logical operations");
 
@@ -100,6 +104,7 @@ public static class RmwScenario
             if (counter.Value != entries.Sum(x => x.Delta) || counter.Version != entries.LongLength)
                 throw new InvalidOperationException($"RMW counter value/version mismatch: {counter.Id}");
         }
+
         if (counterIds.Count != counters)
             throw new InvalidOperationException("RMW counters are missing");
     }

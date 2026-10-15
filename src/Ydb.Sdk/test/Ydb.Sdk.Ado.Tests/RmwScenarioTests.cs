@@ -30,12 +30,14 @@ public class RmwScenarioTests
     {
         var store = new Store();
         var injected = 0;
+
         Task Inject(RmwOperation operation)
         {
             if (Interlocked.Increment(ref injected) == 1)
                 throw new YdbException(persisted ? StatusCode.Undetermined : StatusCode.Aborted, "retry cause");
             return Task.CompletedTask;
         }
+
         if (persisted) store.AfterCommit = Inject;
         else store.BeforeCommit = Inject;
         Assert.Equal(2, await RmwScenario.Run(store, 2, 2, default, 1).WaitAsync(Timeout));
@@ -77,7 +79,9 @@ public class RmwScenarioTests
                 operations.RemoveAt(0);
                 var index = counters.FindIndex(counter => counter.Id == missing.Counter);
                 counters[index] = counters[index] with
-                { Value = counters[index].Value - missing.Delta, Version = counters[index].Version - 1 };
+                {
+                    Value = counters[index].Value - missing.Delta, Version = counters[index].Version - 1
+                };
                 break;
             case "lost-value": counters[0] = counters[0] with { Value = 1 }; break;
             case "lost-version": counters[0] = counters[0] with { Version = 1 }; break;
@@ -90,6 +94,7 @@ public class RmwScenarioTests
             case "extra-counter": counters.Add(new RmwCounter(2, 0, 0)); break;
             case "duplicate-counter": counters.Add(counters[0]); break;
         }
+
         Assert.Throws<InvalidOperationException>(() => RmwScenario.Validate(expected, 2,
             new RmwSnapshot(operations, counters)));
     }
@@ -148,6 +153,7 @@ public class RmwScenarioTests
                     failed.TrySetResult();
                     throw original;
                 }
+
                 await release.Task.WaitAsync(Timeout);
             }
         };
@@ -179,11 +185,13 @@ public class RmwScenarioTests
         private readonly TaskCompletionSource _bothRead = Signal();
         private readonly YdbRetryPolicyExecutor _retry;
         private Dictionary<string, RmwOperation> _operations = new();
+
         private Dictionary<int, RmwCounter> _counters = new()
         {
             [0] = new RmwCounter(0, 0, 0),
             [1] = new RmwCounter(1, 0, 0)
         };
+
         private int _generation;
         private int _reads;
         public int Active;
@@ -222,8 +230,10 @@ public class RmwScenarioTests
                     lock (_lock)
                     {
                         generation = _generation;
-                        transaction = new Transaction(this, new(_operations), new(_counters));
+                        transaction = new Transaction(this, new Dictionary<string, RmwOperation>(_operations),
+                            new Dictionary<int, RmwCounter>(_counters));
                     }
+
                     await callback(transaction);
                     if (transaction.Written != null && BeforeCommit != null)
                         await BeforeCommit(transaction.Written);
@@ -234,15 +244,20 @@ public class RmwScenarioTests
                             Conflicts++;
                             throw new YdbException(StatusCode.Aborted, "snapshot conflict");
                         }
+
                         _operations = transaction.Operations;
                         _counters = transaction.Counters;
                         _generation++;
                     }
+
                     if (transaction.Written != null && AfterCommit != null)
                         await AfterCommit(transaction.Written);
                 });
             }
-            finally { Interlocked.Decrement(ref Active); }
+            finally
+            {
+                Interlocked.Decrement(ref Active);
+            }
         }
 
         public Task<RmwSnapshot> ReadSnapshot()
@@ -252,7 +267,9 @@ public class RmwScenarioTests
             return Task.FromResult(Snapshot);
         }
 
-        private sealed class Transaction(Store store, Dictionary<string, RmwOperation> operations,
+        private sealed class Transaction(
+            Store store,
+            Dictionary<string, RmwOperation> operations,
             Dictionary<int, RmwCounter> counters) : IRmwTransaction
         {
             public Dictionary<string, RmwOperation> Operations => operations;
@@ -276,6 +293,7 @@ public class RmwScenarioTests
                         await store._bothRead.Task.WaitAsync(Timeout);
                     }
                 }
+
                 return counters[id];
             }
 
@@ -296,7 +314,7 @@ public class RmwNativeTests
     public async Task SerializableAdoTransactions_ContendingWritersAndIndependentNamespaces()
     {
         await using var client = new YdbDataSourceBuilder(TestUtils.ConnectionString)
-        { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
+            { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
         var currentAttempts = new ConcurrentBag<int>();
         var peerAttempts = new ConcurrentBag<int>();
         using var current = new AdoRmwStore(client, 30, 30, currentAttempts.Add);
@@ -330,6 +348,7 @@ public class RmwNativeTests
         private int _arrivals;
         public readonly ConcurrentDictionary<string, int> Attempts = new();
         public Task<RmwSnapshot> ReadSnapshot() => store.ReadSnapshot();
+
         public Task ExecuteTransaction(Func<IRmwTransaction, Task> callback) =>
             store.ExecuteTransaction(transaction => callback(new Transaction(this, transaction)));
 
@@ -350,6 +369,7 @@ public class RmwNativeTests
                     if (arrival == 4) owner._read.TrySetResult();
                     await owner._read.Task.WaitAsync(TimeSpan.FromSeconds(30));
                 }
+
                 return counter;
             }
 

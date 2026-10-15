@@ -2,7 +2,6 @@ using System.Data;
 using System.Diagnostics.Metrics;
 using Ydb.Sdk.Ado;
 using Ydb.Sdk.Ado.RetryPolicy;
-using Ydb.Sdk.Ado.Transaction;
 
 namespace Rmw;
 
@@ -47,22 +46,24 @@ public sealed class AdoRmwStore : IRmwStore, IDisposable
         await _client.ExecuteAsync(async connection =>
         {
             await using var command = new YdbCommand($"""
-                CREATE TABLE `{Ledger}` (
-                    OpId Text NOT NULL, CounterId Int32 NOT NULL, Delta Int64 NOT NULL,
-                    PRIMARY KEY (OpId)
-                )
-                """, connection) { CommandTimeout = _writeTimeout };
+                                                      CREATE TABLE `{Ledger}` (
+                                                          OpId Text NOT NULL, CounterId Int32 NOT NULL, Delta Int64 NOT NULL,
+                                                          PRIMARY KEY (OpId)
+                                                      )
+                                                      """, connection);
+            command.CommandTimeout = _writeTimeout;
             await command.ExecuteNonQueryAsync();
             _ledgerCreated = true;
         });
         await _client.ExecuteAsync(async connection =>
         {
             await using var command = new YdbCommand($"""
-                CREATE TABLE `{Counters}` (
-                    CounterId Int32 NOT NULL, Value Int64 NOT NULL, Version Int64 NOT NULL,
-                    PRIMARY KEY (CounterId)
-                )
-                """, connection) { CommandTimeout = _writeTimeout };
+                                                      CREATE TABLE `{Counters}` (
+                                                          CounterId Int32 NOT NULL, Value Int64 NOT NULL, Version Int64 NOT NULL,
+                                                          PRIMARY KEY (CounterId)
+                                                      )
+                                                      """, connection);
+            command.CommandTimeout = _writeTimeout;
             await command.ExecuteNonQueryAsync();
             _countersCreated = true;
         });
@@ -71,12 +72,10 @@ public sealed class AdoRmwStore : IRmwStore, IDisposable
             for (var id = 0; id < counters; id++)
             {
                 await using var command = new YdbCommand($"""
-                    UPSERT INTO `{Counters}` (CounterId, Value, Version) VALUES (@id, 0l, 0l)
-                    """, connection)
-                {
-                    CommandTimeout = _writeTimeout,
-                    Parameters = { new YdbParameter("id", DbType.Int32, id) }
-                };
+                                                          UPSERT INTO `{Counters}` (CounterId, Value, Version) VALUES (@id, 0l, 0l)
+                                                          """, connection);
+                command.CommandTimeout = _writeTimeout;
+                command.Parameters.Add(new YdbParameter("id", DbType.Int32, id));
                 await command.ExecuteNonQueryAsync();
             }
         });
@@ -89,7 +88,7 @@ public sealed class AdoRmwStore : IRmwStore, IDisposable
         {
             await _client.ExecuteInTransactionAsync(
                 connection => callback(new Transaction(connection, Ledger, Counters, _writeTimeout)),
-                YdbRetryPolicy.IdempotenceDefault, TransactionMode.SerializableRw);
+                YdbRetryPolicy.IdempotenceDefault);
         }
         finally
         {
@@ -102,9 +101,10 @@ public sealed class AdoRmwStore : IRmwStore, IDisposable
         var operations = new List<RmwOperation>();
         var counters = new List<RmwCounter>();
         await using var command = new YdbCommand($"""
-            SELECT OpId, CounterId, Delta FROM `{Ledger}`;
-            SELECT CounterId, Value, Version FROM `{Counters}`;
-            """, connection) { CommandTimeout = _readTimeout };
+                                                  SELECT OpId, CounterId, Delta FROM `{Ledger}`;
+                                                  SELECT CounterId, Value, Version FROM `{Counters}`;
+                                                  """, connection);
+        command.CommandTimeout = _readTimeout;
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
             operations.Add(new RmwOperation(reader.GetString(0), reader.GetInt32(1), reader.GetInt64(2)));
@@ -113,7 +113,7 @@ public sealed class AdoRmwStore : IRmwStore, IDisposable
         while (await reader.ReadAsync())
             counters.Add(new RmwCounter(reader.GetInt32(0), reader.GetInt64(1), reader.GetInt64(2)));
         return new RmwSnapshot(operations, counters);
-    }, YdbRetryPolicy.IdempotenceDefault, TransactionMode.SerializableRw);
+    }, YdbRetryPolicy.IdempotenceDefault);
 
     public async Task Drop()
     {
@@ -133,11 +133,9 @@ public sealed class AdoRmwStore : IRmwStore, IDisposable
         public async Task<RmwOperation?> ReadOperation(string id)
         {
             await using var command = new YdbCommand(
-                $"SELECT OpId, CounterId, Delta FROM `{ledger}` WHERE OpId = @id", connection)
-            {
-                CommandTimeout = timeout,
-                Parameters = { new YdbParameter("id", DbType.String, id) }
-            };
+                $"SELECT OpId, CounterId, Delta FROM `{ledger}` WHERE OpId = @id", connection);
+            command.CommandTimeout = timeout;
+            command.Parameters.Add(new YdbParameter("id", DbType.String, id));
             await using var reader = await command.ExecuteReaderAsync();
             if (!await reader.ReadAsync()) return null;
             var result = new RmwOperation(reader.GetString(0), reader.GetInt32(1), reader.GetInt64(2));
@@ -148,11 +146,9 @@ public sealed class AdoRmwStore : IRmwStore, IDisposable
         public async Task<RmwCounter> ReadCounter(int id)
         {
             await using var command = new YdbCommand(
-                $"SELECT CounterId, Value, Version FROM `{counters}` WHERE CounterId = @id", connection)
-            {
-                CommandTimeout = timeout,
-                Parameters = { new YdbParameter("id", DbType.Int32, id) }
-            };
+                $"SELECT CounterId, Value, Version FROM `{counters}` WHERE CounterId = @id", connection);
+            command.CommandTimeout = timeout;
+            command.Parameters.Add(new YdbParameter("id", DbType.Int32, id));
             await using var reader = await command.ExecuteReaderAsync();
             if (!await reader.ReadAsync()) throw new InvalidOperationException($"RMW missing counter: {id}");
             var result = new RmwCounter(reader.GetInt32(0), reader.GetInt64(1), reader.GetInt64(2));
@@ -163,20 +159,15 @@ public sealed class AdoRmwStore : IRmwStore, IDisposable
         public async Task Write(RmwOperation operation, RmwCounter counter)
         {
             await using var command = new YdbCommand($"""
-                UPSERT INTO `{counters}` (CounterId, Value, Version) VALUES (@counter, @value, @version);
-                INSERT INTO `{ledger}` (OpId, CounterId, Delta) VALUES (@id, @counter, @delta);
-                """, connection)
-            {
-                CommandTimeout = timeout,
-                Parameters =
-                {
-                    new YdbParameter("id", DbType.String, operation.Id),
-                    new YdbParameter("counter", DbType.Int32, operation.Counter),
-                    new YdbParameter("delta", DbType.Int64, operation.Delta),
-                    new YdbParameter("value", DbType.Int64, counter.Value),
-                    new YdbParameter("version", DbType.Int64, counter.Version)
-                }
-            };
+                                                      UPSERT INTO `{counters}` (CounterId, Value, Version) VALUES (@counter, @value, @version);
+                                                      INSERT INTO `{ledger}` (OpId, CounterId, Delta) VALUES (@id, @counter, @delta);
+                                                      """, connection);
+            command.CommandTimeout = timeout;
+            command.Parameters.Add(new YdbParameter("id", DbType.String, operation.Id));
+            command.Parameters.Add(new YdbParameter("counter", DbType.Int32, operation.Counter));
+            command.Parameters.Add(new YdbParameter("delta", DbType.Int64, operation.Delta));
+            command.Parameters.Add(new YdbParameter("value", DbType.Int64, counter.Value));
+            command.Parameters.Add(new YdbParameter("version", DbType.Int64, counter.Version));
             await command.ExecuteNonQueryAsync();
         }
     }
