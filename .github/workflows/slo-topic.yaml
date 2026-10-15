@@ -8,7 +8,8 @@ jobs:
   ydb-slo-topic-action:
     if: contains(github.event.pull_request.labels.*.name, 'SLO')
     name: SLO Topic test
-    runs-on: "large-runner-dotnet-sdk"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
 
     permissions:
       contents: read
@@ -69,7 +70,7 @@ jobs:
           workload_current_image: ydb-app-current
           workload_current_command: run "Host=ydb;Port=2136;Database=/Root/testdb"
           fail_on_workload_error: true
-          disable_compose_profiles: workload-baseline
+          disable_compose_profiles: extra-nodes,workload-baseline
 
   report:
     name: Topic SLO graphs
