@@ -177,6 +177,14 @@ jobs:
             dotnet test -f net9.0 --logger "console;verbosity=normal" --logger "GitHubActions;report-warnings=false"
           fi
 
+      - name: Run EF10 DateOnly functional tests
+        working-directory: ./src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests
+        run: |
+          dotnet test -f net10.0 \
+            --filter "FullyQualifiedName~DateOnlyTranslationsYdbTest|FullyQualifiedName~DayOfWeekYdbTest" \
+            --logger "console;verbosity=normal" \
+            --logger "GitHubActions;report-warnings=false"
+
       - name: Upload EFCore.Ydb coverage to Codecov
         if: env.COVERAGE_ENABLED == 'true'
         uses: codecov/codecov-action@v7
