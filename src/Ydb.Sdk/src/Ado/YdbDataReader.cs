@@ -931,6 +931,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
                 _command.QueryStats = new YdbQueryStats(part.ExecStats);
             }
 
+            if (_ydbTransaction is not null && part.CommitTimestamp is not null)
+            {
+                _ydbTransaction.CommitTimestamp ??= new YdbVirtualTimestamp(part.CommitTimestamp);
+            }
+
             _issueMessagesInStream.AddRange(part.Issues);
 
             if (part.Status.IsNotSuccess())

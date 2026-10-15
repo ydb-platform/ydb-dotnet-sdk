@@ -36,10 +36,11 @@ public class YdbTransactionTests : TestBase
     }
 
     [Fact]
-    public void Commit_WhenUpdateWithYdbDataReader_ReturnUpdatedRow()
+    public async Task Commit_WhenStrictSerializableRw_ReturnUpdatedRow()
     {
-        using var connection = CreateOpenConnection();
-        var ydbTransaction = connection.BeginTransaction();
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var ydbTransaction = connection.BeginTransaction(TransactionMode.StrictSerializableRw);
+
         var ydbCommand = new YdbCommand(connection)
         {
             CommandText = $"""
@@ -47,16 +48,60 @@ public class YdbTransactionTests : TestBase
                            WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;
                            """
         };
-        var executeReaderAsync = ydbCommand.ExecuteReader();
-        executeReaderAsync.Close();
-        ydbTransaction.Commit();
-        Assert.Equal("test Episode 2", new YdbCommand(connection)
+        await using (var reader = await ydbCommand.ExecuteReaderAsync())
+        {
+            Assert.False(await reader.NextResultAsync());
+        }
+
+        await ydbTransaction.CommitAsync();
+
+        Assert.Equal("test Episode 2", await new YdbCommand(connection)
         {
             CommandText = $"""
                            SELECT title FROM {Tables.Episodes} 
                            WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;
                            """
-        }.ExecuteScalar());
+        }.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task Commit_WhenUpsertThenSelect_ReturnsCommitTimestamp()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRw);
+        await new YdbCommand(connection)
+        {
+            CommandText = $"""
+                           UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                           VALUES (2, 5, 111, "Commit timestamp", Date("2024-01-01"));
+                           """
+        }.ExecuteNonQueryAsync();
+        await using var command = new YdbCommand("SELECT 1", connection);
+
+        Assert.Equal(1, await command.ExecuteScalarAsync());
+        await transaction.CommitAsync();
+
+        Assert.NotNull(transaction.CommitTimestamp);
+    }
+
+    [Fact]
+    public async Task AutoCommit_WhenUpsertThenSelect_ReturnsCommitTimestamp()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRw);
+        await new YdbCommand(connection)
+        {
+            CommandText = $"""
+                           UPSERT INTO {Tables.Episodes} (series_id, season_id, episode_id, title, air_date)
+                           VALUES (2, 5, 112, "AutoCommit timestamp", Date("2024-01-01"));
+                           """
+        }.ExecuteNonQueryAsync();
+        connection.EnableAutoCommit();
+        await using var command = new YdbCommand("SELECT 1", connection);
+
+        Assert.Equal(1, await command.ExecuteScalarAsync());
+
+        Assert.NotNull(transaction.CommitTimestamp);
     }
 
     [Fact]

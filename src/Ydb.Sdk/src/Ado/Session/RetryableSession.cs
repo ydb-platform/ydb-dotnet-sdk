@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
@@ -17,7 +16,7 @@ internal class RetryableSession : ISession
         _retryPolicyExecutor = retryPolicyExecutor;
     }
 
-    public IDriver Driver => throw new NotImplementedException();
+    public IDriver Driver => _sessionSource.Driver;
 
     public bool IsBroken => false;
 
@@ -27,28 +26,9 @@ internal class RetryableSession : ISession
         GrpcRequestSettings settings,
         TransactionControl? txControl,
         StatsMode statsMode = StatsMode.None
-    )
-    {
-        if (txControl is not null && !txControl.CommitTx)
-        {
-            throw NotSupportedTransaction;
-        }
-
-        return new ValueTask<IServerStream<ExecuteQueryResponsePart>>(
+    ) =>
+        new(
             new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings, statsMode));
-    }
-
-    public Task CommitTransaction(
-        string txId,
-        Activity? dbActivity = null,
-        CancellationToken cancellationToken = default
-    ) => throw NotSupportedTransaction;
-
-    public Task RollbackTransaction(
-        string txId,
-        Activity? dbActivity = null,
-        CancellationToken cancellationToken = default
-    ) => throw NotSupportedTransaction;
 
     public void OnNotSuccessStatusCode(StatusCode code)
     {
@@ -57,8 +37,6 @@ internal class RetryableSession : ISession
     public void Dispose()
     {
     }
-
-    private static YdbException NotSupportedTransaction => new("Transactions are not supported in retryable session");
 }
 
 internal sealed class InMemoryServerStream(

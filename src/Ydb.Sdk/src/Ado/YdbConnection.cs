@@ -127,7 +127,13 @@ public sealed class YdbConnection : DbConnection
             );
         }
 
-        CurrentTransaction = new YdbTransaction(this, transactionMode);
+        if (Session is not PoolingSession session)
+        {
+            throw new YdbException(
+                "Transactions are not supported in implicit or retry mode. Check your connection settings.");
+        }
+
+        CurrentTransaction = new YdbTransaction(this, transactionMode, session);
 
         return CurrentTransaction;
     }

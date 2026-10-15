@@ -9,7 +9,7 @@ using Ydb.Sdk.Ado.Tests.Utils;
 
 namespace Ydb.Sdk.Ado.Tests.Session;
 
-public class PoolingSessionTests
+public class PoolingSessionTests : TestBase
 {
     private const long NodeId = 3;
     private const string SessionId = "sessionId";
@@ -213,25 +213,34 @@ public class PoolingSessionTests
     }
 
     [Fact]
-    public async Task CommitTransaction_WhenSuccessOpenSession_AssertNodeId_SessionId_YdbException()
+    public async Task Commit_WhenSuccessOpenSession_AssertNodeId_SessionId_YdbException()
     {
         const string txId = "txId";
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
+        var disposed = SetupAttachStreamDisposal();
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = new YdbTransaction(connection, TransactionMode.SerializableRw, session);
+        transaction.TxId = txId;
+        using var cancellation = new CancellationTokenSource();
+        var cancellationToken = cancellation.Token;
         _mockIDriver.Setup(driver => driver.UnaryCall(
             QueryService.CommitTransactionMethod,
             It.Is<CommitTransactionRequest>(request =>
                 request.SessionId.Equals(SessionId) && request.TxId.Equals(txId)),
-            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
-        ).ThrowsAsync(YdbException.FromServer(StatusIds.Types.StatusCode.Aborted, []));
+            It.Is<GrpcRequestSettings>(settings =>
+                settings.NodeId == NodeId && settings.CancellationToken == cancellationToken))
+        ).ReturnsAsync(new CommitTransactionResponse { Status = StatusIds.Types.StatusCode.Aborted });
         Assert.False(session.IsBroken);
         var ydbException = await Assert
-            .ThrowsAsync<YdbException>(() => session.CommitTransaction(txId, null, CancellationToken.None));
+            .ThrowsAsync<YdbException>(() => transaction.CommitAsync(cancellationToken));
         Assert.Equal(StatusCode.Aborted, ydbException.Code);
         Assert.Equal("Status: Aborted", ydbException.Message);
+        await connection.CloseAsync();
         tcsSecondMoveAttachStream.TrySetResult(false);
+        await disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -289,25 +298,34 @@ public class PoolingSessionTests
     }
 
     [Fact]
-    public async Task RollbackTransaction_WhenSuccessOpenSession_AssertNodeId_SessionId_YdbException()
+    public async Task Rollback_WhenSuccessOpenSession_AssertNodeId_SessionId_YdbException()
     {
         const string txId = "txId";
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
+        var disposed = SetupAttachStreamDisposal();
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         await session.Open(CancellationToken.None);
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = new YdbTransaction(connection, TransactionMode.SerializableRw, session);
+        transaction.TxId = txId;
+        using var cancellation = new CancellationTokenSource();
+        var cancellationToken = cancellation.Token;
         _mockIDriver.Setup(driver => driver.UnaryCall(
             QueryService.RollbackTransactionMethod,
             It.Is<RollbackTransactionRequest>(request =>
                 request.SessionId.Equals(SessionId) && request.TxId.Equals(txId)),
-            It.Is<GrpcRequestSettings>(grpcRequestSettings => grpcRequestSettings.NodeId == NodeId))
-        ).ThrowsAsync(YdbException.FromServer(StatusIds.Types.StatusCode.NotFound, []));
+            It.Is<GrpcRequestSettings>(settings =>
+                settings.NodeId == NodeId && settings.CancellationToken == cancellationToken))
+        ).ReturnsAsync(new RollbackTransactionResponse { Status = StatusIds.Types.StatusCode.NotFound });
         Assert.False(session.IsBroken);
         var ydbException = await Assert
-            .ThrowsAsync<YdbException>(() => session.RollbackTransaction(txId, null, CancellationToken.None));
+            .ThrowsAsync<YdbException>(() => transaction.RollbackAsync(cancellationToken));
         Assert.Equal(StatusCode.NotFound, ydbException.Code);
         Assert.Equal("Status: NotFound", ydbException.Message);
+        await connection.CloseAsync();
         tcsSecondMoveAttachStream.TrySetResult(false);
+        await disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     private TaskCompletionSource SetupAttachStreamDisposal()
