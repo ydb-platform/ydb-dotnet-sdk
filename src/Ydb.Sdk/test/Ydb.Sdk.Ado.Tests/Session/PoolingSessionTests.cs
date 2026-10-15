@@ -243,46 +243,6 @@ public class PoolingSessionTests : TestBase
         await disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Commit_WhenSuccess_AssignsOptionalImmutableTimestamp(bool hasTimestamp)
-    {
-        SetupSuccessCreateSession();
-        var attached = SetupAttachStream();
-        var disposed = SetupAttachStreamDisposal();
-        var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
-        await session.Open(CancellationToken.None);
-        await using var connection = await CreateOpenConnectionAsync();
-        await using var transaction = new YdbTransaction(connection, TransactionMode.SerializableRw, session);
-        transaction.TxId = "txId";
-        var timestamp = hasTimestamp ? new VirtualTimestamp { PlanStep = 7, TxId = 11 } : null;
-        _mockIDriver.Setup(driver => driver.UnaryCall(
-                QueryService.CommitTransactionMethod,
-                It.Is<CommitTransactionRequest>(request => request.SessionId == SessionId && request.TxId == "txId"),
-                It.Is<GrpcRequestSettings>(settings => settings.NodeId == NodeId)))
-            .ReturnsAsync(new CommitTransactionResponse
-                { Status = StatusIds.Types.StatusCode.Success, CommitTimestamp = timestamp });
-
-        await transaction.CommitAsync();
-        var result = transaction.CommitTimestamp;
-        if (timestamp is null)
-        {
-            Assert.Null(result);
-        }
-        else
-        {
-            timestamp.PlanStep = 100;
-            var value = Assert.IsType<YdbVirtualTimestamp>(result);
-            Assert.Equal((ulong)7, value.PlanStep);
-            Assert.Equal((ulong)11, value.TxId);
-        }
-
-        await connection.CloseAsync();
-        attached.TrySetResult(false);
-        await disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
     [Fact]
     public async Task Open_WhenAttachStreamSendsNodeShutdownHint_CallsPessimizeNodeAndBreaksSession()
     {

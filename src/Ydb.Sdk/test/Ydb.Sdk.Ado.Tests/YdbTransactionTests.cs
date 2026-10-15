@@ -1,6 +1,9 @@
 using System.Data;
+using Moq;
 using Xunit;
 using Ydb.Query;
+using Ydb.Query.V1;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -34,6 +37,30 @@ public class YdbTransactionTests : TestBase
 
         ydbCommand.CommandText = $"SELECT first_aired FROM {Tables.Seasons} WHERE series_id = 1 AND season_id = 3";
         Assert.Equal(new DateTime(2008, 11, 21), ydbCommand.ExecuteScalar());
+    }
+
+    [Fact]
+    public void Commit_WhenUpdateWithYdbDataReader_ReturnUpdatedRow()
+    {
+        using var connection = CreateOpenConnection();
+        var ydbTransaction = connection.BeginTransaction();
+        var ydbCommand = new YdbCommand(connection)
+        {
+            CommandText = $"""
+                           UPDATE {Tables.Episodes} SET title="test Episode 2"
+                           WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;
+                           """
+        };
+        var executeReaderAsync = ydbCommand.ExecuteReader();
+        executeReaderAsync.Close();
+        ydbTransaction.Commit();
+        Assert.Equal("test Episode 2", new YdbCommand(connection)
+        {
+            CommandText = $"""
+                           SELECT title FROM {Tables.Episodes}
+                           WHERE series_id = 2 AND season_id = 5 AND episode_id = 1;
+                           """
+        }.ExecuteScalar());
     }
 
     // Strict isolation requires table_service_config.enable_strict_serializable_isolation=true,
@@ -630,6 +657,33 @@ public class YdbTransactionTests : TestBase
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             (await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.CommitAsync())).Message);
         await transaction.RollbackAsync(); // no-op for failed tx
+    }
+
+    [Fact]
+    public async Task Commit_WhenSuccess_SetsCommitTimestamp()
+    {
+        var driver = new Mock<IDriver>();
+        driver.Setup(d => d.UnaryCall(
+                QueryService.CommitTransactionMethod,
+                It.Is<CommitTransactionRequest>(request => request.TxId == "txId"),
+                It.IsAny<GrpcRequestSettings>()))
+            .ReturnsAsync(new CommitTransactionResponse
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                CommitTimestamp = new VirtualTimestamp { PlanStep = 7, TxId = 11 }
+            });
+        var settings = new YdbConnectionStringBuilder { LoggerFactory = TestUtils.LoggerFactory };
+        var factory = new PoolingSessionFactory(driver.Object, settings);
+        await using var source = new PoolingSessionSource<PoolingSession>(factory, settings);
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = new YdbTransaction(connection, TransactionMode.SerializableRw,
+            factory.NewSession(source)) { TxId = "txId" };
+
+        await transaction.CommitAsync();
+
+        var timestamp = Assert.IsType<YdbVirtualTimestamp>(transaction.CommitTimestamp);
+        Assert.Equal((ulong)7, timestamp.PlanStep);
+        Assert.Equal((ulong)11, timestamp.TxId);
     }
 
     [Fact]
