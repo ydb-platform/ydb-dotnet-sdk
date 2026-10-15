@@ -1,3 +1,4 @@
+- Fixed LINQ `DateTime.DayOfWeek` and `DateOnly.DayOfWeek` returning `7` instead of `0` for Sunday.
 - Added server-side LINQ `FirstOrDefault` and `LastOrDefault` on strings. Materialization preserves null, empty-string and UTF-16 character semantics; SQL comparisons use YDB `Utf8` text semantics.
 - Fixed literal wildcard matching in constant and parameterized LINQ `Contains`, `StartsWith` and `EndsWith`, and preserved backslashes and null characters in generated string literals.
 - Fixed LINQ `Contains` with column-based patterns on `Utf8` strings.
