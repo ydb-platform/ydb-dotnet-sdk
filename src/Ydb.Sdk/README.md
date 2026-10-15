@@ -69,6 +69,38 @@ while (await reader.ReadAsync())
 }
 ```
 
+## Query metadata
+
+Configure collection with the ADO `StatsMode` enum and read the received
+statistics from `YdbDataReader.QueryStats`:
+
+```csharp
+await using var cmd = new YdbCommand("SELECT 1; SELECT 2;", connection)
+{
+    StatsMode = StatsMode.Full
+};
+await using var reader = await cmd.ExecuteReaderAsync();
+do
+{
+    while (await reader.ReadAsync())
+    {
+        Console.WriteLine(reader.GetInt32(0));
+    }
+} while (await reader.NextResultAsync());
+
+YdbQueryStats? stats = reader.QueryStats;
+YdbVirtualTimestamp? snapshot = reader.SnapshotTimestamp;
+```
+
+Metadata belongs to each reader and is assigned as response parts arrive. Consume
+the response to receive all metadata. Statistics collection defaults to `None`;
+the server may omit statistics or the snapshot timestamp.
+
+`YdbQueryStats` exposes query timings, plan, AST, compilation, execution phases and
+table operation counters through SDK types without exposing protobuf types.
+`SnapshotTimestamp` is virtual database time, not wall-clock time. Compare its
+values only within the same database.
+
 ## Transactions
 
 ```csharp

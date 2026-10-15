@@ -190,11 +190,6 @@ public sealed class YdbCommand : DbCommand
     /// </summary>
     public StatsMode StatsMode { get; set; } = StatsMode.None;
 
-    /// <summary>
-    /// Gets the statistics received for the current execution, or null when none have been received.
-    /// </summary>
-    public YdbQueryStats? QueryStats { get; internal set; }
-
     public override bool DesignTimeVisible { get; set; }
 
     protected override YdbParameter CreateDbParameter() => new();
@@ -208,7 +203,6 @@ public sealed class YdbCommand : DbCommand
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
     {
-        QueryStats = null;
         cancellationToken.ThrowIfCancellationRequested();
 
         if (YdbConnection.IsBusy)
