@@ -23,7 +23,7 @@ public sealed class RmwContext : ISloContext
             throw new ArgumentOutOfRangeException(nameof(config.Time));
 
         await using var client = new YdbDataSourceBuilder(
-            new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory })
+                new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory })
             { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
         using var metrics = new RmwMetrics(config);
         using var store = new AdoRmwStore(client, config.WriteTimeout, config.ReadTimeout, metrics.RecordAttempts);
@@ -92,7 +92,10 @@ public sealed class RmwContext : ISloContext
                     .AddAttributes([
                         new KeyValuePair<string, object>("sdk", "dotnet"),
                         new KeyValuePair<string, object>("sdk_version", typeof(YdbConnection).Assembly
-                            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown"),
+                                                                            .GetCustomAttribute<
+                                                                                AssemblyInformationalVersionAttribute>()
+                                                                            ?.InformationalVersion ??
+                                                                        "unknown"),
                         new KeyValuePair<string, object>("ref", _ref)
                     ]))
                 .AddMeter("YDB.SLO", "Ydb.Sdk")
@@ -116,6 +119,7 @@ public sealed class RmwContext : ISloContext
                         _p50 = _p95 = _p99 = 0;
                         return;
                     }
+
                     _p50 = _histogram.GetValueAtPercentile(50) / 1_000_000d;
                     _p95 = _histogram.GetValueAtPercentile(95) / 1_000_000d;
                     _p99 = _histogram.GetValueAtPercentile(99) / 1_000_000d;
