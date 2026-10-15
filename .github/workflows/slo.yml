@@ -21,6 +21,7 @@ jobs:
           - name: Dapper
           - name: EF
           - name: Linq2db
+          - name: Rmw
 
     concurrency:
       group: slo-${{ github.ref }}-${{ matrix.workload.name }}
@@ -101,6 +102,8 @@ jobs:
             --workload "${{ matrix.workload.name }}"
 
       - name: Build baseline workload image
+        id: baseline_image
+        if: matrix.workload.name != 'Rmw' || hashFiles('baseline/slo/src/Rmw/Rmw.csproj') != ''
         run: |
           set -euxo pipefail
           chmod +x baseline/.github/scripts/build-slo-image.sh
@@ -128,7 +131,7 @@ jobs:
             --read-timeout 1000
             --write-timeout 1000
           workload_baseline_ref: ${{ steps.baseline.outputs.ref }}
-          workload_baseline_image: ydb-app-baseline
+          workload_baseline_image: ${{ steps.baseline_image.outcome == 'success' && 'ydb-app-baseline' || '' }}
           workload_baseline_command: >-
             run "Host=ydb;Port=2136;Database=/Root/testdb"
             --read-rps ${{ inputs.slo_workload_read_max_rps || '1000' }}

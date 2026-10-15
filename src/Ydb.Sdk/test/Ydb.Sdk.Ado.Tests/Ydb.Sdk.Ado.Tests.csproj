@@ -10,6 +10,8 @@
     <ItemGroup>
         <ProjectReference Include="../../src/Ydb.Sdk.csproj" />
         <ProjectReference Include="../../../Ydb.Sdk.OpenTelemetry/src/Ydb.Sdk.OpenTelemetry.csproj" />
+        <Compile Include="../../../../slo/src/Rmw/RmwScenario.cs" Link="Slo/RmwScenario.cs" />
+        <Compile Include="../../../../slo/src/Rmw/AdoRmwStore.cs" Link="Slo/AdoRmwStore.cs" />
     </ItemGroup>
 
     <ItemGroup>
