@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.002.0
@@ -14,6 +14,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdoNet.Dapper", "Dapper\AdoNet.Dapper.csproj", "{A6B9B4F1-4C7C-42C1-A212-B71A9B0D67F7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linq2db.Slo", "Linq2db\Linq2db.Slo.csproj", "{59758BC9-E53B-46C8-84AC-62670DD559D4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rmw", "Rmw\Rmw.csproj", "{14D8916E-80E1-4B78-A782-C2A26F76283F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +47,10 @@ Global
 		{59758BC9-E53B-46C8-84AC-62670DD559D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{59758BC9-E53B-46C8-84AC-62670DD559D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{59758BC9-E53B-46C8-84AC-62670DD559D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{14D8916E-80E1-4B78-A782-C2A26F76283F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{14D8916E-80E1-4B78-A782-C2A26F76283F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{14D8916E-80E1-4B78-A782-C2A26F76283F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{14D8916E-80E1-4B78-A782-C2A26F76283F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
