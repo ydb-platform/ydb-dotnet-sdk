@@ -8,7 +8,8 @@ internal static class StatusCodeUtils
     internal static StatusCode Code(this Status rpcStatus) => rpcStatus.StatusCode switch
     {
         Grpc.Core.StatusCode.Unavailable => StatusCode.ClientTransportUnavailable,
-        Grpc.Core.StatusCode.DeadlineExceeded or Grpc.Core.StatusCode.Cancelled => StatusCode.ClientTransportTimeout,
+        Grpc.Core.StatusCode.DeadlineExceeded => StatusCode.ClientTransportTimeout,
+        Grpc.Core.StatusCode.Cancelled => StatusCode.ClientCancelled,
         Grpc.Core.StatusCode.ResourceExhausted => StatusCode.ClientTransportResourceExhausted,
         Grpc.Core.StatusCode.Unimplemented => StatusCode.ClientTransportUnimplemented,
         _ => StatusCode.ClientTransportUnknown
