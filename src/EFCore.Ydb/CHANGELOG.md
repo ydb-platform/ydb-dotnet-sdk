@@ -1,3 +1,4 @@
+- Added server-side LINQ `DateOnly.DayNumber` translation for `Date` and `Date32` columns.
 - Added server-side LINQ `DateOnly.FromDateTime` translation, preserving pre-epoch dates for extended-range date/time columns.
 - Fixed LINQ `DateOnly.AddYears`, `AddMonths` and `AddDays` translation for `Date` and `Date32` columns.
 - Fixed LINQ `DateTime.DayOfWeek` and `DateOnly.DayOfWeek` returning `7` instead of `0` for Sunday.
