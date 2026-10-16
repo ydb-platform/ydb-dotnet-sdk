@@ -5,7 +5,7 @@ namespace Ydb.Sdk.Ado;
 /// </summary>
 /// <remarks>
 /// Set <see cref="YdbCommand.StatsMode"/> before execution. Received statistics are available through
-/// <see cref="YdbCommand.QueryStats"/>. The server may omit statistics or individual fields
+/// <see cref="YdbDataReader.QueryStats"/>. The server may omit statistics or individual fields
 /// for any collection level.
 /// </remarks>
 public enum StatsMode

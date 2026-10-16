@@ -30,11 +30,23 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Activity? _dbActivity;
     private readonly long _startTimestamp;
-    private readonly YdbCommand _command;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
     private ResultSet? _currentResultSet;
+
+    /// <summary>
+    /// Gets the query statistics received for this execution, or null when none have been received.
+    /// </summary>
+    public YdbQueryStats? QueryStats { get; private set; }
+
+    /// <summary>
+    /// Gets the query snapshot timestamp, if returned by the server.
+    /// </summary>
+    /// <remarks>
+    /// This is database time, not wall-clock time. Values from different databases must not be compared.
+    /// </remarks>
+    public YdbVirtualTimestamp? SnapshotTimestamp { get; private set; }
 
     private interface IMetadata
     {
@@ -83,7 +95,6 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         _ydbTransaction = _connection.CurrentTransaction;
         _dbActivity = dbActivity;
         _startTimestamp = startTimestamp;
-        _command = command;
     }
 
     /// <summary>
@@ -91,7 +102,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </summary>
     /// <param name="resultSetStream">The server stream containing query results.</param>
     /// <param name="command">
-    /// The command that owns this reader and receives its statistics.
+    /// The command whose connection is used for this reader.
     /// </param>
     /// <param name="dbActivity">OTel span for the current operation.</param>
     /// <param name="startTimestamp">Timestamp when the command execution started.</param>
@@ -926,9 +937,14 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             var part = _stream.Current;
 
+            if (part.SnapshotTimestamp is not null)
+            {
+                SnapshotTimestamp ??= new YdbVirtualTimestamp(part.SnapshotTimestamp);
+            }
+
             if (part.ExecStats is not null)
             {
-                _command.QueryStats = new YdbQueryStats(part.ExecStats);
+                QueryStats ??= new YdbQueryStats(part.ExecStats);
             }
 
             if (_ydbTransaction is not null && part.CommitTimestamp is not null)

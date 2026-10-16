@@ -1,9 +1,7 @@
 - Feat ADO.NET: support `TransactionMode.StrictSerializableRw` and optional virtual
   commit timestamps through `YdbTransaction`, including successful `CommitAsync`.
 - Feat ADO.NET: configure query statistics with the ADO `StatsMode` enum and read
-  `YdbCommand.QueryStats` directly from received response parts for any execution method.
-  `YdbQueryStats` exposes timings, plan, AST, compilation, phases and table operation
-  counters without protobuf types.
+  `YdbDataReader.QueryStats`. The reader also exposes an optional `SnapshotTimestamp`.
 
 ## v0.37.0
 

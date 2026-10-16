@@ -1,10 +1,7 @@
 using System.Data;
 using Xunit;
-using Ydb.Query;
-using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
-using Ydb.TableStats;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -399,119 +396,6 @@ public class YdbCommandTests : TestBase
         Assert.Throws<ArgumentOutOfRangeException>(() => ydbDataReader.GetDateTime(1));
         Assert.Equal(-100000000000000000, ydbDataReader.GetInt64(2));
         Assert.Throws<ArgumentOutOfRangeException>(() => ydbDataReader.GetDateTime(2));
-    }
-
-    [Theory]
-    [InlineData(StatsMode.Basic)]
-    [InlineData(StatsMode.Full)]
-    [InlineData(StatsMode.Profile)]
-    public async Task ExecuteNonQueryAsync_WhenStatsEnabled_ReturnStatistics(StatsMode statsMode)
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        await using var command = new YdbCommand("SELECT 1;", connection) { StatsMode = statsMode };
-
-        await command.ExecuteNonQueryAsync();
-
-        Assert.NotNull(command.QueryStats);
-    }
-
-    [Fact]
-    public async Task QueryStats_NewExecutionClearsPreviousStatistics()
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        await using var command = new YdbCommand("SELECT 1;", connection) { StatsMode = StatsMode.Full };
-        await command.ExecuteNonQueryAsync();
-        Assert.NotNull(command.QueryStats);
-
-        command.StatsMode = StatsMode.None;
-        await command.ExecuteScalarAsync();
-        Assert.Null(command.QueryStats);
-
-        command.StatsMode = StatsMode.Full;
-        await command.ExecuteNonQueryAsync();
-        Assert.NotNull(command.QueryStats);
-        using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => command.ExecuteScalarAsync(cancellation.Token));
-        Assert.Null(command.QueryStats);
-
-        await command.ExecuteNonQueryAsync();
-        Assert.NotNull(command.QueryStats);
-        var previousStats = command.QueryStats;
-        command.CommandText = "SELECT FROM";
-        await Assert.ThrowsAsync<YdbException>(() => command.ExecuteNonQueryAsync());
-        Assert.NotSame(previousStats, command.QueryStats);
-    }
-
-    [Fact]
-    public async Task QueryStats_WhenResponseContainsStatistics_ReturnAllFields()
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        await using var command = new YdbCommand(connection);
-        var responses = new[]
-        {
-            new ExecuteQueryResponsePart
-            {
-                Status = StatusIds.Types.StatusCode.Success,
-                ResultSet = new ResultSet(),
-                ExecStats = new QueryStats
-                {
-                    QueryPlan = "{}",
-                    QueryAst = "()",
-                    ProcessCpuTimeUs = 1,
-                    TotalDurationUs = 2,
-                    TotalCpuTimeUs = 3,
-                    Compilation = new CompilationStats { FromCache = true, DurationUs = 4, CpuTimeUs = 5 },
-                    QueryPhases =
-                    {
-                        new QueryPhaseStats
-                        {
-                            DurationUs = 6,
-                            CpuTimeUs = 7,
-                            AffectedShards = 8,
-                            LiteralPhase = true,
-                            TableAccess =
-                            {
-                                new TableAccessStats
-                                {
-                                    Name = "/local/table",
-                                    PartitionsCount = 9,
-                                    Reads = new OperationStats { Rows = 10, Bytes = 11 },
-                                    Updates = new OperationStats { Rows = 12, Bytes = 13 },
-                                    Deletes = new OperationStats { Rows = 14, Bytes = 15 }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-        await using var reader = await YdbDataReader.CreateYdbDataReader(
-            new MockAsyncEnumerator<ExecuteQueryResponsePart>(responses), command, null, 0);
-
-        var stats = Assert.IsType<YdbQueryStats>(command.QueryStats);
-        Assert.Equal("{}", stats.QueryPlan);
-        Assert.Equal("()", stats.QueryAst);
-        Assert.Equal((ulong)1, stats.ProcessCpuTimeUs);
-        Assert.Equal((ulong)2, stats.TotalDurationUs);
-        Assert.Equal((ulong)3, stats.TotalCpuTimeUs);
-        Assert.True(stats.CompilationStats.FromCache);
-        Assert.Equal((ulong)4, stats.CompilationStats.DurationUs);
-        Assert.Equal((ulong)5, stats.CompilationStats.CpuTimeUs);
-        var phase = Assert.Single(stats.Phases);
-        Assert.Equal((ulong)6, phase.DurationUs);
-        Assert.Equal((ulong)7, phase.CpuTimeUs);
-        Assert.Equal((ulong)8, phase.AffectedShards);
-        Assert.True(phase.LiteralPhase);
-        var table = Assert.Single(phase.TableAccesses);
-        Assert.Equal("/local/table", table.TableName);
-        Assert.Equal((ulong)9, table.PartitionsCount);
-        Assert.Equal((ulong)10, table.Reads.Rows);
-        Assert.Equal((ulong)11, table.Reads.Bytes);
-        Assert.Equal((ulong)12, table.Updates.Rows);
-        Assert.Equal((ulong)13, table.Updates.Bytes);
-        Assert.Equal((ulong)14, table.Deletes.Rows);
-        Assert.Equal((ulong)15, table.Deletes.Bytes);
     }
 
     public static readonly TheoryData<DbType, object, bool> DbTypeTestCases = new()

@@ -3,6 +3,7 @@ using Xunit;
 using Ydb.Issue;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Tests.Utils;
+using Ydb.TableStats;
 
 namespace Ydb.Sdk.Ado.Tests;
 
@@ -13,6 +14,9 @@ public class YdbDataReaderTests : TestBase
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
         var reader = await CreateYdbDataReader(EnumeratorSuccess(), ydbConnection);
+
+        Assert.Null(reader.QueryStats);
+        Assert.Null(reader.SnapshotTimestamp);
 
         // Read first metadata
         Assert.True(reader.HasRows);
@@ -383,6 +387,128 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.False(await ydbDataReader.ReadAsync());
         Assert.False(await ydbDataReader.NextResultAsync());
         Assert.False(ydbDataReader.IsClosed); // For IsClosed, invoke Close on YdbConnection or YdbDataReader.
+    }
+
+    [Theory]
+    [InlineData(StatsMode.Basic)]
+    [InlineData(StatsMode.Full)]
+    [InlineData(StatsMode.Profile)]
+    public async Task ExecuteReaderAsync_WhenStatsEnabled_ReturnStatistics(StatsMode statsMode)
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var command = new YdbCommand("SELECT 1;", connection) { StatsMode = statsMode };
+        await using var reader = await command.ExecuteReaderAsync();
+
+        Assert.False(await reader.NextResultAsync());
+
+        Assert.NotNull(reader.QueryStats);
+    }
+
+    [Fact]
+    public async Task QueryStats_WhenCommandReused_BelongsToEachReader()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var command = new YdbCommand("SELECT 1;", connection) { StatsMode = StatsMode.Full };
+        await using var first = await command.ExecuteReaderAsync();
+        Assert.False(await first.NextResultAsync());
+        var statistics = Assert.IsType<YdbQueryStats>(first.QueryStats);
+        await first.CloseAsync();
+
+        command.StatsMode = StatsMode.None;
+        await using var second = await command.ExecuteReaderAsync();
+        Assert.False(await second.NextResultAsync());
+
+        Assert.Null(second.QueryStats);
+        Assert.Same(statistics, first.QueryStats);
+    }
+
+    [Fact]
+    public async Task Metadata_WhenResponseContainsValues_ReturnAllFields()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var command = new YdbCommand(connection);
+        var snapshot = new VirtualTimestamp { PlanStep = 16, TxId = 17 };
+        var responses = new[]
+        {
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = new ResultSet(),
+                SnapshotTimestamp = snapshot,
+                ExecStats = new QueryStats
+                {
+                    QueryPlan = "{}",
+                    QueryAst = "()",
+                    ProcessCpuTimeUs = 1,
+                    TotalDurationUs = 2,
+                    TotalCpuTimeUs = 3,
+                    Compilation = new CompilationStats { FromCache = true, DurationUs = 4, CpuTimeUs = 5 },
+                    QueryPhases =
+                    {
+                        new QueryPhaseStats
+                        {
+                            DurationUs = 6,
+                            CpuTimeUs = 7,
+                            AffectedShards = 8,
+                            LiteralPhase = true,
+                            TableAccess =
+                            {
+                                new TableAccessStats
+                                {
+                                    Name = "/local/table",
+                                    PartitionsCount = 9,
+                                    Reads = new OperationStats { Rows = 10, Bytes = 11 },
+                                    Updates = new OperationStats { Rows = 12, Bytes = 13 },
+                                    Deletes = new OperationStats { Rows = 14, Bytes = 15 }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                SnapshotTimestamp = new VirtualTimestamp { PlanStep = 23, TxId = 29 }
+            },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success }
+        };
+        responses[1].ExecStats = responses[0].ExecStats.Clone();
+        responses[1].ExecStats.ProcessCpuTimeUs = 100;
+        await using var reader = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>(responses), command, null, 0);
+
+        var stats = Assert.IsType<YdbQueryStats>(reader.QueryStats);
+        Assert.Equal("{}", stats.QueryPlan);
+        Assert.Equal("()", stats.QueryAst);
+        Assert.Equal((ulong)1, stats.ProcessCpuTimeUs);
+        Assert.Equal((ulong)2, stats.TotalDurationUs);
+        Assert.Equal((ulong)3, stats.TotalCpuTimeUs);
+        Assert.True(stats.CompilationStats.FromCache);
+        Assert.Equal((ulong)4, stats.CompilationStats.DurationUs);
+        Assert.Equal((ulong)5, stats.CompilationStats.CpuTimeUs);
+        var phase = Assert.Single(stats.Phases);
+        Assert.Equal((ulong)6, phase.DurationUs);
+        Assert.Equal((ulong)7, phase.CpuTimeUs);
+        Assert.Equal((ulong)8, phase.AffectedShards);
+        Assert.True(phase.LiteralPhase);
+        var table = Assert.Single(phase.TableAccesses);
+        Assert.Equal("/local/table", table.TableName);
+        Assert.Equal((ulong)9, table.PartitionsCount);
+        Assert.Equal((ulong)10, table.Reads.Rows);
+        Assert.Equal((ulong)11, table.Reads.Bytes);
+        Assert.Equal((ulong)12, table.Updates.Rows);
+        Assert.Equal((ulong)13, table.Updates.Bytes);
+        Assert.Equal((ulong)14, table.Deletes.Rows);
+        Assert.Equal((ulong)15, table.Deletes.Bytes);
+
+        snapshot.PlanStep = 100;
+        var timestamp = Assert.IsType<YdbVirtualTimestamp>(reader.SnapshotTimestamp);
+        Assert.Equal((ulong)16, timestamp.PlanStep);
+        Assert.Equal((ulong)17, timestamp.TxId);
+        Assert.False(await reader.NextResultAsync());
+        Assert.Same(timestamp, reader.SnapshotTimestamp);
+        Assert.Same(stats, reader.QueryStats);
     }
 
     private static async Task<YdbDataReader> CreateYdbDataReader(
