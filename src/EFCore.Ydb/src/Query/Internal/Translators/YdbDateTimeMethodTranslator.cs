@@ -54,6 +54,16 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
         IDiagnosticsLogger<DbLoggerCategory.Query> logger
     )
     {
+        if (method.DeclaringType == typeof(DateOnly) && method.Name == nameof(DateOnly.FromDayNumber))
+        {
+            return _sqlExpressionFactory.Convert(
+                _sqlExpressionFactory.Subtract(
+                    arguments[0],
+                    _sqlExpressionFactory.Constant(new DateOnly(1970, 1, 1).DayNumber)),
+                typeof(DateOnly),
+                _typeMappingSource.FindMapping(typeof(DateOnly), "Date32"));
+        }
+
         if (method.DeclaringType == typeof(DateOnly) && method.Name == nameof(DateOnly.FromDateTime))
         {
             var dateType = arguments[0].TypeMapping is IYdbTypeMapping
