@@ -10,15 +10,6 @@ public class DateOnlyTranslationsYdbTest(BasicTypesQueryYdbFixture fixture)
     [ConditionalFact(Skip = "DateOnly.DayNumber translation is not supported.")]
     public override Task DayNumber() => base.DayNumber();
 
-    [ConditionalFact(Skip = "DateOnly date arithmetic generates an invalid timestamp literal.")]
-    public override Task AddYears() => base.AddYears();
-
-    [ConditionalFact(Skip = "DateOnly date arithmetic generates an invalid timestamp literal.")]
-    public override Task AddMonths() => base.AddMonths();
-
-    [ConditionalFact(Skip = "DateOnly date arithmetic generates an invalid timestamp literal.")]
-    public override Task AddDays() => base.AddDays();
-
     [ConditionalFact(Skip = "DateOnly.DayNumber translation is not supported.")]
     public override Task DayNumber_subtraction() => base.DayNumber_subtraction();
 

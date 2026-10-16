@@ -13,9 +13,9 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
 {
     private static readonly Dictionary<MethodInfo, string> MethodInfoDatePartMapping = new()
     {
-        { typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddYears), [typeof(int)])!, " Years" },
-        { typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddMonths), [typeof(int)])!, " Months" },
-        { typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddDays), [typeof(int)])!, " Days" },
+        { typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddYears), [typeof(int)])!, "Years" },
+        { typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddMonths), [typeof(int)])!, "Months" },
+        { typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddDays), [typeof(int)])!, "Days" },
 
         { typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddYears), [typeof(int)])!, "Years" },
         { typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMonths), [typeof(int)])!, "Months" },
@@ -57,6 +57,22 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
             instance is not null
             && MethodInfoDatePartMapping.TryGetValue(method, out var datePart))
         {
+            var isDateOnly = instance.Type == typeof(DateOnly);
+            if (isDateOnly && datePart == "Days")
+            {
+                return _sqlExpressionFactory.Add(
+                    instance,
+                    _sqlExpressionFactory.Function(
+                        instance.TypeMapping!.StoreType == "Date32"
+                            ? "DateTime::Interval64FromDays"
+                            : "DateTime::IntervalFromDays",
+                        [arguments[0]],
+                        nullable: true,
+                        ArrayUtil.TrueArrays[1],
+                        typeof(TimeSpan)),
+                    instance.TypeMapping);
+            }
+
             var shiftDatePartFunction = _sqlExpressionFactory.Function(
                 "DateTime::Shift" + datePart,
                 [instance, arguments[0]],
@@ -66,11 +82,12 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
             );
 
             return _sqlExpressionFactory.Function(
-                "DateTime::MakeDate",
+                isDateOnly ? "DateTime::Make" + instance.TypeMapping!.StoreType : "DateTime::MakeDate",
                 arguments: [shiftDatePartFunction],
                 nullable: true,
                 ArrayUtil.TrueArrays[1],
-                returnType: typeof(DateTime)
+                returnType: isDateOnly ? typeof(DateOnly) : typeof(DateTime),
+                typeMapping: isDateOnly ? instance.TypeMapping : null
             );
         }
 
