@@ -473,6 +473,8 @@ SELECT Key, Value FROM AS_TABLE($new_data);
             },
             new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success }
         };
+        responses[1].ExecStats = responses[0].ExecStats.Clone();
+        responses[1].ExecStats.ProcessCpuTimeUs = 100;
         await using var reader = await YdbDataReader.CreateYdbDataReader(
             new MockAsyncEnumerator<ExecuteQueryResponsePart>(responses), command, null, 0);
 

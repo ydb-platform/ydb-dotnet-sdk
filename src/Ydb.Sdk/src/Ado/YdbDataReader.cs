@@ -944,7 +944,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             if (part.ExecStats is not null)
             {
-                QueryStats = new YdbQueryStats(part.ExecStats);
+                QueryStats ??= new YdbQueryStats(part.ExecStats);
             }
 
             if (_ydbTransaction is not null && part.CommitTimestamp is not null)
