@@ -20,7 +20,7 @@ public sealed class YdbCommand : DbCommand
     private YdbConnection? _ydbConnection;
     private string _commandText = string.Empty;
 
-    internal YdbConnection YdbConnection =>
+    private YdbConnection YdbConnection =>
         _ydbConnection ?? throw new InvalidOperationException("Connection property has not been initialized");
 
     /// <summary>
@@ -259,7 +259,7 @@ public sealed class YdbCommand : DbCommand
 
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery
                 (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl, StatsMode)
-            .ConfigureAwait(false), this, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
+            .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;

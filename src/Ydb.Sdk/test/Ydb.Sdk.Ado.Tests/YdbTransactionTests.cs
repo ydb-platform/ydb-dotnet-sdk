@@ -692,7 +692,6 @@ public class YdbTransactionTests : TestBase
         await using var connection = await CreateOpenConnectionAsync();
         await using var transaction = connection.BeginTransaction(TransactionMode.StrictSerializableRw);
         connection.EnableAutoCommit();
-        await using var command = new YdbCommand(connection);
         await using var reader = await YdbDataReader.CreateYdbDataReader(
             new MockAsyncEnumerator<ExecuteQueryResponsePart>(
             [
@@ -707,7 +706,7 @@ public class YdbTransactionTests : TestBase
                     CommitTimestamp = new VirtualTimestamp { PlanStep = 29, TxId = 31 }
                 },
                 new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success }
-            ]), command, null, 0);
+            ]), connection, null, 0);
 
         var commit = Assert.IsType<YdbVirtualTimestamp>(transaction.CommitTimestamp);
         Assert.Equal((ulong)13, commit.PlanStep);
