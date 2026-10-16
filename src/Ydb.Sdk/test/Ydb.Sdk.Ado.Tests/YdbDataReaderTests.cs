@@ -426,7 +426,6 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     public async Task Metadata_WhenResponseContainsValues_ReturnAllFields()
     {
         await using var connection = await CreateOpenConnectionAsync();
-        await using var command = new YdbCommand(connection);
         var snapshot = new VirtualTimestamp { PlanStep = 16, TxId = 17 };
         var responses = new[]
         {
@@ -476,7 +475,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         responses[1].ExecStats = responses[0].ExecStats.Clone();
         responses[1].ExecStats.ProcessCpuTimeUs = 100;
         await using var reader = await YdbDataReader.CreateYdbDataReader(
-            new MockAsyncEnumerator<ExecuteQueryResponsePart>(responses), command, null, 0);
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>(responses), connection, null, 0);
 
         var stats = Assert.IsType<YdbQueryStats>(reader.QueryStats);
         Assert.Equal("{}", stats.QueryPlan);
@@ -514,8 +513,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     private static async Task<YdbDataReader> CreateYdbDataReader(
         MockAsyncEnumerator<ExecuteQueryResponsePart> enumerator,
         YdbConnection ydbConnection
-    ) => await YdbDataReader.CreateYdbDataReader(enumerator, new YdbCommand(ydbConnection), null, 0,
-        CancellationToken.None);
+    ) => await YdbDataReader.CreateYdbDataReader(enumerator, ydbConnection, null, 0, CancellationToken.None);
 
     private static MockAsyncEnumerator<ExecuteQueryResponsePart> EnumeratorSuccess(int size = 1,
         bool longFirstResultSet = false)
