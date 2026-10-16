@@ -105,7 +105,7 @@ public class PoolingSessionTests
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Transport RPC call error", ydbException.Message);
-        Assert.Equal(StatusCode.ClientTransportTimeout, ydbException.Code);
+        Assert.Equal(StatusCode.ClientCancelled, ydbException.Code);
         Assert.True(session.IsBroken);
     }
 
@@ -156,8 +156,12 @@ public class PoolingSessionTests
         await CheckIsBrokenAndDeleteSessionOneTime(session);
     }
 
-    [Fact]
-    public async Task Open_WhenSuccessOpenThenAttachStreamIsCancelled_IsNotBroken()
+    [Theory]
+    [InlineData(Grpc.Core.StatusCode.Cancelled, true)]
+    [InlineData(Grpc.Core.StatusCode.DeadlineExceeded, false)]
+    public async Task Open_WhenSuccessOpenThenAttachStreamFails_UpdatesIsBroken(
+        Grpc.Core.StatusCode grpcStatus,
+        bool isBroken)
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
@@ -166,9 +170,13 @@ public class PoolingSessionTests
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
         tcsSecondMoveAttachStream.SetException(
-            new YdbException(new RpcException(Status.DefaultCancelled)));
+            new YdbException(new RpcException(new Status(grpcStatus, "Attach stream failure"))));
         await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.False(session.IsBroken);
+        Assert.Equal(isBroken, session.IsBroken);
+        if (isBroken)
+        {
+            await CheckIsBrokenAndDeleteSessionOneTime(session);
+        }
     }
 
     [Fact]

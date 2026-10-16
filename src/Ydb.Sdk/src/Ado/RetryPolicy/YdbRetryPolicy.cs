@@ -101,7 +101,8 @@ public class YdbRetryPolicy : IRetryPolicy
             StatusCode.BadSession or StatusCode.SessionBusy or StatusCode.SessionExpired => TimeSpan.Zero,
             StatusCode.Aborted or StatusCode.Undetermined =>
                 FullJitter(_fastBackoffBaseMs, _fastCapBackoffMs, _fastCeiling, attempt, _random),
-            StatusCode.Unavailable or StatusCode.ClientTransportUnknown or StatusCode.ClientTransportUnavailable =>
+            StatusCode.Unavailable or StatusCode.ClientTransportUnknown or StatusCode.ClientTransportUnavailable
+                or StatusCode.ClientCancelled =>
                 EqualJitter(_fastBackoffBaseMs, _fastCapBackoffMs, _fastCeiling, attempt, _random),
             StatusCode.Overloaded or StatusCode.ClientTransportResourceExhausted =>
                 EqualJitter(_slowBackoffBaseMs, _slowCapBackoffMs, _slowCeiling, attempt, _random),
