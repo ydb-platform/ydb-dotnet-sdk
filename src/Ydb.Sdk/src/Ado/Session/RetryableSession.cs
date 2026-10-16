@@ -26,9 +26,7 @@ internal class RetryableSession : ISession
         GrpcRequestSettings settings,
         TransactionControl? txControl,
         StatsMode statsMode = StatsMode.None
-    ) =>
-        new(
-            new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings, statsMode));
+    ) => new(new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings, statsMode));
 
     public void OnNotSuccessStatusCode(StatusCode code)
     {
