@@ -12,7 +12,7 @@ public sealed class YdbMethodCallTranslatorProvider : RelationalMethodCallTransl
 
         AddTranslators(
             [
-                new YdbDateTimeMethodTranslator(sqlExpressionFactory),
+                new YdbDateTimeMethodTranslator(dependencies.RelationalTypeMappingSource, sqlExpressionFactory),
                 new YdbMathTranslator(sqlExpressionFactory),
                 new YdbByteArrayMethodTranslator(sqlExpressionFactory),
                 new YdbStringMethodTranslator(sqlExpressionFactory),

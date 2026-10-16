@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using EntityFrameworkCore.Ydb.Storage.Internal.Mapping;
 using EntityFrameworkCore.Ydb.Utilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
 
@@ -33,9 +36,13 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
     };
 
     private readonly YdbSqlExpressionFactory _sqlExpressionFactory;
+    private readonly IRelationalTypeMappingSource _typeMappingSource;
 
-    public YdbDateTimeMethodTranslator(YdbSqlExpressionFactory sqlExpressionFactory)
+    public YdbDateTimeMethodTranslator(
+        IRelationalTypeMappingSource typeMappingSource,
+        YdbSqlExpressionFactory sqlExpressionFactory)
     {
+        _typeMappingSource = typeMappingSource;
         _sqlExpressionFactory = sqlExpressionFactory;
     }
 
@@ -45,7 +52,28 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger
-    ) => TranslateDatePart(instance, method, arguments);
+    )
+    {
+        if (method.DeclaringType == typeof(DateOnly) && method.Name == nameof(DateOnly.FromDateTime))
+        {
+            var dateType = arguments[0].TypeMapping is IYdbTypeMapping
+            {
+                YdbDbType: YdbDbType.Date32 or YdbDbType.Datetime64 or YdbDbType.Timestamp64
+            }
+                ? "Date32"
+                : "Date";
+
+            return _sqlExpressionFactory.Function(
+                "DateTime::Make" + dateType,
+                [arguments[0]],
+                nullable: true,
+                ArrayUtil.TrueArrays[1],
+                typeof(DateOnly),
+                _typeMappingSource.FindMapping(typeof(DateOnly), dateType));
+        }
+
+        return TranslateDatePart(instance, method, arguments);
+    }
 
     private SqlExpression? TranslateDatePart(
         SqlExpression? instance,
