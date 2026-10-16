@@ -421,10 +421,6 @@ internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : 
         StatsMode statsMode = StatsMode.None
     );
 
-    public abstract Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken);
-
-    public abstract Task RollbackTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken);
-
     public abstract void OnNotSuccessStatusCode(StatusCode code);
 
     public void Dispose() => source.Return((T)this);

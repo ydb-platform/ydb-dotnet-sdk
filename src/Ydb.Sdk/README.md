@@ -69,27 +69,6 @@ while (await reader.ReadAsync())
 }
 ```
 
-## Query statistics
-
-Configure collection with the ADO `StatsMode` enum and read the received
-statistics from `YdbCommand.QueryStats`:
-
-```csharp
-await using var cmd = new YdbCommand("SELECT 1; SELECT 2;", connection)
-{
-    StatsMode = StatsMode.Full
-};
-await cmd.ExecuteNonQueryAsync();
-YdbQueryStats? stats = cmd.QueryStats;
-```
-
-`QueryStats` is reset before each execution and assigned directly when a response part
-contains statistics. With `ExecuteReader`, read the response parts to receive them.
-Collection defaults to `None`, and the server may omit statistics.
-
-`YdbQueryStats` exposes query timings, plan, AST, compilation, execution phases and
-table operation counters through SDK types without exposing protobuf types.
-
 ## Transactions
 
 ```csharp

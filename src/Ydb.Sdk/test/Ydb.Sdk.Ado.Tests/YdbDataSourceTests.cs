@@ -65,6 +65,14 @@ public class YdbDataSourceTests : TestBase
     }
 
     [Fact]
+    public async Task OpenRetryableConnectionAsync_UsesSameDriver()
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var retryableConnection = await _dataSource.OpenRetryableConnectionAsync();
+        Assert.Same(connection.Session.Driver, retryableConnection.Session.Driver);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WhenBadSession_ThenRetriesUntilSuccess()
     {
         var attempt = 0;
@@ -247,11 +255,8 @@ public class YdbDataSourceTests : TestBase
     public async Task RetryableConnection_WhenOpenTransaction_Throws()
     {
         await using var ydbConnection = await _dataSource.OpenRetryableConnectionAsync();
-        await using var transaction = ydbConnection.BeginTransaction();
-
-        Assert.Equal("Transactions are not supported in retryable session",
-            (await Assert.ThrowsAsync<YdbException>(async () => await new YdbCommand(ydbConnection)
-                { CommandText = "SELECT 1" }.ExecuteScalarAsync())).Message);
+        Assert.Equal("Transactions are not supported in implicit or retry mode. Check your connection settings.",
+            Assert.Throws<YdbException>(() => ydbConnection.BeginTransaction()).Message);
     }
 
     [Fact]

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Ydb.Query;
 using Ydb.Query.V1;
 
@@ -18,11 +17,6 @@ internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : I
         StatsMode statsMode = StatsMode.None
     )
     {
-        if (txControl is not null && !txControl.CommitTx)
-        {
-            throw NotSupportedTransaction;
-        }
-
         var request = new ExecuteQueryRequest
         {
             ExecMode = ExecMode.Execute,
@@ -35,23 +29,9 @@ internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : I
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
     }
 
-    public Task CommitTransaction(
-        string txId,
-        Activity? dbActivity = null,
-        CancellationToken cancellationToken = default
-    ) => throw NotSupportedTransaction;
-
-    public Task RollbackTransaction(
-        string txId,
-        Activity? dbActivity = null,
-        CancellationToken cancellationToken = default
-    ) => throw NotSupportedTransaction;
-
     public void OnNotSuccessStatusCode(StatusCode code)
     {
     }
 
     public void Dispose() => source.ReleaseLease();
-
-    private static YdbException NotSupportedTransaction => new("Transactions are not supported in implicit session");
 }
