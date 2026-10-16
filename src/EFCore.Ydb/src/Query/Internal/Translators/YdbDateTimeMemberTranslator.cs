@@ -78,6 +78,9 @@ public sealed class YdbDateTimeMemberTranslator(
             nameof(DateTime.DayOfWeek) => sqlExpressionFactory.Modulo(
                 DatePart(instance!, "GetDayOfWeek"),
                 sqlExpressionFactory.Constant(7)),
+            nameof(DateOnly.DayNumber) => sqlExpressionFactory.Add(
+                sqlExpressionFactory.Convert(instance!, typeof(int)),
+                sqlExpressionFactory.Constant(new DateOnly(1970, 1, 1).DayNumber)),
 
             // TODO: Research if it's possible to implement
             nameof(DateTime.Ticks) => null,
