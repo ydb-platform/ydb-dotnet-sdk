@@ -85,20 +85,14 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
         return 0;
     }
 
-    protected override async Task<object?> Select(
+    protected override async Task<SloTable?> Select(
         PooledDbContextFactory<TableDbContext> client,
         (Guid Guid, int Id) select,
         int readTimeout
     )
     {
         await using var dbContext = await client.CreateDbContextAsync();
-        return await dbContext.SloEntities.FirstOrDefaultAsync(table =>
+        return await dbContext.SloEntities.SingleOrDefaultAsync(table =>
             table.Guid == select.Guid && table.Id == select.Id);
-    }
-
-    protected override async Task<int> SelectCount(PooledDbContextFactory<TableDbContext> client)
-    {
-        await using var dbContext = await client.CreateDbContextAsync();
-        return await dbContext.SloEntities.CountAsync();
     }
 }
