@@ -167,7 +167,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
                 if (subscribe.ReadFrom != null)
                 {
-                    topicReadSettings.ReadFrom = Timestamp.FromDateTime(subscribe.ReadFrom.Value);
+                    topicReadSettings.ReadFrom = Timestamp.FromDateTime(subscribe.ReadFrom.Value.ToUniversalTime());
                 }
 
                 foreach (var id in subscribe.PartitionIds)
