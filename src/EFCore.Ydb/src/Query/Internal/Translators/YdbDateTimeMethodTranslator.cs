@@ -111,6 +111,49 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
                     instance.TypeMapping);
             }
 
+            if (datePart is "Days" or "Hours" or "Mins" or "Secs")
+            {
+                var ticksPerUnit = datePart switch
+                {
+                    "Days" => TimeSpan.TicksPerDay,
+                    "Hours" => TimeSpan.TicksPerHour,
+                    "Mins" => TimeSpan.TicksPerMinute,
+                    _ => TimeSpan.TicksPerSecond
+                };
+                var wholeUnits = _sqlExpressionFactory.Convert(arguments[0], typeof(long));
+                var intervalType = instance.TypeMapping is IYdbTypeMapping
+                {
+                    YdbDbType: YdbDbType.Date32 or YdbDbType.Datetime64 or YdbDbType.Timestamp64
+                }
+                    ? "Interval64"
+                    : "Interval";
+
+                return _sqlExpressionFactory.Add(
+                    instance,
+                    _sqlExpressionFactory.Function(
+                        "DateTime::" + intervalType + "FromMicroseconds",
+                        [
+                            _sqlExpressionFactory.Add(
+                                _sqlExpressionFactory.Multiply(
+                                    wholeUnits,
+                                    _sqlExpressionFactory.Constant(ticksPerUnit / TimeSpan.TicksPerMicrosecond)),
+                                _sqlExpressionFactory.Divide(
+                                    _sqlExpressionFactory.Convert(
+                                        _sqlExpressionFactory.Multiply(
+                                            _sqlExpressionFactory.Subtract(
+                                                arguments[0],
+                                                _sqlExpressionFactory.Convert(wholeUnits, typeof(double))),
+                                            _sqlExpressionFactory.Constant((double)ticksPerUnit)),
+                                        typeof(long)),
+                                    _sqlExpressionFactory.Constant(TimeSpan.TicksPerMicrosecond)))
+                        ],
+                        nullable: true,
+                        ArrayUtil.TrueArrays[1],
+                        typeof(TimeSpan),
+                        _typeMappingSource.FindMapping(typeof(TimeSpan), intervalType)),
+                    instance.TypeMapping);
+            }
+
             var shiftDatePartFunction = _sqlExpressionFactory.Function(
                 "DateTime::Shift" + datePart,
                 [instance, arguments[0]],
