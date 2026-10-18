@@ -120,12 +120,12 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
             );
 
             return _sqlExpressionFactory.Function(
-                isDateOnly ? "DateTime::Make" + instance.TypeMapping!.StoreType : "DateTime::MakeDate",
+                "DateTime::Make" + instance.TypeMapping!.StoreType,
                 arguments: [shiftDatePartFunction],
                 nullable: true,
                 ArrayUtil.TrueArrays[1],
-                returnType: isDateOnly ? typeof(DateOnly) : typeof(DateTime),
-                typeMapping: isDateOnly ? instance.TypeMapping : null
+                returnType: instance.Type,
+                typeMapping: instance.TypeMapping
             );
         }
 
