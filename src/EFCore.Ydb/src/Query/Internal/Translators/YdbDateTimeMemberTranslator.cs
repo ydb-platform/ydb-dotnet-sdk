@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
 
@@ -73,6 +74,20 @@ public sealed class YdbDateTimeMemberTranslator(
             nameof(DateTime.Minute) => DatePart(instance!, "GetMinute"),
             nameof(DateTime.Second) => DatePart(instance!, "GetSecond"),
             nameof(DateTime.Millisecond) => DatePart(instance!, "GetMillisecondOfSecond"),
+            nameof(DateTime.TimeOfDay) => sqlExpressionFactory.Function(
+                "DateTime::TimeOfDay",
+                [instance!],
+                nullable: true,
+                argumentsPropagateNullability: ArrayUtil.TrueArrays[1],
+                returnType,
+                typeMappingSource.FindMapping(
+                    returnType,
+                    instance!.TypeMapping is IYdbTypeMapping
+                    {
+                        YdbDbType: YdbDbType.Date32 or YdbDbType.Datetime64 or YdbDbType.Timestamp64
+                    }
+                        ? "Interval64"
+                        : "Interval")),
 
             nameof(DateTime.DayOfYear) => DatePart(instance!, "GetDayOfYear"),
             nameof(DateTime.DayOfWeek) => sqlExpressionFactory.Modulo(

@@ -1,3 +1,4 @@
+- Added server-side LINQ `DateTime.TimeOfDay` translation for basic and extended-range date/time columns.
 - Added server-side LINQ `DateOnly.FromDayNumber` translation across the CLR date range.
 - Added server-side LINQ `DateOnly.DayNumber` translation for `Date` and `Date32` columns.
 - Added server-side LINQ `DateOnly.FromDateTime` translation, preserving pre-epoch dates for extended-range date/time columns.
