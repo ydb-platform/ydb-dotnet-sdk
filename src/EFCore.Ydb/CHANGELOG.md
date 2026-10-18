@@ -1,3 +1,4 @@
+- Fixed LINQ `DateTime.AddYears` and `AddMonths` preserving timestamp types and time components, including pre-epoch `Timestamp64` values.
 - Added server-side LINQ `DateTime.TimeOfDay` translation for basic and extended-range date/time columns.
 - Added server-side LINQ `DateOnly.FromDayNumber` translation across the CLR date range.
 - Added server-side LINQ `DateOnly.DayNumber` translation for `Date` and `Date32` columns.
