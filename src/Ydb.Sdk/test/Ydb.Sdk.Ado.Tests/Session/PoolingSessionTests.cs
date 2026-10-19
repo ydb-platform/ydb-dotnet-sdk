@@ -45,7 +45,8 @@ public class PoolingSessionTests : TestBase
     [InlineData(StatusCode.ClientTransportUnavailable, true)]
     [InlineData(StatusCode.ClientTransportResourceExhausted, true)]
     [InlineData(StatusCode.ClientTransportUnknown, true)]
-    [InlineData(StatusCode.ClientCancelled, true)]
+    [InlineData(StatusCode.StreamCancelled, true)]
+    [InlineData(StatusCode.ClientTransportCancelled, true)]
     [InlineData(StatusCode.Overloaded, false)]
     public async Task OnNotSuccessStatusCode_WhenStatusCodeIsNotSuccess_UpdateIsBroken(
         StatusCode statusCode,
@@ -105,7 +106,7 @@ public class PoolingSessionTests : TestBase
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Transport RPC call error", ydbException.Message);
-        Assert.Equal(StatusCode.ClientTransportTimeout, ydbException.Code);
+        Assert.Equal(StatusCode.ClientTransportCancelled, ydbException.Code);
         Assert.True(session.IsBroken);
     }
 
@@ -157,7 +158,7 @@ public class PoolingSessionTests : TestBase
     }
 
     [Fact]
-    public async Task Open_WhenSuccessOpenThenAttachStreamIsCancelled_IsNotBroken()
+    public async Task Open_WhenSuccessOpenThenAttachStreamIsCancelled_IsBroken()
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
@@ -168,7 +169,8 @@ public class PoolingSessionTests : TestBase
         tcsSecondMoveAttachStream.SetException(
             new YdbException(new RpcException(Status.DefaultCancelled)));
         await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.False(session.IsBroken);
+        Assert.True(session.IsBroken);
+        await CheckIsBrokenAndDeleteSessionOneTime(session);
     }
 
     [Fact]
