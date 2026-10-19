@@ -80,7 +80,7 @@ Every `ydb.query.session.*` metric includes **`ydb.query.session.pool.name`** (v
 | `pool_idle_timeout`      | The idle-session cleaner removes a session.                        |
 | `pool_graceful_shutdown` | Pool disposal removes a session.                                   |
 | `client_timeout`         | A query stream exceeds its client-side transport timeout.          |
-| `client_cancelled`       | The client closes an unfinished query stream.                      |
+| `client_stream_cancelled` | The client closes an unfinished query stream.                      |
 | `attach_closed`          | The server closes the active attach stream.                        |
 | `transport_error`        | A transport failure, including query `Unavailable` or attach failure, retires the session. |
 | `node_shutdown`          | The server sends a node shutdown hint.                             |

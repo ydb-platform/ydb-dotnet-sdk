@@ -1,8 +1,3 @@
-## Unreleased
-
-- **Breaking Change**: renamed `StatusCode.ClientCancelled` to `ClientStreamCancelled` for a client closing an unfinished query stream. The numeric value and `client_cancelled` session-close reason are unchanged; the operation-failure `status_code` label uses the new name. This status is not retryable. Closing an unfinished stream in a transaction throws this status; closing it without a transaction does not report an operation failure.
-- Added `StatusCode.ClientTransportCancelled` for gRPC `CANCELLED`, with fast backoff only for idempotent operations. Sessions retired by this status report `transport_error`. Caller cancellation still stops retries, and transport deadlines remain nonretryable.
-
 ## v0.37.0
 
 - Fix ADO.NET: `GetSchema("Columns")` and `GetSchema("TablesWithStats")` no longer fail with `SchemeError` when a listed table is dropped concurrently; such a table is left out of the result ([#687](https://github.com/ydb-platform/ydb-dotnet-sdk/issues/687)).

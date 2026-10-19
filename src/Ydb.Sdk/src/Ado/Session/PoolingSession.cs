@@ -117,7 +117,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 reason = SessionClosedReason.ClientTimeout;
                 break;
             case StatusCode.ClientStreamCancelled:
-                reason = SessionClosedReason.ClientCancelled;
+                reason = SessionClosedReason.ClientStreamCancelled;
                 break;
             case StatusCode.ClientTransportCancelled:
             case StatusCode.ClientTransportUnavailable:

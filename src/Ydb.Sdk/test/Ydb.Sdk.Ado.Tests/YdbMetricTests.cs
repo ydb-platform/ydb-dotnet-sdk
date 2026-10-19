@@ -284,7 +284,7 @@ public class YdbMetricTests : TestBase
     [InlineData(StatusCode.SessionExpired, "bad_session")]
     [InlineData(StatusCode.SessionBusy, "session_busy")]
     [InlineData(StatusCode.ClientTransportTimeout, "client_timeout")]
-    [InlineData(StatusCode.ClientStreamCancelled, "client_cancelled")]
+    [InlineData(StatusCode.ClientStreamCancelled, "client_stream_cancelled")]
     [InlineData(StatusCode.ClientTransportCancelled, "transport_error")]
     [InlineData(StatusCode.ClientTransportUnavailable, "transport_error")]
     [InlineData(StatusCode.ClientTransportResourceExhausted, "transport_error")]
@@ -623,7 +623,7 @@ public class YdbMetricTests : TestBase
             await connection.CloseAsync();
 
             meterProvider.ForceFlush();
-            AssertSessionClosed(exportedItems, settings, "client_cancelled");
+            AssertSessionClosed(exportedItems, settings, "client_stream_cancelled");
 
             Assert.DoesNotContain(exportedItems, metric => metric.Name == "ydb.client.operation.failed");
         }
