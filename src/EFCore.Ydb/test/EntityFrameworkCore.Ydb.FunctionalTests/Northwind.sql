@@ -351,8 +351,7 @@ INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitl
 VALUES ('LACOR', 'La corne d\'abondance', 'Daniel Tonini', 'Sales Representative', '67, avenue de l\'Europe',
         'Versailles', NULL, '78000', 'France', '30.59.84.10', '30.59.85.11');
 GO
-INSERT INTO `Customers`(`CustomerID`,`CompanyName`,`ContactName`,`ContactTitle`,`Address`,`City`,`Region`,`PostalCode`,`Country`,`Phone`,`Fax`) VALUES ('LAMAI','La maison d\'
-\'Asie','Annette Roulet','Sales Manager','1 rue Alsace-Lorraine','Toulouse',NULL,'31000','France','61.77.61.10','61.77.61.11');
+INSERT INTO `Customers`(`CustomerID`,`CompanyName`,`ContactName`,`ContactTitle`,`Address`,`City`,`Region`,`PostalCode`,`Country`,`Phone`,`Fax`) VALUES ('LAMAI','La maison d\'Asie','Annette Roulet','Sales Manager','1 rue Alsace-Lorraine','Toulouse',NULL,'31000','France','61.77.61.10','61.77.61.11');
 INSERT INTO `Customers`(`CustomerID`, `CompanyName`, `ContactName`, `ContactTitle`, `Address`, `City`, `Region`,
                         `PostalCode`, `Country`, `Phone`, `Fax`)
 VALUES ('LAUGB', 'Laughing Bacchus Wine Cellars', 'Yoshi Tannamuri', 'Marketing Assistant', '1900 Oak St.', 'Vancouver',
@@ -4881,8 +4880,7 @@ INSERT INTO `Orders`
 	`ShippedDate`,`ShipVia`,`Freight`,`ShipName`,`ShipAddress`,
 	`ShipCity`,`ShipRegion`,`ShipPostalCode`,`ShipCountry`)
 VALUES (10248,'VINET',5,Date('1996-7-4'),Date('1996-8-1'),Date('1996-7-16'),3,Decimal('32.38', 22, 9),
-	'Vins et alcools Chevalier','59 rue de l\'
-\'Abbaye','Reims',
+	'Vins et alcools Chevalier','59 rue de l\'Abbaye','Reims',
 	NULL,'51100','France');
 INSERT INTO `Orders`
 (`OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `RequiredDate`,
@@ -10757,8 +10755,7 @@ INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
 VALUES (20, 'Sir Rodney\'s Marmalade', 8, 3, '30 gift boxes', Decimal('81', 22, 9), 40, 0, 0, false);
 GO
-INSERT INTO `Products`(`ProductID`,`ProductName`,`SupplierID`,`CategoryID`,`QuantityPerUnit`,`UnitPrice`,`UnitsInStock`,`UnitsOnOrder`,`ReorderLevel`,`Discontinued`) VALUES (21,'Sir Rodney\'
-\'s Scones',8,3,'24 pkgs. x 4 pieces',Decimal('10', 22, 9),3,40,5,false);
+INSERT INTO `Products`(`ProductID`,`ProductName`,`SupplierID`,`CategoryID`,`QuantityPerUnit`,`UnitPrice`,`UnitsInStock`,`UnitsOnOrder`,`ReorderLevel`,`Discontinued`) VALUES (21,'Sir Rodney\'s Scones',8,3,'24 pkgs. x 4 pieces',Decimal('10', 22, 9),3,40,5,false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
 VALUES (22, 'Gustaf\'s Knäckebröd', 9, 5, '24 - 500 g pkgs.', Decimal('21', 22, 9), 104, 0, 25, false);
@@ -10816,8 +10813,7 @@ INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
 VALUES (40, 'Boston Crab Meat', 19, 8, '24 - 4 oz tins', Decimal('18.4', 22, 9), 123, 0, 30, false);
 GO
-INSERT INTO `Products`(`ProductID`,`ProductName`,`SupplierID`,`CategoryID`,`QuantityPerUnit`,`UnitPrice`,`UnitsInStock`,`UnitsOnOrder`,`ReorderLevel`,`Discontinued`) VALUES (41,'Jack\'
-\'s New England Clam Chowder',19,8,'12 - 12 oz cans',Decimal('9.65', 22, 9),85,0,10,false);
+INSERT INTO `Products`(`ProductID`,`ProductName`,`SupplierID`,`CategoryID`,`QuantityPerUnit`,`UnitPrice`,`UnitsInStock`,`UnitsOnOrder`,`ReorderLevel`,`Discontinued`) VALUES (41,'Jack\'s New England Clam Chowder',19,8,'12 - 12 oz cans',Decimal('9.65', 22, 9),85,0,10,false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
 VALUES (42, 'Singaporean Hokkien Fried Mee', 20, 5, '32 - 1 kg pkgs.', Decimal('14', 22, 9), 26, 0, 0, true);
@@ -10875,8 +10871,7 @@ INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
 VALUES (60, 'Camembert Pierrot', 28, 4, '15 - 300 g rounds', Decimal('34', 22, 9), 19, 0, 0, false);
 GO
-INSERT INTO `Products`(`ProductID`,`ProductName`,`SupplierID`,`CategoryID`,`QuantityPerUnit`,`UnitPrice`,`UnitsInStock`,`UnitsOnOrder`,`ReorderLevel`,`Discontinued`) VALUES (61,'Sirop d\'
-\'érable',29,2,'24 - 500 ml bottles',Decimal('28.5', 22, 9),113,0,25,false);
+INSERT INTO `Products`(`ProductID`,`ProductName`,`SupplierID`,`CategoryID`,`QuantityPerUnit`,`UnitPrice`,`UnitsInStock`,`UnitsOnOrder`,`ReorderLevel`,`Discontinued`) VALUES (61,'Sirop d\'érable',29,2,'24 - 500 ml bottles',Decimal('28.5', 22, 9),113,0,25,false);
 INSERT INTO `Products`(`ProductID`, `ProductName`, `SupplierID`, `CategoryID`, `QuantityPerUnit`, `UnitPrice`,
                        `UnitsInStock`, `UnitsOnOrder`, `ReorderLevel`, `Discontinued`)
 VALUES (62, 'Tarte au sucre', 29, 3, '48 pies', Decimal('49.3', 22, 9), 17, 0, 0, false);
