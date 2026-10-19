@@ -73,7 +73,7 @@ jobs:
             --workload "${{ matrix.workload.name }}"
 
       - name: Run YDB SLO
-        uses: ydb-platform/ydb-slo-action/init@f9619f02a1f6e1c4fd43a46914057d55160fd2c7
+        uses: ydb-platform/ydb-slo-action/init@e30d3260782c75068c626a5adb797fceda87a067
         timeout-minutes: 30
         with:
           github_issue: ${{ github.event.inputs.github_issue }}
@@ -101,7 +101,7 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: ydb-platform/ydb-slo-action/report@f9619f02a1f6e1c4fd43a46914057d55160fd2c7
+      - uses: ydb-platform/ydb-slo-action/report@e30d3260782c75068c626a5adb797fceda87a067
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           post_comment: false
