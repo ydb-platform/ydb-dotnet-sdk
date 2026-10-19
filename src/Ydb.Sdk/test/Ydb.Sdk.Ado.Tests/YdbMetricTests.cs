@@ -513,9 +513,12 @@ public class YdbMetricTests : TestBase
     }
 
     [Theory]
-    [InlineData(Grpc.Core.StatusCode.DeadlineExceeded)]
-    [InlineData(Grpc.Core.StatusCode.Cancelled)]
-    public async Task SessionClosed_QueryTransportTimeout_ReportsReason(Grpc.Core.StatusCode grpcStatusCode)
+    [InlineData(Grpc.Core.StatusCode.DeadlineExceeded, StatusCode.ClientTransportTimeout, "client_timeout")]
+    [InlineData(Grpc.Core.StatusCode.Cancelled, StatusCode.ClientTransportCancelled, "transport_error")]
+    public async Task SessionClosed_QueryTransportTimeout_ReportsReason(
+        Grpc.Core.StatusCode grpcStatusCode,
+        StatusCode expectedStatusCode,
+        string expectedReason)
     {
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
@@ -551,7 +554,7 @@ public class YdbMetricTests : TestBase
 
             var exception = await Assert.ThrowsAsync<YdbException>(() =>
                 new YdbCommand("SELECT 1", connection).ExecuteReaderAsync());
-            Assert.Equal(StatusCode.ClientTransportTimeout, exception.Code);
+            Assert.Equal(expectedStatusCode, exception.Code);
 
             Assert.Equal(ConnectionState.Broken, connection.State);
 
@@ -560,7 +563,7 @@ public class YdbMetricTests : TestBase
             await connection.CloseAsync();
 
             meterProvider.ForceFlush();
-            AssertSessionClosed(exportedItems, settings, "client_timeout");
+            AssertSessionClosed(exportedItems, settings, expectedReason);
         }
         finally
         {
