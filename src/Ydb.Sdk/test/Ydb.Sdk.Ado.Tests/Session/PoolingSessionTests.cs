@@ -45,7 +45,7 @@ public class PoolingSessionTests : TestBase
     [InlineData(StatusCode.ClientTransportUnavailable, true)]
     [InlineData(StatusCode.ClientTransportResourceExhausted, true)]
     [InlineData(StatusCode.ClientTransportUnknown, true)]
-    [InlineData(StatusCode.ClientStreamCancelled, true)]
+    [InlineData(StatusCode.StreamCancelled, true)]
     [InlineData(StatusCode.ClientTransportCancelled, true)]
     [InlineData(StatusCode.Overloaded, false)]
     public async Task OnNotSuccessStatusCode_WhenStatusCodeIsNotSuccess_UpdateIsBroken(
