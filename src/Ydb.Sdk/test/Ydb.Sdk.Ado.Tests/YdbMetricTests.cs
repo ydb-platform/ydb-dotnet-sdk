@@ -285,7 +285,7 @@ public class YdbMetricTests : TestBase
     [InlineData(StatusCode.SessionBusy, "session_busy")]
     [InlineData(StatusCode.ClientTransportTimeout, "client_timeout")]
     [InlineData(StatusCode.ClientStreamCancelled, "client_stream_cancelled")]
-    [InlineData(StatusCode.ClientTransportCancelled, "transport_error")]
+    [InlineData(StatusCode.ClientTransportCancelled, "client_transport_cancelled")]
     [InlineData(StatusCode.ClientTransportUnavailable, "transport_error")]
     [InlineData(StatusCode.ClientTransportResourceExhausted, "transport_error")]
     [InlineData(StatusCode.ClientTransportUnknown, "transport_error")]
@@ -427,10 +427,11 @@ public class YdbMetricTests : TestBase
     }
 
     [Theory]
-    [InlineData(false, "attach_closed")]
-    [InlineData(true, "transport_error")]
+    [InlineData(null, "attach_closed")]
+    [InlineData(StatusCode.ClientTransportUnavailable, "transport_error")]
+    [InlineData(StatusCode.ClientTransportCancelled, "client_transport_cancelled")]
     public async Task SessionClosed_WhenActiveAttachStreamTerminates_ReportsReason(
-        bool transportError,
+        StatusCode? transportStatusCode,
         string reason)
     {
         var exportedItems = new List<Metric>();
@@ -457,10 +458,10 @@ public class YdbMetricTests : TestBase
             settings);
         var session = await source.OpenSession();
 
-        if (transportError)
+        if (transportStatusCode.HasValue)
         {
             lifecycleAttach.SetException(
-                new YdbException(StatusCode.ClientTransportUnavailable, "attach transport error"));
+                new YdbException(transportStatusCode.Value, "attach transport error"));
         }
         else
         {
@@ -514,7 +515,7 @@ public class YdbMetricTests : TestBase
 
     [Theory]
     [InlineData(Grpc.Core.StatusCode.DeadlineExceeded, StatusCode.ClientTransportTimeout, "client_timeout")]
-    [InlineData(Grpc.Core.StatusCode.Cancelled, StatusCode.ClientTransportCancelled, "transport_error")]
+    [InlineData(Grpc.Core.StatusCode.Cancelled, StatusCode.ClientTransportCancelled, "client_transport_cancelled")]
     public async Task SessionClosed_QueryTransportTimeout_ReportsReason(
         Grpc.Core.StatusCode grpcStatusCode,
         StatusCode expectedStatusCode,
