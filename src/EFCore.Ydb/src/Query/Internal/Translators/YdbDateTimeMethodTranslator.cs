@@ -140,9 +140,12 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
                                 _sqlExpressionFactory.Divide(
                                     _sqlExpressionFactory.Convert(
                                         _sqlExpressionFactory.Multiply(
-                                            _sqlExpressionFactory.Subtract(
-                                                arguments[0],
-                                                _sqlExpressionFactory.Convert(wholeUnits, typeof(double))),
+                                            _sqlExpressionFactory.Function(
+                                                "Math::Fmod",
+                                                [arguments[0], _sqlExpressionFactory.Constant(1.0)],
+                                                nullable: true,
+                                                ArrayUtil.TrueArrays[2],
+                                                typeof(double)),
                                             _sqlExpressionFactory.Constant((double)ticksPerUnit)),
                                         typeof(long)),
                                     _sqlExpressionFactory.Constant(TimeSpan.TicksPerMicrosecond)))
