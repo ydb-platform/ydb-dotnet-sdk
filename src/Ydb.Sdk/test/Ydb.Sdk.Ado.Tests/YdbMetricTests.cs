@@ -284,8 +284,8 @@ public class YdbMetricTests : TestBase
     [InlineData(StatusCode.SessionExpired, "bad_session")]
     [InlineData(StatusCode.SessionBusy, "session_busy")]
     [InlineData(StatusCode.ClientTransportTimeout, "client_timeout")]
-    [InlineData(StatusCode.ClientStreamCancelled, "client_stream_cancelled")]
-    [InlineData(StatusCode.ClientTransportCancelled, "client_transport_cancelled")]
+    [InlineData(StatusCode.ClientStreamCancelled, "stream_cancelled")]
+    [InlineData(StatusCode.ClientTransportCancelled, "transport_error")]
     [InlineData(StatusCode.ClientTransportUnavailable, "transport_error")]
     [InlineData(StatusCode.ClientTransportResourceExhausted, "transport_error")]
     [InlineData(StatusCode.ClientTransportUnknown, "transport_error")]
@@ -429,7 +429,7 @@ public class YdbMetricTests : TestBase
     [Theory]
     [InlineData(null, "attach_closed")]
     [InlineData(StatusCode.ClientTransportUnavailable, "transport_error")]
-    [InlineData(StatusCode.ClientTransportCancelled, "client_transport_cancelled")]
+    [InlineData(StatusCode.ClientTransportCancelled, "transport_error")]
     public async Task SessionClosed_WhenActiveAttachStreamTerminates_ReportsReason(
         StatusCode? transportStatusCode,
         string reason)
@@ -515,7 +515,7 @@ public class YdbMetricTests : TestBase
 
     [Theory]
     [InlineData(Grpc.Core.StatusCode.DeadlineExceeded, StatusCode.ClientTransportTimeout, "client_timeout")]
-    [InlineData(Grpc.Core.StatusCode.Cancelled, StatusCode.ClientTransportCancelled, "client_transport_cancelled")]
+    [InlineData(Grpc.Core.StatusCode.Cancelled, StatusCode.ClientTransportCancelled, "transport_error")]
     public async Task SessionClosed_QueryTransportTimeout_ReportsReason(
         Grpc.Core.StatusCode grpcStatusCode,
         StatusCode expectedStatusCode,
@@ -624,7 +624,7 @@ public class YdbMetricTests : TestBase
             await connection.CloseAsync();
 
             meterProvider.ForceFlush();
-            AssertSessionClosed(exportedItems, settings, "client_stream_cancelled");
+            AssertSessionClosed(exportedItems, settings, "stream_cancelled");
 
             Assert.DoesNotContain(exportedItems, metric => metric.Name == "ydb.client.operation.failed");
         }

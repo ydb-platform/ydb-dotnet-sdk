@@ -117,11 +117,9 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 reason = SessionClosedReason.ClientTimeout;
                 break;
             case StatusCode.ClientStreamCancelled:
-                reason = SessionClosedReason.ClientStreamCancelled;
+                reason = SessionClosedReason.StreamCancelled;
                 break;
             case StatusCode.ClientTransportCancelled:
-                reason = SessionClosedReason.ClientTransportCancelled;
-                break;
             case StatusCode.ClientTransportUnavailable:
             case StatusCode.ClientTransportResourceExhausted:
             case StatusCode.ClientTransportUnknown:
@@ -263,9 +261,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
                 }
 
                 _logger.LogWarning(e, "Session[{SessionId}] is deactivated by transport error", SessionId);
-                BrokenSession(e.Code == StatusCode.ClientTransportCancelled
-                    ? SessionClosedReason.ClientTransportCancelled
-                    : SessionClosedReason.TransportError);
+                BrokenSession(SessionClosedReason.TransportError);
             }
         }
     }
