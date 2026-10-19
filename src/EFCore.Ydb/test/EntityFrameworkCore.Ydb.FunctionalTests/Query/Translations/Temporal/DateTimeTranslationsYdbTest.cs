@@ -1,9 +1,11 @@
 #if !EFCORE9
 using Microsoft.EntityFrameworkCore.Query.Translations.Temporal;
+using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
 using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query.Translations.Temporal;
 
+[UseCulture("en-US")]
 public class DateTimeTranslationsYdbTest(BasicTypesQueryYdbFixture fixture)
     : DateTimeTranslationsTestBase<BasicTypesQueryYdbFixture>(fixture)
 {
