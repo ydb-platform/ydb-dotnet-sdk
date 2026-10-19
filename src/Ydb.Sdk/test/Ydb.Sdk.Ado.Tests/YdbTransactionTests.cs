@@ -172,8 +172,10 @@ public class YdbTransactionTests : TestBase
         ydbCommand2.CommandText = "SELECT 1; SELECT 2; SELECT 3";
         var dbDataReader = await ydbCommand2.ExecuteReaderAsync();
         await dbDataReader.NextResultAsync();
+        var exception = await Assert.ThrowsAsync<YdbException>(() => dbDataReader.CloseAsync());
+        Assert.Equal(StatusCode.ClientStreamCancelled, exception.Code);
         Assert.Equal("YdbDataReader was closed during transaction execution. Transaction is broken!",
-            (await Assert.ThrowsAsync<YdbException>(() => dbDataReader.CloseAsync())).Message);
+            exception.Message);
         Assert.Equal("This YdbTransaction has completed; it is no longer usable",
             (await Assert.ThrowsAsync<InvalidOperationException>(() => tx.CommitAsync())).Message);
         await tx.RollbackAsync(); // do nothing transaction

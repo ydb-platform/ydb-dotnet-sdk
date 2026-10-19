@@ -206,7 +206,7 @@ public sealed class YdbConnectionTests : TestBase
         Assert.False(ydbDataReader.IsClosed);
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.Equal(ConnectionState.Open, connection.State);
-        Assert.Equal(StatusCode.ClientTransportTimeout,
+        Assert.Equal(StatusCode.ClientTransportCancelled,
             (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
         Assert.True(ydbDataReader.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
@@ -224,7 +224,7 @@ public sealed class YdbConnectionTests : TestBase
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.False(ydbDataReader.IsClosed);
 
-        Assert.Equal(StatusCode.ClientTransportTimeout,
+        Assert.Equal(StatusCode.ClientTransportCancelled,
             (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
         Assert.True(ydbDataReader.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
