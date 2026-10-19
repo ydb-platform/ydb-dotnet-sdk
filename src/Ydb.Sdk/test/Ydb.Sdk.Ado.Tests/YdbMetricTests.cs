@@ -622,10 +622,7 @@ public class YdbMetricTests : TestBase
             meterProvider.ForceFlush();
             AssertSessionClosed(exportedItems, settings, "client_cancelled");
 
-            var operationFailed = GetMetric(exportedItems, "ydb.client.operation.failed");
-            var point = GetOperationFailedPoint(
-                operationFailed.GetMetricPoints(), settings, "ExecuteQuery", "ClientStreamCancelled");
-            Assert.Equal(1, point.GetSumLong());
+            Assert.DoesNotContain(exportedItems, metric => metric.Name == "ydb.client.operation.failed");
         }
         finally
         {

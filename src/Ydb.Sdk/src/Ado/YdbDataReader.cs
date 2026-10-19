@@ -851,15 +851,16 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        _metricsReporter.ReportOperationFailed(StatusCode.ClientStreamCancelled, OperationName);
         _connection.OnNotSuccessStatusCode(StatusCode.ClientStreamCancelled);
         _stream.Dispose();
 
         if (_ydbTransaction != null)
         {
             _ydbTransaction.Failed = true;
+            _metricsReporter.ReportOperationFailed(StatusCode.ClientStreamCancelled, OperationName);
 
-            throw new YdbException("YdbDataReader was closed during transaction execution. Transaction is broken!");
+            throw new YdbException(StatusCode.ClientStreamCancelled,
+                "YdbDataReader was closed during transaction execution. Transaction is broken!");
         }
     }
 
