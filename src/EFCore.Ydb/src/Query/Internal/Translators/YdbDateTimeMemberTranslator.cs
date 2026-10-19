@@ -35,22 +35,27 @@ public sealed class YdbDateTimeMemberTranslator(
             return null;
         }
 
-        if (member.Name == nameof(DateTime.Date))
+        if (member.Name == nameof(DateTime.Date) && instance is not null)
         {
-            switch (instance)
+            if (instance.TypeMapping is IYdbTypeMapping { YdbDbType: YdbDbType.Date or YdbDbType.Date32 })
             {
-                case { TypeMapping: YdbDateTimeTypeMapping }:
-                case { Type: var type } when type == typeof(DateTime):
-                    return sqlExpressionFactory.Convert(
-                        sqlExpressionFactory.Convert(instance, typeof(DateOnly)),
-                        typeof(DateTime)
-                    );
-                case { TypeMapping: YdbDateOnlyTypeMapping }:
-                case { Type: var type } when type == typeof(DateOnly):
-                    return instance;
-                default:
-                    return null;
+                return instance;
             }
+
+            return sqlExpressionFactory.Function(
+                "DateTime::Make" + instance.TypeMapping!.StoreType,
+                [
+                    sqlExpressionFactory.Function(
+                        "DateTime::StartOfDay",
+                        [instance],
+                        nullable: true,
+                        ArrayUtil.TrueArrays[1],
+                        returnType)
+                ],
+                nullable: true,
+                ArrayUtil.TrueArrays[1],
+                returnType,
+                instance.TypeMapping);
         }
 
         return member.Name switch
