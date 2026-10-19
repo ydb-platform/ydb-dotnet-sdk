@@ -1,3 +1,4 @@
+- Added server-side LINQ `DateTime.Microsecond` translation for `Timestamp` and `Timestamp64` columns.
 - Fixed LINQ `DateTime.Date` preserving date/time column types and pre-epoch dates for extended-range columns.
 - Fixed LINQ `DateTime.AddDays`, `AddHours`, `AddMinutes` and `AddSeconds` translation, including fractional values for `Timestamp` and `Timestamp64`.
 - Fixed LINQ `DateTime.AddYears` and `AddMonths` preserving timestamp types and time components, including pre-epoch `Timestamp64` values.

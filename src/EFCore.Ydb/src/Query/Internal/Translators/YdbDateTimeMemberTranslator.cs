@@ -79,6 +79,9 @@ public sealed class YdbDateTimeMemberTranslator(
             nameof(DateTime.Minute) => DatePart(instance!, "GetMinute"),
             nameof(DateTime.Second) => DatePart(instance!, "GetSecond"),
             nameof(DateTime.Millisecond) => DatePart(instance!, "GetMillisecondOfSecond"),
+            nameof(DateTime.Microsecond) => sqlExpressionFactory.Modulo(
+                DatePart(instance!, "GetMicrosecondOfSecond"),
+                sqlExpressionFactory.Constant(1000)),
             nameof(DateTime.TimeOfDay) => sqlExpressionFactory.Function(
                 "DateTime::TimeOfDay",
                 [instance!],
