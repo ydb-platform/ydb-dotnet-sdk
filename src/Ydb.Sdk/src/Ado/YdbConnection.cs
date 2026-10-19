@@ -31,7 +31,8 @@ public sealed class YdbConnection : DbConnection
     {
         get => _connectionStringBuilder ??
                throw new InvalidOperationException("The ConnectionString property has not been initialized.");
-        [param: AllowNull] init => _connectionStringBuilder = value;
+        [param: AllowNull]
+        init => _connectionStringBuilder = value;
     }
 
     internal ISession Session
@@ -164,14 +165,7 @@ public sealed class YdbConnection : DbConnection
 
     public override void Open() => OpenAsync().GetAwaiter().GetResult();
 
-    internal YdbMetricsReporter MetricsReporter
-    {
-        get
-        {
-            ThrowIfConnectionClosed();
-            return _sessionSource!.MetricsReporter;
-        }
-    }
+    internal YdbMetricsReporter MetricsReporter => _sessionSource!.MetricsReporter;
 
     public override async Task OpenAsync(CancellationToken cancellationToken)
     {

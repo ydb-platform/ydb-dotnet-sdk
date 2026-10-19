@@ -514,12 +514,14 @@ public class YdbMetricTests : TestBase
     }
 
     [Theory]
-    [InlineData(Grpc.Core.StatusCode.DeadlineExceeded, StatusCode.ClientTransportTimeout, "client_timeout")]
-    [InlineData(Grpc.Core.StatusCode.Cancelled, StatusCode.ClientTransportCancelled, "transport_error")]
+    [InlineData(Grpc.Core.StatusCode.DeadlineExceeded, StatusCode.ClientTransportTimeout, "client_timeout", false)]
+    [InlineData(Grpc.Core.StatusCode.Cancelled, StatusCode.ClientTransportCancelled, "transport_error", false)]
+    [InlineData(Grpc.Core.StatusCode.Unavailable, StatusCode.ClientTransportUnavailable, "attach_closed", true)]
     public async Task SessionClosed_QueryTransportTimeout_ReportsReason(
         Grpc.Core.StatusCode grpcStatusCode,
         StatusCode expectedStatusCode,
-        string expectedReason)
+        string expectedReason,
+        bool attachClosesBeforeReader)
     {
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
@@ -544,6 +546,19 @@ public class YdbMetricTests : TestBase
             .ThrowsAsync(new YdbException(new RpcException(new Status(grpcStatusCode, "query transport timeout"))));
 
         var driver = CreatePoolingDriver(attachStream.Object, queryStream.Object);
+        if (attachClosesBeforeReader)
+        {
+            driver.Setup(d => d.ServerStreamCall(
+                    QueryService.ExecuteQueryMethod,
+                    It.IsAny<ExecuteQueryRequest>(),
+                    It.IsAny<GrpcRequestSettings>()))
+                .Returns(async () =>
+                {
+                    lifecycleAttach.SetResult(false);
+                    await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                    return queryStream.Object;
+                });
+        }
         await using var source = new PoolingSessionSource<PoolingSession>(
             new PoolingSessionFactory(driver.Object, settings),
             settings);
@@ -559,7 +574,8 @@ public class YdbMetricTests : TestBase
 
             Assert.Equal(ConnectionState.Broken, connection.State);
 
-            lifecycleAttach.SetResult(false);
+            if (!attachClosesBeforeReader)
+                lifecycleAttach.SetResult(false);
             await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await connection.CloseAsync();
 
