@@ -1,3 +1,11 @@
+- **Breaking Change** ADO.NET: renamed `StatusCode.ClientCancelled` to `StatusCode.ClientStreamCancelled` for closing an
+  unfinished query stream; this status is never retried. Renamed the corresponding `ydb.query.session.closed` reason
+  from `client_cancelled` to `stream_cancelled`.
+- Fix ADO.NET/EF Core retries: gRPC `CANCELLED` now maps to `StatusCode.ClientTransportCancelled` and is retried only
+  for idempotent operations within the configured attempt and backoff limits. It retires the session with reason
+  `transport_error`.
+- Fix ADO.NET: a non-throwing close of an unfinished query reader no longer reports `ydb.client.operation.failed`.
+  Closing an unfinished stream in an active transaction throws `YdbException` with `StatusCode.ClientStreamCancelled`.
 - Feat ADO.NET: support `TransactionMode.StrictSerializableRw` and optional virtual
   commit timestamps through `YdbTransaction`, including successful `CommitAsync`.
 - Feat ADO.NET: configure query statistics with the ADO `StatsMode` enum and read
