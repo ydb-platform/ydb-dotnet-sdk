@@ -84,15 +84,12 @@ public class YdbImplicitConnectionTests : TestBase
     }
 
     [Fact]
-    public async Task ImplicitSession_WithExplicitTransaction_UsesExplicitSessionAndCommits()
+    public async Task ImplicitSession_WithExplicitTransaction_Throws()
     {
         await using var ydbConnection = CreateConnection();
         ydbConnection.ConnectionString += ";EnableImplicitSession=true";
         await ydbConnection.OpenAsync();
-        await using var transaction = ydbConnection.BeginTransaction();
-
-        Assert.Equal("Transactions are not supported in implicit session",
-            (await Assert.ThrowsAsync<YdbException>(async () => await new YdbCommand(ydbConnection)
-                { CommandText = "SELECT 1" }.ExecuteScalarAsync())).Message);
+        Assert.Equal("Transactions are not supported in implicit or retry mode. Check your connection settings.",
+            Assert.Throws<YdbException>(() => ydbConnection.BeginTransaction()).Message);
     }
 }

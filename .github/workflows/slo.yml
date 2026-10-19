@@ -73,7 +73,7 @@ jobs:
             --workload "${{ matrix.workload.name }}"
 
       - name: Run YDB SLO
-        uses: ydb-platform/ydb-slo-action/init@v3
+        uses: ydb-platform/ydb-slo-action/init@f9619f02a1f6e1c4fd43a46914057d55160fd2c7
         timeout-minutes: 30
         with:
           github_issue: ${{ github.event.inputs.github_issue }}
@@ -91,3 +91,18 @@ jobs:
             --write-rps ${{ inputs.slo_workload_write_max_rps || '100' }}
             --read-timeout 1000
             --write-timeout 1000
+
+  report:
+    name: Table SLO graphs
+    needs: ydb-slo-action
+    if: ${{ !cancelled() && needs.ydb-slo-action.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: ydb-platform/ydb-slo-action/report@f9619f02a1f6e1c4fd43a46914057d55160fd2c7
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          post_comment: false
+          github_run_id: ${{ github.run_id }}

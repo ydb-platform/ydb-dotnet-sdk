@@ -1,3 +1,13 @@
+- Fixed LINQ `DateTime.Date` preserving date/time column types and pre-epoch dates for extended-range columns.
+- Fixed LINQ `DateTime.AddDays`, `AddHours`, `AddMinutes` and `AddSeconds` translation, including fractional values for `Timestamp` and `Timestamp64`.
+- Fixed LINQ `DateTime.AddYears` and `AddMonths` preserving timestamp types and time components, including pre-epoch `Timestamp64` values.
+- Added server-side LINQ `DateTime.TimeOfDay` translation for basic and extended-range date/time columns.
+- Added server-side LINQ `DateOnly.FromDayNumber` translation across the CLR date range.
+- Added server-side LINQ `DateOnly.DayNumber` translation for `Date` and `Date32` columns.
+- Added server-side LINQ `DateOnly.FromDateTime` translation, preserving pre-epoch dates for extended-range date/time columns.
+- Fixed LINQ `DateOnly.AddYears`, `AddMonths` and `AddDays` translation for `Date` and `Date32` columns.
+- Fixed LINQ `DateTime.DayOfWeek` and `DateOnly.DayOfWeek` returning `7` instead of `0` for Sunday.
+- Added server-side LINQ `FirstOrDefault` and `LastOrDefault` on strings. Materialization preserves null, empty-string and UTF-16 character semantics; SQL comparisons use YDB `Utf8` text semantics.
 - Fixed literal wildcard matching in constant and parameterized LINQ `Contains`, `StartsWith` and `EndsWith`, and preserved backslashes and null characters in generated string literals.
 - Fixed LINQ `Contains` with column-based patterns on `Utf8` strings.
 - Fixed LINQ `StartsWith` and `EndsWith` with column-based patterns on `Utf8` strings.

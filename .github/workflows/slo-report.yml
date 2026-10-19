@@ -41,7 +41,7 @@ jobs:
           echo "ids=$RUNS" >> "$GITHUB_OUTPUT"
 
       - name: Publish YDB SLO Report
-        uses: ydb-platform/ydb-slo-action/report@v3
+        uses: ydb-platform/ydb-slo-action/report@f9619f02a1f6e1c4fd43a46914057d55160fd2c7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           github_run_id: ${{ steps.runs.outputs.ids }}

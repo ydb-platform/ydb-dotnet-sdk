@@ -1,10 +1,8 @@
-using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Ydb.Query;
 using Ydb.Query.V1;
 using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Tracing;
-using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 using TransactionControl = Ydb.Query.TransactionControl;
 
 namespace Ydb.Sdk.Ado.Session;
@@ -24,8 +22,8 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
     private int _isBroken = 1;
     private volatile bool _isBadSession;
 
-    private string SessionId { get; set; } = string.Empty;
-    private long NodeId { get; set; }
+    internal string SessionId { get; private set; } = string.Empty;
+    internal long NodeId { get; private set; }
 
     public override IDriver Driver { get; }
     public override bool IsBroken => Volatile.Read(ref _isBroken) != 0;
@@ -46,7 +44,8 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
         string query,
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
-        TransactionControl? txControl
+        TransactionControl? txControl,
+        StatsMode statsMode = StatsMode.None
     )
     {
         settings.NodeId = NodeId;
@@ -56,48 +55,12 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             SessionId = SessionId,
             ExecMode = ExecMode.Execute,
             QueryContent = new QueryContent { Text = query, Syntax = Syntax.YqlV1 },
-            StatsMode = StatsMode.None,
+            StatsMode = statsMode.ToProto(),
             TxControl = txControl
         };
         request.Parameters.Add(parameters);
 
         return Driver.ServerStreamCall(QueryService.ExecuteQueryMethod, request, settings);
-    }
-
-    public override async Task CommitTransaction(
-        string txId,
-        Activity? dbActivity,
-        CancellationToken cancellationToken
-    )
-    {
-        var response = await Driver.UnaryCall(
-            QueryService.CommitTransactionMethod,
-            new CommitTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
-        ).ConfigureAwait(false);
-
-        if (response.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(response.Status, response.Issues);
-        }
-    }
-
-    public override async Task RollbackTransaction(
-        string txId,
-        Activity? dbActivity,
-        CancellationToken cancellationToken
-    )
-    {
-        var response = await Driver.UnaryCall(
-            QueryService.RollbackTransactionMethod,
-            new RollbackTransactionRequest { SessionId = SessionId, TxId = txId },
-            new GrpcRequestSettings { CancellationToken = cancellationToken, NodeId = NodeId, DbActivity = dbActivity }
-        ).ConfigureAwait(false);
-
-        if (response.Status.IsNotSuccess())
-        {
-            throw YdbException.FromServer(response.Status, response.Issues);
-        }
     }
 
     public override void OnNotSuccessStatusCode(StatusCode statusCode)
@@ -116,7 +79,7 @@ internal class PoolingSession : PoolingSessionBase<PoolingSession>
             case StatusCode.ClientTransportTimeout:
                 reason = SessionClosedReason.ClientTimeout;
                 break;
-            case StatusCode.ClientStreamCancelled:
+            case StatusCode.StreamCancelled:
                 reason = SessionClosedReason.StreamCancelled;
                 break;
             case StatusCode.ClientTransportCancelled:

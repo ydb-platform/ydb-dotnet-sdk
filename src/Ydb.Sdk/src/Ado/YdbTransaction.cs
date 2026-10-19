@@ -1,8 +1,12 @@
 using System.Data;
 using System.Data.Common;
 using Ydb.Query;
+using Ydb.Query.V1;
+using Ydb.Sdk.Ado.Internal;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Transaction;
 using Ydb.Sdk.Tracing;
+using CommitTransactionRequest = Ydb.Query.CommitTransactionRequest;
 
 namespace Ydb.Sdk.Ado;
 
@@ -22,10 +26,21 @@ namespace Ydb.Sdk.Ado;
 public sealed class YdbTransaction : DbTransaction
 {
     private readonly TransactionMode _transactionMode;
+    private readonly IDriver _driver;
+    private readonly string _sessionId;
+    private readonly long _nodeId;
 
     private bool _failed;
     private YdbConnection? _ydbConnection;
     private bool _isDisposed;
+
+    /// <summary>
+    /// Gets the virtual commit timestamp, if returned by the server.
+    /// </summary>
+    /// <remarks>
+    /// This is database time, not wall-clock time. Values from different databases must not be compared.
+    /// </remarks>
+    public YdbVirtualTimestamp? CommitTimestamp { get; internal set; }
 
     /// <summary>
     /// Gets or sets the transaction identifier.
@@ -89,10 +104,13 @@ public sealed class YdbTransaction : DbTransaction
             ? new TransactionControl { BeginTx = _transactionMode.TransactionSettings(), CommitTx = AutoCommit }
             : new TransactionControl { TxId = TxId, CommitTx = AutoCommit };
 
-    internal YdbTransaction(YdbConnection ydbConnection, TransactionMode transactionMode)
+    internal YdbTransaction(YdbConnection ydbConnection, TransactionMode transactionMode, PoolingSession session)
     {
         _ydbConnection = ydbConnection;
         _transactionMode = transactionMode;
+        _driver = session.Driver;
+        _sessionId = session.SessionId;
+        _nodeId = session.NodeId;
     }
 
     /// <summary>
@@ -218,7 +236,7 @@ public sealed class YdbTransaction : DbTransaction
     /// </remarks>
     public override IsolationLevel IsolationLevel => _transactionMode switch
     {
-        TransactionMode.SerializableRw => IsolationLevel.Serializable,
+        TransactionMode.SerializableRw or TransactionMode.StrictSerializableRw => IsolationLevel.Serializable,
         TransactionMode.SnapshotRw => IsolationLevel.Snapshot,
         _ => IsolationLevel.Unspecified
     };
@@ -248,14 +266,43 @@ public sealed class YdbTransaction : DbTransaction
                 return; // transaction isn't started
             }
 
+            var settings = new GrpcRequestSettings
+            {
+                CancellationToken = cancellationToken,
+                NodeId = _nodeId,
+                DbActivity = dbActivity
+            };
+
             if (isCommit)
             {
-                await DbConnection.Session.CommitTransaction(TxId, dbActivity, cancellationToken).ConfigureAwait(false);
+                var response = await _driver.UnaryCall(
+                    QueryService.CommitTransactionMethod,
+                    new CommitTransactionRequest { SessionId = _sessionId, TxId = TxId },
+                    settings
+                ).ConfigureAwait(false);
+
+                if (response.Status.IsNotSuccess())
+                {
+                    throw YdbException.FromServer(response.Status, response.Issues);
+                }
+
+                if (response.CommitTimestamp is not null)
+                {
+                    CommitTimestamp ??= new YdbVirtualTimestamp(response.CommitTimestamp);
+                }
             }
             else
             {
-                await DbConnection.Session.RollbackTransaction(TxId, dbActivity, cancellationToken)
-                    .ConfigureAwait(false);
+                var response = await _driver.UnaryCall(
+                    QueryService.RollbackTransactionMethod,
+                    new RollbackTransactionRequest { SessionId = _sessionId, TxId = TxId },
+                    settings
+                ).ConfigureAwait(false);
+
+                if (response.Status.IsNotSuccess())
+                {
+                    throw YdbException.FromServer(response.Status, response.Issues);
+                }
             }
         }
         catch (YdbException e)

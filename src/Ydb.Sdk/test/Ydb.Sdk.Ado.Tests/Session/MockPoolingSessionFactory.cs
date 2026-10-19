@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Xunit;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Session;
@@ -68,14 +67,9 @@ internal class MockPoolingSession(
         string query,
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
-        TransactionControl? txControl
+        TransactionControl? txControl,
+        StatsMode statsMode = StatsMode.None
     ) => new(executeQuery(sessionId));
-
-    public override Task CommitTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public override Task RollbackTransaction(string txId, Activity? dbActivity, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
 
     public override void OnNotSuccessStatusCode(StatusCode code) => _isBroken = true;
 }

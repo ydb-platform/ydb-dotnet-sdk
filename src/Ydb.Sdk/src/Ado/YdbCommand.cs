@@ -185,6 +185,11 @@ public sealed class YdbCommand : DbCommand
 
     public new YdbTransaction? Transaction { get; set; }
 
+    /// <summary>
+    /// Gets or sets the level of server statistics collected for this command. The default is None.
+    /// </summary>
+    public StatsMode StatsMode { get; set; } = StatsMode.None;
+
     public override bool DesignTimeVisible { get; set; }
 
     protected override YdbParameter CreateDbParameter() => new();
@@ -252,10 +257,9 @@ public sealed class YdbCommand : DbCommand
             throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
         }
 
-        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session
-                .ExecuteQuery(preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl)
-                .ConfigureAwait(false),
-            YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
+        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery
+                (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl, StatsMode)
+            .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;

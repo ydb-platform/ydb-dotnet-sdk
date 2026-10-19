@@ -88,5 +88,15 @@ public enum TransactionMode
     /// but the lowest consistency guarantees.
     /// Only read operations are allowed.
     /// </remarks>
-    OnlineInconsistentRo
+    OnlineInconsistentRo,
+
+    /// <summary>
+    /// Strict serializable read-write mode. Successful transactions with write effects may return a commit timestamp.
+    /// </summary>
+    /// <remarks>
+    /// Provides serializable read-write transactions ordered consistently with real-time completion.
+    /// Requires server support and table_service_config.enable_strict_serializable_isolation to be enabled.
+    /// Commit timestamps are optional and represent database time, not wall-clock time.
+    /// </remarks>
+    StrictSerializableRw
 }

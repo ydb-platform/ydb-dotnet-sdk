@@ -284,7 +284,7 @@ public class YdbMetricTests : TestBase
     [InlineData(StatusCode.SessionExpired, "bad_session")]
     [InlineData(StatusCode.SessionBusy, "session_busy")]
     [InlineData(StatusCode.ClientTransportTimeout, "client_timeout")]
-    [InlineData(StatusCode.ClientStreamCancelled, "stream_cancelled")]
+    [InlineData(StatusCode.StreamCancelled, "stream_cancelled")]
     [InlineData(StatusCode.ClientTransportCancelled, "transport_error")]
     [InlineData(StatusCode.ClientTransportUnavailable, "transport_error")]
     [InlineData(StatusCode.ClientTransportResourceExhausted, "transport_error")]

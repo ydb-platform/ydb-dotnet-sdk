@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
+using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
 
@@ -34,22 +35,27 @@ public sealed class YdbDateTimeMemberTranslator(
             return null;
         }
 
-        if (member.Name == nameof(DateTime.Date))
+        if (member.Name == nameof(DateTime.Date) && instance is not null)
         {
-            switch (instance)
+            if (instance.TypeMapping is IYdbTypeMapping { YdbDbType: YdbDbType.Date or YdbDbType.Date32 })
             {
-                case { TypeMapping: YdbDateTimeTypeMapping }:
-                case { Type: var type } when type == typeof(DateTime):
-                    return sqlExpressionFactory.Convert(
-                        sqlExpressionFactory.Convert(instance, typeof(DateOnly)),
-                        typeof(DateTime)
-                    );
-                case { TypeMapping: YdbDateOnlyTypeMapping }:
-                case { Type: var type } when type == typeof(DateOnly):
-                    return instance;
-                default:
-                    return null;
+                return instance;
             }
+
+            return sqlExpressionFactory.Function(
+                "DateTime::Make" + instance.TypeMapping!.StoreType,
+                [
+                    sqlExpressionFactory.Function(
+                        "DateTime::StartOfDay",
+                        [instance],
+                        nullable: true,
+                        ArrayUtil.TrueArrays[1],
+                        returnType)
+                ],
+                nullable: true,
+                ArrayUtil.TrueArrays[1],
+                returnType,
+                instance.TypeMapping);
         }
 
         return member.Name switch
@@ -73,9 +79,28 @@ public sealed class YdbDateTimeMemberTranslator(
             nameof(DateTime.Minute) => DatePart(instance!, "GetMinute"),
             nameof(DateTime.Second) => DatePart(instance!, "GetSecond"),
             nameof(DateTime.Millisecond) => DatePart(instance!, "GetMillisecondOfSecond"),
+            nameof(DateTime.TimeOfDay) => sqlExpressionFactory.Function(
+                "DateTime::TimeOfDay",
+                [instance!],
+                nullable: true,
+                argumentsPropagateNullability: ArrayUtil.TrueArrays[1],
+                returnType,
+                typeMappingSource.FindMapping(
+                    returnType,
+                    instance!.TypeMapping is IYdbTypeMapping
+                    {
+                        YdbDbType: YdbDbType.Date32 or YdbDbType.Datetime64 or YdbDbType.Timestamp64
+                    }
+                        ? "Interval64"
+                        : "Interval")),
 
             nameof(DateTime.DayOfYear) => DatePart(instance!, "GetDayOfYear"),
-            nameof(DateTime.DayOfWeek) => DatePart(instance!, "GetDayOfWeek"),
+            nameof(DateTime.DayOfWeek) => sqlExpressionFactory.Modulo(
+                DatePart(instance!, "GetDayOfWeek"),
+                sqlExpressionFactory.Constant(7)),
+            nameof(DateOnly.DayNumber) => sqlExpressionFactory.Add(
+                sqlExpressionFactory.Convert(instance!, typeof(int)),
+                sqlExpressionFactory.Constant(new DateOnly(1970, 1, 1).DayNumber)),
 
             // TODO: Research if it's possible to implement
             nameof(DateTime.Ticks) => null,

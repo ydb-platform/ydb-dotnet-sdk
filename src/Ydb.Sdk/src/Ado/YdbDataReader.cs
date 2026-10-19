@@ -35,6 +35,19 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private long _resultSetIndex = -1;
     private ResultSet? _currentResultSet;
 
+    /// <summary>
+    /// Gets the query statistics received for this execution, or null when none have been received.
+    /// </summary>
+    public YdbQueryStats? QueryStats { get; private set; }
+
+    /// <summary>
+    /// Gets the query snapshot timestamp, if returned by the server.
+    /// </summary>
+    /// <remarks>
+    /// This is database time, not wall-clock time. Values from different databases must not be compared.
+    /// </remarks>
+    public YdbVirtualTimestamp? SnapshotTimestamp { get; private set; }
+
     private interface IMetadata
     {
         IReadOnlyDictionary<string, int> ColumnNameToOrdinal { get; }
@@ -700,7 +713,9 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <summary>
     /// Gets the number of rows changed, inserted, or deleted by execution of the SQL statement.
     /// </summary>
-    /// <remarks>For YDB, this always returns -1 as the number of affected records is not available.</remarks>
+    /// <remarks>
+    /// For YDB, this always returns -1 as the number of affected records is not available.
+    /// </remarks>
     public override int RecordsAffected => -1;
 
     /// <summary>
@@ -851,15 +866,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             return;
         }
 
-        _connection.OnNotSuccessStatusCode(StatusCode.ClientStreamCancelled);
+        _connection.OnNotSuccessStatusCode(StatusCode.StreamCancelled);
         _stream.Dispose();
 
         if (_ydbTransaction != null)
         {
             _ydbTransaction.Failed = true;
-            _metricsReporter.ReportOperationFailed(StatusCode.ClientStreamCancelled, OperationName);
+            _metricsReporter.ReportOperationFailed(StatusCode.StreamCancelled, OperationName);
 
-            throw new YdbException(StatusCode.ClientStreamCancelled,
+            throw new YdbException(StatusCode.StreamCancelled,
                 "YdbDataReader was closed during transaction execution. Transaction is broken!");
         }
     }
@@ -920,6 +935,21 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             }
 
             var part = _stream.Current;
+
+            if (part.SnapshotTimestamp is not null)
+            {
+                SnapshotTimestamp ??= new YdbVirtualTimestamp(part.SnapshotTimestamp);
+            }
+
+            if (part.ExecStats is not null)
+            {
+                QueryStats ??= new YdbQueryStats(part.ExecStats);
+            }
+
+            if (_ydbTransaction is not null && part.CommitTimestamp is not null)
+            {
+                _ydbTransaction.CommitTimestamp ??= new YdbVirtualTimestamp(part.CommitTimestamp);
+            }
 
             _issueMessagesInStream.AddRange(part.Issues);
 

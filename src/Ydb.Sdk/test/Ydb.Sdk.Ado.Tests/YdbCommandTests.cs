@@ -14,14 +14,16 @@ public class YdbCommandTests : TestBase
         bool isNullable)
     {
         await using var ydbConnection = await CreateOpenConnectionAsync();
-        var ydbDataReader = await new YdbCommand(ydbConnection)
+        var ydbCommand = new YdbCommand(ydbConnection)
         {
             CommandText = "SELECT @var as var;",
             Parameters =
             {
                 new YdbParameter { ParameterName = "var", DbType = dbType, Value = value, IsNullable = isNullable }
             }
-        }.ExecuteReaderAsync();
+        };
+        Assert.Equal(StatsMode.None, ydbCommand.StatsMode);
+        var ydbDataReader = await ydbCommand.ExecuteReaderAsync();
 
         Assert.Equal(1, ydbDataReader.FieldCount);
         Assert.Equal("var", ydbDataReader.GetName(0));
