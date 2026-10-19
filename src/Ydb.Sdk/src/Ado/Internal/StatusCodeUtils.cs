@@ -9,7 +9,7 @@ internal static class StatusCodeUtils
     {
         Grpc.Core.StatusCode.Unavailable => StatusCode.ClientTransportUnavailable,
         Grpc.Core.StatusCode.DeadlineExceeded => StatusCode.ClientTransportTimeout,
-        Grpc.Core.StatusCode.Cancelled => StatusCode.ClientCancelled,
+        Grpc.Core.StatusCode.Cancelled => StatusCode.ClientTransportCancelled,
         Grpc.Core.StatusCode.ResourceExhausted => StatusCode.ClientTransportResourceExhausted,
         Grpc.Core.StatusCode.Unimplemented => StatusCode.ClientTransportUnimplemented,
         _ => StatusCode.ClientTransportUnknown

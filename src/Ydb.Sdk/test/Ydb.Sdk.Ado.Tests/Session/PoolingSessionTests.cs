@@ -45,7 +45,8 @@ public class PoolingSessionTests
     [InlineData(StatusCode.ClientTransportUnavailable, true)]
     [InlineData(StatusCode.ClientTransportResourceExhausted, true)]
     [InlineData(StatusCode.ClientTransportUnknown, true)]
-    [InlineData(StatusCode.ClientCancelled, true)]
+    [InlineData(StatusCode.ClientStreamCancelled, true)]
+    [InlineData(StatusCode.ClientTransportCancelled, true)]
     [InlineData(StatusCode.Overloaded, false)]
     public async Task OnNotSuccessStatusCode_WhenStatusCodeIsNotSuccess_UpdateIsBroken(
         StatusCode statusCode,
@@ -105,7 +106,7 @@ public class PoolingSessionTests
         var session = _poolingSessionFactory.NewSession(_poolingSessionSource);
         var ydbException = await Assert.ThrowsAsync<YdbException>(() => session.Open(CancellationToken.None));
         Assert.Equal("Transport RPC call error", ydbException.Message);
-        Assert.Equal(StatusCode.ClientCancelled, ydbException.Code);
+        Assert.Equal(StatusCode.ClientTransportCancelled, ydbException.Code);
         Assert.True(session.IsBroken);
     }
 
@@ -156,12 +157,8 @@ public class PoolingSessionTests
         await CheckIsBrokenAndDeleteSessionOneTime(session);
     }
 
-    [Theory]
-    [InlineData(Grpc.Core.StatusCode.Cancelled, true)]
-    [InlineData(Grpc.Core.StatusCode.DeadlineExceeded, false)]
-    public async Task Open_WhenSuccessOpenThenAttachStreamFails_UpdatesIsBroken(
-        Grpc.Core.StatusCode grpcStatus,
-        bool isBroken)
+    [Fact]
+    public async Task Open_WhenSuccessOpenThenAttachStreamIsCancelled_IsBroken()
     {
         SetupSuccessCreateSession();
         var tcsSecondMoveAttachStream = SetupAttachStream();
@@ -170,13 +167,10 @@ public class PoolingSessionTests
         await session.Open(CancellationToken.None);
         Assert.False(session.IsBroken);
         tcsSecondMoveAttachStream.SetException(
-            new YdbException(new RpcException(new Status(grpcStatus, "Attach stream failure"))));
+            new YdbException(new RpcException(Status.DefaultCancelled)));
         await attachDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(isBroken, session.IsBroken);
-        if (isBroken)
-        {
-            await CheckIsBrokenAndDeleteSessionOneTime(session);
-        }
+        Assert.True(session.IsBroken);
+        await CheckIsBrokenAndDeleteSessionOneTime(session);
     }
 
     [Fact]

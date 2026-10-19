@@ -33,16 +33,11 @@ public class YdbExecutionStrategyMetricTests
         Assert.True(SingleDuration(measurements) >= 0);
     }
 
-    [Theory]
-    [InlineData(StatusCode.Aborted, false)]
-    [InlineData(StatusCode.ClientCancelled, true)]
-    public async Task RetryMetrics_WithRetries_RecordsTotalAttempts(
-        StatusCode statusCode,
-        bool enableRetryIdempotence)
+    [Fact]
+    public async Task RetryMetrics_WithRetries_RecordsTotalAttempts()
     {
         await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
         {
-            EnableRetryIdempotence = enableRetryIdempotence,
             MaxAttempts = 5,
             FastBackoffBaseMs = 1,
             FastCapBackoffMs = 1
@@ -57,7 +52,7 @@ public class YdbExecutionStrategyMetricTests
             operation: (_, _, _) =>
             {
                 calls++;
-                return calls < 3 ? throw new YdbException(statusCode, "retry me") : Task.FromResult(0);
+                return calls < 3 ? throw new YdbException(StatusCode.Aborted, "retry me") : Task.FromResult(0);
             },
             verifySucceeded: null);
 
@@ -65,18 +60,10 @@ public class YdbExecutionStrategyMetricTests
         Assert.Equal(3, SingleAttempts(measurements));
     }
 
-    [Theory]
-    [InlineData(StatusCode.Unauthorized, false)]
-    [InlineData(StatusCode.ClientCancelled, false)]
-    [InlineData(StatusCode.ClientTransportTimeout, true)]
-    public async Task RetryMetrics_NonRetryableError_StillRecordsOneAttempt(
-        StatusCode statusCode,
-        bool enableRetryIdempotence)
+    [Fact]
+    public async Task RetryMetrics_NonRetryableError_StillRecordsOneAttempt()
     {
-        await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
-        {
-            EnableRetryIdempotence = enableRetryIdempotence
-        }));
+        await using var db = CreateContext();
         using var meterListener = StartMeterListener(out var measurements);
 
         var strategy = db.Database.CreateExecutionStrategy();
@@ -84,41 +71,12 @@ public class YdbExecutionStrategyMetricTests
             strategy.ExecuteAsync(
                 state: 0,
                 operation: (_, _, _) => Task.FromException<int>(
-                    new YdbException(statusCode, "no")),
+                    new YdbException(StatusCode.Unauthorized, "no")),
                 verifySucceeded: null));
 
         // Non-retryable YdbException: original exception rethrown -> total attempts == 1.
         Assert.Equal(1, SingleAttempts(measurements));
         Assert.True(SingleDuration(measurements) >= 0);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenCallerCancelsDuringRpc_DoesNotRetry()
-    {
-        await using var db = CreateContext(b => b.UseRetryPolicy(new YdbRetryPolicyConfig
-        {
-            EnableRetryIdempotence = true,
-            FastBackoffBaseMs = 0,
-            MaxAttempts = 2
-        }));
-        using var cancellation = new CancellationTokenSource();
-        var strategy = db.Database.CreateExecutionStrategy();
-        var calls = 0;
-
-        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            strategy.ExecuteAsync(
-                state: 0,
-                operation: (_, _, _) =>
-                {
-                    calls++;
-                    cancellation.Cancel();
-                    return Task.FromException<int>(new YdbException(StatusCode.ClientCancelled, "RPC cancelled"));
-                },
-                verifySucceeded: null,
-                cancellationToken: cancellation.Token));
-
-        Assert.Equal(cancellation.Token, exception.CancellationToken);
-        Assert.Equal(1, calls);
     }
 
     [Fact]

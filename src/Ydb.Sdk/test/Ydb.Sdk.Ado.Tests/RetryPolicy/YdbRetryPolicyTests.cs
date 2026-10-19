@@ -23,7 +23,7 @@ public class YdbRetryPolicyTests
     [Theory]
     [InlineData(StatusCode.ClientTransportUnavailable)]
     [InlineData(StatusCode.Undetermined)]
-    [InlineData(StatusCode.ClientCancelled)]
+    [InlineData(StatusCode.ClientTransportCancelled)]
     public void GetNextDelay_WhenStatusIsIdempotenceAndDisableIdempotence_ReturnNull(StatusCode statusCode)
     {
         var ydbRetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 2 });
@@ -71,7 +71,7 @@ public class YdbRetryPolicyTests
     [InlineData(StatusCode.Unavailable, false)]
     [InlineData(StatusCode.ClientTransportUnknown, true)]
     [InlineData(StatusCode.ClientTransportUnavailable, true)]
-    [InlineData(StatusCode.ClientCancelled, true)]
+    [InlineData(StatusCode.ClientTransportCancelled, true)]
     public void GetNextDelay_WhenEqualJitterWithFastBackoff_ReturnCalculatedBackoff(StatusCode statusCode,
         bool enableRetryIdempotence)
     {
@@ -147,6 +147,7 @@ public class YdbRetryPolicyTests
     [InlineData(StatusCode.Success)]
     [InlineData(StatusCode.ClientTransportTimeout)]
     [InlineData(StatusCode.ClientTransportUnimplemented)]
+    [InlineData(StatusCode.ClientStreamCancelled)]
     public void GetNextDelay_WhenStatusCodeIsNotRetriable_ReturnNull(StatusCode statusCode) =>
         Assert.Null(YdbRetryPolicy.IdempotenceDefault.GetNextDelay(new YdbException(statusCode, "Mock message"), 1));
 }
