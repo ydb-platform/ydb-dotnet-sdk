@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ydb.Sdk.Ado.YdbType;
 
 namespace EntityFrameworkCore.Ydb.Query.Internal.Translators;
@@ -54,6 +55,43 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
         IDiagnosticsLogger<DbLoggerCategory.Query> logger
     )
     {
+        if (instance is not null
+            && method.DeclaringType == typeof(DateOnly)
+            && method.Name == nameof(DateOnly.ToDateTime)
+            && arguments.Count == 1)
+        {
+            if (arguments[0].TypeMapping is { Converter: not TimeOnlyToTicksConverter })
+            {
+                return null;
+            }
+
+            var timestampMapping = _typeMappingSource.FindMapping(typeof(DateTime), "Timestamp64");
+            var timeMapping = (RelationalTypeMapping)_typeMappingSource.FindMapping(typeof(long))!
+                .WithComposedConverter(new TimeOnlyToTicksConverter());
+
+            return _sqlExpressionFactory.Add(
+                _sqlExpressionFactory.Convert(
+                    _sqlExpressionFactory.ApplyTypeMapping(
+                        instance,
+                        _typeMappingSource.FindMapping(typeof(DateOnly), "Date32")),
+                    typeof(DateTime),
+                    timestampMapping),
+                _sqlExpressionFactory.Function(
+                    "DateTime::Interval64FromMicroseconds",
+                    [
+                        _sqlExpressionFactory.Divide(
+                            _sqlExpressionFactory.Convert(
+                                _sqlExpressionFactory.ApplyTypeMapping(arguments[0], timeMapping),
+                                typeof(long)),
+                            _sqlExpressionFactory.Constant(TimeSpan.TicksPerMicrosecond))
+                    ],
+                    nullable: true,
+                    ArrayUtil.TrueArrays[1],
+                    typeof(TimeSpan),
+                    _typeMappingSource.FindMapping(typeof(TimeSpan), "Interval64")),
+                timestampMapping);
+        }
+
         if (method.DeclaringType == typeof(DateOnly) && method.Name == nameof(DateOnly.FromDayNumber))
         {
             return _sqlExpressionFactory.Convert(
