@@ -19,8 +19,6 @@ public interface ISloContext
     public static readonly YdbRetryPolicyConfig RetryPolicyConfig = new()
     {
         EnableRetryIdempotence = true,
-        // Tenant Hive warmup kept tablets unavailable for over 20s during chaos.
-        FastBackoffBaseMs = 10_000,
         FastCapBackoffMs = 30_000
     };
 
