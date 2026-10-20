@@ -19,7 +19,8 @@ public interface ISloContext
     public static readonly YdbRetryPolicyConfig RetryPolicyConfig = new()
     {
         EnableRetryIdempotence = true,
-        FastBackoffBaseMs = 50
+        FastBackoffBaseMs = 500,
+        FastCapBackoffMs = 5_000
     };
 
     public Task Run(SloConfig sloConfig);
@@ -41,6 +42,8 @@ public abstract class SloTableContext<T> : ISloContext
 
     public async Task Create(SloConfig sloConfig)
     {
+        Logger.LogInformation("KV retry policy: {RetryPolicy}", ISloContext.RetryPolicyConfig);
+
         if (sloConfig.ReadRps > 0 && sloConfig.InitialDataCount < 1)
         {
             throw new ArgumentException("KV reads require at least one prefilled control row");
