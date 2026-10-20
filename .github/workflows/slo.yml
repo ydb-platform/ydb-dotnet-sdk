@@ -73,13 +73,18 @@ jobs:
             --workload "${{ matrix.workload.name }}"
 
       - name: Run YDB SLO
-        uses: ydb-platform/ydb-slo-action/init@c9d6c6f2f08f390ee53e5efb10bbc1488e834f80
+        uses: ydb-platform/ydb-slo-action/init@270f5e4250439544a6b0ccad33569cc4057c476e
         timeout-minutes: 30
         with:
           github_issue: ${{ github.event.inputs.github_issue }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workload_name: ${{ matrix.workload.name }}
           workload_duration: ${{ inputs.slo_workload_duration_seconds || '600' }}
+          metrics_yaml: |
+            metrics:
+              - { name: ydb.topic.writer.written.messages, disabled: true }
+              - { name: ydb.topic.reader.delivered.messages, disabled: true }
+              - { name: ydb.topic.writer.message.ack.duration, disabled: true }
           fail_on_workload_error: true
           # Current-only until the baseline exports native SDK metrics for v3.
           workload_current_ref: ${{ github.head_ref || github.ref_name }}
@@ -100,7 +105,7 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: ydb-platform/ydb-slo-action/report@c9d6c6f2f08f390ee53e5efb10bbc1488e834f80
+      - uses: ydb-platform/ydb-slo-action/report@270f5e4250439544a6b0ccad33569cc4057c476e
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           post_comment: false
