@@ -8,12 +8,19 @@ using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using Ydb.Sdk;
+using Ydb.Sdk.Ado.RetryPolicy;
 
 namespace Internal;
 
 public interface ISloContext
 {
     public static readonly ILoggerFactory Factory = LoggerFactory.Create(builder => builder.AddNLog());
+
+    public static readonly YdbRetryPolicyConfig RetryPolicyConfig = new()
+    {
+        EnableRetryIdempotence = true,
+        FastBackoffBaseMs = 50
+    };
 
     public Task Run(SloConfig sloConfig);
 }

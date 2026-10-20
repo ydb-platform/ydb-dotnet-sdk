@@ -12,7 +12,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     protected override YdbDataSource CreateClient(SloConfig config) => new YdbDataSourceBuilder(
             new YdbConnectionStringBuilder(config.ConnectionString) { LoggerFactory = ISloContext.Factory }
         )
-        { RetryPolicy = YdbRetryPolicy.IdempotenceDefault }.Build();
+        { RetryPolicy = new YdbRetryPolicy(ISloContext.RetryPolicyConfig) }.Build();
 
     protected override async Task Create(YdbDataSource client, int operationTimeout)
     {

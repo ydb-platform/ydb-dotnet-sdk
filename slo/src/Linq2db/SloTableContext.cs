@@ -20,7 +20,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
 
         public async Task<DataConnection> OpenAsync() => new(new DataOptions().UseConnection(
             YdbTools.GetDataProvider(),
-            await _dataSource.OpenRetryableConnectionAsync(YdbRetryPolicy.IdempotenceDefault), true));
+            await _dataSource.OpenRetryableConnectionAsync(new YdbRetryPolicy(ISloContext.RetryPolicyConfig)), true));
     }
 
     protected override Linq2dbClient CreateClient(SloConfig config) => new(config.ConnectionString);

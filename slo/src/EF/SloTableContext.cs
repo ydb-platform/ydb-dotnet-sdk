@@ -13,7 +13,7 @@ public class SloTableContext : SloTableContext<PooledDbContextFactory<TableDbCon
 
     protected override PooledDbContextFactory<TableDbContext> CreateClient(SloConfig config) =>
         new(new DbContextOptionsBuilder<TableDbContext>().UseYdb(config.ConnectionString,
-            builder => builder.EnableRetryIdempotence()).Options);
+            builder => builder.UseRetryPolicy(ISloContext.RetryPolicyConfig)).Options);
 
     protected override async Task Create(
         PooledDbContextFactory<TableDbContext> client,
