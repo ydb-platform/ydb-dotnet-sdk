@@ -39,6 +39,8 @@ public class YdbRetryPolicyTests
     [InlineData(StatusCode.Undetermined, true, 50, 500, new[] { 50, 100, 200, 400, 500, 500, 500, 500, 500 })]
     [InlineData(StatusCode.Undetermined, true, 500, 5000,
         new[] { 500, 1000, 2000, 4000, 5000, 5000, 5000, 5000, 5000 })]
+    [InlineData(StatusCode.Undetermined, true, 10000, 30000,
+        new[] { 10000, 20000, 30000, 30000, 30000, 30000, 30000, 30000, 30000 })]
     public void GetNextDelay_WhenFullJitterWithFastBackoff_ReturnCalculatedBackoff(StatusCode statusCode,
         bool enableRetryIdempotence, int baseDelayMs, int capMs, int[] delayCeilings)
     {

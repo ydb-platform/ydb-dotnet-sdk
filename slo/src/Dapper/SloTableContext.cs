@@ -33,7 +33,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
     protected override async Task<int> Save(YdbDataSource client, SloTable sloTable, int writeTimeout)
     {
         await using var ydbConnection =
-            await client.OpenRetryableConnectionAsync(YdbRetryPolicy.IdempotenceDefault);
+            await client.OpenRetryableConnectionAsync();
         await ydbConnection.ExecuteAsync(
             $"""
              UPSERT INTO `{SloTable.Name}` (Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp)
@@ -47,7 +47,7 @@ public class SloTableContext : SloTableContext<YdbDataSource>
         int readTimeout)
     {
         await using var ydbConnection =
-            await client.OpenRetryableConnectionAsync(YdbRetryPolicy.IdempotenceDefault);
+            await client.OpenRetryableConnectionAsync();
         return await ydbConnection.QuerySingleOrDefaultAsync<SloTable>(
             $"""
              SELECT Guid, Id, PayloadStr, PayloadDouble, PayloadTimestamp
