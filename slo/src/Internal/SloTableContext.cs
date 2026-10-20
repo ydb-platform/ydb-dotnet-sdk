@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
@@ -114,6 +115,7 @@ public abstract class SloTableContext<T> : ISloContext
 
         await Create(sloConfig);
 
+        using var metrics = new SloTableMetrics(refLabel, sloConfig.ReportPeriod);
         using var meterProvider = Sdk.CreateMeterProviderBuilder()
             .ConfigureResource(resource => resource
                 .AddService(serviceName: $"workload-{workloadLabel}")
@@ -123,7 +125,7 @@ public abstract class SloTableContext<T> : ISloContext
                     new KeyValuePair<string, object>("sdk", "dotnet"),
                     new KeyValuePair<string, object>("sdk_version", Environment.Version.ToString())
                 ]))
-            .AddMeter("Ydb.Sdk")
+            .AddMeter("YDB.SLO")
             .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
             {
                 var endpointUri = ResolveOtlpEndpoint(sloConfig.OtlpEndpoint);
@@ -205,7 +207,9 @@ public abstract class SloTableContext<T> : ISloContext
                                 await Task.Delay(Random.Shared.Next(IntervalMs / 2), cancellation.Token);
                             }
 
+                            var started = Stopwatch.GetTimestamp();
                             await action(client, sloConfig);
+                            metrics.RecordSuccess(operationType, Stopwatch.GetElapsedTime(started).TotalSeconds);
                         }
                     }
                     catch (OperationCanceledException e) when (
@@ -215,6 +219,7 @@ public abstract class SloTableContext<T> : ISloContext
                     }
                     catch (Exception ex)
                     {
+                        metrics.RecordError(operationType);
                         Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(ex), null);
                         Logger.LogError(ex, "Operation {OperationType} failed", operationType);
                         await cancellation.CancelAsync();
