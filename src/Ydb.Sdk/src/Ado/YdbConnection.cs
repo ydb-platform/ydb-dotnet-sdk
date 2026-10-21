@@ -31,8 +31,7 @@ public sealed class YdbConnection : DbConnection
     {
         get => _connectionStringBuilder ??
                throw new InvalidOperationException("The ConnectionString property has not been initialized.");
-        [param: AllowNull]
-        init => _connectionStringBuilder = value;
+        [param: AllowNull] init => _connectionStringBuilder = value;
     }
 
     internal ISession Session

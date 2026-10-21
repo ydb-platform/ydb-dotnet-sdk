@@ -559,6 +559,7 @@ public class YdbMetricTests : TestBase
                     return queryStream.Object;
                 });
         }
+
         await using var source = new PoolingSessionSource<PoolingSession>(
             new PoolingSessionFactory(driver.Object, settings),
             settings);
