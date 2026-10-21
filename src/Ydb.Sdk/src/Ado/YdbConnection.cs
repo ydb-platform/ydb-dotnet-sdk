@@ -164,14 +164,7 @@ public sealed class YdbConnection : DbConnection
 
     public override void Open() => OpenAsync().GetAwaiter().GetResult();
 
-    internal YdbMetricsReporter MetricsReporter
-    {
-        get
-        {
-            ThrowIfConnectionClosed();
-            return _sessionSource!.MetricsReporter;
-        }
-    }
+    internal YdbMetricsReporter MetricsReporter => _sessionSource!.MetricsReporter;
 
     public override async Task OpenAsync(CancellationToken cancellationToken)
     {

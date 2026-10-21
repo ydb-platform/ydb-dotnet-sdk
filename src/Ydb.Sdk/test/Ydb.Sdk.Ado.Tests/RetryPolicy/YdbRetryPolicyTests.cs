@@ -34,37 +34,35 @@ public class YdbRetryPolicyTests
     }
 
     [Theory]
-    [InlineData(StatusCode.Aborted, false)]
-    [InlineData(StatusCode.Undetermined, true)]
+    [InlineData(StatusCode.Aborted, false, 5, 100, new[] { 5, 10, 20, 40, 80, 100, 100, 100, 100 })]
+    [InlineData(StatusCode.Undetermined, true, 5, 100, new[] { 5, 10, 20, 40, 80, 100, 100, 100, 100 })]
+    [InlineData(StatusCode.Undetermined, true, 50, 500, new[] { 50, 100, 200, 400, 500, 500, 500, 500, 500 })]
+    [InlineData(StatusCode.Undetermined, true, 500, 5000,
+        new[] { 500, 1000, 2000, 4000, 5000, 5000, 5000, 5000, 5000 })]
+    [InlineData(StatusCode.Undetermined, true, 10000, 30000,
+        new[] { 10000, 20000, 30000, 30000, 30000, 30000, 30000, 30000, 30000 })]
+    [InlineData(StatusCode.Undetermined, true, 5, 30000,
+        new[] { 5, 10, 20, 40, 80, 160, 320, 640, 1280 })]
     public void GetNextDelay_WhenFullJitterWithFastBackoff_ReturnCalculatedBackoff(StatusCode statusCode,
-        bool enableRetryIdempotence)
+        bool enableRetryIdempotence, int baseDelayMs, int capMs, int[] delayCeilings)
     {
         var mockRandom = new Mock<IRandom>(MockBehavior.Strict);
         var ydbRetryPolicy = new YdbRetryPolicy(new YdbRetryPolicyConfig
         {
             EnableRetryIdempotence = enableRetryIdempotence,
-            FastBackoffBaseMs = 5,
-            FastCapBackoffMs = 100
+            FastBackoffBaseMs = baseDelayMs,
+            FastCapBackoffMs = capMs
         }, mockRandom.Object);
         var ydbException = new YdbException(statusCode, "Mock message");
 
-        mockRandom.Setup(random => random.Next(6)).Returns(2);
-        Assert.Equal(TimeSpan.FromMilliseconds(2), ydbRetryPolicy.GetNextDelay(ydbException, 1));
+        for (var index = 0; index < delayCeilings.Length; index++)
+        {
+            var ceiling = delayCeilings[index];
+            mockRandom.Setup(random => random.Next(ceiling + 1)).Returns(ceiling);
+            Assert.Equal(TimeSpan.FromMilliseconds(ceiling), ydbRetryPolicy.GetNextDelay(ydbException, index + 1));
+        }
 
-        mockRandom.Setup(random => random.Next(11)).Returns(7);
-        Assert.Equal(TimeSpan.FromMilliseconds(7), ydbRetryPolicy.GetNextDelay(ydbException, 2));
-
-        mockRandom.Setup(random => random.Next(21)).Returns(14);
-        Assert.Equal(TimeSpan.FromMilliseconds(14), ydbRetryPolicy.GetNextDelay(ydbException, 3));
-
-        mockRandom.Setup(random => random.Next(41)).Returns(23);
-        Assert.Equal(TimeSpan.FromMilliseconds(23), ydbRetryPolicy.GetNextDelay(ydbException, 4));
-
-        mockRandom.Setup(random => random.Next(81)).Returns(53);
-        Assert.Equal(TimeSpan.FromMilliseconds(53), ydbRetryPolicy.GetNextDelay(ydbException, 5));
-
-        mockRandom.Setup(random => random.Next(101)).Returns(89);
-        Assert.Equal(TimeSpan.FromMilliseconds(89), ydbRetryPolicy.GetNextDelay(ydbException, 6));
+        Assert.Null(ydbRetryPolicy.GetNextDelay(ydbException, 10));
     }
 
     [Theory]

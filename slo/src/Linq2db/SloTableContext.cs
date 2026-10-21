@@ -1,8 +1,11 @@
-﻿using Internal;
+using Internal;
 using LinqToDB;
 using LinqToDB.Async;
 using LinqToDB.Data;
+using LinqToDB.DataProvider.Ydb;
 using LinqToDB.Mapping;
+using Ydb.Sdk.Ado;
+using Ydb.Sdk.Ado.RetryPolicy;
 
 namespace Linq2db;
 
@@ -12,15 +15,19 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
 
     public sealed class Linq2dbClient(string connectionString)
     {
-        public DataConnection Open()
-            => new(new DataOptions().UseConnectionString("YDB", connectionString));
+        private readonly YdbDataSource _dataSource = new(
+            new YdbConnectionStringBuilder(connectionString) { LoggerFactory = ISloContext.Factory });
+
+        public async Task<DataConnection> OpenAsync() => new(new DataOptions().UseConnection(
+            YdbTools.GetDataProvider(),
+            await _dataSource.OpenRetryableConnectionAsync(new YdbRetryPolicy(ISloContext.RetryPolicyConfig)), true));
     }
 
     protected override Linq2dbClient CreateClient(SloConfig config) => new(config.ConnectionString);
 
     protected override async Task Create(Linq2dbClient client, int operationTimeout)
     {
-        await using var db = client.Open();
+        await using var db = await client.OpenAsync();
         db.CommandTimeout = operationTimeout;
 
         await db.ExecuteAsync($"""
@@ -39,7 +46,7 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
 
     protected override async Task<int> Save(Linq2dbClient client, SloTable sloTable, int writeTimeout)
     {
-        await using var db = client.Open();
+        await using var db = await client.OpenAsync();
         db.CommandTimeout = writeTimeout;
 
         var affected = await db.ExecuteAsync(
@@ -57,21 +64,24 @@ public sealed class SloTableContext : SloTableContext<SloTableContext.Linq2dbCli
         return affected > 0 ? affected : 1;
     }
 
-    protected override async Task<object?> Select(Linq2dbClient client, (Guid Guid, int Id) select, int readTimeout)
+    protected override async Task<SloTable?> Select(Linq2dbClient client, (Guid Guid, int Id) select, int readTimeout)
     {
-        await using var db = client.Open();
+        await using var db = await client.OpenAsync();
         db.CommandTimeout = readTimeout;
 
         var row = await db.GetTable<SloRow>()
-            .FirstOrDefaultAsync(sloRow => sloRow.Guid == select.Guid && sloRow.Id == select.Id);
+            .SingleOrDefaultAsync(sloRow => sloRow.Guid == select.Guid && sloRow.Id == select.Id);
 
-        return row;
-    }
-
-    protected override async Task<int> SelectCount(Linq2dbClient client)
-    {
-        await using var db = client.Open();
-        return await db.GetTable<SloRow>().CountAsync();
+        return row == null
+            ? null
+            : new SloTable
+            {
+                Guid = row.Guid,
+                Id = row.Id,
+                PayloadStr = row.PayloadStr ?? throw new InvalidOperationException("KV payload is null"),
+                PayloadDouble = row.PayloadDouble,
+                PayloadTimestamp = row.PayloadTimestamp
+            };
     }
 
     [Table(SloTable.Name)]

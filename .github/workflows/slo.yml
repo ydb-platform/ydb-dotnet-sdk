@@ -8,7 +8,8 @@ jobs:
   ydb-slo-action:
     if: contains(github.event.pull_request.labels.*.name, 'SLO')
     name: Run YDB SLO Tests
-    runs-on: "large-runner-dotnet-sdk"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
 
     permissions:
       contents: read
@@ -61,6 +62,16 @@ jobs:
           path: current
           fetch-depth: 0
 
+      - name: Build current workload image
+        run: |
+          set -euxo pipefail
+          chmod +x current/.github/scripts/build-slo-image.sh
+
+          current/.github/scripts/build-slo-image.sh \
+            --tag "ydb-app-current" \
+            --context "$GITHUB_WORKSPACE/current" \
+            --workload "${{ matrix.workload.name }}"
+
       - name: Determine baseline commit
         id: baseline
         working-directory: current
@@ -69,7 +80,6 @@ jobs:
           BASELINE=$(git merge-base HEAD origin/main)
           echo "sha=${BASELINE}" >> "$GITHUB_OUTPUT"
 
-          # Try to determine a human-readable ref name for baseline
           if git merge-base --is-ancestor $BASELINE origin/main && \
              [ "$(git rev-parse origin/main)" = "$BASELINE" ]; then
             BASELINE_REF="main"
@@ -81,7 +91,7 @@ jobs:
               BASELINE_REF="${BASELINE:0:7}"
             fi
           fi
-          echo "ref=$BASELINE_REF" >> $GITHUB_OUTPUT
+          echo "ref=$BASELINE_REF" >> "$GITHUB_OUTPUT"
 
       - name: Checkout baseline version
         uses: actions/checkout@v6
@@ -89,16 +99,6 @@ jobs:
           ref: ${{ steps.baseline.outputs.sha }}
           path: baseline
           fetch-depth: 1
-
-      - name: Build current workload image
-        run: |
-          set -euxo pipefail
-          chmod +x current/.github/scripts/build-slo-image.sh
-
-          current/.github/scripts/build-slo-image.sh \
-            --tag "ydb-app-current" \
-            --context "$GITHUB_WORKSPACE/current" \
-            --workload "${{ matrix.workload.name }}"
 
       - name: Build baseline workload image
         run: |
@@ -111,13 +111,15 @@ jobs:
             --workload "${{ matrix.workload.name }}"
 
       - name: Run YDB SLO
-        uses: ydb-platform/ydb-slo-action/init@v2
+        uses: ydb-platform/ydb-slo-action/init@v3
         timeout-minutes: 30
         with:
           github_issue: ${{ github.event.inputs.github_issue }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workload_name: ${{ matrix.workload.name }}
           workload_duration: ${{ inputs.slo_workload_duration_seconds || '600' }}
+          metrics_schema: legacy_table
+          fail_on_workload_error: true
           workload_current_ref: ${{ github.head_ref || github.ref_name }}
           workload_current_image: ydb-app-current
           workload_current_command: >-
@@ -134,3 +136,18 @@ jobs:
             --write-rps ${{ inputs.slo_workload_write_max_rps || '100' }}
             --read-timeout 1000
             --write-timeout 1000
+
+  report:
+    name: Table SLO graphs
+    needs: ydb-slo-action
+    if: ${{ !cancelled() && needs.ydb-slo-action.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: ydb-platform/ydb-slo-action/report@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          post_comment: false
+          github_run_id: ${{ github.run_id }}
