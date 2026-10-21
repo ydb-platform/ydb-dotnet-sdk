@@ -161,8 +161,8 @@ public abstract class SloTableContext<T> : ISloContext
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(sloConfig.Time));
         ExceptionDispatchInfo? firstFailure = null;
 
-        var writeTask = ShootingTask(writeLimiter, "write", Save, cancellationTokenSource);
-        var readTask = ShootingTask(readLimiter, "read", Select, cancellationTokenSource);
+        var writeTask = ShootingTask(writeLimiter, "write", Save, cancellationTokenSource, metrics);
+        var readTask = ShootingTask(readLimiter, "read", Select, cancellationTokenSource, metrics);
 
         Logger.LogInformation("Started write / read shooting...");
 
@@ -187,7 +187,7 @@ public abstract class SloTableContext<T> : ISloContext
         return;
 
         async Task ShootingTask(RateLimiter rateLimitPolicy, string operationType, Func<T, SloConfig, Task> action,
-            CancellationTokenSource cancellation)
+            CancellationTokenSource cancellation, SloTableMetrics tableMetrics)
         {
             var workJobs = new List<Task>();
 
@@ -209,7 +209,7 @@ public abstract class SloTableContext<T> : ISloContext
 
                             var started = Stopwatch.GetTimestamp();
                             await action(client, sloConfig);
-                            metrics.RecordSuccess(operationType, Stopwatch.GetElapsedTime(started).TotalSeconds);
+                            tableMetrics.RecordSuccess(operationType, Stopwatch.GetElapsedTime(started).TotalSeconds);
                         }
                     }
                     catch (OperationCanceledException e) when (
@@ -219,7 +219,7 @@ public abstract class SloTableContext<T> : ISloContext
                     }
                     catch (Exception ex)
                     {
-                        metrics.RecordError(operationType);
+                        tableMetrics.RecordError(operationType);
                         Interlocked.CompareExchange(ref firstFailure, ExceptionDispatchInfo.Capture(ex), null);
                         Logger.LogError(ex, "Operation {OperationType} failed", operationType);
                         await cancellation.CancelAsync();

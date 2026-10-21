@@ -9,16 +9,19 @@ public sealed class SloTableMetrics : IDisposable
     private readonly Meter _meter = new("YDB.SLO");
     private readonly Counter<long> _operationsTotal;
     private readonly string _refLabel;
+
     private readonly Dictionary<string, LatencyAggregator> _latencies = new()
     {
-        ["read"] = new(),
-        ["write"] = new()
+        ["read"] = new LatencyAggregator(),
+        ["write"] = new LatencyAggregator()
     };
+
     private readonly Dictionary<string, (double P50, double P95, double P99)> _snapshots = new()
     {
         ["read"] = default,
         ["write"] = default
     };
+
     private readonly object _snapshotLock = new();
     private readonly Timer _snapshotTimer;
 
