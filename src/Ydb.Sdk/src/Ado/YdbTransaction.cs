@@ -190,6 +190,20 @@ public sealed class YdbTransaction : DbTransaction
     }
 
     /// <summary>
+    /// YDB transactions have no savepoints, so there is no savepoint to release.
+    /// </summary>
+    /// <param name="savepointName">The name of the savepoint to release.</param>
+    /// <exception cref="NotSupportedException">
+    /// Always thrown, since <see cref="DbTransaction.SupportsSavepoints"/> is false.
+    /// </exception>
+    /// <remarks>
+    /// <see cref="DbTransaction.Save"/> and <see cref="DbTransaction.Rollback(string)"/> already throw; the base
+    /// <c>Release</c> does nothing, which reports success for a savepoint that was never created.
+    /// </remarks>
+    public override void Release(string savepointName) =>
+        throw new NotSupportedException("YDB does not support savepoints.");
+
+    /// <summary>
     /// Gets the database connection associated with this transaction.
     /// </summary>
     /// <returns>The YdbConnection associated with this transaction, or null if disposed.</returns>
