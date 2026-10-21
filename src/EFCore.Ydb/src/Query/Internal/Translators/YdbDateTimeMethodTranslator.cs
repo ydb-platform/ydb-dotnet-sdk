@@ -56,6 +56,51 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
     )
     {
         if (instance is not null
+            && method.DeclaringType == typeof(TimeOnly)
+            && method.Name == nameof(TimeOnly.AddHours)
+            && arguments.Count == 1)
+        {
+            if (instance.TypeMapping is { Converter: not TimeOnlyToTicksConverter })
+            {
+                return null;
+            }
+
+            var timeMapping = (RelationalTypeMapping)_typeMappingSource.FindMapping(typeof(long))!
+                .WithComposedConverter(new TimeOnlyToTicksConverter());
+            var delta = _sqlExpressionFactory.Multiply(
+                arguments[0], _sqlExpressionFactory.Constant((double)TimeSpan.TicksPerHour));
+            var ticks = _sqlExpressionFactory.Case(
+                [
+                    new CaseWhenClause(
+                        _sqlExpressionFactory.Function(
+                            "Math::IsNaN", [delta], nullable: true, ArrayUtil.TrueArrays[1], typeof(bool)),
+                        _sqlExpressionFactory.Constant(0L)),
+                    new CaseWhenClause(
+                        _sqlExpressionFactory.GreaterThanOrEqual(
+                            delta, _sqlExpressionFactory.Constant((double)long.MaxValue)),
+                        _sqlExpressionFactory.Constant(long.MaxValue)),
+                    new CaseWhenClause(
+                        _sqlExpressionFactory.LessThanOrEqual(
+                            delta, _sqlExpressionFactory.Constant((double)long.MinValue)),
+                        _sqlExpressionFactory.Constant(long.MinValue))
+                ],
+                _sqlExpressionFactory.Convert(delta, typeof(long)));
+            var day = _sqlExpressionFactory.Constant(TimeSpan.TicksPerDay);
+
+            return _sqlExpressionFactory.Convert(
+                _sqlExpressionFactory.Modulo(
+                    _sqlExpressionFactory.Add(
+                        _sqlExpressionFactory.Add(
+                            _sqlExpressionFactory.Convert(
+                                _sqlExpressionFactory.ApplyTypeMapping(instance, timeMapping), typeof(long)),
+                            day),
+                        _sqlExpressionFactory.Modulo(ticks, day)),
+                    day),
+                typeof(TimeOnly),
+                timeMapping);
+        }
+
+        if (instance is not null
             && method.DeclaringType == typeof(DateOnly)
             && method.Name == nameof(DateOnly.ToDateTime)
             && arguments.Count == 1)
