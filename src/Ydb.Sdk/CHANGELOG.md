@@ -21,6 +21,8 @@
   `Contains` find it by any of the three forms.
 - Fix ADO.NET: `YdbDataReader.GetOrdinal` falls back to a case-insensitive match when no column name matches exactly,
   as `IDataRecord.GetOrdinal` specifies; it used to throw `IndexOutOfRangeException`.
+- Fix ADO.NET: `CommandBehavior.CloseConnection` closes the connection when the `YdbDataReader` is closed; the
+  behavior used to be ignored.
 - **Breaking Change** ADO.NET: renamed `StatusCode.ClientCancelled` to `StatusCode.StreamCancelled` for closing an
   unfinished query stream; this status is never retried. Renamed the corresponding `ydb.query.session.closed` reason
   from `client_cancelled` to `stream_cancelled`.
