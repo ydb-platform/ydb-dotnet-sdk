@@ -57,7 +57,7 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
     {
         if (instance is not null
             && method.DeclaringType == typeof(TimeOnly)
-            && method.Name == nameof(TimeOnly.AddHours)
+            && method.Name is nameof(TimeOnly.AddHours) or nameof(TimeOnly.AddMinutes)
             && arguments.Count == 1)
         {
             if (instance.TypeMapping is { Converter: not TimeOnlyToTicksConverter })
@@ -67,8 +67,11 @@ public class YdbDateTimeMethodTranslator : IMethodCallTranslator
 
             var timeMapping = (RelationalTypeMapping)_typeMappingSource.FindMapping(typeof(long))!
                 .WithComposedConverter(new TimeOnlyToTicksConverter());
+            var ticksPerUnit = method.Name == nameof(TimeOnly.AddHours)
+                ? TimeSpan.TicksPerHour
+                : TimeSpan.TicksPerMinute;
             var delta = _sqlExpressionFactory.Multiply(
-                arguments[0], _sqlExpressionFactory.Constant((double)TimeSpan.TicksPerHour));
+                arguments[0], _sqlExpressionFactory.Constant((double)ticksPerUnit));
             var ticks = _sqlExpressionFactory.Case(
                 [
                     new CaseWhenClause(
