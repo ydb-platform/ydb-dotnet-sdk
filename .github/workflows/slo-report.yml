@@ -20,7 +20,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Publish YDB SLO Report
-        uses: ydb-platform/ydb-slo-action/report@79d5e85cf7f111dcdf5fae21700d042b614759f4
+        uses: ydb-platform/ydb-slo-action/report@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           github_workflows: SLO,SLO YDB Topics
