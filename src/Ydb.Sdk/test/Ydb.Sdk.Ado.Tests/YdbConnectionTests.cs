@@ -17,6 +17,27 @@ public sealed class YdbConnectionTests : TestBase
 
 
     [Fact]
+    public async Task ServerVersion_WhenOpen_ReturnsTheServersVersion()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var expected = (string?)await new YdbCommand("SELECT CAST(Version() AS Utf8);", connection).ExecuteScalarAsync();
+
+        Assert.False(string.IsNullOrEmpty(expected));
+        Assert.Equal(expected, connection.ServerVersion);
+
+        await using var other = await CreateOpenConnectionAsync();
+        Assert.Equal(expected, other.ServerVersion);
+    }
+
+    [Fact]
+    public void ServerVersion_WhenClosed_ThrowsInvalidOperationException()
+    {
+        using var connection = new YdbConnection(ConnectionString);
+
+        Assert.Throws<InvalidOperationException>(() => connection.ServerVersion);
+    }
+
+    [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
         var connectionString = ConnectionString + ";MaxPoolSize=100;CreateSessionTimeout=20";

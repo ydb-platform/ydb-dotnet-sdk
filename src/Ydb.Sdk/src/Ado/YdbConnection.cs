@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
@@ -17,6 +18,9 @@ namespace Ydb.Sdk.Ado;
 /// </remarks>
 public sealed class YdbConnection : DbConnection
 {
+    // The server's version, asked once per driver (one endpoint and database) and kept while the driver lives.
+    private static readonly ConditionalWeakTable<IDriver, string> ServerVersions = new();
+
     private static readonly StateChangeEventArgs ClosedToOpenEventArgs =
         new(ConnectionState.Closed, ConnectionState.Open);
 
@@ -264,13 +268,31 @@ public sealed class YdbConnection : DbConnection
 
     public override string DataSource => string.Empty; // TODO
 
+    /// <summary>
+    /// Gets the version of the YDB server, as its <c>Version()</c> function reports it (for example <c>26.2.1.14</c>).
+    /// </summary>
+    /// <remarks>
+    /// The first read asks the server for <c>Version()</c> over this connection; the answer is kept for every
+    /// connection to the same endpoint and database, so later reads do not query.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when the connection is not open.</exception>
     public override string ServerVersion
     {
         get
         {
             ThrowIfConnectionClosed();
 
-            return string.Empty; // TODO ServerVersion
+            var driver = _sessionSource!.Driver;
+            if (ServerVersions.TryGetValue(driver, out var version))
+            {
+                return version;
+            }
+
+            // Version() is a String (bytes) in YQL; Utf8 reads back as text.
+            version = (string?)new YdbCommand("SELECT CAST(Version() AS Utf8);", this).ExecuteScalar() ?? string.Empty;
+            ServerVersions.AddOrUpdate(driver, version);
+
+            return version;
         }
     }
 
