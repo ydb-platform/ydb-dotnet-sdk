@@ -10,9 +10,6 @@ public class TimeOnlyTranslationsYdbTest(BasicTypesQueryYdbFixture fixture)
     [ConditionalFact(Skip = "TimeOnly.Add(TimeSpan) translation is not supported.")]
     public override Task Add_TimeSpan() => base.Add_TimeSpan();
 
-    [ConditionalFact(Skip = "TimeOnly.AddMinutes translation is not supported.")]
-    public override Task AddMinutes() => base.AddMinutes();
-
     [ConditionalFact(Skip = "TimeOnly.FromDateTime translation is not supported.")]
     public override Task FromDateTime_compared_to_constant() => base.FromDateTime_compared_to_constant();
 

@@ -45,6 +45,26 @@ public class TimeOnlyArithmeticYdbTest
     }
 
     [Fact]
+    public async Task AddMinutes_preserves_ticks_and_wraps_midnight()
+    {
+        await using var store = YdbTestStoreFactory.Instance.Create(nameof(TimeOnlyArithmeticYdbTest));
+        await using var context = new TestContext();
+        await store.CleanAsync(context);
+        await context.Database.EnsureCreatedAsync();
+        var time = TimeOnly.MaxValue;
+        context.Entities.Add(new TestEntity { Id = 1, Time = time, TextTime = time });
+        await context.SaveChangesAsync();
+
+        Assert.Equal(time, await context.Entities.Select(e => e.Time).SingleAsync());
+
+        var minutes = 0.5;
+        var expected = time.AddMinutes(minutes);
+        Assert.Equal(expected, await context.Entities
+            .Where(e => e.Time.AddMinutes(minutes) == expected)
+            .Select(e => e.Time.AddMinutes(minutes)).SingleAsync());
+    }
+
+    [Fact]
     public void AddHours_with_string_converted_TimeOnly_is_not_translated()
     {
         using var context = new TestContext();
