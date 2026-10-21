@@ -19,9 +19,7 @@ public interface ISloContext
 
     public static readonly YdbRetryPolicyConfig RetryPolicyConfig = new()
     {
-        EnableRetryIdempotence = true,
-        FastBackoffBaseMs = 50,
-        FastCapBackoffMs = 30_000
+        EnableRetryIdempotence = true
     };
 
     public Task Run(SloConfig sloConfig);
