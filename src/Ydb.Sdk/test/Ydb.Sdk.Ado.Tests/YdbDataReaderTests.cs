@@ -458,7 +458,8 @@ SELECT Key, Value FROM AS_TABLE($new_data);
                                     PartitionsCount = 9,
                                     Reads = new OperationStats { Rows = 10, Bytes = 11 },
                                     Updates = new OperationStats { Rows = 12, Bytes = 13 },
-                                    Deletes = new OperationStats { Rows = 14, Bytes = 15 }
+                                    Deletes = new OperationStats { Rows = 14, Bytes = 15 },
+                                    AffectedRows = 16
                                 }
                             }
                         }
@@ -500,6 +501,9 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal((ulong)13, table.Updates.Bytes);
         Assert.Equal((ulong)14, table.Deletes.Rows);
         Assert.Equal((ulong)15, table.Deletes.Bytes);
+        Assert.Equal((ulong)16, table.AffectedRows);
+        Assert.Equal((ulong)16, stats.AffectedRows);
+        Assert.Equal(16, reader.RecordsAffected);
 
         snapshot.PlanStep = 100;
         var timestamp = Assert.IsType<YdbVirtualTimestamp>(reader.SnapshotTimestamp);

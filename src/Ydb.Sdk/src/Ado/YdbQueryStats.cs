@@ -54,6 +54,29 @@ public sealed class YdbQueryStats
     public ulong TotalCpuTimeUs { get; }
 
     /// <summary>
+    /// Gets the number of logical base-table rows affected by DML, when collected by the server.
+    /// </summary>
+    public ulong? AffectedRows
+    {
+        get
+        {
+            var found = false;
+            ulong total = 0;
+            foreach (var phase in Phases)
+            foreach (var table in phase.TableAccesses)
+            {
+                if (table.AffectedRows is not { } rows)
+                    continue;
+
+                found = true;
+                total = checked(total + rows);
+            }
+
+            return found ? total : null;
+        }
+    }
+
+    /// <summary>
     /// Statistics for query compilation.
     /// </summary>
     public sealed class Compilation
@@ -130,6 +153,7 @@ public sealed class YdbQueryStats
         {
             TableName = value.Name;
             PartitionsCount = value.PartitionsCount;
+            AffectedRows = value.HasAffectedRows ? value.AffectedRows : null;
             Reads = new Operation(value.Reads ?? new OperationStats());
             Updates = new Operation(value.Updates ?? new OperationStats());
             Deletes = new Operation(value.Deletes ?? new OperationStats());
@@ -144,6 +168,11 @@ public sealed class YdbQueryStats
         /// Gets the number of accessed partitions.
         /// </summary>
         public ulong PartitionsCount { get; }
+
+        /// <summary>
+        /// Gets the logical base-table rows affected in this table access, when collected.
+        /// </summary>
+        public ulong? AffectedRows { get; }
 
         /// <summary>
         /// Gets the read statistics.

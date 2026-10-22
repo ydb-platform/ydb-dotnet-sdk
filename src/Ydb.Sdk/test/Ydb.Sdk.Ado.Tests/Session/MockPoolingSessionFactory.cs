@@ -68,7 +68,8 @@ internal class MockPoolingSession(
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl,
-        StatsMode statsMode = StatsMode.None
+        StatsMode statsMode = StatsMode.None,
+        bool collectAffectedRows = false
     ) => new(executeQuery(sessionId));
 
     public override void OnNotSuccessStatusCode(StatusCode code) => _isBroken = true;
