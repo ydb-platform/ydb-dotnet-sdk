@@ -3,16 +3,6 @@ using Xunit;
 
 namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
-// TODO: Fix translation for INNER JOIN:
-// Join cannot contain `>`
-// ```
-// SELECT ...
-// FROM ... AS `l`
-// INNER JOIN (
-//     SELECT ...
-//     FROM .. AS `l1`
-// ) AS `l2` ON `l`.`Id` = `l2`.`Key` AND `l2`.`Sum` > 10
-// ```
 public class ComplexNavigationsQueryYdbTest
     : ComplexNavigationsQueryRelationalTestBase<ComplexNavigationsQueryYdbFixture>
 {
@@ -163,12 +153,6 @@ public class ComplexNavigationsQueryYdbTest
     public override Task
         Join_condition_optimizations_applied_correctly_when_anonymous_type_with_single_property(bool async) =>
         base.Join_condition_optimizations_applied_correctly_when_anonymous_type_with_single_property(async);
-
-    [ConditionalTheory(Skip = "TODO: Fix translation for INNER JOIN")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task
-        Join_condition_optimizations_applied_correctly_when_anonymous_type_with_multiple_properties(bool async) =>
-        base.Join_condition_optimizations_applied_correctly_when_anonymous_type_with_multiple_properties(async);
 
     [ConditionalTheory(Skip = "TODO: Fix translation for INNER JOIN")]
     [MemberData(nameof(IsAsyncData))]

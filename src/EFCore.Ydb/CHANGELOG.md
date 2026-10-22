@@ -1,3 +1,4 @@
+- Fixed LINQ inner joins with nullable composite keys and additional filters, including OR conditions, preserving duplicate matches and enclosing left joins.
 - Added server-side LINQ `TimeOnly.AddMinutes` translation for tick-backed values, preserving ticks and wrapping across midnight.
 - Added server-side LINQ `TimeOnly.AddHours` translation for tick-backed values, preserving ticks and wrapping across midnight.
 - Added server-side LINQ `DateOnly.ToDateTime` translation for dates and tick-backed `TimeOnly` values.
