@@ -13,6 +13,21 @@ public class YdbTransactionTests : TestBase
     private static readonly TemporaryTables<YdbTransactionTests> Tables = new();
 
     [Fact]
+    public async Task Savepoints_WhenNotSupported_EveryMethodThrowsNotSupportedException()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+
+        Assert.False(transaction.SupportsSavepoints);
+        Assert.Throws<NotSupportedException>(() => transaction.Save("sp"));
+        Assert.Throws<NotSupportedException>(() => transaction.Rollback("sp"));
+        Assert.Throws<NotSupportedException>(() => transaction.Release("sp"));
+        await Assert.ThrowsAsync<NotSupportedException>(() => transaction.SaveAsync("sp"));
+        await Assert.ThrowsAsync<NotSupportedException>(() => transaction.RollbackAsync("sp"));
+        await Assert.ThrowsAsync<NotSupportedException>(() => transaction.ReleaseAsync("sp"));
+    }
+
+    [Fact]
     public void Rollback_WhenUpsertThenRollback_ReturnPrevRow()
     {
         using var connection = CreateOpenConnection();
