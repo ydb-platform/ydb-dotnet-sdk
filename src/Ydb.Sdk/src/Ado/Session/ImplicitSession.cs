@@ -14,7 +14,8 @@ internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : I
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl,
-        StatsMode statsMode = StatsMode.None
+        StatsMode statsMode = StatsMode.None,
+        bool collectAffectedRows = false
     )
     {
         var request = new ExecuteQueryRequest
@@ -22,6 +23,7 @@ internal class ImplicitSession(IDriver driver, ImplicitSessionSource source) : I
             ExecMode = ExecMode.Execute,
             QueryContent = new QueryContent { Text = query, Syntax = Syntax.YqlV1 },
             StatsMode = statsMode.ToProto(),
+            CollectAffectedRows = collectAffectedRows,
             TxControl = txControl
         };
         request.Parameters.Add(parameters);

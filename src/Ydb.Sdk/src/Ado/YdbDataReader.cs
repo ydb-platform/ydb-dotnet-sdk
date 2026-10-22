@@ -735,9 +735,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// Gets the number of rows changed, inserted, or deleted by execution of the SQL statement.
     /// </summary>
     /// <remarks>
-    /// For YDB, this always returns -1 as the number of affected records is not available.
+    /// Returns the server-provided affected-row count when collection was enabled; otherwise -1.
     /// </remarks>
-    public override int RecordsAffected => -1;
+    public override int RecordsAffected => QueryStats?.AffectedRows is { } rows && rows <= int.MaxValue
+        ? (int)rows
+        : -1;
 
     /// <summary>
     /// Gets a value that indicates whether the data reader contains one or more rows.
