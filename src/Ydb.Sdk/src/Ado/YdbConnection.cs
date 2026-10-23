@@ -203,15 +203,21 @@ public sealed class YdbConnection : DbConnection
             case ConnectionState.Closed:
                 return;
             case ConnectionState.Broken:
-                ConnectionState = ConnectionState.Closed;
-                _session.Dispose();
+                try
+                {
+                    _session.Dispose();
+                }
+                finally
+                {
+                    SetClosed();
+                }
                 return;
             default:
                 try
                 {
                     if (LastReader is { IsClosed: false })
                     {
-                        await LastReader.CloseAsync().ConfigureAwait(false);
+                        await LastReader.CloseFromConnectionAsync().ConfigureAwait(false);
                     }
 
                     if (CurrentTransaction is { Completed: false })
@@ -219,17 +225,32 @@ public sealed class YdbConnection : DbConnection
                         await CurrentTransaction.RollbackAsync().ConfigureAwait(false);
                     }
 
-                    OnStateChange(OpenToClosedEventArgs);
-
-                    ConnectionState = ConnectionState.Closed;
                 }
                 finally
                 {
-                    _session.Dispose();
+                    try
+                    {
+                        _session.Dispose();
+                    }
+                    finally
+                    {
+                        SetClosed();
+                    }
                 }
 
                 break;
         }
+    }
+
+    private void SetClosed()
+    {
+        if (ConnectionState == ConnectionState.Closed)
+        {
+            return;
+        }
+
+        OnStateChange(OpenToClosedEventArgs);
+        ConnectionState = ConnectionState.Closed;
     }
 
     public override string ConnectionString

@@ -856,6 +856,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </para>
     /// </remarks>
     public override async Task CloseAsync()
+        => await CloseAsyncCore(closeConnection: true).ConfigureAwait(false);
+
+    internal async Task CloseFromConnectionAsync()
+    {
+        _connectionClosed = true;
+        await CloseAsyncCore(closeConnection: false).ConfigureAwait(false);
+    }
+
+    private async Task CloseAsyncCore(bool closeConnection)
     {
         try
         {
@@ -865,7 +874,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         {
             // CommandBehavior.CloseConnection: "the associated Connection object is closed when the associated
             // DataReader object is closed", also when closing the reader throws or a failed read already closed it.
-            if ((_behavior & CommandBehavior.CloseConnection) != 0 && !_connectionClosed)
+            if (closeConnection && (_behavior & CommandBehavior.CloseConnection) != 0 && !_connectionClosed)
             {
                 _connectionClosed = true;
                 await _connection.CloseAsync().ConfigureAwait(false);
@@ -1022,7 +1031,37 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             _dbActivity?.SetException(e);
             _dbActivity?.Dispose();
 
+            await CloseConnectionAfterErrorAsync().ConfigureAwait(false);
+
             throw;
+        }
+        catch (OperationCanceledException)
+        {
+            ReaderState = State.Close;
+            CompleteCommandMetrics();
+            _dbActivity?.Dispose();
+
+            await CloseConnectionAfterErrorAsync().ConfigureAwait(false);
+
+            throw;
+        }
+    }
+
+    private async Task CloseConnectionAfterErrorAsync()
+    {
+        if ((_behavior & CommandBehavior.CloseConnection) == 0 || _connectionClosed)
+        {
+            return;
+        }
+
+        _connectionClosed = true;
+        try
+        {
+            await _connection.CloseAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // Preserve the original read/stream exception.
         }
     }
 
