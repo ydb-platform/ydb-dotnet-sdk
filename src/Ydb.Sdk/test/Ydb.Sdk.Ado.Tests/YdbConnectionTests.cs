@@ -15,7 +15,6 @@ public sealed class YdbConnectionTests : TestBase
 
     private volatile int _counter;
 
-
     [Fact]
     public async Task ServerVersion_WhenOpen_ReturnsTheServersVersion()
     {
