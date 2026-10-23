@@ -1,10 +1,9 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-#if EFCORE9
-using System.Collections.Generic;
-#endif
 
 namespace EntityFrameworkCore.Ydb.Query.Internal;
 
@@ -16,15 +15,268 @@ public class YdbParameterBasedSqlProcessor(
 #if EFCORE9
     protected override Expression ProcessSqlNullability(Expression queryExpression,
         IReadOnlyDictionary<string, object?> parametersValues, out bool canCache)
-        => new JoinPredicateRewriter(Dependencies.SqlExpressionFactory).Visit(
-            new YdbSqlNullabilityProcessor(Dependencies, Parameters).Process(queryExpression, parametersValues,
-                out canCache));
+        => new GroupByAggregateRewriter().Visit(
+            new JoinPredicateRewriter(Dependencies.SqlExpressionFactory).Visit(
+                new YdbSqlNullabilityProcessor(Dependencies, Parameters).Process(queryExpression, parametersValues,
+                    out canCache)));
 #else
     protected override Expression ProcessSqlNullability(Expression queryExpression,
         ParametersCacheDecorator parametersDecorator)
-        => new JoinPredicateRewriter(Dependencies.SqlExpressionFactory).Visit(
-            new YdbSqlNullabilityProcessor(Dependencies, Parameters).Process(queryExpression, parametersDecorator));
+        => new GroupByAggregateRewriter().Visit(
+            new JoinPredicateRewriter(Dependencies.SqlExpressionFactory).Visit(
+                new YdbSqlNullabilityProcessor(Dependencies, Parameters).Process(queryExpression,
+                    parametersDecorator)));
 #endif
+
+    private sealed class GroupByAggregateRewriter : ExpressionVisitor
+    {
+        protected override Expression VisitExtension(Expression node)
+        {
+            var visited = base.VisitExtension(node);
+            if (visited is not SelectExpression { Having: not null } select
+                || select.GroupBy.Count == 0
+                || select.GroupBy.Any(key => key is not ColumnExpression))
+            {
+                return visited;
+            }
+
+            var having = (SqlExpression)new HavingAggregateRewriter(select).Visit(select.Having);
+            return ReferenceEquals(having, select.Having)
+                ? select
+                : select.Update(select.Tables, select.Predicate, select.GroupBy, having, select.Projection,
+                    select.Orderings, select.Offset, select.Limit);
+        }
+
+        private sealed class HavingAggregateRewriter(SelectExpression outer) : ExpressionVisitor
+        {
+            protected override Expression VisitExtension(Expression node)
+            {
+                if (node is ScalarSubqueryExpression scalar)
+                {
+                    return TryInline(scalar.Subquery) ?? scalar;
+                }
+
+                return node is SelectExpression ? node : base.VisitExtension(node);
+            }
+
+            private SqlExpression? TryInline(SelectExpression inner)
+            {
+                if (inner.IsDistinct || inner.GroupBy.Count != 0 || inner.Having is not null
+                    || inner.Orderings.Count != 0 || inner.Offset is not null || inner.Limit is not null
+                    || inner.Projection.Count != 1
+                    || inner.Projection[0].Expression is not SqlFunctionExpression
+                    {
+                        Name: "MIN", IsBuiltIn: true, Arguments: [_]
+                    } aggregate
+                    || outer.Tables.Count == 0 || inner.Tables.Count != outer.Tables.Count + 1
+                    || outer.Tables[0] is not TableExpression outerRoot
+                    || inner.Tables[0] is not TableExpression innerRoot
+                    || outerRoot.Table != innerRoot.Table)
+                {
+                    return null;
+                }
+
+                var aliases = new Dictionary<string, string> { [innerRoot.Alias] = outerRoot.Alias };
+                for (var i = 1; i < outer.Tables.Count; i++)
+                {
+                    if (outer.Tables[i] is not PredicateJoinExpressionBase
+                        {
+                            Table: TableExpression outerTable
+                        } outerJoin
+                        || inner.Tables[i] is not PredicateJoinExpressionBase
+                        {
+                            Table: TableExpression innerTable
+                        } innerJoin
+                        || outerJoin is not (InnerJoinExpression or LeftJoinExpression)
+                        || outerJoin.GetType() != innerJoin.GetType()
+                        || outerTable.Table != innerTable.Table)
+                    {
+                        return null;
+                    }
+
+                    aliases.Add(innerTable.Alias, outerTable.Alias);
+                    var mapper = new ColumnAliasRewriter(aliases, true);
+                    var predicate = mapper.Visit(innerJoin.JoinPredicate);
+                    if (!mapper.IsValid || !predicate.Equals(outerJoin.JoinPredicate))
+                    {
+                        return null;
+                    }
+                }
+
+                if (inner.Tables[^1] is not PredicateJoinExpressionBase { Table: TableExpression extraTable } extraJoin
+                    || extraJoin is not (InnerJoinExpression or LeftJoinExpression))
+                {
+                    return null;
+                }
+
+                // Repeating the same primary-key lookup also preserves a LEFT join's null extension.
+                var matched = false;
+                foreach (var candidate in outer.Tables.OfType<PredicateJoinExpressionBase>())
+                {
+                    var table = (TableExpression)candidate.Table;
+                    if (candidate.GetType() != extraJoin.GetType() || table.Table != extraTable.Table
+                                                                   || !JoinsPrimaryKey(candidate.JoinPredicate, table))
+                    {
+                        continue;
+                    }
+
+                    aliases[extraTable.Alias] = table.Alias;
+                    var mapper = new ColumnAliasRewriter(aliases, true);
+                    var predicate = mapper.Visit(extraJoin.JoinPredicate);
+                    if (mapper.IsValid && predicate.Equals(candidate.JoinPredicate))
+                    {
+                        matched = true;
+                        break;
+                    }
+                }
+
+                if (!matched)
+                {
+                    return null;
+                }
+
+                var predicateMapper = new ColumnAliasRewriter(aliases, false);
+                var terms = Conjuncts((SqlExpression?)predicateMapper.Visit(inner.Predicate)).ToList();
+                if (!predicateMapper.IsValid)
+                {
+                    return null;
+                }
+
+                foreach (var outerTerm in Conjuncts(outer.Predicate))
+                {
+                    if (!terms.Remove(outerTerm))
+                    {
+                        return null;
+                    }
+                }
+
+                foreach (var key in outer.GroupBy.Cast<ColumnExpression>())
+                {
+                    var index = terms.FindIndex(term => IsCorrelation(term, key));
+                    if (index < 0)
+                    {
+                        return null;
+                    }
+
+                    terms.RemoveAt(index);
+                }
+
+                if (terms.Count != 0)
+                {
+                    return null;
+                }
+
+                var aggregateMapper = new ColumnAliasRewriter(aliases, true);
+                var rewritten = (SqlExpression)aggregateMapper.Visit(aggregate);
+                return aggregateMapper.IsValid ? rewritten : null;
+            }
+
+            private static bool JoinsPrimaryKey(SqlExpression predicate, TableExpression table)
+            {
+                if (table.Table is not ITable { PrimaryKey: { } primaryKey })
+                {
+                    return false;
+                }
+
+                var equalities = Conjuncts(predicate).OfType<SqlBinaryExpression>()
+                    .Where(expression => expression.OperatorType == ExpressionType.Equal).ToArray();
+                return primaryKey.Columns.All(key => equalities.Any(equality =>
+                    equality.Left is ColumnExpression left && equality.Right is ColumnExpression right
+                                                           && ((left.TableAlias == table.Alias &&
+                                                                left.Name == key.Name &&
+                                                                right.TableAlias != table.Alias)
+                                                               || (right.TableAlias == table.Alias &&
+                                                                   right.Name == key.Name &&
+                                                                   left.TableAlias != table.Alias))));
+            }
+
+            private static IEnumerable<SqlExpression> Conjuncts(SqlExpression? expression)
+            {
+                if (expression is SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } conjunction)
+                {
+                    foreach (var term in Conjuncts(conjunction.Left))
+                    {
+                        yield return term;
+                    }
+
+                    foreach (var term in Conjuncts(conjunction.Right))
+                    {
+                        yield return term;
+                    }
+                }
+                else if (expression is not null)
+                {
+                    yield return expression;
+                }
+            }
+
+            private static bool IsCorrelation(SqlExpression expression, ColumnExpression key)
+            {
+                if (!key.IsNullable && IsEquality(expression, key))
+                {
+                    return true;
+                }
+
+                return expression is SqlBinaryExpression
+                       {
+                           OperatorType: ExpressionType.OrElse, Left: var left, Right: var right
+                       }
+                       && ((IsEquality(left, key) && IsNullPair(right, key))
+                           || (IsEquality(right, key) && IsNullPair(left, key)));
+            }
+
+            private static bool IsEquality(SqlExpression expression, ColumnExpression key) =>
+                expression is SqlBinaryExpression { OperatorType: ExpressionType.Equal } equality
+                && equality.Left.Equals(key) && equality.Right.Equals(key);
+
+            private static bool IsNullPair(SqlExpression expression, ColumnExpression key) =>
+                expression is SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } conjunction
+                && IsNull(conjunction.Left, key) && IsNull(conjunction.Right, key);
+
+            private static bool IsNull(SqlExpression expression, ColumnExpression key) =>
+                expression is SqlUnaryExpression { OperatorType: ExpressionType.Equal } unary
+                && unary.Operand.Equals(key);
+        }
+
+        private sealed class ColumnAliasRewriter(
+            IReadOnlyDictionary<string, string> aliases,
+            bool requireMappedColumns) : ExpressionVisitor
+        {
+            public bool IsValid { get; private set; } = true;
+
+            protected override Expression VisitExtension(Expression node)
+            {
+                if (node is ColumnExpression column)
+                {
+                    if (aliases.TryGetValue(column.TableAlias, out var alias))
+                    {
+#if EFCORE9
+                        return new ColumnExpression(column.Name, alias, column.Type, column.TypeMapping,
+                            column.IsNullable);
+#else
+                        return new ColumnExpression(column.Name, alias, column.Column, column.Type, column.TypeMapping,
+                            column.IsNullable);
+#endif
+                    }
+
+                    if (requireMappedColumns)
+                    {
+                        IsValid = false;
+                    }
+
+                    return column;
+                }
+
+                if (node is SelectExpression or ScalarSubqueryExpression)
+                {
+                    IsValid = false;
+                    return node;
+                }
+
+                return base.VisitExtension(node);
+            }
+        }
+    }
 
     private sealed class JoinPredicateRewriter(ISqlExpressionFactory sqlExpressionFactory) : ExpressionVisitor
     {
