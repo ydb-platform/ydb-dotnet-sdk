@@ -17,7 +17,15 @@ public class WriterIntegrationTests
     {
         var topicSettings = new CreateTopicSettings
         {
-            Path = _topicName
+            Path = _topicName,
+            SupportedCodecs = { Codec.Raw, Codec.Gzip },
+            Consumers =
+            {
+                new Consumer("codec-consumer")
+                {
+                    SupportedCodecs = { Codec.Raw, Codec.Gzip }
+                }
+            }
         };
         await _topicClient.CreateTopic(topicSettings);
 
