@@ -616,7 +616,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <returns>The zero-based column ordinal.</returns>
     /// <exception cref="IndexOutOfRangeException">Thrown when the column name is not found.</exception>
     /// <remarks>
-    /// As <see cref="IDataRecord.GetOrdinal"/> specifies, the lookup is case-sensitive first; if that fails, a
+    /// As <see cref="DbDataReader.GetOrdinal"/> specifies, the lookup is case-sensitive first; if that fails, a
     /// case-insensitive search returns the first column whose name matches.
     /// </remarks>
     public override int GetOrdinal(string name)
