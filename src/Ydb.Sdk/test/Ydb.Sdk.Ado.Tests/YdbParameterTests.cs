@@ -29,6 +29,15 @@ public class YdbParameterTests : TestBase
     }
 
     [Theory]
+    [InlineData("", "")]
+    [InlineData("@", "$@")]
+    [InlineData("name", "$name")]
+    [InlineData("@name", "$name")]
+    [InlineData("$name", "$name")]
+    public void YdbParameter_WhenConvertedToYqlName_UsesExpectedPrefix(string name, string expected)
+        => Assert.Equal(expected, YdbParameter.ToYqlName(name));
+
+    [Theory]
     [InlineData("name")]
     [InlineData("@name")]
     [InlineData("$name")]

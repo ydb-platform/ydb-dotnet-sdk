@@ -85,6 +85,22 @@ public class YdbParameterCollectionTests
     public void IndexOfAndContains_WhenNameIsNull_ReturnNotFound()
     {
         Assert.Equal(-1, _ydbParameterCollection.IndexOf((string?)null));
-        Assert.Equal(false, _ydbParameterCollection.Contains((string?)null));
+        Assert.False(_ydbParameterCollection.Contains((string?)null));
+    }
+
+    [Theory]
+    [InlineData("name")]
+    [InlineData("@name")]
+    [InlineData("$name")]
+    public void YdbParameters_WhenParameterHasAnyNameFormat_UsesYqlName(string parameterName)
+    {
+        var collection = new YdbParameterCollection
+        {
+            new YdbParameter(parameterName, 42)
+        };
+
+        var parameters = collection.YdbParameters;
+
+        Assert.Contains("$name", parameters.Keys);
     }
 }
