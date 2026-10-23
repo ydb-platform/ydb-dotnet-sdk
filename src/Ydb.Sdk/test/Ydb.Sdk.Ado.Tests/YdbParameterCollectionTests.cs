@@ -80,4 +80,11 @@ public class YdbParameterCollectionTests
             "The value \"System.Object\" is not of type \"YdbParameter\" and cannot be used in this parameter collection.",
             Assert.Throws<InvalidCastException>(() => _ydbParameterCollection.IndexOf(new object())).Message);
     }
+
+    [Fact]
+    public void IndexOfAndContains_WhenNameIsNull_ReturnNotFound()
+    {
+        Assert.Equal(-1, _ydbParameterCollection.IndexOf((string?)null));
+        Assert.Equal(false, _ydbParameterCollection.Contains((string?)null));
+    }
 }

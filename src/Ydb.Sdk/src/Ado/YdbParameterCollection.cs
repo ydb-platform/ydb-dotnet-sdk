@@ -205,8 +205,13 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <remarks>
     /// Names are compared as they are bound, so <c>name</c>, <c>@name</c> and <c>$name</c> find the same parameter.
     /// </remarks>
-    public override int IndexOf(string parameterName)
+    public override int IndexOf(string? parameterName)
     {
+        if (parameterName is null)
+        {
+            return -1;
+        }
+
         var yqlName = YdbParameter.ToYqlName(parameterName);
 
         for (var i = 0; i < _parameters.Count; i++)
@@ -225,7 +230,7 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// </summary>
     /// <param name="parameterName">The name of the parameter to find.</param>
     /// <returns>true if the collection contains the parameter; otherwise, false.</returns>
-    public override bool Contains(string parameterName) => IndexOf(parameterName) != -1;
+    public override bool Contains(string? parameterName) => IndexOf(parameterName) != -1;
 
     /// <summary>
     /// Copies the elements of the collection to an array, starting at a particular array index.
