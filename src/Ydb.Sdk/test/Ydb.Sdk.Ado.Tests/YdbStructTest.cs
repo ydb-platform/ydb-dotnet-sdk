@@ -1,6 +1,5 @@
 using System.Data;
 using Xunit;
-using Ydb;
 using Ydb.Sdk.Ado.YdbType;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -11,12 +10,13 @@ public class YdbStructTest : TestBase
     [InlineData("name", "name")]
     [InlineData("@name", "name")]
     [InlineData("$name", "name")]
-    public void AddParameter_WhenParameterHasAnyNameFormat_UsesUnprefixedMemberName(string parameterName, string expectedName)
+    public void AddParameter_WhenParameterHasAnyNameFormat_UsesUnprefixedMemberName(string parameterName,
+        string expectedName)
     {
         var ydbStruct = new YdbStruct();
         ydbStruct.Add(new YdbParameter(parameterName, DbType.Int32, 42));
 
-        var member = Assert.Single(ydbStruct.Cast<(string Name, global::Ydb.Value Value)>());
+        var member = Assert.Single(ydbStruct.Cast<(string Name, Ydb.Value Value)>());
 
         Assert.Equal(expectedName, member.Name);
     }
