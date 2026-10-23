@@ -247,7 +247,7 @@ public sealed class YdbCommand : DbCommand
 
         var execSettings = CommandTimeout > 0
             ? new GrpcRequestSettings
-            { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout), DbActivity = dbActivity }
+                { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout), DbActivity = dbActivity }
             : new GrpcRequestSettings { DbActivity = dbActivity };
 
         var transaction = YdbConnection.CurrentTransaction;
@@ -258,8 +258,8 @@ public sealed class YdbCommand : DbCommand
         }
 
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery
-                (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl, StatsMode)
-            .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken, behavior)
+                    (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl, StatsMode)
+                .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken, behavior)
             .ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
