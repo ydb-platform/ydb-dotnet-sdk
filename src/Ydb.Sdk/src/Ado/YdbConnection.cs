@@ -205,6 +205,7 @@ public sealed class YdbConnection : DbConnection
                 {
                     SetClosed();
                 }
+
                 return;
             default:
                 try
@@ -218,7 +219,6 @@ public sealed class YdbConnection : DbConnection
                     {
                         await CurrentTransaction.RollbackAsync().ConfigureAwait(false);
                     }
-
                 }
                 finally
                 {

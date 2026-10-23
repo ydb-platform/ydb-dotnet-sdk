@@ -144,7 +144,8 @@ public class YdbCommandTests : TestBase
     }
 
     [Fact]
-    public async Task CloseConnection_WhenConnectionClosesReader_EmitsOneEventAndOldReaderCannotCloseReopenedConnection()
+    public async Task
+        CloseConnection_WhenConnectionClosesReader_EmitsOneEventAndOldReaderCannotCloseReopenedConnection()
     {
         await using var connection = await CreateOpenConnectionAsync();
         var closedEvents = 0;
