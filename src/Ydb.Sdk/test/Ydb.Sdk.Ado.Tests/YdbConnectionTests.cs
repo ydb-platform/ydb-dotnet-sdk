@@ -19,7 +19,8 @@ public sealed class YdbConnectionTests : TestBase
     public async Task ServerVersion_WhenOpen_ReturnsTheServersVersion()
     {
         await using var connection = await CreateOpenConnectionAsync();
-        var expected = (string?)await new YdbCommand("SELECT CAST(Version() AS Utf8);", connection).ExecuteScalarAsync();
+        var expected =
+            (string?)await new YdbCommand("SELECT CAST(Version() AS Utf8);", connection).ExecuteScalarAsync();
 
         Assert.False(string.IsNullOrEmpty(expected));
         Assert.Equal(expected, connection.ServerVersion);
