@@ -2,7 +2,10 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Ydb.Query;
+using Ydb.Query.V1;
 using Ydb.Sdk.Ado.BulkUpsert;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
 using static System.Data.IsolationLevel;
@@ -18,8 +21,15 @@ namespace Ydb.Sdk.Ado;
 /// </remarks>
 public sealed class YdbConnection : DbConnection
 {
-    // The server's version, asked once per driver (one endpoint and database) and kept while the driver lives.
-    private static readonly ConditionalWeakTable<IDriver, string> ServerVersions = new();
+    private sealed class ServerVersionCache
+    {
+        internal readonly SemaphoreSlim InitializationLock = new(1, 1);
+        internal string? Value;
+        internal bool Initialized;
+    }
+
+    // The server's version is shared per driver (one endpoint and database) and initialized once.
+    private static readonly ConditionalWeakTable<IDriver, ServerVersionCache> ServerVersions = new();
 
     private static readonly StateChangeEventArgs ClosedToOpenEventArgs =
         new(ConnectionState.Closed, ConnectionState.Open);
@@ -283,17 +293,59 @@ public sealed class YdbConnection : DbConnection
             ThrowIfConnectionClosed();
 
             var driver = _sessionSource!.Driver;
-            if (ServerVersions.TryGetValue(driver, out var version))
+            var cache = ServerVersions.GetValue(driver, static _ => new ServerVersionCache());
+
+            cache.InitializationLock.Wait();
+            try
             {
+                if (cache.Initialized)
+                {
+                    return cache.Value!;
+                }
+
+                // Query directly through the driver: ServerVersion must not borrow this connection's busy
+                // session or participate in its transaction.
+                var version = ReadServerVersionAsync(driver).GetAwaiter().GetResult();
+                cache.Value = version;
+                cache.Initialized = true;
                 return version;
             }
-
-            // Version() is a String (bytes) in YQL; Utf8 reads back as text.
-            version = (string?)new YdbCommand("SELECT CAST(Version() AS Utf8);", this).ExecuteScalar() ?? string.Empty;
-            ServerVersions.AddOrUpdate(driver, version);
-
-            return version;
+            finally
+            {
+                cache.InitializationLock.Release();
+            }
         }
+    }
+
+    private static async Task<string> ReadServerVersionAsync(IDriver driver)
+    {
+        var request = new ExecuteQueryRequest
+        {
+            ExecMode = ExecMode.Execute,
+            QueryContent = new QueryContent { Text = "SELECT CAST(Version() AS Utf8);", Syntax = Syntax.YqlV1 },
+            StatsMode = StatsMode.None.ToProto()
+        };
+
+        using var stream = await driver.ServerStreamCall(
+            QueryService.ExecuteQueryMethod,
+            request,
+            new GrpcRequestSettings()).ConfigureAwait(false);
+
+        while (await stream.MoveNextAsync().ConfigureAwait(false))
+        {
+            var part = stream.Current;
+            if (part.Status.IsNotSuccess())
+            {
+                throw YdbException.FromServer(part.Status, part.Issues);
+            }
+
+            if (part.ResultSet is { Rows.Count: > 0 } resultSet && resultSet.Rows[0].Items.Count > 0)
+            {
+                return resultSet.Rows[0].Items[0].UnpackText();
+            }
+        }
+
+        throw new YdbException("YDB server returned no result for Version().");
     }
 
     protected override YdbCommand CreateDbCommand() => new(this);

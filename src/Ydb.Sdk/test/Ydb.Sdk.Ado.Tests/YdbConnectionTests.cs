@@ -38,6 +38,69 @@ public sealed class YdbConnectionTests : TestBase
     }
 
     [Fact]
+    public async Task ServerVersion_WhenReaderIsActive_PreservesReader()
+    {
+        await using var connection = CreateOpenConnectionWithUniquePool(maxPoolSize: 1);
+        await using var reader = await new YdbCommand("SELECT 1; SELECT 2;", connection).ExecuteReaderAsync();
+
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(1, reader.GetInt32(0));
+
+        Assert.False(string.IsNullOrEmpty(connection.ServerVersion));
+
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(2, reader.GetInt32(0));
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenTransactionIsActive_PreservesTransaction()
+    {
+        await using var connection = CreateOpenConnectionWithUniquePool();
+        await using var transaction = connection.BeginTransaction();
+
+        Assert.False(string.IsNullOrEmpty(connection.ServerVersion));
+
+        await using var command = new YdbCommand("SELECT 1;", connection) { Transaction = transaction };
+        Assert.Equal(1, await command.ExecuteScalarAsync());
+
+        await transaction.CommitAsync();
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenReadConcurrently_InitializesOncePerDriver()
+    {
+        var connectionString = ConnectionString + $";MaxPoolSize=1;PoolName=server-version-{Guid.NewGuid():N}";
+        await using var first = new YdbConnection(new YdbConnectionStringBuilder(connectionString)
+        {
+            LoggerFactory = TestUtils.LoggerFactory
+        });
+        await using var second = new YdbConnection(new YdbConnectionStringBuilder(connectionString)
+        {
+            LoggerFactory = TestUtils.LoggerFactory
+        });
+        await Task.WhenAll(first.OpenAsync(), second.OpenAsync());
+
+        var versions = await Task.WhenAll(
+            Task.Run(() => first.ServerVersion),
+            Task.Run(() => second.ServerVersion));
+
+        Assert.NotNull(versions[0]);
+        Assert.Equal(versions[0], versions[1]);
+    }
+
+    private static YdbConnection CreateOpenConnectionWithUniquePool(int maxPoolSize = 10)
+    {
+        var connection = new YdbConnection(new YdbConnectionStringBuilder(
+            ConnectionString + $";MaxPoolSize={maxPoolSize};PoolName=server-version-{Guid.NewGuid():N}")
+        {
+            LoggerFactory = TestUtils.LoggerFactory
+        });
+        connection.Open();
+        return connection;
+    }
+
+    [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
     {
         var connectionString = ConnectionString + ";MaxPoolSize=100;CreateSessionTimeout=20";
