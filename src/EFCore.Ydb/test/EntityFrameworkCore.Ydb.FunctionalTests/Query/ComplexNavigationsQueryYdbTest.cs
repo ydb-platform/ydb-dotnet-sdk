@@ -14,11 +14,6 @@ public class ComplexNavigationsQueryYdbTest
 
     [ConditionalTheory(Skip = "TODO: Fix translation for INNER JOIN")]
     [MemberData(nameof(IsAsyncData))]
-    public override Task Simple_level1_level2_GroupBy_Having_Count(bool async) =>
-        base.Simple_level1_level2_GroupBy_Having_Count(async);
-
-    [ConditionalTheory(Skip = "TODO: Fix translation for INNER JOIN")]
-    [MemberData(nameof(IsAsyncData))]
     public override Task Optional_navigation_inside_nested_method_call_translated_to_join(bool async) =>
         base.Optional_navigation_inside_nested_method_call_translated_to_join(async);
 
