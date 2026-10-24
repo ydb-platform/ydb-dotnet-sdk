@@ -59,7 +59,8 @@ public sealed class YdbCommand : DbCommand
 
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {
-        var dataReader = await ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        var dataReader = await ExecuteReaderAsync(CommandBehavior.Default, cancellationToken, true)
+            .ConfigureAwait(false);
         await using var _ = ((IAsyncDisposable)dataReader).ConfigureAwait(false);
 
         while (await dataReader.NextResultAsync(cancellationToken).ConfigureAwait(false))
@@ -190,6 +191,12 @@ public sealed class YdbCommand : DbCommand
     /// </summary>
     public StatsMode StatsMode { get; set; } = StatsMode.None;
 
+    /// <summary>
+    /// Gets or sets whether the server should collect affected-row statistics for data readers.
+    /// ExecuteNonQuery always enables this collection because its return value is RecordsAffected.
+    /// </summary>
+    public bool CollectAffectedRows { get; set; }
+
     public override bool DesignTimeVisible { get; set; }
 
     protected override YdbParameter CreateDbParameter() => new();
@@ -202,6 +209,10 @@ public sealed class YdbCommand : DbCommand
 
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken)
+        => await ExecuteDbDataReaderAsync(behavior, cancellationToken, CollectAffectedRows).ConfigureAwait(false);
+
+    private async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
+        CancellationToken cancellationToken, bool collectAffectedRows)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -257,8 +268,14 @@ public sealed class YdbCommand : DbCommand
             throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
         }
 
+        var effectiveStatsMode = collectAffectedRows && StatsMode == StatsMode.None
+            ? StatsMode.Basic
+            : StatsMode;
+
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery
-                (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl, StatsMode)
+                (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl,
+                    effectiveStatsMode,
+                    collectAffectedRows)
             .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
@@ -268,7 +285,7 @@ public sealed class YdbCommand : DbCommand
     }
 
     public new async Task<YdbDataReader> ExecuteReaderAsync() =>
-        (YdbDataReader)await ExecuteDbDataReaderAsync(CommandBehavior.Default, CancellationToken.None)
+        await ExecuteReaderAsync(CommandBehavior.Default, CancellationToken.None, CollectAffectedRows)
             .ConfigureAwait(false);
 
     public new Task<YdbDataReader> ExecuteReaderAsync(CancellationToken cancellationToken) =>
@@ -281,5 +298,12 @@ public sealed class YdbCommand : DbCommand
     // ReSharper disable once MemberCanBePrivate.Global
     public new async Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior,
         CancellationToken cancellationToken) =>
-        (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken).ConfigureAwait(false);
+        await ExecuteReaderAsync(behavior, cancellationToken, CollectAffectedRows).ConfigureAwait(false);
+
+    private async Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior,
+        CancellationToken cancellationToken, bool collectAffectedRows)
+    {
+        return (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken, collectAffectedRows)
+            .ConfigureAwait(false);
+    }
 }

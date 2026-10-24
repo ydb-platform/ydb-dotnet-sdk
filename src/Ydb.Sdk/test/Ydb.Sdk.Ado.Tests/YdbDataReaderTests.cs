@@ -458,7 +458,8 @@ SELECT Key, Value FROM AS_TABLE($new_data);
                                     PartitionsCount = 9,
                                     Reads = new OperationStats { Rows = 10, Bytes = 11 },
                                     Updates = new OperationStats { Rows = 12, Bytes = 13 },
-                                    Deletes = new OperationStats { Rows = 14, Bytes = 15 }
+                                    Deletes = new OperationStats { Rows = 14, Bytes = 15 },
+                                    AffectedRows = 16
                                 }
                             }
                         }
@@ -500,6 +501,9 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal((ulong)13, table.Updates.Bytes);
         Assert.Equal((ulong)14, table.Deletes.Rows);
         Assert.Equal((ulong)15, table.Deletes.Bytes);
+        Assert.Equal((ulong)16, table.AffectedRows);
+        Assert.Equal((ulong)16, stats.AffectedRows);
+        Assert.Equal(16, reader.RecordsAffected);
 
         snapshot.PlanStep = 100;
         var timestamp = Assert.IsType<YdbVirtualTimestamp>(reader.SnapshotTimestamp);
@@ -508,6 +512,73 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.False(await reader.NextResultAsync());
         Assert.Same(timestamp, reader.SnapshotTimestamp);
         Assert.Same(stats, reader.QueryStats);
+    }
+
+    [Fact]
+    public async Task RecordsAffected_WhenStatsAreMissingOrTooLarge_ReturnsMinusOne()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var withoutStats = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() }
+            ]),
+            connection,
+            null,
+            0);
+
+        Assert.Equal(-1, withoutStats.RecordsAffected);
+
+        var tooLargeStats = new QueryStats
+        {
+            QueryPhases =
+            {
+                new QueryPhaseStats
+                {
+                    TableAccess = { new TableAccessStats { AffectedRows = ulong.MaxValue } }
+                }
+            }
+        };
+        await using var withTooLargeStats = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                new()
+                {
+                    Status = StatusIds.Types.StatusCode.Success,
+                    ResultSet = new ResultSet(),
+                    ExecStats = tooLargeStats
+                }
+            ]),
+            connection,
+            null,
+            0);
+
+        Assert.Equal(-1, withTooLargeStats.RecordsAffected);
+    }
+
+    [Fact]
+    public void AffectedRows_WhenMultipleTablesAreReported_SumsOnlyReportedTables()
+    {
+        var stats = new YdbQueryStats(new QueryStats
+        {
+            QueryPhases =
+            {
+                new QueryPhaseStats
+                {
+                    TableAccess =
+                    {
+                        new TableAccessStats { AffectedRows = 2 },
+                        new TableAccessStats()
+                    }
+                },
+                new QueryPhaseStats
+                {
+                    TableAccess = { new TableAccessStats { AffectedRows = 3 } }
+                }
+            }
+        });
+
+        Assert.Equal((ulong)2, stats.Phases[0].TableAccesses[0].AffectedRows);
+        Assert.Null(stats.Phases[0].TableAccesses[1].AffectedRows);
+        Assert.Equal((ulong)5, stats.AffectedRows);
     }
 
     private static async Task<YdbDataReader> CreateYdbDataReader(
