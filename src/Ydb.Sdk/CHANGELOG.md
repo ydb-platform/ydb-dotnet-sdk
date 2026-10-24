@@ -1,5 +1,7 @@
 - Fix ADO.NET: `YdbTransaction.Release` and `ReleaseAsync` throw `NotSupportedException`, like `Save` and
   `Rollback(string)`, since `SupportsSavepoints` is false; they used to report success.
+- Fix ADO.NET: `YdbConnection.ServerVersion` returns the server's `Version()` (asked once per endpoint and database)
+  instead of an empty string.
 - **Breaking Change** ADO.NET: renamed `StatusCode.ClientCancelled` to `StatusCode.StreamCancelled` for closing an
   unfinished query stream; this status is never retried. Renamed the corresponding `ydb.query.session.closed` reason
   from `client_cancelled` to `stream_cancelled`.
