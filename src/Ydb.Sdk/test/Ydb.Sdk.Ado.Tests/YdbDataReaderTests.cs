@@ -514,6 +514,73 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Same(stats, reader.QueryStats);
     }
 
+    [Fact]
+    public async Task RecordsAffected_WhenStatsAreMissingOrTooLarge_ReturnsMinusOne()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var withoutStats = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() }
+            ]),
+            connection,
+            null,
+            0);
+
+        Assert.Equal(-1, withoutStats.RecordsAffected);
+
+        var tooLargeStats = new QueryStats
+        {
+            QueryPhases =
+            {
+                new QueryPhaseStats
+                {
+                    TableAccess = { new TableAccessStats { AffectedRows = ulong.MaxValue } }
+                }
+            }
+        };
+        await using var withTooLargeStats = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                new()
+                {
+                    Status = StatusIds.Types.StatusCode.Success,
+                    ResultSet = new ResultSet(),
+                    ExecStats = tooLargeStats
+                }
+            ]),
+            connection,
+            null,
+            0);
+
+        Assert.Equal(-1, withTooLargeStats.RecordsAffected);
+    }
+
+    [Fact]
+    public void AffectedRows_WhenMultipleTablesAreReported_SumsOnlyReportedTables()
+    {
+        var stats = new YdbQueryStats(new QueryStats
+        {
+            QueryPhases =
+            {
+                new QueryPhaseStats
+                {
+                    TableAccess =
+                    {
+                        new TableAccessStats { AffectedRows = 2 },
+                        new TableAccessStats()
+                    }
+                },
+                new QueryPhaseStats
+                {
+                    TableAccess = { new TableAccessStats { AffectedRows = 3 } }
+                }
+            }
+        });
+
+        Assert.Equal((ulong)2, stats.Phases[0].TableAccesses[0].AffectedRows);
+        Assert.Null(stats.Phases[0].TableAccesses[1].AffectedRows);
+        Assert.Equal((ulong)5, stats.AffectedRows);
+    }
+
     private static async Task<YdbDataReader> CreateYdbDataReader(
         MockAsyncEnumerator<ExecuteQueryResponsePart> enumerator,
         YdbConnection ydbConnection
