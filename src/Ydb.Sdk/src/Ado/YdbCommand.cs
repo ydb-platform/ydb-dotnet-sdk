@@ -258,8 +258,9 @@ public sealed class YdbCommand : DbCommand
         }
 
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery
-                (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl, StatsMode)
-            .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
+                    (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl, StatsMode)
+                .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken, behavior)
+            .ConfigureAwait(false);
 
         YdbConnection.LastReader = ydbDataReader;
         YdbConnection.LastCommand = CommandText;

@@ -1,4 +1,5 @@
 using System.Data;
+using Moq;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Query;
@@ -508,6 +509,75 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.False(await reader.NextResultAsync());
         Assert.Same(timestamp, reader.SnapshotTimestamp);
         Assert.Same(stats, reader.QueryStats);
+    }
+
+    [Fact]
+    public async Task NextResultAsync_WhenStreamFailsWithCloseConnection_ClosesConnection()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var success = new List<ExecuteQueryResponsePart>
+        {
+            new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() }
+        };
+        success.Add(new ExecuteQueryResponsePart
+        {
+            Status = StatusIds.Types.StatusCode.BadRequest,
+            Issues = { new IssueMessage { Message = "query failed" } }
+        });
+        await using var reader = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>(success),
+            connection,
+            null,
+            0,
+            behavior: CommandBehavior.CloseConnection);
+
+        var exception = await Assert.ThrowsAsync<YdbException>(() => reader.NextResultAsync());
+
+        Assert.Equal(StatusCode.BadRequest, exception.Code);
+        Assert.True(reader.IsClosed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public async Task NextResultAsync_WhenStreamFailsWithoutCloseConnection_LeavesConnectionOpen()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var success = new List<ExecuteQueryResponsePart>
+        {
+            new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() }
+        };
+        success.Add(new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.BadRequest });
+        await using var reader = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>(success), connection, null, 0);
+
+        await Assert.ThrowsAsync<YdbException>(() => reader.NextResultAsync());
+
+        Assert.Equal(ConnectionState.Open, connection.State);
+    }
+
+    [Fact]
+    public async Task NextResultAsync_WhenStreamIsCancelledWithCloseConnection_ClosesConnection()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var stream = new Mock<IServerStream<ExecuteQueryResponsePart>>(MockBehavior.Strict);
+        stream.SetupSequence(s => s.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ThrowsAsync(new OperationCanceledException());
+        stream.SetupSequence(s => s.Current)
+            .Returns(new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = new ResultSet()
+            });
+        stream.Setup(s => s.Dispose());
+
+        await using var reader = await YdbDataReader.CreateYdbDataReader(
+            stream.Object, connection, null, 0, behavior: CommandBehavior.CloseConnection);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => reader.NextResultAsync());
+
+        Assert.True(reader.IsClosed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
     }
 
     private static async Task<YdbDataReader> CreateYdbDataReader(

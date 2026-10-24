@@ -1,3 +1,4 @@
+using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Text.Json;
@@ -30,6 +31,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly RepeatedField<IssueMessage> _issueMessagesInStream = new();
     private readonly Activity? _dbActivity;
     private readonly long _startTimestamp;
+    private readonly CommandBehavior _behavior;
+    private bool _connectionClosed;
 
     private int _currentRowIndex = -1;
     private long _resultSetIndex = -1;
@@ -87,7 +90,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         YdbConnection connection,
         Activity? dbActivity,
-        long startTimestamp)
+        long startTimestamp,
+        CommandBehavior behavior)
     {
         _stream = resultSetStream;
         _connection = connection;
@@ -95,6 +99,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         _ydbTransaction = connection.CurrentTransaction;
         _dbActivity = dbActivity;
         _startTimestamp = startTimestamp;
+        _behavior = behavior;
     }
 
     /// <summary>
@@ -105,16 +110,19 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="dbActivity">OTel span for the current operation.</param>
     /// <param name="startTimestamp">Timestamp when the command execution started.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <param name="behavior">The command behavior; <see cref="CommandBehavior.CloseConnection"/> closes the connection
+    /// when the reader is closed.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized YdbDataReader.</returns>
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         YdbConnection connection,
         Activity? dbActivity,
         long startTimestamp,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        CommandBehavior behavior = CommandBehavior.Default
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp);
+        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp, behavior);
         await ydbDataReader.Init(cancellationToken).ConfigureAwait(false);
 
         return ydbDataReader;
@@ -848,6 +856,33 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </para>
     /// </remarks>
     public override async Task CloseAsync()
+        => await CloseAsyncCore(closeConnection: true).ConfigureAwait(false);
+
+    internal async Task CloseFromConnectionAsync()
+    {
+        _connectionClosed = true;
+        await CloseAsyncCore(closeConnection: false).ConfigureAwait(false);
+    }
+
+    private async Task CloseAsyncCore(bool closeConnection)
+    {
+        try
+        {
+            await CloseReaderAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            // CommandBehavior.CloseConnection: "the associated Connection object is closed when the associated
+            // DataReader object is closed", also when closing the reader throws or a failed read already closed it.
+            if (closeConnection && (_behavior & CommandBehavior.CloseConnection) != 0 && !_connectionClosed)
+            {
+                _connectionClosed = true;
+                await _connection.CloseAsync().ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task CloseReaderAsync()
     {
         if (ReaderState == State.Close)
         {
@@ -996,7 +1031,37 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             _dbActivity?.SetException(e);
             _dbActivity?.Dispose();
 
+            await CloseConnectionAfterErrorAsync().ConfigureAwait(false);
+
             throw;
+        }
+        catch (OperationCanceledException)
+        {
+            ReaderState = State.Close;
+            CompleteCommandMetrics();
+            _dbActivity?.Dispose();
+
+            await CloseConnectionAfterErrorAsync().ConfigureAwait(false);
+
+            throw;
+        }
+    }
+
+    private async Task CloseConnectionAfterErrorAsync()
+    {
+        if ((_behavior & CommandBehavior.CloseConnection) == 0 || _connectionClosed)
+        {
+            return;
+        }
+
+        _connectionClosed = true;
+        try
+        {
+            await _connection.CloseAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // Preserve the original read/stream exception.
         }
     }
 
