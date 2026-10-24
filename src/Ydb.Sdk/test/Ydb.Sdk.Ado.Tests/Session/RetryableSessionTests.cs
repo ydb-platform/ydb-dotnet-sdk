@@ -108,4 +108,38 @@ public class RetryableSessionTests
 
         Assert.Equal(3, factory.SessionOpenedCount);
     }
+
+    [Fact]
+    public async Task ExecuteQuery_WhenCollectAffectedRows_PassesTheOptionToTheSession()
+    {
+        StatsMode observedStatsMode = StatsMode.None;
+        var observedCollectAffectedRows = false;
+        var factory = new MockPoolingSessionFactory(1)
+        {
+            ExecuteQuery = _ => new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                new() { Status = StatusIds.Types.StatusCode.Success }
+            ]),
+            ExecuteQueryOptions = (statsMode, collectAffectedRows) =>
+            {
+                observedStatsMode = statsMode;
+                observedCollectAffectedRows = collectAffectedRows;
+            }
+        };
+        var retryableSession = new RetryableSession(new PoolingSessionSource<MockPoolingSession>(
+                factory,
+                new YdbConnectionStringBuilder { MaxPoolSize = 1 }),
+            new YdbRetryPolicyExecutor(new YdbRetryPolicy(new YdbRetryPolicyConfig { MaxAttempts = 1 })));
+
+        var stream = await retryableSession.ExecuteQuery(
+            "UPDATE table SET value = 1",
+            new Dictionary<string, TypedValue>(),
+            new GrpcRequestSettings(),
+            null,
+            StatsMode.Basic,
+            collectAffectedRows: true);
+
+        Assert.True(await stream.MoveNextAsync());
+        Assert.Equal(StatsMode.Basic, observedStatsMode);
+        Assert.True(observedCollectAffectedRows);
+    }
 }
