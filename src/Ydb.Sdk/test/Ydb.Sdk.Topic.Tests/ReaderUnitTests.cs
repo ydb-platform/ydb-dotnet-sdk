@@ -1424,7 +1424,7 @@ public class ReaderUnitTests
         _mockStream.SetupSequence(stream => stream.Current)
             .Returns(InitResponse)
             .Returns(StartPartitionSessionRequest())
-            .Returns(ReadResponse(0, BitConverter.GetBytes(100)));
+            .Returns(ReadResponse(0, BitConverter.GetBytes(100), BitConverter.GetBytes(101)));
 
         await using var reader = new ReaderBuilder<int>(_driverFactoryMock)
         {
@@ -1436,6 +1436,12 @@ public class ReaderUnitTests
 
         Assert.Equal("Error when deserializing message data",
             (await Assert.ThrowsAsync<ReaderException>(() => reader.ReadAsync().AsTask())).Message);
+        Assert.Equal("Error when deserializing message data",
+            (await Assert.ThrowsAsync<ReaderException>(() => reader.ReadAsync().AsTask())).Message);
+        using var cancellation = new CancellationTokenSource();
+        var nextRead = reader.ReadAsync(cancellation.Token).AsTask();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => nextRead);
     }
 
     /*

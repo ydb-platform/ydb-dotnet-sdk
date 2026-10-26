@@ -18,6 +18,7 @@ internal class InternalBatchMessages<TValue>(
 
     internal long ReceivedTimestamp { get; } = receivedTimestamp;
     internal string Topic => partitionsSession.TopicPath;
+    internal int RemainingMessages => IsActive ? _messageCount - Volatile.Read(ref _readMessageCount) : 0;
 
     private bool IsActive => partitionsSession.IsActive &&
                              readerSession.IsActive &&
@@ -40,7 +41,7 @@ internal class InternalBatchMessages<TValue>(
         var batch = batches[_batchIndex];
         var messageData = batch.MessageData[_startMessageDataIndex++];
         _ = readerSession.TryReadRequestBytes(
-            Utils.CalculateApproximatelyBytesSize(approximatelyBatchSize, _messageCount, _readMessageCount++));
+            Utils.CalculateApproximatelyBytesSize(approximatelyBatchSize, _messageCount, _readMessageCount));
 
         TValue value;
         try
@@ -50,6 +51,10 @@ internal class InternalBatchMessages<TValue>(
         catch (Exception e)
         {
             throw new ReaderException("Error when deserializing message data", e);
+        }
+        finally
+        {
+            _readMessageCount++;
         }
 
         var nextCommitedOffset = messageData.Offset + 1;

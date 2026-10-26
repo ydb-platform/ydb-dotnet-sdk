@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Ydb.Sdk.Internal;
@@ -7,9 +6,15 @@ namespace Ydb.Sdk.Topic.Reader;
 
 internal interface IReaderMetricsSource
 {
-    long GetPartitionSessionCount(string topic);
+    IEnumerable<Measurement<long>> GetTopicMeasurements(long value, KeyValuePair<string, object?>[] commonTags);
 
-    long GetCommitOffsetLagMax(string topic);
+    IEnumerable<Measurement<long>> GetPartitionSessionCount(KeyValuePair<string, object?>[] commonTags);
+
+    IEnumerable<Measurement<long>> GetCommitOffsetLagMax(KeyValuePair<string, object?>[] commonTags);
+
+    IEnumerable<Measurement<long>> GetLocalBufferMessages(KeyValuePair<string, object?>[] commonTags);
+
+    IEnumerable<Measurement<double>> GetLocalBufferMessageAgeMax(KeyValuePair<string, object?>[] commonTags);
 }
 
 /// <summary>
@@ -31,7 +36,6 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IReaderMetricsSource _readerMetricsSource;
-    private readonly ConcurrentDictionary<string, TopicMetrics> _topics = new();
     private long _creditBalanceBytes;
 
     static ReaderMetricsReporter()
@@ -48,7 +52,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
             "ydb.topic.reader.credit_balance_bytes",
             ObserveCreditBalanceBytes,
             unit: "By",
-            description: "The protocol credit granted to the server and not yet consumed by read responses.");
+            description: "The shared read-stream credit, reported for each subscribed topic.");
 
         LocalBufferMessageAgeMax = meter.CreateObservableGauge(
             "ydb.topic.reader.local_buffer.message_age.max",
@@ -70,12 +74,14 @@ internal sealed class ReaderMetricsReporter : IDisposable
         ReceivedBytes = meter.CreateCounter<long>(
             "ydb.topic.reader.received.bytes",
             unit: "By",
-            description: "The protocol bytes_size received in read responses.");
+            description:
+            "The protocol bytes_size apportioned by partition data using the read-stream flow control shares.");
 
         SessionErrors = meter.CreateCounter<long>(
             "ydb.topic.reader.session.errors",
             unit: "{error}",
-            description: "The number of reader stream session errors by retry decision.");
+            description:
+            "The number of reader stream session errors affecting each subscribed topic by retry decision.");
 
         DeliveredMessages = meter.CreateCounter<long>(
             "ydb.topic.reader.delivered.messages",
@@ -106,7 +112,6 @@ internal sealed class ReaderMetricsReporter : IDisposable
         string database,
         string? consumer,
         string? readerName,
-        IEnumerable<string> topics,
         IReaderMetricsSource readerMetricsSource)
     {
         _readerMetricsSource = readerMetricsSource;
@@ -123,11 +128,6 @@ internal sealed class ReaderMetricsReporter : IDisposable
         commonTags.Add("reader.name", readerName ?? NextReaderName);
 
         _commonTags = commonTags.ToArray();
-        foreach (var topic in topics)
-        {
-            RegisterTopic(topic);
-        }
-
         Register();
     }
 
@@ -135,7 +135,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     internal static long ReportReadResponseStart() => LocalBufferMessageAgeMax.Enabled ? Stopwatch.GetTimestamp() : 0;
 
-    internal void ReportReceivedBytes(long bytes) => ReceivedBytes.Add(bytes, _commonTags);
+    internal void ReportReceivedBytes(long bytes, string topic) => Record(ReceivedBytes, bytes, topic);
 
     internal void ReportCreditBalanceBytes(long bytes)
     {
@@ -157,30 +157,20 @@ internal sealed class ReaderMetricsReporter : IDisposable
         Interlocked.Exchange(ref _creditBalanceBytes, bytes);
     }
 
-    internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
-        TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
-
-    internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
-
-    internal void RegisterTopic(string topic) =>
-        _topics.GetOrAdd(topic, value => new TopicMetrics(new TagList(_commonTags) { { "topic", value } }.ToArray()));
-
-    internal void ReportLocalBufferMessages(long messages, string topic) =>
-        Interlocked.Add(ref _topics[topic].LocalBufferMessages, messages);
-
-    internal void ResetLocalBufferMessages()
+    internal void ReportSessionError(StatusCode statusCode, bool retry = true)
     {
-        foreach (var topic in _topics.Values)
+        if (!SessionErrors.Enabled)
         {
-            Interlocked.Exchange(ref topic.LocalBufferMessages, 0);
+            return;
+        }
+
+        foreach (var measurement in _readerMetricsSource.GetTopicMeasurements(1, _commonTags))
+        {
+            TopicMetricsUtils.ReportSessionError(SessionErrors, measurement.Tags.ToArray(), statusCode, retry);
         }
     }
 
-    internal void RegisterBufferedBatch(object batch, string topic, long receivedTimestamp) =>
-        _topics[topic].BufferedBatches.TryAdd(batch, receivedTimestamp);
-
-    internal void RemoveBufferedBatch(object batch, string topic) =>
-        _topics[topic].BufferedBatches.TryRemove(batch, out _);
+    internal void ReportDelivered(long messages, string topic) => Record(DeliveredMessages, messages, topic);
 
     internal void ReportCommitQueued(long messages, string topic) => Record(CommitQueued, messages, topic);
 
@@ -201,11 +191,6 @@ internal sealed class ReaderMetricsReporter : IDisposable
         {
             Reporters.Remove(this);
         }
-
-        foreach (var topic in _topics.Values)
-        {
-            topic.BufferedBatches.Clear();
-        }
     }
 
     private void Record(Counter<long> counter, long value, string topic)
@@ -224,9 +209,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters
-                .SelectMany(reporter => reporter._topics.Select(topic =>
-                    new Measurement<long>(reporter._readerMetricsSource.GetPartitionSessionCount(topic.Key),
-                        topic.Value.Tags)))
+                .SelectMany(reporter =>
+                    reporter._readerMetricsSource.GetPartitionSessionCount(reporter._commonTags))
                 .ToArray();
         }
     }
@@ -236,8 +220,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters
-                .Select(reporter =>
-                    new Measurement<long>(Interlocked.Read(ref reporter._creditBalanceBytes), reporter._commonTags))
+                .SelectMany(reporter => reporter._readerMetricsSource.GetTopicMeasurements(
+                    Interlocked.Read(ref reporter._creditBalanceBytes), reporter._commonTags))
                 .ToArray();
         }
     }
@@ -246,8 +230,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
     {
         lock (Reporters)
         {
-            return Reporters.SelectMany(reporter => reporter._topics.Values.Select(topic =>
-                    new Measurement<double>(topic.OldestAge, topic.Tags)))
+            return Reporters.SelectMany(reporter =>
+                    reporter._readerMetricsSource.GetLocalBufferMessageAgeMax(reporter._commonTags))
                 .ToArray();
         }
     }
@@ -256,8 +240,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
     {
         lock (Reporters)
         {
-            return Reporters.SelectMany(reporter => reporter._topics.Values.Select(topic =>
-                    new Measurement<long>(Interlocked.Read(ref topic.LocalBufferMessages), topic.Tags)))
+            return Reporters.SelectMany(reporter =>
+                    reporter._readerMetricsSource.GetLocalBufferMessages(reporter._commonTags))
                 .ToArray();
         }
     }
@@ -266,26 +250,9 @@ internal sealed class ReaderMetricsReporter : IDisposable
     {
         lock (Reporters)
         {
-            return Reporters.SelectMany(reporter => reporter._topics.Select(topic =>
-                    new Measurement<long>(reporter._readerMetricsSource.GetCommitOffsetLagMax(topic.Key),
-                        topic.Value.Tags)))
+            return Reporters.SelectMany(reporter =>
+                    reporter._readerMetricsSource.GetCommitOffsetLagMax(reporter._commonTags))
                 .ToArray();
-        }
-    }
-
-    private sealed class TopicMetrics(KeyValuePair<string, object?>[] tags)
-    {
-        internal KeyValuePair<string, object?>[] Tags { get; } = tags;
-        internal readonly ConcurrentDictionary<object, long> BufferedBatches = new();
-        internal long LocalBufferMessages;
-
-        internal double OldestAge
-        {
-            get
-            {
-                var oldest = BufferedBatches.Values.Where(timestamp => timestamp > 0).DefaultIfEmpty().Min();
-                return oldest == 0 ? 0 : Stopwatch.GetElapsedTime(oldest).TotalSeconds;
-            }
         }
     }
 }
