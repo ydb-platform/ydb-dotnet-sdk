@@ -180,6 +180,35 @@ public sealed class YdbConnectionTests : TestBase
         }
     }
 
+    [Fact]
+    public async Task ServerVersion_WhenResponseHasEmptyPartsBeforeValue_ReturnsTheValue()
+    {
+        var result = ResultSet.Parser.ParseJson(
+            "{ \"columns\": [{ \"name\": \"version\", \"type\": { \"typeId\": \"UTF8\" }}], " +
+            "\"rows\": [{ \"items\": [{ \"textValue\": \"mock-version\" }] }] }");
+        var driver = CreateServerVersionDriver([
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = ResultSet.Parser.ParseJson("{ \"rows\": [{ \"items\": [] }] }")
+            },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = result }
+        ]);
+        var (connection, source, settings) = await OpenMockConnectionAsync(driver.Object);
+
+        try
+        {
+            Assert.Equal("mock-version", connection.ServerVersion);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+            await RemoveMockSourceAsync(source, settings);
+        }
+    }
+
     private static Mock<IDriver> CreateServerVersionDriver(
         IEnumerable<ExecuteQueryResponsePart> parts)
     {
