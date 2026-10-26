@@ -43,8 +43,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
     private readonly CancellationTokenSource _disposeCts = new();
 
-    private readonly ConcurrentDictionary<string, ConcurrentDictionary<InternalBatchMessages<TValue>, byte>>
-        _bufferedBatches = new();
+    private readonly ConcurrentDictionary<InternalBatchMessages<TValue>, byte> _bufferedBatches = new();
 
     internal Reader(IDriverFactory driverFactory, ReaderConfig config, IDeserializer<TValue> deserializer)
     {
@@ -52,11 +51,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         _config = config;
         _deserializer = deserializer;
         _logger = _driverFactory.LoggerFactory.CreateLogger<Reader<TValue>>();
-        foreach (var settings in _config.SubscribeSettings)
-        {
-            RegisterTopic(settings.TopicPath);
-        }
-
         _metrics = new ReaderMetricsReporter(
             _driverFactory.Endpoint,
             _driverFactory.Database,
@@ -67,17 +61,13 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         _ = Initialize();
     }
 
-    IEnumerable<Measurement<long>> IReaderMetricsSource.GetTopicMeasurements(
-        long value, KeyValuePair<string, object?>[] commonTags) =>
-        _bufferedBatches.Keys.Select(topic => new Measurement<long>(value,
-            new TagList(commonTags) { { "topic", topic } }));
-
     IEnumerable<Measurement<long>> IReaderMetricsSource.GetPartitionSessionCount(
         KeyValuePair<string, object?>[] commonTags)
     {
         var session = Volatile.Read(ref _currentReaderSession);
-        foreach (var topic in _bufferedBatches.Keys)
+        foreach (var settings in _config.SubscribeSettings)
         {
+            var topic = settings.TopicPath;
             yield return new Measurement<long>(session?.GetPartitionSessionCount(topic) ?? 0,
                 new TagList(commonTags) { { "topic", topic } });
         }
@@ -87,32 +77,27 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         KeyValuePair<string, object?>[] commonTags)
     {
         var session = Volatile.Read(ref _currentReaderSession);
-        foreach (var topic in _bufferedBatches.Keys)
+        foreach (var settings in _config.SubscribeSettings)
         {
+            var topic = settings.TopicPath;
             yield return new Measurement<long>(session?.GetCommitOffsetLagMax(topic) ?? 0,
                 new TagList(commonTags) { { "topic", topic } });
         }
     }
 
-    IEnumerable<Measurement<long>> IReaderMetricsSource.GetLocalBufferMessages(
+    Measurement<long> IReaderMetricsSource.GetLocalBufferMessages(
         KeyValuePair<string, object?>[] commonTags) =>
-        _bufferedBatches.Select(topic => new Measurement<long>(
-            topic.Value.Keys.Sum(batch => (long)batch.RemainingMessages),
-            new TagList(commonTags) { { "topic", topic.Key } }));
+        new(_bufferedBatches.Keys.Sum(batch => (long)batch.RemainingMessages), commonTags);
 
-    IEnumerable<Measurement<double>> IReaderMetricsSource.GetLocalBufferMessageAgeMax(
+    Measurement<double> IReaderMetricsSource.GetLocalBufferMessageAgeMax(
         KeyValuePair<string, object?>[] commonTags)
     {
-        foreach (var (topic, batches) in _bufferedBatches)
-        {
-            var oldest = batches.Keys
-                .Where(batch => batch.RemainingMessages > 0)
-                .Select(batch => batch.ReceivedTimestamp)
-                .Where(timestamp => timestamp > 0)
-                .DefaultIfEmpty().Min();
-            yield return new Measurement<double>(oldest == 0 ? 0 : Stopwatch.GetElapsedTime(oldest).TotalSeconds,
-                new TagList(commonTags) { { "topic", topic } });
-        }
+        var oldest = _bufferedBatches.Keys
+            .Where(batch => batch.RemainingMessages > 0)
+            .Select(batch => batch.ReceivedTimestamp)
+            .Where(timestamp => timestamp > 0)
+            .DefaultIfEmpty().Min();
+        return new Measurement<double>(oldest == 0 ? 0 : Stopwatch.GetElapsedTime(oldest).TotalSeconds, commonTags);
     }
 
     internal string GetTopicPath(string topic)
@@ -124,12 +109,9 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             ?.TopicPath ?? topic;
     }
 
-    internal void RegisterTopic(string topic) => _bufferedBatches.TryAdd(GetTopicPath(topic),
-        new ConcurrentDictionary<InternalBatchMessages<TValue>, byte>());
-
     internal async ValueTask BufferBatch(InternalBatchMessages<TValue> batch)
     {
-        _bufferedBatches[GetTopicPath(batch.Topic)].TryAdd(batch, 0);
+        _bufferedBatches.TryAdd(batch, 0);
         await _receivedMessagesChannel.Writer.WriteAsync(batch).ConfigureAwait(false);
     }
 
@@ -143,8 +125,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 {
                     if (batchInternalMessage.RemainingMessages == 0)
                     {
-                        _bufferedBatches[GetTopicPath(batchInternalMessage.Topic)]
-                            .TryRemove(batchInternalMessage, out _);
+                        _bufferedBatches.TryRemove(batchInternalMessage, out _);
                     }
 
                     _metrics.ReportDelivered(1, GetTopicPath(message.Topic));
@@ -156,7 +137,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                     throw new ReaderException("Detect race condition on ReadAsync operation");
                 }
 
-                _bufferedBatches[GetTopicPath(removedBatch.Topic)].TryRemove(removedBatch, out _);
+                _bufferedBatches.TryRemove(removedBatch, out _);
             }
             else
             {
@@ -186,7 +167,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             }
             finally
             {
-                _bufferedBatches[GetTopicPath(batchInternalMessage.Topic)].TryRemove(batchInternalMessage, out _);
+                _bufferedBatches.TryRemove(batchInternalMessage, out _);
             }
         }
 
@@ -346,10 +327,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
         await (Interlocked.Exchange(ref _currentReaderSession, null)?.DisposeAsync() ??
                ValueTask.CompletedTask).ConfigureAwait(false);
-        foreach (var batches in _bufferedBatches.Values)
-        {
-            batches.Clear();
-        }
+        _bufferedBatches.Clear();
 
         if (_driver != null)
         {
@@ -548,7 +526,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         StreamReadMessage.Types.StartPartitionSessionRequest startPartitionSessionRequest)
     {
         var partitionSession = startPartitionSessionRequest.PartitionSession;
-        _reader.RegisterTopic(partitionSession.Path);
         _partitionSessions[partitionSession.PartitionSessionId] = new PartitionSession(
             Logger,
             partitionSession.PartitionSessionId,
@@ -682,6 +659,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         var receivedTimestamp = ReaderMetricsReporter.ReportReadResponseStart();
         var bytesSize = readResponse.BytesSize;
         _metrics.ReportCreditBalanceBytes(-bytesSize);
+        _metrics.ReportReceivedBytes(bytesSize);
         var partitionCount = readResponse.PartitionData.Count;
 
         for (var partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++)
@@ -697,7 +675,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession))
             {
                 var topic = _reader.GetTopicPath(partitionSession.TopicPath);
-                _metrics.ReportReceivedBytes(approximatelyPartitionBytesSize, topic);
                 var bufferedBatch = new InternalBatchMessages<TValue>(
                     partition.Batches,
                     partitionSession,

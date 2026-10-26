@@ -91,34 +91,23 @@ public partial class TopicMetricsTests
         Assert.Equal(MetricType.LongGauge, metric.MetricType);
         Assert.Equal("By", metric.Unit);
         var points = GetReaderPoints(exportedItems, metricName, readerName).ToArray();
-        Assert.Equal(3, points.Length);
-        foreach (var topic in new[] { "/topic", "/another-topic", "/idle-topic" })
-        {
-            var point = Assert.Single(points, point => Equals(ToDictionary(point.Tags)["topic"], topic));
-            Assert.Equal(948, point.GetGaugeLastValueLong());
-            AssertTags(point, "credit-balance-consumer", readerName, topic);
-        }
+        var point = Assert.Single(points);
+        Assert.Equal(948, point.GetGaugeLastValueLong());
+        AssertTags(point, "credit-balance-consumer", readerName);
 
         var receivedBytes = GetMetric(exportedItems, "ydb.topic.reader.received.bytes");
         Assert.Equal(MetricType.LongSum, receivedBytes.MetricType);
         Assert.Equal("By", receivedBytes.Unit);
-        var receivedPoints = GetReaderPoints(exportedItems, receivedBytes.Name, readerName).ToArray();
-        Assert.Equal(2, receivedPoints.Length);
-        Assert.Equal(52, receivedPoints.Sum(point => point.GetSumLong()));
-        foreach (var topic in new[] { "/topic", "/another-topic" })
-        {
-            var point = Assert.Single(receivedPoints, point => Equals(ToDictionary(point.Tags)["topic"], topic));
-            Assert.Equal(topic == "/topic" ? 34 : 18, point.GetSumLong());
-            AssertTags(point, "credit-balance-consumer", readerName, topic);
-        }
+        var receivedPoint = Assert.Single(GetReaderPoints(exportedItems, receivedBytes.Name, readerName));
+        Assert.Equal(52, receivedPoint.GetSumLong());
+        AssertTags(receivedPoint, "credit-balance-consumer", readerName);
 
         closed.TrySetResult(false);
         await reconnected.Task.WaitAsync(TimeSpan.FromSeconds(5));
         exportedItems.Clear();
         meterProvider.ForceFlush();
         points = GetReaderPoints(exportedItems, metricName, readerName).ToArray();
-        Assert.Equal(3, points.Length);
-        Assert.All(points, point => Assert.Equal(0, point.GetGaugeLastValueLong()));
+        Assert.Equal(0, Assert.Single(points).GetGaugeLastValueLong());
 
         await reader.DisposeAsync();
         reconnectBlocked.TrySetResult(false);
@@ -182,7 +171,7 @@ public partial class TopicMetricsTests
             Assert.Equal("{message}", metric.Unit);
             var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
             Assert.Equal(expected, point.GetGaugeLastValueLong());
-            AssertTags(point, "local-buffer-consumer", readerName, "/topic");
+            AssertTags(point, "local-buffer-consumer", readerName);
         }
     }
 
@@ -294,29 +283,24 @@ public partial class TopicMetricsTests
         var metric = GetMetric(exportedItems, metricName);
         Assert.Equal(MetricType.LongSum, metric.MetricType);
         Assert.Equal("{error}", metric.Unit);
-        var allPoints = GetReaderPoints(exportedItems, metricName, readerName).ToArray();
-        Assert.Equal(4, allPoints.Length);
-        foreach (var topic in new[] { "/topic", "/another-topic" })
-        {
-            var points = allPoints.Where(point => Equals(ToDictionary(point.Tags)["topic"], topic))
-                .ToDictionary(point => ToDictionary(point.Tags)["retry_decision"]!.ToString()!);
-            Assert.Equal(1, points["retry"].GetSumLong());
-            Assert.Equal(1, points["stop"].GetSumLong());
-            AssertSessionErrorTags(points["retry"], topic, "retry", "ClientTransportUnavailable", "transport_error");
-            AssertSessionErrorTags(points["stop"], topic, "stop", "Unauthorized", "ydb_error");
-        }
+        var points = GetReaderPoints(exportedItems, metricName, readerName)
+            .ToDictionary(point => ToDictionary(point.Tags)["retry_decision"]!.ToString()!);
+        Assert.Equal(2, points.Count);
+        Assert.Equal(1, points["retry"].GetSumLong());
+        Assert.Equal(1, points["stop"].GetSumLong());
+        AssertSessionErrorTags(points["retry"], "retry", "ClientTransportUnavailable", "transport_error");
+        AssertSessionErrorTags(points["stop"], "stop", "Unauthorized", "ydb_error");
 
         return;
 
         void AssertSessionErrorTags(
             MetricPoint point,
-            string topic,
             string retryDecision,
             string statusCode,
             string errorType)
         {
             var tags = ToDictionary(point.Tags);
-            Assert.Equal(8, tags.Count);
+            Assert.Equal(7, tags.Count);
             Assert.Equal("localhost:2136", tags["endpoint"]);
             Assert.Equal("/local", tags["database"]);
             Assert.Equal("session-errors-consumer", tags["consumer"]);
@@ -324,7 +308,7 @@ public partial class TopicMetricsTests
             Assert.Equal(retryDecision, tags["retry_decision"]);
             Assert.Equal(statusCode, tags["status_code"]);
             Assert.Equal(errorType, tags["error.type"]);
-            Assert.Equal(topic, tags["topic"]);
+            Assert.False(tags.ContainsKey("topic"));
         }
     }
 
@@ -401,15 +385,9 @@ public partial class TopicMetricsTests
         {
             exportedItems.Clear();
             forceFlush();
-            var points = GetReaderPoints(exportedItems, metricName, readerName).ToArray();
-            Assert.Equal(2, points.Length);
-            foreach (var point in points)
-            {
-                var topic = Assert.IsType<string>(ToDictionary(point.Tags)["topic"]);
-                AssertTags(point, "message-age-consumer", readerName, topic);
-            }
-
-            return points.Max(point => point.GetGaugeLastValueDouble());
+            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+            AssertTags(point, "message-age-consumer", readerName);
+            return point.GetGaugeLastValueDouble();
         }
     }
 
@@ -604,16 +582,13 @@ public partial class TopicMetricsTests
         await SendResponse(StartPartitionSessionRequest(10, partitionSessionId: 4), 4);
 
         AssertGauge("partition_session.count", 3, 1);
-        AssertGauge("local_buffer.messages", 2, 1);
-        Assert.True(GetPoint("local_buffer.message_age.max", "/topic").GetGaugeLastValueDouble() > 0);
-        Assert.True(GetPoint("local_buffer.message_age.max", "/another-topic").GetGaugeLastValueDouble() > 0);
-        Assert.Equal(0, GetPoint("local_buffer.message_age.max", "/idle-topic").GetGaugeLastValueDouble());
+        Assert.Equal(3, GetReaderPoint("local_buffer.messages").GetGaugeLastValueLong());
+        Assert.True(GetReaderPoint("local_buffer.message_age.max").GetGaugeLastValueDouble() > 0);
         var first = await reader.ReadAsync().AsTask().WaitAsync(timeout);
         var second = await reader.ReadAsync().AsTask().WaitAsync(timeout);
         var third = await reader.ReadAsync().AsTask().WaitAsync(timeout);
-        AssertGauge("local_buffer.messages", 0, 0);
-        Assert.Equal(0, GetPoint("local_buffer.message_age.max", "/topic").GetGaugeLastValueDouble());
-        Assert.Equal(0, GetPoint("local_buffer.message_age.max", "/another-topic").GetGaugeLastValueDouble());
+        Assert.Equal(0, GetReaderPoint("local_buffer.messages").GetGaugeLastValueLong());
+        Assert.Equal(0, GetReaderPoint("local_buffer.message_age.max").GetGaugeLastValueDouble());
 
         var firstCommit = first.CommitAsync();
         var secondCommit = second.CommitAsync();
@@ -642,13 +617,13 @@ public partial class TopicMetricsTests
 
         using var cancellation = new CancellationTokenSource();
         var nextRead = reader.ReadAsync(cancellation.Token).AsTask();
-        Assert.Equal(0, GetPoint("local_buffer.message_age.max", "/another-topic").GetGaugeLastValueDouble());
+        Assert.Equal(0, GetReaderPoint("local_buffer.message_age.max").GetGaugeLastValueDouble());
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => nextRead);
         await responses.Writer.WriteAsync((false, null));
         await SendResponse(InitResponse, 0);
         AssertGauge("partition_session.count", 0, 0);
-        AssertGauge("local_buffer.messages", 0, 0);
+        Assert.Equal(0, GetReaderPoint("local_buffer.messages").GetGaugeLastValueLong());
         AssertGauge("commit_offset.lag.max", 0, 0);
         return;
 
@@ -656,6 +631,15 @@ public partial class TopicMetricsTests
         {
             await responses.Writer.WriteAsync((true, response));
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        }
+
+        MetricPoint GetReaderPoint(string suffix)
+        {
+            exportedItems.Clear();
+            meterProvider.ForceFlush();
+            var point = Assert.Single(GetReaderPoints(exportedItems, "ydb.topic.reader." + suffix, readerName));
+            AssertTags(point, consumer, readerName);
+            return point;
         }
 
         MetricPoint GetPoint(string suffix, string topic)
@@ -714,18 +698,26 @@ public partial class TopicMetricsTests
         meterProvider.ForceFlush();
         foreach (var suffix in new[]
                  {
-                     "partition_session.count", "local_buffer.messages",
-                     "local_buffer.message_age.max", "commit_offset.lag.max", "credit_balance_bytes"
+                     "partition_session.count", "commit_offset.lag.max"
                  })
         {
             var points = GetReaderPoints(exportedItems, "ydb.topic.reader." + suffix, readerName).ToArray();
             Assert.Equal(topics.Order(), points.Select(point => (string)ToDictionary(point.Tags)["topic"]!).Order());
         }
 
-        foreach (var suffix in new[] { "received.messages", "delivered.messages", "received.bytes" })
+        foreach (var suffix in new[] { "received.messages", "delivered.messages" })
         {
             var point = Assert.Single(GetReaderPoints(exportedItems, "ydb.topic.reader." + suffix, readerName));
             Assert.Equal("/local/topic", ToDictionary(point.Tags)["topic"]);
+        }
+
+        foreach (var suffix in new[]
+                 {
+                     "local_buffer.messages", "local_buffer.message_age.max", "credit_balance_bytes", "received.bytes"
+                 })
+        {
+            var point = Assert.Single(GetReaderPoints(exportedItems, "ydb.topic.reader." + suffix, readerName));
+            Assert.False(ToDictionary(point.Tags).ContainsKey("topic"));
         }
     }
 
