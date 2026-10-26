@@ -45,6 +45,92 @@ public class GroupByAggregateRewriterYdbTest
         Assert.Equal("MIN", Assert.IsType<SqlFunctionExpression>(scalar.Subquery.Projection[0].Expression).Name);
     }
 
+    [Fact]
+    public void Matching_navigation_max_is_inlined()
+    {
+        using var context = new CapturingMaxContext();
+        var select = CreateMaxSelect(context, UnsafeMaxInput.None);
+
+        var result = Process(context, select);
+
+        Assert.Equal("MAX", Assert.IsType<SqlFunctionExpression>(result.Projection[0].Expression).Name);
+        Assert.Equal(2, result.Tables.Count);
+        Assert.IsType<LeftJoinExpression>(result.Tables[1]);
+    }
+
+    [Theory]
+    [InlineData(UnsafeMaxInput.LookupJoinKind)]
+    [InlineData(UnsafeMaxInput.LookupJoinKey)]
+    [InlineData(UnsafeMaxInput.CrossLookup)]
+    [InlineData(UnsafeMaxInput.AliasCollision)]
+    [InlineData(UnsafeMaxInput.AdditionalGroupFilter)]
+    [InlineData(UnsafeMaxInput.MissingGroupCorrelation)]
+    public void Different_navigation_max_input_is_not_inlined(UnsafeMaxInput input)
+    {
+        using var context = new CapturingMaxContext();
+        var select = CreateMaxSelect(context, input);
+
+        var result = Process(context, select);
+
+        Assert.Single(result.Tables);
+        Assert.IsType<ScalarSubqueryExpression>(result.Projection[0].Expression);
+    }
+
+    private static SelectExpression CreateMaxSelect(CapturingMaxContext context, UnsafeMaxInput input)
+    {
+        _ = context.Orders.GroupBy(o => o.EmployeeId)
+            .Select(g => new { Max = g.Max(o => o.Customer!.Region) })
+            .ToQueryString();
+        var factory = Assert.IsType<CapturingProcessorFactory>(
+            context.GetService<IRelationalParameterBasedSqlProcessorFactory>());
+        var select = factory.Processor.Input;
+        var inner = Assert.IsType<ScalarSubqueryExpression>(select.Projection[0].Expression).Subquery;
+        var sql = context.GetService<ISqlExpressionFactory>();
+        var parent = Assert.IsType<TableExpression>(select.Tables[0]);
+        var innerTables = inner.Tables.ToArray();
+        var innerParent = Assert.IsType<TableExpression>(innerTables[0]);
+        var lookupJoin = Assert.IsType<LeftJoinExpression>(innerTables[1]);
+        var lookup = Assert.IsType<TableExpression>(lookupJoin.Table);
+        var projections = inner.Projection;
+        switch (input)
+        {
+            case UnsafeMaxInput.LookupJoinKind:
+                innerTables[1] = new InnerJoinExpression(lookup, lookupJoin.JoinPredicate);
+                break;
+            case UnsafeMaxInput.LookupJoinKey:
+                innerTables[1] = lookupJoin.Update(lookup,
+                    sql.Equal(sql.Convert(Column(innerParent, "CustomerId"), typeof(string)),
+                        Column(lookup, "Region")));
+                break;
+            case UnsafeMaxInput.CrossLookup:
+                innerTables[1] = new CrossJoinExpression(lookup);
+                break;
+            case UnsafeMaxInput.AliasCollision:
+                lookup = lookup.WithAlias(parent.Alias);
+                innerTables[1] = lookupJoin.Update(lookup,
+                    sql.Equal(Column(innerParent, "CustomerId"), Column(lookup, "Id")));
+                var aggregate = Assert.IsType<SqlFunctionExpression>(inner.Projection[0].Expression);
+                projections =
+                [
+                    new ProjectionExpression(aggregate.Update(aggregate.Instance, [Column(lookup, "Region")]),
+                        inner.Projection[0].Alias)
+                ];
+                break;
+        }
+
+        var predicate = input == UnsafeMaxInput.MissingGroupCorrelation ? null : inner.Predicate;
+        if (input == UnsafeMaxInput.AdditionalGroupFilter)
+        {
+            predicate = sql.AndAlso(predicate!, sql.GreaterThan(Column(innerParent, "Id"), sql.Constant(2)));
+        }
+
+        inner = inner.Update(innerTables, predicate, inner.GroupBy, inner.Having, projections,
+            inner.Orderings, inner.Offset, inner.Limit);
+        return select.Update(select.Tables, select.Predicate, select.GroupBy, select.Having,
+            [new ProjectionExpression(new ScalarSubqueryExpression(inner), select.Projection[0].Alias)],
+            select.Orderings, select.Offset, select.Limit);
+    }
+
     private static SelectExpression CreateSelect(CapturingContext context, UnsafeInput input)
     {
         _ = context.Parents
@@ -135,6 +221,16 @@ public class GroupByAggregateRewriterYdbTest
         }
     }
 
+    private sealed class CapturingMaxContext : GroupByNavigationMaxYdbTest.TestContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder options)
+        {
+            base.OnConfiguring(options);
+            options.EnableServiceProviderCaching(false)
+                .ReplaceService<IRelationalParameterBasedSqlProcessorFactory, CapturingProcessorFactory>();
+        }
+    }
+
     public sealed class CapturingProcessorFactory(RelationalParameterBasedSqlProcessorDependencies dependencies)
         : IRelationalParameterBasedSqlProcessorFactory, IDisposable
     {
@@ -177,6 +273,17 @@ public class GroupByAggregateRewriterYdbTest
         public SelectExpression Run(SelectExpression select)
             => (SelectExpression)Process(select, new ParametersCacheDecorator(new Dictionary<string, object?>()));
 #endif
+    }
+
+    public enum UnsafeMaxInput
+    {
+        None,
+        LookupJoinKind,
+        LookupJoinKey,
+        CrossLookup,
+        AliasCollision,
+        AdditionalGroupFilter,
+        MissingGroupCorrelation
     }
 
     public enum UnsafeInput

@@ -33,22 +33,39 @@ public class YdbParameterBasedSqlProcessor(
         protected override Expression VisitExtension(Expression node)
         {
             var visited = base.VisitExtension(node);
-            if (visited is not SelectExpression { Having: not null } select
+            if (visited is not SelectExpression select
                 || select.GroupBy.Count == 0
                 || select.GroupBy.Any(key => key is not ColumnExpression))
             {
                 return visited;
             }
 
-            var having = (SqlExpression)new HavingAggregateRewriter(select).Visit(select.Having);
-            return ReferenceEquals(having, select.Having)
+            var rewriter = new AggregateRewriter(select);
+            var having = (SqlExpression?)rewriter.Visit(select.Having);
+            ProjectionExpression[]? projections = null;
+            for (var i = 0; i < select.Projection.Count; i++)
+            {
+                var projection = (ProjectionExpression)rewriter.Visit(select.Projection[i]);
+                if (ReferenceEquals(projection, select.Projection[i]))
+                {
+                    continue;
+                }
+
+                projections ??= select.Projection.ToArray();
+                projections[i] = projection;
+            }
+
+            return ReferenceEquals(having, select.Having) && projections is null
                 ? select
-                : select.Update(select.Tables, select.Predicate, select.GroupBy, having, select.Projection,
+                : select.Update(rewriter.Tables, select.Predicate, select.GroupBy, having,
+                    projections ?? select.Projection,
                     select.Orderings, select.Offset, select.Limit);
         }
 
-        private sealed class HavingAggregateRewriter(SelectExpression outer) : ExpressionVisitor
+        private sealed class AggregateRewriter(SelectExpression outer) : ExpressionVisitor
         {
+            public IReadOnlyList<TableExpressionBase> Tables { get; private set; } = outer.Tables;
+
             protected override Expression VisitExtension(Expression node)
             {
                 if (node is ScalarSubqueryExpression scalar)
@@ -66,7 +83,7 @@ public class YdbParameterBasedSqlProcessor(
                     || inner.Projection.Count != 1
                     || inner.Projection[0].Expression is not SqlFunctionExpression
                     {
-                        Name: "MIN", IsBuiltIn: true, Arguments: [_]
+                        Name: "MIN" or "MAX", IsBuiltIn: true, Arguments: [_]
                     } aggregate
                     || outer.Tables.Count == 0 || inner.Tables.Count != outer.Tables.Count + 1
                     || outer.Tables[0] is not TableExpression outerRoot
@@ -111,7 +128,7 @@ public class YdbParameterBasedSqlProcessor(
 
                 // Repeating the same primary-key lookup also preserves a LEFT join's null extension.
                 var matched = false;
-                foreach (var candidate in outer.Tables.OfType<PredicateJoinExpressionBase>())
+                foreach (var candidate in Tables.OfType<PredicateJoinExpressionBase>())
                 {
                     var table = (TableExpression)candidate.Table;
                     if (candidate.GetType() != extraJoin.GetType() || table.Table != extraTable.Table
@@ -130,9 +147,29 @@ public class YdbParameterBasedSqlProcessor(
                     }
                 }
 
+                LeftJoinExpression? liftedJoin = null;
                 if (!matched)
                 {
-                    return null;
+                    if (aggregate.Name != "MAX" || extraJoin is not LeftJoinExpression leftJoin
+                                                || !JoinsPrimaryKey(extraJoin.JoinPredicate, extraTable)
+                                                || Tables.Any(table =>
+                                                    (table is JoinExpressionBase join
+                                                        ? join.Table.Alias
+                                                        : table.Alias) == extraTable.Alias))
+                    {
+                        return null;
+                    }
+
+                    // A complete primary-key LEFT lookup adds exactly one row, including missing matches.
+                    aliases[extraTable.Alias] = extraTable.Alias;
+                    var mapper = new ColumnAliasRewriter(aliases, true);
+                    var predicate = (SqlExpression)mapper.Visit(extraJoin.JoinPredicate);
+                    if (!mapper.IsValid)
+                    {
+                        return null;
+                    }
+
+                    liftedJoin = leftJoin.Update(extraTable, predicate);
                 }
 
                 var predicateMapper = new ColumnAliasRewriter(aliases, false);
@@ -168,7 +205,17 @@ public class YdbParameterBasedSqlProcessor(
 
                 var aggregateMapper = new ColumnAliasRewriter(aliases, true);
                 var rewritten = (SqlExpression)aggregateMapper.Visit(aggregate);
-                return aggregateMapper.IsValid ? rewritten : null;
+                if (!aggregateMapper.IsValid)
+                {
+                    return null;
+                }
+
+                if (liftedJoin is not null)
+                {
+                    Tables = Tables.Append(liftedJoin).ToArray();
+                }
+
+                return rewritten;
             }
 
             private static bool JoinsPrimaryKey(SqlExpression predicate, TableExpression table)
