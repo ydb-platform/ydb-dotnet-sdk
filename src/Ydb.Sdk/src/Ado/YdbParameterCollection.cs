@@ -204,11 +204,6 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <returns>The zero-based location of the <see cref="YdbParameter"/> within the collection.</returns>
     public override int IndexOf(string parameterName)
     {
-        if (parameterName is null)
-        {
-            return -1;
-        }
-
         var yqlName = YdbParameter.ToYqlName(parameterName);
 
         for (var i = 0; i < _parameters.Count; i++)
