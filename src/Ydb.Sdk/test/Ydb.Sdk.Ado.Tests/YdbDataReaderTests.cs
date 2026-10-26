@@ -580,6 +580,20 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal(ConnectionState.Closed, connection.State);
     }
 
+    [Fact]
+    public async Task GetOrdinal_WhenNoExactMatch_FallsBackToCaseInsensitiveMatch()
+    {
+        await using var ydbConnection = await CreateOpenConnectionAsync();
+        await using var reader = await new YdbCommand("SELECT 1 AS `a`, 2 AS `A`, 3 AS `value`;", ydbConnection)
+            .ExecuteReaderAsync();
+
+        Assert.Equal(0, reader.GetOrdinal("a"));
+        Assert.Equal(1, reader.GetOrdinal("A"));
+        Assert.Equal(2, reader.GetOrdinal("VALUE"));
+        Assert.Equal(2, reader.GetOrdinal("Value"));
+        Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("missing"));
+    }
+
     private static async Task<YdbDataReader> CreateYdbDataReader(
         MockAsyncEnumerator<ExecuteQueryResponsePart> enumerator,
         YdbConnection ydbConnection
