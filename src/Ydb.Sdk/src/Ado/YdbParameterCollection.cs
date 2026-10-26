@@ -202,10 +202,7 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// </summary>
     /// <param name="parameterName">The name of the parameter to find.</param>
     /// <returns>The zero-based location of the <see cref="YdbParameter"/> within the collection.</returns>
-    /// <remarks>
-    /// Names are compared as they are bound, so <c>name</c>, <c>@name</c> and <c>$name</c> find the same parameter.
-    /// </remarks>
-    public override int IndexOf(string? parameterName)
+    public override int IndexOf(string parameterName)
     {
         if (parameterName is null)
         {
@@ -230,7 +227,7 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// </summary>
     /// <param name="parameterName">The name of the parameter to find.</param>
     /// <returns>true if the collection contains the parameter; otherwise, false.</returns>
-    public override bool Contains(string? parameterName) => IndexOf(parameterName) != -1;
+    public override bool Contains(string parameterName) => IndexOf(parameterName) != -1;
 
     /// <summary>
     /// Copies the elements of the collection to an array, starting at a particular array index.

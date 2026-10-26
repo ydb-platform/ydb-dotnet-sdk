@@ -145,11 +145,7 @@ public sealed class YdbParameter : DbParameter
     /// <summary>
     /// Gets or sets the name of the parameter.
     /// </summary>
-    /// <remarks>
-    /// The name is kept as it was set. When the parameter is bound it uses YDB's parameter syntax
-    /// (<c>$parameterName</c>): a name starting with <c>@</c> is bound with <c>$</c> instead, and a name without a
-    /// prefix is bound with <c>$</c> added.
-    /// </remarks>
+    /// <remarks>Returns the name as set; binding normalizes <c>name</c>, <c>@name</c> and <c>$name</c> to <c>$name</c>.</remarks>
     [AllowNull]
     [DefaultValue("")]
     public override string ParameterName
@@ -158,7 +154,6 @@ public sealed class YdbParameter : DbParameter
         set => _parameterName = value ?? string.Empty;
     }
 
-    /// <summary>The name in YDB's parameter syntax, <c>$parameterName</c>, under which the parameter is bound.</summary>
     internal string YqlName => ToYqlName(_parameterName);
 
     internal static string ToYqlName(string name) => name switch
