@@ -36,7 +36,7 @@ public class SkipTakeYdbTest
 
         ((TestSqlLoggerFactory)sqlLoggerFactory).AssertBaseline([
             """
-            $__p_0='?' (DbType = Int32)
+            @__p_0='?' (DbType = Int32)
 
             SELECT `t`.`Name`
             FROM `TestEntities` AS `t`
@@ -73,7 +73,7 @@ public class SkipTakeYdbTest
 
         ((TestSqlLoggerFactory)sqlLoggerFactory).AssertBaseline([
             """
-            $__p_0='?' (DbType = Int32)
+            @__p_0='?' (DbType = Int32)
 
             SELECT `t`.`Name`
             FROM `TestEntities` AS `t`

@@ -20,11 +20,38 @@ public class YdbParameterTests : TestBase
     }
 
     [Fact]
-    public void YdbParameter_WhenSetWithoutAnyFormat_ReturnCorrectName()
+    public void YdbParameter_WhenSetWithoutAnyFormat_ReturnNameAsSet()
     {
-        Assert.Equal("$name", new YdbParameter { ParameterName = "name" }.ParameterName);
-        Assert.Equal("$name", new YdbParameter { ParameterName = "@name" }.ParameterName);
+        Assert.Equal("name", new YdbParameter { ParameterName = "name" }.ParameterName);
+        Assert.Equal("@name", new YdbParameter { ParameterName = "@name" }.ParameterName);
         Assert.Equal("$name", new YdbParameter { ParameterName = "$name" }.ParameterName);
+        Assert.Equal("name", new YdbParameter("name", 1).ParameterName);
+    }
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("@", "$@")]
+    [InlineData("name", "$name")]
+    [InlineData("@name", "$name")]
+    [InlineData("$name", "$name")]
+    public void YdbParameter_WhenConvertedToYqlName_UsesExpectedPrefix(string name, string expected)
+        => Assert.Equal(expected, YdbParameter.ToYqlName(name));
+
+    [Theory]
+    [InlineData("name")]
+    [InlineData("@name")]
+    [InlineData("$name")]
+    public async Task YdbParameter_WhenNameHasAnyFormat_BindsAsYqlParameter(string parameterName)
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var command = new YdbCommand("SELECT $name;", connection);
+        command.Parameters.Add(new YdbParameter(parameterName, DbType.Int32, 42));
+
+        Assert.Equal(42, await command.ExecuteScalarAsync());
+        Assert.Equal(0, command.Parameters.IndexOf("name"));
+        Assert.Equal(0, command.Parameters.IndexOf("@name"));
+        Assert.Equal(0, command.Parameters.IndexOf("$name"));
+        Assert.Equal(parameterName, command.Parameters[0].ParameterName);
     }
 
     [Fact]
