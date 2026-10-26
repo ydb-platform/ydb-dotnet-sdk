@@ -145,7 +145,7 @@ public sealed class YdbParameter : DbParameter
     /// <summary>
     /// Gets or sets the name of the parameter.
     /// </summary>
-    /// <remarks>Returns the name as set; binding normalizes <c>name</c>, <c>@name</c> and <c>$name</c> to <c>$name</c>.</remarks>
+    /// <remarks>The name is kept as it was set.</remarks>
     [AllowNull]
     [DefaultValue("")]
     public override string ParameterName
