@@ -148,7 +148,7 @@ public partial class TopicMetricsTests
             Assert.Equal("{message}", metric.Unit);
             var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
             Assert.Equal(expected, point.GetGaugeLastValueLong());
-            AssertTags(point, "local-buffer-consumer", readerName);
+            AssertTags(point, "local-buffer-consumer", readerName, "/topic");
         }
     }
 
@@ -320,9 +320,15 @@ public partial class TopicMetricsTests
         {
             exportedItems.Clear();
             forceFlush();
-            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
-            AssertTags(point, "message-age-consumer", readerName);
-            return point.GetGaugeLastValueDouble();
+            var points = GetReaderPoints(exportedItems, metricName, readerName).ToArray();
+            Assert.Equal(2, points.Length);
+            foreach (var point in points)
+            {
+                var topic = Assert.IsType<string>(ToDictionary(point.Tags)["topic"]);
+                AssertTags(point, "message-age-consumer", readerName, topic);
+            }
+
+            return points.Max(point => point.GetGaugeLastValueDouble());
         }
     }
 
@@ -386,7 +392,7 @@ public partial class TopicMetricsTests
                 point => ToDictionary(point.Tags).GetValueOrDefault("consumer") as string == consumer);
             readerName ??= Assert.IsType<string>(ToDictionary(point.Tags)["reader.name"]);
             Assert.Equal(expectedCount, point.GetGaugeLastValueLong());
-            AssertTags(point, consumer, readerName);
+            AssertTags(point, consumer, readerName, "/topic");
         }
     }
 
@@ -466,7 +472,127 @@ public partial class TopicMetricsTests
             Assert.Equal("{message}", metric.Unit);
             var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
             Assert.Equal(expected, point.GetGaugeLastValueLong());
-            AssertTags(point, consumer, readerName);
+            AssertTags(point, consumer, readerName, "/topic");
+        }
+    }
+
+    [Fact]
+    public async Task ReaderGauges_SeparateTopicsAcrossReadsCommitsAndReconnect()
+    {
+        const string readerName = "per-topic-reader";
+        const string consumer = "per-topic-consumer";
+        var timeout = TimeSpan.FromSeconds(5);
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+        var stream = new Mock<ReaderStream>();
+        var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
+        var handledEvents = Channel.CreateUnbounded<long>();
+        var commitsWritten = Channel.CreateUnbounded<long>();
+        SetupResponseStream(stream, responses, handledEvents.Writer, message =>
+        {
+            if (message.CommitOffsetRequest is not null)
+            {
+                commitsWritten.Writer.TryWrite(message.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId);
+            }
+        });
+        await using var reader = new ReaderBuilder<string>(CreateDriverFactory(stream, readerName))
+        {
+            ConsumerName = consumer,
+            ReaderName = readerName,
+            SubscribeSettings =
+            {
+                new SubscribeSettings("/topic"),
+                new SubscribeSettings("/another-topic"),
+                new SubscribeSettings("/idle-topic")
+            }
+        }.Build();
+
+        await SendResponse(InitResponse, 0);
+        await SendResponse(StartPartitionSessionRequest(10), 1);
+        await SendResponse(StartPartitionSessionRequest(10, partitionSessionId: 2), 2);
+        var anotherPartition = StartPartitionSessionRequest(10, partitionSessionId: 3);
+        anotherPartition.StartPartitionSessionRequest.PartitionSession.Path = "/another-topic";
+        await SendResponse(anotherPartition, 3);
+        await responses.Writer.WriteAsync((true, ReadResponse(14, "first"u8.ToArray())));
+        var secondResponse = ReadResponse(17, "second"u8.ToArray());
+        secondResponse.ReadResponse.PartitionData[0].PartitionSessionId = 2;
+        await responses.Writer.WriteAsync((true, secondResponse));
+        var anotherResponse = ReadResponse(11, "third"u8.ToArray());
+        anotherResponse.ReadResponse.PartitionData[0].PartitionSessionId = 3;
+        await responses.Writer.WriteAsync((true, anotherResponse));
+        await SendResponse(StartPartitionSessionRequest(10, partitionSessionId: 4), 4);
+
+        AssertGauge("partition_session.count", 3, 1);
+        AssertGauge("local_buffer.messages", 2, 1);
+        Assert.True(GetPoint("local_buffer.message_age.max", "/topic").GetGaugeLastValueDouble() > 0);
+        Assert.True(GetPoint("local_buffer.message_age.max", "/another-topic").GetGaugeLastValueDouble() > 0);
+        Assert.Equal(0, GetPoint("local_buffer.message_age.max", "/idle-topic").GetGaugeLastValueDouble());
+        var first = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+        var second = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+        var third = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+        AssertGauge("local_buffer.messages", 0, 0);
+        Assert.Equal(0, GetPoint("local_buffer.message_age.max", "/topic").GetGaugeLastValueDouble());
+        Assert.True(GetPoint("local_buffer.message_age.max", "/another-topic").GetGaugeLastValueDouble() > 0);
+
+        var firstCommit = first.CommitAsync();
+        var secondCommit = second.CommitAsync();
+        var thirdCommit = third.CommitAsync();
+        for (var partition = 1; partition <= 3; partition++)
+        {
+            Assert.Equal(partition, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        }
+
+        AssertGauge("commit_offset.lag.max", 8, 2);
+        var secondAck = CommitOffsetResponse(18);
+        secondAck.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = 2;
+        await responses.Writer.WriteAsync((true, secondAck));
+        await secondCommit.WaitAsync(timeout);
+        AssertGauge("commit_offset.lag.max", 5, 2);
+        await responses.Writer.WriteAsync((true, CommitOffsetResponse(15)));
+        await firstCommit.WaitAsync(timeout);
+        var thirdAck = CommitOffsetResponse(12);
+        thirdAck.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = 3;
+        await responses.Writer.WriteAsync((true, thirdAck));
+        await thirdCommit.WaitAsync(timeout);
+        AssertGauge("commit_offset.lag.max", 0, 0);
+        await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2);
+        await SendResponse(StopPartitionSessionRequest(partitionSessionId: 3), -3);
+        AssertGauge("partition_session.count", 2, 0);
+
+        using var cancellation = new CancellationTokenSource();
+        var nextRead = reader.ReadAsync(cancellation.Token).AsTask();
+        Assert.Equal(0, GetPoint("local_buffer.message_age.max", "/another-topic").GetGaugeLastValueDouble());
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => nextRead);
+        await responses.Writer.WriteAsync((false, null));
+        await SendResponse(InitResponse, 0);
+        AssertGauge("partition_session.count", 0, 0);
+        AssertGauge("local_buffer.messages", 0, 0);
+        AssertGauge("commit_offset.lag.max", 0, 0);
+        return;
+
+        async Task SendResponse(FromServer response, long expectedEvent)
+        {
+            await responses.Writer.WriteAsync((true, response));
+            Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+        }
+
+        MetricPoint GetPoint(string suffix, string topic)
+        {
+            exportedItems.Clear();
+            meterProvider.ForceFlush();
+            var points = GetReaderPoints(exportedItems, "ydb.topic.reader." + suffix, readerName).ToArray();
+            Assert.Equal(3, points.Length);
+            var point = Assert.Single(points, point => Equals(ToDictionary(point.Tags)["topic"], topic));
+            AssertTags(point, consumer, readerName, topic);
+            return point;
+        }
+
+        void AssertGauge(string suffix, long firstValue, long anotherValue)
+        {
+            Assert.Equal(firstValue, GetPoint(suffix, "/topic").GetGaugeLastValueLong());
+            Assert.Equal(anotherValue, GetPoint(suffix, "/another-topic").GetGaugeLastValueLong());
+            Assert.Equal(0, GetPoint(suffix, "/idle-topic").GetGaugeLastValueLong());
         }
     }
 

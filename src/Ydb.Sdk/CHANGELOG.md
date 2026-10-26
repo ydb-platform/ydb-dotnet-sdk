@@ -1,3 +1,6 @@
+- Fix Topic Reader metrics: publish `partition_session.count`, `local_buffer.messages`,
+  `local_buffer.message_age.max`, and `commit_offset.lag.max` separately for each `topic`.
+  `received.bytes`, `credit_balance_bytes`, and `session.errors` remain reader-wide without `topic`.
 - Fix ADO.NET: `YdbTransaction.Release` and `ReleaseAsync` throw `NotSupportedException`, like `Save` and
   `Rollback(string)`, since `SupportsSavepoints` is false; they used to report success.
 - Fix ADO.NET: `YdbDataReader.GetOrdinal` falls back to a case-insensitive match when no column name matches exactly,

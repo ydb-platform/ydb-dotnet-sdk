@@ -17,6 +17,7 @@ internal class InternalBatchMessages<TValue>(
     private int _readMessageCount;
 
     internal long ReceivedTimestamp { get; } = receivedTimestamp;
+    internal string Topic => partitionsSession.TopicPath;
 
     private bool IsActive => partitionsSession.IsActive &&
                              readerSession.IsActive &&
