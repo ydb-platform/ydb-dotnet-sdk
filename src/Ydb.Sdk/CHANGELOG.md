@@ -3,6 +3,8 @@
 - **Breaking Change** ADO.NET: `YdbParameter.ParameterName` returns the name as it was set (`name`, `@name` or `$name`)
   instead of rewriting it to `$name`; the parameter is still bound as `$name`, and `YdbParameterCollection.IndexOf` and
   `Contains` find it by any of the three forms.
+- Fix ADO.NET: `YdbDataReader.GetOrdinal` falls back to a case-insensitive match when no column name matches exactly,
+  as `IDataRecord.GetOrdinal` specifies; it used to throw `IndexOutOfRangeException`.
 - **Breaking Change** ADO.NET: renamed `StatusCode.ClientCancelled` to `StatusCode.StreamCancelled` for closing an
   unfinished query stream; this status is never retried. Renamed the corresponding `ydb.query.session.closed` reason
   from `client_cancelled` to `stream_cancelled`.
