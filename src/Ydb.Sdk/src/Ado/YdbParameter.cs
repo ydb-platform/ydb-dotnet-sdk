@@ -145,23 +145,24 @@ public sealed class YdbParameter : DbParameter
     /// <summary>
     /// Gets or sets the name of the parameter.
     /// </summary>
-    /// <remarks>
-    /// The parameter name is automatically formatted to use YDB's parameter syntax ($parameterName).
-    /// If the name starts with @, it's converted to $ syntax. If it doesn't start with $, the $ prefix is added.
-    /// </remarks>
+    /// <remarks>The name is kept as it was set.</remarks>
     [AllowNull]
     [DefaultValue("")]
     public override string ParameterName
     {
         get => _parameterName;
-        set => _parameterName = value switch
-        {
-            null => string.Empty,
-            _ when value.StartsWith("$") => value,
-            _ when value.StartsWith("@") && value.Length > 1 => $"${value[1..]}",
-            _ => $"${value}"
-        };
+        set => _parameterName = value ?? string.Empty;
     }
+
+    internal string YqlName => ToYqlName(_parameterName);
+
+    internal static string ToYqlName(string name) => name switch
+    {
+        "" => name,
+        _ when name.StartsWith("$") => name,
+        _ when name.StartsWith("@") && name.Length > 1 => $"${name[1..]}",
+        _ => $"${name}"
+    };
 
     private string _sourceColumn = string.Empty;
 

@@ -161,6 +161,29 @@ public sealed class YdbQuerySqlGenerator(QuerySqlGeneratorDependencies dependenc
         select.Offset,
         select.Limit);
 
+    protected override void GenerateOrderings(SelectExpression selectExpression)
+    {
+        if (selectExpression.GroupBy.Count == 0 || selectExpression.Orderings.Count == 0)
+        {
+            base.GenerateOrderings(selectExpression);
+            return;
+        }
+
+        var orderings = selectExpression.Orderings.Select(ordering =>
+            ordering.Expression is ColumnExpression column
+            && selectExpression.Projection.FirstOrDefault(candidate =>
+                candidate.Expression.Equals(column)
+                && candidate.Alias.Length > 0
+                && candidate.Alias != column.Name) is { } projection
+                ? ordering.Update(new SqlFragmentExpression(SqlGenerationHelper.DelimitIdentifier(projection.Alias)))
+                : ordering).ToArray();
+
+        base.GenerateOrderings(selectExpression.Update(
+            selectExpression.Tables, selectExpression.Predicate, selectExpression.GroupBy,
+            selectExpression.Having, selectExpression.Projection, orderings,
+            selectExpression.Offset, selectExpression.Limit));
+    }
+
     protected override void GenerateLimitOffset(SelectExpression selectExpression)
     {
         if (selectExpression.Limit == null && selectExpression.Offset == null)

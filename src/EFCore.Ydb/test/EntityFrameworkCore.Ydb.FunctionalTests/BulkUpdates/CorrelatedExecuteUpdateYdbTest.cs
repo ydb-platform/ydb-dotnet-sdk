@@ -35,7 +35,7 @@ public class CorrelatedExecuteUpdateYdbTest
                           """);
 #else
         AssertSql(logger, """
-                          $p='?'
+                          @p='?'
 
                           UPDATE `Orders`
                           SET `Status` = @p
@@ -74,7 +74,7 @@ public class CorrelatedExecuteUpdateYdbTest
                           """);
 #else
         AssertSql(logger, """
-                          $p='?'
+                          @p='?'
 
                           UPDATE `Orders`
                           SET `Status` = @p
@@ -118,7 +118,7 @@ public class CorrelatedExecuteUpdateYdbTest
                           """);
 #else
         AssertSql(logger, """
-                          $p='?'
+                          @p='?'
 
                           UPDATE `Orders` ON SELECT `o`.`Id` AS `Id`, @p AS `Status`
                           FROM `Orders` AS `o`
@@ -165,7 +165,7 @@ public class CorrelatedExecuteUpdateYdbTest
                           """);
 #else
         AssertSql(logger, """
-                          $p='?'
+                          @p='?'
 
                           UPDATE `OrderLines` ON SELECT `o`.`OrderKey` AS `OrderKey`, `o`.`LineKey` AS `LineKey`, @p AS `Product`
                           FROM `OrderLines` AS `o`

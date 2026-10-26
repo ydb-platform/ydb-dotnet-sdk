@@ -133,12 +133,12 @@ public class ComplexTypeBulkUpdatesYdbTest(
             FROM `Customer` AS `c`
             """,
             """
-            $__complex_type_newAddress_0_AddressLine1='New AddressLine1'
-            $__complex_type_newAddress_0_AddressLine2='New AddressLine2'
-            $__complex_type_newAddress_0_Tags='["new_tag1","new_tag2"]'
-            $__complex_type_newAddress_0_ZipCode='99999' (Nullable = true)
-            $__complex_type_newAddress_0_Code='FR'
-            $__complex_type_newAddress_0_FullName='France'
+            @__complex_type_newAddress_0_AddressLine1='New AddressLine1'
+            @__complex_type_newAddress_0_AddressLine2='New AddressLine2'
+            @__complex_type_newAddress_0_Tags='["new_tag1","new_tag2"]'
+            @__complex_type_newAddress_0_ZipCode='99999' (Nullable = true)
+            @__complex_type_newAddress_0_Code='FR'
+            @__complex_type_newAddress_0_FullName='France'
 
             UPDATE `Customer`
             SET `ShippingAddress_AddressLine1` = @__complex_type_newAddress_0_AddressLine1,
@@ -160,8 +160,8 @@ public class ComplexTypeBulkUpdatesYdbTest(
             FROM `Customer` AS `c`
             """,
             """
-            $__complex_type_newCountry_0_Code='FR'
-            $__complex_type_newCountry_0_FullName='France'
+            @__complex_type_newCountry_0_Code='FR'
+            @__complex_type_newCountry_0_FullName='France'
 
             UPDATE `Customer`
             SET `ShippingAddress_Country_Code` = @__complex_type_newCountry_0_Code,
