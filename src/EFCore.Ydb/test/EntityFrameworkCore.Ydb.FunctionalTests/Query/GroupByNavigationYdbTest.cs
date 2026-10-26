@@ -66,6 +66,43 @@ public class GroupByNavigationYdbTest
         Assert.Equal([(1, (int?)2), (2, 1), (3, null), (4, null)], rows.Select(r => (r.Id, r.Count)));
     }
 
+    [Fact]
+    public void Navigation_min_keeps_inner_filter_inside_correlated_subquery()
+    {
+        using var context = new TestContext();
+        var query = context.Parents
+            .GroupBy(p => p.Child.Category.Name, p => new { p.Id, Value = p.Child.Value ?? 0 })
+            .Where(g => g.Where(e => e.Id > 2).Min(e => e.Value) > 2)
+            .Select(g => new { g.Key, Count = g.Count() });
+
+        var sql = query.ToQueryString();
+        Assert.Contains("SELECT MIN(COALESCE(", sql);
+        Assert.Contains("AND `g2`.`Id` > 2) > 2", sql);
+    }
+
+    [Fact]
+    public async Task Navigation_min_preserves_composite_keys_and_empty_input()
+    {
+        await using var store = YdbTestStoreFactory.Instance.Create(nameof(GroupByNavigationYdbTest));
+        await using var context = new TestContext();
+        await store.CleanAsync(context);
+        await Seed(context);
+
+        var parents = context.Parents;
+        int[] firstParent = [0];
+        var query = parents.Where(p => p.Id > firstParent[0])
+            .GroupBy(p => new { p.Child.Category.Id, p.Child.Category.Name },
+                p => new { Value = p.Child.Value ?? 0 })
+            .Where(g => g.Min(e => e.Value) > -2)
+            .Select(g => new { g.Key.Id, g.Key.Name, Count = g.Count() });
+        var rows = await query.ToArrayAsync();
+        Assert.Equal([(1, "dup", 2), (2, "dup", 1), (3, null, 2)],
+            rows.OrderBy(r => r.Id).Select(r => (r.Id, r.Name, r.Count)));
+
+        firstParent[0] = 99;
+        Assert.Empty(await query.ToArrayAsync());
+    }
+
     private static async Task Seed(TestContext context)
     {
         await context.Database.EnsureCreatedAsync();
