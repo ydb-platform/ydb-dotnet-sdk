@@ -1,3 +1,4 @@
+- Fixed navigation-based LINQ grouping with `Min` filters and `Count` projections, preserving nullable group keys, duplicate rows, enclosing left joins and pagination ordered by projected keys.
 - Fixed LINQ inner joins with nullable composite keys and additional filters, including OR conditions, preserving duplicate matches and enclosing left joins.
 - Added server-side LINQ `TimeOnly.AddMinutes` translation for tick-backed values, preserving ticks and wrapping across midnight.
 - Added server-side LINQ `TimeOnly.AddHours` translation for tick-backed values, preserving ticks and wrapping across midnight.
