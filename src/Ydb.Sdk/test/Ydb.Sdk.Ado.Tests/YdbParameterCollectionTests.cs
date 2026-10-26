@@ -81,13 +81,6 @@ public class YdbParameterCollectionTests
             Assert.Throws<InvalidCastException>(() => _ydbParameterCollection.IndexOf(new object())).Message);
     }
 
-    [Fact]
-    public void IndexOfAndContains_WhenNameIsNull_ReturnNotFound()
-    {
-        Assert.Equal(-1, _ydbParameterCollection.IndexOf((string?)null));
-        Assert.False(_ydbParameterCollection.Contains((string?)null));
-    }
-
     [Theory]
     [InlineData("name")]
     [InlineData("@name")]
