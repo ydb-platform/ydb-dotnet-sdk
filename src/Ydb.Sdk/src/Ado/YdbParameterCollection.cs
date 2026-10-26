@@ -106,7 +106,7 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// </summary>
     /// <param name="value">The parameter to locate in the collection.</param>
     /// <returns>The index of the parameter if found in the collection; otherwise, -1.</returns>
-    public override int IndexOf(object? value) => _parameters.IndexOf(Cast(value));
+    public override int IndexOf(object? value) => value is null ? -1 : _parameters.IndexOf(Cast(value));
 
     /// <summary>
     /// Inserts a parameter into the collection at the specified index.
@@ -204,6 +204,11 @@ public sealed class YdbParameterCollection : DbParameterCollection, IList<YdbPar
     /// <returns>The zero-based location of the <see cref="YdbParameter"/> within the collection.</returns>
     public override int IndexOf(string parameterName)
     {
+        if (parameterName is null)
+        {
+            return -1;
+        }
+
         var yqlName = YdbParameter.ToYqlName(parameterName);
 
         for (var i = 0; i < _parameters.Count; i++)
