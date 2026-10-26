@@ -75,7 +75,7 @@ public sealed class YdbConnectionTests : TestBase
     [Fact]
     public async Task ServerVersion_WhenReadConcurrently_InitializesOncePerDriver()
     {
-        var connectionString = ConnectionString + $";MaxPoolSize=1;PoolName=server-version-{Guid.NewGuid():N}";
+        var connectionString = ConnectionString + $";MaxPoolSize=2;PoolName=server-version-{Guid.NewGuid():N}";
         await using var first = new YdbConnection(new YdbConnectionStringBuilder(connectionString)
         {
             LoggerFactory = TestUtils.LoggerFactory
