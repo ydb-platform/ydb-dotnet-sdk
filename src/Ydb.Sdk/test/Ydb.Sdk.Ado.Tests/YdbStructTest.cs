@@ -1,4 +1,3 @@
-using System.Data;
 using Xunit;
 using Ydb.Sdk.Ado.YdbType;
 
