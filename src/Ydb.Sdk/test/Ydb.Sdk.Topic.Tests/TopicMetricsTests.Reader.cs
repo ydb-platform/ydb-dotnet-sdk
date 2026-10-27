@@ -332,8 +332,6 @@ public partial class TopicMetricsTests
         const string metricName = "ydb.topic.reader.partition_session.count";
         const string consumer = "partition-count-consumer";
         var timeout = TimeSpan.FromSeconds(5);
-        var exportedItems = new List<Metric>();
-        using var meterProvider = CreateMeterProvider(exportedItems);
         var mockStream = new Mock<ReaderStream>();
         var driverFactory = CreateDriverFactory(mockStream, "Reader_Partition_Session_Count_Metrics");
         var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
@@ -348,19 +346,18 @@ public partial class TopicMetricsTests
 
         try
         {
-            await SendResponse(meterProvider, InitResponse, 0, 0);
+            await SendResponse(InitResponse, 0, 0);
+            await SendResponse(StartPartitionSessionRequest(partitionSessionId: 1), 1, 1);
             AssertGeneratedReaderName(readerName!);
-            Assert.Equal("{session}", GetMetric(exportedItems, metricName).Unit);
-            await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 1), 1, 1);
-            await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 2), 2, 2);
+            await SendResponse(StartPartitionSessionRequest(partitionSessionId: 2), 2, 2);
             var otherTopic = StartPartitionSessionRequest(partitionSessionId: 3);
             otherTopic.StartPartitionSessionRequest.PartitionSession.Path = "/local/other-topic";
-            await SendResponse(meterProvider, otherTopic, 3, 2, 1);
-            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 1), -1, 1, 1);
-            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 2), -2, 0, 1);
-            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 3), -3, 0);
+            await SendResponse(otherTopic, 3, 2, 1);
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 1), -1, 1, 1);
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2, 0, 1);
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 3), -3, 0);
             await responses.Writer.WriteAsync((false, null));
-            await SendResponse(meterProvider, InitResponse, 0, 0);
+            await SendResponse(InitResponse, 0, 0);
             mockStream.Verify(stream => stream.Write(It.Is<FromClient>(message =>
                 message.InitRequest != null && message.InitRequest.ReaderName == "")), Times.Exactly(2));
         }
@@ -376,7 +373,6 @@ public partial class TopicMetricsTests
         return;
 
         async Task SendResponse(
-            MeterProvider provider,
             FromServer response,
             long expectedEvent,
             long expectedCount,
@@ -384,14 +380,25 @@ public partial class TopicMetricsTests
         {
             await responses.Writer.WriteAsync((true, response));
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
-            exportedItems.Clear();
-            provider.ForceFlush();
-            var metric = GetMetric(exportedItems, metricName);
-            var points = EnumeratePoints(metric)
+            var exportedItems = new List<Metric>();
+            using var meterProvider = CreateMeterProvider(exportedItems);
+            meterProvider.ForceFlush();
+            var points = exportedItems.Where(metric => metric.Name == metricName)
+                .SelectMany(EnumeratePoints)
                 .Where(point => ToDictionary(point.Tags).GetValueOrDefault("consumer") as string == consumer)
                 .ToArray();
-            Assert.Equal(2, points.Length);
-            foreach (var (topic, count) in new[] { ("/topic", expectedCount), ("other-topic", expectedOtherCount) })
+            var expectedCounts = new[]
+                {
+                    (Topic: "/topic", Count: expectedCount), (Topic: "/local/other-topic", Count: expectedOtherCount)
+                }
+                .Where(item => item.Count > 0).ToArray();
+            Assert.Equal(expectedCounts.Length, points.Length);
+            if (points.Length > 0)
+            {
+                Assert.Equal("{session}", GetMetric(exportedItems, metricName).Unit);
+            }
+
+            foreach (var (topic, count) in expectedCounts)
             {
                 var point = Assert.Single(points,
                     candidate => ToDictionary(candidate.Tags)["topic"] as string == topic);

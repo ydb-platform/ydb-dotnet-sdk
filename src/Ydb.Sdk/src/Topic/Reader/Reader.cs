@@ -58,16 +58,8 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         _ = Initialize();
     }
 
-    IEnumerable<(string Topic, long Value)> IReaderMetricsSource.GetPartitionSessionCounts()
-    {
-        var session = Volatile.Read(ref _currentReaderSession);
-        foreach (var settings in _config.SubscribeSettings)
-        {
-            var topic = settings.TopicPath;
-            var path = topic.StartsWith('/') ? topic : $"{_driverFactory.Database.TrimEnd('/')}/{topic}";
-            yield return (topic, session?.GetPartitionSessionCount(path) ?? 0);
-        }
-    }
+    IEnumerable<PartitionSession> IReaderMetricsSource.PartitionSessions =>
+        Volatile.Read(ref _currentReaderSession)?.PartitionSessions ?? [];
 
     double IReaderMetricsSource.LocalBufferMessageAgeMax =>
         _receivedMessagesChannel.Reader.TryPeek(out var batch) && batch.ReceivedTimestamp > 0
@@ -353,8 +345,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         _runProcessingStreamRequest = RunProcessingStreamRequest();
     }
 
-    internal long GetPartitionSessionCount(string topic) =>
-        _partitionSessions.Values.LongCount(partition => partition.TopicPath == topic);
+    internal IEnumerable<PartitionSession> PartitionSessions => _partitionSessions.Values;
 
     internal long CommitOffsetLagMax
     {
