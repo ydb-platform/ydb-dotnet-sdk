@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -41,8 +42,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
     private readonly CancellationTokenSource _disposeCts = new();
 
-    private readonly ConcurrentDictionary<InternalBatchMessages<TValue>, byte> _bufferedBatches = new();
-
     internal Reader(IDriverFactory driverFactory, ReaderConfig config, IDeserializer<TValue> deserializer)
     {
         _driverFactory = driverFactory;
@@ -65,43 +64,18 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         foreach (var settings in _config.SubscribeSettings)
         {
             var topic = settings.TopicPath;
-            yield return (topic, session?.GetPartitionSessionCount(topic) ?? 0);
+            var path = topic.StartsWith('/') ? topic : $"{_driverFactory.Database.TrimEnd('/')}/{topic}";
+            yield return (topic, session?.GetPartitionSessionCount(path) ?? 0);
         }
     }
 
-    IEnumerable<(string Topic, long Value)> IReaderMetricsSource.GetCommitOffsetLags()
-    {
-        var session = Volatile.Read(ref _currentReaderSession);
-        foreach (var settings in _config.SubscribeSettings)
-        {
-            var topic = settings.TopicPath;
-            yield return (topic, session?.GetCommitOffsetLagMax(topic) ?? 0);
-        }
-    }
+    double IReaderMetricsSource.LocalBufferMessageAgeMax =>
+        _receivedMessagesChannel.Reader.TryPeek(out var batch) && batch.ReceivedTimestamp > 0
+            ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
+            : 0;
 
-    long IReaderMetricsSource.LocalBufferMessages =>
-        _bufferedBatches.Keys.Sum(batch => (long)batch.RemainingMessages);
-
-    long IReaderMetricsSource.OldestMessageTimestamp => _bufferedBatches.Keys
-        .Where(batch => batch.RemainingMessages > 0)
-        .Select(batch => batch.ReceivedTimestamp)
-        .Where(timestamp => timestamp > 0)
-        .DefaultIfEmpty().Min();
-
-    internal string GetTopicPath(string topic)
-    {
-        var prefix = _driverFactory.Database.TrimEnd('/') + "/";
-        var fullPath = topic.StartsWith('/') ? topic : prefix + topic;
-        return _config.SubscribeSettings.FirstOrDefault(settings =>
-                (settings.TopicPath.StartsWith('/') ? settings.TopicPath : prefix + settings.TopicPath) == fullPath)
-            ?.TopicPath ?? topic;
-    }
-
-    internal async ValueTask BufferBatch(InternalBatchMessages<TValue> batch)
-    {
-        _bufferedBatches.TryAdd(batch, 0);
-        await _receivedMessagesChannel.Writer.WriteAsync(batch).ConfigureAwait(false);
-    }
+    long IReaderMetricsSource.CommitOffsetLagMax =>
+        Volatile.Read(ref _currentReaderSession)?.CommitOffsetLagMax ?? 0;
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -111,21 +85,15 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             {
                 if (batchInternalMessage.TryDequeueMessage(out var message))
                 {
-                    if (batchInternalMessage.RemainingMessages == 0)
-                    {
-                        _bufferedBatches.TryRemove(batchInternalMessage, out _);
-                    }
-
-                    _metrics.ReportDelivered(1, GetTopicPath(message.Topic));
+                    _metrics.ReportLocalBufferMessages(-1);
+                    _metrics.ReportDelivered(1, message.Topic);
                     return message;
                 }
 
-                if (!_receivedMessagesChannel.Reader.TryRead(out var removedBatch))
+                if (!_receivedMessagesChannel.Reader.TryRead(out _))
                 {
                     throw new ReaderException("Detect race condition on ReadAsync operation");
                 }
-
-                _bufferedBatches.TryRemove(removedBatch, out _);
             }
             else
             {
@@ -145,17 +113,11 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 throw new ReaderException("Detect race condition on ReadBatchAsync operation");
             }
 
-            try
+            if (batchInternalMessage.TryPublicBatch(out var batch))
             {
-                if (batchInternalMessage.TryPublicBatch(out var batch))
-                {
-                    _metrics.ReportDelivered(batch.Batch.Count, GetTopicPath(batch.Batch[0].Topic));
-                    return batch;
-                }
-            }
-            finally
-            {
-                _bufferedBatches.TryRemove(batchInternalMessage, out _);
+                _metrics.ReportLocalBufferMessages(-batch.Batch.Count);
+                _metrics.ReportDelivered(batch.Batch.Count, batch.Batch[0].Topic);
+                return batch;
             }
         }
 
@@ -173,6 +135,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
         Volatile.Write(ref _currentReaderSession, null);
         _metrics.ResetCreditBalanceBytes();
+        _metrics.ResetLocalBufferMessages();
         _metrics.ReportSessionError(statusCode);
         _ = Task.Run(Initialize);
     }
@@ -281,7 +244,7 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                     Reconnect,
                     await stream.AuthToken().ConfigureAwait(false),
                     _logger,
-                    this,
+                    _receivedMessagesChannel.Writer,
                     _deserializer,
                     _metrics
                 )
@@ -315,8 +278,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
 
         await (Interlocked.Exchange(ref _currentReaderSession, null)?.DisposeAsync() ??
                ValueTask.CompletedTask).ConfigureAwait(false);
-        _bufferedBatches.Clear();
-
         if (_driver != null)
         {
             await _driver.DisposeAsync().ConfigureAwait(false);
@@ -352,7 +313,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private const double FreeBufferCoefficient = 0.2;
 
     private readonly ReaderConfig _config;
-    private readonly Reader<TValue> _reader;
+    private readonly ChannelWriter<InternalBatchMessages<TValue>> _channelWriter;
     private readonly IDeserializer<TValue> _deserializer;
     private readonly ReaderMetricsReporter _metrics;
     private readonly CancellationTokenSource _lifecycleReaderSessionCts = new();
@@ -379,13 +340,13 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         Action<StatusCode> reconnect,
         string? lastToken,
         ILogger logger,
-        Reader<TValue> reader,
+        ChannelWriter<InternalBatchMessages<TValue>> channelWriter,
         IDeserializer<TValue> deserializer,
         ReaderMetricsReporter metrics
     ) : base(stream, logger, sessionId, reconnect, lastToken)
     {
         _config = config;
-        _reader = reader;
+        _channelWriter = channelWriter;
         _deserializer = deserializer;
         _metrics = metrics;
         _runProcessingStreamResponse = RunProcessingStreamResponse();
@@ -393,20 +354,20 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     }
 
     internal long GetPartitionSessionCount(string topic) =>
-        _partitionSessions.Values.LongCount(partition => _reader.GetTopicPath(partition.TopicPath) == topic);
+        _partitionSessions.Values.LongCount(partition => partition.TopicPath == topic);
 
-    internal long GetCommitOffsetLagMax(string topic)
+    internal long CommitOffsetLagMax
     {
-        var max = 0L;
-        foreach (var (_, partitionSession) in _partitionSessions)
+        get
         {
-            if (_reader.GetTopicPath(partitionSession.TopicPath) == topic)
+            var max = 0L;
+            foreach (var (_, partitionSession) in _partitionSessions)
             {
                 max = Math.Max(max, partitionSession.CommitOffsetLag);
             }
-        }
 
-        return max;
+            return max;
+        }
     }
 
     private async Task RunProcessingStreamResponse()
@@ -547,7 +508,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             {
                 _metrics.ReportCommitAcknowledged(
                     partitionSession.HandleCommitedOffset(partitionsCommittedOffset.CommittedOffset),
-                    _reader.GetTopicPath(partitionSession.TopicPath));
+                    partitionSession.TopicPath);
             }
             else
             {
@@ -623,7 +584,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
                 _metrics.ReportCommitQueued(
                     commitSending.OffsetsRange.End - commitSending.OffsetsRange.Start,
-                    _reader.GetTopicPath(partitionSession.TopicPath));
+                    partitionSession.TopicPath);
             }
             catch (ChannelClosedException)
             {
@@ -662,19 +623,20 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
             if (_partitionSessions.TryGetValue(partitionSessionId, out var partitionSession))
             {
-                var topic = _reader.GetTopicPath(partitionSession.TopicPath);
-                var bufferedBatch = new InternalBatchMessages<TValue>(
-                    partition.Batches,
-                    partitionSession,
-                    this,
-                    approximatelyPartitionBytesSize,
-                    _deserializer,
-                    receivedTimestamp
-                );
-                await _reader.BufferBatch(bufferedBatch).ConfigureAwait(false);
+                await _channelWriter.WriteAsync(
+                    new InternalBatchMessages<TValue>(
+                        partition.Batches,
+                        partitionSession,
+                        this,
+                        approximatelyPartitionBytesSize,
+                        _deserializer,
+                        receivedTimestamp
+                    )
+                ).ConfigureAwait(false);
 
                 var messageCount = partition.Batches.Sum(batch => batch.MessageData.Count);
-                _metrics.ReportReceived(messageCount, topic);
+                _metrics.ReportLocalBufferMessages(messageCount);
+                _metrics.ReportReceived(messageCount, partitionSession.TopicPath);
             }
             else
             {
