@@ -6,7 +6,7 @@ namespace Ydb.Sdk.Topic.Reader;
 
 internal interface IReaderMetricsSource
 {
-    long PartitionSessionCount { get; }
+    IEnumerable<PartitionSession> PartitionSessions { get; }
 
     double LocalBufferMessageAgeMax { get; }
 
@@ -198,8 +198,10 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters
-                .Select(reporter =>
-                    new Measurement<long>(reporter._readerMetricsSource.PartitionSessionCount, reporter._commonTags))
+                .SelectMany(reporter => reporter._readerMetricsSource.PartitionSessions
+                    .GroupBy(partition => partition.TopicPath)
+                    .Select(partitions => new Measurement<long>(partitions.LongCount(),
+                        new TagList(reporter._commonTags) { { "topic", partitions.Key } })))
                 .ToArray();
         }
     }

@@ -342,19 +342,22 @@ public partial class TopicMetricsTests
         var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = consumer,
-            SubscribeSettings = { new SubscribeSettings("/topic") }
+            SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("other-topic") }
         }.Build();
         string? readerName = null;
 
         try
         {
             await SendResponse(meterProvider, InitResponse, 0, 0);
-            AssertGeneratedReaderName(readerName!);
-            Assert.Equal("{session}", GetMetric(exportedItems, metricName).Unit);
             await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 1), 1, 1);
+            AssertGeneratedReaderName(readerName!);
             await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 2), 2, 2);
-            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 1), -1, 1);
-            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 2), -2, 0);
+            var otherTopic = StartPartitionSessionRequest(partitionSessionId: 3);
+            otherTopic.StartPartitionSessionRequest.PartitionSession.Path = "/local/other-topic";
+            await SendResponse(meterProvider, otherTopic, 3, 2, 1);
+            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 1), -1, 1, 1);
+            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 2), -2, 0, 1);
+            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 3), -3, 0);
             await responses.Writer.WriteAsync((false, null));
             await SendResponse(meterProvider, InitResponse, 0, 0);
             mockStream.Verify(stream => stream.Write(It.Is<FromClient>(message =>
@@ -375,18 +378,39 @@ public partial class TopicMetricsTests
             MeterProvider provider,
             FromServer response,
             long expectedEvent,
-            long expectedCount)
+            long expectedCount,
+            long expectedOtherCount = 0)
         {
             await responses.Writer.WriteAsync((true, response));
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
             exportedItems.Clear();
             provider.ForceFlush();
+            if (expectedCount == 0 && expectedOtherCount == 0)
+            {
+                Assert.Empty(TopicMetricsTestUtils.GetPoints(exportedItems, metricName, "consumer", consumer));
+                return;
+            }
+
             var metric = GetMetric(exportedItems, metricName);
-            var point = Assert.Single(EnumeratePoints(metric),
-                point => ToDictionary(point.Tags).GetValueOrDefault("consumer") as string == consumer);
-            readerName ??= Assert.IsType<string>(ToDictionary(point.Tags)["reader.name"]);
-            Assert.Equal(expectedCount, point.GetGaugeLastValueLong());
-            AssertTags(point, consumer, readerName);
+            var points = EnumeratePoints(metric)
+                .Where(point => ToDictionary(point.Tags).GetValueOrDefault("consumer") as string == consumer)
+                .ToArray();
+            var expectedCounts = new[]
+                {
+                    (Topic: "/topic", Count: expectedCount), (Topic: "/local/other-topic", Count: expectedOtherCount)
+                }
+                .Where(item => item.Count > 0).ToArray();
+            Assert.Equal(expectedCounts.Length, points.Length);
+            Assert.Equal("{session}", metric.Unit);
+
+            foreach (var (topic, count) in expectedCounts)
+            {
+                var point = Assert.Single(points,
+                    candidate => ToDictionary(candidate.Tags)["topic"] as string == topic);
+                readerName ??= Assert.IsType<string>(ToDictionary(point.Tags)["reader.name"]);
+                Assert.Equal(count, point.GetGaugeLastValueLong());
+                AssertTags(point, consumer, readerName, topic);
+            }
         }
     }
 

@@ -1,3 +1,4 @@
+- Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.partition_session.count`.
 - Fix ADO.NET: `YdbTransaction.Release` and `ReleaseAsync` throw `NotSupportedException`, like `Save` and
   `Rollback(string)`, since `SupportsSavepoints` is false; they used to report success.
 - **Breaking Change** ADO.NET: `YdbParameter.ParameterName` returns the name as it was set (`name`, `@name` or `$name`)
