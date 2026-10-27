@@ -385,8 +385,14 @@ public partial class TopicMetricsTests
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
             exportedItems.Clear();
             provider.ForceFlush();
-            var points = exportedItems.Where(metric => metric.Name == metricName)
-                .SelectMany(EnumeratePoints)
+            if (expectedCount == 0 && expectedOtherCount == 0)
+            {
+                Assert.Empty(TopicMetricsTestUtils.GetPoints(exportedItems, metricName, "consumer", consumer));
+                return;
+            }
+
+            var metric = GetMetric(exportedItems, metricName);
+            var points = EnumeratePoints(metric)
                 .Where(point => ToDictionary(point.Tags).GetValueOrDefault("consumer") as string == consumer)
                 .ToArray();
             var expectedCounts = new[]
@@ -395,10 +401,7 @@ public partial class TopicMetricsTests
                 }
                 .Where(item => item.Count > 0).ToArray();
             Assert.Equal(expectedCounts.Length, points.Length);
-            if (points.Length > 0)
-            {
-                Assert.Equal("{session}", GetMetric(exportedItems, metricName).Unit);
-            }
+            Assert.Equal("{session}", metric.Unit);
 
             foreach (var (topic, count) in expectedCounts)
             {
