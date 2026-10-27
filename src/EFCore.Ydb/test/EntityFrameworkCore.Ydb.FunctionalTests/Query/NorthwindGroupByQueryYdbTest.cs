@@ -156,8 +156,6 @@ public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCust
 
     public override Task GroupBy_orderby_projection_with_coalesce_operation(bool async) => Task.CompletedTask;
 
-    public override Task GroupBy_aggregate_over_a_subquery(bool async) => Task.CompletedTask;
-
     public override Task GroupBy_aggregate_join_with_grouping_key(bool async) => Task.CompletedTask;
 
     public override Task GroupBy_aggregate_join_with_group_result(bool async) => Task.CompletedTask;

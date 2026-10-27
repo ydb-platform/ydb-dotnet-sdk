@@ -70,10 +70,51 @@ public class YdbParameterBasedSqlProcessor(
             {
                 if (node is ScalarSubqueryExpression scalar)
                 {
-                    return TryInline(scalar.Subquery) ?? scalar;
+                    return TryInlineCount(scalar.Subquery) ?? TryInline(scalar.Subquery) ?? scalar;
                 }
 
                 return node is SelectExpression ? node : base.VisitExtension(node);
+            }
+
+            private SqlExpression? TryInlineCount(SelectExpression inner)
+            {
+                if (inner.IsDistinct || inner.GroupBy.Count != 0 || inner.Having is not null
+                    || inner.Orderings.Count != 0 || inner.Offset is not null || inner.Limit is not null
+                    || inner.Tables is not [TableExpression lookup]
+                    || lookup.Table is not ITable { PrimaryKey.Columns: [var primaryKey] }
+                    || inner.Projection is not
+                    [
+                        {
+                            Expression: SqlUnaryExpression
+                            {
+                                OperatorType: ExpressionType.Convert,
+                                Operand: SqlFunctionExpression
+                                {
+                                    Name: "COUNT", IsBuiltIn: true, Arguments: [SqlFragmentExpression { Sql: "*" }]
+                                } count
+                            } conversion
+                        }
+                    ]
+                    || inner.Predicate is not SqlBinaryExpression
+                    {
+                        OperatorType: ExpressionType.Equal, Left: ColumnExpression left, Right: ColumnExpression right
+                    }
+                    || Tables.Any(table => (table is JoinExpressionBase join ? join.Table.Alias : table.Alias)
+                                           == lookup.Alias))
+                {
+                    return null;
+                }
+
+                var key = left.TableAlias == lookup.Alias ? left : right;
+                var group = ReferenceEquals(key, left) ? right : left;
+                if (key.TableAlias != lookup.Alias || key.Name != primaryKey.Name || !outer.GroupBy.Contains(group))
+                {
+                    return null;
+                }
+
+                // A primary-key lookup preserves outer rows; DISTINCT removes their repeated matches.
+                Tables = Tables.Append(new LeftJoinExpression(lookup, inner.Predicate)).ToArray();
+                return conversion.Update(count.Update(count.Instance, [new DistinctExpression(key.MakeNullable())]));
             }
 
             private SqlExpression? TryInline(SelectExpression inner)
