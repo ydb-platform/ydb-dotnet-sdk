@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
 using System.Threading.Channels;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -61,44 +59,34 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         _ = Initialize();
     }
 
-    IEnumerable<Measurement<long>> IReaderMetricsSource.GetPartitionSessionCount(
-        KeyValuePair<string, object?>[] commonTags)
+    IEnumerable<(string Topic, long Value)> IReaderMetricsSource.GetPartitionSessionCounts()
     {
         var session = Volatile.Read(ref _currentReaderSession);
         foreach (var settings in _config.SubscribeSettings)
         {
             var topic = settings.TopicPath;
-            yield return new Measurement<long>(session?.GetPartitionSessionCount(topic) ?? 0,
-                new TagList(commonTags) { { "topic", topic } });
+            yield return (topic, session?.GetPartitionSessionCount(topic) ?? 0);
         }
     }
 
-    IEnumerable<Measurement<long>> IReaderMetricsSource.GetCommitOffsetLagMax(
-        KeyValuePair<string, object?>[] commonTags)
+    IEnumerable<(string Topic, long Value)> IReaderMetricsSource.GetCommitOffsetLags()
     {
         var session = Volatile.Read(ref _currentReaderSession);
         foreach (var settings in _config.SubscribeSettings)
         {
             var topic = settings.TopicPath;
-            yield return new Measurement<long>(session?.GetCommitOffsetLagMax(topic) ?? 0,
-                new TagList(commonTags) { { "topic", topic } });
+            yield return (topic, session?.GetCommitOffsetLagMax(topic) ?? 0);
         }
     }
 
-    Measurement<long> IReaderMetricsSource.GetLocalBufferMessages(
-        KeyValuePair<string, object?>[] commonTags) =>
-        new(_bufferedBatches.Keys.Sum(batch => (long)batch.RemainingMessages), commonTags);
+    long IReaderMetricsSource.LocalBufferMessages =>
+        _bufferedBatches.Keys.Sum(batch => (long)batch.RemainingMessages);
 
-    Measurement<double> IReaderMetricsSource.GetLocalBufferMessageAgeMax(
-        KeyValuePair<string, object?>[] commonTags)
-    {
-        var oldest = _bufferedBatches.Keys
-            .Where(batch => batch.RemainingMessages > 0)
-            .Select(batch => batch.ReceivedTimestamp)
-            .Where(timestamp => timestamp > 0)
-            .DefaultIfEmpty().Min();
-        return new Measurement<double>(oldest == 0 ? 0 : Stopwatch.GetElapsedTime(oldest).TotalSeconds, commonTags);
-    }
+    long IReaderMetricsSource.OldestMessageTimestamp => _bufferedBatches.Keys
+        .Where(batch => batch.RemainingMessages > 0)
+        .Select(batch => batch.ReceivedTimestamp)
+        .Where(timestamp => timestamp > 0)
+        .DefaultIfEmpty().Min();
 
     internal string GetTopicPath(string topic)
     {

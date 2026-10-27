@@ -6,13 +6,13 @@ namespace Ydb.Sdk.Topic.Reader;
 
 internal interface IReaderMetricsSource
 {
-    IEnumerable<Measurement<long>> GetPartitionSessionCount(KeyValuePair<string, object?>[] commonTags);
+    IEnumerable<(string Topic, long Value)> GetPartitionSessionCounts();
 
-    IEnumerable<Measurement<long>> GetCommitOffsetLagMax(KeyValuePair<string, object?>[] commonTags);
+    IEnumerable<(string Topic, long Value)> GetCommitOffsetLags();
 
-    Measurement<long> GetLocalBufferMessages(KeyValuePair<string, object?>[] commonTags);
+    long LocalBufferMessages { get; }
 
-    Measurement<double> GetLocalBufferMessageAgeMax(KeyValuePair<string, object?>[] commonTags);
+    long OldestMessageTimestamp { get; }
 }
 
 /// <summary>
@@ -195,8 +195,9 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters
-                .SelectMany(reporter =>
-                    reporter._readerMetricsSource.GetPartitionSessionCount(reporter._commonTags))
+                .SelectMany(reporter => reporter._readerMetricsSource.GetPartitionSessionCounts()
+                    .Select(metric => new Measurement<long>(metric.Value,
+                        new TagList(reporter._commonTags) { { "topic", metric.Topic } })))
                 .ToArray();
         }
     }
@@ -217,8 +218,12 @@ internal sealed class ReaderMetricsReporter : IDisposable
         lock (Reporters)
         {
             return Reporters.Select(reporter =>
-                    reporter._readerMetricsSource.GetLocalBufferMessageAgeMax(reporter._commonTags))
-                .ToArray();
+            {
+                var timestamp = reporter._readerMetricsSource.OldestMessageTimestamp;
+                return new Measurement<double>(
+                    timestamp == 0 ? 0 : Stopwatch.GetElapsedTime(timestamp).TotalSeconds,
+                    reporter._commonTags);
+            }).ToArray();
         }
     }
 
@@ -226,8 +231,8 @@ internal sealed class ReaderMetricsReporter : IDisposable
     {
         lock (Reporters)
         {
-            return Reporters.Select(reporter =>
-                    reporter._readerMetricsSource.GetLocalBufferMessages(reporter._commonTags))
+            return Reporters.Select(reporter => new Measurement<long>(
+                    reporter._readerMetricsSource.LocalBufferMessages, reporter._commonTags))
                 .ToArray();
         }
     }
@@ -236,8 +241,9 @@ internal sealed class ReaderMetricsReporter : IDisposable
     {
         lock (Reporters)
         {
-            return Reporters.SelectMany(reporter =>
-                    reporter._readerMetricsSource.GetCommitOffsetLagMax(reporter._commonTags))
+            return Reporters.SelectMany(reporter => reporter._readerMetricsSource.GetCommitOffsetLags()
+                    .Select(metric => new Measurement<long>(metric.Value,
+                        new TagList(reporter._commonTags) { { "topic", metric.Topic } })))
                 .ToArray();
         }
     }
