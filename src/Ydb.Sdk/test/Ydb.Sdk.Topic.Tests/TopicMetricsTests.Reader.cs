@@ -434,44 +434,77 @@ public partial class TopicMetricsTests
                 commitsWritten.Writer.TryWrite(message.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId);
             }
         });
-        await using var reader = new ReaderBuilder<string>(
+        var reader = new ReaderBuilder<string>(
             CreateDriverFactory(stream, "Reader_Commit_Offset_Lag_Metrics"))
         {
             ConsumerName = consumer,
             ReaderName = readerName,
-            SubscribeSettings = { new SubscribeSettings("/topic") }
+            SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("other-topic") }
         }.Build();
 
-        await SendResponse(InitResponse, 0);
-        await SendResponse(StartPartitionSessionRequest(10), 1);
-        await SendResponse(StartPartitionSessionRequest(10, partitionSessionId: 2), 2);
-        AssertLag(0);
+        try
+        {
+            await SendResponse(InitResponse, 0);
+            await SendResponse(StartPartitionSessionRequest(10), 1);
+            await SendResponse(StartPartitionSessionRequest(10, partitionSessionId: 2), 2);
+            var otherTopic = StartPartitionSessionRequest(20, partitionSessionId: 3);
+            otherTopic.StartPartitionSessionRequest.PartitionSession.Path = "/local/other-topic";
+            await SendResponse(otherTopic, 3);
+            AssertLag(meterProvider, ("/topic", 0), ("/local/other-topic", 0));
 
-        await responses.Writer.WriteAsync((true, ReadResponse(14, "first"u8.ToArray())));
-        var secondReadResponse = ReadResponse(17, "second"u8.ToArray());
-        secondReadResponse.ReadResponse.PartitionData[0].PartitionSessionId = 2;
-        await responses.Writer.WriteAsync((true, secondReadResponse));
-        var firstMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
-        var secondMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
-        var firstCommit = firstMessage.CommitAsync();
-        var secondCommit = secondMessage.CommitAsync();
-        Assert.Equal(1, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
-        Assert.Equal(2, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
-        AssertLag(8);
+            await responses.Writer.WriteAsync((true, ReadResponse(14, "first"u8.ToArray())));
+            var secondReadResponse = ReadResponse(17, "second"u8.ToArray());
+            secondReadResponse.ReadResponse.PartitionData[0].PartitionSessionId = 2;
+            await responses.Writer.WriteAsync((true, secondReadResponse));
+            var otherReadResponse = ReadResponse(22, "third"u8.ToArray());
+            otherReadResponse.ReadResponse.PartitionData[0].PartitionSessionId = 3;
+            await responses.Writer.WriteAsync((true, otherReadResponse));
+            var firstMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+            var secondMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+            var otherMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+            var firstCommit = firstMessage.CommitAsync();
+            var secondCommit = secondMessage.CommitAsync();
+            var otherCommit = otherMessage.CommitAsync();
+            Assert.Equal(1, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+            Assert.Equal(2, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+            Assert.Equal(3, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+            AssertLag(meterProvider, ("/topic", 8), ("/local/other-topic", 3));
 
-        var secondCommitResponse = CommitOffsetResponse(18);
-        secondCommitResponse.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = 2;
-        await responses.Writer.WriteAsync((true, secondCommitResponse));
-        await secondCommit.WaitAsync(timeout);
-        AssertLag(5);
+            var secondCommitResponse = CommitOffsetResponse(18);
+            secondCommitResponse.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = 2;
+            await responses.Writer.WriteAsync((true, secondCommitResponse));
+            await secondCommit.WaitAsync(timeout);
+            AssertLag(meterProvider, ("/topic", 5), ("/local/other-topic", 3));
 
-        await responses.Writer.WriteAsync((true, CommitOffsetResponse(15)));
-        await firstCommit.WaitAsync(timeout);
-        AssertLag(0);
+            var otherCommitResponse = CommitOffsetResponse(23);
+            otherCommitResponse.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = 3;
+            await responses.Writer.WriteAsync((true, otherCommitResponse));
+            await otherCommit.WaitAsync(timeout);
+            AssertLag(meterProvider, ("/topic", 5), ("/local/other-topic", 0));
 
-        await SendResponse(StopPartitionSessionRequest(), -1);
-        await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2);
-        AssertLag(0);
+            await responses.Writer.WriteAsync((true, CommitOffsetResponse(15)));
+            await firstCommit.WaitAsync(timeout);
+            AssertLag(meterProvider, ("/topic", 0), ("/local/other-topic", 0));
+
+            await SendResponse(StopPartitionSessionRequest(), -1);
+            AssertLag(meterProvider, ("/topic", 0), ("/local/other-topic", 0));
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2);
+            AssertLag(meterProvider, ("/local/other-topic", 0));
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 3), -3);
+            AssertLag(meterProvider);
+
+            await responses.Writer.WriteAsync((false, null));
+            await SendResponse(InitResponse, 0);
+            AssertLag(meterProvider);
+            await SendResponse(StartPartitionSessionRequest(partitionSessionId: 4), 4);
+            AssertLag(meterProvider, ("/topic", 0));
+        }
+        finally
+        {
+            await reader.DisposeAsync();
+        }
+
+        AssertLag(meterProvider);
 
         return;
 
@@ -481,16 +514,30 @@ public partial class TopicMetricsTests
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
         }
 
-        void AssertLag(long expected)
+        void AssertLag(MeterProvider provider, params (string Topic, long Lag)[] expected)
         {
             exportedItems.Clear();
-            meterProvider.ForceFlush();
+            provider.ForceFlush();
+            if (expected.Length == 0)
+            {
+                Assert.Empty(GetReaderPoints(exportedItems, metricName, readerName));
+                return;
+            }
+
             var metric = GetMetric(exportedItems, metricName);
             Assert.Equal(MetricType.LongGauge, metric.MetricType);
             Assert.Equal("{message}", metric.Unit);
-            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
-            Assert.Equal(expected, point.GetGaugeLastValueLong());
-            AssertTags(point, consumer, readerName);
+            var points = EnumeratePoints(metric)
+                .Where(point => ToDictionary(point.Tags).GetValueOrDefault("reader.name") as string == readerName)
+                .ToArray();
+            Assert.Equal(expected.Length, points.Length);
+            foreach (var (topic, lag) in expected)
+            {
+                var point = Assert.Single(points,
+                    candidate => ToDictionary(candidate.Tags).GetValueOrDefault("topic") as string == topic);
+                Assert.Equal(lag, point.GetGaugeLastValueLong());
+                AssertTags(point, consumer, readerName, topic);
+            }
         }
     }
 

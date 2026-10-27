@@ -9,8 +9,6 @@ internal interface IReaderMetricsSource
     IEnumerable<PartitionSession> PartitionSessions { get; }
 
     double LocalBufferMessageAgeMax { get; }
-
-    long CommitOffsetLagMax { get; }
 }
 
 /// <summary>
@@ -242,9 +240,11 @@ internal sealed class ReaderMetricsReporter : IDisposable
     {
         lock (Reporters)
         {
-            return Reporters.Select(reporter =>
-                    new Measurement<long>(reporter._readerMetricsSource.CommitOffsetLagMax,
-                        reporter._commonTags))
+            return Reporters
+                .SelectMany(reporter => reporter._readerMetricsSource.PartitionSessions
+                    .GroupBy(partition => partition.TopicPath)
+                    .Select(partitions => new Measurement<long>(partitions.Max(partition => partition.CommitOffsetLag),
+                        new TagList(reporter._commonTags) { { "topic", partitions.Key } })))
                 .ToArray();
         }
     }
