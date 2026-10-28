@@ -376,7 +376,7 @@ public class YdbParameterBasedSqlProcessor(
                 return visited;
             }
 
-            select = RewriteApplies(select);
+            select = RewriteApplies(RewriteDefaultIfEmpty(select));
             TableExpressionBase[]? tables = null;
             var predicate = select.Predicate;
             for (var i = 0; i < select.Tables.Count; i++)
@@ -412,6 +412,51 @@ public class YdbParameterBasedSqlProcessor(
                 ? select
                 : select.Update(tables, predicate, select.GroupBy, select.Having, select.Projection,
                     select.Orderings, select.Offset, select.Limit);
+        }
+
+        private SelectExpression RewriteDefaultIfEmpty(SelectExpression select)
+        {
+            if (select.Tables is not
+                [
+                    SelectExpression
+                    {
+                        Tables.Count: 0, IsDistinct: false, Predicate: null, GroupBy.Count: 0, Having: null,
+                        Orderings.Count: 0, Offset: null, Limit: null, Alias: { } dummyAlias
+                    } dummy,
+                    LeftJoinExpression { JoinPredicate: SqlConstantExpression { Value: true } } join
+                ]
+                || join.Table is not (TableExpression or SelectExpression)
+                || join.Table.Alias is not { } sourceAlias)
+            {
+                return select;
+            }
+
+            var names = join.Table is TableExpression table
+                ? table.Table.Columns.Select(column => column.Name)
+                : ((SelectExpression)join.Table).Projection.Select(projection => projection.Alias);
+            var usedNames = names.Concat(dummy.Projection.Select(projection => projection.Alias)).ToHashSet();
+            var key = "empty_key";
+            while (usedNames.Contains(key))
+            {
+                key += "_";
+            }
+
+            // YDB requires equality between columns from both JOIN inputs, not a constant predicate.
+            var value = sqlExpressionFactory.ApplyDefaultTypeMapping(sqlExpressionFactory.Constant(1));
+            var marker = new ProjectionExpression(value, key);
+            var left = dummy.Update(dummy.Tables, null, [], null, dummy.Projection.Append(marker).ToArray(),
+                [], null, null);
+            var right = dummy.WithAlias(sourceAlias).Update([join.Table], null, [], null,
+            [
+                new ProjectionExpression(
+                    sqlExpressionFactory.Fragment($"`{sourceAlias.Replace("`", "``")}`.*"), ""),
+                marker
+            ], [], null, null);
+            var predicate = sqlExpressionFactory.Equal(
+                new ColumnExpression(key, dummyAlias, value.Type, value.TypeMapping, false),
+                new ColumnExpression(key, sourceAlias, value.Type, value.TypeMapping, false));
+            return select.Update([left, join.Update(right, predicate)], select.Predicate, select.GroupBy, select.Having,
+                select.Projection, select.Orderings, select.Offset, select.Limit);
         }
 
         private SelectExpression RewriteApplies(SelectExpression select)
