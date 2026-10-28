@@ -1,3 +1,5 @@
+- Fix ADO.NET/EF Core retries: operations on a broken session throw a transient `YdbException` with `BadSession`
+  instead of the non-retryable "Connection is closed" error; explicitly closed connections still reject operations.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.commit_offset.lag.max`, reporting the maximum
   commit offset gap per topic.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.partition_session.count`.

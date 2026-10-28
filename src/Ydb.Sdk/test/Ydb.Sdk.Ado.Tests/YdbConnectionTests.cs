@@ -157,6 +157,36 @@ public sealed class YdbConnectionTests : TestBase
             Assert.Throws<InvalidOperationException>(() => ydbCommand.ExecuteScalar()).Message);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteScalar_WhenSessionIsBroken_ThrowRetryableYdbException(bool async)
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var command = new YdbCommand("SELECT 1", connection);
+        connection.OnNotSuccessStatusCode(StatusCode.BadSession);
+        Assert.Equal(ConnectionState.Broken, connection.State);
+
+        var exception = async
+            ? await Assert.ThrowsAsync<YdbException>(() => command.ExecuteScalarAsync())
+            : Assert.Throws<YdbException>(() => command.ExecuteScalar());
+
+        Assert.Equal(StatusCode.BadSession, exception.Code);
+        Assert.True(exception.IsTransient);
+    }
+
+    [Fact]
+    public async Task BeginTransaction_WhenSessionIsBroken_ThrowRetryableYdbException()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        connection.OnNotSuccessStatusCode(StatusCode.BadSession);
+
+        var exception = Assert.Throws<YdbException>(() => connection.BeginTransaction());
+
+        Assert.Equal(StatusCode.BadSession, exception.Code);
+        Assert.True(exception.IsTransient);
+    }
+
     [Fact]
     public async Task ClosedYdbDataReader_WhenConnectionIsClosed_ThrowException()
     {
