@@ -1,3 +1,5 @@
+- Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.commit_offset.lag.max`, reporting the maximum
+  commit offset gap per topic.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.partition_session.count`.
 - Fix ADO.NET: `YdbTransaction.Release` and `ReleaseAsync` throw `NotSupportedException`, like `Save` and
   `Rollback(string)`, since `SupportsSavepoints` is false; they used to report success.

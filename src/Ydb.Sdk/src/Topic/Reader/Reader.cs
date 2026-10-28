@@ -66,9 +66,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
             ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
             : 0;
 
-    long IReaderMetricsSource.CommitOffsetLagMax =>
-        Volatile.Read(ref _currentReaderSession)?.CommitOffsetLagMax ?? 0;
-
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
         while (await _receivedMessagesChannel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
@@ -346,20 +343,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     }
 
     internal IEnumerable<PartitionSession> PartitionSessions => _partitionSessions.Values;
-
-    internal long CommitOffsetLagMax
-    {
-        get
-        {
-            var max = 0L;
-            foreach (var (_, partitionSession) in _partitionSessions)
-            {
-                max = Math.Max(max, partitionSession.CommitOffsetLag);
-            }
-
-            return max;
-        }
-    }
 
     private async Task RunProcessingStreamResponse()
     {

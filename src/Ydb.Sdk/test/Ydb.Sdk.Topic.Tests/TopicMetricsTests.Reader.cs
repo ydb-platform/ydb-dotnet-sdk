@@ -331,86 +331,77 @@ public partial class TopicMetricsTests
     {
         const string metricName = "ydb.topic.reader.partition_session.count";
         const string consumer = "partition-count-consumer";
+        const string otherTopic = "/local/other-topic";
         var timeout = TimeSpan.FromSeconds(5);
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
+        var forceFlush = meterProvider.ForceFlush;
         var mockStream = new Mock<ReaderStream>();
         var driverFactory = CreateDriverFactory(mockStream, "Reader_Partition_Session_Count_Metrics");
         var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
         var handledEvents = Channel.CreateUnbounded<long>();
         SetupResponseStream(mockStream, responses, handledEvents.Writer);
+        string readerName;
         var reader = new ReaderBuilder<string>(driverFactory)
         {
             ConsumerName = consumer,
             SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("other-topic") }
         }.Build();
-        string? readerName = null;
-
-        try
+        await using (reader)
         {
-            await SendResponse(meterProvider, InitResponse, 0, 0);
-            await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 1), 1, 1);
-            AssertGeneratedReaderName(readerName!);
-            await SendResponse(meterProvider, StartPartitionSessionRequest(partitionSessionId: 2), 2, 2);
-            var otherTopic = StartPartitionSessionRequest(partitionSessionId: 3);
-            otherTopic.StartPartitionSessionRequest.PartitionSession.Path = "/local/other-topic";
-            await SendResponse(meterProvider, otherTopic, 3, 2, 1);
-            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 1), -1, 1, 1);
-            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 2), -2, 0, 1);
-            await SendResponse(meterProvider, StopPartitionSessionRequest(partitionSessionId: 3), -3, 0);
+            await SendResponse(InitResponse, 0);
+            Assert.Empty(TopicMetricsTestUtils.GetPoints(exportedItems, metricName, "consumer", consumer));
+            await SendResponse(StartPartitionSessionRequest(partitionSessionId: 1), 1);
+            var point = Assert.Single(TopicMetricsTestUtils.GetPoints(exportedItems, metricName, "consumer", consumer));
+            readerName = Assert.IsType<string>(GetTags(point)["reader.name"]);
+            AssertGeneratedReaderName(readerName);
+            AssertCount(1);
+            await SendResponse(StartPartitionSessionRequest(partitionSessionId: 2), 2);
+            Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+            AssertCount(2);
+            var otherPartition = StartPartitionSessionRequest(partitionSessionId: 3);
+            otherPartition.StartPartitionSessionRequest.PartitionSession.Path = otherTopic;
+            await SendResponse(otherPartition, 3);
+            Assert.Equal(2, GetReaderPoints(exportedItems, metricName, readerName).Count());
+            AssertCount(2);
+            AssertCount(1, otherTopic);
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 1), -1);
+            Assert.Equal(2, GetReaderPoints(exportedItems, metricName, readerName).Count());
+            AssertCount(1);
+            AssertCount(1, otherTopic);
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2);
+            Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+            AssertCount(1, otherTopic);
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 3), -3);
+            Assert.Empty(GetReaderPoints(exportedItems, metricName, readerName));
             await responses.Writer.WriteAsync((false, null));
-            await SendResponse(meterProvider, InitResponse, 0, 0);
+            await SendResponse(InitResponse, 0);
+            Assert.Empty(GetReaderPoints(exportedItems, metricName, readerName));
             mockStream.Verify(stream => stream.Write(It.Is<FromClient>(message =>
                 message.InitRequest != null && message.InitRequest.ReaderName == "")), Times.Exactly(2));
         }
-        finally
-        {
-            await reader.DisposeAsync();
-        }
 
-        var afterDisposeItems = new List<Metric>();
-        using var afterDisposeMeterProvider = CreateMeterProvider(afterDisposeItems);
-        afterDisposeMeterProvider.ForceFlush();
-        Assert.Empty(GetReaderPoints(afterDisposeItems, metricName, readerName!));
+        exportedItems.Clear();
+        meterProvider.ForceFlush();
+        Assert.Empty(GetReaderPoints(exportedItems, metricName, readerName));
         return;
 
-        async Task SendResponse(
-            MeterProvider provider,
-            FromServer response,
-            long expectedEvent,
-            long expectedCount,
-            long expectedOtherCount = 0)
+        async Task SendResponse(FromServer response, long expectedEvent)
         {
             await responses.Writer.WriteAsync((true, response));
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
             exportedItems.Clear();
-            provider.ForceFlush();
-            if (expectedCount == 0 && expectedOtherCount == 0)
-            {
-                Assert.Empty(TopicMetricsTestUtils.GetPoints(exportedItems, metricName, "consumer", consumer));
-                return;
-            }
+            forceFlush();
+        }
 
+        void AssertCount(long expectedCount, string topic = "/topic")
+        {
             var metric = GetMetric(exportedItems, metricName);
-            var points = EnumeratePoints(metric)
-                .Where(point => ToDictionary(point.Tags).GetValueOrDefault("consumer") as string == consumer)
-                .ToArray();
-            var expectedCounts = new[]
-                {
-                    (Topic: "/topic", Count: expectedCount), (Topic: "/local/other-topic", Count: expectedOtherCount)
-                }
-                .Where(item => item.Count > 0).ToArray();
-            Assert.Equal(expectedCounts.Length, points.Length);
             Assert.Equal("{session}", metric.Unit);
-
-            foreach (var (topic, count) in expectedCounts)
-            {
-                var point = Assert.Single(points,
-                    candidate => ToDictionary(candidate.Tags)["topic"] as string == topic);
-                readerName ??= Assert.IsType<string>(ToDictionary(point.Tags)["reader.name"]);
-                Assert.Equal(count, point.GetGaugeLastValueLong());
-                AssertTags(point, consumer, readerName, topic);
-            }
+            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName),
+                candidate => GetTags(candidate)["topic"] as string == topic);
+            Assert.Equal(expectedCount, point.GetGaugeLastValueLong());
+            AssertTags(point, consumer, readerName, topic);
         }
     }
 
@@ -420,9 +411,11 @@ public partial class TopicMetricsTests
         const string metricName = "ydb.topic.reader.commit_offset.lag.max";
         const string readerName = "commit-offset-lag-reader";
         const string consumer = "commit-offset-lag-consumer";
+        const string otherTopicName = "/local/other-topic";
         var timeout = TimeSpan.FromSeconds(5);
         var exportedItems = new List<Metric>();
         using var meterProvider = CreateMeterProvider(exportedItems);
+        var forceFlush = meterProvider.ForceFlush;
         var stream = new Mock<ReaderStream>();
         var responses = Channel.CreateUnbounded<(bool HasNext, FromServer? Response)>();
         var handledEvents = Channel.CreateUnbounded<long>();
@@ -434,44 +427,88 @@ public partial class TopicMetricsTests
                 commitsWritten.Writer.TryWrite(message.CommitOffsetRequest.CommitOffsets[0].PartitionSessionId);
             }
         });
-        await using var reader = new ReaderBuilder<string>(
+        var reader = new ReaderBuilder<string>(
             CreateDriverFactory(stream, "Reader_Commit_Offset_Lag_Metrics"))
         {
             ConsumerName = consumer,
             ReaderName = readerName,
-            SubscribeSettings = { new SubscribeSettings("/topic") }
+            SubscribeSettings = { new SubscribeSettings("/topic"), new SubscribeSettings("other-topic") }
         }.Build();
+        await using (reader)
+        {
+            await SendResponse(InitResponse, 0);
+            await SendResponse(StartPartitionSessionRequest(10), 1);
+            await SendResponse(StartPartitionSessionRequest(10, partitionSessionId: 2), 2);
+            var otherTopic = StartPartitionSessionRequest(20, partitionSessionId: 3);
+            otherTopic.StartPartitionSessionRequest.PartitionSession.Path = otherTopicName;
+            await SendResponse(otherTopic, 3);
+            Assert.Equal(2, GetReaderPoints(exportedItems, metricName, readerName).Count());
+            AssertLag(0);
+            AssertLag(0, otherTopicName);
 
-        await SendResponse(InitResponse, 0);
-        await SendResponse(StartPartitionSessionRequest(10), 1);
-        await SendResponse(StartPartitionSessionRequest(10, partitionSessionId: 2), 2);
-        AssertLag(0);
+            await responses.Writer.WriteAsync((true, ReadResponse(14, "first"u8.ToArray())));
+            var secondReadResponse = ReadResponse(17, "second"u8.ToArray());
+            secondReadResponse.ReadResponse.PartitionData[0].PartitionSessionId = 2;
+            await responses.Writer.WriteAsync((true, secondReadResponse));
+            var otherReadResponse = ReadResponse(22, "third"u8.ToArray());
+            otherReadResponse.ReadResponse.PartitionData[0].PartitionSessionId = 3;
+            await responses.Writer.WriteAsync((true, otherReadResponse));
+            var firstMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+            var secondMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+            var otherMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
+            var firstCommit = firstMessage.CommitAsync();
+            var secondCommit = secondMessage.CommitAsync();
+            var otherCommit = otherMessage.CommitAsync();
+            Assert.Equal(1, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+            Assert.Equal(2, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+            Assert.Equal(3, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+            Assert.Equal(2, GetReaderPoints(exportedItems, metricName, readerName).Count());
+            AssertLag(8);
+            AssertLag(3, otherTopicName);
 
-        await responses.Writer.WriteAsync((true, ReadResponse(14, "first"u8.ToArray())));
-        var secondReadResponse = ReadResponse(17, "second"u8.ToArray());
-        secondReadResponse.ReadResponse.PartitionData[0].PartitionSessionId = 2;
-        await responses.Writer.WriteAsync((true, secondReadResponse));
-        var firstMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
-        var secondMessage = await reader.ReadAsync().AsTask().WaitAsync(timeout);
-        var firstCommit = firstMessage.CommitAsync();
-        var secondCommit = secondMessage.CommitAsync();
-        Assert.Equal(1, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
-        Assert.Equal(2, await commitsWritten.Reader.ReadAsync().AsTask().WaitAsync(timeout));
-        AssertLag(8);
+            var secondCommitResponse = CommitOffsetResponse(18);
+            secondCommitResponse.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = 2;
+            await responses.Writer.WriteAsync((true, secondCommitResponse));
+            await secondCommit.WaitAsync(timeout);
+            Assert.Equal(2, GetReaderPoints(exportedItems, metricName, readerName).Count());
+            AssertLag(5);
+            AssertLag(3, otherTopicName);
 
-        var secondCommitResponse = CommitOffsetResponse(18);
-        secondCommitResponse.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = 2;
-        await responses.Writer.WriteAsync((true, secondCommitResponse));
-        await secondCommit.WaitAsync(timeout);
-        AssertLag(5);
+            var otherCommitResponse = CommitOffsetResponse(23);
+            otherCommitResponse.CommitOffsetResponse.PartitionsCommittedOffsets[0].PartitionSessionId = 3;
+            await responses.Writer.WriteAsync((true, otherCommitResponse));
+            await otherCommit.WaitAsync(timeout);
+            Assert.Equal(2, GetReaderPoints(exportedItems, metricName, readerName).Count());
+            AssertLag(5);
+            AssertLag(0, otherTopicName);
 
-        await responses.Writer.WriteAsync((true, CommitOffsetResponse(15)));
-        await firstCommit.WaitAsync(timeout);
-        AssertLag(0);
+            await responses.Writer.WriteAsync((true, CommitOffsetResponse(15)));
+            await firstCommit.WaitAsync(timeout);
+            Assert.Equal(2, GetReaderPoints(exportedItems, metricName, readerName).Count());
+            AssertLag(0);
+            AssertLag(0, otherTopicName);
 
-        await SendResponse(StopPartitionSessionRequest(), -1);
-        await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2);
-        AssertLag(0);
+            await SendResponse(StopPartitionSessionRequest(), -1);
+            Assert.Equal(2, GetReaderPoints(exportedItems, metricName, readerName).Count());
+            AssertLag(0);
+            AssertLag(0, otherTopicName);
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 2), -2);
+            Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+            AssertLag(0, otherTopicName);
+            await SendResponse(StopPartitionSessionRequest(partitionSessionId: 3), -3);
+            Assert.Empty(GetReaderPoints(exportedItems, metricName, readerName));
+
+            await responses.Writer.WriteAsync((false, null));
+            await SendResponse(InitResponse, 0);
+            Assert.Empty(GetReaderPoints(exportedItems, metricName, readerName));
+            await SendResponse(StartPartitionSessionRequest(partitionSessionId: 4), 4);
+            Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+            AssertLag(0);
+        }
+
+        exportedItems.Clear();
+        meterProvider.ForceFlush();
+        Assert.Empty(GetReaderPoints(exportedItems, metricName, readerName));
 
         return;
 
@@ -479,18 +516,21 @@ public partial class TopicMetricsTests
         {
             await responses.Writer.WriteAsync((true, response));
             Assert.Equal(expectedEvent, await handledEvents.Reader.ReadAsync().AsTask().WaitAsync(timeout));
+            exportedItems.Clear();
+            forceFlush();
         }
 
-        void AssertLag(long expected)
+        void AssertLag(long expected, string topic = "/topic")
         {
             exportedItems.Clear();
-            meterProvider.ForceFlush();
+            forceFlush();
             var metric = GetMetric(exportedItems, metricName);
             Assert.Equal(MetricType.LongGauge, metric.MetricType);
             Assert.Equal("{message}", metric.Unit);
-            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName));
+            var point = Assert.Single(GetReaderPoints(exportedItems, metricName, readerName),
+                candidate => GetTags(candidate)["topic"] as string == topic);
             Assert.Equal(expected, point.GetGaugeLastValueLong());
-            AssertTags(point, consumer, readerName);
+            AssertTags(point, consumer, readerName, topic);
         }
     }
 
