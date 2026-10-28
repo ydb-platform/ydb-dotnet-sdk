@@ -14,14 +14,6 @@ public class YdbParameterTests(YdbFactoryFixture fixture) : ParameterTestBase<Yd
         base.Parameter_default_DbType_is_string();
     }
 
-#pragma warning disable xUnit1004
-    [Fact(Skip = "System.ArgumentNullException: Value cannot be null. (Parameter 'value')")]
-#pragma warning restore xUnit1004
-    public override void ParameterCollection_IndexOf_object_returns_negative_one_for_null()
-    {
-        base.ParameterCollection_IndexOf_object_returns_negative_one_for_null();
-    }
-
     public override void ResetDbType_works()
     {
         var parameter = Fixture.Factory.CreateParameter();

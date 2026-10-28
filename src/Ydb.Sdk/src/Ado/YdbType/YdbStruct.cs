@@ -68,7 +68,7 @@ public class YdbStruct : IEnumerable
     {
         var typedValue = ydbParameter.TypedValue;
 
-        StructType.Members.Add(new StructMember { Name = ydbParameter.ParameterName[1..], Type = typedValue.Type });
+        StructType.Members.Add(new StructMember { Name = ydbParameter.YqlName[1..], Type = typedValue.Type });
         Value.Items.Add(typedValue.Value);
     }
 

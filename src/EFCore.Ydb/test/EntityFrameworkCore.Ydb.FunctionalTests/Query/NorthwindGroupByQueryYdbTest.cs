@@ -30,8 +30,6 @@ public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCust
 
     public override Task Group_by_column_project_constant(bool async) => Task.CompletedTask;
 
-    public override Task GroupBy_with_aggregate_through_navigation_property(bool async) => Task.CompletedTask;
-
     public override Task GroupBy_with_aggregate_containing_complex_where(bool async) => Task.CompletedTask;
 
     public override Task GroupBy_anonymous_Select_LongCount(bool async) => Task.CompletedTask;
@@ -157,8 +155,6 @@ public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCust
     public override Task GroupBy_Property_Select_LongCount_with_predicate(bool async) => Task.CompletedTask;
 
     public override Task GroupBy_orderby_projection_with_coalesce_operation(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_aggregate_over_a_subquery(bool async) => Task.CompletedTask;
 
     public override Task GroupBy_aggregate_join_with_grouping_key(bool async) => Task.CompletedTask;
 

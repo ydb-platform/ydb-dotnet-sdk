@@ -102,9 +102,9 @@ public class YdbModificationCommandBatchTest
 
         AssertSql(
             """
-            $p2='?' (DbType = Int32)
-            $p0='?' (DbType = Decimal)
-            $p1='?'
+            @p2='?' (DbType = Int32)
+            @p0='?' (DbType = Decimal)
+            @p1='?'
             $batch_value_0='?' (DbType = Object)
             $batch_value_1='?' (DbType = Object)
 
@@ -172,12 +172,12 @@ public class YdbModificationCommandBatchTest
 
         AssertSql(
             """
-            $p0='?' (DbType = Int32)
+            @p0='?' (DbType = Int32)
             $batch_value_0='?' (DbType = Object)
             $batch_value_1='?' (DbType = Object)
             $batch_value_2='?' (DbType = Object)
             $batch_value_3='?' (DbType = Object)
-            $p1='?' (DbType = Int32)
+            @p1='?' (DbType = Int32)
             $batch_value_4='?' (DbType = Object)
 
             DELETE FROM `Customers`

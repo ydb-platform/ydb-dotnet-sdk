@@ -52,7 +52,7 @@ public class DateTimeExecuteUpdateYdbTest
             .ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedAt, testDate));
         ((TestSqlLoggerFactory)sqlLoggerFactory).AssertBaseline([
             """
-            $__testDate_0='?' (DbType = Object)
+            @__testDate_0='?' (DbType = Object)
 
             UPDATE `TestEntities`
             SET `UpdatedAt` = @__testDate_0
