@@ -15,7 +15,7 @@ public class YdbExecutionStrategyTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Query_WhenSessionBreaksBeforeExecution_ReopensWithoutRetry(bool async)
+    public async Task Query_WhenSessionBreaksBeforeExecution_ExecutesWithoutRetry(bool async)
     {
         var interceptor = new BreakSessionInterceptor();
         var options = new DbContextOptionsBuilder<DbContext>()

@@ -1,5 +1,5 @@
-- Fix ADO.NET: commands return a broken session to the pool and open a replacement before execution;
-  explicitly closed connections still reject operations.
+- Fix ADO.NET: connection validation rejects only explicitly closed connections and lets operations
+  on broken sessions follow normal execution without reopening them.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.commit_offset.lag.max`, reporting the maximum
   commit offset gap per topic.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.partition_session.count`.

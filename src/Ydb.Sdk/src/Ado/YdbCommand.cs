@@ -211,17 +211,7 @@ public sealed class YdbCommand : DbCommand
             throw new YdbOperationInProgressException(ydbConnection);
         }
 
-        var state = ydbConnection.State;
-        if (state == ConnectionState.Closed)
-        {
-            throw new InvalidOperationException("Connection is closed");
-        }
-
-        if (state == ConnectionState.Broken)
-        {
-            ydbConnection.Session.Dispose();
-            await ydbConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        }
+        ydbConnection.ThrowIfConnectionClosed();
 
         var session = ydbConnection.Session;
         var startTimestamp = YdbMetricsReporter.ReportCommandStart();

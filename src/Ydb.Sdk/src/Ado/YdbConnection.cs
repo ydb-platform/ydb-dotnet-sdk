@@ -286,15 +286,9 @@ public sealed class YdbConnection : DbConnection
 
     internal void ThrowIfConnectionClosed()
     {
-        var state = State;
-        if (state == ConnectionState.Closed)
+        if (State == ConnectionState.Closed)
         {
             throw new InvalidOperationException("Connection is closed");
-        }
-
-        if (state == ConnectionState.Broken)
-        {
-            throw new YdbException(StatusCode.BadSession, "Connection session is broken");
         }
     }
 
