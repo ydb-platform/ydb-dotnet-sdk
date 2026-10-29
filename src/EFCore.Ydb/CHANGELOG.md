@@ -1,3 +1,4 @@
+- Fixed grouped LINQ `Min` preserving filters within each group and null results for empty filtered inputs.
 - Fixed grouped LINQ `Count(predicate)` preserving filters within each group.
 - Fixed LINQ `DefaultIfEmpty` without a group join, preserving empty results, null values and duplicate rows.
 - Fixed grouped LINQ projections counting a primary-key lookup by the group key, preserving null groups, missing matches and duplicate source rows.

@@ -110,6 +110,13 @@ public class YdbQueryableAggregateMethodTranslator(
             case nameof(Queryable.Min) when
                 (methodInfo == QueryableMethods.MinWithoutSelector || methodInfo == QueryableMethods.MinWithSelector)
                 && source.Selector is SqlExpression minSqlExpression:
+                if (source.Predicate != null)
+                {
+                    minSqlExpression = sqlExpressionFactory.Case(
+                        [new CaseWhenClause(source.Predicate, minSqlExpression)],
+                        elseResult: null);
+                }
+
                 return sqlExpressionFactory.Function(
                     "MIN",
                     [minSqlExpression],
