@@ -22,13 +22,7 @@ internal static class YdbSchema
         if (collectionName.Length == 0)
             throw new ArgumentException("Collection name cannot be empty.", nameof(collectionName));
 
-        var normalizedCollectionName = collectionName.ToUpperInvariant();
-        if (normalizedCollectionName is "TABLES" or "COLUMNS" or "TABLESWITHSTATS")
-        {
-            ydbConnection.ThrowIfConnectionClosed();
-        }
-
-        return normalizedCollectionName switch
+        return collectionName.ToUpperInvariant() switch
         {
             // Common Schema Collections
             "METADATACOLLECTIONS" => Task.FromResult(GetMetaDataCollections()),

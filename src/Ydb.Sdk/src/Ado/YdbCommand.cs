@@ -205,17 +205,13 @@ public sealed class YdbCommand : DbCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var ydbConnection = YdbConnection;
-        if (ydbConnection.IsBusy)
+        if (YdbConnection.IsBusy)
         {
-            throw new YdbOperationInProgressException(ydbConnection);
+            throw new YdbOperationInProgressException(YdbConnection);
         }
 
-        ydbConnection.ThrowIfConnectionClosed();
-
-        var session = ydbConnection.Session;
         var startTimestamp = YdbMetricsReporter.ReportCommandStart();
-        var dbActivity = session is not RetryableSession
+        var dbActivity = YdbConnection.Session is not RetryableSession
             ? YdbActivitySource.StartActivity("ydb.ExecuteQuery")
             : null;
 
@@ -252,19 +248,19 @@ public sealed class YdbCommand : DbCommand
                 { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout), DbActivity = dbActivity }
             : new GrpcRequestSettings { DbActivity = dbActivity };
 
-        var transaction = ydbConnection.CurrentTransaction;
+        var transaction = YdbConnection.CurrentTransaction;
 
         if (Transaction != null && Transaction != transaction) // assert on legacy DbTransaction property
         {
             throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
         }
 
-        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await session.ExecuteQuery
+        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery
                 (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl, StatsMode)
-            .ConfigureAwait(false), ydbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
+            .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
 
-        ydbConnection.LastReader = ydbDataReader;
-        ydbConnection.LastCommand = CommandText;
+        YdbConnection.LastReader = ydbDataReader;
+        YdbConnection.LastCommand = CommandText;
 
         return ydbDataReader;
     }

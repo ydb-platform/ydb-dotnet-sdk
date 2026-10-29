@@ -34,7 +34,18 @@ public sealed class YdbConnection : DbConnection
         [param: AllowNull] init => _connectionStringBuilder = value;
     }
 
-    internal ISession Session { get; private set; } = null!;
+    internal ISession Session
+    {
+        get
+        {
+            ThrowIfConnectionClosed();
+
+            return _session;
+        }
+        private set => _session = value;
+    }
+
+    private ISession _session = null!;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="YdbConnection"/> class.
@@ -91,13 +102,17 @@ public sealed class YdbConnection : DbConnection
     /// conflict, the transaction may be aborted by the server. This behavior is similar to
     /// <see cref="IsolationLevel.Snapshot"/> in ADO.NET.
     /// </remarks>
-    protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
-        BeginTransaction(isolationLevel switch
+    protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
+    {
+        ThrowIfConnectionClosed();
+
+        return BeginTransaction(isolationLevel switch
         {
             Serializable or Unspecified => TransactionMode.SerializableRw,
             Snapshot or RepeatableRead => TransactionMode.SnapshotRw,
             _ => throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel)
         });
+    }
 
     public new YdbTransaction BeginTransaction(IsolationLevel isolationLevel) => BeginDbTransaction(isolationLevel);
 
@@ -189,7 +204,7 @@ public sealed class YdbConnection : DbConnection
                 return;
             case ConnectionState.Broken:
                 ConnectionState = ConnectionState.Closed;
-                Session.Dispose();
+                _session.Dispose();
                 return;
             default:
                 try
@@ -210,7 +225,7 @@ public sealed class YdbConnection : DbConnection
                 }
                 finally
                 {
-                    Session.Dispose();
+                    _session.Dispose();
                 }
 
                 break;
@@ -234,13 +249,13 @@ public sealed class YdbConnection : DbConnection
     public override string Database => _connectionStringBuilder?.Database ?? string.Empty;
 
     public override ConnectionState State =>
-        ConnectionState != ConnectionState.Closed && Session.IsBroken // maybe is updated asynchronously
+        ConnectionState != ConnectionState.Closed && _session.IsBroken // maybe is updated asynchronously
             ? ConnectionState.Broken
             : ConnectionState;
 
     private ConnectionState ConnectionState { get; set; } = ConnectionState.Closed; // Invoke AsyncOpen()
 
-    internal void OnNotSuccessStatusCode(StatusCode code) => Session.OnNotSuccessStatusCode(code);
+    internal void OnNotSuccessStatusCode(StatusCode code) => _session.OnNotSuccessStatusCode(code);
 
     internal YdbDataReader? LastReader { get; set; }
     internal string LastCommand { get; set; } = string.Empty;
