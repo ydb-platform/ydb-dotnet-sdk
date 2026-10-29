@@ -15,12 +15,12 @@ public class YdbExecutionStrategyTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Query_WhenSessionBreaksBeforeExecution_Retries(bool async)
+    public async Task Query_WhenSessionBreaksBeforeExecution_ReopensWithoutRetry(bool async)
     {
         var interceptor = new BreakSessionInterceptor();
         var options = new DbContextOptionsBuilder<DbContext>()
             .UseYdb("Host=localhost;Port=2136;Database=/local", ydb => ydb.UseRetryPolicy(
-                new YdbRetryPolicyConfig { MaxAttempts = 2 }))
+                new YdbRetryPolicyConfig { MaxAttempts = 1 }))
             .AddInterceptors(interceptor)
             .Options;
         await using var context = new DbContext(options);
@@ -29,7 +29,7 @@ public class YdbExecutionStrategyTests
         var values = async ? await query.ToListAsync() : query.ToList();
 
         Assert.Equal(42, Assert.Single(values));
-        Assert.Equal(2, interceptor.Attempts);
+        Assert.Equal(1, interceptor.Attempts);
     }
 
     private sealed class BreakSessionInterceptor : DbCommandInterceptor

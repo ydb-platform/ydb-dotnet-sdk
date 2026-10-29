@@ -1,6 +1,8 @@
 using System.Data;
 using System.Net;
 using Xunit;
+using Ydb.Query;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -160,19 +162,23 @@ public sealed class YdbConnectionTests : TestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ExecuteScalar_WhenSessionIsBroken_ThrowRetryableYdbException(bool async)
+    public async Task ExecuteScalar_WhenSessionIsBroken_ReopensSession(bool async)
     {
-        await using var connection = await CreateOpenConnectionAsync();
+        await using var dataSource = new YdbDataSource(ConnectionString + ";MaxPoolSize=1");
+        await using var connection = await dataSource.OpenConnectionAsync();
         await using var command = new YdbCommand("SELECT 1", connection);
+        var oldSession = connection.Session;
         connection.OnNotSuccessStatusCode(StatusCode.BadSession);
         Assert.Equal(ConnectionState.Broken, connection.State);
 
-        var exception = async
-            ? await Assert.ThrowsAsync<YdbException>(() => command.ExecuteScalarAsync())
-            : Assert.Throws<YdbException>(() => command.ExecuteScalar());
+        Assert.Equal(1, async ? await command.ExecuteScalarAsync() : command.ExecuteScalar());
+        Assert.Equal(ConnectionState.Open, connection.State);
+        Assert.NotSame(oldSession, connection.Session);
 
-        Assert.Equal(StatusCode.BadSession, exception.Code);
-        Assert.True(exception.IsTransient);
+        await connection.CloseAsync();
+        await using var nextConnection = await dataSource.OpenConnectionAsync();
+        await using var nextCommand = new YdbCommand("SELECT 2", nextConnection);
+        Assert.Equal(2, await nextCommand.ExecuteScalarAsync());
     }
 
     [Fact]
@@ -185,6 +191,82 @@ public sealed class YdbConnectionTests : TestBase
 
         Assert.Equal(StatusCode.BadSession, exception.Code);
         Assert.True(exception.IsTransient);
+    }
+
+    [Fact]
+    public async Task ExecuteScalar_WhenReopeningIsCanceled_ReturnsOldSessionAndPropagatesCancellation()
+    {
+        var settings = new YdbConnectionStringBuilder { PoolName = $"reopen-cancel-{Guid.NewGuid()}" };
+        await using var source = new ReopeningSessionSource();
+        Assert.True(PoolManager.Pools.TryAdd(settings.PoolKey, source));
+        try
+        {
+            await using var connection = new YdbConnection(settings);
+            await connection.OpenAsync();
+            source.IsBroken = true;
+            await using var command = new YdbCommand("SELECT 1", connection);
+            using var cts = new CancellationTokenSource();
+            var execution = command.ExecuteScalarAsync(cts.Token);
+            await source.Reopening.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await cts.CancelAsync();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                execution.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(ConnectionState.Broken, connection.State);
+        }
+        finally
+        {
+            Assert.True(PoolManager.Pools.TryRemove(settings.PoolKey, out _));
+        }
+    }
+
+    private sealed class ReopeningSessionSource : ISessionSource, ISession
+    {
+        private bool _opened;
+        private bool _returned;
+
+        private readonly TaskCompletionSource<ISession> _pendingOpen =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal TaskCompletionSource Reopening { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool IsBroken { get; set; }
+        public IDriver Driver => throw new NotSupportedException();
+        public YdbMetricsReporter MetricsReporter => throw new NotSupportedException();
+
+        public ValueTask<ISession> OpenSession(CancellationToken cancellationToken)
+        {
+            if (!_opened)
+            {
+                _opened = true;
+                return new ValueTask<ISession>(this);
+            }
+
+            Assert.True(_returned);
+            var opening = _pendingOpen.Task.WaitAsync(cancellationToken);
+            Reopening.SetResult();
+            return new ValueTask<ISession>(opening);
+        }
+
+        public void Dispose() => _returned = true;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public void OnNotSuccessStatusCode(StatusCode code) => IsBroken = true;
+
+        public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(string query,
+            Dictionary<string, TypedValue> parameters, GrpcRequestSettings settings, TransactionControl? txControl,
+            StatsMode statsMode = StatsMode.None) => throw new NotSupportedException();
+    }
+
+    [Theory]
+    [InlineData("Tables", null)]
+    [InlineData("Columns", "table")]
+    [InlineData("TablesWithStats", "table")]
+    public async Task GetSchema_WhenConnectionIsClosed_Throws(string collectionName, string? tableName)
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await connection.CloseAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            connection.GetSchemaAsync(collectionName, [tableName, null]));
     }
 
     [Fact]

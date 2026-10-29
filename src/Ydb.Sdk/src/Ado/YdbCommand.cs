@@ -205,15 +205,27 @@ public sealed class YdbCommand : DbCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (YdbConnection.IsBusy)
+        var ydbConnection = YdbConnection;
+        if (ydbConnection.IsBusy)
         {
-            throw new YdbOperationInProgressException(YdbConnection);
+            throw new YdbOperationInProgressException(ydbConnection);
         }
 
-        YdbConnection.ThrowIfConnectionClosed();
+        var state = ydbConnection.State;
+        if (state == ConnectionState.Closed)
+        {
+            throw new InvalidOperationException("Connection is closed");
+        }
 
+        if (state == ConnectionState.Broken)
+        {
+            ydbConnection.Session.Dispose();
+            await ydbConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        var session = ydbConnection.Session;
         var startTimestamp = YdbMetricsReporter.ReportCommandStart();
-        var dbActivity = YdbConnection.Session is not RetryableSession
+        var dbActivity = session is not RetryableSession
             ? YdbActivitySource.StartActivity("ydb.ExecuteQuery")
             : null;
 
@@ -250,19 +262,19 @@ public sealed class YdbCommand : DbCommand
                 { TransportTimeout = TimeSpan.FromSeconds(CommandTimeout), DbActivity = dbActivity }
             : new GrpcRequestSettings { DbActivity = dbActivity };
 
-        var transaction = YdbConnection.CurrentTransaction;
+        var transaction = ydbConnection.CurrentTransaction;
 
         if (Transaction != null && Transaction != transaction) // assert on legacy DbTransaction property
         {
             throw new InvalidOperationException("Transaction mismatched! (Maybe using another connection)");
         }
 
-        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery
+        var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await session.ExecuteQuery
                 (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl, StatsMode)
-            .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
+            .ConfigureAwait(false), ydbConnection, dbActivity, startTimestamp, cancellationToken).ConfigureAwait(false);
 
-        YdbConnection.LastReader = ydbDataReader;
-        YdbConnection.LastCommand = CommandText;
+        ydbConnection.LastReader = ydbDataReader;
+        ydbConnection.LastCommand = CommandText;
 
         return ydbDataReader;
     }
