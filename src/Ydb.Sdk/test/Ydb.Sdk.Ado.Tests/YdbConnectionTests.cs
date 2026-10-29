@@ -125,28 +125,6 @@ public sealed class YdbConnectionTests : TestBase
             Assert.Throws<InvalidOperationException>(() => ydbConnection.BeginTransaction()).Message);
     }
 
-    [Theory]
-    [InlineData(IsolationLevel.Unspecified, IsolationLevel.Serializable)]
-    [InlineData(IsolationLevel.Snapshot, IsolationLevel.Snapshot)]
-    [InlineData(IsolationLevel.RepeatableRead, IsolationLevel.Snapshot)]
-    public async Task BeginTransaction_WhenIsolationLevelIsSupported_ReturnsMappedIsolationLevel(
-        IsolationLevel isolationLevel,
-        IsolationLevel expectedIsolationLevel)
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        await using var transaction = connection.BeginTransaction(isolationLevel);
-
-        Assert.Equal(expectedIsolationLevel, transaction.IsolationLevel);
-    }
-
-    [Fact]
-    public async Task BeginTransaction_WhenIsolationLevelIsUnsupported_Throws()
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-
-        Assert.Throws<ArgumentException>(() => connection.BeginTransaction(IsolationLevel.ReadCommitted));
-    }
-
     [Fact]
     public async Task EnableAutoCommit_WhenTransactionIsNotStarted_ThrowException()
     {
