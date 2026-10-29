@@ -63,6 +63,18 @@ public class YdbQueryableAggregateMethodTranslator(
                 methodInfo == QueryableMethods.CountWithoutPredicate ||
                 methodInfo == QueryableMethods.CountWithPredicate:
                 var countSqlExpression = source.Selector as SqlExpression ?? sqlExpressionFactory.Fragment("*");
+                if (source.Predicate != null)
+                {
+                    if (countSqlExpression is SqlFragmentExpression)
+                    {
+                        countSqlExpression = sqlExpressionFactory.Constant(1);
+                    }
+
+                    countSqlExpression = sqlExpressionFactory.Case(
+                        [new CaseWhenClause(source.Predicate, countSqlExpression)],
+                        elseResult: null);
+                }
+
                 return sqlExpressionFactory.Convert(
                     sqlExpressionFactory.Function(
                         "COUNT",
