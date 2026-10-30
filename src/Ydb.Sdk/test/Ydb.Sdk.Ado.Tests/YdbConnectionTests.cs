@@ -87,8 +87,8 @@ public sealed class YdbConnectionTests : TestBase
         await Task.WhenAll(first.OpenAsync(), second.OpenAsync());
 
         var versions = await Task.WhenAll(
-            Task.Run(() => first.ServerVersion),
-            Task.Run(() => second.ServerVersion));
+            Task.Factory.StartNew(static state => ((YdbConnection)state!).ServerVersion, first),
+            Task.Factory.StartNew(static state => ((YdbConnection)state!).ServerVersion, second));
 
         Assert.NotNull(versions[0]);
         Assert.Equal(versions[0], versions[1]);
@@ -301,7 +301,7 @@ public sealed class YdbConnectionTests : TestBase
                                ";EnablePreferNearestDcBalancing=true;PoolName=prefer-nearest-dc-test";
 
         await using var ydbConnection = new YdbConnection(new YdbConnectionStringBuilder(connectionString)
-            { LoggerFactory = TestUtils.LoggerFactory });
+        { LoggerFactory = TestUtils.LoggerFactory });
         await ydbConnection.OpenAsync();
 
         await using var command = ydbConnection.CreateCommand();
