@@ -301,7 +301,7 @@ public sealed class YdbConnectionTests : TestBase
                                ";EnablePreferNearestDcBalancing=true;PoolName=prefer-nearest-dc-test";
 
         await using var ydbConnection = new YdbConnection(new YdbConnectionStringBuilder(connectionString)
-        { LoggerFactory = TestUtils.LoggerFactory });
+            { LoggerFactory = TestUtils.LoggerFactory });
         await ydbConnection.OpenAsync();
 
         await using var command = ydbConnection.CreateCommand();
