@@ -371,7 +371,7 @@ public class YdbCommandTests : TestBase
             await new YdbCommand(ydbConnection) { CommandText = $"INSERT INTO `{tableName}` (a) VALUES (1);" }
                 .ExecuteNonQueryAsync();
             var reader = await new YdbCommand(ydbConnection)
-            { CommandText = $"SELECT * FROM `{tableName}` WHERE a IN ()" }
+                    { CommandText = $"SELECT * FROM `{tableName}` WHERE a IN ()" }
                 .ExecuteReaderAsync();
             Assert.False(await reader.ReadAsync());
         });
