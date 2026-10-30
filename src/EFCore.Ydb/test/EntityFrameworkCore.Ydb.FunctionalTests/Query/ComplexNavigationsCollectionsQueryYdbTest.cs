@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestModels.ComplexNavigationsModel;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -15,6 +17,31 @@ public class ComplexNavigationsCollectionsQueryYdbTest : ComplexNavigationsColle
     {
         fixture.TestSqlLoggerFactory.Clear();
         fixture.TestSqlLoggerFactory.SetTestOutputHelper(outputHelper);
+    }
+
+    [Fact]
+    public async Task Correlated_projection_DefaultIfEmpty_preserves_null_parent_values()
+    {
+        await using var context = CreateContext();
+        var minimum = 0;
+        var rows = await context.Set<Level1>()
+            .SelectMany(
+                l1 => l1.OneToOne_Optional_FK1.OneToMany_Optional2
+                    .Where(l3 => l3.Id >= minimum)
+                    .Select(l3 => new { ChildId = (int?)l3.Id, ParentName = (string?)l1.OneToOne_Optional_FK1.Name })
+                    .DefaultIfEmpty(),
+                (l1, child) => new { RootId = l1.Id, child!.ChildId, child.ParentName })
+            .OrderBy(row => row.RootId).ThenBy(row => row.ChildId)
+            .ToArrayAsync();
+
+        Assert.Equal(
+            [
+                (1, null, null), (2, null, null), (3, null, null), (4, null, null),
+                (5, null, null), (6, null, null), (7, null, null), (8, null, null),
+                (9, null, null), (10, 2, "L2 01"), (10, 6, "L2 01"), (10, 10, "L2 01"),
+                (11, null, null), (12, null, null), (13, null, null)
+            ],
+            rows.Select(row => (row.RootId, row.ChildId, row.ParentName)));
     }
 
     [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
@@ -166,11 +193,6 @@ public class ComplexNavigationsCollectionsQueryYdbTest : ComplexNavigationsColle
     [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Complex_query_issue_21665(bool async) => base.Complex_query_issue_21665(async);
-
-    [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Projecting_collection_after_optional_reference_correlated_with_parent(bool async) =>
-        base.Projecting_collection_after_optional_reference_correlated_with_parent(async);
 
     [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
     [MemberData(nameof(IsAsyncData))]
