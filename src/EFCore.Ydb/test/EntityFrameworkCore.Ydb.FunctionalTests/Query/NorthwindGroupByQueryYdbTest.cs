@@ -172,11 +172,7 @@ public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCust
 
     public override Task GroupBy_Where_Max(bool async) => Task.CompletedTask;
 
-    public override Task GroupBy_Where_Min(bool async) => Task.CompletedTask;
-
     public override Task GroupBy_Where_Sum(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Where_Select_Where_Select_Min(bool async) => Task.CompletedTask;
 
     public override Task LongCount_after_GroupBy_aggregate(bool async) => Task.CompletedTask;
 
