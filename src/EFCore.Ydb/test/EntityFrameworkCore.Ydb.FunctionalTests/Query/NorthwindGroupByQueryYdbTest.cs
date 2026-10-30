@@ -166,17 +166,9 @@ public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCust
 
     public override Task GroupBy_aggregate_left_join_GroupBy_aggregate_left_join(bool async) => Task.CompletedTask;
 
-    public override Task GroupBy_Where_Average(bool async) => Task.CompletedTask;
-
     public override Task GroupBy_Where_LongCount(bool async) => Task.CompletedTask;
 
-    public override Task GroupBy_Where_Max(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Where_Sum(bool async) => Task.CompletedTask;
-
     public override Task LongCount_after_GroupBy_aggregate(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Select_Distinct_aggregate(bool async) => Task.CompletedTask;
 
     public override Task Final_GroupBy_property_entity(bool async) => Task.CompletedTask;
 

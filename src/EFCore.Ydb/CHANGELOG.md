@@ -1,3 +1,4 @@
+- Fixed grouped LINQ aggregates preserving distinct inputs and per-group filters, including nullable distinct counts and Int64 average inputs.
 - Fixed grouped LINQ `Min` preserving filters within each group and null results for empty filtered inputs.
 - Fixed grouped LINQ `Count(predicate)` preserving filters within each group.
 - Fixed LINQ `DefaultIfEmpty` without a group join, preserving empty results, null values and duplicate rows.
