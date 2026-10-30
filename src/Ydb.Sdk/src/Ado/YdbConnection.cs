@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using Ydb.Sdk.Ado.BulkUpsert;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
 using static System.Data.IsolationLevel;
@@ -26,6 +27,7 @@ public sealed class YdbConnection : DbConnection
     private bool _disposed;
     private YdbConnectionStringBuilder? _connectionStringBuilder;
     private ISessionSource? _sessionSource;
+    private string? _serverVersion;
 
     private YdbConnectionStringBuilder ConnectionStringBuilder
     {
@@ -42,7 +44,11 @@ public sealed class YdbConnection : DbConnection
 
             return _session;
         }
-        private set => _session = value;
+        private set
+        {
+            _session = value;
+            _serverVersion = null;
+        }
     }
 
     private ISession _session = null!;
@@ -258,13 +264,66 @@ public sealed class YdbConnection : DbConnection
 
     public override string DataSource => string.Empty; // TODO
 
+    /// <summary>
+    /// Gets the version of the YDB server, as its <c>Version()</c> function reports it (for example <c>26.2.1.14</c>).
+    /// </summary>
+    /// <remarks>
+    /// The first read asks the server for <c>Version()</c> through this connection's session.
+    /// The answer is cached until the connection is reopened and does not participate in its transaction.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when the connection is not open.</exception>
+    /// <exception cref="YdbOperationInProgressException">
+    /// Thrown when the version is not cached and a reader is active on this connection.
+    /// </exception>
     public override string ServerVersion
     {
         get
         {
-            ThrowIfConnectionClosed();
+            var session = Session;
 
-            return string.Empty; // TODO ServerVersion
+            if (_serverVersion != null)
+            {
+                return _serverVersion;
+            }
+
+            if (IsBusy)
+            {
+                throw new YdbOperationInProgressException(this);
+            }
+
+            return _serverVersion = ReadServerVersionAsync(session).GetAwaiter().GetResult();
+        }
+    }
+
+    private static async Task<string> ReadServerVersionAsync(ISession session)
+    {
+        try
+        {
+            using var stream = await session.ExecuteQuery(
+                "SELECT CAST(Version() AS Text);", [], new GrpcRequestSettings(), null).ConfigureAwait(false);
+            string? version = null;
+
+            while (await stream.MoveNextAsync().ConfigureAwait(false))
+            {
+                var part = stream.Current;
+                if (part.Status.IsNotSuccess())
+                {
+                    throw YdbException.FromServer(part.Status, part.Issues);
+                }
+
+                if (version == null && part.ResultSet is { Rows.Count: > 0 } resultSet &&
+                    resultSet.Rows[0].Items.Count > 0)
+                {
+                    version = resultSet.Rows[0].Items[0].UnpackText();
+                }
+            }
+
+            return version ?? throw new YdbException("YDB server returned no result for Version().");
+        }
+        catch (YdbException e)
+        {
+            session.OnNotSuccessStatusCode(e.Code);
+            throw;
         }
     }
 
