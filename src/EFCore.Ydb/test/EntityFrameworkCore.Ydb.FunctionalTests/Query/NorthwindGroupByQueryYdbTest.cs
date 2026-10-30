@@ -146,11 +146,7 @@ public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCust
     public override Task Select_uncorrelated_collection_with_groupby_multiple_collections_work(bool async) =>
         Task.CompletedTask;
 
-    public override Task GroupBy_multiple_Count_with_predicate(bool async) => Task.CompletedTask;
-
     public override Task GroupBy_with_order_by_skip_and_another_order_by(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Property_Select_Count_with_predicate(bool async) => Task.CompletedTask;
 
     public override Task GroupBy_Property_Select_LongCount_with_predicate(bool async) => Task.CompletedTask;
 
@@ -170,29 +166,9 @@ public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCust
 
     public override Task GroupBy_aggregate_left_join_GroupBy_aggregate_left_join(bool async) => Task.CompletedTask;
 
-    public override Task GroupBy_Where_Average(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Where_Count(bool async) => Task.CompletedTask;
-
     public override Task GroupBy_Where_LongCount(bool async) => Task.CompletedTask;
 
-    public override Task GroupBy_Where_Max(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Where_Min(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Where_Sum(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Where_Count_with_predicate(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Where_Where_Count(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Where_Select_Where_Count(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Where_Select_Where_Select_Min(bool async) => Task.CompletedTask;
-
     public override Task LongCount_after_GroupBy_aggregate(bool async) => Task.CompletedTask;
-
-    public override Task GroupBy_Select_Distinct_aggregate(bool async) => Task.CompletedTask;
 
     public override Task Final_GroupBy_property_entity(bool async) => Task.CompletedTask;
 

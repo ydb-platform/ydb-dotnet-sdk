@@ -116,24 +116,18 @@ public sealed class YdbConnection : DbConnection
     /// conflict, the transaction may be aborted by the server. This behavior is similar to
     /// <see cref="IsolationLevel.Snapshot"/> in ADO.NET.
     /// </remarks>
-    protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
-    {
-        ThrowIfConnectionClosed();
-
-        return BeginTransaction(isolationLevel switch
+    protected override YdbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
+        BeginTransaction(isolationLevel switch
         {
             Serializable or Unspecified => TransactionMode.SerializableRw,
             Snapshot or RepeatableRead => TransactionMode.SnapshotRw,
             _ => throw new ArgumentException("Unsupported isolationLevel: " + isolationLevel)
         });
-    }
 
     public new YdbTransaction BeginTransaction(IsolationLevel isolationLevel) => BeginDbTransaction(isolationLevel);
 
     public YdbTransaction BeginTransaction(TransactionMode transactionMode = TransactionMode.SerializableRw)
     {
-        ThrowIfConnectionClosed();
-
         if (CurrentTransaction is { Completed: false })
         {
             throw new InvalidOperationException(
@@ -375,7 +369,7 @@ public sealed class YdbConnection : DbConnection
 
     internal void ThrowIfConnectionClosed()
     {
-        if (State is ConnectionState.Closed or ConnectionState.Broken)
+        if (ConnectionState == ConnectionState.Closed)
         {
             throw new InvalidOperationException("Connection is closed");
         }
@@ -440,8 +434,6 @@ public sealed class YdbConnection : DbConnection
         IReadOnlyList<string> columns,
         CancellationToken cancellationToken = default)
     {
-        ThrowIfConnectionClosed();
-
         if (CurrentTransaction is { Completed: false })
             throw new InvalidOperationException("BulkUpsert cannot be used inside an active transaction.");
 

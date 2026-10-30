@@ -142,21 +142,6 @@ public class NorthwindMiscellaneousQueryYdbTest(NorthwindQueryYdbFixture<NoopMod
     public override Task DefaultIfEmpty_in_subquery_nested_filter_order_comparison(bool async)
         => base.DefaultIfEmpty_in_subquery_nested_filter_order_comparison(async);
 
-    [ConditionalTheory(Skip = "YDB JOIN ON requires conjunctions of equality predicates.")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task DefaultIfEmpty_in_subquery_not_correlated(bool async)
-        => base.DefaultIfEmpty_in_subquery_not_correlated(async);
-
-    [ConditionalTheory(Skip = "YDB JOIN ON requires conjunctions of equality predicates.")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task DefaultIfEmpty_over_empty_collection_followed_by_projecting_constant(bool async)
-        => base.DefaultIfEmpty_over_empty_collection_followed_by_projecting_constant(async);
-
-    [ConditionalTheory(Skip = "YDB JOIN ON requires conjunctions of equality predicates.")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task DefaultIfEmpty_without_group_join(bool async)
-        => base.DefaultIfEmpty_without_group_join(async);
-
     [ConditionalTheory(Skip = "The generated query references a member outside its YDB row scope.")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Dependent_to_principal_navigation_equal_to_null_for_subquery(bool async)
