@@ -1,6 +1,12 @@
 using System.Data;
 using System.Net;
+using Moq;
 using Xunit;
+using Ydb.Issue;
+using Ydb.Query;
+using Ydb.Query.V1;
+using Ydb.Sdk.Ado.Session;
+using Ydb.Sdk.Ado.Tests.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -15,6 +21,320 @@ public sealed class YdbConnectionTests : TestBase
 
     private volatile int _counter;
 
+    [Fact]
+    public async Task ServerVersion_WhenOpen_ReturnsTheServersVersion()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var expected =
+            (string?)await new YdbCommand("SELECT CAST(Version() AS Text);", connection).ExecuteScalarAsync();
+
+        Assert.False(string.IsNullOrEmpty(expected));
+        Assert.Equal(expected, connection.ServerVersion);
+
+        await using var other = await CreateOpenConnectionAsync();
+        Assert.Equal(expected, other.ServerVersion);
+    }
+
+    [Fact]
+    public void ServerVersion_WhenClosed_ThrowsInvalidOperationException()
+    {
+        using var connection = new YdbConnection(ConnectionString);
+
+        Assert.Throws<InvalidOperationException>(() => connection.ServerVersion);
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenCachedAndReaderIsActive_PreservesReader()
+    {
+        await using var connection = CreateOpenConnectionWithUniquePool(maxPoolSize: 1);
+        var version = connection.ServerVersion;
+        await using var reader = await new YdbCommand("SELECT 1; SELECT 2;", connection).ExecuteReaderAsync();
+
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(1, reader.GetInt32(0));
+
+        Assert.Equal(version, connection.ServerVersion);
+
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(2, reader.GetInt32(0));
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenNotCachedAndReaderIsActive_ThrowsWithoutDisruptingReader()
+    {
+        await using var connection = CreateOpenConnectionWithUniquePool(maxPoolSize: 1);
+        await using var reader = await new YdbCommand("SELECT 1; SELECT 2;", connection).ExecuteReaderAsync();
+
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(1, reader.GetInt32(0));
+        Assert.Throws<YdbOperationInProgressException>(() => connection.ServerVersion);
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(2, reader.GetInt32(0));
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenTransactionIsActive_PreservesTransaction()
+    {
+        await using var connection = CreateOpenConnectionWithUniquePool();
+        await using var transaction = connection.BeginTransaction();
+
+        Assert.False(string.IsNullOrEmpty(connection.ServerVersion));
+
+        await using var command = new YdbCommand("SELECT 1;", connection) { Transaction = transaction };
+        Assert.Equal(1, await command.ExecuteScalarAsync());
+
+        await transaction.CommitAsync();
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenReadOnDifferentConnections_ReturnsTheSameVersion()
+    {
+        var connectionString = ConnectionString + $";MaxPoolSize=2;PoolName=server-version-{Guid.NewGuid():N}";
+        await using var first = new YdbConnection(new YdbConnectionStringBuilder(connectionString)
+        {
+            LoggerFactory = TestUtils.LoggerFactory
+        });
+        await using var second = new YdbConnection(new YdbConnectionStringBuilder(connectionString)
+        {
+            LoggerFactory = TestUtils.LoggerFactory
+        });
+        await Task.WhenAll(first.OpenAsync(), second.OpenAsync());
+
+        var versions = await Task.WhenAll(
+            Task.Factory.StartNew(static state => ((YdbConnection)state!).ServerVersion, first,
+                CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default),
+            Task.Factory.StartNew(static state => ((YdbConnection)state!).ServerVersion, second,
+                CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default));
+
+        Assert.NotNull(versions[0]);
+        Assert.Equal(versions[0], versions[1]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ServerVersion_WhenServerReturnsError_ThrowsWithoutCaching(bool afterValue)
+    {
+        var parts = new List<ExecuteQueryResponsePart>();
+        if (afterValue)
+        {
+            parts.Add(new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = ResultSet.Parser.ParseJson(
+                    "{ \"rows\": [{ \"items\": [{ \"textValue\": \"mock-version\" }] }] }")
+            });
+        }
+
+        parts.Add(new ExecuteQueryResponsePart
+        {
+            Status = StatusIds.Types.StatusCode.BadRequest,
+            Issues = { new IssueMessage { Message = "version failed" } }
+        });
+        var driver = CreateServerVersionDriver(parts);
+        var (connection, source, settings) = await OpenMockConnectionAsync(driver.Object);
+
+        try
+        {
+            var exception = Assert.Throws<YdbException>(() => connection.ServerVersion);
+
+            Assert.Equal(StatusCode.BadRequest, exception.Code);
+            Assert.Contains("version failed", exception.Message);
+            Assert.Equal(StatusCode.BadRequest,
+                Assert.Throws<YdbException>(() => connection.ServerVersion).Code);
+            driver.Verify(d => d.ServerStreamCall(
+                QueryService.ExecuteQueryMethod,
+                It.IsAny<ExecuteQueryRequest>(),
+                It.IsAny<GrpcRequestSettings>()), Times.Exactly(2));
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+            await RemoveMockSourceAsync(source, settings);
+        }
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenServerReturnsNoRows_ThrowsYdbException()
+    {
+        var driver = CreateServerVersionDriver([
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = new ResultSet()
+            }
+        ]);
+        var (connection, source, settings) = await OpenMockConnectionAsync(driver.Object);
+
+        try
+        {
+            var exception = Assert.Throws<YdbException>(() => connection.ServerVersion);
+
+            Assert.Equal("YDB server returned no result for Version().", exception.Message);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+            await RemoveMockSourceAsync(source, settings);
+        }
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenOpen_UsesTheConnectionsSession()
+    {
+        var factory = new MockPoolingSessionFactory(1)
+        {
+            ExecuteQuery = _ => new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+            [
+                new ExecuteQueryResponsePart
+                {
+                    Status = StatusIds.Types.StatusCode.Success,
+                    ResultSet = ResultSet.Parser.ParseJson(
+                        "{ \"rows\": [{ \"items\": [{ \"textValue\": \"session-version\" }] }] }")
+                }
+            ])
+        };
+        var source = new PoolingSessionSource<MockPoolingSession>(factory,
+            new YdbConnectionStringBuilder { MaxPoolSize = 1, LoggerFactory = TestUtils.LoggerFactory });
+        var (connection, _, settings) = await OpenMockConnectionAsync(source.Driver, source);
+
+        try
+        {
+            Assert.Equal("session-version", connection.ServerVersion);
+            Assert.Equal(1, factory.SessionOpenedCount);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+            await RemoveMockSourceAsync(source, settings);
+        }
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenServerReturnsValue_CachesUntilReopened()
+    {
+        var result = ResultSet.Parser.ParseJson(
+            "{ \"columns\": [{ \"name\": \"version\", \"type\": { \"typeId\": \"UTF8\" }}], " +
+            "\"rows\": [{ \"items\": [{ \"textValue\": \"mock-version\" }] }] }");
+        var driver = CreateServerVersionDriver([
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = result
+            }
+        ]);
+        var (connection, source, settings) = await OpenMockConnectionAsync(driver.Object);
+
+        try
+        {
+            Assert.Equal("mock-version", connection.ServerVersion);
+            Assert.Equal("mock-version", connection.ServerVersion);
+            await connection.CloseAsync();
+            Assert.Throws<InvalidOperationException>(() => connection.ServerVersion);
+            await connection.OpenAsync();
+            Assert.Equal("mock-version", connection.ServerVersion);
+            await using var other = new YdbConnection(settings);
+            await other.OpenAsync();
+            Assert.Equal("mock-version", other.ServerVersion);
+            driver.Verify(d => d.ServerStreamCall(
+                QueryService.ExecuteQueryMethod,
+                It.Is<ExecuteQueryRequest>(request =>
+                    request.ExecMode == ExecMode.Execute &&
+                    request.QueryContent.Text == "SELECT CAST(Version() AS Text);" &&
+                    request.QueryContent.Syntax == Syntax.YqlV1 &&
+                    request.StatsMode == StatsMode.None.ToProto() &&
+                    request.TxControl == null &&
+                    request.Parameters.Count == 0),
+                It.IsAny<GrpcRequestSettings>()), Times.Exactly(3));
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+            await RemoveMockSourceAsync(source, settings);
+        }
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenResponseHasEmptyPartsBeforeValue_ReturnsTheValue()
+    {
+        var result = ResultSet.Parser.ParseJson(
+            "{ \"columns\": [{ \"name\": \"version\", \"type\": { \"typeId\": \"UTF8\" }}], " +
+            "\"rows\": [{ \"items\": [{ \"textValue\": \"mock-version\" }] }] }");
+        var driver = CreateServerVersionDriver([
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() },
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = ResultSet.Parser.ParseJson("{ \"rows\": [{ \"items\": [] }] }")
+            },
+            new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success, ResultSet = result }
+        ]);
+        var (connection, source, settings) = await OpenMockConnectionAsync(driver.Object);
+
+        try
+        {
+            Assert.Equal("mock-version", connection.ServerVersion);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+            await RemoveMockSourceAsync(source, settings);
+        }
+    }
+
+    private static Mock<IDriver> CreateServerVersionDriver(
+        IEnumerable<ExecuteQueryResponsePart> parts)
+    {
+        var driver = new Mock<IDriver>(MockBehavior.Strict);
+        driver.SetupGet(d => d.LoggerFactory).Returns(TestUtils.LoggerFactory);
+        driver.SetupGet(d => d.Database).Returns("/local");
+        driver.Setup(d => d.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        driver.Setup(d => d.ServerStreamCall(
+                QueryService.ExecuteQueryMethod,
+                It.IsAny<ExecuteQueryRequest>(),
+                It.IsAny<GrpcRequestSettings>()))
+            .Returns(() => new ValueTask<IServerStream<ExecuteQueryResponsePart>>(
+                new MockAsyncEnumerator<ExecuteQueryResponsePart>(parts)));
+        return driver;
+    }
+
+    private static async Task<(YdbConnection Connection, ISessionSource Source,
+        YdbConnectionStringBuilder Settings)> OpenMockConnectionAsync(IDriver driver, ISessionSource? source = null)
+    {
+        var settings = new YdbConnectionStringBuilder
+        {
+            Database = "/local",
+            PoolName = $"server-version-mock-{Guid.NewGuid():N}",
+            LoggerFactory = TestUtils.LoggerFactory
+        };
+        source ??= new ImplicitSessionSource(driver, settings);
+        Assert.True(PoolManager.Pools.TryAdd(settings.PoolKey, source));
+        var connection = new YdbConnection(settings);
+        await connection.OpenAsync();
+        return (connection, source, settings);
+    }
+
+    private static async Task RemoveMockSourceAsync(
+        ISessionSource source,
+        YdbConnectionStringBuilder settings)
+    {
+        Assert.True(PoolManager.Pools.TryRemove(settings.PoolKey, out _));
+        await source.DisposeAsync();
+    }
+
+    private static YdbConnection CreateOpenConnectionWithUniquePool(int maxPoolSize = 10)
+    {
+        var connection = new YdbConnection(new YdbConnectionStringBuilder(
+            ConnectionString + $";MaxPoolSize={maxPoolSize};PoolName=server-version-{Guid.NewGuid():N}")
+        {
+            LoggerFactory = TestUtils.LoggerFactory
+        });
+        connection.Open();
+        return connection;
+    }
 
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
