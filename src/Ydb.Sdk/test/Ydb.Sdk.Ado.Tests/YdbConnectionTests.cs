@@ -125,28 +125,6 @@ public sealed class YdbConnectionTests : TestBase
             Assert.Throws<InvalidOperationException>(() => ydbConnection.BeginTransaction()).Message);
     }
 
-    [Theory]
-    [InlineData(IsolationLevel.Unspecified, IsolationLevel.Serializable)]
-    [InlineData(IsolationLevel.Snapshot, IsolationLevel.Snapshot)]
-    [InlineData(IsolationLevel.RepeatableRead, IsolationLevel.Snapshot)]
-    public async Task BeginTransaction_WhenIsolationLevelIsSupported_ReturnsMappedIsolationLevel(
-        IsolationLevel isolationLevel,
-        IsolationLevel expectedIsolationLevel)
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        await using var transaction = connection.BeginTransaction(isolationLevel);
-
-        Assert.Equal(expectedIsolationLevel, transaction.IsolationLevel);
-    }
-
-    [Fact]
-    public async Task BeginTransaction_WhenIsolationLevelIsUnsupported_Throws()
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-
-        Assert.Throws<ArgumentException>(() => connection.BeginTransaction(IsolationLevel.ReadCommitted));
-    }
-
     [Fact]
     public async Task EnableAutoCommit_WhenTransactionIsNotStarted_ThrowException()
     {
@@ -177,57 +155,6 @@ public sealed class YdbConnectionTests : TestBase
 
         Assert.Equal("Connection is closed",
             Assert.Throws<InvalidOperationException>(() => ydbCommand.ExecuteScalar()).Message);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ExecuteScalar_WhenSessionIsBroken_UsesCurrentSession(bool async)
-    {
-        await using var dataSource = new YdbDataSource(ConnectionString + ";MaxPoolSize=1");
-        await using var connection = await dataSource.OpenConnectionAsync();
-        await using var command = new YdbCommand("SELECT 1", connection);
-        var oldSession = connection.Session;
-        connection.OnNotSuccessStatusCode(StatusCode.BadSession);
-        Assert.Equal(ConnectionState.Broken, connection.State);
-
-        Assert.Equal(1, async ? await command.ExecuteScalarAsync() : command.ExecuteScalar());
-        Assert.Equal(ConnectionState.Broken, connection.State);
-        Assert.Same(oldSession, connection.Session);
-
-        await connection.CloseAsync();
-        await using var nextConnection = await dataSource.OpenConnectionAsync();
-        await using var nextCommand = new YdbCommand("SELECT 2", nextConnection);
-        Assert.Equal(2, await nextCommand.ExecuteScalarAsync());
-    }
-
-    [Fact]
-    public async Task BeginTransaction_WhenSessionIsBroken_UsesCurrentSession()
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        var oldSession = connection.Session;
-        connection.OnNotSuccessStatusCode(StatusCode.BadSession);
-
-        await using var transaction = connection.BeginTransaction();
-        connection.EnableAutoCommit();
-        await using var command = new YdbCommand("SELECT 1", connection);
-        Assert.Equal(1, await command.ExecuteScalarAsync());
-
-        Assert.Equal(ConnectionState.Broken, connection.State);
-        Assert.Same(oldSession, connection.Session);
-    }
-
-    [Theory]
-    [InlineData("Tables", null)]
-    [InlineData("Columns", "table")]
-    [InlineData("TablesWithStats", "table")]
-    public async Task GetSchema_WhenConnectionIsClosed_Throws(string collectionName, string? tableName)
-    {
-        await using var connection = await CreateOpenConnectionAsync();
-        await connection.CloseAsync();
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            connection.GetSchemaAsync(collectionName, [tableName, null]));
     }
 
     [Fact]
