@@ -33,30 +33,88 @@ public class YdbParameterBasedSqlProcessor(
         protected override Expression VisitExtension(Expression node)
         {
             var visited = base.VisitExtension(node);
-            if (visited is not SelectExpression { Having: not null } select
+            if (visited is not SelectExpression select
                 || select.GroupBy.Count == 0
                 || select.GroupBy.Any(key => key is not ColumnExpression))
             {
                 return visited;
             }
 
-            var having = (SqlExpression)new HavingAggregateRewriter(select).Visit(select.Having);
-            return ReferenceEquals(having, select.Having)
+            var rewriter = new AggregateRewriter(select);
+            var having = (SqlExpression?)rewriter.Visit(select.Having);
+            ProjectionExpression[]? projections = null;
+            for (var i = 0; i < select.Projection.Count; i++)
+            {
+                var projection = (ProjectionExpression)rewriter.Visit(select.Projection[i]);
+                if (ReferenceEquals(projection, select.Projection[i]))
+                {
+                    continue;
+                }
+
+                projections ??= select.Projection.ToArray();
+                projections[i] = projection;
+            }
+
+            return ReferenceEquals(having, select.Having) && projections is null
                 ? select
-                : select.Update(select.Tables, select.Predicate, select.GroupBy, having, select.Projection,
+                : select.Update(rewriter.Tables, select.Predicate, select.GroupBy, having,
+                    projections ?? select.Projection,
                     select.Orderings, select.Offset, select.Limit);
         }
 
-        private sealed class HavingAggregateRewriter(SelectExpression outer) : ExpressionVisitor
+        private sealed class AggregateRewriter(SelectExpression outer) : ExpressionVisitor
         {
+            public IReadOnlyList<TableExpressionBase> Tables { get; private set; } = outer.Tables;
+
             protected override Expression VisitExtension(Expression node)
             {
                 if (node is ScalarSubqueryExpression scalar)
                 {
-                    return TryInline(scalar.Subquery) ?? scalar;
+                    return TryInlineCount(scalar.Subquery) ?? TryInline(scalar.Subquery) ?? scalar;
                 }
 
                 return node is SelectExpression ? node : base.VisitExtension(node);
+            }
+
+            private SqlExpression? TryInlineCount(SelectExpression inner)
+            {
+                if (inner.IsDistinct || inner.GroupBy.Count != 0 || inner.Having is not null
+                    || inner.Orderings.Count != 0 || inner.Offset is not null || inner.Limit is not null
+                    || inner.Tables is not [TableExpression lookup]
+                    || lookup.Table is not ITable { PrimaryKey.Columns: [var primaryKey] }
+                    || inner.Projection is not
+                    [
+                        {
+                            Expression: SqlUnaryExpression
+                            {
+                                OperatorType: ExpressionType.Convert,
+                                Operand: SqlFunctionExpression
+                                {
+                                    Name: "COUNT", IsBuiltIn: true, Arguments: [SqlFragmentExpression { Sql: "*" }]
+                                } count
+                            } conversion
+                        }
+                    ]
+                    || inner.Predicate is not SqlBinaryExpression
+                    {
+                        OperatorType: ExpressionType.Equal, Left: ColumnExpression left, Right: ColumnExpression right
+                    }
+                    || Tables.Any(table => (table is JoinExpressionBase join ? join.Table.Alias : table.Alias)
+                                           == lookup.Alias))
+                {
+                    return null;
+                }
+
+                var key = left.TableAlias == lookup.Alias ? left : right;
+                var group = ReferenceEquals(key, left) ? right : left;
+                if (key.TableAlias != lookup.Alias || key.Name != primaryKey.Name || !outer.GroupBy.Contains(group))
+                {
+                    return null;
+                }
+
+                // A primary-key lookup preserves outer rows; DISTINCT removes their repeated matches.
+                Tables = Tables.Append(new LeftJoinExpression(lookup, inner.Predicate)).ToArray();
+                return conversion.Update(count.Update(count.Instance, [new DistinctExpression(key.MakeNullable())]));
             }
 
             private SqlExpression? TryInline(SelectExpression inner)
@@ -66,7 +124,7 @@ public class YdbParameterBasedSqlProcessor(
                     || inner.Projection.Count != 1
                     || inner.Projection[0].Expression is not SqlFunctionExpression
                     {
-                        Name: "MIN", IsBuiltIn: true, Arguments: [_]
+                        Name: "MIN" or "MAX", IsBuiltIn: true, Arguments: [_]
                     } aggregate
                     || outer.Tables.Count == 0 || inner.Tables.Count != outer.Tables.Count + 1
                     || outer.Tables[0] is not TableExpression outerRoot
@@ -111,7 +169,7 @@ public class YdbParameterBasedSqlProcessor(
 
                 // Repeating the same primary-key lookup also preserves a LEFT join's null extension.
                 var matched = false;
-                foreach (var candidate in outer.Tables.OfType<PredicateJoinExpressionBase>())
+                foreach (var candidate in Tables.OfType<PredicateJoinExpressionBase>())
                 {
                     var table = (TableExpression)candidate.Table;
                     if (candidate.GetType() != extraJoin.GetType() || table.Table != extraTable.Table
@@ -130,9 +188,29 @@ public class YdbParameterBasedSqlProcessor(
                     }
                 }
 
+                LeftJoinExpression? liftedJoin = null;
                 if (!matched)
                 {
-                    return null;
+                    if (aggregate.Name != "MAX" || extraJoin is not LeftJoinExpression leftJoin
+                                                || !JoinsPrimaryKey(extraJoin.JoinPredicate, extraTable)
+                                                || Tables.Any(table =>
+                                                    (table is JoinExpressionBase join
+                                                        ? join.Table.Alias
+                                                        : table.Alias) == extraTable.Alias))
+                    {
+                        return null;
+                    }
+
+                    // A complete primary-key LEFT lookup adds exactly one row, including missing matches.
+                    aliases[extraTable.Alias] = extraTable.Alias;
+                    var mapper = new ColumnAliasRewriter(aliases, true);
+                    var predicate = (SqlExpression)mapper.Visit(extraJoin.JoinPredicate);
+                    if (!mapper.IsValid)
+                    {
+                        return null;
+                    }
+
+                    liftedJoin = leftJoin.Update(extraTable, predicate);
                 }
 
                 var predicateMapper = new ColumnAliasRewriter(aliases, false);
@@ -168,7 +246,17 @@ public class YdbParameterBasedSqlProcessor(
 
                 var aggregateMapper = new ColumnAliasRewriter(aliases, true);
                 var rewritten = (SqlExpression)aggregateMapper.Visit(aggregate);
-                return aggregateMapper.IsValid ? rewritten : null;
+                if (!aggregateMapper.IsValid)
+                {
+                    return null;
+                }
+
+                if (liftedJoin is not null)
+                {
+                    Tables = Tables.Append(liftedJoin).ToArray();
+                }
+
+                return rewritten;
             }
 
             private static bool JoinsPrimaryKey(SqlExpression predicate, TableExpression table)
@@ -288,7 +376,7 @@ public class YdbParameterBasedSqlProcessor(
                 return visited;
             }
 
-            select = RewriteApplies(select);
+            select = RewriteApplies(RewriteDefaultIfEmpty(select));
             TableExpressionBase[]? tables = null;
             var predicate = select.Predicate;
             for (var i = 0; i < select.Tables.Count; i++)
@@ -324,6 +412,51 @@ public class YdbParameterBasedSqlProcessor(
                 ? select
                 : select.Update(tables, predicate, select.GroupBy, select.Having, select.Projection,
                     select.Orderings, select.Offset, select.Limit);
+        }
+
+        private SelectExpression RewriteDefaultIfEmpty(SelectExpression select)
+        {
+            if (select.Tables is not
+                [
+                    SelectExpression
+                    {
+                        Tables.Count: 0, IsDistinct: false, Predicate: null, GroupBy.Count: 0, Having: null,
+                        Orderings.Count: 0, Offset: null, Limit: null, Alias: { } dummyAlias
+                    } dummy,
+                    LeftJoinExpression { JoinPredicate: SqlConstantExpression { Value: true } } join
+                ]
+                || join.Table is not (TableExpression or SelectExpression)
+                || join.Table.Alias is not { } sourceAlias)
+            {
+                return select;
+            }
+
+            var names = join.Table is TableExpression table
+                ? table.Table.Columns.Select(column => column.Name)
+                : ((SelectExpression)join.Table).Projection.Select(projection => projection.Alias);
+            var usedNames = names.Concat(dummy.Projection.Select(projection => projection.Alias)).ToHashSet();
+            var key = "empty_key";
+            while (usedNames.Contains(key))
+            {
+                key += "_";
+            }
+
+            // YDB requires equality between columns from both JOIN inputs, not a constant predicate.
+            var value = sqlExpressionFactory.ApplyDefaultTypeMapping(sqlExpressionFactory.Constant(1));
+            var marker = new ProjectionExpression(value, key);
+            var left = dummy.Update(dummy.Tables, null, [], null, dummy.Projection.Append(marker).ToArray(),
+                [], null, null);
+            var right = dummy.WithAlias(sourceAlias).Update([join.Table], null, [], null,
+            [
+                new ProjectionExpression(
+                    sqlExpressionFactory.Fragment($"`{sourceAlias.Replace("`", "``")}`.*"), ""),
+                marker
+            ], [], null, null);
+            var predicate = sqlExpressionFactory.Equal(
+                new ColumnExpression(key, dummyAlias, value.Type, value.TypeMapping, false),
+                new ColumnExpression(key, sourceAlias, value.Type, value.TypeMapping, false));
+            return select.Update([left, join.Update(right, predicate)], select.Predicate, select.GroupBy, select.Having,
+                select.Projection, select.Orderings, select.Offset, select.Limit);
         }
 
         private SelectExpression RewriteApplies(SelectExpression select)

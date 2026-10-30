@@ -58,16 +58,13 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         _ = Initialize();
     }
 
-    long IReaderMetricsSource.PartitionSessionCount =>
-        Volatile.Read(ref _currentReaderSession)?.PartitionSessionCount ?? 0;
+    IEnumerable<PartitionSession> IReaderMetricsSource.PartitionSessions =>
+        Volatile.Read(ref _currentReaderSession)?.PartitionSessions ?? [];
 
     double IReaderMetricsSource.LocalBufferMessageAgeMax =>
         _receivedMessagesChannel.Reader.TryPeek(out var batch) && batch.ReceivedTimestamp > 0
             ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
             : 0;
-
-    long IReaderMetricsSource.CommitOffsetLagMax =>
-        Volatile.Read(ref _currentReaderSession)?.CommitOffsetLagMax ?? 0;
 
     public async ValueTask<Message<TValue>> ReadAsync(CancellationToken cancellationToken = default)
     {
@@ -345,21 +342,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         _runProcessingStreamRequest = RunProcessingStreamRequest();
     }
 
-    internal long PartitionSessionCount => _partitionSessions.Count;
-
-    internal long CommitOffsetLagMax
-    {
-        get
-        {
-            var max = 0L;
-            foreach (var (_, partitionSession) in _partitionSessions)
-            {
-                max = Math.Max(max, partitionSession.CommitOffsetLag);
-            }
-
-            return max;
-        }
-    }
+    internal IEnumerable<PartitionSession> PartitionSessions => _partitionSessions.Values;
 
     private async Task RunProcessingStreamResponse()
     {

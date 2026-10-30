@@ -1,3 +1,9 @@
+- Fixed grouped LINQ aggregates preserving distinct inputs and per-group filters, including nullable distinct counts and Int64 average inputs.
+- Fixed grouped LINQ `Min` preserving filters within each group and null results for empty filtered inputs.
+- Fixed grouped LINQ `Count(predicate)` preserving filters within each group.
+- Fixed LINQ `DefaultIfEmpty` without a group join, preserving empty results, null values and duplicate rows.
+- Fixed grouped LINQ projections counting a primary-key lookup by the group key, preserving null groups, missing matches and duplicate source rows.
+- Fixed grouped LINQ `Max` projections over optional navigations, preserving nullable group keys, row counts and enclosing left joins.
 - Fixed navigation-based LINQ grouping with `Min` filters and `Count` projections, preserving nullable group keys, duplicate rows, enclosing left joins and pagination ordered by projected keys.
 - Fixed LINQ inner joins with nullable composite keys and additional filters, including OR conditions, preserving duplicate matches and enclosing left joins.
 - Added server-side LINQ `TimeOnly.AddMinutes` translation for tick-backed values, preserving ticks and wrapping across midnight.

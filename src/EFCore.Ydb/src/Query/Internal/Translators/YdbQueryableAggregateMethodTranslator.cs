@@ -35,12 +35,13 @@ public class YdbQueryableAggregateMethodTranslator(
                 && source.Selector is SqlExpression averageSqlExpression:
                 var averageInputType = averageSqlExpression.Type;
                 if (averageInputType == typeof(int)
-                    || averageInputType == typeof(long))
+                    || (averageInputType == typeof(long) && !source.IsDistinct))
                 {
                     averageSqlExpression = sqlExpressionFactory.ApplyDefaultTypeMapping(
                         sqlExpressionFactory.Convert(averageSqlExpression, typeof(double)));
                 }
 
+                averageSqlExpression = CombineTerms(source, averageSqlExpression);
                 return averageInputType == typeof(float)
                     ? sqlExpressionFactory.Convert(
                         sqlExpressionFactory.Function(
@@ -56,20 +57,19 @@ public class YdbQueryableAggregateMethodTranslator(
                         [averageSqlExpression],
                         nullable: true,
                         argumentsPropagateNullability: ArrayUtil.FalseArrays[1],
-                        averageSqlExpression.Type,
-                        averageSqlExpression.TypeMapping);
+                        averageInputType == typeof(long) && source.IsDistinct
+                            ? typeof(double)
+                            : averageSqlExpression.Type,
+                        averageInputType == typeof(long) && source.IsDistinct
+                            ? typeMappingSource.FindMapping(typeof(double))
+                            : averageSqlExpression.TypeMapping);
 
             case nameof(Queryable.Count) when
                 methodInfo == QueryableMethods.CountWithoutPredicate ||
                 methodInfo == QueryableMethods.CountWithPredicate:
                 var countSqlExpression = source.Selector as SqlExpression ?? sqlExpressionFactory.Fragment("*");
                 return sqlExpressionFactory.Convert(
-                    sqlExpressionFactory.Function(
-                        "COUNT",
-                        [countSqlExpression],
-                        nullable: false,
-                        argumentsPropagateNullability: ArrayUtil.FalseArrays[1],
-                        typeof(long)),
+                    TranslateCount(source, countSqlExpression),
                     typeof(int),
                     typeMappingSource.FindMapping(typeof(int)));
 
@@ -77,16 +77,15 @@ public class YdbQueryableAggregateMethodTranslator(
                 methodInfo == QueryableMethods.LongCountWithoutPredicate ||
                 methodInfo == QueryableMethods.LongCountWithPredicate:
                 var longCountSqlExpression = source.Selector as SqlExpression ?? sqlExpressionFactory.Fragment("*");
-                return sqlExpressionFactory.Function(
-                    "COUNT",
-                    [longCountSqlExpression],
-                    nullable: false,
-                    argumentsPropagateNullability: ArrayUtil.FalseArrays[1],
-                    typeof(long));
+                return sqlExpressionFactory.Convert(
+                    TranslateCount(source, longCountSqlExpression),
+                    typeof(long),
+                    typeMappingSource.FindMapping(typeof(long)));
 
             case nameof(Queryable.Max) when
                 (methodInfo == QueryableMethods.MaxWithoutSelector || methodInfo == QueryableMethods.MaxWithSelector)
                 && source.Selector is SqlExpression maxSqlExpression:
+                maxSqlExpression = CombineTerms(source, maxSqlExpression);
                 return sqlExpressionFactory.Function(
                     "MAX",
                     [maxSqlExpression],
@@ -98,6 +97,7 @@ public class YdbQueryableAggregateMethodTranslator(
             case nameof(Queryable.Min) when
                 (methodInfo == QueryableMethods.MinWithoutSelector || methodInfo == QueryableMethods.MinWithSelector)
                 && source.Selector is SqlExpression minSqlExpression:
+                minSqlExpression = CombineTerms(source, minSqlExpression);
                 return sqlExpressionFactory.Function(
                     "MIN",
                     [minSqlExpression],
@@ -110,6 +110,7 @@ public class YdbQueryableAggregateMethodTranslator(
                 when (QueryableMethods.IsSumWithoutSelector(methodInfo)
                       || QueryableMethods.IsSumWithSelector(methodInfo))
                      && source.Selector is SqlExpression sumSqlExpression:
+                sumSqlExpression = CombineTerms(source, sumSqlExpression);
                 var sumInputType = sumSqlExpression.Type;
 
                 if (sumInputType == typeof(int))
@@ -148,5 +149,60 @@ public class YdbQueryableAggregateMethodTranslator(
         }
 
         return null;
+    }
+
+    private SqlExpression TranslateCount(EnumerableExpression source, SqlExpression sqlExpression)
+    {
+        var count = sqlExpressionFactory.Function(
+            "COUNT",
+            [CombineTerms(source, sqlExpression)],
+            nullable: false,
+            argumentsPropagateNullability: ArrayUtil.FalseArrays[1],
+            typeof(long));
+        if (!source.IsDistinct)
+        {
+            return count;
+        }
+
+        // SQL COUNT ignores null; LINQ DISTINCT keeps one null among the selected inputs.
+        var predicate = sqlExpressionFactory.IsNull(sqlExpression);
+        if (source.Predicate != null)
+        {
+            predicate = sqlExpressionFactory.AndAlso(source.Predicate, predicate);
+        }
+
+        return sqlExpressionFactory.Add(
+            sqlExpressionFactory.Convert(count, typeof(long), typeMappingSource.FindMapping(typeof(long))),
+            sqlExpressionFactory.Case(
+                [
+                    new CaseWhenClause(
+                        sqlExpressionFactory.GreaterThan(
+                            sqlExpressionFactory.Function(
+                                "COUNT_IF",
+                                [predicate],
+                                nullable: false,
+                                argumentsPropagateNullability: ArrayUtil.FalseArrays[1],
+                                typeof(long)),
+                            sqlExpressionFactory.Constant(0L)),
+                        sqlExpressionFactory.Constant(1L))
+                ],
+                sqlExpressionFactory.Constant(0L)));
+    }
+
+    private SqlExpression CombineTerms(EnumerableExpression source, SqlExpression sqlExpression)
+    {
+        if (source.Predicate != null)
+        {
+            if (sqlExpression is SqlFragmentExpression)
+            {
+                sqlExpression = sqlExpressionFactory.Constant(1);
+            }
+
+            sqlExpression = sqlExpressionFactory.Case(
+                [new CaseWhenClause(source.Predicate, sqlExpression)],
+                elseResult: null);
+        }
+
+        return source.IsDistinct ? new DistinctExpression(sqlExpression) : sqlExpression;
     }
 }
