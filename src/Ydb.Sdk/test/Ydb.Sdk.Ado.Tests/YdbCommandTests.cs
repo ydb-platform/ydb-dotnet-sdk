@@ -174,7 +174,7 @@ public class YdbCommandTests : TestBase
         var reader = await new YdbCommand("SELECT 1; SELECT 2;", connection)
             .ExecuteReaderAsync(CommandBehavior.CloseConnection);
 
-        await Assert.ThrowsAsync<YdbException>(() => connection.CloseAsync());
+        await connection.CloseAsync();
         Assert.Equal(ConnectionState.Closed, connection.State);
         Assert.Equal(1, closedEvents);
 
@@ -185,7 +185,7 @@ public class YdbCommandTests : TestBase
     }
 
     [Fact]
-    public async Task CloseConnection_WhenReadIsCancelled_ClosesConnectionAndPreservesCancellation()
+    public async Task CloseConnection_WhenReadIsCancelled_ClosesConnectionAndReportsTransportCancellation()
     {
         await using var connection = await CreateOpenConnectionAsync();
         await using var reader = await new YdbCommand("SELECT 1; SELECT 2;", connection)
@@ -193,7 +193,8 @@ public class YdbCommandTests : TestBase
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => reader.NextResultAsync(cancellation.Token));
+        var exception = await Assert.ThrowsAsync<YdbException>(() => reader.NextResultAsync(cancellation.Token));
+        Assert.Equal(StatusCode.ClientTransportCancelled, exception.Code);
 
         Assert.True(reader.IsClosed);
         Assert.Equal(ConnectionState.Closed, connection.State);
@@ -370,7 +371,7 @@ public class YdbCommandTests : TestBase
             await new YdbCommand(ydbConnection) { CommandText = $"INSERT INTO `{tableName}` (a) VALUES (1);" }
                 .ExecuteNonQueryAsync();
             var reader = await new YdbCommand(ydbConnection)
-                    { CommandText = $"SELECT * FROM `{tableName}` WHERE a IN ()" }
+            { CommandText = $"SELECT * FROM `{tableName}` WHERE a IN ()" }
                 .ExecuteReaderAsync();
             Assert.False(await reader.ReadAsync());
         });
