@@ -463,7 +463,8 @@ public class YdbParameterBasedSqlProcessor(
         {
             for (var i = 0; i < select.Tables.Count; i++)
             {
-                if (select.Tables[i] is not CrossApplyExpression
+                if (select.Tables[i] is not (CrossApplyExpression or OuterApplyExpression)
+                    || select.Tables[i] is not JoinExpressionBase
                     {
                         Table: SelectExpression
                         {
@@ -471,8 +472,7 @@ public class YdbParameterBasedSqlProcessor(
                             Offset: null, Limit: null
                         } inner
                     }
-                    || inner.Tables is not [TableExpression source]
-                    || inner.Projection.Any(projection => projection.Expression is not ColumnExpression))
+                    || inner.Tables is not [TableExpression source])
                 {
                     continue;
                 }
@@ -483,6 +483,17 @@ public class YdbParameterBasedSqlProcessor(
                     continue;
                 }
 #endif
+
+                if (select.Tables[i] is OuterApplyExpression)
+                {
+                    select = RewriteOuterApply(select, i, inner, source);
+                    continue;
+                }
+
+                if (inner.Projection.Any(projection => projection.Expression is not ColumnExpression))
+                {
+                    continue;
+                }
 
                 var tables = select.Tables.ToArray();
                 tables[i] = new CrossJoinExpression(source);
@@ -497,6 +508,120 @@ public class YdbParameterBasedSqlProcessor(
             }
 
             return select;
+        }
+
+        private SelectExpression RewriteOuterApply(
+            SelectExpression select, int index, SelectExpression inner, TableExpression source)
+        {
+            SqlExpression? residual = null;
+            if (inner.Predicate is null
+                || ExtractKeys(inner.Predicate, source.Alias, ref residual) is not SqlBinaryExpression
+                {
+                    OperatorType: ExpressionType.Equal,
+                    Left: ColumnExpression left,
+                    Right: ColumnExpression right
+                })
+            {
+                return select;
+            }
+
+            var key = left.TableAlias == source.Alias ? left : right;
+            var outerKey = ReferenceEquals(key, left) ? right : left;
+            var outerAliases = select.Tables.Take(index)
+                .Select(table => table is JoinExpressionBase join ? join.Table.Alias : table.Alias).ToHashSet();
+            if (!outerAliases.Contains(outerKey.TableAlias)
+                || inner.Projection.Any(projection => projection.Expression switch
+                {
+                    ColumnExpression column => column.TableAlias != source.Alias
+                                               && !outerAliases.Contains(column.TableAlias),
+                    SqlFunctionExpression
+                    {
+                        Name: "COALESCE", IsBuiltIn: true,
+                        Arguments: [ColumnExpression column, SqlConstantExpression]
+                    } => column.TableAlias != source.Alias,
+                    _ => true
+                }))
+            {
+                return select;
+            }
+
+            var predicateRewriter = new OuterApplyPredicateRewriter(source.Alias, outerKey, sqlExpressionFactory);
+            var predicate = (SqlExpression?)predicateRewriter.Visit(residual);
+            if (!predicateRewriter.IsValid)
+            {
+                return select;
+            }
+
+            var lifted = inner.Projection.Where(projection =>
+                projection.Expression is ColumnExpression column && column.TableAlias != source.Alias).ToArray();
+            var projections = inner.Projection.Except(lifted).ToList();
+            var keyProjection = projections.FirstOrDefault(projection => projection.Expression.Equals(key));
+            if (keyProjection is null)
+            {
+                var name = key.Name;
+                while (inner.Projection.Any(projection => projection.Alias == name))
+                {
+                    name += "_";
+                }
+
+                keyProjection = new ProjectionExpression(key, name);
+                projections.Add(keyProjection);
+            }
+
+            var joinedKey = new ColumnExpression(keyProjection.Alias, inner.Alias!, key.Type, key.TypeMapping, true);
+            var replacements = lifted.ToDictionary(projection => projection.Alias,
+                projection => sqlExpressionFactory.Case(
+                    [new CaseWhenClause(sqlExpressionFactory.IsNotNull(joinedKey), projection.Expression)],
+                    elseResult: null));
+            var tables = select.Tables.ToArray();
+            tables[index] = new LeftJoinExpression(
+                inner.Update(inner.Tables, predicate is SqlConstantExpression { Value: true } ? null : predicate,
+                    [], null, projections, [], null, null),
+                sqlExpressionFactory.Equal(outerKey, joinedKey));
+            select = select.Update(tables, select.Predicate, select.GroupBy, select.Having, select.Projection,
+                select.Orderings, select.Offset, select.Limit);
+
+            // Equality makes the right key a presence marker, even when its storage column is nullable.
+            // A lifted outer value must still become NULL when the APPLY input has no matching row.
+            return (SelectExpression)new OuterApplyProjectionRewriter(inner.Alias!, replacements).Visit(select);
+        }
+
+        private sealed class OuterApplyPredicateRewriter(
+            string sourceAlias,
+            ColumnExpression outerKey,
+            ISqlExpressionFactory sqlExpressionFactory) : ExpressionVisitor
+        {
+            public bool IsValid { get; private set; } = true;
+
+            protected override Expression VisitExtension(Expression node)
+            {
+                if (node is SqlUnaryExpression { OperatorType: ExpressionType.NotEqual } nullCheck
+                    && nullCheck.Operand.Equals(outerKey))
+                {
+                    // The extracted equality already rejects a NULL outer key.
+                    return sqlExpressionFactory.ApplyDefaultTypeMapping(sqlExpressionFactory.Constant(true));
+                }
+
+                if ((node is ColumnExpression column && column.TableAlias != sourceAlias)
+                    || node is SelectExpression or ScalarSubqueryExpression)
+                {
+                    IsValid = false;
+                    return node;
+                }
+
+                return base.VisitExtension(node);
+            }
+        }
+
+        private sealed class OuterApplyProjectionRewriter(
+            string alias,
+            IReadOnlyDictionary<string, SqlExpression> replacements) : ExpressionVisitor
+        {
+            protected override Expression VisitExtension(Expression node) =>
+                node is ColumnExpression column && column.TableAlias == alias
+                                                && replacements.TryGetValue(column.Name, out var replacement)
+                    ? replacement
+                    : base.VisitExtension(node);
         }
 
         private SqlExpression? ExtractKeys(SqlExpression predicate, string? joinedAlias, ref SqlExpression? residual)

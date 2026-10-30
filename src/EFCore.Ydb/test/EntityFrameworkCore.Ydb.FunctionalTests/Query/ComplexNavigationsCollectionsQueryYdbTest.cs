@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestModels.ComplexNavigationsModel;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -15,6 +17,105 @@ public class ComplexNavigationsCollectionsQueryYdbTest : ComplexNavigationsColle
     {
         fixture.TestSqlLoggerFactory.Clear();
         fixture.TestSqlLoggerFactory.SetTestOutputHelper(outputHelper);
+    }
+
+    [Fact]
+    public async Task Correlated_projection_DefaultIfEmpty_preserves_null_parent_values()
+    {
+        await using var context = CreateContext();
+        var minimum = 0;
+        var rows = await context.Set<Level1>()
+            .SelectMany(
+                l1 => l1.OneToOne_Optional_FK1.OneToMany_Optional2
+                    .Where(l3 => l3.Id >= minimum)
+                    .Select(l3 => new { ChildId = (int?)l3.Id, ParentName = (string?)l1.OneToOne_Optional_FK1.Name })
+                    .DefaultIfEmpty(),
+                (l1, child) => new { RootId = l1.Id, child!.ChildId, child.ParentName })
+            .OrderBy(row => row.RootId).ThenBy(row => row.ChildId)
+            .ToArrayAsync();
+
+        Assert.Equal(
+            [
+                (1, null, null), (2, null, null), (3, null, null), (4, null, null),
+                (5, null, null), (6, null, null), (7, null, null), (8, null, null),
+                (9, null, null), (10, 2, "L2 01"), (10, 6, "L2 01"), (10, 10, "L2 01"),
+                (11, null, null), (12, null, null), (13, null, null)
+            ],
+            rows.Select(row => (row.RootId, row.ChildId, row.ParentName)));
+    }
+
+    [Fact]
+    public async Task Correlated_projection_preserves_colliding_alias_and_coalesce()
+    {
+        await using var context = CreateContext();
+        var rows = await context.Set<Level1>()
+            .SelectMany(
+                l1 => l1.OneToOne_Optional_FK1.OneToMany_Optional2
+                    .Select(l3 => new
+                    {
+                        OneToMany_Optional_Inverse3Id = (int?)l3.Id,
+                        Value = (int?)(l3.Level2_Optional_Id ?? 0),
+                        ParentName = (string?)l1.OneToOne_Optional_FK1.Name
+                    }).DefaultIfEmpty(),
+                (l1, child) => new
+                {
+                    RootId = l1.Id, ChildId = child!.OneToMany_Optional_Inverse3Id, child.Value, child.ParentName
+                })
+            .OrderBy(row => row.RootId).ThenBy(row => row.ChildId)
+            .ToArrayAsync();
+
+        Assert.Equal(
+            [
+                (1, null, null, null), (2, null, null, null), (3, null, null, null), (4, null, null, null),
+                (5, null, null, null), (6, null, null, null), (7, null, null, null), (8, null, null, null),
+                (9, null, null, null), (10, 2, 0, "L2 01"), (10, 6, 0, "L2 01"), (10, 10, 0, "L2 01"),
+                (11, null, null, null), (12, null, null, null), (13, null, null, null)
+            ],
+            rows.Select(row => (row.RootId, row.ChildId, row.Value, row.ParentName)));
+    }
+
+    [Fact]
+    public async Task Correlated_projection_preserves_projected_nullable_join_key()
+    {
+        await using var context = CreateContext();
+        var children = context.Set<Level3>();
+        var rows = await context.Set<Level1>()
+            .SelectMany(
+                l1 => children
+                    .Where(l3 => l1.OneToOne_Optional_FK1 != null
+                                 && l3.Level2_Optional_Id == l1.OneToOne_Optional_FK1.Id)
+                    .Select(l3 => new
+                    {
+                        ChildId = (int?)l3.Id, ParentId = l3.Level2_Optional_Id,
+                        ParentName = (string?)l1.OneToOne_Optional_FK1.Name
+                    }).DefaultIfEmpty(),
+                (l1, child) => new { RootId = l1.Id, child!.ChildId, child.ParentId, child.ParentName })
+            .OrderBy(row => row.RootId).ThenBy(row => row.ChildId)
+            .ToArrayAsync();
+
+        Assert.Equal(
+            [
+                (1, null, null, null), (2, 1, 9, "L2 09"), (3, null, null, null), (4, 3, 7, "L2 07"),
+                (5, null, null, null), (6, 5, 5, "L2 05"), (7, null, null, null), (8, null, null, null),
+                (9, null, null, null), (10, null, null, null), (11, null, null, null),
+                (12, null, null, null), (13, null, null, null)
+            ],
+            rows.Select(row => (row.RootId, row.ChildId, row.ParentId, row.ParentName)));
+    }
+
+    [Fact]
+    public void Correlated_projection_with_outer_filter_keeps_apply()
+    {
+        using var context = CreateContext();
+        var sql = context.Set<Level1>()
+            .SelectMany(l1 => l1.OneToOne_Optional_FK1.OneToMany_Optional2
+                .Where(l3 => l3.Id > l1.Id)
+                .Select(l3 => new { ChildId = l3.Id, ParentName = l1.OneToOne_Optional_FK1.Name })
+                .DefaultIfEmpty())
+            .ToQueryString();
+
+        Assert.Contains("OUTER APPLY", sql);
+        Assert.Contains(" > ", sql);
     }
 
     [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
@@ -166,11 +267,6 @@ public class ComplexNavigationsCollectionsQueryYdbTest : ComplexNavigationsColle
     [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Complex_query_issue_21665(bool async) => base.Complex_query_issue_21665(async);
-
-    [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Projecting_collection_after_optional_reference_correlated_with_parent(bool async) =>
-        base.Projecting_collection_after_optional_reference_correlated_with_parent(async);
 
     [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
     [MemberData(nameof(IsAsyncData))]
