@@ -271,9 +271,9 @@ public sealed class YdbCommand : DbCommand
             : StatsMode;
 
         var ydbDataReader = await YdbDataReader.CreateYdbDataReader(await YdbConnection.Session.ExecuteQuery
-                (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl,
-                    effectiveStatsMode,
-                    collectAffectedRows)
+            (preparedSql.ToString(), ydbParameters, execSettings, transaction?.TransactionControl,
+                effectiveStatsMode,
+                collectAffectedRows)
             .ConfigureAwait(false), YdbConnection, dbActivity, startTimestamp, cancellationToken, behavior)
             .ConfigureAwait(false);
 
@@ -300,9 +300,7 @@ public sealed class YdbCommand : DbCommand
         await ExecuteReaderAsync(behavior, cancellationToken, CollectAffectedRows).ConfigureAwait(false);
 
     private async Task<YdbDataReader> ExecuteReaderAsync(CommandBehavior behavior,
-        CancellationToken cancellationToken, bool collectAffectedRows)
-    {
-        return (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken, collectAffectedRows)
+        CancellationToken cancellationToken, bool collectAffectedRows) =>
+        (YdbDataReader)await ExecuteDbDataReaderAsync(behavior, cancellationToken, collectAffectedRows)
             .ConfigureAwait(false);
-    }
 }

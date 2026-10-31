@@ -112,12 +112,12 @@ public class RetryableSessionTests
     [Fact]
     public async Task ExecuteQuery_WhenCollectAffectedRows_PassesTheOptionToTheSession()
     {
-        StatsMode observedStatsMode = StatsMode.None;
+        var observedStatsMode = StatsMode.None;
         var observedCollectAffectedRows = false;
         var factory = new MockPoolingSessionFactory(1)
         {
             ExecuteQuery = _ => new MockAsyncEnumerator<ExecuteQueryResponsePart>([
-                new() { Status = StatusIds.Types.StatusCode.Success }
+                new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.Success }
             ]),
             ExecuteQueryOptions = (statsMode, collectAffectedRows) =>
             {

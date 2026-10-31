@@ -18,6 +18,7 @@ internal class MockPoolingSessionFactory(int maxPoolSize) : IPoolingSessionFacto
 
     internal Func<int, IServerStream<ExecuteQueryResponsePart>> ExecuteQuery { private get; init; } =
         _ => throw new NotImplementedException();
+
     internal Action<StatsMode, bool>? ExecuteQueryOptions { private get; init; }
 
     public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
@@ -76,7 +77,7 @@ internal class MockPoolingSession(
     )
     {
         executeQueryOptions?.Invoke(statsMode, collectAffectedRows);
-        return new(executeQuery(sessionId));
+        return new ValueTask<IServerStream<ExecuteQueryResponsePart>>(executeQuery(sessionId));
     }
 
     public override void OnNotSuccessStatusCode(StatusCode code) => _isBroken = true;

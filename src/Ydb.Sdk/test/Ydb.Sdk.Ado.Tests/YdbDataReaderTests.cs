@@ -604,7 +604,8 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         await using var connection = await CreateOpenConnectionAsync();
         await using var withoutStats = await YdbDataReader.CreateYdbDataReader(
             new MockAsyncEnumerator<ExecuteQueryResponsePart>([
-                new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() }
+                new ExecuteQueryResponsePart
+                    { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() }
             ]),
             connection,
             null,
@@ -624,7 +625,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         };
         await using var withTooLargeStats = await YdbDataReader.CreateYdbDataReader(
             new MockAsyncEnumerator<ExecuteQueryResponsePart>([
-                new()
+                new ExecuteQueryResponsePart
                 {
                     Status = StatusIds.Types.StatusCode.Success,
                     ResultSet = new ResultSet(),
