@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
@@ -157,6 +158,8 @@ public sealed class YdbConnection : DbConnection
     public override void Close() => CloseAsync().GetAwaiter().GetResult();
 
     public override void Open() => OpenAsync().GetAwaiter().GetResult();
+
+    internal ILoggerFactory LoggerFactory => ConnectionStringBuilder.LoggerFactory;
 
     internal YdbMetricsReporter MetricsReporter => _sessionSource!.MetricsReporter;
 

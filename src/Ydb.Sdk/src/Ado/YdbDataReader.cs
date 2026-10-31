@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.Text.Json;
 using Google.Protobuf.Collections;
+using Microsoft.Extensions.Logging;
 using Ydb.Issue;
 using Ydb.Query;
 using Ydb.Sdk.Ado.Internal;
@@ -32,6 +33,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     private readonly Activity? _dbActivity;
     private readonly long _startTimestamp;
     private readonly CommandBehavior _behavior;
+    private readonly ILogger<YdbDataReader> _logger;
     private bool _connectionClosed;
 
     private int _currentRowIndex = -1;
@@ -100,6 +102,7 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         _dbActivity = dbActivity;
         _startTimestamp = startTimestamp;
         _behavior = behavior;
+        _logger = connection.LoggerFactory.CreateLogger<YdbDataReader>();
     }
 
     /// <summary>
@@ -1074,9 +1077,10 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         {
             await _connection.CloseAsync().ConfigureAwait(false);
         }
-        catch
+        catch (Exception closeException)
         {
-            // Preserve the original read/stream exception.
+            // Keep the original read/stream exception as the one the caller sees; the close failure is logged.
+            _logger.LogWarning(closeException, "Failed to close the connection after a reader error.");
         }
     }
 

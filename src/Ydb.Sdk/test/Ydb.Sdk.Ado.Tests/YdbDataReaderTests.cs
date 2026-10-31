@@ -1,8 +1,11 @@
 using System.Data;
+using System.Reflection;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Query;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.TableStats;
 
@@ -540,6 +543,62 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal(StatusCode.BadRequest, exception.Code);
         Assert.True(reader.IsClosed);
         Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public async Task CreateYdbDataReader_WhenCloseFailsAfterReadError_LogsCloseFailureAndRethrowsReadError()
+    {
+        var logs = new CapturingLoggerFactory();
+        await using var connection = new YdbConnection(new YdbConnectionStringBuilder(ConnectionString)
+        {
+            LoggerFactory = logs
+        });
+        await connection.OpenAsync();
+        // The session field is private; install a session whose first Dispose fails, so closing the
+        // connection after the read error throws.
+        typeof(YdbConnection).GetField("_session", BindingFlags.NonPublic |
+                                                   BindingFlags.Instance)!.SetValue(connection,
+            new DisposeFailingSession());
+
+        var stream = new Mock<IServerStream<ExecuteQueryResponsePart>>(MockBehavior.Strict);
+        stream.Setup(s => s.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+        stream.Setup(s => s.Dispose());
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => YdbDataReader.CreateYdbDataReader(
+            stream.Object, connection, null, 0, behavior: CommandBehavior.CloseConnection));
+
+        Assert.Contains(logs.Entries, entry => entry.Level == LogLevel.Warning &&
+                                               entry.Error?.Message == "session dispose failed");
+    }
+
+    private sealed class DisposeFailingSession : ISession
+    {
+        private bool _failed;
+
+        public IDriver Driver => null!;
+
+        public bool IsBroken => false;
+
+        public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(string query,
+            Dictionary<string, TypedValue> parameters, GrpcRequestSettings settings, TransactionControl? txControl,
+            StatsMode statsMode = StatsMode.None) =>
+            throw new NotSupportedException();
+
+        public void OnNotSuccessStatusCode(StatusCode code)
+        {
+        }
+
+        public void Dispose()
+        {
+            if (_failed)
+            {
+                return;
+            }
+
+            _failed = true;
+            throw new InvalidOperationException("session dispose failed");
+        }
     }
 
     [Fact]
