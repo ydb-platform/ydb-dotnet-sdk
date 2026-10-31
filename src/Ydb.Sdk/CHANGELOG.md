@@ -1,3 +1,6 @@
+- Feat ADO.NET: `YdbDataReader.RecordsAffected` returns the server's affected-row count for `ExecuteNonQuery`
+  and for readers from `YdbCommand.CollectAffectedRows`; it used to always return `-1`. The count is the sum of
+  logical base-table rows the server reports; it is `-1` when the server reports none.
 - Fix ADO.NET: connection validation rejects only explicitly closed connections and lets operations
   on broken sessions follow normal execution without reopening them.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.commit_offset.lag.max`, reporting the maximum
@@ -5,6 +8,8 @@
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.partition_session.count`.
 - Fix ADO.NET: `YdbTransaction.Release` and `ReleaseAsync` throw `NotSupportedException`, like `Save` and
   `Rollback(string)`, since `SupportsSavepoints` is false; they used to report success.
+- Fix ADO.NET: `CommandBehavior.CloseConnection` closes the connection when the `YdbDataReader` is closed; the
+  behavior used to be ignored.
 - **Breaking Change** ADO.NET: `YdbParameter.ParameterName` returns the name as it was set (`name`, `@name` or `$name`)
   instead of rewriting it to `$name`; the parameter is still bound as `$name`, and `YdbParameterCollection.IndexOf` and
   `Contains` find it by any of the three forms.

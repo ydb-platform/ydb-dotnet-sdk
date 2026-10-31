@@ -148,7 +148,8 @@ internal class MockPoolingSession(PoolingSessionSource<MockPoolingSession> sourc
         string query,
         Dictionary<string, TypedValue> parameters, GrpcRequestSettings settings,
         TransactionControl? txControl,
-        StatsMode statsMode = StatsMode.None
+        StatsMode statsMode = StatsMode.None,
+        bool collectAffectedRows = false
     ) => throw new NotImplementedException();
 
     public override void OnNotSuccessStatusCode(StatusCode code)

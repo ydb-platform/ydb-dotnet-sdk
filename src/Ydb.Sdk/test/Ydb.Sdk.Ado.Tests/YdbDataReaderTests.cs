@@ -1,7 +1,11 @@
 using System.Data;
+using System.Reflection;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Xunit;
 using Ydb.Issue;
 using Ydb.Query;
+using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 using Ydb.TableStats;
 
@@ -458,7 +462,8 @@ SELECT Key, Value FROM AS_TABLE($new_data);
                                     PartitionsCount = 9,
                                     Reads = new OperationStats { Rows = 10, Bytes = 11 },
                                     Updates = new OperationStats { Rows = 12, Bytes = 13 },
-                                    Deletes = new OperationStats { Rows = 14, Bytes = 15 }
+                                    Deletes = new OperationStats { Rows = 14, Bytes = 15 },
+                                    AffectedRows = 16
                                 }
                             }
                         }
@@ -500,6 +505,9 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal((ulong)13, table.Updates.Bytes);
         Assert.Equal((ulong)14, table.Deletes.Rows);
         Assert.Equal((ulong)15, table.Deletes.Bytes);
+        Assert.Equal((ulong)16, table.AffectedRows);
+        Assert.Equal((ulong)16, stats.AffectedRows);
+        Assert.Equal(16, reader.RecordsAffected);
 
         snapshot.PlanStep = 100;
         var timestamp = Assert.IsType<YdbVirtualTimestamp>(reader.SnapshotTimestamp);
@@ -508,6 +516,131 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.False(await reader.NextResultAsync());
         Assert.Same(timestamp, reader.SnapshotTimestamp);
         Assert.Same(stats, reader.QueryStats);
+    }
+
+    [Fact]
+    public async Task NextResultAsync_WhenStreamFailsWithCloseConnection_ClosesConnection()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var success = new List<ExecuteQueryResponsePart>
+        {
+            new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() }
+        };
+        success.Add(new ExecuteQueryResponsePart
+        {
+            Status = StatusIds.Types.StatusCode.BadRequest,
+            Issues = { new IssueMessage { Message = "query failed" } }
+        });
+        await using var reader = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>(success),
+            connection,
+            null,
+            0,
+            behavior: CommandBehavior.CloseConnection);
+
+        var exception = await Assert.ThrowsAsync<YdbException>(() => reader.NextResultAsync());
+
+        Assert.Equal(StatusCode.BadRequest, exception.Code);
+        Assert.True(reader.IsClosed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public async Task CreateYdbDataReader_WhenCloseFailsAfterReadError_LogsCloseFailureAndRethrowsReadError()
+    {
+        var logs = new CapturingLoggerFactory();
+        await using var connection = new YdbConnection(new YdbConnectionStringBuilder(ConnectionString)
+        {
+            LoggerFactory = logs
+        });
+        await connection.OpenAsync();
+        // The session field is private; install a session whose first Dispose fails, so closing the
+        // connection after the read error throws.
+        var sessionField = typeof(YdbConnection).GetField("_session", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        ((IDisposable)sessionField.GetValue(connection)!).Dispose();
+        sessionField.SetValue(connection, new DisposeFailingSession());
+
+        var stream = new Mock<IServerStream<ExecuteQueryResponsePart>>(MockBehavior.Strict);
+        stream.Setup(s => s.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+        stream.Setup(s => s.Dispose());
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => YdbDataReader.CreateYdbDataReader(
+            stream.Object, connection, null, 0, behavior: CommandBehavior.CloseConnection));
+
+        Assert.Contains(logs.Entries, entry => entry.Level == LogLevel.Warning &&
+                                               entry.Error?.Message == "session dispose failed");
+    }
+
+    private sealed class DisposeFailingSession : ISession
+    {
+        private bool _failed;
+
+        public IDriver Driver => null!;
+
+        public bool IsBroken => false;
+
+        public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(string query,
+            Dictionary<string, TypedValue> parameters, GrpcRequestSettings settings, TransactionControl? txControl,
+            StatsMode statsMode = StatsMode.None, bool collectAffectedRows = false) =>
+            throw new NotSupportedException();
+
+        public void OnNotSuccessStatusCode(StatusCode code)
+        {
+        }
+
+        public void Dispose()
+        {
+            if (_failed)
+            {
+                return;
+            }
+
+            _failed = true;
+            throw new InvalidOperationException("session dispose failed");
+        }
+    }
+
+    [Fact]
+    public async Task NextResultAsync_WhenStreamFailsWithoutCloseConnection_LeavesConnectionOpen()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var success = new List<ExecuteQueryResponsePart>
+        {
+            new() { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() }
+        };
+        success.Add(new ExecuteQueryResponsePart { Status = StatusIds.Types.StatusCode.BadRequest });
+        await using var reader = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>(success), connection, null, 0);
+
+        await Assert.ThrowsAsync<YdbException>(() => reader.NextResultAsync());
+
+        Assert.Equal(ConnectionState.Open, connection.State);
+    }
+
+    [Fact]
+    public async Task NextResultAsync_WhenStreamIsCancelledWithCloseConnection_ClosesConnection()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var stream = new Mock<IServerStream<ExecuteQueryResponsePart>>(MockBehavior.Strict);
+        stream.SetupSequence(s => s.MoveNextAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ThrowsAsync(new OperationCanceledException());
+        stream.SetupSequence(s => s.Current)
+            .Returns(new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = new ResultSet()
+            });
+        stream.Setup(s => s.Dispose());
+
+        await using var reader = await YdbDataReader.CreateYdbDataReader(
+            stream.Object, connection, null, 0, behavior: CommandBehavior.CloseConnection);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => reader.NextResultAsync());
+
+        Assert.True(reader.IsClosed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
     }
 
     [Fact]
@@ -522,6 +655,108 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         Assert.Equal(2, reader.GetOrdinal("VALUE"));
         Assert.Equal(2, reader.GetOrdinal("Value"));
         Assert.Throws<IndexOutOfRangeException>(() => reader.GetOrdinal("missing"));
+    }
+
+    [Fact]
+    public async Task RecordsAffected_WhenStatsAreMissingOrTooLarge_ReturnsMinusOne()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var withoutStats = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                new ExecuteQueryResponsePart
+                    { Status = StatusIds.Types.StatusCode.Success, ResultSet = new ResultSet() }
+            ]),
+            connection,
+            null,
+            0);
+
+        Assert.Equal(-1, withoutStats.RecordsAffected);
+
+        var tooLargeStats = new QueryStats
+        {
+            QueryPhases =
+            {
+                new QueryPhaseStats
+                {
+                    TableAccess = { new TableAccessStats { AffectedRows = ulong.MaxValue } }
+                }
+            }
+        };
+        await using var withTooLargeStats = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                new ExecuteQueryResponsePart
+                {
+                    Status = StatusIds.Types.StatusCode.Success,
+                    ResultSet = new ResultSet(),
+                    ExecStats = tooLargeStats
+                }
+            ]),
+            connection,
+            null,
+            0);
+
+        Assert.Equal(-1, withTooLargeStats.RecordsAffected);
+    }
+
+    [Fact]
+    public async Task RecordsAffected_WhenTableCountsOverflowUlong_ReturnsMinusOne()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var overflowingStats = new QueryStats
+        {
+            QueryPhases =
+            {
+                new QueryPhaseStats
+                {
+                    TableAccess =
+                    {
+                        new TableAccessStats { AffectedRows = ulong.MaxValue },
+                        new TableAccessStats { AffectedRows = 1 }
+                    }
+                }
+            }
+        };
+        await using var reader = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                new ExecuteQueryResponsePart
+                {
+                    Status = StatusIds.Types.StatusCode.Success,
+                    ResultSet = new ResultSet(),
+                    ExecStats = overflowingStats
+                }
+            ]),
+            connection,
+            null,
+            0);
+
+        Assert.Equal(-1, reader.RecordsAffected);
+    }
+
+    [Fact]
+    public void AffectedRows_WhenMultipleTablesAreReported_SumsOnlyReportedTables()
+    {
+        var stats = new YdbQueryStats(new QueryStats
+        {
+            QueryPhases =
+            {
+                new QueryPhaseStats
+                {
+                    TableAccess =
+                    {
+                        new TableAccessStats { AffectedRows = 2 },
+                        new TableAccessStats()
+                    }
+                },
+                new QueryPhaseStats
+                {
+                    TableAccess = { new TableAccessStats { AffectedRows = 3 } }
+                }
+            }
+        });
+
+        Assert.Equal((ulong)2, stats.Phases[0].TableAccesses[0].AffectedRows);
+        Assert.Null(stats.Phases[0].TableAccesses[1].AffectedRows);
+        Assert.Equal((ulong)5, stats.AffectedRows);
     }
 
     private static async Task<YdbDataReader> CreateYdbDataReader(

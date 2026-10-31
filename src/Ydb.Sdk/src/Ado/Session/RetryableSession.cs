@@ -25,8 +25,10 @@ internal class RetryableSession : ISession
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl,
-        StatsMode statsMode = StatsMode.None
-    ) => new(new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings, statsMode));
+        StatsMode statsMode = StatsMode.None,
+        bool collectAffectedRows = false
+    ) => new(new InMemoryServerStream(_sessionSource, _retryPolicyExecutor, query, parameters, settings, statsMode,
+        collectAffectedRows));
 
     public void OnNotSuccessStatusCode(StatusCode code)
     {
@@ -43,7 +45,8 @@ internal sealed class InMemoryServerStream(
     string query,
     Dictionary<string, TypedValue> parameters,
     GrpcRequestSettings settings,
-    StatsMode statsMode
+    StatsMode statsMode,
+    bool collectAffectedRows
 ) : IServerStream<ExecuteQueryResponsePart>
 {
     private List<ExecuteQueryResponsePart>? _responses;
@@ -64,7 +67,8 @@ internal sealed class InMemoryServerStream(
             try
             {
                 var responses = new List<ExecuteQueryResponsePart>();
-                var serverStream = await session.ExecuteQuery(query, parameters, settings, null, statsMode)
+                var serverStream = await session.ExecuteQuery(query, parameters, settings, null, statsMode,
+                        collectAffectedRows)
                     .ConfigureAwait(false);
 
                 while (await serverStream.MoveNextAsync(ct).ConfigureAwait(false))
