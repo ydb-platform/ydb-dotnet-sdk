@@ -43,6 +43,49 @@ public sealed class YdbConnectionTests : TestBase
     }
 
     [Fact]
+    public async Task ServerVersion_WhenOpened_CapturesVersionDuringOpenNotOnRead()
+    {
+        var queries = 0;
+        var driver = new Mock<IDriver>(MockBehavior.Strict);
+        driver.SetupGet(d => d.LoggerFactory).Returns(TestUtils.LoggerFactory);
+        driver.SetupGet(d => d.Database).Returns("/local");
+        driver.Setup(d => d.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        driver.Setup(d => d.ServerStreamCall(
+                QueryService.ExecuteQueryMethod,
+                It.IsAny<ExecuteQueryRequest>(),
+                It.IsAny<GrpcRequestSettings>()))
+            .Returns(() =>
+            {
+                queries++;
+                return new ValueTask<IServerStream<ExecuteQueryResponsePart>>(
+                    new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                        new ExecuteQueryResponsePart
+                        {
+                            Status = StatusIds.Types.StatusCode.Success,
+                            ResultSet = new ResultSet
+                            {
+                                Rows = { new Ydb.Value { Items = { new Ydb.Value { TextValue = "26.2.1.14" } } } }
+                            }
+                        }
+                    ]));
+            });
+        var (connection, source, settings) = await OpenMockConnectionAsync(driver.Object);
+
+        try
+        {
+            Assert.Equal(1, queries);
+
+            Assert.Equal("26.2.1.14", connection.ServerVersion);
+            Assert.Equal(1, queries);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+            await RemoveMockSourceAsync(source, settings);
+        }
+    }
+
+    [Fact]
     public async Task ServerVersion_WhenReaderIsActive_PreservesReader()
     {
         await using var connection = CreateOpenConnectionWithUniquePool(maxPoolSize: 1);
@@ -104,11 +147,11 @@ public sealed class YdbConnectionTests : TestBase
                 Issues = { new IssueMessage { Message = "version failed" } }
             }
         ]);
-        var (connection, source, settings) = await OpenMockConnectionAsync(driver.Object);
+        var (connection, source, settings) = CreateUnopenedMockConnection(driver.Object);
 
         try
         {
-            var exception = Assert.Throws<YdbException>(() => connection.ServerVersion);
+            var exception = await Assert.ThrowsAsync<YdbException>(() => connection.OpenAsync());
 
             Assert.Equal(StatusCode.BadRequest, exception.Code);
             Assert.Contains("version failed", exception.Message);
@@ -130,11 +173,11 @@ public sealed class YdbConnectionTests : TestBase
                 ResultSet = new ResultSet()
             }
         ]);
-        var (connection, source, settings) = await OpenMockConnectionAsync(driver.Object);
+        var (connection, source, settings) = CreateUnopenedMockConnection(driver.Object);
 
         try
         {
-            var exception = Assert.Throws<YdbException>(() => connection.ServerVersion);
+            var exception = await Assert.ThrowsAsync<YdbException>(() => connection.OpenAsync());
 
             Assert.Equal("YDB server returned no result for Version().", exception.Message);
         }
@@ -225,8 +268,8 @@ public sealed class YdbConnectionTests : TestBase
         return driver;
     }
 
-    private static async Task<(YdbConnection Connection, ImplicitSessionSource Source,
-        YdbConnectionStringBuilder Settings)> OpenMockConnectionAsync(IDriver driver)
+    private static (YdbConnection Connection, ImplicitSessionSource Source,
+        YdbConnectionStringBuilder Settings) CreateUnopenedMockConnection(IDriver driver)
     {
         var settings = new YdbConnectionStringBuilder
         {
@@ -236,7 +279,13 @@ public sealed class YdbConnectionTests : TestBase
         };
         var source = new ImplicitSessionSource(driver, settings);
         Assert.True(PoolManager.Pools.TryAdd(settings.PoolKey, source));
-        var connection = new YdbConnection(settings);
+        return (new YdbConnection(settings), source, settings);
+    }
+
+    private static async Task<(YdbConnection Connection, ImplicitSessionSource Source,
+        YdbConnectionStringBuilder Settings)> OpenMockConnectionAsync(IDriver driver)
+    {
+        var (connection, source, settings) = CreateUnopenedMockConnection(driver);
         await connection.OpenAsync();
         return (connection, source, settings);
     }

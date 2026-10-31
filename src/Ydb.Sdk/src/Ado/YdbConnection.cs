@@ -178,11 +178,10 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        Session = await (
-            _sessionSource ??= await PoolManager
-                .Get(ConnectionStringBuilder, cancellationToken)
-                .ConfigureAwait(false)
-        ).OpenSession(cancellationToken).ConfigureAwait(false);
+        _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false);
+        await CaptureServerVersionAsync(_sessionSource.Driver, cancellationToken).ConfigureAwait(false);
+
+        Session = await _sessionSource.OpenSession(cancellationToken).ConfigureAwait(false);
 
         OnStateChange(ClosedToOpenEventArgs);
 
@@ -196,9 +195,10 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        Session = new RetryableSession(
-            _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false),
-            retryPolicyExecutor);
+        _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false);
+        await CaptureServerVersionAsync(_sessionSource.Driver, cancellationToken).ConfigureAwait(false);
+
+        Session = new RetryableSession(_sessionSource, retryPolicyExecutor);
 
         ConnectionState = ConnectionState.Open;
     }
@@ -286,28 +286,37 @@ public sealed class YdbConnection : DbConnection
         {
             ThrowIfConnectionClosed();
 
-            var driver = _sessionSource!.Driver;
-            var cache = ServerVersions.GetValue(driver, static _ => new ServerVersionCache());
+            var cache = ServerVersions.GetValue(_sessionSource!.Driver, static _ => new ServerVersionCache());
 
-            cache.InitializationLock.Wait();
-            try
+            return cache.Initialized
+                ? cache.Value!
+                : throw new InvalidOperationException(
+                    "The server version was not captured when the connection opened.");
+        }
+    }
+
+    // Captured while opening, not on read: the query goes directly through the driver so it never borrows the
+    // session the connection is about to use. The version is kept per driver, so it runs once per endpoint and database.
+    private static async Task CaptureServerVersionAsync(IDriver driver, CancellationToken cancellationToken)
+    {
+        var cache = ServerVersions.GetValue(driver, static _ => new ServerVersionCache());
+        if (cache.Initialized)
+        {
+            return;
+        }
+
+        await cache.InitializationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!cache.Initialized)
             {
-                if (cache.Initialized)
-                {
-                    return cache.Value!;
-                }
-
-                // Query directly through the driver: ServerVersion must not borrow this connection's busy
-                // session or participate in its transaction.
-                var version = ReadServerVersionAsync(driver).GetAwaiter().GetResult();
-                cache.Value = version;
+                cache.Value = await ReadServerVersionAsync(driver).ConfigureAwait(false);
                 cache.Initialized = true;
-                return version;
             }
-            finally
-            {
-                cache.InitializationLock.Release();
-            }
+        }
+        finally
+        {
+            cache.InitializationLock.Release();
         }
     }
 
