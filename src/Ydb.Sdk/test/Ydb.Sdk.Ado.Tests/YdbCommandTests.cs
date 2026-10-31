@@ -107,6 +107,100 @@ public class YdbCommandTests : TestBase
     }
 
     [Fact]
+    public async Task ExecuteReaderAsync_WhenCloseConnection_ClosesConnectionWithReader()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var reader = await new YdbCommand("SELECT 1;", connection).ExecuteReaderAsync(CommandBehavior.CloseConnection);
+        Assert.True(await reader.ReadAsync());
+        Assert.False(await reader.ReadAsync());
+
+        await reader.CloseAsync();
+
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public void ExecuteReader_WhenCloseConnectionAndReaderNotConsumed_ClosesConnectionWithReader()
+    {
+        using var connection = CreateOpenConnection();
+        using (new YdbCommand("SELECT 1;", connection).ExecuteReader(CommandBehavior.CloseConnection))
+        {
+        }
+
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenDefaultBehavior_LeavesConnectionOpen()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var reader = await new YdbCommand("SELECT 1;", connection).ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.False(await reader.ReadAsync());
+
+        await reader.CloseAsync();
+
+        Assert.Equal(ConnectionState.Open, connection.State);
+    }
+
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenCloseConnectionAndPartiallyConsumed_ClosesConnection()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var reader = await new YdbCommand("SELECT 1; SELECT 2;", connection)
+            .ExecuteReaderAsync(CommandBehavior.CloseConnection);
+
+        Assert.True(await reader.ReadAsync());
+        await reader.CloseAsync();
+
+        Assert.True(reader.IsClosed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public async Task
+        CloseConnection_WhenConnectionClosesReader_EmitsOneEventAndOldReaderCannotCloseReopenedConnection()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var closedEvents = 0;
+        connection.StateChange += (_, args) =>
+        {
+            if (args.CurrentState == ConnectionState.Closed)
+            {
+                closedEvents++;
+            }
+        };
+
+        var reader = await new YdbCommand("SELECT 1; SELECT 2;", connection)
+            .ExecuteReaderAsync(CommandBehavior.CloseConnection);
+
+        await connection.CloseAsync();
+        Assert.Equal(ConnectionState.Closed, connection.State);
+        Assert.Equal(1, closedEvents);
+
+        await connection.OpenAsync();
+        await reader.CloseAsync();
+        Assert.Equal(ConnectionState.Open, connection.State);
+        await reader.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task CloseConnection_WhenReadIsCancelled_ClosesConnectionAndReportsTransportCancellation()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var reader = await new YdbCommand("SELECT 1; SELECT 2;", connection)
+            .ExecuteReaderAsync(CommandBehavior.CloseConnection);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var exception = await Assert.ThrowsAsync<YdbException>(() => reader.NextResultAsync(cancellation.Token));
+        Assert.Equal(StatusCode.ClientTransportCancelled, exception.Code);
+
+        Assert.True(reader.IsClosed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
     public async Task ExecuteReaderAsync_WhenOptionalIsNull_ThrowFieldIsNull()
     {
         await using var connection = await CreateOpenConnectionAsync();
