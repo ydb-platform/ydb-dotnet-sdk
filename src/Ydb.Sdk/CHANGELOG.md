@@ -1,3 +1,6 @@
+- Feat ADO.NET: `YdbDataReader.RecordsAffected` returns the server's affected-row count for `ExecuteNonQuery`
+  and for readers from `YdbCommand.CollectAffectedRows`; it used to always return `-1`. The count is the sum of
+  logical base-table rows the server reports; it is `-1` when the server reports none.
 - Fix ADO.NET: connection validation rejects only explicitly closed connections and lets operations
   on broken sessions follow normal execution without reopening them.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.commit_offset.lag.max`, reporting the maximum

@@ -55,6 +55,7 @@ public sealed class YdbQueryStats
 
     /// <summary>
     /// Gets the number of logical base-table rows affected by DML, when collected by the server.
+    /// Null when no table access reports a count, or when the total does not fit in <see cref="ulong"/>.
     /// </summary>
     public ulong? AffectedRows
     {
@@ -68,8 +69,13 @@ public sealed class YdbQueryStats
                 if (table.AffectedRows is not { } rows)
                     continue;
 
+                if (rows > ulong.MaxValue - total)
+                {
+                    return null;
+                }
+
                 found = true;
-                total = checked(total + rows);
+                total += rows;
             }
 
             return found ? total : null;

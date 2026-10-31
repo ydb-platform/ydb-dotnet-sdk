@@ -640,6 +640,40 @@ SELECT Key, Value FROM AS_TABLE($new_data);
     }
 
     [Fact]
+    public async Task RecordsAffected_WhenTableCountsOverflowUlong_ReturnsMinusOne()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var overflowingStats = new QueryStats
+        {
+            QueryPhases =
+            {
+                new QueryPhaseStats
+                {
+                    TableAccess =
+                    {
+                        new TableAccessStats { AffectedRows = ulong.MaxValue },
+                        new TableAccessStats { AffectedRows = 1 }
+                    }
+                }
+            }
+        };
+        await using var reader = await YdbDataReader.CreateYdbDataReader(
+            new MockAsyncEnumerator<ExecuteQueryResponsePart>([
+                new ExecuteQueryResponsePart
+                {
+                    Status = StatusIds.Types.StatusCode.Success,
+                    ResultSet = new ResultSet(),
+                    ExecStats = overflowingStats
+                }
+            ]),
+            connection,
+            null,
+            0);
+
+        Assert.Equal(-1, reader.RecordsAffected);
+    }
+
+    [Fact]
     public void AffectedRows_WhenMultipleTablesAreReported_SumsOnlyReportedTables()
     {
         var stats = new YdbQueryStats(new QueryStats

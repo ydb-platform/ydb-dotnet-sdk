@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using Xunit;
 using Ydb.Sdk.Ado.YdbType;
 using Ydb.Sdk.Value;
@@ -7,6 +8,22 @@ namespace Ydb.Sdk.Ado.Tests;
 
 public class YdbCommandTests : TestBase
 {
+    [Fact]
+    public async Task ExecuteReaderAsync_WhenCalledThroughDbCommand_ReturnsRowsAndNoAffectedCount()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        DbCommand command = new YdbCommand("SELECT 1 AS a;", connection)
+        {
+            CollectAffectedRows = true
+        };
+
+        await using var reader = await command.ExecuteReaderAsync(CommandBehavior.Default, CancellationToken.None);
+
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(1, reader.GetInt32(0));
+        Assert.Equal(-1, reader.RecordsAffected);
+    }
+
     [Theory]
     [MemberData(nameof(DbTypeTestCases))]
     [MemberData(nameof(DbTypeTestNullCases))]
