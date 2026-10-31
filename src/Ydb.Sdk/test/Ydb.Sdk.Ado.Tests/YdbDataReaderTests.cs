@@ -556,9 +556,9 @@ SELECT Key, Value FROM AS_TABLE($new_data);
         await connection.OpenAsync();
         // The session field is private; install a session whose first Dispose fails, so closing the
         // connection after the read error throws.
-        typeof(YdbConnection).GetField("_session", BindingFlags.NonPublic |
-                                                   BindingFlags.Instance)!.SetValue(connection,
-            new DisposeFailingSession());
+        var sessionField = typeof(YdbConnection).GetField("_session", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        ((IDisposable)sessionField.GetValue(connection)!).Dispose();
+        sessionField.SetValue(connection, new DisposeFailingSession());
 
         var stream = new Mock<IServerStream<ExecuteQueryResponsePart>>(MockBehavior.Strict);
         stream.Setup(s => s.MoveNextAsync(It.IsAny<CancellationToken>()))
@@ -582,7 +582,7 @@ SELECT Key, Value FROM AS_TABLE($new_data);
 
         public ValueTask<IServerStream<ExecuteQueryResponsePart>> ExecuteQuery(string query,
             Dictionary<string, TypedValue> parameters, GrpcRequestSettings settings, TransactionControl? txControl,
-            StatsMode statsMode = StatsMode.None) =>
+            StatsMode statsMode = StatsMode.None, bool collectAffectedRows = false) =>
             throw new NotSupportedException();
 
         public void OnNotSuccessStatusCode(StatusCode code)
