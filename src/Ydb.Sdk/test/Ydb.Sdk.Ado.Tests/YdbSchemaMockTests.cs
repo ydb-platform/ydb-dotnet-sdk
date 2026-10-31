@@ -97,6 +97,7 @@ public class YdbSchemaMockTests
         var driver = new Mock<IDriver>(MockBehavior.Strict);
         driver.Setup(d => d.Database).Returns(Database);
         driver.Setup(d => d.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        ServerVersionMock.SetupVersionQuery(driver);
 
         driver.Setup(d => d.UnaryCall(
                 SchemeService.ListDirectoryMethod,
