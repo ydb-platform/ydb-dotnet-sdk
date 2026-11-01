@@ -1,3 +1,5 @@
+## v0.38.0
+
 - Fix ADO.NET: connection validation rejects only explicitly closed connections and lets operations
   on broken sessions follow normal execution without reopening them.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.commit_offset.lag.max`, reporting the maximum
