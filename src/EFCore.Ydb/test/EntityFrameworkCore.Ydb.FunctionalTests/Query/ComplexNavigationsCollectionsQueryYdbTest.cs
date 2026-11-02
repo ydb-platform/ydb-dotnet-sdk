@@ -20,6 +20,27 @@ public class ComplexNavigationsCollectionsQueryYdbTest : ComplexNavigationsColle
     }
 
     [Fact]
+    public async Task Grouped_correlated_collection_preserves_duplicate_keys()
+    {
+        await using var context = CreateContext();
+        var rows = await context.Set<Level1>()
+            .OrderBy(l1 => l1.Id)
+            .Select(l1 => new
+            {
+                l1.Id,
+                Collection = l1.OneToOne_Optional_FK1.OneToMany_Optional2
+                    .GroupBy(l3 => l3.Level2_Optional_Id ?? 0)
+                    .Select(g => new { g.Key, Count = g.Count() }).ToList()
+            })
+            .ToArrayAsync();
+
+        Assert.Equal(Enumerable.Range(1, 13), rows.Select(row => row.Id));
+        Assert.Equal(
+            [(10, 0, 3)],
+            rows.SelectMany(row => row.Collection.Select(group => (row.Id, group.Key, group.Count))));
+    }
+
+    [Fact]
     public async Task Correlated_projection_DefaultIfEmpty_preserves_null_parent_values()
     {
         await using var context = CreateContext();
@@ -267,12 +288,6 @@ public class ComplexNavigationsCollectionsQueryYdbTest : ComplexNavigationsColle
     [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Complex_query_issue_21665(bool async) => base.Complex_query_issue_21665(async);
-
-    [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task
-        Projecting_collection_with_group_by_after_optional_reference_correlated_with_parent(bool async) =>
-        base.Projecting_collection_with_group_by_after_optional_reference_correlated_with_parent(async);
 
     [ConditionalTheory(Skip = "OrderBy parameter not included in SELECT")]
     [MemberData(nameof(IsAsyncData))]
