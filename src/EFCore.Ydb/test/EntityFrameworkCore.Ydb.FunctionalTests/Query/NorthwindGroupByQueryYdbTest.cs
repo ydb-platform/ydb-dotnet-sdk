@@ -237,8 +237,6 @@ public class NorthwindGroupByQueryYdbTest(NorthwindQueryYdbFixture<NoopModelCust
 
     public override Task Complex_query_with_group_by_in_subquery5(bool async) => Task.CompletedTask;
 
-    public override Task GroupBy_scalar_subquery(bool async) => Task.CompletedTask;
-
     public override Task AsEnumerable_in_subquery_for_GroupBy(bool async) => Task.CompletedTask;
 
     public override Task GroupBy_aggregate_from_multiple_query_in_same_projection(bool async) => Task.CompletedTask;

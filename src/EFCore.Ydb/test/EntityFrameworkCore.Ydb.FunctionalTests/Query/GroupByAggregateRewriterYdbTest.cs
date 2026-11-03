@@ -10,6 +10,94 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
 public class GroupByAggregateRewriterYdbTest
 {
+    [Fact]
+    public void Scalar_primary_key_grouping_preserves_nullable_projection_and_source_filter()
+    {
+        using var context = new CapturingCountContext();
+        var select = CreateScalarSelect(context);
+        var input = Assert.IsType<SelectExpression>(Assert.Single(select.Tables));
+
+        var result = Process(context, select);
+
+        var rewritten = Assert.IsType<SelectExpression>(Assert.Single(result.Tables));
+        var join = Assert.IsType<LeftJoinExpression>(rewritten.Tables[1]);
+        var value = Assert.IsType<ColumnExpression>(Assert.Single(rewritten.Projection).Expression);
+        Assert.Equal(join.Table.Alias, value.TableAlias);
+        Assert.Equal("Name", value.Name);
+        Assert.True(value.IsNullable);
+        Assert.Equal(input.Alias, rewritten.Alias);
+        Assert.Equal(input.Projection[0].Alias, rewritten.Projection[0].Alias);
+        Assert.Equal(input.Predicate, rewritten.Predicate);
+        Assert.Equal(select.GroupBy, result.GroupBy);
+    }
+
+    [Theory]
+    [InlineData(UnsafeScalarInput.NonKeyLookup)]
+    [InlineData(UnsafeScalarInput.PartialCompositeKey)]
+    [InlineData(UnsafeScalarInput.ComputedKey)]
+    [InlineData(UnsafeScalarInput.ForeignOuterKey)]
+    [InlineData(UnsafeScalarInput.ForeignProjection)]
+    [InlineData(UnsafeScalarInput.AliasCollision)]
+    [InlineData(UnsafeScalarInput.AdditionalFilter)]
+    [InlineData(UnsafeScalarInput.ZeroLimit)]
+    public void Scalar_grouping_with_unsafe_lookup_is_not_lifted(UnsafeScalarInput input)
+    {
+        using var context = new CapturingCountContext(compositeKey: input == UnsafeScalarInput.PartialCompositeKey);
+        var select = CreateScalarSelect(context);
+        var source = Assert.IsType<SelectExpression>(Assert.Single(select.Tables));
+        var table = Assert.IsType<TableExpression>(Assert.Single(source.Tables));
+        var inner = Assert.IsType<ScalarSubqueryExpression>(source.Projection[0].Expression).Subquery;
+        var lookup = Assert.IsType<TableExpression>(Assert.Single(inner.Tables));
+        var sql = context.GetService<ISqlExpressionFactory>();
+        if (input == UnsafeScalarInput.AliasCollision)
+        {
+            lookup = lookup.WithAlias(table.Alias);
+        }
+
+        SqlExpression key = Column(lookup, input == UnsafeScalarInput.NonKeyLookup ? "Name" : "Id");
+        if (input == UnsafeScalarInput.ComputedKey)
+        {
+            key = sql.Add(key, sql.Constant(""));
+        }
+
+        var predicate = sql.Equal(key,
+            Column(input == UnsafeScalarInput.ForeignOuterKey ? table.WithAlias("foreign") : table, "CustomerId"));
+        if (input == UnsafeScalarInput.AdditionalFilter)
+        {
+            predicate = sql.AndAlso(predicate, sql.NotEqual(Column(lookup, "Id"), sql.Constant("B")));
+        }
+
+        inner = inner.Update([lookup], predicate, inner.GroupBy, inner.Having,
+            [
+                new ProjectionExpression(Column(input == UnsafeScalarInput.ForeignProjection ? table : lookup,
+                    input == UnsafeScalarInput.ForeignProjection ? "CustomerId" : "Name"), inner.Projection[0].Alias)
+            ],
+            inner.Orderings, inner.Offset,
+            input == UnsafeScalarInput.ZeroLimit ? sql.Constant(0) : inner.Limit);
+        source = source.Update(source.Tables, source.Predicate, source.GroupBy, source.Having,
+            [new ProjectionExpression(new ScalarSubqueryExpression(inner), source.Projection[0].Alias)],
+            source.Orderings, source.Offset, source.Limit);
+        select = select.Update([source], select.Predicate, select.GroupBy, select.Having, select.Projection,
+            select.Orderings, select.Offset, select.Limit);
+
+        var result = Process(context, select);
+
+        var retained = Assert.IsType<SelectExpression>(Assert.Single(result.Tables));
+        Assert.Single(retained.Tables);
+        Assert.IsType<ScalarSubqueryExpression>(retained.Projection[0].Expression);
+    }
+
+    private static SelectExpression CreateScalarSelect(CapturingCountContext context)
+    {
+        var customers = context.Customers;
+        _ = context.Orders.Where(order => order.Id > 0)
+            .GroupBy(order => customers.Where(customer => customer.Id == order.CustomerId)
+                .Select(customer => customer.Name).FirstOrDefault())
+            .Select(group => new { group.Key, Count = group.Count() }).ToQueryString();
+        return Assert.IsType<CapturingProcessorFactory>(
+            context.GetService<IRelationalParameterBasedSqlProcessorFactory>()).Processor.Input;
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -480,6 +568,18 @@ public class GroupByAggregateRewriterYdbTest
         public SelectExpression Run(SelectExpression select)
             => (SelectExpression)Process(select, new ParametersCacheDecorator(new Dictionary<string, object?>()));
 #endif
+    }
+
+    public enum UnsafeScalarInput
+    {
+        NonKeyLookup,
+        PartialCompositeKey,
+        ComputedKey,
+        ForeignOuterKey,
+        ForeignProjection,
+        AliasCollision,
+        AdditionalFilter,
+        ZeroLimit
     }
 
     public enum UnsafeGroupedCollectionInput

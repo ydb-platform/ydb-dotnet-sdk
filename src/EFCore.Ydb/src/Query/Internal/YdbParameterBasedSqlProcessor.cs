@@ -40,6 +40,7 @@ public class YdbParameterBasedSqlProcessor(
                 return visited;
             }
 
+            select = RewriteScalarKey(select);
             var rewriter = new AggregateRewriter(select);
             var having = (SqlExpression?)rewriter.Visit(select.Having);
             ProjectionExpression[]? projections = null;
@@ -60,6 +61,80 @@ public class YdbParameterBasedSqlProcessor(
                 : select.Update(rewriter.Tables, select.Predicate, select.GroupBy, having,
                     projections ?? select.Projection,
                     select.Orderings, select.Offset, select.Limit);
+        }
+
+        private static SelectExpression RewriteScalarKey(SelectExpression select)
+        {
+            if (select.Tables is not
+                [
+                    SelectExpression
+                    {
+                        IsDistinct: false, GroupBy.Count: 0, Having: null, Orderings.Count: 0,
+                        Offset: null, Limit: null, Tables: [TableExpression source]
+                    } input
+                ])
+            {
+                return select;
+            }
+
+            for (var i = 0; i < input.Projection.Count; i++)
+            {
+                var projection = input.Projection[i];
+                if (!select.GroupBy.OfType<ColumnExpression>().Any(key =>
+                        key.TableAlias == input.Alias && key.Name == projection.Alias)
+                    || projection.Expression is not ScalarSubqueryExpression
+                    {
+                        Subquery:
+                        {
+                            IsDistinct: false, GroupBy.Count: 0, Having: null, Orderings.Count: 0,
+                            Offset: null, Limit: SqlConstantExpression { Value: 1 },
+                            Tables: [TableExpression lookup],
+                            Projection: [{ Expression: ColumnExpression value }],
+                            Predicate: SqlBinaryExpression
+                            {
+                                OperatorType: ExpressionType.Equal,
+                                Left: ColumnExpression left, Right: ColumnExpression right
+                            } predicate
+                        }
+                    }
+                    || lookup.Table is not ITable { PrimaryKey.Columns: [var primaryKey] }
+                    || lookup.Alias == source.Alias || value.TableAlias != lookup.Alias)
+                {
+                    continue;
+                }
+
+                var key = left.TableAlias == lookup.Alias ? left : right;
+                var outerKey = ReferenceEquals(key, left) ? right : left;
+                if (key.TableAlias != lookup.Alias || key.Name != primaryKey.Name
+                                                   || outerKey.TableAlias != source.Alias)
+                {
+                    continue;
+                }
+
+                var scope = new ColumnAliasRewriter(new Dictionary<string, string>
+                    { [source.Alias] = source.Alias }, true);
+                scope.Visit(input.Predicate);
+                foreach (var other in input.Projection.Where(other => !ReferenceEquals(other, projection)))
+                {
+                    scope.Visit(other.Expression);
+                }
+
+                if (!scope.IsValid)
+                {
+                    continue;
+                }
+
+                // The complete primary key gives at most one match; LEFT retains missing/null lookups.
+                // Keep grouping outside this input so equal values from distinct keys form one group.
+                var projections = input.Projection.ToArray();
+                projections[i] = new ProjectionExpression(value.MakeNullable(), projection.Alias);
+                input = input.Update([source, new LeftJoinExpression(lookup, predicate)], input.Predicate,
+                    input.GroupBy, input.Having, projections, input.Orderings, input.Offset, input.Limit);
+                return select.Update([input], select.Predicate, select.GroupBy, select.Having, select.Projection,
+                    select.Orderings, select.Offset, select.Limit);
+            }
+
+            return select;
         }
 
         private sealed class AggregateRewriter(SelectExpression outer) : ExpressionVisitor
