@@ -15,6 +15,39 @@ using FromClient = StreamWriteMessage.Types.FromClient;
 
 public class WriterUnitTests
 {
+    [Fact]
+    public async Task CreateTopic_WithSupportedCodecs_SendsTopicAndConsumerCodecs()
+    {
+        var driver = new Mock<IDriver>();
+        CreateTopicRequest? request = null;
+        driver.Setup(value => value.UnaryCall(
+                It.IsAny<Method<CreateTopicRequest, CreateTopicResponse>>(),
+                It.IsAny<CreateTopicRequest>(), It.IsAny<GrpcRequestSettings>()))
+            .Callback<Method<CreateTopicRequest, CreateTopicResponse>, CreateTopicRequest, GrpcRequestSettings>((_,
+                value, _) => request = value)
+            .ReturnsAsync(new CreateTopicResponse
+            {
+                Operation = new Operations.Operation { Ready = true, Status = StatusIds.Types.StatusCode.Success }
+            });
+        driver.Setup(value => value.LoggerFactory).Returns(Utils.LoggerFactory);
+        await using var client = new TopicClient(new IDriverFactoryMock(driver, "Topic_Codecs_Mock"));
+
+        await client.CreateTopic(new CreateTopicSettings
+        {
+            Path = "topic",
+            SupportedCodecs = { Codec.Raw, Codec.Gzip },
+            Consumers =
+            {
+                new Consumer("consumer") { SupportedCodecs = { Codec.Raw, Codec.Gzip } }
+            }
+        });
+
+        Assert.NotNull(request);
+        Assert.Equal(new[] { (int)Codec.Raw, (int)Codec.Gzip }, request.SupportedCodecs.Codecs);
+        Assert.Equal(new[] { (int)Codec.Raw, (int)Codec.Gzip },
+            Assert.Single(request.Consumers).SupportedCodecs.Codecs);
+    }
+
     private readonly IDriverFactoryMock _driverFactoryMock;
     private readonly Mock<WriterStream> _mockStream = new();
     private readonly Task<bool> _lastMoveNext;
