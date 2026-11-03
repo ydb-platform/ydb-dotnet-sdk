@@ -150,12 +150,6 @@ public class ComplexNavigationsCollectionsSharedTypeQueryYdbTest :
     public override Task Projecting_collection_after_optional_reference_correlated_with_parent(bool async) =>
         base.Projecting_collection_after_optional_reference_correlated_with_parent(async);
 
-    [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task
-        Projecting_collection_with_group_by_after_optional_reference_correlated_with_parent(bool async) =>
-        base.Projecting_collection_with_group_by_after_optional_reference_correlated_with_parent(async);
-
     [ConditionalTheory(Skip = "OrderBy parameter not included in SELECT")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Select_subquery_single_nested_subquery2(bool async) =>

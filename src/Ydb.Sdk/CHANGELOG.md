@@ -1,3 +1,5 @@
+## v0.38.0
+
 - Feat ADO.NET: `YdbDataReader.RecordsAffected` returns the server's affected-row count for `ExecuteNonQuery`
   and for readers from `YdbCommand.CollectAffectedRows`; it used to always return `-1`. The count is the sum of
   logical base-table rows the server reports; it is `-1` when the server reports none.
