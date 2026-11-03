@@ -10,6 +10,107 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
 public class GroupByAggregateRewriterYdbTest
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Grouped_collection_preserves_parent_partition_and_projection_aliases(bool groupByParentKey)
+    {
+        using var context = new CapturingCountContext();
+        var select = CreateGroupedCollectionSelect(context);
+        var apply = Assert.IsType<OuterApplyExpression>(select.Tables[1]);
+        var inner = Assert.IsType<SelectExpression>(apply.Table);
+        var source = Assert.IsType<TableExpression>(Assert.Single(inner.Tables));
+        var parentKey = Column(source, "CustomerId");
+        if (groupByParentKey)
+        {
+            inner = inner.Update(inner.Tables, inner.Predicate, [parentKey], inner.Having,
+                [new ProjectionExpression(parentKey, "CustomerId"), inner.Projection[1]],
+                inner.Orderings, inner.Offset, inner.Limit);
+            select = select.Update([select.Tables[0], apply.Update(inner)], select.Predicate, select.GroupBy,
+                select.Having, select.Projection, select.Orderings, select.Offset, select.Limit);
+        }
+
+        var result = Process(context, select);
+
+        var join = Assert.IsType<LeftJoinExpression>(result.Tables[1]);
+        var grouped = Assert.IsType<SelectExpression>(join.Table);
+        Assert.Equal(groupByParentKey ? 1 : 2, grouped.GroupBy.Count);
+        Assert.Contains(parentKey, grouped.GroupBy);
+        var projectedKey = Assert.Single(grouped.Projection,
+            projection => projection.Expression.Equals(parentKey));
+        Assert.Equal(groupByParentKey ? "CustomerId" : "CustomerId_", projectedKey.Alias);
+        Assert.Equal(grouped.Projection.Count,
+            grouped.Projection.Select(projection => projection.Alias).Distinct().Count());
+        Assert.Equal(projectedKey.Alias,
+            Assert.IsType<ColumnExpression>(Assert.IsType<SqlBinaryExpression>(join.JoinPredicate).Right).Name);
+    }
+
+    [Theory]
+    [InlineData(UnsafeGroupedCollectionInput.MissingCorrelation)]
+    [InlineData(UnsafeGroupedCollectionInput.NonEqualityCorrelation)]
+    [InlineData(UnsafeGroupedCollectionInput.ConstantOuterKey)]
+    [InlineData(UnsafeGroupedCollectionInput.ForeignOuterKey)]
+    [InlineData(UnsafeGroupedCollectionInput.OuterProjection)]
+    [InlineData(UnsafeGroupedCollectionInput.AdditionalOuterCorrelation)]
+    public void Grouped_collection_with_different_scope_is_not_decorrelated(UnsafeGroupedCollectionInput input)
+    {
+        using var context = new CapturingCountContext();
+        var select = CreateGroupedCollectionSelect(context);
+        var apply = Assert.IsType<OuterApplyExpression>(select.Tables[1]);
+        var inner = Assert.IsType<SelectExpression>(apply.Table);
+        var source = Assert.IsType<TableExpression>(Assert.Single(inner.Tables));
+        var parent = Assert.IsType<TableExpression>(select.Tables[0]);
+        var sql = context.GetService<ISqlExpressionFactory>();
+        var predicate = inner.Predicate;
+        var projections = inner.Projection;
+        switch (input)
+        {
+            case UnsafeGroupedCollectionInput.MissingCorrelation:
+                predicate = null;
+                break;
+            case UnsafeGroupedCollectionInput.NonEqualityCorrelation:
+                predicate = sql.GreaterThan(Column(source, "CustomerId"), Column(parent, "Id"));
+                break;
+            case UnsafeGroupedCollectionInput.ConstantOuterKey:
+                predicate = sql.Equal(Column(source, "CustomerId"), sql.Constant("B"));
+                break;
+            case UnsafeGroupedCollectionInput.ForeignOuterKey:
+                predicate = sql.Equal(Column(source, "CustomerId"), Column(parent.WithAlias("foreign"), "Id"));
+                break;
+            case UnsafeGroupedCollectionInput.OuterProjection:
+                projections = inner.Projection.Append(new ProjectionExpression(Column(parent, "Id"), "OuterId"))
+                    .ToArray();
+                break;
+            case UnsafeGroupedCollectionInput.AdditionalOuterCorrelation:
+                predicate = sql.AndAlso(predicate!, sql.GreaterThan(Column(parent, "Id"), sql.Constant("B")));
+                break;
+        }
+
+        inner = inner.Update(inner.Tables, predicate, inner.GroupBy, inner.Having, projections,
+            inner.Orderings, inner.Offset, inner.Limit);
+        select = select.Update([select.Tables[0], apply.Update(inner)], select.Predicate, select.GroupBy,
+            select.Having, select.Projection, select.Orderings, select.Offset, select.Limit);
+
+        var result = Process(context, select);
+
+        var retained = Assert.IsType<SelectExpression>(Assert.IsType<OuterApplyExpression>(result.Tables[1]).Table);
+        Assert.Equal(inner.GroupBy, retained.GroupBy);
+        Assert.Equal(inner.Projection, retained.Projection);
+    }
+
+    private static SelectExpression CreateGroupedCollectionSelect(CapturingCountContext context)
+    {
+        var orders = context.Orders;
+        _ = context.Customers.Select(customer => new
+        {
+            customer.Id,
+            Groups = orders.Where(order => order.CustomerId == customer.Id).GroupBy(order => order.EmployeeId)
+                .Select(group => new { CustomerId = group.Key, Count = group.Count() }).ToArray()
+        }).ToQueryString();
+        return Assert.IsType<CapturingProcessorFactory>(
+            context.GetService<IRelationalParameterBasedSqlProcessorFactory>()).Processor.Input;
+    }
+
     [Fact]
     public void Primary_key_lookup_count_preserves_outer_rows_and_uses_distinct()
     {
@@ -379,6 +480,16 @@ public class GroupByAggregateRewriterYdbTest
         public SelectExpression Run(SelectExpression select)
             => (SelectExpression)Process(select, new ParametersCacheDecorator(new Dictionary<string, object?>()));
 #endif
+    }
+
+    public enum UnsafeGroupedCollectionInput
+    {
+        MissingCorrelation,
+        NonEqualityCorrelation,
+        ConstantOuterKey,
+        ForeignOuterKey,
+        OuterProjection,
+        AdditionalOuterCorrelation
     }
 
     public enum UnsafeCountInput
