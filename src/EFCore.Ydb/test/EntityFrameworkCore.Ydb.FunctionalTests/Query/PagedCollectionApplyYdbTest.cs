@@ -59,6 +59,19 @@ public class PagedCollectionApplyYdbTest
             rows.SelectMany(row => row.Children)
                 .Select(child => (child.Id, child.ParentId, child.LookupId, child.Value, child.LookupName)));
         Assert.All(rows, row => Assert.All(row.Children, child => Assert.Equal(row.Id, child.ParentId)));
+
+        var projected = await context.Parents.OrderBy(parent => parent.Id).Take(5)
+            .Select(parent => new
+            {
+                parent.Id,
+                Names = parent.Children.Where(child => child.Active)
+                    .OrderBy(child => child.Rank).ThenBy(child => child.Id).Skip(skip).Take(2)
+                    .Select(child => child.Lookup.Name).ToArray()
+            }).ToArrayAsync();
+
+        Assert.Equal([1, 2, 3, 4, 5], projected.Select(parent => parent.Id));
+        Assert.All(projected, parent => Assert.Equal(
+            expected.Where(child => child.ParentId == parent.Id).Select(child => child.LookupName), parent.Names));
     }
 
     [Theory]
