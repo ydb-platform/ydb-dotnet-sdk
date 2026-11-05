@@ -1,3 +1,6 @@
+- Fix ADO.NET: `CommandBehavior.CloseConnection` closes the connection when the `YdbDataReader` is closed; the
+  behavior used to be ignored.
+
 ## v0.38.0
 
 - Fix ADO.NET: connection validation rejects only explicitly closed connections and lets operations
