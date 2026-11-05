@@ -1,3 +1,4 @@
+- Fixed ordered child collection pages with inverse references, preserving per-parent limits, offsets and empty collections.
 - Fixed grouping by scalar primary-key lookups, preserving missing matches, null labels and duplicate source rows.
 - Fixed grouped collections after optional references, preserving parent keys, duplicate counts and empty collections.
 - Fixed correlated collection projections after optional references, preserving null values for unmatched `DefaultIfEmpty` rows.

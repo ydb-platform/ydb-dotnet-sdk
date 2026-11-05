@@ -31,15 +31,6 @@ public class ComplexNavigationsCollectionsSharedTypeQueryYdbTest :
 
     [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
     [MemberData(nameof(IsAsyncData))]
-    public override Task Take_Select_collection_Take(bool async) => base.Take_Select_collection_Take(async);
-
-    [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Skip_Take_Select_collection_Skip_Take(bool async) =>
-        base.Skip_Take_Select_collection_Skip_Take(async);
-
-    [ConditionalTheory(Skip = "TODO: Try to fix correlated subquery")]
-    [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_multiple_with_filter(bool async) =>
         base.Include_collection_multiple_with_filter(async);
 
