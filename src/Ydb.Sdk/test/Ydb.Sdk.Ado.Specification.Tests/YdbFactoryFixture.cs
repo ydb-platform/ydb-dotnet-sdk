@@ -7,5 +7,6 @@ public class YdbFactoryFixture : IDbFactoryFixture
 {
     public DbProviderFactory Factory => YdbProviderFactory.Instance;
 
-    public string ConnectionString => "Host=localhost;Port=2136;Database=local;MaxPoolSize=10";
+    public string ConnectionString => Environment.GetEnvironmentVariable("YDB_TEST_DB") ??
+                                      "Host=localhost;Port=2136;Database=local;MaxPoolSize=10";
 }

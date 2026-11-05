@@ -191,6 +191,11 @@ public sealed class YdbConnection : DbConnection
 
     public override async Task CloseAsync()
     {
+        if (LastReader != null)
+        {
+            LastReader.CloseConnection = false;
+        }
+
         // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
         switch (State)
         {
@@ -214,11 +219,10 @@ public sealed class YdbConnection : DbConnection
                     }
 
                     OnStateChange(OpenToClosedEventArgs);
-
-                    ConnectionState = ConnectionState.Closed;
                 }
                 finally
                 {
+                    ConnectionState = ConnectionState.Closed;
                     _session.Dispose();
                 }
 

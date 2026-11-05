@@ -83,6 +83,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
     internal bool IsOpen => ReaderState is State.NewResultSet or State.ReadResultSet;
 
+    internal bool CloseConnection { private get; set; }
+
     private YdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         YdbConnection connection,
@@ -105,16 +107,21 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// <param name="dbActivity">OTel span for the current operation.</param>
     /// <param name="startTimestamp">Timestamp when the command execution started.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <param name="closeConnection">Whether closing the reader also closes its connection.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized YdbDataReader.</returns>
     internal static async Task<YdbDataReader> CreateYdbDataReader(
         IServerStream<ExecuteQueryResponsePart> resultSetStream,
         YdbConnection connection,
         Activity? dbActivity,
         long startTimestamp,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        bool closeConnection = false
     )
     {
-        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp);
+        var ydbDataReader = new YdbDataReader(resultSetStream, connection, dbActivity, startTimestamp)
+        {
+            CloseConnection = closeConnection
+        };
         await ydbDataReader.Init(cancellationToken).ConfigureAwait(false);
 
         return ydbDataReader;
@@ -862,33 +869,44 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
     /// </remarks>
     public override async Task CloseAsync()
     {
-        if (ReaderState == State.Close)
+        try
         {
-            return;
+            if (ReaderState == State.Close)
+            {
+                return;
+            }
+
+            var isConsumed = ReaderState == State.IsConsumed ||
+                             (!await ReadAsync().ConfigureAwait(false) && ReaderState == State.IsConsumed);
+            ReaderMetadata = CloseMetadata.Instance;
+            ReaderState = State.Close;
+            _dbActivity?.Dispose();
+            CompleteCommandMetrics();
+
+            if (isConsumed)
+            {
+                return;
+            }
+
+            _connection.OnNotSuccessStatusCode(StatusCode.StreamCancelled);
+            _stream.Dispose();
+
+            if (_ydbTransaction != null)
+            {
+                _ydbTransaction.Failed = true;
+                _metricsReporter.ReportOperationFailed(StatusCode.StreamCancelled, OperationName);
+
+                throw new YdbException(StatusCode.StreamCancelled,
+                    "YdbDataReader was closed during transaction execution. Transaction is broken!");
+            }
         }
-
-        var isConsumed = ReaderState == State.IsConsumed ||
-                         (!await ReadAsync().ConfigureAwait(false) && ReaderState == State.IsConsumed);
-        ReaderMetadata = CloseMetadata.Instance;
-        ReaderState = State.Close;
-        _dbActivity?.Dispose();
-        CompleteCommandMetrics();
-
-        if (isConsumed)
+        finally
         {
-            return;
-        }
-
-        _connection.OnNotSuccessStatusCode(StatusCode.StreamCancelled);
-        _stream.Dispose();
-
-        if (_ydbTransaction != null)
-        {
-            _ydbTransaction.Failed = true;
-            _metricsReporter.ReportOperationFailed(StatusCode.StreamCancelled, OperationName);
-
-            throw new YdbException(StatusCode.StreamCancelled,
-                "YdbDataReader was closed during transaction execution. Transaction is broken!");
+            if (CloseConnection)
+            {
+                CloseConnection = false;
+                await _connection.CloseAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -1008,6 +1026,8 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
             _connection.OnNotSuccessStatusCode(e.Code);
             _dbActivity?.SetException(e);
             _dbActivity?.Dispose();
+
+            await CloseAsync().ConfigureAwait(false);
 
             throw;
         }
