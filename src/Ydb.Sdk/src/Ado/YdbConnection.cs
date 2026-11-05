@@ -1,7 +1,11 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using Ydb.Query;
+using Ydb.Query.V1;
 using Ydb.Sdk.Ado.BulkUpsert;
+using Ydb.Sdk.Ado.Internal;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
 using static System.Data.IsolationLevel;
@@ -17,6 +21,16 @@ namespace Ydb.Sdk.Ado;
 /// </remarks>
 public sealed class YdbConnection : DbConnection
 {
+    private sealed class ServerVersionCache
+    {
+        internal readonly SemaphoreSlim InitializationLock = new(1, 1);
+        internal string? Value;
+        internal bool Initialized;
+    }
+
+    // The server's version is shared per driver (one endpoint and database) and initialized once.
+    private static readonly ConditionalWeakTable<IDriver, ServerVersionCache> ServerVersions = new();
+
     private static readonly StateChangeEventArgs ClosedToOpenEventArgs =
         new(ConnectionState.Closed, ConnectionState.Open);
 
@@ -164,11 +178,10 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        Session = await (
-            _sessionSource ??= await PoolManager
-                .Get(ConnectionStringBuilder, cancellationToken)
-                .ConfigureAwait(false)
-        ).OpenSession(cancellationToken).ConfigureAwait(false);
+        _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false);
+        await CaptureServerVersionAsync(_sessionSource.Driver, cancellationToken).ConfigureAwait(false);
+
+        Session = await _sessionSource.OpenSession(cancellationToken).ConfigureAwait(false);
 
         OnStateChange(ClosedToOpenEventArgs);
 
@@ -182,9 +195,10 @@ public sealed class YdbConnection : DbConnection
     {
         ThrowIfConnectionOpen();
 
-        Session = new RetryableSession(
-            _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false),
-            retryPolicyExecutor);
+        _sessionSource ??= await PoolManager.Get(ConnectionStringBuilder, cancellationToken).ConfigureAwait(false);
+        await CaptureServerVersionAsync(_sessionSource.Driver, cancellationToken).ConfigureAwait(false);
+
+        Session = new RetryableSession(_sessionSource, retryPolicyExecutor);
 
         ConnectionState = ConnectionState.Open;
     }
@@ -258,14 +272,83 @@ public sealed class YdbConnection : DbConnection
 
     public override string DataSource => string.Empty; // TODO
 
+    /// <summary>
+    /// Gets the version of the YDB server, as its <c>Version()</c> function reports it (for example <c>26.2.1.14</c>).
+    /// </summary>
+    /// <remarks>
+    /// The first read asks the server for <c>Version()</c> over this connection; the answer is kept for every
+    /// connection to the same endpoint and database, so later reads do not query.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when the connection is not open.</exception>
     public override string ServerVersion
     {
         get
         {
             ThrowIfConnectionClosed();
 
-            return string.Empty; // TODO ServerVersion
+            var cache = ServerVersions.GetValue(_sessionSource!.Driver, static _ => new ServerVersionCache());
+
+            return cache.Initialized
+                ? cache.Value!
+                : throw new InvalidOperationException(
+                    "The server version was not captured when the connection opened.");
         }
+    }
+
+    // Captured while opening, not on read: the query goes directly through the driver so it never borrows the
+    // session the connection is about to use. The version is kept per driver, so it runs once per endpoint and database.
+    private static async Task CaptureServerVersionAsync(IDriver driver, CancellationToken cancellationToken)
+    {
+        var cache = ServerVersions.GetValue(driver, static _ => new ServerVersionCache());
+        if (cache.Initialized)
+        {
+            return;
+        }
+
+        await cache.InitializationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!cache.Initialized)
+            {
+                cache.Value = await ReadServerVersionAsync(driver).ConfigureAwait(false);
+                cache.Initialized = true;
+            }
+        }
+        finally
+        {
+            cache.InitializationLock.Release();
+        }
+    }
+
+    private static async Task<string> ReadServerVersionAsync(IDriver driver)
+    {
+        var request = new ExecuteQueryRequest
+        {
+            ExecMode = ExecMode.Execute,
+            QueryContent = new QueryContent { Text = "SELECT CAST(Version() AS Utf8);", Syntax = Syntax.YqlV1 },
+            StatsMode = StatsMode.None.ToProto()
+        };
+
+        using var stream = await driver.ServerStreamCall(
+            QueryService.ExecuteQueryMethod,
+            request,
+            new GrpcRequestSettings()).ConfigureAwait(false);
+
+        while (await stream.MoveNextAsync().ConfigureAwait(false))
+        {
+            var part = stream.Current;
+            if (part.Status.IsNotSuccess())
+            {
+                throw YdbException.FromServer(part.Status, part.Issues);
+            }
+
+            if (part.ResultSet is { Rows.Count: > 0 } resultSet && resultSet.Rows[0].Items.Count > 0)
+            {
+                return resultSet.Rows[0].Items[0].UnpackText();
+            }
+        }
+
+        throw new YdbException("YDB server returned no result for Version().");
     }
 
     protected override YdbCommand CreateDbCommand() => new(this);

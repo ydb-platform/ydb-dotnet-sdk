@@ -550,7 +550,7 @@ public class YdbMetricTests : TestBase
         {
             driver.Setup(d => d.ServerStreamCall(
                     QueryService.ExecuteQueryMethod,
-                    It.IsAny<ExecuteQueryRequest>(),
+                    It.Is<ExecuteQueryRequest>(r => !ServerVersionMock.IsVersionQuery(r)),
                     It.IsAny<GrpcRequestSettings>()))
                 .Returns(async () =>
                 {
@@ -820,7 +820,7 @@ public class YdbMetricTests : TestBase
         var driver = CreateMockDriver();
         driver.Setup(d => d.ServerStreamCall(
                 QueryService.ExecuteQueryMethod,
-                It.IsAny<ExecuteQueryRequest>(),
+                It.Is<ExecuteQueryRequest>(r => !ServerVersionMock.IsVersionQuery(r)),
                 It.IsAny<GrpcRequestSettings>()))
             .ReturnsAsync(queryStream.Object);
 
@@ -1054,6 +1054,7 @@ public class YdbMetricTests : TestBase
         var driver = new Mock<IDriver>(MockBehavior.Strict);
         driver.SetupGet(d => d.LoggerFactory).Returns(TestUtils.LoggerFactory);
         driver.Setup(d => d.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        ServerVersionMock.SetupVersionQuery(driver);
         return driver;
     }
 
