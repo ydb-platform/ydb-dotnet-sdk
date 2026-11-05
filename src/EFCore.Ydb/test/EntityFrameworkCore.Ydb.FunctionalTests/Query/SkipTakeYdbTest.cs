@@ -8,6 +8,12 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 
 public class SkipTakeYdbTest
 {
+#if EFCORE9
+    private const string ParameterName = "@__p_0";
+#else
+    private const string ParameterName = "@p";
+#endif
+
     [Fact]
     public async Task Skip_and_Take_returns_expected_page()
     {
@@ -35,14 +41,14 @@ public class SkipTakeYdbTest
         Assert.Equal(["b"], result);
 
         ((TestSqlLoggerFactory)sqlLoggerFactory).AssertBaseline([
-            """
-            @__p_0='?' (DbType = Int32)
+            $"""
+             {ParameterName}='?' (DbType = Int32)
 
-            SELECT `t`.`Name`
-            FROM `TestEntities` AS `t`
-            ORDER BY `t`.`Id`
-            LIMIT @__p_0 OFFSET @__p_0
-            """
+             SELECT `t`.`Name`
+             FROM `TestEntities` AS `t`
+             ORDER BY `t`.`Id`
+             LIMIT {ParameterName} OFFSET {ParameterName}
+             """
         ], false);
     }
 
@@ -72,14 +78,14 @@ public class SkipTakeYdbTest
         Assert.Equal(["b", "c"], result);
 
         ((TestSqlLoggerFactory)sqlLoggerFactory).AssertBaseline([
-            """
-            @__p_0='?' (DbType = Int32)
+            $"""
+             {ParameterName}='?' (DbType = Int32)
 
-            SELECT `t`.`Name`
-            FROM `TestEntities` AS `t`
-            ORDER BY `t`.`Id`
-            LIMIT 2147483647 OFFSET @__p_0
-            """
+             SELECT `t`.`Name`
+             FROM `TestEntities` AS `t`
+             ORDER BY `t`.`Id`
+             LIMIT 2147483647 OFFSET {ParameterName}
+             """
         ], false);
     }
 
