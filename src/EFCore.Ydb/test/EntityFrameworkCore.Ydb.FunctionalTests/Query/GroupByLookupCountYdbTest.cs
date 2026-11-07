@@ -8,6 +8,40 @@ namespace EntityFrameworkCore.Ydb.FunctionalTests.Query;
 public class GroupByLookupCountYdbTest
 {
     [Fact]
+    public async Task Scalar_grouping_preserves_nulls_equal_labels_duplicates_and_parameters()
+    {
+        await using var store = YdbTestStoreFactory.Instance.Create(nameof(GroupByLookupCountYdbTest));
+        await using var context = new TestContext();
+        await store.CleanAsync(context);
+        await Seed(context);
+        context.Customers.Local.Single(customer => customer.Id == "B").Name = "alpha";
+        await context.SaveChangesAsync();
+
+        int[] firstOrder = [0];
+        var customers = context.Customers;
+        var query = context.Orders.Where(order => order.Id > firstOrder[0])
+            .GroupBy(order => customers.Where(customer => customer.Id == order.CustomerId)
+                .Select(customer => customer.Name).FirstOrDefault())
+            .Select(group => new { group.Key, Count = group.Count() });
+        var rows = await query.ToArrayAsync();
+        Assert.Equal([(null, 4), ("alpha", 4)],
+            rows.OrderBy(row => row.Key).Select(row => (row.Key, row.Count)));
+
+        firstOrder[0] = 2;
+        rows = await query.ToArrayAsync();
+        Assert.Equal([(null, 4), ("alpha", 2)],
+            rows.OrderBy(row => row.Key).Select(row => (row.Key, row.Count)));
+
+        firstOrder[0] = 99;
+        Assert.Empty(await query.ToArrayAsync());
+
+        firstOrder[0] = 0;
+        rows = await query.ToArrayAsync();
+        Assert.Equal([(null, 4), ("alpha", 4)],
+            rows.OrderBy(row => row.Key).Select(row => (row.Key, row.Count)));
+    }
+
+    [Fact]
     public async Task Lookup_count_preserves_null_groups_duplicates_and_parameters()
     {
         await using var store = YdbTestStoreFactory.Instance.Create(nameof(GroupByLookupCountYdbTest));

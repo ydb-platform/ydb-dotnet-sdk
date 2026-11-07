@@ -40,6 +40,7 @@ public class YdbParameterBasedSqlProcessor(
                 return visited;
             }
 
+            select = RewriteScalarKey(select);
             var rewriter = new AggregateRewriter(select);
             var having = (SqlExpression?)rewriter.Visit(select.Having);
             ProjectionExpression[]? projections = null;
@@ -60,6 +61,80 @@ public class YdbParameterBasedSqlProcessor(
                 : select.Update(rewriter.Tables, select.Predicate, select.GroupBy, having,
                     projections ?? select.Projection,
                     select.Orderings, select.Offset, select.Limit);
+        }
+
+        private static SelectExpression RewriteScalarKey(SelectExpression select)
+        {
+            if (select.Tables is not
+                [
+                    SelectExpression
+                    {
+                        IsDistinct: false, GroupBy.Count: 0, Having: null, Orderings.Count: 0,
+                        Offset: null, Limit: null, Tables: [TableExpression source]
+                    } input
+                ])
+            {
+                return select;
+            }
+
+            for (var i = 0; i < input.Projection.Count; i++)
+            {
+                var projection = input.Projection[i];
+                if (!select.GroupBy.OfType<ColumnExpression>().Any(key =>
+                        key.TableAlias == input.Alias && key.Name == projection.Alias)
+                    || projection.Expression is not ScalarSubqueryExpression
+                    {
+                        Subquery:
+                        {
+                            IsDistinct: false, GroupBy.Count: 0, Having: null, Orderings.Count: 0,
+                            Offset: null, Limit: SqlConstantExpression { Value: 1 },
+                            Tables: [TableExpression lookup],
+                            Projection: [{ Expression: ColumnExpression value }],
+                            Predicate: SqlBinaryExpression
+                            {
+                                OperatorType: ExpressionType.Equal,
+                                Left: ColumnExpression left, Right: ColumnExpression right
+                            } predicate
+                        }
+                    }
+                    || lookup.Table is not ITable { PrimaryKey.Columns: [var primaryKey] }
+                    || lookup.Alias == source.Alias || value.TableAlias != lookup.Alias)
+                {
+                    continue;
+                }
+
+                var key = left.TableAlias == lookup.Alias ? left : right;
+                var outerKey = ReferenceEquals(key, left) ? right : left;
+                if (key.TableAlias != lookup.Alias || key.Name != primaryKey.Name
+                                                   || outerKey.TableAlias != source.Alias)
+                {
+                    continue;
+                }
+
+                var scope = new ColumnAliasRewriter(new Dictionary<string, string>
+                    { [source.Alias] = source.Alias }, true);
+                scope.Visit(input.Predicate);
+                foreach (var other in input.Projection.Where(other => !ReferenceEquals(other, projection)))
+                {
+                    scope.Visit(other.Expression);
+                }
+
+                if (!scope.IsValid)
+                {
+                    continue;
+                }
+
+                // The complete primary key gives at most one match; LEFT retains missing/null lookups.
+                // Keep grouping outside this input so equal values from distinct keys form one group.
+                var projections = input.Projection.ToArray();
+                projections[i] = new ProjectionExpression(value.MakeNullable(), projection.Alias);
+                input = input.Update([source, new LeftJoinExpression(lookup, predicate)], input.Predicate,
+                    input.GroupBy, input.Having, projections, input.Orderings, input.Offset, input.Limit);
+                return select.Update([input], select.Predicate, select.GroupBy, select.Having, select.Projection,
+                    select.Orderings, select.Offset, select.Limit);
+            }
+
+            return select;
         }
 
         private sealed class AggregateRewriter(SelectExpression outer) : ExpressionVisitor
@@ -471,8 +546,7 @@ public class YdbParameterBasedSqlProcessor(
                             IsDistinct: false, Having: null, Orderings.Count: 0,
                             Offset: null, Limit: null
                         } inner
-                    }
-                    || inner.Tables is not [var source])
+                    })
                 {
                     continue;
                 }
@@ -483,6 +557,16 @@ public class YdbParameterBasedSqlProcessor(
                     continue;
                 }
 #endif
+
+                if (select.Tables[i] is OuterApplyExpression)
+                {
+                    select = RewritePagedOuterApply(select, i, inner);
+                }
+
+                if (inner.Tables is not [var source])
+                {
+                    continue;
+                }
 
                 if (inner.GroupBy.Count != 0)
                 {
@@ -523,6 +607,130 @@ public class YdbParameterBasedSqlProcessor(
             }
 
             return select;
+        }
+
+        private SelectExpression RewritePagedOuterApply(SelectExpression select, int index, SelectExpression inner)
+        {
+            if (inner.GroupBy.Count != 0 || inner.Tables is not
+                                         [
+                                             SelectExpression
+                                             {
+                                                 IsDistinct: false, GroupBy.Count: 0, Having: null,
+                                                 Orderings.Count: > 0,
+                                                 Limit: { } limit, Tables: [TableExpression source]
+                                             } page,
+                                             InnerJoinExpression { Table: TableExpression lookup } inverse
+                                         ]
+                                         || page.Predicate is null)
+            {
+                return select;
+            }
+
+            SqlExpression? residual = null;
+            if (ExtractKeys(page.Predicate, source.Alias, ref residual) is not SqlBinaryExpression
+                {
+                    OperatorType: ExpressionType.Equal, Left: ColumnExpression left, Right: ColumnExpression right
+                })
+            {
+                return select;
+            }
+
+            var key = left.TableAlias == source.Alias ? left : right;
+            var outerKey = ReferenceEquals(key, left) ? right : left;
+            var outerAliases = select.Tables.Take(index)
+                .Select(table => table is JoinExpressionBase join ? join.Table.Alias : table.Alias).ToHashSet();
+            var predicateRewriter = new OuterApplyPredicateRewriter(source.Alias, outerKey, sqlExpressionFactory);
+            residual = (SqlExpression?)predicateRewriter.Visit(residual);
+            var pageScope = new ApplyScopeValidator(new HashSet<string?> { source.Alias });
+            foreach (var expression in page.Projection.Select(projection => projection.Expression)
+                         .Concat(page.Orderings.Select(ordering => ordering.Expression)))
+            {
+                pageScope.Visit(expression);
+            }
+
+            var boundsScope = new ApplyScopeValidator(new HashSet<string?>());
+            boundsScope.Visit(page.Offset);
+            boundsScope.Visit(limit);
+            var innerScope = new ApplyScopeValidator(new HashSet<string?> { page.Alias, lookup.Alias });
+            innerScope.Visit(inner.Predicate);
+            innerScope.Visit(inverse.JoinPredicate);
+            foreach (var projection in inner.Projection)
+            {
+                innerScope.Visit(projection.Expression);
+            }
+
+            if (!outerAliases.Contains(outerKey.TableAlias) || !predicateRewriter.IsValid || !pageScope.IsValid
+                || !boundsScope.IsValid || !innerScope.IsValid)
+            {
+                return select;
+            }
+
+            var projections = page.Projection.ToList();
+            var keyProjection = projections.FirstOrDefault(projection => projection.Expression.Equals(key));
+            if (keyProjection is null)
+            {
+                var name = key.Name;
+                while (projections.Any(projection => projection.Alias == name))
+                {
+                    name += "_";
+                }
+
+                keyProjection = new ProjectionExpression(key, name);
+                projections.Add(keyProjection);
+            }
+
+            var rowName = "row";
+            while (projections.Any(projection => projection.Alias == rowName))
+            {
+                rowName += "_";
+            }
+
+            var rankAlias = page.Alias + "_rank";
+            while (outerAliases.Contains(rankAlias)
+                   || new[] { source.Alias, lookup.Alias, inner.Alias, page.Alias }.Contains(rankAlias))
+            {
+                rankAlias += "_";
+            }
+
+            // Rank the filtered child input, not the inverse JOIN result, once for each parent key.
+            var rowNumber = new RowNumberExpression([key], page.Orderings, limit.TypeMapping);
+            var ranked = page.WithAlias(rankAlias).Update(page.Tables,
+                residual is SqlConstantExpression { Value: true } ? null : residual, [], null,
+                projections.Append(new ProjectionExpression(rowNumber, rowName)).ToArray(), [], null, null);
+            var row = new ColumnExpression(rowName, rankAlias, rowNumber.Type, rowNumber.TypeMapping, false);
+            var upperBound = page.Offset is null ? limit : sqlExpressionFactory.Add(page.Offset, limit);
+            var range = sqlExpressionFactory.LessThanOrEqual(row, upperBound);
+            if (page.Offset is not null)
+            {
+                range = sqlExpressionFactory.AndAlso(sqlExpressionFactory.LessThan(page.Offset, row), range);
+            }
+
+            page = page.Update([ranked], range, [], null,
+                projections.Select(projection => new ProjectionExpression(
+                    new ColumnExpression(projection.Alias, rankAlias, projection.Expression.Type,
+                        projection.Expression.TypeMapping, true), projection.Alias)).ToArray(), [], null, null);
+            var pageKey = new ColumnExpression(keyProjection.Alias, page.Alias!, key.Type, key.TypeMapping, true);
+            var innerProjections = inner.Projection.ToList();
+            keyProjection = innerProjections.FirstOrDefault(projection => projection.Expression.Equals(pageKey));
+            if (keyProjection is null)
+            {
+                var name = pageKey.Name;
+                while (innerProjections.Any(projection => projection.Alias == name))
+                {
+                    name += "_";
+                }
+
+                keyProjection = new ProjectionExpression(pageKey, name);
+                innerProjections.Add(keyProjection);
+            }
+
+            var joinedKey = new ColumnExpression(keyProjection.Alias, inner.Alias!, key.Type, key.TypeMapping, true);
+            var tables = select.Tables.ToArray();
+            tables[index] = new LeftJoinExpression(
+                inner.Update([page, inverse], inner.Predicate, [], null, innerProjections, [], null, null),
+                sqlExpressionFactory.Equal(outerKey, joinedKey));
+            return select.Update(tables, select.Predicate, select.GroupBy, select.Having, select.Projection,
+                select.Orderings, select.Offset, select.Limit);
         }
 
         private SelectExpression RewriteGroupedOuterApply(
