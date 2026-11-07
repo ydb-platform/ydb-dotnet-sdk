@@ -276,8 +276,8 @@ public sealed class YdbConnection : DbConnection
     /// Gets the version of the YDB server, as its <c>Version()</c> function reports it (for example <c>26.2.1.14</c>).
     /// </summary>
     /// <remarks>
-    /// The first read asks the server for <c>Version()</c> over this connection; the answer is kept for every
-    /// connection to the same endpoint and database, so later reads do not query.
+    /// On the first connection open for a driver, the provider asynchronously asks the server for <c>Version()</c>.
+    /// The answer is kept for every connection that uses that driver, so later opens and reads do not query.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when the connection is not open.</exception>
     public override string ServerVersion
