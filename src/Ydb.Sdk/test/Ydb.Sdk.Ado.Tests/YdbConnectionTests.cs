@@ -5,6 +5,7 @@ using Xunit;
 using Ydb.Issue;
 using Ydb.Query;
 using Ydb.Query.V1;
+using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 
@@ -40,6 +41,40 @@ public sealed class YdbConnectionTests : TestBase
         using var connection = new YdbConnection(ConnectionString);
 
         Assert.Throws<InvalidOperationException>(() => connection.ServerVersion);
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenOpenedWithRetryPolicy_UsesCachedVersion()
+    {
+        var driver = CreateServerVersionDriver([
+            new ExecuteQueryResponsePart
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                ResultSet = ResultSet.Parser.ParseJson(
+                    "{ \"columns\": [{ \"name\": \"version\", \"type\": { \"typeId\": \"UTF8\" }}], " +
+                    "\"rows\": [{ \"items\": [{ \"textValue\": \"mock-version\" }] }] }")
+            }
+        ]);
+        var settings = new YdbConnectionStringBuilder
+        {
+            Database = "/local",
+            PoolName = $"server-version-mock-{Guid.NewGuid():N}",
+            LoggerFactory = TestUtils.LoggerFactory
+        };
+        var source = new ImplicitSessionSource(driver.Object, settings);
+        Assert.True(PoolManager.Pools.TryAdd(settings.PoolKey, source));
+        var connection = new YdbConnection(settings);
+
+        try
+        {
+            await connection.OpenAsync(new YdbRetryPolicyExecutor(YdbRetryPolicy.Default));
+            Assert.Equal("mock-version", connection.ServerVersion);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+            await RemoveMockSourceAsync(source, settings);
+        }
     }
 
     [Fact]
